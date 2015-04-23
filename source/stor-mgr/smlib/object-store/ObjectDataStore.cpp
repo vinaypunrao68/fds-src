@@ -72,8 +72,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
                             sync, tier);
 
     { // scope for perf counter
-        PerfContext tmp_pctx(PerfEventType::SM_OBJ_DATA_DISK_WRITE,
-                             volId, PerfTracer::perfNameStr(volId));
+        PerfContext tmp_pctx(PerfEventType::SM_OBJ_DATA_DISK_WRITE, volId);
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = persistData->writeObjectData(objId, plReq);
     }
@@ -82,7 +81,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_WRITE, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_WRITE, volId);
             odsCntrs.ssd_writes.incr();
         } else if (tier == diskio::diskTier) {
             odsCntrs.hdd_writes.incr();
@@ -113,7 +112,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
             = dataCache->getObjectData(volId, objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from cache";
-        PerfTracer::incr(PerfEventType::SM_OBJ_DATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_OBJ_DATA_CACHE_HIT, volId);
         return objCachedData;
     }
 
@@ -141,7 +140,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
 
     {  // scope for perf counter
         PerfContext tmp_pctx(PerfEventType::SM_OBJ_DATA_DISK_READ,
-                             volId, PerfTracer::perfNameStr(volId));
+                             volId);
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = persistData->readObjectData(objId, plReq);
     }
@@ -150,7 +149,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                  << " tier " << tier << " volume " << std::hex
                  << volId << std::dec;
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_READ, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_READ, volId);
             odsCntrs.ssd_reads.incr();
         } else if (tier == diskio::diskTier) {
             odsCntrs.hdd_reads.incr();
