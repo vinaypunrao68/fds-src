@@ -92,6 +92,12 @@ struct PlatNetSvcHandler : HasModuleProvider,
                    const std::string& payload) override;
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
+    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                           const int64_t nullarg) override;
+    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                           boost::shared_ptr<int64_t>& nullarg) override;
+    virtual void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                           boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
 
     // void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                     // boost::shared_ptr<std::string>& payload);
