@@ -12,7 +12,6 @@
 
 #include <lib/Catalog.h>
 #include <DmBlobTypes.h>
-#include <dm-tvc/CommitLog.h>
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \
@@ -165,18 +164,13 @@ class DmPersistVolCat {
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
 
-    friend DmCommitLog;
-
-  protected:
-    // methods
-
-    // TODO(Andrew): We should use a collision free function if we're going
-    // to map the string names to an int. There's no point in the data being
-    // collision free if the metadata isn't.
+    // this is not a strong hash, but collisions are detected before
+    // blob creation in DmTimeVolCatalog::commitBlobTxWork
     static inline fds_uint64_t getBlobIdFromName(const std::string & blobName) {
         return fds_get_uuid64(blobName);
     }
 
+  protected:
     // vars
     fds_volid_t volId_;
     fds_uint32_t objSize_;
