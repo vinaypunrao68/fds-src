@@ -43,7 +43,7 @@ public class GetSnapshot
 			throws Exception {
 		
 	    final long snapshotId = requiredLong(routeParameters, REQ_PARAM_SNAPSHOT_ID);
-	    LOG.info( "Looking for a snapshot with ID: " + snapshotId );
+	    LOG.debug( "Looking for a snapshot with ID: " + snapshotId );
 		
 		/**
 		 * There is no easy way to do this at this time... there should be...
@@ -86,7 +86,7 @@ public class GetSnapshot
 		}// for each volume
 		
 		if ( snapshot != null ){
-			LOG.info( "Snapshot found." );
+			LOG.debug( "Snapshot found." );
 			Snapshot mSnapshot = new Snapshot();
 			mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
 			mSnapshot.setId( Long.toString( snapshot.getSnapshotId() ) );
@@ -95,8 +95,8 @@ public class GetSnapshot
 			mSnapshot.setTimelineTime( snapshot.getTimelineTime() );
 			mSnapshot.setVolumeId( Long.toString( snapshot.getVolumeId() ) );
 			
-			TextResource tr = new TextResource( mSnapshot.toJSON() );
-			return tr;
+			String jsonString = mSnapshot.toJSON();
+			return new TextResource( jsonString );
 		}
 		
 		LOG.error( "Could not find snapshot with ID: " + snapshotId );
