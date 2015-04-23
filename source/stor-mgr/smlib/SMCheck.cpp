@@ -6,20 +6,12 @@
 #include <unistd.h>
 #include <fds_assert.h>
 #include <fds_process.h>
-#include "platform/platform_consts.h"
 #include "platform/platform.h"
 
-#include <dlt.h>
 #include <ObjectId.h>
 #include <StorMgr.h>
-#include <object-store/SmDiskMap.h>
-#include <object-store/ObjectMetaDb.h>
-#include <object-store/ObjectMetadataStore.h>
-#include <object-store/ObjectStore.h>
-#include <vector>
-#include <string>
 #include <boost/program_options.hpp>
-#include <persistent-layer/dm_io.h>
+#include <net/SvcMgr.h>
 
 
 #include <SMCheck.h>
@@ -452,7 +444,7 @@ SMCheckOnline::startIntegrityCheck()
     SMCheckUuid = objStorMgr->getUuid();
 #endif
     // Get UUID of the SM.
-    SMCheckUuid = g_fdsprocess->get_plf_manager()->plf_get_my_node_uuid()->uuid_get_val();
+    SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
     LOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
 

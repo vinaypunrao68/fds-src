@@ -284,3 +284,9 @@ def newStartSmchkMsg():
     msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_START
 
     return msg
+
+def newStopSmchkMsg():
+    msg = smapi.ttypes.CtrlNotifySMCheck()
+    msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_STOP
+
+    return msg
