@@ -33,8 +33,34 @@ class RESTHelper():
         rj = response.json()
         return rj
     
+    def put(self, session, url, data, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
+        response = requests.put( url, data=data, headers=self.buildHeader( session ) )
+        
+        if ( response.ok == False ):
+            failureCallback( self, response )
+            return
+        
+        rj = response.json()
+        return rj    
+    
     def get(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
         response = requests.get( url, params=params, headers=self.buildHeader( session ) )
+        
+        if ( response.ok == False ):
+            failureCallback( self, response )
+            return
+        
+        rj = response.json()
+        return rj
+    
+    def delete(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
+        
+        response = requests.delete( url, params=params, headers=self.buildHeader(session))
+        
+        if ( response.ok == False ):
+            failureCallback( self, response )
+            return
+        
         rj = response.json()
         return rj
