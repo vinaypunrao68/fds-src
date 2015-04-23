@@ -35,8 +35,7 @@ QueueHelper::~QueueHelper() {
         PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
         PerfTracer::tracePointEnd(dmRequest->opReqLatencyCtx);
         if (!err.ok()) {
-            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
-                    dmRequest->perfNameStr);
+            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId());
         }
          */
         if (!skipImplicitCb) {
@@ -74,8 +73,7 @@ void Handler::addToQueue(dmCatReq *dmRequest) {
          * TODO(umesh): ignore this for now, uncomment it later
         PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
         if (!err.ok()) {
-            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
-                    dmRequest->perfNameStr);
+            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId());
         }
          */
         dmRequest->cb(err, dmRequest);

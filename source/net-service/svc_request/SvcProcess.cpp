@@ -106,7 +106,7 @@ void SvcProcess::start_modules()
      * this will not return
      */
     auto config = get_conf_helper();
-    bool registerWithOM = !(config.get<bool>("testing.standalone"));
+    bool registerWithOM = !(config.get<bool>("testing.standalone", false));
     if (registerWithOM) {
         registerSvcProcess();
     }
