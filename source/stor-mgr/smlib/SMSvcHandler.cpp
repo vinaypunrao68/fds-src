@@ -61,6 +61,7 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
 }
@@ -122,7 +123,8 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                            asyncHdr, migrationMsg->DLT_version,
                                                            std::placeholders::_1),
                                                        objStorMgr->getUuid(),
-                                                       dlt->getNumBitsForToken());
+                                                       dlt->getNumBitsForToken(),
+                                                       false); //false because it's not a resync case
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
                  << " called on addition of the first set of SMs to the domain";
@@ -198,7 +200,8 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fds_verify(dlt != NULL);
     err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
                                                          asyncHdr->msg_src_uuid,
-                                                         dlt->getNumBitsForToken());
+                                                         objStorMgr->getUuid(),
+                                                         dlt->getNumBitsForToken(), dlt);
 
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();
@@ -235,6 +238,24 @@ SMSvcHandler::getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::CtrlGetSecondRebalanceDeltaSetRspPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSetRsp());
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSetRsp), *msg);
+}
+
+void
+SMSvcHandler::finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                      fpi::CtrlFinishClientTokenResyncMsgPtr& finishClientResyncMsg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Received finish client resync msg from destination SM "
+             << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
+             << " executor ID " << finishClientResyncMsg->executorID;
+
+    // notify migration mgr -- this call is sync
+    err = objStorMgr->migrationMgr->finishClientResync(finishClientResyncMsg->executorID);
+
+    // send response
+    fpi::CtrlFinishClientTokenResyncRspMsgPtr msg(new fpi::CtrlFinishClientTokenResyncRspMsg());
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncRspMsg), *msg);
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

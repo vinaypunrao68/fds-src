@@ -24,7 +24,7 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
-	    volume_open_support = false
+	    volume_open_support = true
         }
         plat: {
 
@@ -366,6 +366,9 @@ fds: {
 
             /* boolean to enable/disable SM token migration feature */
             enable_feature = true
+
+            /* boolean to enable/disable SM resync feature */
+            enable_resync = false
         }
 	tiering: {
 	    hybrid: {
@@ -399,6 +402,7 @@ fds: {
                 worker_thread_cnt = 2
             }
             timeout: {
+		io_message = {{ am_svc_io_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }

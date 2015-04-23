@@ -32,6 +32,8 @@
 
 #include <util/Log.h>
 
+#include "EclipseWorkarounds.h"
+
 // struct PerfContext;
 
 /*

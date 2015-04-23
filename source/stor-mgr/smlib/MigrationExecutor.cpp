@@ -20,6 +20,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_token_id smTokId,
                                      fds_uint64_t executorID,
                                      fds_uint64_t targetDltVer,
+                                     bool resync,
                                      MigrationExecutorDoneHandler doneHandler)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
@@ -27,7 +28,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           bitsPerDltToken(bitsPerToken),
           smTokenId(smTokId),
           sourceSmUuid(srcSmId),
-          targetDltVersion(targetDltVer)
+          targetDltVersion(targetDltVer),
+          forResync(resync)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
@@ -45,6 +47,11 @@ MigrationExecutor::addDltToken(fds_token_id dltTok) {
     dltTokens.insert(dltTok);
 }
 
+fds_bool_t
+MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
+    return (dltTokens.count(dltTok) > 0);
+}
+
 // DO NOT release snapshot here, becuase it maybe passed to other
 // migration executors
 Error
@@ -55,6 +62,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     ObjMetaData omd;
 
     MigrationExecutorState expectState = ME_INIT;
+    MigrationExecutorState nextState = ME_INIT;
     if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_REBALANCE_START)) {
         LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
         return ERR_NOT_READY;
@@ -81,6 +89,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
+        msg->forResync = forResync;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << dltTok << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
@@ -139,14 +148,19 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // receive responses before finish sending all the messages...
     // we sent all the messages, go to next state
     expectState = ME_FIRST_PHASE_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_APPLYING_DELTA)) {
+    if (forResync) {
+        nextState = ME_SECOND_PHASE_APPLYING_DELTA;
+    } else {
+        nextState = ME_FIRST_PHASE_APPLYING_DELTA;
+    }
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, nextState)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
                  << ": Unexpected migration executor state";
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " ME_FIRST_PHASE_REBALANCE_START --> ME_FIRST_PHASE_APPLYING_DELTA state";
+               << " ME_FIRST_PHASE_REBALANCE_START --> " << nextState;
 
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
@@ -385,6 +399,11 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                 // must be a bug somewhere...
                 fds_panic("Unexpected migration executor state!");
             }
+            // we finished second phase of migration. If this is resync after restart
+            // send finish client resync message to the source.
+            if (forResync) {
+                sendFinishResyncToClient();
+            }
         } else {
             firstRoundFinished = true;
             // we just finished first round and started second round
@@ -395,16 +414,63 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         // this executor
         MigrationExecutorState newState = ME_ERROR;
         std::atomic_store(&state, newState);
+
+        if (forResync) {
+            // in case the source started forwarding, we don't want it to continue
+            // on error; so just send stop client resync message to source SM so
+            // it can cleanup and stop forwarding
+            sendFinishResyncToClient();
+        }
     }
 
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
-               << " firstRound? " << firstRoundFinished;
+               << " firstRound? " << firstRoundFinished
+               << " isResync? " << forResync;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
         migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
+    }
+}
+
+void
+MigrationExecutor::sendFinishResyncToClient() {
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " sending finish resync msg to Client";
+
+    // send message to source SM to finish resync for this executor
+    if (!testMode) {
+        fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
+        msg->executorID = executorId;
+
+        auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
+        asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::finishResyncResp));
+        asyncFinishClientReq->setTimeoutMs(5000);
+        asyncFinishClientReq->invoke();
+    } else {
+        LOGMIGRATE << "TESTMODE: pretending sent finish resync message to client, executor ID "
+                   << std::hex << executorId << std::dec;
+    }
+}
+
+void
+MigrationExecutor::finishResyncResp(EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    LOGMIGRATE << "Received finish resync response from client for executor "
+               << std::hex << executorId << std::dec << " " << error;
+
+    // here we just print an error if that happened... but nothing
+    // we can do on destination since we already either finished sync or
+    // aborted with error
+    if (!error.ok()) {
+        LOGWARN << "Received error for finish resync from client " << error
+                << ", not changing any state, source should be able to deal with it";
     }
 }
 

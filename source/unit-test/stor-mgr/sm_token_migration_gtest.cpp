@@ -109,7 +109,7 @@ class TestReqHandler: public SmIoReqHandler {
         snapReq->smio_snap_resp_cb(ERR_OK, snapReq, options, db);
 
         if (snapDoneHandler) {
-            snapDoneHandler(executorId++, snapReq->token_id, ERR_OK);
+            snapDoneHandler(1, snapReq->token_id, ERR_OK);
         }
     }
 
@@ -229,20 +229,44 @@ SmTokenMigrationTest::snapshotDoneCb(fds_uint64_t executorId,
  */
 TEST_F(SmTokenMigrationTest, destination) {
     Error err(ERR_OK);
-    fds_uint32_t srcSmCount = 1;
     createObjectSet(34);
+
+    // for now this test can handle just one executor
+    // need more work; so do sm_count = 2
+    NodeUuid myNodeUuid(1);
+    fds_uint32_t sm_count = 2;
+    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+    DLT* dlt = new DLT(8, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Using DLT: " << *dlt;
 
     // TODO(anna) implement this test properly; for now
     // startMigration does not do anything...
     fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
-    for (fds_uint32_t i = 0; i < srcSmCount; ++i) {
+    msg->DLT_version = 1;
+    for (fds_uint32_t i = 1; i < sm_count; ++i) {
         fpi::SMTokenMigrationGroup grp;
-        grp.source.svc_uuid = 0x12345 + i;
-        grp.tokens.push_back(i + 100);
-        dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i+100));
+        grp.source.svc_uuid = i+1;
+        grp.tokens.push_back(i);
+        dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i));
         msg->migrations.push_back(grp);
     }
-    err = tokenMigrationMgr->startMigration(msg, NULL, NodeUuid(0x12345), bitsPerDltToken);
+    err = tokenMigrationMgr->startMigration(msg, NULL, myNodeUuid, bitsPerDltToken, false);
+
+    // pretend we got a message from some other SM to request become a source for DLT token
+    // for which this SM is a destination -- this is an error if we started migration
+    // due to DLT change (this is what this unit test is doing)
+    fpi::CtrlObjectRebalanceFilterSetPtr dstMsg(new fpi::CtrlObjectRebalanceFilterSet());
+    dstMsg->targetDltVersion = 1;
+    dstMsg->tokenId = 1;
+    dstMsg->executorID = 0x1234;
+    dstMsg->seqNum = 0;
+    dstMsg->lastFilterSet = true;
+    dstMsg->forResync = false;
+    fpi::SvcUuid remoteSvcUuid;
+    remoteSvcUuid.svc_uuid = 2;
+    err = tokenMigrationMgr->startObjectRebalance(dstMsg, remoteSvcUuid, myNodeUuid, 8, dlt);
+    EXPECT_TRUE(err == ERR_SM_RESYNC_SOURCE_DECLINE);
 
     // wait until migration is finished
     // TODO(anna) we do not set migration_done to true anywhere
@@ -258,6 +282,8 @@ TEST_F(SmTokenMigrationTest, destination) {
         // not implemented yet
         // EXPECT_EQ(0, 1);
     }
+
+    delete dlt;
 }
 
 }  // namespace fds

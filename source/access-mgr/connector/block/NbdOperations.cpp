@@ -391,19 +391,20 @@ NbdOperations::getBlobResp(const Error &error,
     }
 
     if (done) {
+        bool response_removed = false;
         {
             // nbd connector will free resp
             // remove from the wait list
             fds_mutex::scoped_lock l(respLock);
-            if (1 != responses.erase(handle)) {
-                LOGERROR << "Handle 0x" << std::hex
-                         << handle << std::dec
-                         << " was missing from the response map!";
-            }
+            response_removed = (1 == responses.erase(handle));
         }
-
-        // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(resp);
+        if (response_removed) {
+            // we are done collecting responses for this handle, notify nbd connector
+            nbdResp->readWriteResp(resp);
+        } else {
+            LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
+                      << " was missing from the response map!";
+        }
     }
 }
 

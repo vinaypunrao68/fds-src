@@ -57,7 +57,9 @@ struct DmVolumeAccessTable {
     /**
      * A timer to expire tokens
      */
-    std::unique_ptr<FdsTimer> timer;
+    static std::shared_ptr<FdsTimer> getTimer();
+
+    std::shared_ptr<FdsTimer> timer;
 };
 }  // namespace fds
 
