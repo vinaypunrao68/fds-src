@@ -88,8 +88,7 @@ class SmTokenMigrationMgr {
      * Start resync process for SM tokens. Find the list of
      * SMTokenMigrationGroups and call startMigration.
      */
-     Error startResync(fds::DLT *dlt,
-                       OmStartMigrationCbType cb,
+     Error startResync(const fds::DLT *dlt,
                        const NodeUuid& mySvcUuid,
                        fds_uint32_t bitsPerDltToken);
 
@@ -103,7 +102,9 @@ class SmTokenMigrationMgr {
      */
     Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                const fpi::SvcUuid &executorSmUuid,
-                               fds_uint32_t bitsPerDltToken);
+                               const NodeUuid& mySvcUuid,
+                               fds_uint32_t bitsPerDltToken,
+                               const DLT* dlt);
 
     /**
      * Ack from source SM when it receives the whole filter set of
@@ -127,6 +128,13 @@ class SmTokenMigrationMgr {
      * Ack from destination for rebalance delta set message
      */
     Error rebalanceDeltaSetResp();
+
+    /**
+     * Handle message from destination SM to finish token resync.
+     * Migration client corresponding to given executorId will stop forwarding IO
+     * and migration manager will remove the corresponding migration client
+     */
+    Error finishClientResync(fds_uint64_t executorId);
 
     /**
      * Forwards object to destination SM if needed
@@ -198,9 +206,28 @@ class SmTokenMigrationMgr {
                                const NodeUuid& smSvcUuid) const;
 
     /**
+     * If this is migration due to DLT change, decline to be a source
+     * if this SM is already a destination for the given dltToken;
+     * If this is resync on restart, decline to be a source if this SM is
+     * already a destination for the given SM token AND it has lower
+     * responsibility for this DLT token
+     */
+    fds_bool_t acceptSourceResponsibility(fds_token_id dltToken,
+                                          fds_bool_t resyncOnRestart,
+                                          const fpi::SvcUuid &executorSmUuid,
+                                          const NodeUuid& mySvcUuid,
+                                          const DLT* dlt);
+
+    /**
      * Stops migration and sends ack with error to OM
      */
     void abortMigration(const Error& error);
+
+    /**
+     * If all executors and clients are done, moves migration to IDLE state
+     * and resets the state
+     */
+    void checkResyncDoneAndCleanup();
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
@@ -228,6 +255,7 @@ class SmTokenMigrationMgr {
     /// TODO(Anna) make it more general if we want to migrate several
     /// tokens at a time
     fds_token_id smTokenInProgress;
+    fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
 
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues

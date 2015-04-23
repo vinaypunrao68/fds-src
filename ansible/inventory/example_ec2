@@ -17,7 +17,7 @@
 #localhost ec2_root_volume_size_GB=100 ec2_instance_type="t2.medium" ec2_vpc_subnet_id="subnet-195bac40" ec2_image="ami-0f114a3f"
 localhost
 
-awo-bh-01
+awo-bh-01 fds_build=debug
 
 [example_ec2:vars]
 clean_fds=no

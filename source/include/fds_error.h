@@ -81,6 +81,7 @@ typedef enum {
     ERR_ARCHIVE_PUT_FAILED = 57,
     ERR_ARCHIVE_GET_FAILED = 58,
     ERR_VOLUME_ACCESS_DENIED = 59,
+    ERR_TOKEN_NOT_READY      = 60,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -129,6 +130,7 @@ typedef enum {
     ERR_SM_NOERR_GAINED_SM_TOKENS,
     ERR_SM_NOERR_LOST_SM_TOKENS,
     ERR_SM_NOERR_NEED_RESYNC,
+    ERR_SM_RESYNC_SOURCE_DECLINE,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,

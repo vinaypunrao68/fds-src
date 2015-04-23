@@ -60,6 +60,15 @@ const char* fds_errstrs[] = {
     "Unable to replay journal for provided interval",
     "DM forwarding failed",
     "Service is shutting down",
+    "DM migration aborted",
+    "DM volume not activated",
+    "Invalid transaction ID",
+    "There are inflight IOs for the current DLT version",
+    "Failed to tar snap",
+    "Archive put failed",
+    "Archive get failed",
+    "Volume access denied",
+    "Token not ready",
     // Good up to here. 01/28/2015
     "SM object metadata not found",
     "error during network communication"

@@ -189,6 +189,7 @@
         - psutil
         - fstab
         - "tabulate==0.7.4"
+        - "urllib3==1.10.1"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
