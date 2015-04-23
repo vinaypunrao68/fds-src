@@ -5,17 +5,15 @@ Created on Apr 9, 2015
 '''
 
 import unittest
+import mock_functions
 from fds import fdscli
 from mock import patch
 from mock_auth import MockFdsAuth
 
-def listVolumes():
-    return "List volumes stub"
-
-def createVolume(volume):
-    return
-
-class VolumeTest(unittest.TestCase):
+class VolumeTest1(unittest.TestCase):
+    '''
+    This test class handles listing volumes and creating/deleting volumes
+    '''
     
     @classmethod
     def setUpClass(self):
@@ -35,7 +33,7 @@ class VolumeTest(unittest.TestCase):
             
         print "Making call: " + message
     
-    @patch( "fds.services.volume_service.VolumeService.listVolumes", side_effect=listVolumes )
+    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     def test_listVolumes(self, mockService ):
         
         args = ["volume", "list", "-format=json"]
@@ -49,9 +47,48 @@ class VolumeTest(unittest.TestCase):
         assert mockService.call_count == 1
         
         print "test_listVolumes passed.\n\n"
+        
+    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "fds.services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
+    def test_deleteVolume(self, mockCall, listCall ):
+        
+        args = ["volume", "delete", "-volume_name=NewOne"]
+        
+        self.callMessageFormatter(args)
+        
+        self.__cli.run( args )
+        
+        assert mockCall.call_count == 1
+        
+        name = mockCall.call_args[0][0]
+        
+        assert name == "NewOne"
+        
+    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "fds.services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
+    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById )
+    def test_deleteVolume_by_id(self, mockFind, mockDelete, listCall ):
+        
+        args = ["volume", "delete", "-volume_id=3" ]
+        
+        self.callMessageFormatter(args)
+        
+        self.__cli.run( args )
+        
+        assert mockDelete.call_count == 1
+        assert mockFind.call_count == 1
+        
+        name = mockDelete.call_args[0][0]
+        an_id = mockFind.call_args[0][0]
+        
+        print "Making sure we call the find method with the ID and get a certain name to the delete call."
+        
+        assert name == "VolumeName"
+        assert an_id == "3"
 
-    @patch( "fds.services.volume_service.VolumeService.createVolume", side_effect=createVolume )
-    def test_create_with_defaults(self, volumeCreateMethod):
+    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
+    def test_create_with_defaults(self, volumeCreateMethod, listCall):
 
         args = ["volume", "create", "-name=Franklin"]
 
@@ -76,8 +113,9 @@ class VolumeTest(unittest.TestCase):
         
         print "test_create_with_defaults passed.\n\n"
 
-    @patch( "fds.services.volume_service.VolumeService.createVolume", side_effect=createVolume )
-    def test_create_with_args(self, volumeCreate):
+    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
+    def test_create_with_args(self, volumeCreate, listCall):
          
         args = ["volume", "create", "-name=Franklin2", "-priority=1", "-iops_guarantee=30", "-iops_limit=30", "-continuous_protection=86400",
                 "-media_policy=SSD_ONLY", "-type=block", "-size=2", "-size_unit=MB"]
@@ -102,8 +140,9 @@ class VolumeTest(unittest.TestCase):
          
         print "test_create_with_args passed.\n\n"  
         
-    @patch( "fds.services.volume_service.VolumeService.createVolume", side_effect=createVolume )
-    def test_create_boundary_checking(self, volumeCreate ):
+    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )        
+    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
+    def test_create_boundary_checking(self, volumeCreate, listCall ):
         
         args = ["volume", "create", "-name=Franklin2", "-priority=11", "-iops_guarantee=30", "-iops_limit=30", "-continuous_protection=86400",
                 "-media_policy=SSD_ONLY", "-type=block", "-size=2", "-size_unit=MB"]

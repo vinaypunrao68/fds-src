@@ -116,10 +116,10 @@ class VolumeService():
         data = SnapshotConverter.to_json(snapshot)
         return self.__restHelper.post( self.__session, url, data )
     
-    def list_snapshots(self, name):
+    def list_snapshots(self, an_id):
         '''
         Get a list of all the snapshots that exists for a given volume
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes/" + name + "/snapshots"
+        url = self.__get_url_preamble() + "/api/config/volumes/" + an_id + "/snapshots"
         return self.__restHelper.get( self.__session, url )
