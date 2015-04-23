@@ -89,6 +89,15 @@ class VolumeService():
         data = VolumeConverter.to_json( volume )
         return self.__restHelper.post( self.__session, url, data )
     
+    def clone_from_timeline(self, a_time, volume ):
+        '''
+        Create a clone of the specified volume from the closest snapshot to the time provided
+        '''
+        
+        url = self.__get_url_preamble() + "/api/config/volumes/clone/" + volume.id + "/" + volume.name + "/" + a_time
+        data = VolumeConverter.to_json( volume )
+        return self.__restHelper.post( self.__session, url, data )
+    
     def edit_volume(self, volume):
         '''
         Takes a volume formatted object and tries to make the edits

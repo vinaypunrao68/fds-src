@@ -351,7 +351,7 @@ class VolumePlugin( AbstractPlugin):
         Clone a volume from the argument list
         '''
         #now
-        fromTime = time.time() * 1000
+        fromTime = time.time()
         
         if ( args[AbstractPlugin.time_str] != None ):
             fromTime = args[AbstractPlugin.time_str]

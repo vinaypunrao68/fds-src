@@ -27,6 +27,18 @@ def editVolume(volume):
     volume = VolumeConverter.to_json( volume )
     return volume
 
+def cloneFromTimelineTime( a_time, volume ):
+    
+    volume.id = 354
+    volume.timeline_time = a_time
+    volume = VolumeConverter.to_json(volume)
+    return volume
+
+def cloneFromSnapshotId( snapshot_id, volume):
+    volume.id = 789
+    volume = VolumeConverter.to_json( volume )
+    return volume
+
 def deleteVolume(name):
     
     response = dict()
@@ -44,6 +56,13 @@ def findVolumeByName( name ):
     volume = Volume()
     volume.name = name
     volume.id = 100
+    
+    return volume
+
+def findVolumeBySnapId( an_id ):
+    volume = Volume()
+    volume.name = "SnapVol"
+    volume.id = 300
     
     return volume
 
