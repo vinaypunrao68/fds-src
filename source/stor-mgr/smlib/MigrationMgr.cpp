@@ -657,6 +657,18 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
 Error
 SmTokenMigrationMgr::handleDltClose() {
     Error err(ERR_OK);
+
+    // TODO(Anna) FS-1760 OM should not send DLT close to SM on restart
+    // but it currently does; SM should just ignore it.. but better to fix
+    // OM not to do this, in case we miss some other case like migration on
+    // DLT change while we are still doing resync
+    if (resyncOnRestart) {
+        LOGWARN << "SM received DLT close while it is doing resync on restart."
+                << " OM should not send DLT close on restart, so ignoring DLT "
+                << "close msg from OM.";
+        return err;
+    }
+
     // for now, to make sure we can handle another migration...
     MigrationState expectState = MIGR_IN_PROGRESS;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
