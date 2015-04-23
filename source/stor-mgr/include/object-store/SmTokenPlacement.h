@@ -91,6 +91,13 @@ class SmTokenPlacement {
     static void compute(const std::set<fds_uint16_t>& hdds,
                         const std::set<fds_uint16_t>& ssds,
                         ObjectLocationTable* olt);
+
+    static bool recompute(const std::set<fds_uint16_t>& baseStorage,
+                          const std::set<fds_uint16_t>& addedStorage,
+                          const std::set<fds_uint16_t>& removedStorage,
+                          diskio::DataTier storageTier,
+                          ObjectLocationTable* olt);
+
 };
 
 }  // namespace fds

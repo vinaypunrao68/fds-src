@@ -256,7 +256,7 @@ class SmSuperblockMgr {
 
     /**
      * This is called on ObjectStore module bringup when SM
-     * registers with OM. 
+     * registers with OM.
      * This method tries to read superblock. If SM comes from
      * clean state, it will populate SM token to disk mappings and
      * state of SM tokens that this SM owns; If there is already a

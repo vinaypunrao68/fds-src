@@ -9,6 +9,7 @@
 #include <util/Log.h>
 #include <fds_process.h>
 #include <dlt.h>
+#include <object-store/SmTokenPlacement.h>
 #include <object-store/SmSuperblock.h>
 
 namespace fds {
@@ -287,9 +288,8 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
                                 const DiskLocMap& latestDiskMap)
 {
     Error err(ERR_OK);
-    std::string superblockPath;
-    bool genNewSuperblock = false;
-    fds_uint16_t masterSuperblockDisk = 0xffff;
+
+    SCOPEDWRITE(sbLock);
 
     /* There should be at least one disk in the map.
      */
@@ -481,10 +481,6 @@ SmSuperblockMgr::diffDiskSet(const DiskIdSet& diskSet1,
 /*
  * Determine if the node's disk topology has changed or not.
  *
- * TODO(sean)
- * This function will panic if the disk topology has changed on
- * this node.  In the future, we have to take an appropriate
- * action, which is yet defined.
  */
 void
 SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
@@ -493,6 +489,7 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
     DiskIdSet persistentHDDs, persistentSSDs;
     DiskIdSet addedHDDs, removedHDDs;
     DiskIdSet addedSSDs, removedSSDs;
+    bool recomputed = false;
 
     /* Get the list of unique disk IDs from the OLT table.  This is
      * used to compare with the new set of HDDs and SSDs to determine
@@ -511,23 +508,39 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
     removedSSDs = diffDiskSet(persistentSSDs, newSSDs);
     addedSSDs = diffDiskSet(newSSDs, persistentSSDs);
 
-    /* For now, if the disk topology has changed, then just panic.
-     *
-     * TODO(sean)
-     * In the future, we will probably have to do some handshaking
-     * with platform manager and migrate tokens according to the new
-     * disk topology???  TBD.
+    /* Check if the disk topology has changed.
+     * For now, if the For now, if the disk topology has changed, then just panic.
      */
     if ((removedHDDs.size() > 0) ||
-        (addedHDDs.size() > 0) ||
-        (removedSSDs.size() > 0) ||
+        (addedHDDs.size() > 0)) {
+        LOGNOTIFY << "Disk Topology Changed: removed HDDs=" << removedHDDs.size()
+                  << ", added HDDs=" << addedHDDs.size();
+        recomputed |= SmTokenPlacement::recompute(persistentHDDs,
+                                                  addedHDDs,
+                                                  removedHDDs,
+                                                  diskio::diskTier,
+                                                  &(superblockMaster.olt));
+    }
+
+    if ((removedSSDs.size() > 0) ||
         (addedSSDs.size() > 0)) {
-        fds_panic("Disk Topology Changed: removed HDDs=%lu, added HDDs=%lu, "
-                  "removed SSDs=%lu, added SSDs=%lu",
-                  removedHDDs.size(),
-                  addedHDDs.size(),
-                  removedSSDs.size(),
-                  addedSSDs.size());
+        LOGNOTIFY << "Disk Topology Changed: removed SSDs=" << removedSSDs.size()
+                  << ", added SSDs=" << addedSSDs.size();
+        recomputed |= SmTokenPlacement::recompute(persistentSSDs,
+                                                  addedSSDs,
+                                                  removedSSDs,
+                                                  diskio::flashTier,
+                                                  &(superblockMaster.olt));
+    }
+
+    Error err(ERR_OK);
+    /* Token mapping is recomputed.  Now sync out to disk. */
+    if (recomputed) {
+        err = syncSuperblock();
+        /* For now, panic if cannot sync superblock to disks.
+         * Need to understand why this can fail at this point.
+         */
+        fds_verify(err == ERR_OK);
     }
 }
 
@@ -802,17 +815,6 @@ SmSuperblockMgr::getDLTVersion()
 }
 
 
-
-
-/* This iface is only used for the SmSuperblock unit test.  Should not
- * be called by anyone else.
- */
-std::string
-SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
-{
-    return superblockName;
-}
-
 fds_uint16_t
 SmSuperblockMgr::getDiskId(fds_token_id smTokId,
                         diskio::DataTier tier) {
@@ -893,13 +895,32 @@ std::ostream& operator<< (std::ostream &out,
 }
 
 // since DiskIdSet is typedef of std::set, need to specifically overlaod boost ostream
-boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
-                                            const DiskIdSet& diskIds) {
+std::ostream& operator<< (std::ostream& out,
+                          const DiskIdSet& diskIds) {
     for (auto cit = diskIds.begin(); cit != diskIds.end(); ++cit) {
-        out << "[" << *cit << "]";
+        out << "[" << *cit << "] ";
     }
     out << "\n";
     return out;
+}
+
+// since DiskIdSet is typedef of std::set, need to specifically overlaod boost ostream
+boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                            const DiskIdSet& diskIds) {
+    for (auto cit = diskIds.begin(); cit != diskIds.end(); ++cit) {
+        out << "[" << *cit << "] ";
+    }
+    out << "\n";
+    return out;
+}
+
+/* This iface is only used for the SmSuperblock unit test.  Should not
+ * be called by anyone else.
+ */
+std::string
+SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
+{
+    return superblockName;
 }
 
 }  // namespace fds
