@@ -80,10 +80,8 @@ void NbdConnector::configureSocket(int fd) const {
         static int const ka_probes = 9;
         // The time between retries
         int ka_intvl = (cfg_keep_alive / ka_probes) + 1;
-        int optval = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0) {
-            LOGWARN << "Failed to set KEEPALIVE on NBD connection";
-        }
+
+        // Configure timeout
         if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &cfg_keep_alive, sizeof(cfg_keep_alive)) < 0) {
             LOGWARN << "Failed to set KEEPALIVE_IDLE on NBD connection";
         }
@@ -92,6 +90,12 @@ void NbdConnector::configureSocket(int fd) const {
         }
         if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &ka_probes, sizeof(ka_probes)) < 0) {
             LOGWARN << "Failed to set KEEPALIVE_CNT on NBD connection";
+        }
+
+        // Enable KEEPALIVE on socket
+        int optval = 1;
+        if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0) {
+            LOGWARN << "Failed to set KEEPALIVE on NBD connection";
         }
     }
 }
