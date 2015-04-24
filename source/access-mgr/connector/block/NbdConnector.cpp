@@ -32,8 +32,8 @@ void NbdConnector::initialize() {
     int pmPort = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.pm.platform_port", 7000);
     nbdPort = pmPort + conf.get<uint32_t>("server_port_offset", 3809);
 
-    cfg_non_blocking_io = conf.get<bool>("non_block_io", cfg_non_blocking_io);
-    cfg_keep_alive = conf.get<bool>("keep_alive", cfg_keep_alive);
+    cfg_non_blocking_io = conf.get<bool>("options.non_block_io", cfg_non_blocking_io);
+    cfg_keep_alive = conf.get<uint32_t>("options.keep_alive", cfg_keep_alive);
 
     // Shutdown the socket if we are reinitializing
     if (0 <= nbdSocket)
@@ -75,15 +75,16 @@ void NbdConnector::configureSocket(int fd) const {
 
     // Keep-alive
     // Discover dead peers and prevent network disconnect due to inactivity
-    if (cfg_keep_alive) {
-        int ka_time = 45;
-        int ka_intvl = 5;
-        int ka_probes = 9;
+    if (0 < cfg_keep_alive) {
+        // The number of retry attempts
+        static int const ka_probes = 9;
+        // The time between retries
+        int ka_intvl = (cfg_keep_alive / ka_probes) + 1;
         int optval = 1;
         if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0) {
             LOGWARN << "Failed to set KEEPALIVE on NBD connection";
         }
-        if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &ka_time, sizeof(ka_time)) < 0) {
+        if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &cfg_keep_alive, sizeof(cfg_keep_alive)) < 0) {
             LOGWARN << "Failed to set KEEPALIVE_IDLE on NBD connection";
         }
         if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &ka_intvl, sizeof(ka_intvl)) < 0) {
