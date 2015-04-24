@@ -131,5 +131,5 @@ class VolumeService( AbstractService ):
         Get a list of all volume IDs associated with this snapshot policy ID
         '''
         
-        url = "".format( self.get_url_preamble(), "/api/config/snapshots/policies/", snapshot_policy_id, "/volumes")
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/policies/", snapshot_policy_id, "/volumes")
         return self.rest_helper().get( self.session, url )    

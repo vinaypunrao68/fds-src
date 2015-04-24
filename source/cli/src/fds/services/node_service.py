@@ -14,7 +14,7 @@ class NodeService( AbstractService ):
     def list_nodes(self):
         '''
         Get a list of nodes known to the system.  This will include active attached nodes as well as nodes
-        that are int he "DISCOVERED" State
+        that are in the "DISCOVERED" State
         
         The nodes will also have all of their services and states within the returned object
         '''

@@ -49,7 +49,7 @@ class SnapshotPolicyService( AbstractService ):
         detach the given policy from the specified volume
         '''
         
-        url = "".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/detach", volume_id )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/detach", volume_id )
         return self.rest_helper().put( self.session, url )
     
     def list_snapshot_policies(self):
@@ -65,6 +65,6 @@ class SnapshotPolicyService( AbstractService ):
         Get a list of all snapshot policies that are attached to the specified volume
         '''
         
-        url = "".format( self.get_url_preamble(), "/api/config/volumes/", volume_id, "/snapshot/policies" )
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", volume_id, "/snapshot/policies" )
         return self.rest_helper().get( self.session, url )
         
