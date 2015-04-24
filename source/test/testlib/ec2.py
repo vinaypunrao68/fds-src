@@ -10,6 +10,7 @@ import sys
 import time
 
 # Import local defined libraries
+import sqlite
 import aws_config
 import error_codes
 import config
@@ -47,9 +48,10 @@ class EC2(object):
         self.region = region
         self.name = name
         # establish the connection with AWS
+        (access_key, secret_key) = sqlite.get_aws_credentials()
         self.ec2_conn = boto.ec2.connect_to_region(self.region,
-                                                   aws_access_key_id=aws_config.AWS_ACCESS_KEY,
-                                                   aws_secret_access_key=aws_config.AWS_SECRET_KEY)
+                                                   aws_access_key_id=access_key,
+                                                   aws_secret_access_key=secret_key)
         self.instance = None
         self.reservation = None
 
