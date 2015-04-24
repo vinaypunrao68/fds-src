@@ -92,14 +92,10 @@ NbdConnection::NbdConnection(int clientsd,
           total_blocks(0ull),
           write_offset(-1ll),
           readyResponses(4000),
-          current_response(nullptr) {
+          current_response(nullptr)
+{
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
-    if (config.get_abs<bool>("fds.am.connector.nbd.non_block_io", true)) {
-        fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
-    } else {
-        LOGNOTIFY << "Nbd IO in blocking mode.";
-    }
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
