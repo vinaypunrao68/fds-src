@@ -49,8 +49,6 @@ class BitSet {
     // number of QWords corresponding to number of bits in bitset.
     size_t nQWords;
     // atomic vector.
-    // std::atomic<std::uint_fast64_t> *atomicBitVector;
-
     std::unique_ptr<std::atomic<std::uint_fast64_t> []> atomicBitVector;
 }; //  class BitSet
 
