@@ -2,10 +2,10 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#include <platform/svchandler.h>
+#include <platform/svc_handler.h>
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
-#include <platform/platformmanager.h>
+#include <platform/platform_manager.h>
 
 namespace fds
 {
