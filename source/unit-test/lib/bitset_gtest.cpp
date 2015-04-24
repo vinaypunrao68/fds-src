@@ -21,8 +21,6 @@ TEST(BitSet, basic1)
     EXPECT_TRUE(result);
     EXPECT_TRUE(bitset->test((size_t)63));
 
-    std::cout << bitset;
-
     for (size_t i = 0; i < 129; ++i) {
         if (i == 63) {
             EXPECT_TRUE(bitset->test(i));
@@ -39,9 +37,8 @@ TEST(BitSet, basic1)
 
 }
 
-TEST(BitSet, DISABLED_basic2)
+TEST(BitSet, basic2)
 {
-    bool result;
     BitSet *bitset = new BitSet(129);
     for (size_t i = 0; i < 129; ++i) {
         EXPECT_TRUE(bitset->set(i));
@@ -51,6 +48,27 @@ TEST(BitSet, DISABLED_basic2)
         EXPECT_TRUE(bitset->test(i));
     }
     delete bitset;
+}
+
+TEST(BitSet, basic3)
+{
+    BitSet *bitset = new BitSet(129);
+    bitset->setAll();
+    for (size_t i = 0; i < 129; ++i) {
+        EXPECT_TRUE(bitset->test(i));
+    }
+
+    bitset->resetAll();
+    for (size_t i = 0; i < 129; ++i) {
+        EXPECT_FALSE(bitset->test(i));
+    }
+}
+
+TEST(BitSet, basic4)
+{
+    BitSet *bitset = new BitSet(129);
+    EXPECT_FALSE(bitset->test(129));
+    EXPECT_FALSE(bitset->set(129));
 }
 
 

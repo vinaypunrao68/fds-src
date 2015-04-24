@@ -10,6 +10,7 @@
 #include <ostream>
 #include <bitset>
 #include <atomic>
+#include <memory>
 
 /**
  * This is a simple atomic bitset operation
@@ -23,7 +24,7 @@ class BitSet {
     ~BitSet();
 
     // Get size of the bitset
-    size_t getSize();
+    size_t getSize() const;
 
     // Test if bit on pos is set or not.
     bool test(size_t pos) const;
@@ -48,7 +49,9 @@ class BitSet {
     // number of QWords corresponding to number of bits in bitset.
     size_t nQWords;
     // atomic vector.
-    std::atomic<std::uint_fast64_t> *atomicBitVector;
+    // std::atomic<std::uint_fast64_t> *atomicBitVector;
+
+    std::unique_ptr<std::atomic<std::uint_fast64_t> []> atomicBitVector;
 }; //  class BitSet
 
 }  // namespace fds

@@ -17,19 +17,18 @@ BitSet::BitSet(size_t n)
     // Need to convert the nbits to qword size.
     nQWords = ceil((double)nBits / (double)bitsPerQWord);
 
-    atomicBitVector = new std::atomic<std::uint_fast64_t> [nQWords];
+    atomicBitVector = std::unique_ptr<std::atomic<std::uint_fast64_t>[] >(new std::atomic<std::uint_fast64_t> [nQWords]);
 
-    memset(atomicBitVector, 0, (sizeof(std::uint_fast64_t) * nQWords));
-
+    resetAll();
 }
 
 BitSet::~BitSet()
 {
-    delete atomicBitVector;
+    atomicBitVector.reset();
 }
 
 size_t
-BitSet::getSize()
+BitSet::getSize() const
 {
     return nBits;
 }
@@ -38,6 +37,10 @@ BitSet::getSize()
 bool
 BitSet::test(size_t pos) const
 {
+    if (pos >= nBits) {
+        return false;
+    }
+
     size_t offset = (pos >> bitsShift);  // pos / 64
     size_t bitpos = (pos & (bitsPerQWord - 1));  // pos % 64
     uint_fast64_t mask = 1UL << bitpos;
@@ -61,6 +64,9 @@ BitSet::set(size_t pos)
     do {
         oldVal =  atomicBitVector[offset];
         newVal =  atomicBitVector[offset] | mask;
+        if (oldVal == newVal) {
+            break;
+        }
     } while (!std::atomic_compare_exchange_strong(&atomicBitVector[offset], &oldVal, newVal));
 
     return true;
@@ -82,6 +88,9 @@ BitSet::reset(size_t pos)
     do {
         oldVal =  atomicBitVector[offset];
         newVal =  atomicBitVector[offset] & ~mask;
+        if (oldVal == newVal) {
+            break;
+        }
     } while (!std::atomic_compare_exchange_strong(&atomicBitVector[offset], &oldVal, newVal));
 
     return true;
@@ -91,14 +100,18 @@ BitSet::reset(size_t pos)
 void
 BitSet::setAll()
 {
-    memset(atomicBitVector, 1, (sizeof(std::uint_fast64_t) * nQWords));
+    for (size_t i = 0; i < nQWords; ++i) {
+        atomicBitVector[i] = ~(0UL);
+    }
 }
 
 // unset all bits in the bitset
 void
 BitSet::resetAll()
 {
-    memset(atomicBitVector, 0, (sizeof(std::uint_fast64_t) * nQWords));
+    for (size_t i = 0; i < nQWords; ++i) {
+        atomicBitVector[i] = 0UL;
+    }
 }
 
 // output bitset
