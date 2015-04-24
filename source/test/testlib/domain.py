@@ -5,9 +5,7 @@
 ##############################################################################
 import concurrent.futures
 import logging
-import Queue as queue
 import random
-import threading
 import time
 
 import ec2
@@ -78,7 +76,6 @@ class Domain(object):
             self.log.warning("Cluster has not been created yet. Nothing to do")
             return
         
-        q = queue.Queue()
         targets = [ node.resume_instance for node in self.nodes ]
         self.__run_threads(targets)
         self.has_started = True
@@ -106,7 +103,7 @@ class Domain(object):
         if not self.has_started:
             self.log.warning("Cluster has not been created yet. Nothing to do")
             return
-        q = queue.Queue()
+
         targets = [ node.stop_instance for node in self.nodes ]
         self.__run_threads(targets)
         self.has_started = False
@@ -120,7 +117,7 @@ class Domain(object):
         if not self.has_started:
             self.log.warning("Cluster has not been created yet. Nothing to do")
             return
-        q = queue.Queue()
+
         targets = [ node.terminate_instance for node in self.nodes ]
         self.__run_threads(targets)
 
@@ -163,7 +160,6 @@ class Domain(object):
             new_nodes.append(node)
         
         # create the new nodes in parallel
-        q = queue.Queue()
         targets = [ node.start_instance for node in new_nodes ]
         self.__run_threads(targets)
         
