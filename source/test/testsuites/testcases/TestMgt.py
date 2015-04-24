@@ -77,6 +77,18 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         suite.addTest(TestLogMarker(scenario=scenario.nd_conf_dict['scenario-name'],
                                     marker=scenario.nd_conf_dict['log_marker']))
 
+    # Parse to see if this scenario is possible to fail
+    expectFailure = None
+    if 'expectedfail' in scenario.nd_conf_dict:
+        jira_id = scenario.nd_conf_dict['expectedfail']
+        if len(jira_id) > 0:
+            log.info("Expecting " + jira_id + " to cause test failure.")
+            expectFailure = "True"
+            # suite.expectFailure(jira_id)
+        else:
+            log.error("A JIRA ID is required for expecting a scenario to fail.")
+            raise Exception
+
     # Has the scenario indicated that some sort of delay
     # or wait should follow?
     #
@@ -729,6 +741,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             testcase = str_to_obj(script.strip('[]'))(**kwargs)
         else:
             testcase = str_to_obj(script.strip('[]'))(None)
+
+
+        # Add potential failure
+        if expectFailure is not None:
+            testcase.expectedFailure(jira_id)
 
         try:
             suite.addTest(testcase)
