@@ -448,7 +448,11 @@ fds: {
         connector: {
             nbd: {
                 server_port_offset=3809
-                non_block_io=true
+                options: {
+                    /* Time (seconds) to retry connection to client before disconnect */
+                    keep_alive=30
+                    non_block_io=true
+                }
             }
         }
 
@@ -595,6 +599,13 @@ fds: {
 
     xdi: {
         am_host = "{{ am_host }}"
+    }
+
+    test: {
+	testing: {
+            /* Toggle stand alone mode */
+            standalone = true 
+	}
     }
 }
 {% endblock %}

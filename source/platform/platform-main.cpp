@@ -9,8 +9,9 @@
 #include "fds_process.h"
 #include "net/SvcProcess.h"
 #include "net/SvcMgr.h"
-#include "platform/platformmanager.h"
-#include "platform/svchandler.h"
+
+#include "platform/platform_manager.h"
+#include "platform/svc_handler.h"
 
 namespace fds
 {

@@ -223,16 +223,15 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                           fds_uint32_t bitsPerDltToken,
                                           const DLT* dlt) {
     Error err(ERR_OK);
+    fds_bool_t srcAccepted = false;
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
                << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID
                << std::dec << " seqNum " << rebalSetMsg->seqNum
                << " last " << rebalSetMsg->lastFilterSet;
 
-    if ((atomic_load(&migrState) != MIGR_ABORTED) &&
-        (!acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->forResync,
-                                     executorSmUuid, mySvcUuid, dlt))) {
-        return ERR_SM_RESYNC_SOURCE_DECLINE;
-    }
+    // check if this SM accept this SM to be a source for given DLT token
+    srcAccepted = acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->forResync,
+                                             executorSmUuid, mySvcUuid, dlt);
 
     // If this SM is just a source and does not get Start Migration from OM
     // make sure that we set the migration state in progress
@@ -268,7 +267,19 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         }
     }
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
-    migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg);
+    err = migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg, srcAccepted);
+    if (err == ERR_SM_RESYNC_SOURCE_DECLINE) {
+        fds_verify(!srcAccepted);
+        // migrClient received all filter sets from given executor, and all dlt
+        // tokens were declined, we are finished with this migration client
+        LOGMIGRATE << "This SM declined all DLT tokens for executor " << std::hex
+                   << executorId << std::dec;
+        SCOPEDWRITE(clientLock);
+        migrClients.erase(executorId);
+    }
+    if (!srcAccepted) {
+        return ERR_SM_RESYNC_SOURCE_DECLINE;
+    }
     return err;
 }
 
@@ -410,6 +421,9 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
         if (cit->second->getId() == executorId) {
             found = true;
             err = cit->second->applyRebalanceDeltaSet(deltaSet);
+            // After this method, migrExecutors may be empty if this is resync
+            // and we are finished with all executors
+            break;
         }
     }
     fds_verify(found);   // did we start doing more than one SM token at a time?
@@ -657,6 +671,18 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
 Error
 SmTokenMigrationMgr::handleDltClose() {
     Error err(ERR_OK);
+
+    // TODO(Anna) FS-1760 OM should not send DLT close to SM on restart
+    // but it currently does; SM should just ignore it.. but better to fix
+    // OM not to do this, in case we miss some other case like migration on
+    // DLT change while we are still doing resync
+    if (resyncOnRestart) {
+        LOGWARN << "SM received DLT close while it is doing resync on restart."
+                << " OM should not send DLT close on restart, so ignoring DLT "
+                << "close msg from OM.";
+        return err;
+    }
+
     // for now, to make sure we can handle another migration...
     MigrationState expectState = MIGR_IN_PROGRESS;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
@@ -690,6 +716,7 @@ SmTokenMigrationMgr::checkResyncDoneAndCleanup() {
                 LOGMIGRATE << "Already done or aborted, nothing to do, current state " << migrState;
                 return;  // this is ok
             }
+            LOGNOTIFY << "Token resync on restart completed for DLT version " << targetDltVersion;
             // reset per-migration/resync state
             targetDltVersion = DLT_VER_INVALID;
             resyncOnRestart = false;

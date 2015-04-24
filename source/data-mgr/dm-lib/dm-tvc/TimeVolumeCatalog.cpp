@@ -369,9 +369,11 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
              << std::hex << volId << std::dec << " blob " << blobName;
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    opSynchronizer_.schedule(blobName,
+
+    // serialize on blobId instead of blobName so collision detection is free from races
+    opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
                              std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, volId, commitLog, txDesc, cb));
+                                       this, volId, blobName, commitLog, txDesc, cb));
     return ERR_OK;
 }
 
@@ -386,7 +388,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
              << std::hex << volId << std::dec << " blob " << blobName;
 
     // we don't go through commit log, but we need to serialized fwd updates
-    opSynchronizer_.schedule(blobName,
+    opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
                              std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
                                        this, volId, blobName, blobVersion,
                                        objList, metaList, fwdCommitCb));
@@ -396,6 +398,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
 
 void
 DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
+				   const std::string &blobName,
                                    DmCommitLog::ptr &commitLog,
                                    BlobTxId::const_ptr txDesc,
                                    const DmTimeVolCatalog::CommitCb &cb) {
@@ -405,7 +408,26 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
              << std::hex << volid << std::dec;
     CommitLogTx::ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
-        e = doCommitBlob(volid, blob_version, commit_data);
+        BlobMetaDesc desc;
+
+	e = volcat->getBlobMetaDesc(volid, blobName, desc);
+
+	// If error code is not OK, no blob to collide with. If given blob's name doesn't
+	// doesn't match the existing blob metadata, there is a UUID collision. The
+	// resolution is to try again with a different blob name (e.g. append a character)
+
+	// Collision check is done here to piggyback on the synchronization. The
+	// goal is to avoid 2 new, colliding blobs from both passing this check
+	// due to a data race.
+	if (e.ok() && desc.desc.blob_name != blobName){
+	    LOGERROR << "Blob Id collision for new blob " << blobName << " on volume "
+		     << std::hex << volid << std::dec << " with existing blob "
+		     << desc.desc.blob_name;
+
+	    e = Error(ERR_HASH_COLLISION);
+	} else {
+	    e = doCommitBlob(volid, blob_version, commit_data);
+	}
     }
     cb(e,
        blob_version,

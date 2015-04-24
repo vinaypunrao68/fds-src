@@ -7,7 +7,7 @@ class Volume( object ):
     @author: nate
     '''
     
-    def __init__(self, name="Unnamed", priority=7, volume_type="object", iops_limit=0, iops_guarantee=0, media_policy="hybrid",
+    def __init__(self, name="Unnamed", priority=7, volume_type="object", iops_limit=0, iops_guarantee=0, media_policy="HYBRID_ONLY",
                  current_size=10, current_units="GB", tenant_id=0, continuous_protection=86400 ):
         
         self.__id = -1

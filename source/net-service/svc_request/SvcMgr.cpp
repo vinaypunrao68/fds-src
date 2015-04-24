@@ -32,9 +32,9 @@ int32_t SvcMgr::MAX_CONN_RETRIES = 1024;
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
 {
     std::stringstream ss;
-    ss << "Svc handle svc_uuid: " << std::hex << info.svc_id.svc_uuid.svc_uuid
-        << std::dec << " ip: " << info.ip << " port: " << info.svc_port
-        << " type: " << SvcMgr::mapToSvcName(info.svc_type)
+    ss << "Svc handle svc_uuid: "
+        << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
+        << " ip: " << info.ip << " port: " << info.svc_port
         << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
     return ss.str();
 }
@@ -157,6 +157,14 @@ std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
     }
 }
 
+std::string SvcMgr::mapToSvcUuidAndName(const fpi::SvcUuid &svcUuid)
+{
+    std::stringstream ss;
+    ss << std::hex << svcUuid.svc_uuid << std::dec
+        << ":" << mapToSvcName(ResourceUUID(svcUuid).uuid_get_type());
+    return ss.str();
+}
+
 int32_t SvcMgr::mapToSvcPort(const int32_t &platformPort, const fpi::FDSP_MgrIdType& svcType)
 {
     int offset = static_cast<int>(svcType - fpi::FDSP_PLATFORM);
@@ -239,8 +247,9 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
              */
             auto svcHandle = boost::make_shared<SvcHandle>(MODULEPROVIDER(), e);
             svcHandleMap_.emplace(std::make_pair(e.svc_id.svc_uuid, svcHandle));
-            GLOGDEBUG << "svcmap update.  svcuuid: " << e.svc_id.svc_uuid.svc_uuid
-                    << " is new.  Incarnation: " << e.incarnationNo;
+            GLOGDEBUG << "svcmap updaete.  svcuuid: "
+                << mapToSvcUuidAndName(e.svc_id.svc_uuid)
+                << " is new.  Incarnation: " << e.incarnationNo;
         } else {
             svcHandleItr->second->updateSvcHandle(e);
         }

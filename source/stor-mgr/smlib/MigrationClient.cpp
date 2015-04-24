@@ -686,7 +686,8 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
 
 
 Error
-MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet)
+MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
+                                                   fds_bool_t srcAccepted)
 {
     /* Verify that the token and executor ID matches known SM token and perviously
      * set exector ID.
@@ -700,7 +701,8 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": seqNum=" << curSeqNum << ", "
                << "DLT token=" << dltToken << ", "
-               << "executorId=" << std::hex << executorId << std::dec;
+               << "executorId=" << std::hex << executorId << std::dec
+               << ", accepted? " << srcAccepted;
 
     if (getMigClientState() == MIG_CLIENT_ERROR) {
         LOGMIGRATE << "Migration Client in error state";
@@ -711,30 +713,35 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
      */
     setMigClientState(MIG_CLIENT_FILTER_SET);
 
-    migClientLock.lock();
+    // this method may be called if source did not accept to process this
+    // filter set; we are calling the method in that case to ensure that
+    // we properly detect end of sequence and go to the right state
+    if (srcAccepted) {
+        migClientLock.lock();
 
-    /* Verify message destination.
-     */
-    bool verifySuccess = migClientVerifyDestination(dltToken, executorId);
-    if (!verifySuccess) {
+        /* Verify message destination.
+         */
+        bool verifySuccess = migClientVerifyDestination(dltToken, executorId);
+        if (!verifySuccess) {
+            migClientLock.unlock();
+            return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
+        }
+
+        /* since the MigrationMgr may add tokenID and objects to filter asynchronously,
+         * need to protect it.
+         */
+        /* For debugging, keep set of DLT token ids.
+         */
+        dltTokenIDs.insert(filterSet->tokenId);
+
+        /* Now, add the objects and corresponding refcnts to the local filter set.
+         */
+        for (auto& objAndRefCnt : filterSet->objectsToFilter) {
+            filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
+                                    objAndRefCnt);
+        }
         migClientLock.unlock();
-        return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
     }
-
-    /* since the MigrationMgr may add tokenID and objects to filter asynchronously,
-     * need to protect it.
-     */
-    /* For debugging, keep set of DLT token ids.
-     */
-    dltTokenIDs.insert(filterSet->tokenId);
-
-    /* Now, add the objects and corresponding refcnts to the local filter set.
-     */
-    for (auto& objAndRefCnt : filterSet->objectsToFilter) {
-      filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
-                              objAndRefCnt);
-    }
-    migClientLock.unlock();
 
     /* Set the sequence number of the received message to ensure all messages are received.
      */
@@ -744,7 +751,16 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
          * Safe to snapshot.
          */
         LOGMIGRATE << "MigClientState=" << getMigClientState()
-                   << ": Received complete FilterSet with last seqNum=" << filterSet->seqNum;
+                   << ": Received complete FilterSet with last seqNum=" << filterSet->seqNum
+                   << " for number of DLT tokens: " << dltTokenIDs.size()
+                   << ", executorId " << std::hex << executorId << std::dec;
+
+        if (dltTokenIDs.size() == 0) {
+            LOGMIGRATE << "This SM declined to be a source for all DLT tokens from ExecutorID "
+                       << std::hex << executorId << std::dec << "; no need to proceed with this client";
+            // basically declining the whole set...
+            return ERR_SM_RESYNC_SOURCE_DECLINE;
+        }
 
         /* Transition to the first phase of delta set generation.
          */

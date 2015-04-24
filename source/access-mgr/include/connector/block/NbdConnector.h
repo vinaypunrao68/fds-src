@@ -20,12 +20,15 @@ struct AmProcessor;
 class NbdConnector {
     uint32_t nbdPort;
     int32_t nbdSocket {-1};
+    bool cfg_non_blocking_io {true};
+    uint32_t cfg_keep_alive {0};
 
     std::unique_ptr<ev::io> evIoWatcher;
     std::unique_ptr<std::thread> runThread;
     std::weak_ptr<AmProcessor> amProcessor;
 
     int createNbdSocket();
+    void configureSocket(int fd) const;
     void initialize();
     void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);

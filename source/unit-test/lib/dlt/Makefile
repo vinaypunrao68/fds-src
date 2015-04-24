@@ -5,6 +5,7 @@ user_rtime_env    := user
 user_incl_dir     := 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+	fds-svc-request \
 	fds-lib \
 	fds-util \
 	fds-fdsp \
