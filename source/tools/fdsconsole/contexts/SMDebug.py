@@ -42,12 +42,15 @@ class SMDebugContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
-    def startSmchk(self, sm):
+    @arg('targetTokens', help="-List of tokens to check", type=str)
+    def startSmchk(self, sm, targetTokens):
         """
         Start the online smchk for the specified sm node
         """
         try:
-            startSmchk = FdspUtils.newStartSmchkMsg()
+            targetTokens = targetTokens.split(',')
+            targetTokens = map(int, targetTokens)
+            startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
             self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
         except Exception, e:
             log.exception(e)

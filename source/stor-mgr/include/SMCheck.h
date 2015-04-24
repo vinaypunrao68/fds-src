@@ -105,7 +105,7 @@ class SMCheckOnline {
     SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap);
     ~SMCheckOnline();
 
-    Error startIntegrityCheck();
+    Error startIntegrityCheck(SmTokenSet tgtToken);
 
     void SMCheckSnapshotCB(const Error& error,
                            SmIoSnapshotObjectDB* snapReq,

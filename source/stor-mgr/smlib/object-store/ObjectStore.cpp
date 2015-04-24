@@ -1137,7 +1137,7 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
     LOGDEBUG << "Executing SM Check command " << checkCmd->command;
     switch (checkCmd->command) {
         case SmCheckCmd::SMCHECK_START:
-            err = SMCheckCtrl->startSMCheck();
+            err = SMCheckCtrl->startSMCheck(static_cast<SmCheckActionCmd*>(checkCmd)->tgtTokens);
             break;
         case SmCheckCmd::SMCHECK_STOP:
             err = SMCheckCtrl->stopSMCheck();

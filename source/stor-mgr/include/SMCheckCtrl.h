@@ -29,7 +29,7 @@ class SMCheckControl : public Module{
     // Start online SM check.
     // TODO(Sean):  For now, once it starts, there is no way to stop.
     // Need to implement a way to stop it.
-    Error startSMCheck();
+    Error startSMCheck(SmTokenSet tgtTokens);
 
     // TODO(Sean):  not yet implemented.
     Error stopSMCheck();

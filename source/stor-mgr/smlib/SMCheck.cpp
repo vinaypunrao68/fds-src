@@ -418,7 +418,7 @@ SMCheckOnline::getStats(fpi::CtrlNotifySMCheckStatusRespPtr resp)
 // After snapshot callback is called, it will process then the call back will
 // enqueue snapshot request for the next token in the set...  and so on...
 Error
-SMCheckOnline::startIntegrityCheck()
+SMCheckOnline::startIntegrityCheck(SmTokenSet tgtTokens)
 {
     Error err(ERR_OK);
 
@@ -452,9 +452,15 @@ SMCheckOnline::startIntegrityCheck()
              << " UUID=" << SMCheckUuid
              << " DLT=" << latestClosedDLT;
 
-    // get all the SM tokens in the system.  Now
-    allTokens = diskMap->getSmTokens();
 
+    if (!tgtTokens.empty()) {
+        LOGDEBUG << "Received target tokens list, only verifying " << allTokens.size() << "\n";
+        allTokens = tgtTokens;
+    } else {
+        LOGDEBUG << "No target tokens found, verifying ALL tokens.\n";
+        // get all the SM tokens in the system.  Now
+        allTokens = diskMap->getSmTokens();
+    }
     // update stats on number of tokens to be checked
     totalNumTokens = allTokens.size();
     // assert in debug mode.
