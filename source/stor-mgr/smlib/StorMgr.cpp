@@ -867,7 +867,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     LOGMIGRATE << "Filling DeltaSet:"
                << " destinationSmId " << readDeltaSetReq->destinationSmId
-               << " executorID=" << readDeltaSetReq->executorId
+               << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
                << " seqNum=" << readDeltaSetReq->seqNum
                << " lastSet=" << readDeltaSetReq->lastSet
                << " delta set size=" << readDeltaSetReq->deltaSet.size();
