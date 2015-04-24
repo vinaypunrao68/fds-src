@@ -126,13 +126,17 @@ class TestTrafficGen(TestCase.FDSTestCase):
 
 
 # This class runs trafficgen and only reports an error if the executable failed to run
-# otherwise it will ALWAYS return success. This should be used for tests where IO is
+# or if the flag "ret_fail" was specified, otherwise it will return success.
+# If "exp_fail" is specified, then we expect the I/O to hit an error, and the class
+# would return False if the I/O passed through.
+# This can be used for tests where IO is
 # expected to run for some time and then fail, e.g. killing services during active IO
+# or where I/O is expected to fail, depending on the flag.
 class RunTrafficGen(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, hostname=None, n_conns=None,
+    def __init__(self, parameters=None, hostname=None, n_conns=None, exp_fail=None,
                  n_files=None, n_reqs=None, no_reuse=None, object_size=None,
-                 outstanding_reqs=None, port=None, runtime=None, test_type=None,
-                 timeout=None, token=None, username=None, volume_name=None):
+                 outstanding_reqs=None, port=None, ret_fail=None, runtime=None, 
+                 test_type=None, timeout=None, token=None, username=None, volume_name=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.run_TrafficGen,
@@ -146,7 +150,11 @@ class RunTrafficGen(TestCase.FDSTestCase):
 
         self.traffic_gen_dir = os.path.join(src_dir, 'Build/linux-x86_64.debug/tools/')
         self.traffic_gen_cmd = ['./trafficgen']
+        self.traffic_gen_expect_failure = None
+        self.traffic_gen_return_failure = None
 
+        if exp_fail is not None:
+            self.traffic_gen_expect_failure = True
         if hostname is not None:
             self.traffic_gen_cmd.append('-hostname')
             self.traffic_gen_cmd.append(hostname)
@@ -170,6 +178,8 @@ class RunTrafficGen(TestCase.FDSTestCase):
         if port is not None:
             self.traffic_gen_cmd.append('-port')
             self.traffic_gen_cmd.append(port)
+        if ret_fail is not None:
+            self.traffic_gen_return_failure = True
         if runtime is not None:
             self.traffic_gen_cmd.append('-runtime')
             self.traffic_gen_cmd.append(runtime)
@@ -218,8 +228,16 @@ class RunTrafficGen(TestCase.FDSTestCase):
 
         try:
             output = subprocess.check_output(self.traffic_gen_cmd)
+            if self.traffic_gen_expect_failure:
+                # Shouldn't be hitting this point
+                self.log.error('TrafficGen expects to hit I/O error, but I/O seems to be working.')
+                return False
         except subprocess.CalledProcessError:
-            self.log.info('TrafficGen returned non zero error code, but this was expected.')
+            if self.traffic_gen_return_failure:
+                self.log.error('TrafficGen returned non zero error code.')
+                return False
+            else:
+                self.log.info('TrafficGen returned non zero error code, but this was expected.')
         except OSError as e:
             self.log.error('TrafficGen didn\'t work! Something is very wrong: ' + e.message)
             return False
