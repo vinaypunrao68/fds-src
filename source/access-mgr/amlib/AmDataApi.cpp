@@ -297,6 +297,7 @@ AmDataApi::getBlob(std::string& _return,
                    boost::shared_ptr<std::string>& blobName,
                    boost::shared_ptr<int32_t>& length,
                    boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if ((true == testUturnAll) ||
         (true == testUturnGetBlob)) {
         LOGDEBUG << "Uturn testing get blob";
@@ -333,7 +334,10 @@ AmDataApi::getBlob(std::string& _return,
         throw fdsE;
     }
 
-    boost::shared_ptr<std::string> buf = getHandler->returnBuffer;
+    auto buf = empty_buffer;
+    if (getHandler->return_buffers) {
+        buf = getHandler->return_buffers->front();
+    }
     _return = buf->size() > getHandler->returnSize ?
         std::string(*buf, 0, getHandler->returnSize)
         : *buf;

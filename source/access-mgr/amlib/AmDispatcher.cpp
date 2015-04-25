@@ -613,7 +613,6 @@ void
 AmDispatcher::dispatchGetObject(AmRequest *amReq)
 {
     // The connectors expect some underlying string even for empty buffers
-    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     fiu_do_on("am.uturn.dispatcher",
               mockHandler_->schedule(mockTimeoutUs_,
                                      std::bind(&AmDispatcherMockCbs::getObjectCb, amReq)); \
@@ -630,7 +629,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // actually go (the entire read API and path should be improved).
     if (objId == NullObjectID) {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-        cb->returnBuffer = empty_buffer;
+        cb->return_buffers = nullptr;
         cb->returnSize = 0;
 
         amReq->proc_cb(ERR_OK);
@@ -679,7 +678,8 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
         LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
                  << " DLT version " << dltVersion;
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
-        cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
+        auto buffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
+        cb->return_buffers = boost::make_shared<std::vector<decltype(buffer)>>(1, std::move(buffer));
     } else {
         cb->returnSize = 0;
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
