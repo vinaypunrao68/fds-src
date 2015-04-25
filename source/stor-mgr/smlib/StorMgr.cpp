@@ -700,7 +700,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             // all volume information propagated when IO is enabled.  If the
             // volume is not found, then the object lookup should fail.
             if (NULL == smVol) {
-                err = fds::ERR_NOT_FOUND;
+                err = fds::ERR_VOL_NOT_FOUND;
                 break;
             }
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
@@ -708,12 +708,16 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             break;
             }
         case FDS_SM_PUT_OBJECT:
+            // Volume association resolution is handled in object store layer
+            // for putObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_ADD_OBJECT_REF:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_DELETE_OBJECT:
+            // Volume association resolution is handled in object store layer
+            // for deleteObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
