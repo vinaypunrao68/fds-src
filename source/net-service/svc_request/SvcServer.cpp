@@ -165,7 +165,7 @@ void SvcServer::serve_() {
 }
 
 void SvcServer::preServe() {
-    fds_assert(startWaiter_.getNumTasks() == 0);
+    fds_assert(startWaiter_.getNumTasks() == 1);
     startWaiter_.status = ERR_OK;
     startWaiter_.done();
 }
