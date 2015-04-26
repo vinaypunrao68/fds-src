@@ -442,10 +442,10 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
                     this->renewToken(vol_id);
                 });
 
-        err = this->volTable->registerVolume(volDesc, access_token);
+        err = volTable->registerVolume(volDesc, access_token);
         if (ERR_OK == err) {
             // Yay, success! Create caches
-            this->txMgr->registerVolume(volDesc);
+            txMgr->registerVolume(volDesc);
             auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
             if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
             {
@@ -456,7 +456,7 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
 
     if (ERR_OK != err) {
         LOGNOTIFY << "Failed to open volume, error: " << error;
-        this->txMgr->removeVolume(volDesc);
+        volTable->removeVolume(volDesc);
     }
 }
 
