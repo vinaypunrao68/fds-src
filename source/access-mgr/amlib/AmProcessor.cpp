@@ -793,7 +793,7 @@ AmProcessor_impl::getObject(AmRequest *amReq) {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
 
         cb->returnSize = std::min(amReq->data_len, objectData->size());
-        cb->returnBuffer = objectData;
+        cb->return_buffers = boost::make_shared<std::vector<boost::shared_ptr<std::string>>>(1, objectData);
 
         // Report results of GET request to requestor.
         respond_and_delete(amReq, err);
@@ -833,10 +833,10 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
     // Insert original Object into cache. Do not insert the truncated version
     // since we really do have all the data. This is done after response to
     // reduce latency.
-    if (ERR_OK == error && cb->returnBuffer) {
+    if (ERR_OK == error && cb->return_buffers) {
         txMgr->putObject(amReq->io_vol_id,
                            amReq->obj_id,
-                           cb->returnBuffer);
+                           cb->return_buffers->front());
         if (!blobReq->oid_cached) {
             txMgr->putOffset(amReq->io_vol_id,
                                BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),

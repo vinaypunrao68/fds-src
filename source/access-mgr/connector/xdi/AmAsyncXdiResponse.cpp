@@ -309,8 +309,9 @@ AmAsyncXdiResponse::getVolumeMetadataResp(const Error &error,
 void
 AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 boost::shared_ptr<apis::RequestId>& requestId,
-                                boost::shared_ptr<std::string> buf,
+                                const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                                 fds_uint32_t& length) {
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
             boost::make_shared<fpi::ErrorCode>());
@@ -320,8 +321,11 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
-        buf = buf->size() > length ? boost::make_shared<std::string>(*buf, 0, length)
-            : buf;
+        auto buf = empty_buffer;
+        if (bufs) {
+            buf = bufs->front()->size() > length ? boost::make_shared<std::string>(*bufs->front(), 0, length)
+                : bufs->front();
+        }
         XDICLIENTCALL(getBlobResponse(requestId, buf));
     }
 }
@@ -329,9 +333,10 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
 void
 AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<apis::RequestId>& requestId,
-                                        boost::shared_ptr<std::string> buf,
+                                        const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                                         fds_uint32_t& length,
                                         boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
             boost::make_shared<fpi::ErrorCode>());
@@ -341,8 +346,11 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
-        buf = buf->size() > length ? boost::make_shared<std::string>(*buf, 0, length)
-            : buf;
+        auto buf = empty_buffer;
+        if (bufs) {
+            buf = bufs->front()->size() > length ? boost::make_shared<std::string>(*bufs->front(), 0, length)
+                : bufs->front();
+        }
         XDICLIENTCALL(getBlobWithMetaResponse(requestId, buf, blobDesc));
     }
 }
