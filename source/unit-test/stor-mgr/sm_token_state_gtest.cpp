@@ -45,7 +45,10 @@ TEST(SmTokenState, initialize) {
 
         // initialize table
         TokenDescTable tokTbl;
-        tokTbl.initializeSmTokens(toks);
+        fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(toks);
+        if (toks.size() > 0) {
+            EXPECT_TRUE(initAtLeastOneToken);
+        }
         GLOGNORMAL << "Run " << run << ": Initial token desc table - " << tokTbl;
         for (SmTokenSet::const_iterator cit = toks.cbegin();
              cit != toks.cend();
@@ -66,7 +69,8 @@ TEST(SmTokenState, update) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    EXPECT_TRUE(initAtLeastOneToken);
 
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
@@ -90,11 +94,13 @@ TEST(SmTokenState, comparison) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    EXPECT_TRUE(initAtLeastOneToken);
     GLOGNORMAL << "Initial computation - " << tokTbl;
 
     TokenDescTable tokTbl2;
-    tokTbl2.initializeSmTokens(tokSet);
+    initAtLeastOneToken = tokTbl2.initializeSmTokens(tokSet);
+    EXPECT_TRUE(initAtLeastOneToken);
     GLOGNORMAL << "Initial computation 2 - " << tokTbl;
     EXPECT_TRUE(tokTbl == tokTbl2);
 
@@ -118,7 +124,12 @@ TEST(SmTokenState, invalidate) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    EXPECT_TRUE(initAtLeastOneToken);
+
+    // if we call initialize second time, should not make any difference
+    initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    EXPECT_FALSE(initAtLeastOneToken);
 
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
@@ -135,11 +146,17 @@ TEST(SmTokenState, invalidate) {
                << tokTbl;
 
     // invalidate every token
-    tokTbl.invalidateSmTokens(tokSet);
+    SmTokenSet invalidatedToks = tokTbl.invalidateSmTokens(tokSet);
+    // all tokens that we invalidated must have been valid before
+    EXPECT_EQ(invalidatedToks.size(), tokSet.size());
 
     // there must be no valid tokens
     SmTokenSet curTokSet = tokTbl.getSmTokens();
     EXPECT_EQ(curTokSet.size(), 0);
+
+    // invalidate every token again -- should be a noop
+    SmTokenSet moreInvalidatedToks = tokTbl.invalidateSmTokens(tokSet);
+    EXPECT_EQ(moreInvalidatedToks.size(), 0);
 
     // check file IDs are also invalid
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
@@ -150,6 +167,36 @@ TEST(SmTokenState, invalidate) {
         fid = tokTbl.getWriteFileId(*cit, diskio::diskTier);
         EXPECT_EQ(fid, SM_INVALID_FILE_ID);
     }
+}
+
+TEST(SmTokenState, check_state) {
+    SmTokenSet tokSet;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; tok += 4) {
+        tokSet.insert(tok);
+    }
+    TokenDescTable tokTbl;
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    EXPECT_TRUE(initAtLeastOneToken);
+
+    // if we compare to tokSet again, state should match exactly
+    Error err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err.ok());
+
+    // add one more token to tokSet -- check should return error
+    tokSet.insert(1);
+    err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err == ERR_SM_SUPERBLOCK_INCONSISTENT);
+
+    // remove the token we just added, everything should be ok
+    tokSet.erase(1);
+    err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err.ok());
+
+    // remove one token from set, should return a warning kind of
+    // error that we lost tokens
+    tokSet.erase(4);
+    err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err == ERR_SM_NOERR_LOST_SM_TOKENS);
 }
 
 }  // namespace fds

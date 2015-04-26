@@ -20,6 +20,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_token_id smTokId,
                                      fds_uint64_t executorID,
                                      fds_uint64_t targetDltVer,
+                                     bool resync,
                                      MigrationExecutorDoneHandler doneHandler)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
@@ -27,7 +28,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           bitsPerDltToken(bitsPerToken),
           smTokenId(smTokId),
           sourceSmUuid(srcSmId),
-          targetDltVersion(targetDltVer)
+          targetDltVersion(targetDltVer),
+          forResync(resync)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
@@ -45,6 +47,11 @@ MigrationExecutor::addDltToken(fds_token_id dltTok) {
     dltTokens.insert(dltTok);
 }
 
+fds_bool_t
+MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
+    return (dltTokens.count(dltTok) > 0);
+}
+
 // DO NOT release snapshot here, becuase it maybe passed to other
 // migration executors
 Error
@@ -55,6 +62,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     ObjMetaData omd;
 
     MigrationExecutorState expectState = ME_INIT;
+    MigrationExecutorState nextState = ME_INIT;
     if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_REBALANCE_START)) {
         LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
         return ERR_NOT_READY;
@@ -81,6 +89,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
+        msg->forResync = forResync;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << dltTok << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
@@ -114,10 +123,6 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         fpi::CtrlObjectMetaDataSync omdFilter;
         omd.syncObjectMetaData(omdFilter);
 
-
-        /* TODO(Sean):  We should add to filter object set if the ref cnt is positive (???)
-         *              Are there other checks before adding to the filter set?
-         */
         if (omdFilter.objRefCnt > 0) {
             LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                        << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
@@ -129,27 +134,31 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     }
     delete it;
 
-    if (objAddedToFilterSet) {
-        LOGCRITICAL << "UNSUPPORTED CONFIGURATION: "
-                    << "Executor " << std::hex << executorId << std::dec
-                    << " added at least on objet to the filter set.";
-    }
-
     // before sending rebalance msgs to source SM, move to next state, in case we
     // receive responses before finish sending all the messages...
     // we sent all the messages, go to next state
     expectState = ME_FIRST_PHASE_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_APPLYING_DELTA)) {
+    if (forResync) {
+        nextState = ME_SECOND_PHASE_APPLYING_DELTA;
+    } else {
+        nextState = ME_FIRST_PHASE_APPLYING_DELTA;
+    }
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, nextState)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
                  << ": Unexpected migration executor state";
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " ME_FIRST_PHASE_REBALANCE_START --> ME_FIRST_PHASE_APPLYING_DELTA state";
+               << " ME_FIRST_PHASE_REBALANCE_START --> " << nextState;
 
     // send rebalance set of objects to source SM
-    for (auto tok : dltTokens) {
+    // since we may start receiving responses with declines, we may change
+    // dltTokens (remove tokens that we are resyncing). So work on copy
+    // of token set, in case dltTokens start changing...
+    std::set<fds_token_id> dltTokensCopy;
+    dltTokensCopy.insert(dltTokens.begin(), dltTokens.end());
+    for (auto tok : dltTokensCopy) {
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << " sending rebalance initial set for DLT token "
                    << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
@@ -161,9 +170,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                 asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
                 asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                    MigrationExecutor::objectRebalanceFilterSetResp));
+                    MigrationExecutor::objectRebalanceFilterSetResp, tok));
                 asyncRebalSetReq->setTimeoutMs(5000);
-                // we are not waiting for response, so not setting a callback
                 asyncRebalSetReq->invoke();
             }
             /* TODO(Gurpreet): We should handle the exception and propogate the error to
@@ -171,7 +179,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
              */
             catch (...) {
                 LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
-                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+                           << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             }
         }
     }
@@ -183,15 +191,34 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 }
 
 void
-MigrationExecutor::objectRebalanceFilterSetResp(EPSvcRequest* req,
+MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
+                                                EPSvcRequest* req,
                                                 const Error& error,
                                                 boost::shared_ptr<std::string> payload)
 {
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
-             << std::hex << executorId << std::dec << " " << error;
+             << std::hex << executorId << std::dec << " DLT token " << dltToken
+             << " " << error;
+
     // here we just check for errors
     if (!error.ok()) {
-        LOGERROR << "CtrlObjectRebalanceFilterSet response " << error;
+        if (error == ERR_SM_RESYNC_SOURCE_DECLINE) {
+            // SM declined to be a source for DLT token
+            LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
+                       << " ; ok will stop resync for this dlt token, executor "
+                       << std::hex << executorId << std::dec;
+            dltTokens.erase(dltToken);
+            if (dltTokens.size() == 0) {
+                // resync was declined for all DLT tokens of this executor, we are done
+                LOGMIGRATE << "Resync was declined for all DLT tokens for executor "
+                           << std::hex << executorId << std::dec;
+                handleMigrationRoundDone(ERR_OK);
+            }
+        } else {
+            LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
+                     << " executor " << std::hex << executorId << std::dec
+                     << " response " << error;
+        }
     }
 }
 
@@ -205,7 +232,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                (curState == ME_SECOND_PHASE_APPLYING_DELTA));
 
     LOGMIGRATE << "Sync Delta Object Set: " << deltaSet->objectToPropagate.size()
-               << " objects, executor ID=" << deltaSet->executorID
+               << " objects, executor ID=" << std::hex << deltaSet->executorID << std::dec
                << " seqNum=" << deltaSet->seqNum
                << " lastSet=" << deltaSet->lastDeltaSet
                << " first rebalance round=" << (curState == ME_FIRST_PHASE_APPLYING_DELTA);
@@ -385,6 +412,11 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                 // must be a bug somewhere...
                 fds_panic("Unexpected migration executor state!");
             }
+            // we finished second phase of migration. If this is resync after restart
+            // send finish client resync message to the source.
+            if (forResync) {
+                sendFinishResyncToClient();
+            }
         } else {
             firstRoundFinished = true;
             // we just finished first round and started second round
@@ -395,16 +427,63 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         // this executor
         MigrationExecutorState newState = ME_ERROR;
         std::atomic_store(&state, newState);
+
+        if (forResync) {
+            // in case the source started forwarding, we don't want it to continue
+            // on error; so just send stop client resync message to source SM so
+            // it can cleanup and stop forwarding
+            sendFinishResyncToClient();
+        }
     }
 
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
-               << " firstRound? " << firstRoundFinished;
+               << " firstRound? " << firstRoundFinished
+               << " isResync? " << forResync;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
         migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
+    }
+}
+
+void
+MigrationExecutor::sendFinishResyncToClient() {
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " sending finish resync msg to Client";
+
+    // send message to source SM to finish resync for this executor
+    if (!testMode) {
+        fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
+        msg->executorID = executorId;
+
+        auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
+        asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::finishResyncResp));
+        asyncFinishClientReq->setTimeoutMs(5000);
+        asyncFinishClientReq->invoke();
+    } else {
+        LOGMIGRATE << "TESTMODE: pretending sent finish resync message to client, executor ID "
+                   << std::hex << executorId << std::dec;
+    }
+}
+
+void
+MigrationExecutor::finishResyncResp(EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    LOGMIGRATE << "Received finish resync response from client for executor "
+               << std::hex << executorId << std::dec << " " << error;
+
+    // here we just print an error if that happened... but nothing
+    // we can do on destination since we already either finished sync or
+    // aborted with error
+    if (!error.ok()) {
+        LOGWARN << "Received error for finish resync from client " << error
+                << ", not changing any state, source should be able to deal with it";
     }
 }
 

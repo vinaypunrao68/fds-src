@@ -346,11 +346,20 @@ Error ObjectStorMgr::handleDltUpdate() {
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
+    if (err == ERR_SM_NOERR_NEED_RESYNC) {
+        LOGNORMAL << "SM received first DLT after restart, which matched "
+                  << "its persistent state, will start full resync of DLT tokens";
 
-    if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        LOGDEBUG << "Received DLT update that has removed this node.";
-        // TODO(brian): Not sure if this is where we should kill scavenger or not
+        // Start the resync process
+        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
+            err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                        objStorMgr->getUuid(),
+                                                        curDlt->getNumBitsForToken());
+        }
+        // for now pretend we successfully started resync, return success
+        err = ERR_OK;
     }
+
     return err;
 }
 
@@ -858,7 +867,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     LOGMIGRATE << "Filling DeltaSet:"
                << " destinationSmId " << readDeltaSetReq->destinationSmId
-               << " executorID=" << readDeltaSetReq->executorId
+               << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
                << " seqNum=" << readDeltaSetReq->seqNum
                << " lastSet=" << readDeltaSetReq->lastSet
                << " delta set size=" << readDeltaSetReq->deltaSet.size();

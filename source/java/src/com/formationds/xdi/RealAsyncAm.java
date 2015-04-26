@@ -5,12 +5,14 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
+import com.formationds.util.Retry;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
+import org.joda.time.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -26,7 +28,7 @@ public class RealAsyncAm implements AsyncAm {
     private AsyncRequestStatistics statistics;
 
     public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port) throws Exception {
-        this(oneWayAm, port, 2, TimeUnit.SECONDS);
+        this(oneWayAm, port, 30, TimeUnit.SECONDS);
     }
 
     public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
@@ -57,7 +59,10 @@ public class RealAsyncAm implements AsyncAm {
             responseListener.start();
 
             if (connectedMode) {
-                handshake(port).get();
+                new Retry<Void, Void>((x, i) ->
+                        handshake(port).get(),
+                        120, Duration.standardSeconds(1), "async handshake with bare_am")
+                        .apply(null);
                 LOG.info("Async AM handshake done");
             }
 

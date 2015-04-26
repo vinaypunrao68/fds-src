@@ -92,14 +92,10 @@ NbdConnection::NbdConnection(int clientsd,
           total_blocks(0ull),
           write_offset(-1ll),
           readyResponses(4000),
-          current_response(nullptr) {
+          current_response(nullptr)
+{
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
-    if (config.get_abs<bool>("fds.am.connector.nbd.non_block_io", true)) {
-        fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
-    } else {
-        LOGNOTIFY << "Nbd IO in blocking mode.";
-    }
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
@@ -166,7 +162,7 @@ NbdConnection::write_response() {
                 throw NbdError::connection_closed;
             }
         } else {
-            LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+            // Didn't write all the data yet, update offset
             write_offset += nwritten;
         }
         return false;
@@ -560,8 +556,12 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
                 throw NbdError::shutdown_requested;
         }
+    } else if (0 == nread) {
+        // Orderly shutdown of the TCP connection
+        LOGNORMAL << "Client disconnected.";
+        throw NbdError::connection_closed;
     } else if (nread < len) {
-        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << len << "]";
+        // Only received some of the data so far
         off += nread;
         return false;
     }

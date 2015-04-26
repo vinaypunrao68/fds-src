@@ -54,6 +54,11 @@ ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
     return metaDb_->openMetadataDb(diskMap);
 }
 
+Error
+ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
+    return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
+}
+
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
@@ -62,7 +67,7 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
     ObjMetaData::const_ptr objMeta
             = metaCache->getObjectMetadata(volId, objId, err);
     if (err.ok()) {
-        PerfTracer::incr(SM_OBJ_METADATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_OBJ_METADATA_CACHE_HIT, volId);
         LOGDEBUG << "Got " << objId << " metadata from cache";
         return objMeta;
     }

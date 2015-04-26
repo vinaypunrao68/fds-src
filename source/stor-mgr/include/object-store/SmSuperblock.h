@@ -224,6 +224,7 @@ struct SmSuperblock {
     /* POD data definitions.  Collection of superblock header and data.
      */
     SmSuperblockHeader Header;
+    fds_uint64_t DLTVersion;
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
 
@@ -254,33 +255,50 @@ class SmSuperblockMgr {
     typedef std::unique_ptr<SmSuperblockMgr> unique_ptr;
 
     /**
-     * This is called when SM comes up and receives its first
-     * DLT. This method tries to read superblock. If SM comes from
+     * This is called on ObjectStore module bringup when SM
+     * registers with OM.
+     * This method tries to read superblock. If SM comes from
      * clean state, it will populate SM token to disk mappings and
      * state of SM tokens that this SM owns; If there is already a
      * superblock, the method currently validates it and compares
-     * that its content matches existing disks and SM tokens
+     * that its content matches existing disks
      * @param[in] hddIds set of disk ids of HDD devices
      * @param[in] ssdIds set of disk ids of SSD devices
      * @param[in] diskMap map of disk id to root path
-     * @param[in] smTokensOwned set of SM token ids that this SM owns
-     * smTokensOwned can be modified by the method.
-     * TODO(Anna) we will probably change smTokensOwned parameter to
-     * something like a map of sm token to token state
      * @return ERR_OK if superblock of loaded successfully or if we
      * came from clean state and successfully persistent the superblock
      * Otherwise returns an error.
      */
     Error loadSuperblock(const DiskIdSet& hddIds,
                          const DiskIdSet& ssdIds,
-                         const DiskLocMap & latestDiskMap,
-                         SmTokenSet& smTokensOwned);
+                         const DiskLocMap & latestDiskMap);
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
     /* Reconcile superblocks, is there is inconsistency.
      */
     Error reconcileSuperblock();
+
+    /**
+     * Called when DLT update is received with current list of SM tokens
+     * that this SM owns. This method finds SM tokens that are in the list
+     * but was not previously owned, and updates TokenState to valid
+     * Also updates DLT version
+     * @return ERR_SM_NOERR_GAINED_SM_TOKENS if SM gained ownership of
+     * new SM tokens; ERR_SM_NOERR_GAINED_SM_TOKENS if dltVersion matches
+     * the version saved in superblock, but tokens that are not in smTokensOwned
+     * are marked valid in superblock; ERR_OK if success
+     */
+    Error updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
+                                    fds_uint64_t dltVersion);
+
+    /**
+     * Called on DLT close received from OM with the list of SM tokens
+     * that this SM does not own.
+     * @return set of tokens for which SM lost ownership
+     */
+    SmTokenSet handleRemovedSmTokens(SmTokenSet& smTokensNotOwned,
+                                     fds_uint64_t dltVersion);
 
     /**
      * Get disk ID where given SM token resides on a given tier
@@ -308,9 +326,16 @@ class SmSuperblockMgr {
     /* Set of interfaces for unit testing */
     std::string SmSuperblockMgrTestGetFileName();
 
+    /**
+     * Get the latest committed DLT version.
+     */
+    fds_uint64_t getDLTVersion();
+
     // So we can print class members for logging
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmSuperblockMgr& sbMgr);
+
+    friend class SmSuperblockTestDriver;
 
   private:  // methods
     std::string
@@ -328,6 +353,10 @@ class SmSuperblockMgr {
     DiskIdSet
     diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
 
+    /**
+     * Set the latest committed DLT version.
+     */
+    Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
 
   private:
     /// Master superblock. The master copy will persist
@@ -337,6 +366,9 @@ class SmSuperblockMgr {
     /// serialized by the caller. We will most likely refactor this
     /// pretty soon
     fds_rwlock sbLock;
+
+    /// this is used for extra checks only
+    fds_bool_t noDltReceived;
 
     /// set of disks.
     DiskLocMap diskMap;

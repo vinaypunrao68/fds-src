@@ -20,6 +20,7 @@ import ssh
 import sys
 import file_generator
 import shutil
+import unittest
 
 import pdb
 
@@ -52,7 +53,7 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 	self.sample_files = {}
 	utils.create_dir(config.DOWNLOAD_DIR)
 
-
+    @unittest.expectedFailure
     def runTest(self):
 	'''
 	This method starts the test

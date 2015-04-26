@@ -50,6 +50,9 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
             case fpi::ResourceState::Deleted:
                 LOGDEBUG << "snapshot already deleted : " << snapshot.snapshotName;
                 break;
+            case fpi::ResourceState::InError:
+                LOGWARN << "snapshot in Error : " << snapshot.snapshotName;
+                break;
             case fpi::ResourceState::Offline:
             case fpi::ResourceState::Created:
             case fpi::ResourceState::Active:

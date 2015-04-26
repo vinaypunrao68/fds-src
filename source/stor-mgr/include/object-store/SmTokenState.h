@@ -79,14 +79,29 @@ struct TokenDescTable {
     /**
      * Initialize given set of tokens as "valid"
      * If a token already valid, does not do anything
+     * @return true if at least one token was initialized to "valid"
+     *         false if all given tokes were already valid
      */
-    void initializeSmTokens(const SmTokenSet& smToksValid);
+    fds_bool_t initializeSmTokens(const SmTokenSet& smToksValid);
 
     /**
      * Resets given set of tokens into "invalid" state
      * This will cause given set of SM tokens to lose GC info
+     * @return set of tokens that were invalidated and that were
+     * valid before they were invalidated
      */
-    void invalidateSmTokens(const SmTokenSet& smToksInvalid);
+    SmTokenSet invalidateSmTokens(const SmTokenSet& smToksInvalid);
+
+    /**
+     * Checks if all tokens that are in given set are marked 'valid'
+     * and tokens that are not in the given set are marked 'invalid'
+     * @param[in] set of tokens owned by this SM
+     * @return ERR_OK if smTokensOwned exactly match token state;
+     * ERR_SM_SUPERBLOCK_INCONSISTENT if at least one token in smTokensOwned
+     * set is marked 'invalid'; ERR_SM_NOERR_LOST_SM_TOKENS if at least
+     * one SM token marked 'valid' that is not in smTokensOwned set
+     */
+    Error checkSmTokens(const SmTokenSet& smTokensOwned);
 
     /**
      * Sets write file id for a given sm token id and tier
@@ -105,6 +120,11 @@ struct TokenDescTable {
                             fds_bool_t inProgress);
     fds_bool_t isCompactionInProgress(fds_token_id smToken,
                                       diskio::DataTier tier) const;
+
+    /**
+     * Checks whether token is valid on at least one tier
+     */
+    fds_bool_t isValidOnAnyTier(fds_token_id smToken) const;
 
     /**
      * Get a set of SM tokens that reside on this SM

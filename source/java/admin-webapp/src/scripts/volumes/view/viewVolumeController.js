@@ -31,7 +31,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.performanceColors = [ '#489AE1', '#4857C4', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
-    $scope.dedupLabel = '';
+    $scope.logicalLabel = '';
     $scope.physicalLabel = '';
     $scope.getLabel = '';
     $scope.ssdGetLabel = '';
@@ -179,8 +179,23 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
         
-        $scope.dedupLabel = getCapacityLegendText( $scope.capacityStats.series[0], 'volumes.view.desc_dedup_suffix' );
-        $scope.physicalLabel = getCapacityLegendText( $scope.capacityStats.series[1], 'volumes.view.desc_logical_suffix' );
+        lbyteSeries = {};
+        pbyteSeries = {};
+        
+        for ( var i = 0; i < $scope.capacityStats.series.length; i++ ){
+            
+            series = $scope.capacityStats.series[i];
+            
+            if ( series.type == 'PBYTES' ){
+                pbyteSeries = series;
+            }
+            else if ( series.type == 'LBYTES' ){
+                lbyteSeries = series;
+            }
+        }
+        
+        $scope.physicalLabel = getCapacityLegendText( pbyteSeries, 'volumes.view.desc_dedup_suffix' );
+        $scope.logicalLabel = getCapacityLegendText( lbyteSeries, 'volumes.view.desc_logical_suffix' );
         
         var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
         parts = parts.split( ' ' );

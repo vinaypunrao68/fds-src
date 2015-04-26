@@ -10,8 +10,6 @@ import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
@@ -148,8 +146,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         });
     }
 
-    void startStatStreamRegistrationHandler() {
-        this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this );
+    void startStatStreamRegistrationHandler( final String urlHostname, final int urlPortNo) {
+        this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
         this.statStreamRegistrationHandler.start();
     }
 

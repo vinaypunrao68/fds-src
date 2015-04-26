@@ -107,7 +107,7 @@ void AmVolumeTable::registerCallback(tx_callback_type cb) {
 
 /*
  * Creates volume if it has not been created yet
- * Does nothing if volume is already registered
+ * Does nothing if volume is already registered, call is idempotent
  */
 Error
 AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
@@ -119,10 +119,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
     {
         WriteGuard wg(map_rwlock);
         auto it = volume_map.find(vol_uuid);
-        if (volume_map.end() != it) {
-            /** Update existing access token */
-            it->second->swapToken(access_token);
-        } else {
+        if (volume_map.end() == it) {
             /** Create queue and register with QoS */
             FDS_VolumeQueue* queue {nullptr};
             if (vdesc.isSnapshot()) {

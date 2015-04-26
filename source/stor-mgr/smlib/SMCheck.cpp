@@ -6,20 +6,12 @@
 #include <unistd.h>
 #include <fds_assert.h>
 #include <fds_process.h>
-#include "platform/platform_consts.h"
 #include "platform/platform.h"
 
-#include <dlt.h>
 #include <ObjectId.h>
 #include <StorMgr.h>
-#include <object-store/SmDiskMap.h>
-#include <object-store/ObjectMetaDb.h>
-#include <object-store/ObjectMetadataStore.h>
-#include <object-store/ObjectStore.h>
-#include <vector>
-#include <string>
 #include <boost/program_options.hpp>
-#include <persistent-layer/dm_io.h>
+#include <net/SvcMgr.h>
 
 
 #include <SMCheck.h>
@@ -68,8 +60,13 @@ SMCheckOffline::SMCheckOffline(SmDiskMap::ptr smDiskMap,
         std::cout << "DLT Table:" << std::endl << *curDLT << std::endl;
     }
 
-    Error err = smDiskMap->handleNewDlt(curDLT, smUuid);
+    Error err = smDiskMap->loadPersistentState();
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+
+    Error dltErr = smDiskMap->handleNewDlt(curDLT, smUuid);
+    fds_verify(dltErr.ok() ||
+               (dltErr == ERR_SM_NOERR_GAINED_SM_TOKENS) ||
+               (dltErr == ERR_SM_NOERR_NEED_RESYNC));
 
     // Open the data store
     smObjStore->openDataStore(smDiskMap,
@@ -370,7 +367,6 @@ SMCheckOnline::SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap)
 
 {
     SMChkActive = ATOMIC_VAR_INIT(false);
-
     resetStats();
 
     snapRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
@@ -448,7 +444,7 @@ SMCheckOnline::startIntegrityCheck()
     SMCheckUuid = objStorMgr->getUuid();
 #endif
     // Get UUID of the SM.
-    SMCheckUuid = *(Platform::plf_get_my_svc_uuid());
+    SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
     LOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
 

@@ -126,7 +126,6 @@ class SMCheckOnline {
 
 
   private:
-
     // A simple boolean to indicate state of the checker.
     // If we ever got to multiple requests, this can be converted to
     // a atomic counter, where is count represents number of outstanding

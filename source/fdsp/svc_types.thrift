@@ -90,6 +90,8 @@ enum  FDSPMsgTypeId {
   CtrlNotifySMAbortMigrationTypeId          = 2065;
   CtrlGetSecondRebalanceDeltaSetTypeId      = 2066;
   CtrlGetSecondRebalanceDeltaSetRspTypeId   = 2067;
+  CtrlFinishClientTokenResyncMsgTypeId      = 2068;
+  CtrlFinishClientTokenResyncRspMsgTypeId   = 2069;
 
   /** DM messages. */
   CtrlNotifyDMTCloseTypeId                  = 2081;
@@ -169,6 +171,8 @@ enum  FDSPMsgTypeId {
   OpenVolumeRspMsgTypeId;
   CloseVolumeMsgTypeId;
   CloseVolumeRspMsgTypeId;
+  ReloadVolumeMsgTypeId;
+  ReloadVolumeRspMsgTypeId;
 }
 
 /**

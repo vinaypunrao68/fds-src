@@ -24,7 +24,7 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
-	    volume_open_support = false
+	    volume_open_support = true
         }
         plat: {
 
@@ -47,6 +47,7 @@ fds: {
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
 
+{# This block should be reinstated when FS-1697 is resolved ...
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
@@ -55,6 +56,8 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
+#}
+	om_ip_list = "{{ om_ip }}"
 	om_port = 7004
 	om_uuid = 1028
 
@@ -363,6 +366,9 @@ fds: {
 
             /* boolean to enable/disable SM token migration feature */
             enable_feature = true
+
+            /* boolean to enable/disable SM resync feature */
+            enable_resync = false
         }
 	tiering: {
 	    hybrid: {
@@ -396,6 +402,7 @@ fds: {
                 worker_thread_cnt = 2
             }
             timeout: {
+		io_message = {{ am_svc_io_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
@@ -441,7 +448,11 @@ fds: {
         connector: {
             nbd: {
                 server_port_offset=3809
-                non_block_io=true
+                options: {
+                    /* Time (seconds) to retry connection to client before disconnect */
+                    keep_alive=30
+                    non_block_io=true
+                }
             }
         }
 
@@ -452,8 +463,8 @@ fds: {
             use_lftp = true
         }
         cache: {
-            /* Default max data entries in a volume's AM cache */
-            max_data_entries =  {{ am_cache_max_data_entries }}
+            /* Default max data size in MiB per volume */
+            max_volume_data =  {{ am_cache_max_volume_data }}
             /* Default max entries in a volume's AM cache */
             max_metadata_entries =  {{ am_cache_max_metadata_entries }}
             /* Default max staged entries in a volume's tx descriptor */
@@ -560,6 +571,7 @@ fds: {
             targetip = "{{ snmp_targetip }}"
             community = "{{ snmp_community }}"
         }
+        prevent_adding_dm_after_startup = true
     }
 
     checker: {
@@ -587,6 +599,13 @@ fds: {
 
     xdi: {
         am_host = "{{ am_host }}"
+    }
+
+    test: {
+	testing: {
+            /* Toggle stand alone mode */
+            standalone = true 
+	}
     }
 }
 {% endblock %}

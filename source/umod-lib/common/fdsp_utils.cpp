@@ -74,10 +74,10 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 {
     std::ostringstream oss;
     oss << " Req Id: " << static_cast<SvcRequestId>(header.msg_src_id)
-        << " Type: " << header.msg_type_id
+        << " Type: " << fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.at(header.msg_type_id)
         << std::hex
-        << " From: " << header.msg_src_uuid.svc_uuid
-        << " To: " << header.msg_dst_uuid.svc_uuid
+        << " From: " << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
+        << " To: " << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
         << std::dec
         << " error: " << header.msg_code;
     return oss.str();
@@ -125,6 +125,12 @@ std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg &closeVol)
 {
     std::ostringstream oss;
     oss << " CloseVolumeMsg Vol Id: " << closeVol.volume_id;
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg & vol) {
+    std::ostringstream oss;
+    oss << " ReloadVolumeMsg Vol Id: " << vol.volume_id;
     return oss.str();
 }
 

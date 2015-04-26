@@ -9,6 +9,7 @@
 #include <fds_process.h>
 #include <fds_module.h>
 #include <util/timeutils.h>
+#include <util/path.h>
 
 #include <dm-vol-cat/DmPersistVolDB.h>
 
@@ -54,6 +55,14 @@ Error DmPersistVolDB::activate() {
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     }
 
+    bool fAlreadyExists = util::dirExists(catName);
+    if (clone_ || snapshot_) {
+        if (!fAlreadyExists) {
+            LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
+            return ERR_OK;
+        }
+    }
+
     LOGNOTIFY << "Activating '" << catName << "'";
     FdsRootDir::fds_mkdir(catName.c_str());
 
@@ -80,6 +89,10 @@ Error DmPersistVolDB::activate() {
     {
         LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
         LOGERROR << e.what();
+        if (fAlreadyExists) {
+            LOGERROR << "unable to load existing vol:" << volId_ << " ...not activating";
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
         return ERR_NOT_READY;
     }
 
