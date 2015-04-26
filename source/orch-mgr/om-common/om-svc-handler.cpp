@@ -89,7 +89,7 @@ void OmSvcHandler::init_svc_event_handlers() {
                LOGERROR << std::hex << svc << " saw too many " << std::dec << error
                         << " events [" << events << "]";
 
-               agent->set_node_state(FDS_Node_Down);
+               agent->set_node_state(fpi::FDS_Node_Down);
                domain->om_service_down(error, svc, agent->om_agent_type());
 
            } else {

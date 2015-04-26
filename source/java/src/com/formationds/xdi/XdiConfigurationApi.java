@@ -267,6 +267,12 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public List<FDSP_VolumeDescType> ListVolumes(int ignore)
+            throws ApiException, TException {
+        return config.ListVolumes(ignore);
+    }
+
+    @Override
     public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds)
             throws TException {
         return config.registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
@@ -458,9 +464,21 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public int ActivateNode(com.formationds.apis.FDSP_ActivateOneNodeType act_serv_req)
+            throws TException {
+        return config.ActivateNode(act_serv_req);
+    }
+
+    @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
             throws TException {
         return config.listLocalDomainServices(domainName);
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(int ignore)
+            throws TException {
+        return config.ListServices(ignore);
     }
 
     @Override

@@ -11,7 +11,6 @@
 #include <lib/Catalog.h>
 #include <map>
 #include <util/Log.h>
-#include <NetSession.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
@@ -27,8 +26,6 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     : conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
-      omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
       deleteScheduler(this),
       enableSnapshotSchedule(true)
 {
@@ -67,7 +64,6 @@ OrchMgr::~OrchMgr()
 {
     LOGNORMAL << "Destructing the Orchestration  Manager";
 
-    cfg_session_tbl->endAllSessions();
     cfgserver_thread->join();
 
     if (policy_mgr) {
@@ -139,43 +135,6 @@ void OrchMgr::proc_pre_startup()
 
     defaultS3BucketPolicy();
 
-    /*
-     * Setup server session to listen to OMControl path messages from
-     * DM, SM, and SH
-     */
-    omcp_session_tbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(my_node_name,
-                          netSession::ipString2Addr(ip_address),
-                          control_portnum,
-                          10,
-                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
-
-    omc_server_session = omcp_session_tbl->\
-            createServerSession<netOMControlPathServerSession>(
-                netSession::ipString2Addr(ip_address),
-                control_portnum,
-                my_node_name,
-                FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-                omcp_req_handler);
-
-    /*
-     * Setup server session to listen to config path messages from fdscli
-     */
-    cfg_session_tbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(my_node_name,
-                          netSession::ipString2Addr(ip_address),
-                          config_portnum,
-                          10,
-                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
-
-    cfg_server_session = cfg_session_tbl->\
-            createServerSession<netConfigPathServerSession>(
-                netSession::ipString2Addr(ip_address),
-                config_portnum,
-                my_node_name,
-                FDS_ProtocolInterface::FDSP_CLI_MGR,
-                cfg_req_handler);
-
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
 }
 
@@ -216,17 +175,11 @@ int OrchMgr::run()
     // run server to listen for OMControl messages from
     // SM, DM and SH
     runConfigService(this);
-    if (omc_server_session) {
-        omcp_session_tbl->listenServer(omc_server_session);
-    }
     return 0;
 }
 
 void OrchMgr::start_cfgpath_server()
 {
-    if (cfg_server_session) {
-        cfg_session_tbl->listenServer(cfg_server_session);
-    }
 }
 
 void OrchMgr::interrupt_cb(int signum)
@@ -234,7 +187,6 @@ void OrchMgr::interrupt_cb(int signum)
     LOGNORMAL << "OrchMgr: Shutting down communicator";
 
     omcp_session_tbl.reset();
-    cfg_session_tbl.reset();
     exit(0);
 }
 

@@ -7,7 +7,6 @@
 
 #include <boost/program_options.hpp>
 #include <fds_module.h>
-#include <fdsp/FDSP_ConfigPathReq.h>
 
 namespace fdp = FDS_ProtocolInterface;
 
@@ -22,14 +21,8 @@ class CliComponent
     virtual int  cli_init_connection();
     virtual bool cli_exec_cmdline(fds::SysParams const *const param) = 0;
 
-    void setCliClient(
-        boost::shared_ptr<fdp::FDSP_ConfigPathReqClient> clnt) {
-        cli_client = clnt;
-    }
-
   protected:
     char const *const           cli_comp;
-    boost::shared_ptr<fdp::FDSP_ConfigPathReqClient> cli_client;
 
     int cli_init_thrift_connection(int port);
 };
@@ -61,11 +54,6 @@ class OrchCliModule : public Module
   public:
     OrchCliModule(char const *const name);
     ~OrchCliModule() {}
-
-    void setCliClient(
-        boost::shared_ptr<fdp::FDSP_ConfigPathReqClient> clnt) {
-        vol_policy.setCliClient(clnt);
-    }
 
     virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup();

@@ -3,7 +3,6 @@
  */
 
 #include <stdio.h>
-#include <orchMgr.h>
 #include <string>
 #include <OmResources.h>
 

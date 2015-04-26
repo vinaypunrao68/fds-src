@@ -5,7 +5,6 @@
 #include <vector>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
-#include <NetSession.h>
 #include <OmVolume.h>
 #include <OmResources.h>
 #include <OmVolumePlacement.h>
@@ -1544,7 +1543,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
     //  The following is ugly
     om_vol_notify_t type = om_notify_vol_max;
 
-    if (from_svc.uuid_get_type() == FDSP_ACCESS_MGR) {
+    if (from_svc.uuid_get_type() == fpi::FDSP_ACCESS_MGR) {
         switch (cmd_type) {
             case fpi::CtrlNotifyVolAddTypeId:
                 type = om_notify_vol_attach; break;
@@ -1556,7 +1555,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
         }
     }
 
-    if (from_svc.uuid_get_type() != FDSP_ACCESS_MGR) {
+    if (from_svc.uuid_get_type() != fpi::FDSP_ACCESS_MGR) {
         switch (cmd_type) {
             case fpi::CtrlNotifyVolAddTypeId:
                 type = om_notify_vol_add; break;

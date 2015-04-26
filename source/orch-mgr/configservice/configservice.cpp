@@ -10,8 +10,10 @@
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
+#include <thrift/concurrency/PosixThreadFactory.h>
+#include <thrift/concurrency/ThreadManager.h>
+#include <thrift/server/TThreadPoolServer.h>
 
-#include <NetSession.h>
 #include <fds_typedefs.h>
 #include <string>
 #include <vector>
@@ -29,10 +31,44 @@ using namespace ::apache::thrift::transport;  //NOLINT
 using namespace ::apache::thrift::server;  //NOLINT
 using namespace ::apache::thrift::concurrency;  //NOLINT
 
-using namespace  ::apis;  //NOLINT
+namespace fds { namespace  apis {
 
-namespace fds {
-// class OrchMgr;
+static void add_service_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
+                           NodeAgent::pointer ptr) {
+
+    fpi::SvcInfo svcInfo;
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
+    /* Getting from svc map.  Should be able to get it from config db as well */
+    if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
+        GLOGWARN << "could not fing svcinfo for uuid:" << svcUuid.svc_uuid;
+        return;
+    }
+
+    fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
+    nodeInfo.node_uuid = SvcMgr::mapToSvcUuid(svcUuid, fpi::FDSP_PLATFORM).svc_uuid;
+    nodeInfo.service_uuid = svcUuid.svc_uuid;
+    nodeInfo.node_name = svcInfo.name;
+    nodeInfo.node_type = svcInfo.svc_type;
+    nodeInfo.node_state = ptr->node_state();
+    nodeInfo.ip_lo_addr =  net::ipString2Addr(svcInfo.ip);
+    nodeInfo.control_port = 0;
+    nodeInfo.data_port = svcInfo.svc_port;
+    nodeInfo.migration_port = 0;
+    vec.push_back(nodeInfo);
+}
+
+static void add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> &vec,  // NOLINT
+                       VolumeInfo::pointer vol) {
+    FDS_ProtocolInterface::FDSP_VolumeDescType voldesc;
+    vol->vol_fmt_desc_pkt(&voldesc);
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+        << "Volume in list: " << voldesc.vol_name << ":"
+        << std::hex << voldesc.volUUID << std::dec
+        << "min iops " << voldesc.iops_min << ",max iops "
+        << voldesc.iops_max << ", prio " << voldesc.rel_prio;
+    vec.push_back(voldesc);
+}
 
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     OrchMgr* om;
@@ -43,9 +79,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         configDB = om->getConfigDB();
     }
 
-    void apiException(std::string message, ErrorCode code = INTERNAL_SERVER_ERROR) {
+    void apiException(std::string message, fpi::ErrorCode code = fpi::INTERNAL_SERVER_ERROR) {
         LOGERROR << "exception: " << message;
-        ApiException e;
+        fpi::ApiException e;
         e.message = message;
         e.errorCode    = code;
         throw e;
@@ -54,7 +90,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void checkDomainStatus() {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         if (!domain->om_local_domain_up()) {
-            apiException("local domain not up", SERVICE_NOT_READY);
+            apiException("local domain not up", fpi::SERVICE_NOT_READY);
         }
     }
 
@@ -68,7 +104,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void shutdownLocalDomain(const std::string& domainName) {}
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
-    void listLocalDomainServices(std::vector<FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
+    int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
+    void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
+    void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& ret, const int32_t ignore) {}
     void removeLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t RemoveServices(const FDSP_RemoveServicesType& rm_svc_req) { return 0; }
     int64_t createTenant(const std::string& identifier) { return 0;}
@@ -83,11 +121,12 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings, const int64_t tenantId) {}  //NOLINT
     int64_t getVolumeId(const std::string& volumeName) {return 0;}
     void getVolumeName(std::string& _return, const int64_t volumeId) {}
-    void GetVolInfo(FDSP_VolumeDescType& _return, const FDSP_GetVolInfoReqType& vol_info_req) {}
+    void GetVolInfo(fpi::FDSP_VolumeDescType& _return, const FDSP_GetVolInfoReqType& vol_info_req) {}
     int32_t ModifyVol(const FDSP_ModifyVolType& mod_vol_req) {return 0;}
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
+    void ListVolumes(std::vector<fpi::FDSP_VolumeDescType> & _return, const int32_t ignore) {}
     int32_t registerStream(const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) { return 0;} //NOLINT
     void getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
     void deregisterStream(const int32_t registration_id) {}
@@ -99,9 +138,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
-    void createQoSPolicy(FDSP_PolicyInfoType& _return, const std::string& policyName, const int64_t minIops, const int64_t maxIops, const int32_t relPrio) {}
-    void listQoSPolicies(std::vector<FDSP_PolicyInfoType>& _return, const int64_t unused) {}
-    void modifyQoSPolicy(FDSP_PolicyInfoType& _return, const std::string& current_policy_name, const std::string& new_policy_name, const int64_t iops_min, const int64_t iops_max, const int32_t rel_prio) {};
+    void createQoSPolicy(fpi::FDSP_PolicyInfoType& _return, const std::string& policyName, const int64_t minIops, const int64_t maxIops, const int32_t relPrio) {}
+    void listQoSPolicies(std::vector<fpi::FDSP_PolicyInfoType>& _return, const int64_t unused) {}
+    void modifyQoSPolicy(fpi::FDSP_PolicyInfoType& _return, const std::string& current_policy_name, const std::string& new_policy_name, const int64_t iops_min, const int64_t iops_max, const int32_t rel_prio) {};
     void deleteQoSPolicy(const std::string& policyName) {}
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
@@ -200,7 +239,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return void.
     */
     void setScavenger(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& scavengerAction) {
-        FDSP_ScavengerCmd cmd;
+        fpi::FDSP_ScavengerCmd cmd;
 
         if (*scavengerAction == "enable") {
             cmd = FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE;
@@ -318,6 +357,32 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     }
 
+    int32_t ActivateNode(boost::shared_ptr<FDSP_ActivateOneNodeType>& act_node_msg) {
+        Error err(ERR_OK);
+        try {
+            int domain_id = act_node_msg->domain_id;
+            // use default domain for now
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            NodeUuid node_uuid((act_node_msg->node_uuid).uuid);
+
+            LOGNORMAL << "Received Activate Node Req for domain " << domain_id
+                      << " node uuid " << std::hex
+                      << node_uuid.uuid_get_val() << std::dec;
+
+            err = local->om_activate_node_services(node_uuid,
+                                                   act_node_msg->activate_sm,
+                                                   act_node_msg->activate_dm,
+                                                   act_node_msg->activate_am);
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                     << "processing activate all nodes";
+            err = Error(ERR_NOT_FOUND);  // need some better error code
+        }
+
+        return err.GetErrno();
+    }
+
     /**
     * List all defined Services for all Nodes defined for the named Local Domain.
     *
@@ -326,20 +391,28 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void listLocalDomainServices(std::vector<FDSP_Node_Info_Type>& _return, boost::shared_ptr<std::string>& domainName) {
+    void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, boost::shared_ptr<std::string>& domainName) {
         // Currently (3/18/2015) only support for one Local Domain. So the specified name is ignored.
-        // The following from FDSP_ConfigPathReqHandler::ListServices;
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
         local->om_sm_nodes()->
-                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
         local->om_am_nodes()->
-                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
         local->om_dm_nodes()->
-                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
         local->om_pm_nodes()->
-                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
+    }
+
+    /**
+     * A alias of listLocalDomainServices() and should be removed.
+     */
+    void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& vec, boost::shared_ptr<int32_t>& ignore) {
+        boost::shared_ptr<std::string> ldomain = boost::make_shared<std::string>("local");
+        listLocalDomainServices(vec, ldomain);
+        return;
     }
 
     /**
@@ -489,7 +562,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err == ERR_OK) apiException("volume already exists", RESOURCE_ALREADY_EXISTS);
+        if (err == ERR_OK) apiException("volume already exists", fpi::RESOURCE_ALREADY_EXISTS);
 
         fpi::FDSP_MsgHdrTypePtr header;
         FDSP_CreateVolTypePtr request;
@@ -541,7 +614,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
-    void GetVolInfo(FDSP_VolumeDescType& _return, boost::shared_ptr<FDSP_GetVolInfoReqType>& vol_info_req) {
+    void GetVolInfo(fpi::FDSP_VolumeDescType& _return, boost::shared_ptr<FDSP_GetVolInfoReqType>& vol_info_req) {
         LOGNOTIFY << "Received Get volume info request for volume: "
                   << vol_info_req->vol_name;
 
@@ -589,7 +662,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
 
-        if (err != ERR_OK) apiException("volume does NOT exist", MISSING_RESOURCE);
+        if (err != ERR_OK) apiException("volume does NOT exist", fpi::MISSING_RESOURCE);
 
         fpi::FDSP_MsgHdrTypePtr header;
         apis::FDSP_DeleteVolTypePtr request;
@@ -605,7 +678,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err != ERR_OK) apiException("volume NOT found", MISSING_RESOURCE);
+        if (err != ERR_OK) apiException("volume NOT found", fpi::MISSING_RESOURCE);
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
@@ -627,13 +700,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                          << ":" << vol->vol_get_properties()->getStateName();
 
                 if (!vol->vol_get_properties()->isSnapshot()) {
-                    if (vol->getState() == Active) {
+                    if (vol->getState() == fpi::Active) {
                         VolumeDescriptor volDescriptor;
                         convert::getVolumeDescriptor(volDescriptor, vol);
                         vec.push_back(volDescriptor);
                     }
                 }
             });
+    }
+
+    void ListVolumes(std::vector<fpi::FDSP_VolumeDescType> & _return, boost::shared_ptr<int32_t>& ignore) {
+        LOGNOTIFY<< "OM received ListVolumes message";
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer vols = local->om_vol_mgr();
+        // list volumes that are not in 'delete pending' state
+        vols->vol_up_foreach<std::vector<fpi::FDSP_VolumeDescType> &>(_return, add_vol_to_vector);
     }
 
     int32_t registerStream(boost::shared_ptr<std::string>& url,
@@ -727,7 +808,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @param policyName - Name of the new QoS Policy. Must be unique within Global Domain.
     * @param domainSite - Name of the new Local Domain's site.
     */
-    void createQoSPolicy(FDSP_PolicyInfoType& _return, boost::shared_ptr<std::string>& policyName,
+    void createQoSPolicy(fpi::FDSP_PolicyInfoType& _return, boost::shared_ptr<std::string>& policyName,
                            boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
                            boost::shared_ptr<int32_t>& relPrio ) {
         LOGNOTIFY << "Received CreatePolicy  Msg for policy "
@@ -753,12 +834,12 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void listQoSPolicies(std::vector<FDSP_PolicyInfoType>& _return, boost::shared_ptr<int64_t>& ignore) {
+    void listQoSPolicies(std::vector<fpi::FDSP_PolicyInfoType>& _return, boost::shared_ptr<int64_t>& ignore) {
         std::vector<FDS_VolumePolicy> qosPolicies;
 
         if (configDB->getPolicies(qosPolicies)) {
             for (const auto& qosPolicy : qosPolicies) {
-                FDSP_PolicyInfoType fdspQoSPolicy;
+                fpi::FDSP_PolicyInfoType fdspQoSPolicy;
 
                 fdspQoSPolicy.policy_name = qosPolicy.volPolicyName;
                 fdspQoSPolicy.policy_id = qosPolicy.volPolicyId;
@@ -785,7 +866,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
      * @param maxIops - New policy maximum IOPS.
      * @param relPrio - New policy relative priority.
      */
-    void modifyQoSPolicy(FDSP_PolicyInfoType& _return,
+    void modifyQoSPolicy(fpi::FDSP_PolicyInfoType& _return,
                          boost::shared_ptr<std::string>& currentPolicyName, boost::shared_ptr<std::string>& newPolicyName,
                          boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
                          boost::shared_ptr<int32_t>& relPrio ) {
@@ -957,12 +1038,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 };
+}  // namespace apis
 
 std::thread* runConfigService(OrchMgr* om) {
     int port = 9090;
     LOGNORMAL << "about to start config service @ " << port;
-    boost::shared_ptr<ConfigurationServiceHandler> handler(new ConfigurationServiceHandler(om));  //NOLINT
-    boost::shared_ptr<TProcessor> processor(new ConfigurationServiceProcessor(handler));  //NOLINT
+    boost::shared_ptr<apis::ConfigurationServiceHandler> handler(new apis::ConfigurationServiceHandler(om));  //NOLINT
+    boost::shared_ptr<TProcessor> processor(new apis::ConfigurationServiceProcessor(handler));  //NOLINT
     boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));  //NOLINT
     boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
@@ -974,19 +1056,15 @@ std::thread* runConfigService(OrchMgr* om) {
     threadManager->threadFactory(threadFactory);
     threadManager->start();
 
-    // TNonblockingServer *server = new TNonblockingServer(processor,
-    //                                                 protocolFactory,
-    //                                                  port,
-    //                                                  threadManager);
-    TThreadedServer* server = new TThreadedServer(processor,
-                                                  serverTransport,
-                                                  transportFactory,
-                                                  protocolFactory);
-    return new std::thread ( [server] {
-            LOGNOTIFY << "starting config service";
-            server->serve();
-            LOGCRITICAL << "stopping ... config service";
-        });
+    TThreadPoolServer threadPoolServer(processor,
+                                       serverTransport,
+                                       transportFactory,
+                                       protocolFactory,
+                                       threadManager);
+
+    threadPoolServer.serve();
+
+    return nullptr;
 }
 
 }  // namespace fds

@@ -3,9 +3,8 @@ package com.formationds.om.webkit.rest.platform;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_ActivateOneNodeType;
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
+import com.formationds.apis.FDSP_ActivateOneNodeType;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
@@ -33,9 +32,9 @@ public class ActivateNode
     private static final Logger logger =
         LoggerFactory.getLogger( ActivateNode.class );
 
-    private FDSP_ConfigPathReq.Iface client;
+    private ConfigurationService.Iface client;
 
-    public ActivateNode( final FDSP_ConfigPathReq.Iface client ) {
+    public ActivateNode( final ConfigurationService.Iface client ) {
 
         this.client = client;
 
@@ -60,8 +59,7 @@ public class ActivateNode
                       nodeUuid, activateAm, activateDm, activateSm );
 
         int status =
-            client.ActivateNode( new FDSP_MsgHdrType(),
-                                 new FDSP_ActivateOneNodeType(
+            client.ActivateNode( new FDSP_ActivateOneNodeType(
                                      1,
                                      new FDSP_Uuid( nodeUuid ),
                                      activateSm,

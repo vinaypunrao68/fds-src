@@ -124,12 +124,23 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Unlike activateLocalDomainServices, ActivateNode is Node-specific.
+   */
+  i32 ActivateNode(1:config_types.FDSP_ActivateOneNodeType req),
+
+  /**
    * Lists currently defined Services for the named Local Domain.
+   *
+   * Both listLocalDomainServices and ListServices do the same thing.
+   * ListServices was in place before listLocalDomainServices and so is
+   * used by the UI. However, listLocalDomainServices more closely matches
+   * our goals in a RESTful API.
    *
    * @return Returns the list of FDSP_Node_Info_Type's.
    */
   list<common.FDSP_Node_Info_Type> listLocalDomainServices(1:string domainName)
       throws (1: common.ApiException e);
+  list<common.FDSP_Node_Info_Type> ListServices(1:i32 ignore),
 
   /**
    * Remove currently defined Services from the named Local Domain.
@@ -322,10 +333,18 @@ service ConfigurationService {
   /**
    * Enumerate volumes.
    *
+   * Both listVolumes and ListVolumes do the same thing, list
+   * volumes and their attributes within the default domain, although
+   * ListVolumes provides more attributes than listVolumes.
+   * ListVolumes was in place before listVolumes and so is
+   * used by the UI. However, listVolumes more closely matches
+   * our goals in a RESTful API, but with less volume attributes.
+   *
    * @param domainName a string representing the local domain name
    */
   list<config_types.VolumeDescriptor> listVolumes(1:string domainName)
       throws (1: common.ApiException e),
+  list <common.FDSP_VolumeDescType> ListVolumes(1:i32 ignore),
 
   /**
    * Register a statistic stream.

@@ -397,7 +397,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         getConfig().activateLocalDomainServices(domainName, sm, dm, am);
         return;
     }
-    
+
+    /**
+     * Activate the specified Services on the specified Node.
+     *
+     * @param act_serv_req - FDSP_ActivateOneNodeType: Class identifying node and its services to be activated.
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int ActivateNode(com.formationds.apis.FDSP_ActivateOneNodeType act_serv_req)
+            throws org.apache.thrift.TException {
+        return getConfig().ActivateNode(act_serv_req);
+    }
+
     /**
      * List all currently defined Services for the given Local Domain.
      * 
@@ -412,25 +427,18 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listLocalDomainServices(domainName);
     }
-    
+
     /**
-     * Remove all currently defined Services on all currently defined Nodes the given Local Domain.
-     * 
-     * If all Service flags are set to False, it will
-     * be interpreted to mean remove all Services currently defined for the Node.
-     * Removal means that the Service is unregistered from the Domain and shutdown.
+     * List all currently defined Services for the given Local Domain.
      *
-     * @param rm_node_req - FDSP_RemoveServicesType: Class identifying node and its services to be removed.
+     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Services for the only Local Domain.
      *
-     * @return int 0 is successful. Not 0 otherwise.
-     * 
      * @throws TException
      */
-
     @Override
-    public int RemoveServices(com.formationds.apis.FDSP_RemoveServicesType rm_node_req)
-        throws org.apache.thrift.TException {
-        return getConfig().RemoveServices(rm_node_req);
+    public List<FDSP_Node_Info_Type> ListServices(int ignore)
+            throws org.apache.thrift.TException {
+        return getConfig().ListServices(ignore);
     }
 
     /**
@@ -454,6 +462,21 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws ApiException, org.apache.thrift.TException {
         getConfig().removeLocalDomainServices(domainName, sm, dm, am);
         return;
+    }
+
+    /**
+     * Remove the specified Services from the specified Node.
+     *
+     * @param rm_node_req - FDSP_RemoveServicesType: Class identifying node and its services to be removed.
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int RemoveServices(com.formationds.apis.FDSP_RemoveServicesType rm_node_req)
+            throws org.apache.thrift.TException {
+        return getConfig().RemoveServices(rm_node_req);
     }
 
     @Override
@@ -699,6 +722,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         return Lists.newArrayList( fillCacheMaybe().volumesByName()
                                                    .values() );
+    }
+
+    @Override
+    public List<FDSP_VolumeDescType> ListVolumes(int ignore)
+            throws TException {
+        return Lists.newArrayList( getConfig().ListVolumes(ignore) );
     }
 
     @Override

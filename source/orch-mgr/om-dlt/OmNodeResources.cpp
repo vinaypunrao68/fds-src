@@ -13,7 +13,6 @@
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
 #include <orchMgr.h>
-#include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <OmDmtDeploy.h>
@@ -214,27 +213,6 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     return Error(ERR_OK);
 }
 
-
-// om_send_reg_resp
-// ----------------
-//
-void
-OM_NodeAgent::om_send_reg_resp(const Error &err)
-{
-    TRACEFUNC;
-    fpi::FDSP_MsgHdrTypePtr       m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_RegisterNodeTypePtr r_msg(new fpi::FDSP_RegisterNodeType);
-
-    this->init_msg_hdr(m_hdr);
-    m_hdr->result       = fpi::FDSP_ERR_OK;
-    m_hdr->err_code     = err.GetErrno();
-    m_hdr->session_uuid = ndSessionId;
-
-    LOGNORMAL << "Sending registration result to node " << get_node_name() << std::endl;
-
-    // TODO(Andrew): OM needs an interface to response to these messages.
-    // ndCpClient->RegisterNodeResp(m_hdr, r_msg);
-}
 
 Error
 OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
@@ -699,7 +677,7 @@ OM_NodeAgent::om_send_shutdown_resp(EPSvcRequest* req,
 }
 
 void
-OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+OM_NodeAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
 {
     TRACEFUNC;
     NodeInventory::init_msg_hdr(msgHdr);
@@ -717,7 +695,7 @@ OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
         : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM), dbNodeInfoLock("Config DB Node Info lock") {}
 
 void
-OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+OM_PmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
 {
     TRACEFUNC;
     NodeInventory::init_msg_hdr(msgHdr);
@@ -1381,7 +1359,7 @@ OM_NodeContainer::OM_NodeContainer()
                       new OM_DmContainer(),
                       new OM_AmContainer(),
                       new OM_PmContainer(),
-                      new OmContainer(FDSP_ORCH_MGR))
+                      new OmContainer(fpi::FDSP_ORCH_MGR))
 {
     TRACEFUNC;
     om_volumes    = new VolumeContainer();

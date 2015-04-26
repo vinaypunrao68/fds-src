@@ -4,7 +4,6 @@
 
 package com.formationds.om.webkit.rest;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.om.repository.MetricRepository;
@@ -43,7 +42,6 @@ public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
     private ConfigurationApi config;
-    private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
     private Authorizer authorizer;
 
@@ -51,11 +49,9 @@ public class ListVolumes implements RequestHandler {
 
     public ListVolumes( Authorizer authorizer,
 						ConfigurationApi config,
-						FDSP_ConfigPathReq.Iface legacyConfig,
 						AuthenticationToken token ) {
 
         this.config = config;
-        this.legacyConfig = legacyConfig;
         this.token = token;
         this.authorizer = authorizer;
 

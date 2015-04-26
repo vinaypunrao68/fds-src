@@ -117,7 +117,19 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public int ActivateNode(FDSP_ActivateOneNodeType act_serv_req)
+            throws TException {
+        return 0;
+    }
+
+    @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+            throws TException {
+        return null;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(int ignore)
             throws TException {
         return null;
     }
@@ -303,6 +315,11 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public List<VolumeDescriptor> listVolumes(String domainName) throws ApiException, TException {
         return Lists.newArrayList(volumes);
+    }
+
+    @Override
+    public List<FDSP_VolumeDescType> ListVolumes(int ignore) throws ApiException, TException {
+        return null;
     }
 
     @Override

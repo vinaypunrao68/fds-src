@@ -14,7 +14,6 @@
 #include <fds_error.h>
 #include <OmVolume.h>
 
-#include "NetSession.h"
 #include "platform/agent_container.h"
 #include "platform/domain_container.h"
 
@@ -88,7 +87,6 @@ class OM_NodeAgent : public NodeAgent
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
 
-    virtual void om_send_reg_resp(const Error &err);
     // this is the new function we shall try on using service layer
     virtual void om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
@@ -693,11 +691,11 @@ class OM_NodeDomainMod : public Module
     }
     inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
         switch (uuid.uuid_get_val() & 0x0F) {
-        case FDSP_ACCESS_MGR:
+            case fpi::FDSP_ACCESS_MGR:
             return om_am_agent(uuid);
-        case FDSP_STOR_MGR:
+            case fpi::FDSP_STOR_MGR:
             return om_sm_agent(uuid);
-        case FDSP_DATA_MGR:
+            case fpi::FDSP_DATA_MGR:
             return om_dm_agent(uuid);
         default:
             break;

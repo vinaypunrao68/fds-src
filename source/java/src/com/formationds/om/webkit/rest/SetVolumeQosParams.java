@@ -3,7 +3,6 @@ package com.formationds.om.webkit.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
@@ -26,17 +25,14 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 public class SetVolumeQosParams implements RequestHandler {
-    private FDSP_ConfigPathReq.Iface client;
     private ConfigurationService.Iface configService;
     private Authorizer authorizer;
     private AuthenticationToken token;
 
-    public SetVolumeQosParams(FDSP_ConfigPathReq.Iface legacyClient,
-                              ConfigurationService.Iface configService,
+    public SetVolumeQosParams(ConfigurationService.Iface configService,
                               Authorizer authorizer,
                               AuthenticationToken token) {
 
-        this.client = legacyClient;
         this.configService = configService;
         this.authorizer = authorizer;
         this.token = token;
@@ -56,7 +52,7 @@ public class SetVolumeQosParams implements RequestHandler {
                                    MediaPolicy.valueOf( mediaPolicyS ) :
                                    MediaPolicy.HDD_ONLY);
         
-        FDSP_VolumeDescType volumeDescType = client.ListVolumes(new FDSP_MsgHdrType())
+        FDSP_VolumeDescType volumeDescType = configService.ListVolumes(0)
                 .stream()
                 .filter(v -> v.getVolUUID() == uuid)
                 .findFirst()
@@ -67,7 +63,7 @@ public class SetVolumeQosParams implements RequestHandler {
             return new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 
-        FDSP_VolumeDescType volInfo = setVolumeQos(client, configService, volumeName, minIops, priority, maxIops, commit_log_retention, mediaPolicy );
+        FDSP_VolumeDescType volInfo = setVolumeQos(configService, volumeName, minIops, priority, maxIops, commit_log_retention, mediaPolicy );
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
         
         JSONObject o =
@@ -79,7 +75,7 @@ public class SetVolumeQosParams implements RequestHandler {
         return new JsonResource(o);
     }
 
-    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, ConfigurationService.Iface configService, String volumeName, int minIops, int priority, int maxIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
+    public static FDSP_VolumeDescType setVolumeQos(ConfigurationService.Iface configService, String volumeName, int minIops, int priority, int maxIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
         
     	// converting the com.formationds.api.MediaPolicy to the FDSP version
     	FDSP_MediaPolicy fdspMediaPolicy = MediaPolicyConverter.convertToFDSPMediaPolicy( mediaPolicy );

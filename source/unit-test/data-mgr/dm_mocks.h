@@ -5,7 +5,6 @@
 #define SOURCE_UNIT_TEST_DATA_MGR_DM_MOCKS_H_
 #include <unistd.h>
 #include <DataMgr.h>
-#include <NetSession.h>
 #include <net/net-service.h>
 #include <util/fds_stat.h>
 #include <iostream>
@@ -102,10 +101,6 @@ struct DMTester :  SvcProcess {
         dataMgr->features.setTestMode(true);
         dataMgr->features.setCatSyncEnabled(false);
         dataMgr->features.setTimelineEnabled(false);
-        auto nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-        dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
-                                               "dm",
-                                               GetLog());
 
         dataMgr->initHandlers();
         dataMgr->mod_enable_service();

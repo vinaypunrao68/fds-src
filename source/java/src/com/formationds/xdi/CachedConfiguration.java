@@ -34,16 +34,16 @@ public class CachedConfiguration {
     private final Map<String, VolumeDescriptor> volumesByName = new HashMap<>();
     private final Map<Long, VolumeDescriptor>   volumesById   = new HashMap<>();
 
-    private final long version;
+    private final long version = 0;
 
     public CachedConfiguration( ConfigurationService.Iface config ) throws Exception {
         this.config = config;
 
-        version = config.configurationVersion( 0 );
-        loadUsers();
+        //version = config.configurationVersion( 0 );
+        //loadUsers();
 
-        loadTenants();
-        loadVolumes();
+        //loadTenants();
+        //loadVolumes();
     }
 
     void loadTenants( ) {

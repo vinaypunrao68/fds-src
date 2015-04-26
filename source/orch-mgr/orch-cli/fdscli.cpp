@@ -11,6 +11,7 @@
 #include <boost/tokenizer.hpp>
 #include <boost/foreach.hpp>
 #include <fds_process.h>
+#include <net/net_utils.h>
 
 #define NETWORKCHECK(expr)                                     \
     try {                                                      \
@@ -118,21 +119,21 @@ std::string FdsCli::mediaPolicyToString(
     return "unknown";
 }
 
-FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
-    netConfigPathClientSession *client_session =
-            net_session_tbl->
-            startSession
-            <netConfigPathClientSession>(om_ip,
-                                         om_cfg_port,
-                                         FDS_ProtocolInterface::FDSP_ORCH_MGR,
-                                         1,
-                                         boost::shared_ptr<FDSP_ConfigPathRespIf>());
-    fds_verify(client_session != NULL);
-    return client_session->getClient();
-}
+//FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
+//    netConfigPathClientSession *client_session =
+//            net_session_tbl->
+//            startSession
+//           <netConfigPathClientSession>(om_ip,
+//                                        om_cfg_port,
+//                                        FDS_ProtocolInterface::FDSP_ORCH_MGR,
+//                                         1,
+//                                         boost::shared_ptr<FDSP_ConfigPathRespIf>());
+//    fds_verify(client_session != NULL);
+//    return client_session->getClient();
+//}
 
 void FdsCli::endClientSession() {
-    net_session_tbl->endClientSession(om_ip, om_cfg_port);
+//    net_session_tbl->endClientSession(om_ip, om_cfg_port);
 }
 
 int FdsCli::fdsCliParser(int argc, char* argv[])
@@ -224,11 +225,10 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         return 1;
     }
 
-    FDSP_ConfigPathReqClientPtr cfgPrx = startClientSession();
+    //FDSP_ConfigPathReqClientPtr cfgPrx = startClientSession();
 
     if (vm.count("volume-create") && vm.count("volume-size") &&
         vm.count("volume-policy") && vm.count("volume-id")) {
-        LOGNOTIFY << "Constructing the CLI";
         LOGNOTIFY << " Create Volume ";
         LOGNOTIFY << vm["volume-create"].as<std::string>() << " -volume name";
         LOGNOTIFY << vm["volume-size"].as<double>() << " -volume size";
@@ -262,7 +262,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         return_code = -1;
         if (return_code !=0) {
             auto sret = std::system("clear");
-            cout << "Error: Creating the Volume \n";
+            std::cout << "Error: Creating the Volume \n";
         }
 
     } else if (vm.count("volume-modify") && vm.count("volume-size")) {
@@ -351,25 +351,25 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             //     << ", media policy " << mediaPolicyToString(vol_info.mediaPolicy)
             //     << std::endl;
         } catch(...) {
-            cout << "Got non-network exception, probably volume not found" << std::endl;
+            std::cout << "Got non-network exception, probably volume not found" << std::endl;
         }
 
     } else if (vm.count("list-volumes")) {
         LOGNOTIFY << "List volumes";
 
-        std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> vec;
-        NETWORKCHECK(cfgPrx->ListVolumes(vec, msg_hdr));
+        //std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> vec;
+        /*NETWORKCHECK(cfgPrx->ListVolumes(vec, msg_hdr));*/
 
-        for (fds_uint32_t i = 0; i < vec.size(); ++i) {
-            cout << "Volume " << vec[i].vol_name << ":"
-                 << std::hex << vec[i].volUUID << std::dec << std::endl
-                 << "     capacity " << vec[i].capacity << " MB"
-                 << ", iops_min " << vec[i].iops_min
-                 << ", iops_max " << vec[i].iops_max
-                 << ", priority " << vec[i].rel_prio
-                 << ", media policy " << mediaPolicyToString(vec[i].mediaPolicy)
-                 << std::endl;
-        }
+        //for (fds_uint32_t i = 0; i < vec.size(); ++i) {
+        //    cout << "Volume " << vec[i].vol_name << ":"
+        //         << std::hex << vec[i].volUUID << std::dec << std::endl
+        //         << "     capacity " << vec[i].capacity << " MB"
+        //         << ", iops_min " << vec[i].iops_min
+        //         << ", iops_max " << vec[i].iops_max
+        //         << ", priority " << vec[i].rel_prio
+        //         << ", media policy " << mediaPolicyToString(vec[i].mediaPolicy)
+        //         << std::endl;
+        //}
     } else if ( vm.count("policy-create") && vm.count("volume-policy") && \
                 vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
         LOGNOTIFY << " Create Policy ";
@@ -434,32 +434,31 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         /*NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));*/
 
     }  else if (vm.count("list-services")) {
-
         LOGNOTIFY << " List services ";
 
-        std::vector<FDS_ProtocolInterface::FDSP_Node_Info_Type> vec;
-        NETWORKCHECK(cfgPrx->ListServices(vec, msg_hdr));
+        //std::vector<FDS_ProtocolInterface::FDSP_Node_Info_Type> vec;
+        /*NETWORKCHECK(cfgPrx->ListServices(vec, msg_hdr));*/
 
-        for (fds_uint32_t i = 0; i < vec.size(); ++i) {
+        //for (fds_uint32_t i = 0; i < vec.size(); ++i) {
 
-            cout << "Node UUID " << std::hex << vec[i].node_uuid << std::dec
-                 << std::endl
-                 << "\tState " << vec[i].node_state << std::endl
-                 << "\tName " << vec[i].node_name << std::endl
-                 << "\tUUID " << std::hex << vec[i].service_uuid << std::dec
-                 << std::endl
-                 << "\tIPv6 " << netSession::ipAddr2String(vec[i].ip_hi_addr)
-                 << std::endl
-                 << "\tIPv4 " << netSession::ipAddr2String(vec[i].ip_lo_addr)
-                 << std::endl
-                 << "\tControl Port " << vec[i].control_port << std::endl
-                 << "\tData Port " << vec[i].data_port << std::endl
-                 << "\tMigration Port " << vec[i].migration_port << std::endl
-                 << "\tMetasync Port " << vec[i].metasync_port << std::endl
-                 << "\tNode Root " << vec[i].node_root << std::endl
-                 << "\tType " << vec[i].node_type << std::endl
-                 << std::endl;
-        }
+        //    cout << "Node UUID " << std::hex << vec[i].node_uuid << std::dec
+        //         << std::endl
+        //         << "\tState " << vec[i].node_state << std::endl
+        //         << "\tName " << vec[i].node_name << std::endl
+        //         << "\tUUID " << std::hex << vec[i].service_uuid << std::dec
+        //         << std::endl
+        //         << "\tIPv6 " << netSession::ipAddr2String(vec[i].ip_hi_addr)
+        //         << std::endl
+        //         << "\tIPv4 " << netSession::ipAddr2String(vec[i].ip_lo_addr)
+        //         << std::endl
+        //         << "\tControl Port " << vec[i].control_port << std::endl
+        //         << "\tData Port " << vec[i].data_port << std::endl
+        //         << "\tMigration Port " << vec[i].migration_port << std::endl
+        //         << "\tMetasync Port " << vec[i].metasync_port << std::endl
+        //         << "\tNode Root " << vec[i].node_root << std::endl
+        //         << "\tType " << vec[i].node_type << std::endl
+        //         << std::endl;
+        //}
 
     }  else if (vm.count("remove-services")) {
         LOGNOTIFY << " Remove services ";
@@ -538,36 +537,37 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
                   << " on node " << std::hex << vm["node-uuid"].as<fds_uint64_t>()
                   << std::dec;
 
-        FDS_ProtocolInterface::FDSP_ActivateOneNodeType activateNodeData;
-        activateNodeData.domain_id = vm["domain-id"].as<int>();
-        activateNodeData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
-        activateNodeData.activate_sm = false;
-        activateNodeData.activate_dm = false;
-        activateNodeData.activate_am = false;
-        std::string svc_str = vm["enable-service"].as<std::string>();
-        boost::char_separator<char> sep(",");
-        boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
-        for (const auto& t : tokens) {
-            if (t.compare("am") == 0) {
-                activateNodeData.activate_am = true;
-                LOGNORMAL << "   -- activate AM";
-            } else if (t.compare("sm") == 0) {
-                activateNodeData.activate_sm = true;
-                LOGNORMAL << "   -- activate SM";
-            } else if (t.compare("dm") == 0) {
-                activateNodeData.activate_dm = true;
-                LOGNORMAL << "   -- activate DM";
-            } else {
-                cout << "Unknown service " << t << ", will ignore" << std::endl;
-                LOGWARN << "Unknown service " << t << "is specified; "
-                        << "will ignore, but check your fdscli command";
-            }
-        }
+        //FDS_ProtocolInterface::FDSP_ActivateOneNodeType activateNodeData;
+        //activateNodeData.domain_id = vm["domain-id"].as<int>();
+        //activateNodeData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
+        //activateNodeData.activate_sm = false;
+        //activateNodeData.activate_dm = false;
+        //activateNodeData.activate_am = false;
+        //std::string svc_str = vm["enable-service"].as<std::string>();
+        //boost::char_separator<char> sep(",");
+        //boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
+        //for (const auto& t : tokens) {
+        //    if (t.compare("am") == 0) {
+        //        activateNodeData.activate_am = true;
+        //        LOGNORMAL << "   -- activate AM";
+        //    } else if (t.compare("sm") == 0) {
+        //        activateNodeData.activate_sm = true;
+        //        LOGNORMAL << "   -- activate SM";
+        //    } else if (t.compare("dm") == 0) {
+        //        activateNodeData.activate_dm = true;
+        //        LOGNORMAL << "   -- activate DM";
+        //    } else {
+        //        cout << "Unknown service " << t << ", will ignore" << std::endl;
+        //        LOGWARN << "Unknown service " << t << "is specified; "
+        //                << "will ignore, but check your fdscli command";
+        //    }
+        //}
 
-        NETWORKCHECK(return_code = cfgPrx->ActivateNode(msg_hdr, activateNodeData));
+        /*NETWORKCHECK(return_code = cfgPrx->ActivateNode(msg_hdr, activateNodeData));*/
+        return_code = -1;
         if (return_code != 0) {
             Error err(return_code);
-            cout << "Failed to activate services, result "
+            std::cout << "Failed to activate services, result "
                  << err.GetErrstr() << std::endl;
         }
     }  else if (vm.count("domain-delete") && vm.count("domain-id")) {
@@ -599,7 +599,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         /*NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));*/
     } else if (vm.count("volume-snap")) {
-        LOGNOTIFY << "Constructing the CLI";
         LOGNOTIFY << " Snap Volume ";
         LOGNOTIFY << vm["volume-snap"].as<std::string>() << " -volume name";
 
@@ -611,10 +610,10 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         return_code = -1;
         if (return_code !=0) {
             auto sret = std::system("clear");
-            cout << "Error: Snap Volume \n";
+            std::cout << "Error: Snap Volume \n";
         }
     } else {
-        gl_OMCli.setCliClient(cfgPrx);
+        //gl_OMCli.setCliClient(cfgPrx);
         gl_OMCli.mod_run();
     }
 
@@ -654,14 +653,14 @@ int FdsCli::run()
 
     /* remember port and ip for getting client later */
     om_cfg_port = omConfigPort;
-    om_ip = netSession::ipString2Addr(omIpStr);
+    om_ip = net::ipString2Addr(omIpStr);
 
-    net_session_tbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(my_node_name,
-                          om_ip,
-                          om_cfg_port,
-                          10,
-                          FDS_ProtocolInterface::FDSP_CLI_MGR));
+    //net_session_tbl = boost::shared_ptr<netSessionTbl>(
+    //    new netSessionTbl(my_node_name,
+    //                      om_ip,
+    //                      om_cfg_port,
+    //                      10,
+    //                      FDS_ProtocolInterface::FDSP_CLI_MGR));
 
     return fdsCli->fdsCliParser(argc, argv);
 }

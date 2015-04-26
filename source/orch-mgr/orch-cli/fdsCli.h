@@ -22,17 +22,12 @@
 #include <fds_error.h>
 #include <util/Log.h>
 #include <fds_process.h>
-#include <NetSession.h>
 
 namespace fds {
-
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_ConfigPathReqClient>
-            FDSP_ConfigPathReqClientPtr;
 
     class FdsCli : public FdsProcess {
   private:
         fds_log *cli_log;
-        boost::shared_ptr<netSessionTbl> net_session_tbl;
         std::string my_node_name;
         fds_uint32_t om_cfg_port;
         fds_uint32_t om_ip;
@@ -55,7 +50,6 @@ namespace fds {
             const std::string& media_policy);
         std::string mediaPolicyToString(
             const FDS_ProtocolInterface::FDSP_MediaPolicy media_policy);
-        FDSP_ConfigPathReqClientPtr startClientSession();
         void endClientSession();
     };
 

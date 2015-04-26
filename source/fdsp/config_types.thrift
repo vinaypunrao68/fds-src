@@ -87,6 +87,14 @@ struct LocalDomain {
   3: required string site;
 }
 
+struct FDSP_ActivateOneNodeType {
+  1: i32        domain_id,
+  2: common.FDSP_Uuid  node_uuid,
+  3: bool       activate_sm,
+  4: bool       activate_dm,
+  5: bool       activate_am
+}
+
 struct FDSP_RemoveServicesType {
   1: string node_name, // Name of the node that contains services
   2: common.FDSP_Uuid node_uuid,  // used if node name is not provided
