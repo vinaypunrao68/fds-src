@@ -3,7 +3,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 import os, errno, sys, pwd
-sys.path.insert(0, "/opt/fds-deps/embedded/lib/python2.7/site-packages")
+sys.path.append("/opt/fds-deps/embedded/lib/python2.7/site-packages")
 import logging
 import subprocess
 import shlex
