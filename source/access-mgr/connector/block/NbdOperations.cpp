@@ -476,7 +476,7 @@ NbdOperations::updateBlobResp(const Error &error,
 void
 NbdOperations::shutdown()
 {
-    {
+    if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
         if (0 == --assoc_map[*volumeName]) {
