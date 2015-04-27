@@ -13,11 +13,11 @@ This is that mechanism
 '''
 class VolumeConverter( object ):
     
-    '''
-    This takes a json dictionary and turns it into a volume class instantiation
-    '''
     @staticmethod
     def build_volume_from_json( json ):
+        '''
+        This takes a json dictionary and turns it into a volume class instantiation
+        '''
 
         volume = Volume();
         
@@ -45,12 +45,12 @@ class VolumeConverter( object ):
         
         return volume
     
-    '''
-    This will take a volume object and turn it into a JSON dictionary object compatible with the
-    json module
-    '''
     @staticmethod
     def to_json( volume ):
+        '''
+        This will take a volume object and turn it into a JSON dictionary object compatible with the
+        json module
+        '''
         
         d = dict()
         d["name"] = volume.name
