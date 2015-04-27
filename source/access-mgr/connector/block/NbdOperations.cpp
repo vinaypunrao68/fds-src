@@ -476,6 +476,8 @@ NbdOperations::updateBlobResp(const Error &error,
 void
 NbdOperations::shutdown()
 {
+    // If NbdConnection has not received the command to attach, volumeName
+    // will still be NULL
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
