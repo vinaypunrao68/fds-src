@@ -57,7 +57,7 @@ SMCheckControl::updateSMCheckDLT(const DLT *latestDLT)
 
 // Start the online SM checker.
 Error
-SMCheckControl::startSMCheck(SmTokenSet tgtTokens)
+SMCheckControl::startSMCheck(std::set<fds_token_id> tgtTokens)
 {
     Error err(ERR_OK);
 

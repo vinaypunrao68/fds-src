@@ -1000,7 +1000,7 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     LOGDEBUG << "Received SMCheck cmd=" << msg->SmCheckCmd << " with target tokens list of len "
              << msg->targetTokens.size();
 
-    SmTokenSet tgtTokens;
+    std::set<fds_token_id> tgtTokens;
     for (auto token : msg->targetTokens) {
         tgtTokens.insert(token);
     }
