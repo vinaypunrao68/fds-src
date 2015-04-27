@@ -141,9 +141,6 @@ class FDSTestCase(unittest.TestCase):
 
         self.childPID = None
 
-    def expectedFailure(self, problem=None):
-        return expectedFailure(problem)
-
     def setUp(self, parameters=None):
         """
         When run by the PyUnit test runner,
