@@ -140,7 +140,7 @@ class TestTrafficGen(TestCase.FDSTestCase):
 # otherwise it will ALWAYS return success. This should be used for tests where IO is
 # expected to run for some time and then fail, e.g. killing services during active IO
 class RunTrafficGen(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, hostname=None, n_conns=None,
+    def __init__(self, parameters=None, hostname=None, n_conns=None, exp_fail=None,
                  n_files=None, n_reqs=None, no_reuse=None, object_size=None,
                  outstanding_reqs=None, port=None, runtime=None,
                  test_type=None, timeout=None, token=None, username=None, volume_name=None):
