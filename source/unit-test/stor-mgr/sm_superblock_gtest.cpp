@@ -30,19 +30,27 @@ class SmSuperblockTestDriver {
             : SmSuperblockTestDriver(sbDefaultHddCount, sbDefaultSsdCount) {}
     ~SmSuperblockTestDriver();
 
-    void createDirs();
+    void createDirs() {
+        createDirs(false);
+    }
+    void createDirs(bool preserveDirs);
     void deleteDirs();
     void loadSuperblock();
     void syncSuperblock();
+
     void corruptSuperblockChecksum(std::string &path);
     void corruptSuperblockHeader(std::string& path);
     void corruptSuperblockOLT(std::string& path);
     void corruptSuperblockChangeVersion(std::string& path);
     void corruptSuperblockAnywhere(std::string& path);
+
     void removeSuperblock(std::string& path);
     bool compareFiles(const std::string& filePath1,
                       const std::string& filePath2);
     std::string getDiskPath(uint16_t diskOffset);
+
+    SmTokenSet getSmTokens(fds_uint16_t diskId);
+    bool verifyOLT();
 
     Error setDLTVersion(fds_uint64_t dltVersion, bool syncNow);
     fds_uint64_t getDLTVersion();
@@ -93,7 +101,7 @@ SmSuperblockTestDriver::~SmSuperblockTestDriver()
 }
 
 void
-SmSuperblockTestDriver::createDirs()
+SmSuperblockTestDriver::createDirs(bool preserveDirs)
 {
     std::string dirPath;
     std::string filePath;
@@ -117,10 +125,12 @@ SmSuperblockTestDriver::createDirs()
             if (errno == EEXIST) {
                 GLOGNORMAL << "Directory "<< dirPath << "already exists";
                 GLOGNORMAL << "Trying to removing file: " << filePath;
-                if (remove(filePath.c_str()) == 0) {
-                    GLOGNORMAL << "Successfully removed file: " << filePath;
-                } else {
-                    GLOGNORMAL << "Couldn't locate file: " << filePath;
+                if (!preserveDirs) {
+                    if (remove(filePath.c_str()) == 0) {
+                        GLOGNORMAL << "Successfully removed file: " << filePath;
+                    } else {
+                        GLOGNORMAL << "Couldn't locate file: " << filePath;
+                    }
                 }
 
             } else if (errno == EACCES) {
@@ -364,6 +374,67 @@ SmSuperblockTestDriver::compareFiles(const std::string& filePath1,
     }
 }
 
+SmTokenSet
+SmSuperblockTestDriver::getSmTokens(fds_uint16_t diskId) {
+    return sblock->superblockMaster.olt.getSmTokens(diskId);
+}
+
+bool
+SmSuperblockTestDriver::verifyOLT()
+{
+    LOGNORMAL << "HDDs size=" << hdds.size();
+    LOGNORMAL << "SSDs size=" << ssds.size();
+    ssize_t min = 0x0fffffff;
+    ssize_t max = 0;
+
+    if (hdds.size() > 0) {
+        for (auto diskId : hdds) {
+            LOGNORMAL << "Disk=" << diskId;
+            LOGNORMAL << sblock->superblockMaster.olt;
+            SmTokenSet tmpTokens = sblock->superblockMaster.olt.getSmTokens(diskId);
+            LOGNORMAL << "disk=" << diskId << ", numToken=" << tmpTokens.size();
+            if ((ssize_t)tmpTokens.size() < min) {
+                min = tmpTokens.size();
+            }
+
+            if ((ssize_t)tmpTokens.size() > max) {
+                max = tmpTokens.size();
+            }
+        }
+
+        LOGNORMAL << "HDD token ownership different=" << std::abs(max - min);
+        if (std::abs(max - min) > 2) {
+            return false;
+        }
+    }
+
+    min = 0x0fffffff;
+    max = 0;
+
+    if (ssds.size() > 0) {
+        for (auto diskId : ssds) {
+            LOGNORMAL << "Disk=" << diskId;
+            LOGNORMAL << sblock->superblockMaster.olt;
+            SmTokenSet tmpTokens = sblock->superblockMaster.olt.getSmTokens(diskId);
+            LOGNORMAL << "disk=" << diskId << ", numToken=" << tmpTokens.size();
+            if ((ssize_t)tmpTokens.size() < min) {
+                min = tmpTokens.size();
+            }
+
+            if ((ssize_t)tmpTokens.size() > max) {
+                max = tmpTokens.size();
+            }
+        }
+
+        LOGNORMAL << "SSD token ownership different=" << std::abs(max - min);
+        if (std::abs(max - min) > 2) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /*
  * test1:
  *
@@ -536,13 +607,10 @@ TEST(SmSuperblockTestDriver, DISABLED_test5)
 /* test6
  *
  * Tests condition where a disk is removed from persistent table.
- * Test is disabled, since it will just panic.
- *
- * To run
- * "./sm_superblock_gtest --gtest_also_run_disabled_tests --gtest_filter=*test6"
  */
-TEST(SmSuperblockTestDriver, DISABLED_test6)
+TEST(SmSuperblockTestDriver, test6)
 {
+    // Default is 3 hdds in the superblock.
     SmSuperblockTestDriver *test6 = new SmSuperblockTestDriver();
 
     test6->deleteDirs();
@@ -551,24 +619,23 @@ TEST(SmSuperblockTestDriver, DISABLED_test6)
 
     delete test6;
 
+    /* Effective remove disk 3
+     */
     test6 = new SmSuperblockTestDriver(2, 0);
     test6->loadSuperblock();
 
-    /* Never reached here.
-     */
-    EXPECT_TRUE(0 == 1);
+    test6->syncSuperblock();
+
+    EXPECT_TRUE(test6->verifyOLT());
 }
 
 /* test7
  *
  * Tests condition where a new disk is added between SM instances.
- * Test is disabled, since it will just panic.
- *
- * To run
- * "./sm_superblock_gtest --gtest_also_run_disabled_tests --gtest_filter=*test7"
  */
-TEST(SmSuperblockTestDriver, DISABLED_test7)
+TEST(SmSuperblockTestDriver, test7)
 {
+    // Default is 3 hdds in the superblock.
     SmSuperblockTestDriver *test7 = new SmSuperblockTestDriver();
 
     test7->deleteDirs();
@@ -577,13 +644,17 @@ TEST(SmSuperblockTestDriver, DISABLED_test7)
 
     delete test7;
 
+    // new diskmap with 4 disks.  added disk 4 to the mix.
     test7 = new SmSuperblockTestDriver(4, 0);
-    test7->createDirs();
+    test7->createDirs(true);
     test7->loadSuperblock();
 
-    /* Never reached here
-     */
-    EXPECT_TRUE(0 == 1);
+    // TODO(Sean):  Since we are not currently handling adding a new disk, and
+    //              re-distributing levelDB and token files, no tokens should be
+    //              assigned to disk 4.
+    SmTokenSet tmpTokens = test7->getSmTokens(4);
+    EXPECT_EQ(tmpTokens.size(), 0);
+    test7->deleteDirs();
 }
 
 

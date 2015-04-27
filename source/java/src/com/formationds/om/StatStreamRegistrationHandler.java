@@ -36,7 +36,7 @@ public class StatStreamRegistrationHandler {
     public static Logger logger = LoggerFactory.getLogger( StatStreamRegistrationHandler.class );
 
     // TODO pull these values from the platform.conf file.
-    private static final String URL = "http://localhost:7777/api/stats";
+    private static final String URL = "http://%s:%d/api/stats";
     private static final String METHOD = "POST";
     private static final Long DURATION = TimeUnit.MINUTES.toSeconds( 2 );
     private static final Long FREQUENCY = TimeUnit.MINUTES.toSeconds( 1 );
@@ -87,8 +87,20 @@ public class StatStreamRegistrationHandler {
 
     private final OmConfigurationApi configApi;
 
-    public StatStreamRegistrationHandler( OmConfigurationApi configApi ) {
+    private final String urlHostname;
+    private final int urlPortNo;
+
+    private final String url;
+
+    public StatStreamRegistrationHandler(OmConfigurationApi configApi,
+                                         String urlHostname,
+                                         int urlPortNo) {
         this.configApi = configApi;
+        this.urlHostname = urlHostname;
+        this.urlPortNo = urlPortNo;
+
+        this.url = String.format( URL, urlHostname, urlPortNo );
+        logger.trace( "URL::{}", url );
     }
 
     /**
@@ -219,7 +231,7 @@ public class StatStreamRegistrationHandler {
         if ( !volumeNames.isEmpty() ) {
             logger.trace( "registering {} for metadata streaming...",
                           volumeNames );
-            configApi.registerStream( URL,
+            configApi.registerStream( url,
                                       METHOD,
                                       volumeNames,
                                       FREQUENCY.intValue(),

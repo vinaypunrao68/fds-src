@@ -13,14 +13,9 @@ from cinder.image import image_utils
 from cinder.openstack.common import log as logging
 from cinder.openstack.common.processutils import ProcessExecutionError
 from cinder.volume import driver
-from cinder.volume.drivers.fds.apis.AmService import Client as AmClient
-from cinder.volume.drivers.fds.apis.ConfigurationService import Client as CsClient
 
-from apis.ttypes import *
 from thrift.transport import TSocket
 from thrift.protocol import TBinaryProtocol
-from apis.AmService import Client as AmClient
-from apis.ConfigurationService import Client as CsClient
 import os
 
 from contextlib import contextmanager

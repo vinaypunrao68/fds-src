@@ -83,5 +83,5 @@ for bs in $bsizes ; do
                 done
             done
         done
-    volume_detach $vol
+    volume_detach volume_$bs
 done

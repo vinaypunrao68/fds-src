@@ -61,8 +61,7 @@ void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
 
     if (!helper.err.ok()) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType,
-                         typedRequest->getVolId(),
-                         typedRequest->perfNameStr);
+                         typedRequest->getVolId());
     }
 }
 

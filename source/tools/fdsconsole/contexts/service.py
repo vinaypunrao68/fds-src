@@ -1,8 +1,7 @@
 from  svchelper import *
 from svc_api.ttypes import *
-import platformservice
 from platformservice import *
-import FdspUtils 
+import FdspUtils
 import restendpoint
 
 class ServiceContext(Context):
