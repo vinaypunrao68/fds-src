@@ -1,12 +1,17 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.hadoop.OwnerGroupInfo;
-import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.junit.After;
@@ -30,10 +35,6 @@ import static org.junit.Assert.*;
 public class HdfsSmokeTest {
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
     private FdsFileSystem fileSystem;
-
-    private static boolean isIntegrationTest() {
-        return false;
-    }
 
     @Test(expected = IOException.class)
     public void testMakeDirectoryAttempt() throws Exception {
@@ -338,7 +339,7 @@ public class HdfsSmokeTest {
                 .forEach(i -> doSomeReads(path));
     }
 
-    private void doSomeReads(Path path) {
+    private synchronized void doSomeReads(Path path) {
         try {
             FSDataInputStream in = fileSystem.open(path);
             DataInputStream dis = new DataInputStream(in);
@@ -353,8 +354,6 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        Integer pmPort = 7000;
-
         XdiClientFactory xdiCf = new XdiClientFactory(0);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");

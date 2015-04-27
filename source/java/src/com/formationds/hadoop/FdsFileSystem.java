@@ -3,12 +3,10 @@ package com.formationds.hadoop;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
-import com.formationds.util.FunctionWithExceptions;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.util.SupplierWithExceptions;
@@ -111,7 +109,6 @@ public class FdsFileSystem extends FileSystem {
 
         createRootIfNeeded();
     }
-
     private void createRootIfNeeded() throws IOException {
         Path root = new Path(uri + "/");
         try {
