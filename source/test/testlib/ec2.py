@@ -79,10 +79,10 @@ class EC2(object):
             while self.instance.state != 'running' and time.time() <= timeout:
                 time.sleep(10)
                 self.instance.update() # Updates Instance metadata
-                self.log.info("Instance state: %s" % (self.instance.state))
+                self.log.info("Instance state: {}".format(self.instance.state))
 
-            self.log.info("instance %s done!" % (self.instance.id))
-            self.log.info("instance IP is %s" % (self.instance.ip_address))
+            self.log.info("instance {} done!".format(self.instance.id))
+            self.log.info("instance IP is {}".format(self.instance.ip_address))
         except Exception, e:
             # @TODO: please add the error code here (Philippe)
             self.log.exception(e)
@@ -124,7 +124,7 @@ class EC2(object):
             while self.instance.state != 'running' and time.time() <= timeout:
                 time.sleep(10)
                 self.instance.update() # Updates Instance metadata
-                self.log.info("Instance state: %s" % (self.instance.state))
+                self.log.info("Instance state: {}".format(self.instance.state))
 
     def get_instance_status(self):
         '''
@@ -154,14 +154,14 @@ class EC2(object):
         elif self.instance.state == 'terminated':
             self.log.info("Instance is terminated. Nothing to do.")
         elif self.instance.state == 'running':
-            self.log.info("Attempting to stop instance: %s" % self.instance.id)
+            self.log.info("Attempting to stop instance: {}".format(self.instance.id))
             self.ec2_conn.stop_instances(instance_ids=[self.instance.id])
             timeout = time.time() + self.max_wait
             while self.instance.state != 'stopped' and time.time() <= timeout:
                 time.sleep(10)
                 self.instance.update()
-                self.log.info("Instance state: %s" % (self.instance.state))
-            self.log.info("Instance %s stopped" % self.instance.id)
+                self.log.info("Instance state: {}".format(self.instance.state))
+            self.log.info("Instance {} stopped".format(self.instance.id))
         else:
             self.log.warning("Unknown instance state, do nothing.")
             
@@ -174,14 +174,14 @@ class EC2(object):
         if self.instance.state not in ('running', 'stopped'):
             self.log.warning("Cannot terminate. It's not in a 'running' or 'stopped' state")
         else:
-            self.log.info("Attempting to terminate instance: %s" % self.instance.id)
+            self.log.info("Attempting to terminate instance: {}".format(self.instance.id))
             self.ec2_conn.terminate_instances(instance_ids=[self.instance.id])
             timeout = time.time() + self.max_wait
             while self.instance.state != 'terminated' and time.time() <= timeout:
                 time.sleep(10)
                 self.instance.update()
-                self.log.info("Instance state: %s" % (self.instance.state))
-            self.log.info("Instance %s terminated" % self.instance.id)
+                self.log.info("Instance state: {}".format(self.instance.state))
+            self.log.info("Instance {} terminated".format(self.instance.id))
             self.instance == None
     
     def delete_volume(self, volume):
@@ -200,7 +200,7 @@ class EC2(object):
             self.log.warning("Volume object is Null. Nothing to do.")
             return False
         else:
-            self.log.info("Deleting volume %s" % volume.id)
+            self.log.info("Deleting volume {}".format(volume.id))
             return volume.delete()
 
     def detach_volume(self, device):
@@ -221,13 +221,13 @@ class EC2(object):
             self.log.warning("Instance hasn't being instantiated yet.")
             return False
         elif device not in self.volumes:
-            self.log.warning("Device %s is not attached" % device)
+            self.log.warning("Device {} is not attached".format(device))
             return False
         else:
             volume = self.volumes[device]
             # if self.ec2_conn.attach_volume(volume.id, self.instance.id, device, force=True):
             if volume.detach(force=True):
-                self.log.info("Device %s has been detached from %s" % (device, self.instance.id))
+                self.log.info("Device {} has been detached from {}".format(device, self.instance.id))
                 return volume.attachment_state()
                 del self.volumes[device]
             return True
@@ -252,7 +252,7 @@ class EC2(object):
             self.log.warning("Instance hasn't being instantiated yet.")
             return False
         if device in self.volumes:
-            self.log.warning("Device %s already attached" % device)
+            self.log.warning("Device {} already attached".format(device))
             return False
         try:
             # assert the volume being created is greater than 1GB but less than 1TB
@@ -261,13 +261,13 @@ class EC2(object):
             timeout = time.time() + self.max_wait
             while volume.status != 'available' and time.time() <= timeout:
                 time.sleep(10)
-                self.log.info("Volume status: %s" % volume.status)
+                self.log.info("Volume status: {}".format(volume.status))
                 volume.update()
             
-            self.log.info("Attempting to attach volume %s to instance %s" % (volume.id,
+            self.log.info("Attempting to attach volume {} to instance {}".format(volume.id,
                                                                              self.instance.id))
             if not volume.attach(self.instance.id, device):
-                raise Exception("Failed to attach volume %s to instance %s" % (volume.id,
+                raise Exception("Failed to attach volume {} to instance {}".format(volume.id,
                                                                              self.instance.id))
                 sys.exit(2)
             timeout = time.time() + self.max_wait

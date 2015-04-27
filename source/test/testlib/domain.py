@@ -63,9 +63,9 @@ class Domain(object):
             else:
                 terminated.append(node)
         
-        self.log.info("%s/%s nodes running" % (len(running), self.cluster_size))
-        self.log.info("%s/%s nodes halted" % (len(halted), self.cluster_size))
-        self.log.info("%s/%s nodes terminated" % (len(terminated), self.cluster_size))
+        self.log.info("{}/{} nodes running".format(len(running), self.cluster_size))
+        self.log.info("{}/{} nodes halted".format(len(halted), self.cluster_size))
+        self.log.info("{}/{} nodes terminated".format(len(terminated), self.cluster_size))
     
     def resume(self):
         '''
