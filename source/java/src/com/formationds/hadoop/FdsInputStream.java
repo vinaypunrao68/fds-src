@@ -3,10 +3,10 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ObjectOffset;
+import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
@@ -16,19 +16,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
+
 public class FdsInputStream extends InputStream implements Seekable, PositionedReadable {
     private final int objectSize;
     private final String domain;
     private final String volume;
     private final String blobName;
     private final Object bufferStateLock = new Object();
-    private XdiService.Iface am;
+    private AsyncAm asyncAm;
     private long readObject;
     private ByteBuffer readBuffer;
     private long position;
 
-    public FdsInputStream(XdiService.Iface am, String domain, String volume, String blobName, int objectSize) {
-        this.am = am;
+    public FdsInputStream(AsyncAm am, String domain, String volume, String blobName, int objectSize) {
+        this.asyncAm = am;
         this.objectSize = objectSize;
         this.domain = domain;
         this.volume = volume;
@@ -47,7 +49,7 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
             }
 
             if(objectBuffer == null) {
-                objectBuffer = am.getBlob(domain, volume, blobName, objectSize, new ObjectOffset(frame.objectOffset));
+                objectBuffer = unwindExceptions(() -> asyncAm.getBlob(domain, volume, blobName, objectSize, new ObjectOffset(frame.objectOffset)).get());
                 synchronized (bufferStateLock) {
                     readObject = frame.objectOffset;
                     this.readBuffer = objectBuffer;

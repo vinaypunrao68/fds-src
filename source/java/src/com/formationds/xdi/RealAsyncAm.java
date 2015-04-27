@@ -24,16 +24,16 @@ public class RealAsyncAm implements AsyncAm {
     private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
     private final AsyncAmResponseListener responseListener;
     private AsyncXdiServiceRequest.Iface oneWayAm;
-    private int port;
+    private int serverResponsePort;
     private AsyncRequestStatistics statistics;
 
-    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port) throws Exception {
-        this(oneWayAm, port, 30, TimeUnit.SECONDS);
+    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int serverResponsePort) throws Exception {
+        this(oneWayAm, serverResponsePort, 30, TimeUnit.SECONDS);
     }
 
-    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
+    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int serverResponsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
         this.oneWayAm = oneWayAm;
-        this.port = port;
+        this.serverResponsePort = serverResponsePort;
         statistics = new AsyncRequestStatistics();
         responseListener = new AsyncAmResponseListener(timeoutDuration, timeoutDurationUnit);
     }
@@ -49,18 +49,18 @@ public class RealAsyncAm implements AsyncAm {
                 AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
                 TNonblockingServer server = new TNonblockingServer(
-                        new TNonblockingServer.Args(new TNonblockingServerSocket(port))
+                        new TNonblockingServer.Args(new TNonblockingServerSocket(serverResponsePort))
                                 .processor(processor));
 
                 new Thread(() -> server.serve(), "AM async listener thread").start();
-                LOG.info("Started async AM listener on port " + port);
+                LOG.info("Started async AM listener on port " + serverResponsePort);
             }
 
             responseListener.start();
 
             if (connectedMode) {
                 new Retry<Void, Void>((x, i) ->
-                        handshake(port).get(),
+                        handshake(serverResponsePort).get(),
                         120, Duration.standardSeconds(1), "async handshake with bare_am")
                         .apply(null);
                 LOG.info("Async AM handshake done");
