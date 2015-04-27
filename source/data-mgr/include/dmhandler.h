@@ -68,7 +68,7 @@ struct QueueHelper {
     void markIoDone();
     void cancel();
 private:
-    DataMgr& _dataManager;
+    DataMgr& dataManager_;
 };
 
 

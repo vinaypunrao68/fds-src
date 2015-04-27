@@ -146,7 +146,7 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
 
  private:
 
-    DataMgr& _dataManager;
+    DataMgr& dataManager_;
 };
 
 }  // namespace fds

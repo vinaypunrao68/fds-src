@@ -291,7 +291,7 @@ namespace fds {
 
 
   private:
-        DataMgr& _dataManager;
+        DataMgr& dataManager_;
 
         fds_bool_t sync_in_progress;
         /**

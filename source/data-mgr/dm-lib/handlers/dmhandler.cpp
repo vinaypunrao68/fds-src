@@ -27,7 +27,7 @@ QueueHelper::QueueHelper(DataMgr& dataManager, dmCatReq *dmRequest)
           ioIsMarkedAsDone(false),
           cancelled(false),
           skipImplicitCb(false),
-          _dataManager(dataManager)
+          dataManager_(dataManager)
 {}
 
 QueueHelper::~QueueHelper() {
@@ -50,7 +50,7 @@ QueueHelper::~QueueHelper() {
 
 void QueueHelper::markIoDone() {
     if (!ioIsMarkedAsDone) {
-        if (_dataManager.features.isQosEnabled()) _dataManager.qosCtrl->markIODone(*dmRequest);
+        if (dataManager_.features.isQosEnabled()) dataManager_.qosCtrl->markIODone(*dmRequest);
         ioIsMarkedAsDone = true;
     }
 }

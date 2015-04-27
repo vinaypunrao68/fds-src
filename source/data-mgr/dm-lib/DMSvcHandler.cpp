@@ -10,7 +10,7 @@
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager)
     : PlatNetSvcHandler(provider),
-      _dataManager(dataManager)
+      dataManager_(dataManager)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
@@ -75,7 +75,7 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     Error err(ERR_OK);
     VolumeDesc desc(vol_msg->vol_desc);
-    err = _dataManager._process_add_vol(_dataManager.getPrefix() + std::to_string(vol_uuid),
+    err = dataManager_._process_add_vol(dataManager_.getPrefix() + std::to_string(vol_uuid),
                                         vol_uuid,
                                         &desc,
                                         vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC);
@@ -101,10 +101,10 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     } else {
         if (fCheck) {
             // delete the volume blobs first
-            err = _dataManager.deleteVolumeContents(vol_uuid);
-            err = _dataManager.process_rm_vol(vol_uuid, fCheck);
+            err = dataManager_.deleteVolumeContents(vol_uuid);
+            err = dataManager_.process_rm_vol(vol_uuid, fCheck);
         } else {
-            err = _dataManager.process_rm_vol(vol_uuid, fCheck);
+            err = dataManager_.process_rm_vol(vol_uuid, fCheck);
         }
     }
 
@@ -123,7 +123,7 @@ DMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
     Error err(ERR_OK);
     VolumeDesc desc(vol_msg->vol_desc);
-    err = _dataManager._process_mod_vol(vol_uuid, desc);
+    err = dataManager_._process_mod_vol(vol_uuid, desc);
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
 }
@@ -161,9 +161,9 @@ void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * get the snapshot manager instanace
      * invoke the deleteSnapshot DM function
      */
-    err = _dataManager.process_rm_vol(deleteSnapshot->snapshotId, true);
+    err = dataManager_.process_rm_vol(deleteSnapshot->snapshotId, true);
     if (err.ok()) {
-        err = _dataManager.process_rm_vol(deleteSnapshot->snapshotId, false);
+        err = dataManager_.process_rm_vol(deleteSnapshot->snapshotId, false);
     }
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -206,7 +206,7 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error err(ERR_OK);
 
     // synchronous call to process the volume sync state
-    err = _dataManager.processVolSyncState(syncStateMsg->volume_id,
+    err = dataManager_.processVolSyncState(syncStateMsg->volume_id,
                                            syncStateMsg->forward_complete);
 
     asyncHdr->msg_code = err.GetErrno();
@@ -218,7 +218,7 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void
 DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) { //NOLINT
-    StatStreamAggregator::ptr statAggr = _dataManager.statStreamAggregator();
+    StatStreamAggregator::ptr statAggr = dataManager_.statStreamAggregator();
     if (!statAggr) {
         LOGWARN << "statStreamAggregator is not initialised";
         return;
@@ -237,7 +237,7 @@ DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void
 DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                   boost::shared_ptr<fpi::StatStreamDeregistrationMsg>& streamDeregstrMsg) { //NOLINT
-    StatStreamAggregator::ptr statAggr = _dataManager.statStreamAggregator();
+    StatStreamAggregator::ptr statAggr = dataManager_.statStreamAggregator();
     fds_assert(statAggr);
     fds_assert(streamDeregstrMsg);
 
@@ -256,7 +256,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "OMClient received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
 
-    DLTManagerPtr dltMgr = _dataManager.omClient->getDltManager();
+    DLTManagerPtr dltMgr = dataManager_.omClient->getDltManager();
     err = dltMgr->addSerializedDLT(dlt->dlt_data.dlt_data,
                                    std::bind(
                                        &DMSvcHandler::NotifyDLTUpdateCb,
@@ -307,8 +307,8 @@ DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &
     return;
 
     // see if DM sync feature is enabled
-    if (_dataManager.features.isCatSyncEnabled()) {
-        err = _dataManager
+    if (dataManager_.features.isCatSyncEnabled()) {
+        err = dataManager_
              .catSyncMgr
             ->startCatalogSync(migrMsg->metaVol, std::bind(&DMSvcHandler::StartDMMetaMigrationCb,
                                                            this,
@@ -340,7 +340,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "DMSvcHandler received new DMT commit version  "
               << dmt->dmt_data.dmt_type;
-    err = _dataManager.omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    err = dataManager_.omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
     if (!err.ok()) {
         LOGERROR << "failed to update DMT " << err;
         NotifyDMTUpdateCb(hdr, err);
@@ -348,8 +348,8 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     // see if DM sync feature is enabled
-    if (_dataManager.features.isCatSyncEnabled()) {
-        err = _dataManager.catSyncMgr
+    if (dataManager_.features.isCatSyncEnabled()) {
+        err = dataManager_.catSyncMgr
                          ->startCatalogSyncDelta(std::bind(&DMSvcHandler::NotifyDMTUpdateCb,
                                                            this,
                                                            hdr,
@@ -384,13 +384,13 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     // TODO(xxx) notify volume sync that we can stop forwarding
     // updates to other DM
 
-    _dataManager.sendDmtCloseCb = std::bind(&DMSvcHandler::NotifyDMTCloseCb,
+    dataManager_.sendDmtCloseCb = std::bind(&DMSvcHandler::NotifyDMTCloseCb,
                                             this,
                                             hdr,
                                             dmtClose,
                                             std::placeholders::_1);
     // will finish forwarding when all queued updates are processed
-    err = _dataManager.notifyDMTClose();
+    err = dataManager_.notifyDMTClose();
 
     if (!err.ok()) {
         LOGERROR << "DMT Close, volume meta may not be synced properly";
@@ -414,7 +414,7 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message DM ... flush IOs..";
-    _dataManager.flushIO();
+    dataManager_.flushIO();
 
     // respond to OM
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
@@ -429,7 +429,7 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 
     // revert to DMT version provided in abort message
     if (abortMsg->DMT_version > 0) {
-        err = _dataManager.omClient->getDmtManager()->commitDMT(dmtVersion);
+        err = dataManager_.omClient->getDmtManager()->commitDMT(dmtVersion);
         if (err == ERR_NOT_FOUND) {
             LOGNOTIFY << "We did not revert to previous DMT, because DM did not receive it."
                       << " DM will not have any DMT, which is ok";
@@ -438,7 +438,7 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     }
 
     // Tell the DMT manager
-    err = _dataManager.catSyncMgr->abortMigration();
+    err = dataManager_.catSyncMgr->abortMigration();
 
     // TODO(xxx): make abort cb
     fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
