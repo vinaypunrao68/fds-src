@@ -6,17 +6,17 @@
             /* keep these values present with empty strings if they are not
                applicable - deliverable payload expects them to be present,
                even if not populated */
-            "datacenter": "{{datacenter if datacenter is defined else ''}}",
-            "region": "{{region if region is defined else ''}}",
-            "zone": "{{zone if zone is defined else ''}}",
-            "cluster": "{{cluster if cluster is defined else ''}}",
-            "hostname": "{{ansible_hostname}}",
-            "ipv4": "{{ansible_ipv4}}",
-            "ipv6": "",
+            "datacenter": "{{badger_datacenter if badger_datacenter is defined else ''}}",
+            "region": "{{badger_region if badger_region is defined else ''}}",
+            "zone": "{{badger_zone if badger_zone is defined else ''}}",
+            "cluster": "{{badger_cluster if badger_cluster is defined else ''}}",
+            "hostname": "{{inventory_hostname}}",
+            "ipv4": "{{ansible_default_ipv4['address']}}",
+            "ipv6": "{{ansible_default_ipv6['address'] if ansible_default_ipv6['address'] is defined else ''}}",
             "log": {
                 "dest": "file",
-                "fileName": "badger.log",
-                "level": "debug"
+                "fileName": "{{ badger_logfile if badger_logfile is defined else 'badger.log'}}",
+                "level": "{{badger_loglevel if badger_loglevel is defined else 'info'}}"
             }
         },
     "modules":

@@ -1,8 +1,8 @@
 name "badger"
-default_version "0.1.0"
+default_version "0.1.2"
 
-version "0.1.0" do
-  source md5: "db0c3ac0a764f61716d8e79a8cc3ee51"
+version "0.1.2" do
+  source md5: "3b1fccfe84ff236df043b393918331c0"
 end
 
 source url: "http://bld-dev-02/stat-badger-#{version}.tar.gz"
@@ -19,4 +19,5 @@ build do
 
   mkdir "#{install_dir}/embedded/stat-badger"
   sync "#{project_dir}/", "#{install_dir}/embedded/stat-badger"
+
 end
