@@ -85,7 +85,9 @@ struct DMTester :  SvcProcess {
                          nullptr) {
     }
 
-    virtual ~DMTester() {}
+    virtual ~DMTester() {
+        delete dataMgr;
+    }
 
     virtual void registerSvcProcess() override
     {
