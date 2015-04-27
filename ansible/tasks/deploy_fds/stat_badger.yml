@@ -2,12 +2,12 @@
 -   set_fact:
         badger_cluster: "{{fds_cluster_name if fds_cluster_name is defined else 'undefined'}}"
         badger_logfile: "/var/log/stat-badger/badger.log"
-        badger_disk_list: "[\"xvda\"]"
+        badger_disk_list: "[\"xvda\", \"sda\"]"
         badger_influxdb08_host: "{{'127.0.0.1' if fds_customer_install is defined else '10.2.10.20'}}"
         badger_influxdb08_port: 8086
-        badger_influxdb08_database: "codytest"
-        badger_influxdb08_user: "test"
-        badger_influxdb08_pass: "test"
+        badger_influxdb08_database: "system_stats"
+        badger_influxdb08_user: "fds1505"
+        badger_influxdb08_pass: "fds1505"
 
 -   name: set up badger user and group
     group:
