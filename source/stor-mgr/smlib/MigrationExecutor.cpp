@@ -123,10 +123,6 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         fpi::CtrlObjectMetaDataSync omdFilter;
         omd.syncObjectMetaData(omdFilter);
 
-
-        /* TODO(Sean):  We should add to filter object set if the ref cnt is positive (???)
-         *              Are there other checks before adding to the filter set?
-         */
         if (omdFilter.objRefCnt > 0) {
             LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                        << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
@@ -137,12 +133,6 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         }
     }
     delete it;
-
-    if (objAddedToFilterSet) {
-        LOGCRITICAL << "UNSUPPORTED CONFIGURATION: "
-                    << "Executor " << std::hex << executorId << std::dec
-                    << " added at least on objet to the filter set.";
-    }
 
     // before sending rebalance msgs to source SM, move to next state, in case we
     // receive responses before finish sending all the messages...
@@ -163,7 +153,12 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                << " ME_FIRST_PHASE_REBALANCE_START --> " << nextState;
 
     // send rebalance set of objects to source SM
-    for (auto tok : dltTokens) {
+    // since we may start receiving responses with declines, we may change
+    // dltTokens (remove tokens that we are resyncing). So work on copy
+    // of token set, in case dltTokens start changing...
+    std::set<fds_token_id> dltTokensCopy;
+    dltTokensCopy.insert(dltTokens.begin(), dltTokens.end());
+    for (auto tok : dltTokensCopy) {
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << " sending rebalance initial set for DLT token "
                    << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
@@ -175,9 +170,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                 asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
                 asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                    MigrationExecutor::objectRebalanceFilterSetResp));
+                    MigrationExecutor::objectRebalanceFilterSetResp, tok));
                 asyncRebalSetReq->setTimeoutMs(5000);
-                // we are not waiting for response, so not setting a callback
                 asyncRebalSetReq->invoke();
             }
             /* TODO(Gurpreet): We should handle the exception and propogate the error to
@@ -185,7 +179,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
              */
             catch (...) {
                 LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
-                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+                           << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             }
         }
     }
@@ -197,15 +191,34 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 }
 
 void
-MigrationExecutor::objectRebalanceFilterSetResp(EPSvcRequest* req,
+MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
+                                                EPSvcRequest* req,
                                                 const Error& error,
                                                 boost::shared_ptr<std::string> payload)
 {
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
-             << std::hex << executorId << std::dec << " " << error;
+             << std::hex << executorId << std::dec << " DLT token " << dltToken
+             << " " << error;
+
     // here we just check for errors
     if (!error.ok()) {
-        LOGERROR << "CtrlObjectRebalanceFilterSet response " << error;
+        if (error == ERR_SM_RESYNC_SOURCE_DECLINE) {
+            // SM declined to be a source for DLT token
+            LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
+                       << " ; ok will stop resync for this dlt token, executor "
+                       << std::hex << executorId << std::dec;
+            dltTokens.erase(dltToken);
+            if (dltTokens.size() == 0) {
+                // resync was declined for all DLT tokens of this executor, we are done
+                LOGMIGRATE << "Resync was declined for all DLT tokens for executor "
+                           << std::hex << executorId << std::dec;
+                handleMigrationRoundDone(ERR_OK);
+            }
+        } else {
+            LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
+                     << " executor " << std::hex << executorId << std::dec
+                     << " response " << error;
+        }
     }
 }
 
@@ -219,7 +232,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                (curState == ME_SECOND_PHASE_APPLYING_DELTA));
 
     LOGMIGRATE << "Sync Delta Object Set: " << deltaSet->objectToPropagate.size()
-               << " objects, executor ID=" << deltaSet->executorID
+               << " objects, executor ID=" << std::hex << deltaSet->executorID << std::dec
                << " seqNum=" << deltaSet->seqNum
                << " lastSet=" << deltaSet->lastDeltaSet
                << " first rebalance round=" << (curState == ME_FIRST_PHASE_APPLYING_DELTA);

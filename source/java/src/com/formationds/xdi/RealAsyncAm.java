@@ -28,7 +28,7 @@ public class RealAsyncAm implements AsyncAm {
     private AsyncRequestStatistics statistics;
 
     public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int serverResponsePort) throws Exception {
-        this(oneWayAm, serverResponsePort, 2, TimeUnit.SECONDS);
+        this(oneWayAm, serverResponsePort, 30, TimeUnit.SECONDS);
     }
 
     public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int serverResponsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {

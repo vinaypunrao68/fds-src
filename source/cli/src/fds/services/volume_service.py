@@ -17,15 +17,7 @@ class VolumeService( AbstractService ):
     
     def __init__(self, session):
         AbstractService.__init__(self, session)
-#         self.__session = session
-#         self.__restHelper = RESTHelper()
-        
 
-#     def __get_url_preamble(self):
-#         '''
-#         Helper method to construct the base URI
-#         '''        
-#         return "http://" + self.__session.get_hostname() + ":" + str( self.__session.get_port() )
     
     def find_volume_by_id(self, an_id):
         '''
@@ -133,3 +125,11 @@ class VolumeService( AbstractService ):
         
         url = "{}{}{}{}".format ( self.get_url_preamble(), "/api/config/volumes/", an_id, "/snapshots" )
         return self.rest_helper.get( self.session, url )
+    
+    def list_volume_ids_by_snapshot_policy(self, snapshot_policy_id ):
+        '''
+        Get a list of all volume IDs associated with this snapshot policy ID
+        '''
+        
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/policies/", snapshot_policy_id, "/volumes")
+        return self.rest_helper().get( self.session, url )    
