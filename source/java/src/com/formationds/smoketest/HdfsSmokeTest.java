@@ -1,17 +1,11 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.hadoop.OwnerGroupInfo;
+import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.junit.After;
@@ -23,7 +17,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URI;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -34,7 +27,13 @@ import static org.junit.Assert.*;
 @Ignore
 public class HdfsSmokeTest {
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
+    private final int amResponsePortOffset = 2876;
+    private final int amServicePortOffset = 2988;
     private FdsFileSystem fileSystem;
+
+    private static boolean isIntegrationTest() {
+        return false;
+    }
 
     @Test(expected = IOException.class)
     public void testMakeDirectoryAttempt() throws Exception {
@@ -288,6 +287,30 @@ public class HdfsSmokeTest {
     }
 
     @Test
+    public void testBlockSpanIo() throws Exception {
+        int objectSize = 4;
+        MemoryAmService mas = new MemoryAmService();
+        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4, 0, MediaPolicy.HDD_ONLY));
+        FileSystem fs = new FdsFileSystem(mas, "fds://volume/", objectSize);
+
+        Path f = new Path("/mr.meatloaf");
+        byte[] chunk = new byte[]{1, 2, 3, 4, 5};
+        FSDataOutputStream fsdo = fs.create(f);
+        int chunks = 20 * (1 + (objectSize / chunk.length));
+        for (int i = 0; i < chunks; i++)
+            fsdo.write(chunk);
+        fsdo.close();
+
+        FSDataInputStream fsdi = fs.open(f);
+        byte[] readChunk = new byte[chunk.length];
+        for (int i = 0; i < chunks; i++) {
+            fsdi.readFully(readChunk);
+            assertArrayEquals(chunk, readChunk);
+        }
+        assertEquals(-1, fsdi.read());
+    }
+
+    @Test
     public void testWorkingDirectory() throws Exception {
         Path p1 = new Path("/foo");
         fileSystem.mkdirs(p1);
@@ -339,7 +362,7 @@ public class HdfsSmokeTest {
                 .forEach(i -> doSomeReads(path));
     }
 
-    private synchronized void doSomeReads(Path path) {
+    private void doSomeReads(Path path) {
         try {
             FSDataInputStream in = fileSystem.open(path);
             DataInputStream dis = new DataInputStream(in);
@@ -354,11 +377,14 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory(0);
+        Integer pmPort = 7000;
+
+        XdiClientFactory xdiCf = new XdiClientFactory(pmPort + amResponsePortOffset);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
+        XdiService.Iface am = xdiCf.remoteAmService(host, pmPort + amServicePortOffset);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();
@@ -369,11 +395,7 @@ public class HdfsSmokeTest {
         cs.assignUserToTenant(userId, tenantId);
 
         cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), userId);
-        Configuration hadoopConf = new Configuration();
-        hadoopConf.set("fds.am.endpoint", "localhost");
-        hadoopConf.set("fds.cs.endpoint", "localhost");
-        URI uri = new URI("fds://" + volumeName + "/");
-        fileSystem = new FdsFileSystem(uri, hadoopConf);
+        fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 
     @After
