@@ -20,7 +20,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
@@ -110,11 +109,6 @@ public class AsyncWebapp extends HttpServlet {
         if (matchResult.isRoutingSuccessful()) {
             AsyncContext asyncContext = request.startAsync();
             LOG.debug(req.getMethod() + " " + req.getRequestURI());
-
-            StringWriter sw = new StringWriter();
-            new Throwable("").printStackTrace(new PrintWriter(sw));
-            LOG.debug(sw.toString());
-
             Function<HttpContext, CompletableFuture<Void>> handler = matchResult.getResult();
             response.addHeader("Access-Control-Allow-Origin", "*");
             response.addHeader("Server", "Formation");

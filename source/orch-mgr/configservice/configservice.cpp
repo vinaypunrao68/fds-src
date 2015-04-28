@@ -1057,7 +1057,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 }  // namespace apis
 
 std::thread* runConfigService(OrchMgr* om) {
-    int port = 9090;
+    int port = MODULEPROVIDER()->get_conf_helper().get_abs<int>("fds.om.config_port", 9090);
     LOGNORMAL << "about to start config service @ " << port;
     boost::shared_ptr<apis::ConfigurationServiceHandler> handler(new apis::ConfigurationServiceHandler(om));  //NOLINT
     boost::shared_ptr<TProcessor> processor(new apis::ConfigurationServiceProcessor(handler));  //NOLINT
