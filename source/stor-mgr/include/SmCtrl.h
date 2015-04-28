@@ -7,6 +7,7 @@
 
 #include <fdsp/FDSP_types.h>
 #include <fdsp/sm_api_types.h>
+#include <SmTypes.h>
 
 namespace fds {
 
@@ -171,10 +172,11 @@ class SmCheckCmd {
 
 class SmCheckActionCmd: public SmCheckCmd {
   public:
-    explicit SmCheckActionCmd(const fpi::SMCheckCmd &cmd) {
+    SmCheckActionCmd(const fpi::SMCheckCmd &cmd, SmTokenSet tgtTokens) {
         switch (cmd) {
             case fpi::SMCHECK_START:
                 command = SMCHECK_START;
+                this->tgtTokens = tgtTokens;
                 break;
             case fpi::SMCHECK_STOP:
                 command = SMCHECK_STOP;
@@ -183,6 +185,8 @@ class SmCheckActionCmd: public SmCheckCmd {
                 fds_panic("Unknown SmCheckCmd");
         }
     }
+    // Optional parameters for SMCHECK_START
+    SmTokenSet tgtTokens;
 };
 
 class SmCheckStatusCmd: public SmCheckCmd {

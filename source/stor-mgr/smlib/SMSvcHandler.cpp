@@ -997,9 +997,14 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 {
     Error err(ERR_OK);
 
-    LOGDEBUG << "Received SMCheck cmd=" << msg->SmCheckCmd;
+    LOGDEBUG << "Received SMCheck cmd=" << msg->SmCheckCmd << " with target tokens list of len "
+             << msg->targetTokens.size();
 
-    SmCheckActionCmd actionCmd(msg->SmCheckCmd);
+    std::set<fds_token_id> tgtTokens;
+    for (auto token : msg->targetTokens) {
+        tgtTokens.insert(token);
+    }
+    SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
     err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
