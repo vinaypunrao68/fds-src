@@ -85,6 +85,11 @@ class MigrationClient {
      * return if all the set of objects (sequence numbers are complete
      * and no holes) are added.
      *
+     * @param[in] srcAccepted true if this SM is accepted to be a source for
+     *            DLT token in given filterSet. Otherwise false and this method
+     *            will just check if all set of objects are received (including
+     *            DLT tokens that were accepted) and if so, will proceed to next
+     *            state.
      * @return true - all sequence numbers are received
      *
      * TODO(Sean):  For fault tolerance, we need to setup a timer routine to
@@ -92,7 +97,8 @@ class MigrationClient {
      *              sequence number isn't updated for a long time, take the
      *              node offline.
      */
-    Error migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet);
+    Error migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
+                                            fds_bool_t srcAccepted);
 
     Error migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhaseMsg);
 

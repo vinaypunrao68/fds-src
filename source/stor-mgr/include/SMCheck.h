@@ -105,7 +105,7 @@ class SMCheckOnline {
     SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap);
     ~SMCheckOnline();
 
-    Error startIntegrityCheck();
+    Error startIntegrityCheck(SmTokenSet tgtDltTokens);
 
     void SMCheckSnapshotCB(const Error& error,
                            SmIoSnapshotObjectDB* snapReq,
@@ -126,12 +126,14 @@ class SMCheckOnline {
 
 
   private:
-
     // A simple boolean to indicate state of the checker.
     // If we ever got to multiple requests, this can be converted to
     // a atomic counter, where is count represents number of outstanding
     // requests.
     std::atomic<bool> SMChkActive;
+
+    // Target DLT tokens list
+    std::set<fds_token_id> targetDLTTokens;
 
     void resetStats();
     bool checkObjectOwnership(const ObjectID& objId);

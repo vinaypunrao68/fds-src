@@ -46,7 +46,8 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
                 if ( !isNaN( pInt ) && angular.isNumber( pInt ) ){
                 
                     item.wholeNumber = Math.floor( pInt );
-                    item.decimals = Math.round( (pInt - item.wholeNumber)*100 );
+                    item.decimals =  (pInt - item.wholeNumber).toFixed( 2 ) + "";
+                    item.decimals = item.decimals.substring( 2 );
                 }
                 else {
                     item.wholeNumber = item.number;

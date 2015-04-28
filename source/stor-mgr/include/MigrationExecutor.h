@@ -71,6 +71,7 @@ class MigrationExecutor {
      * Can only be called before startObjectRebalance
      */
     void addDltToken(fds_token_id dltTok);
+    fds_bool_t responsibleForDltToken(fds_token_id dltTok) const;
 
     /**
      * Start the object rebalance.  The rebalance inintiated by the
@@ -101,7 +102,8 @@ class MigrationExecutor {
     void handleMigrationRoundDone(const Error& error);
 
     /// callback from SL on rebalance filter set msg
-    void objectRebalanceFilterSetResp(EPSvcRequest* req,
+    void objectRebalanceFilterSetResp(fds_token_id dltToken,
+                                      EPSvcRequest* req,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload);
 
@@ -109,6 +111,15 @@ class MigrationExecutor {
     void getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
+
+
+    // send finish resync msg to source SM for corresponding client
+    void sendFinishResyncToClient();
+
+    // callback from SL on response for finish client resync message
+    void finishResyncResp(EPSvcRequest* req,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
 
     /// Id of this executor, used for communicating with source SM
     fds_uint64_t executorId;

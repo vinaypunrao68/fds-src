@@ -19,6 +19,10 @@
 
 - include: post_install_setup.yml
 
+- include: stat_badger.yml
+  when: fds_system_stats_enabled is defined and fds_system_stats_enabled == true
+  tags: stat-badger
+
 - include: start_fds.yml
 
 - include: ../nginx/nginx_ssl_proxy.yml

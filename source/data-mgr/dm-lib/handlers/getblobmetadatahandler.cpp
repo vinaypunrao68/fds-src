@@ -54,8 +54,7 @@ void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
                                                           &typedRequest->message->metaDataList);
     if (!helper.err.ok()) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType,
-                         typedRequest->getVolId(),
-                         typedRequest->perfNameStr);
+                         typedRequest->getVolId());
     }
     typedRequest->message->byteCount = blobSize;
 }

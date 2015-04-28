@@ -27,6 +27,9 @@ def suiteConstruction(self):
     # Create a block volume
     suite.addTest(testcases.TestBlockIntFace.TestBlockCrtVolume())
 
+    # Test a list volumes to a block device
+    suite.addTest(testcases.TestBlockIntFace.TestBlockListVolumes())
+
     # Attach a block device
     suite.addTest(testcases.TestBlockIntFace.TestBlockAttachVolume())
 

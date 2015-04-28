@@ -179,7 +179,8 @@ std::ostream& operator<< (std::ostream &out,
 void
 SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
                           const std::set<fds_uint16_t>& ssds,
-                          ObjectLocationTable* olt) {
+                          ObjectLocationTable* olt)
+{
     fds_verify(olt);
 
     // use round-robin placement of tokens over disks
@@ -208,5 +209,118 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
     }
 }
 
+
+/**
+ * This is called
+ */
+bool
+SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
+                            const std::set<fds_uint16_t>& addedStorage,
+                            const std::set<fds_uint16_t>& removedStorage,
+                            diskio::DataTier storageTier,
+                            ObjectLocationTable* olt)
+{
+    fds_verify(olt);
+    // there should be at least disk in the base storage.
+    fds_verify(baseStorage.size() > 0);
+    // should be called only if the topology has changed.
+    fds_verify(addedStorage.size() > 0 || removedStorage.size() > 0);
+
+    LOGNOTIFY << "Recomputing token placment";
+
+    // We just handle the case if the disk is removed from the storage.
+    // If the disks are added without losing any disk, for now we do nothing.
+    //
+    // TODO(Sean):  handle the case when the disks are added to the storage.
+    if (removedStorage.size() == 0) {
+        LOGNOTIFY << "Storage was added, but no missing storage.  Skipping token re-placement.";
+        return false;
+    }
+
+    // Contains set for all storage for specified storage tier.
+    std::set<fds_uint16_t> totalStorage;
+
+    // totalStorage contains the full topological view of the disks on the system
+    // contains ((baseStorage + addedStorage) - removedStorage).
+    // Tokens are distributed based on this
+    totalStorage.insert(baseStorage.begin(), baseStorage.end());
+
+    // If storage is added, add to the totalStorage.
+    if (addedStorage.size() > 0) {
+        for (auto diskId: addedStorage) {
+            totalStorage.insert(diskId);
+        }
+    }
+
+    // We have the check to see if the removedStorage size > 0.  This assert should
+    // be removed if the system can handle adding new storage to the sm services.
+    fds_assert(removedStorage.size() > 0);
+    // If storage is removed, remove from totalStorage.
+    if (removedStorage.size() > 0) {
+        for (auto diskId : removedStorage) {
+            totalStorage.erase(diskId);
+        }
+    }
+
+    LOGNOTIFY << "Tier=" << storageTier << ", "
+              << "baseStorage size=" << baseStorage.size() << ", "
+              << "addedStorage size=" << addedStorage.size() << ", "
+              << "removedStorage size=" << removedStorage.size() << ", "
+              << "totalStorage size=" << totalStorage.size()
+              << std::endl;
+
+    // Calculate average per disk token based.
+    uint32_t tokensPerDisk = ceil(SMTOKEN_COUNT / totalStorage.size());
+    // Should be at least one token per disk.
+    if (tokensPerDisk == 0) {
+        tokensPerDisk = 1;
+    }
+
+    // get list of tokens from the removed storage.
+    SmTokenSet removedTokens;
+
+    for (auto diskId : removedStorage) {
+        SmTokenSet tmpRemovedTokens = olt->getSmTokens(diskId);
+        if (tmpRemovedTokens.size() > 0) {
+            removedTokens.insert(tmpRemovedTokens.begin(), tmpRemovedTokens.end());
+        }
+    }
+
+    // Here, we want to distribute the tokens to added storage first
+    if (addedStorage.size() > 0) {
+        std::set<fds_uint16_t>::const_iterator addedStoreCit = addedStorage.cbegin();
+
+        uint32_t tokDistCnt = 0;
+
+        std::set<fds_token_id>::iterator tokenIt;
+        while (!removedTokens.empty()) {
+            tokenIt = removedTokens.begin();
+            olt->setDiskId(*tokenIt, storageTier, *addedStoreCit);
+            removedTokens.erase(tokenIt);
+            ++addedStoreCit;
+            if (addedStorage.cend() == addedStoreCit) {
+                addedStoreCit = addedStorage.cbegin();
+                if (++tokDistCnt > tokensPerDisk) {
+                    break;
+                }
+            }
+        }
+    }
+
+    // Now, any leftover tokens should be distributed to all disks.
+    std::set<fds_uint16_t>::const_iterator totalStoreCit = totalStorage.cbegin();
+    std::set<fds_token_id>::iterator tokenIt;
+    while (!removedTokens.empty()) {
+        tokenIt = removedTokens.begin();
+        olt->setDiskId(*tokenIt, storageTier, *totalStoreCit);
+        removedTokens.erase(tokenIt);
+        ++totalStoreCit;
+        if (totalStorage.cend() == totalStoreCit) {
+            totalStoreCit = totalStorage.cbegin();
+        }
+    }
+
+    return true;
+}
 
 }  // namespace fds

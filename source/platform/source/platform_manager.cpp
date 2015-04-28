@@ -13,12 +13,13 @@
 #include <fds_process.h>
 #include <platform/process.h>
 #include <util/stringutils.h>
-#include <platform/platformmanager.h>
+
+#include "platform/platform_manager.h"
+
 namespace fds
 {
     namespace pm
     {
-
         PlatformManager::PlatformManager() : Module("pm")
         {
         }
@@ -27,16 +28,11 @@ namespace fds
         {
             conf = new FdsConfigAccessor(g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-            db = new kvstore::PlatformDB(rootDir,
-                                         conf->get<std::string>("redis_host","localhost"),
-                                         conf->get<int>("redis_port", 6379),1);
+            db = new kvstore::PlatformDB(rootDir, conf->get<std::string>("redis_host","localhost"), conf->get<int>("redis_port", 6379), 1);
 
             if (!db->isConnected())
-            {
-                LOGCRITICAL << "unable to talk to platformdb @ "
-                            << "[" << conf->get<std::string>("redis_host","localhost")
-                            << ":" << conf->get<int>("redis_port", 6379)
-                            << "]";
+            { 
+                LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string>("redis_host","localhost") << ":" << conf->get<int>("redis_port", 6379) << "]";
             } else {
                 db->getNodeInfo(nodeInfo);
                 db->getNodeDiskCapability(diskCapability);
@@ -55,6 +51,7 @@ namespace fds
             }
 
             determineDiskCapability();
+
             return 0;
         }
 
@@ -62,7 +59,6 @@ namespace fds
         {
 
         }
-
 
         pid_t PlatformManager::startAM()
         {
@@ -127,6 +123,7 @@ namespace fds
             } else {
                 LOGCRITICAL << "error spawning SM";
             }
+
             return pid;
         }
 
@@ -177,8 +174,6 @@ namespace fds
             props.setInt("disk_type", diskCapability.disk_type);
         }
 
-
-
         void PlatformManager::determineDiskCapability()
         {
             diskCapability.disk_iops_max    = 100000;
@@ -220,6 +215,7 @@ namespace fds
         {
             ResourceUUID    uuid;
             uuid.uuid_set_type(nodeInfo.uuid, svcType);
+
             return uuid.uuid_get_val();
         }
 

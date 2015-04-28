@@ -39,12 +39,17 @@ class Operation(object):
     logger = logging.getLogger(__name__)
 
     def __init__(self, test_sets_list, args):
+
+        # save args to class
         self.test_sets_list = test_sets_list
+        self.args = args
+
+        # init class vars
         self.test_sets = []
         self.multicluster = None
-        self.args = args
         self.om_ip_address = None
         self.inventory_file = None
+
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
         self.logger.info("Checking if the log directory exists...")
@@ -52,24 +57,38 @@ class Operation(object):
             self.logger.info("Creating %s" % self.log_dir)
             os.makedirs(self.log_dir)
 
+        # get the inventory file if there is one
+        if self.args.inventory is not None:
+            self.inventory_file = self.args.inventory
+
+
         # create the test suit runner
         self.runner = xmlrunner.XMLTestRunner(output=self.log_dir)
+
         utils.create_test_files_dir()
+
         # Get the ip address of the OM
-        if self.args.ipaddress is not None:
-                self.om_ip_address = self.args.ipaddress
-
-        if self.args.inventory is not None:
-            # gets the op_ip_address from the inventory file
-            self.inventory_file = self.args.inventory
-        else:
-            if self.args.type == "static_aws":
-                self.inventory_file = config.DEFAULT_AWS_INVENTORY
-            else:
-                self.inventory_file = config.DEFAULT_INVENTORY_FILE
-
-        self.om_ip_address = config_parser.get_om_ipaddress_from_inventory(
+        if self.args.test == "single":
+            self.om_ip_address = "127.0.0.1"
+        elif self.args.test == "multi":
+            if self.inventory_file is None:
+                if self.args.type == "static_aws":
+                    self.inventory_file = config.DEFAULT_AWS_INVENTORY
+                else:
+                    self.inventory_file = config.DEFAULT_INVENTORY_FILE
+            self.om_ip_address = config_parser.get_om_ipaddress_from_inventory(
                                                             self.inventory_file)
+        elif (self.args.test == "existing" and self.inventory_file is None and
+        self.args.ipaddress is not None):
+            self.om_ip_address = self.args.ipaddress
+        elif self.args.test == "existing" and self.inventory_file is not None:
+            self.om_ip_address = config_parser.get_om_ipaddress_from_inventory(
+                    self.inventory_file)
+        else:
+            raise ValueError("You must provide either an IP address, or an" +
+                    " inventory file.")
+            sys.exit(2)
+
 
         # always check if the ip address is a valid one
         if not utils.is_valid_ip(self.om_ip_address):
@@ -112,38 +131,40 @@ class Operation(object):
     Start all the fds processes, if needed.
     '''
     def start_system(self):
-        if self.args.test == 'single':
-            self.fds_node = fds.FDS()
-            if not self.fds_node.check_status():
-                self.fds_node.start_single_node()
-        elif self.args.test == 'existing':
-            self.logger.info("Using an existing cluster... skipping startup" \
-                             " phase.")
-        elif self.args.test == 'multi':
-            print self.args.type
-            if self.args.type == "aws":
-                if self.args.name == None:
-                    raise ValueError, "A name tag must be given to the AWS" \
+        if self.args.test == 'existing':
+            self.logger.info("using an existing cluster, skipping startup" \
+                    " phase.")
+        else:
+            if self.args.test == 'single':
+                self.fds_node = fds.FDS()
+                if not self.fds_node.check_status():
+                    self.fds_node.start_single_node()
+
+            elif self.args.test == 'multi':
+                print self.args.type
+                if self.args.type == "aws":
+                    if self.args.name == None:
+                        raise ValueError, "A name tag must be given to the AWS" \
                                       "cluster"
-                self.multicluster = multinode.Multinode(name=self.args.name,
+                    self.multicluster = multinode.Multinode(name=self.args.name,
                                               instance_count=self.args.count,
                                               build=self.args.build,
                                               type=self.args.type)
-            if self.args.type == "static_aws":
-                if self.inventory_file == None:
-                    self.inventory_file = os.path.join(config.ANSIBLE_INVENTORY,
+                elif self.args.type == "static_aws":
+                    if self.inventory_file == None:
+                        self.inventory_file = os.path.join(config.ANSIBLE_INVENTORY,
                                                        config.DEFAULT_AWS_INVENTORY)
-                    print self.inventory_file
-                self.multicluster = multinode.Multinode(type=self.args.type,
+                        print self.inventory_file
+                    self.multicluster = multinode.Multinode(type=self.args.type,
                                                         build=self.args.build,
                                                         inventory=self.inventory_file)
-            else:
-                # make the scale-framework-cluster version the default one
-                self.multicluster = multinode.Multinode(type=self.args.type,
+                else:
+                    # make the scale-framework-cluster version the default one
+                    self.multicluster = multinode.Multinode(type=self.args.type,
                                                         build=self.args.build,
                                               inventory=self.inventory_file)
-        self.logger.info("Sleeping for 60 seconds before starting tests")
-        time.sleep(60)
+            self.logger.info("Sleeping for 60 seconds before starting tests")
+            time.sleep(60)
 
     '''
     Stop the cluster

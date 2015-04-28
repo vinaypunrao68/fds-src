@@ -441,16 +441,12 @@ SmLoadProc::putSm(fds_volid_t volId,
     putReq->dltVersion = 1;
     putReq->forwardedReq = false;
     putReq->setObjId(objId);
-    putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
     putReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_PUT_OBJ_REQ;
-    putReq->opReqLatencyCtx.name = putReq->perfNameStr;
     putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
     putReq->opLatencyCtx.type = PerfEventType::SM_PUT_IO;
-    putReq->opLatencyCtx.name = putReq->perfNameStr;
     putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
     putReq->opQoSWaitCtx.type = PerfEventType::SM_PUT_QOS_QUEUE_WAIT;
-    putReq->opQoSWaitCtx.name = putReq->perfNameStr;
     putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
     putReq->response_cb= std::bind(
@@ -505,16 +501,12 @@ SmLoadProc::getSm(fds_volid_t volId,
     getReq->setVolId(getObjMsg->volume_id);
     getReq->setObjId(objId);
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
-    getReq->perfNameStr = "volume:" + std::to_string(getObjMsg->volume_id);
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
     getReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_GET_OBJ_REQ;
-    getReq->opReqLatencyCtx.name = getReq->perfNameStr;
     getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
     getReq->opLatencyCtx.type = PerfEventType::SM_GET_IO;
-    getReq->opLatencyCtx.name = getReq->perfNameStr;
     getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
     getReq->opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
-    getReq->opQoSWaitCtx.name = getReq->perfNameStr;
     getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
 
     getReq->response_cb = std::bind(
@@ -579,14 +571,10 @@ SmLoadProc::removeSm(fds_volid_t volId,
     delReq->dltVersion = 1;
     delReq->forwardedReq = false;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
-    delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
     delReq->opReqFailedPerfEventType = PerfEventType::SM_DELETE_OBJ_REQ_ERR;
     delReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_DELETE_OBJ_REQ;
-    delReq->opReqLatencyCtx.name = delReq->perfNameStr;
     delReq->opLatencyCtx.type = PerfEventType::SM_DELETE_IO;
-    delReq->opLatencyCtx.name = delReq->perfNameStr;
     delReq->opQoSWaitCtx.type = PerfEventType::SM_DELETE_QOS_QUEUE_WAIT;
-    delReq->opQoSWaitCtx.name = delReq->perfNameStr;
 
     delReq->response_cb = std::bind(
         &SmLoadProc::removeSmCb, this,

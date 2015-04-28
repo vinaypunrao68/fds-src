@@ -276,7 +276,10 @@ struct AmDispatcher
                           const Error& error,
                           boost::shared_ptr<std::string> payload);
 
-
+    /**
+     * Configurable timeouts and defaults (ms)
+     */
+    uint32_t message_timeout_io { 0 };
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;

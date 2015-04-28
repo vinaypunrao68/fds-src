@@ -31,6 +31,7 @@ Module("PlatNetSvcHandler")
     handlerState_ = ACCEPT_REQUESTS;
     REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcStatusMsg, getStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateSvcMapMsg, updateSvcMap);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, getSvcMap);
 }
 
 PlatNetSvcHandler::~PlatNetSvcHandler()
@@ -216,6 +217,36 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
      MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, payload);
 }
 
+void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                                  const int64_t nullarg)
+{
+    // thrift generated..don't add anything here
+    fds_assert(!"shouldn't be here");
+}
+
+void
+PlatNetSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
+                        boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << " received " << hdr->msg_code
+             << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
+
+    fpi::GetSvcMapRespMsgPtr respMsg (new fpi::GetSvcMapRespMsg());
+    boost::shared_ptr<int64_t> nullarg;
+    getSvcMap(respMsg->svcMap, nullarg);
+
+    // initialize the response message with the service map
+    hdr->msg_code = 0;
+    sendAsyncResp (*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
+}
+
+void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                       boost::shared_ptr<int64_t>& nullarg)
+{
+    LOGDEBUG << "Service map request";
+    MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
+}
 
 void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)
 {

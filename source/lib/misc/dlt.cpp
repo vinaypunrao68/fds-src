@@ -293,7 +293,7 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
 
 //get source node for a given token id assigned to destination node
 NodeUuid DLT::getSourceNodeForToken(const NodeUuid &nodeUuid,
-                                    const fds_token_id &tokenId) {
+                                    const fds_token_id &tokenId) const {
     DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
     for (fds_uint8_t idx = 0; idx < tokenNodeGroup->getLength(); idx++) {
         // idx = 0 is primary node for a given token id.
@@ -306,7 +306,7 @@ NodeUuid DLT::getSourceNodeForToken(const NodeUuid &nodeUuid,
 
 // get source nodes for all the tokens of a given destination node
 void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
-                                    SourceNodeMap &srcNodeTokenMap) {
+                                    SourceNodeMap &srcNodeTokenMap) const {
     if (nodeUuid == INVALID_RESOURCE_UUID) {
         LOGERROR << "Invalid node uuid";
         return;

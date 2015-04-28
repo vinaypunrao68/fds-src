@@ -5,6 +5,7 @@
 package com.formationds.om.webkit;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+
 import com.formationds.protocol.commonConstants;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
@@ -30,12 +31,14 @@ import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.*;
+
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletResponse;
+
 import java.util.function.Function;
 
 /**
@@ -455,6 +458,10 @@ public class WebKitImpl {
         authenticate( HttpMethod.GET,
                       "/api/config/volumes/:volumeId/snapshots",
                       ( t ) -> new ListSnapshotsByVolumeId( config ) );
+        
+        authenticate( HttpMethod.GET,
+        			  "/api/config/snapshots/:snapshotId",
+        			  ( t ) -> new GetSnapshot( config ) );
     }
 
     private void snapshotDeletes( final ConfigurationApi config ) {

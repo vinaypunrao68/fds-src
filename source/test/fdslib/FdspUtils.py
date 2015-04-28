@@ -7,8 +7,8 @@ import sys
 import time
 import hashlib
 
-from thrift import Thrift
-from thrift.transport import TSocket
+from FDS_ProtocolInterface.ttypes import *
+
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
@@ -16,10 +16,10 @@ from common.ttypes import *
 from svc_api.ttypes import *
 from svc_types.ttypes import *
 from svc_types.constants import *
+import sm_api as smapi
+import sm_types as smtypes
+#import fds_service.ttypes as fdssvc
 
-from FdsException import *
-
-from FDS_ProtocolInterface.ttypes import *
 
 log = logging.getLogger(__name__)
 
@@ -276,4 +276,19 @@ def newShutdownMODMsg():
 
 def newCtrlStartHybridTierCtrlrMsg():
     msg = CtrlStartHybridTierCtrlrMsg()
+    return msg
+
+
+def newStartSmchkMsg(targetTokens):
+    msg = smapi.ttypes.CtrlNotifySMCheck()
+    msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_START
+    if targetTokens is not None:
+        msg.targetTokens = set(targetTokens)
+
+    return msg
+
+def newStopSmchkMsg():
+    msg = smapi.ttypes.CtrlNotifySMCheck()
+    msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_STOP
+
     return msg

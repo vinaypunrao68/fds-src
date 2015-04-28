@@ -61,6 +61,7 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
 }
@@ -199,7 +200,8 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fds_verify(dlt != NULL);
     err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
                                                          asyncHdr->msg_src_uuid,
-                                                         dlt->getNumBitsForToken());
+                                                         objStorMgr->getUuid(),
+                                                         dlt->getNumBitsForToken(), dlt);
 
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();
@@ -236,6 +238,24 @@ SMSvcHandler::getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::CtrlGetSecondRebalanceDeltaSetRspPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSetRsp());
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSetRsp), *msg);
+}
+
+void
+SMSvcHandler::finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                      fpi::CtrlFinishClientTokenResyncMsgPtr& finishClientResyncMsg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Received finish client resync msg from destination SM "
+             << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
+             << " executor ID " << finishClientResyncMsg->executorID;
+
+    // notify migration mgr -- this call is sync
+    err = objStorMgr->migrationMgr->finishClientResync(finishClientResyncMsg->executorID);
+
+    // send response
+    fpi::CtrlFinishClientTokenResyncRspMsgPtr msg(new fpi::CtrlFinishClientTokenResyncRspMsg());
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncRspMsg), *msg);
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -349,16 +369,12 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     getReq->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     // perf-trace related data
-    getReq->perfNameStr = "volume:" + std::to_string(getObjMsg->volume_id);
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
     getReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_GET_OBJ_REQ;
-    getReq->opReqLatencyCtx.name = getReq->perfNameStr;
     getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
     getReq->opLatencyCtx.type = PerfEventType::SM_GET_IO;
-    getReq->opLatencyCtx.name = getReq->perfNameStr;
     getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
     getReq->opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
-    getReq->opQoSWaitCtx.name = getReq->perfNameStr;
     getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
 
     getReq->response_cb = std::bind(
@@ -392,7 +408,7 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
     if (!err.ok()) {
         PerfTracer::incr(getReq->opReqFailedPerfEventType,
-                         getReq->getVolId(), getReq->perfNameStr);
+                         getReq->getVolId());
     }
 
     // Independent if error happend, check if this request matches
@@ -454,16 +470,12 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
 
     // perf-trace related data
-    putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
     putReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_PUT_OBJ_REQ;
-    putReq->opReqLatencyCtx.name = putReq->perfNameStr;
     putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
     putReq->opLatencyCtx.type = PerfEventType::SM_PUT_IO;
-    putReq->opLatencyCtx.name = putReq->perfNameStr;
     putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
     putReq->opQoSWaitCtx.type = PerfEventType::SM_PUT_QOS_QUEUE_WAIT;
-    putReq->opQoSWaitCtx.name = putReq->perfNameStr;
     putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
     putReq->response_cb= std::bind(
@@ -512,7 +524,7 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
         if (!err.ok()) {
             PerfTracer::incr(putReq->opReqFailedPerfEventType,
-                             putReq->getVolId(), putReq->perfNameStr);
+                             putReq->getVolId());
         }
     }
 
@@ -581,14 +593,10 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delReq->forwardedReq = deleteObjMsg->forwardedReq;
 
     // perf-trace related data
-    delReq->perfNameStr = "volume:" + std::to_string(deleteObjMsg->volId);
     delReq->opReqFailedPerfEventType = PerfEventType::SM_DELETE_OBJ_REQ_ERR;
     delReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_DELETE_OBJ_REQ;
-    delReq->opReqLatencyCtx.name = delReq->perfNameStr;
     delReq->opLatencyCtx.type = PerfEventType::SM_DELETE_IO;
-    delReq->opLatencyCtx.name = delReq->perfNameStr;
     delReq->opQoSWaitCtx.type = PerfEventType::SM_DELETE_QOS_QUEUE_WAIT;
-    delReq->opQoSWaitCtx.name = delReq->perfNameStr;
 
     delReq->response_cb = std::bind(
         &SMSvcHandler::deleteObjectCb, this,
@@ -618,7 +626,7 @@ void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         PerfTracer::tracePointEnd(del_req->opReqLatencyCtx);
         if (!err.ok()) {
             PerfTracer::incr(del_req->opReqFailedPerfEventType,
-                             del_req->getVolId(), del_req->perfNameStr);
+                             del_req->getVolId());
         }
     }
 
@@ -803,14 +811,10 @@ void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     addObjRefReq->forwardedReq = addObjRefMsg->forwardedReq;
 
     // perf-trace related data
-    addObjRefReq->perfNameStr = "volume:" + std::to_string(addObjRefMsg->srcVolId);
     addObjRefReq->opReqFailedPerfEventType = PerfEventType::SM_ADD_OBJ_REF_REQ_ERR;
     addObjRefReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_ADD_OBJ_REF_REQ;
-    addObjRefReq->opReqLatencyCtx.name = addObjRefReq->perfNameStr;
     addObjRefReq->opLatencyCtx.type = PerfEventType::SM_ADD_OBJ_REF_IO;
-    addObjRefReq->opLatencyCtx.name = addObjRefReq->perfNameStr;
     addObjRefReq->opQoSWaitCtx.type = PerfEventType::SM_ADD_OBJ_REF_QOS_QUEUE_WAIT;
-    addObjRefReq->opQoSWaitCtx.name = addObjRefReq->perfNameStr;
 
     addObjRefReq->response_cb = std::bind(
         &SMSvcHandler::addObjectRefCb, this,
@@ -837,7 +841,7 @@ void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     PerfTracer::tracePointEnd(addObjRefReq->opReqLatencyCtx);
     if (!err.ok()) {
         PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
-                         addObjRefReq->getVolId(), addObjRefReq->perfNameStr);
+                         addObjRefReq->getVolId());
     }
 
     auto resp = boost::make_shared<fpi::AddObjectRefRspMsg>();
@@ -993,9 +997,14 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 {
     Error err(ERR_OK);
 
-    LOGDEBUG << "Received SMCheck cmd=" << msg->SmCheckCmd;
+    LOGDEBUG << "Received SMCheck cmd=" << msg->SmCheckCmd << " with target tokens list of len "
+             << msg->targetTokens.size();
 
-    SmCheckActionCmd actionCmd(msg->SmCheckCmd);
+    std::set<fds_token_id> tgtTokens;
+    for (auto token : msg->targetTokens) {
+        tgtTokens.insert(token);
+    }
+    SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
     err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
