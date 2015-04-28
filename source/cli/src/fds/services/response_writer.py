@@ -9,8 +9,14 @@ import time
 from collections import OrderedDict
 from fds.utils.volume_converter import VolumeConverter 
 from fds.utils.snapshot_converter import SnapshotConverter
+from fds.utils.node_converter import NodeConverter
+from fds.utils.domain_converter import DomainConverter
 
 class ResponseWriter():
+    
+    @staticmethod
+    def write_not_implemented():
+        print "\nThis feature is not yet available, but the fine people at Formation Data System are working tirelessly to make this a reality in the near future.\n"
     
     @staticmethod
     def writeTabularData( data, headers="keys" ):
@@ -127,3 +133,88 @@ class ResponseWriter():
         #end for loop
         
         return resultList
+    
+    @staticmethod
+    def prep_domains_for_table( session, response ):
+        '''
+        Take the domain JSON and turn it into a table worthy presentation
+        '''
+        results = []
+        
+        for domain in response:
+            
+            fields = []
+            
+            domain = DomainConverter.build_domain_from_json( domain )
+            
+            fields.append(("ID", domain.id))
+            fields.append(("Name", domain.name))
+            fields.append(("Site", domain.site))
+            
+            ov = OrderedDict( fields )
+            results.append( ov )
+        #end of for loop
+        
+        return results
+    
+    
+    @staticmethod
+    def prep_node_for_table( session, response ):
+        '''
+        Take nodes and format them to be listed in a table
+        '''
+        
+        results = []
+        
+        for node in response:
+            fields = []
+            
+            node = NodeConverter.build_node_from_json( node ) 
+            
+            fields.append(("ID", node.id))
+            fields.append(("Name", node.name))
+            fields.append(("State", node.state))
+            fields.append(("IP V4 Address", node.ip_v4_address))
+            fields.append(("IP V6 Address", node.ip_v6_address))
+            
+            ov = OrderedDict( fields )
+            results.append( ov )
+        
+        return results
+    
+    @staticmethod
+    def prep_services_for_table( session, response ):
+        '''
+        The service model is not yet sensible so we need to do some munging to get anything
+        useful to the Screen.
+        '''
+        results = []
+        
+        for j_node in response:
+            
+            # we'll need this data for each service
+            node = NodeConverter.build_node_from_json( j_node )
+            
+            services = node.services
+            
+            for service_type in services:
+                
+                for service in services[service_type]:
+                    
+                    fields = []
+                    
+                    fields.append(("Node ID", node.id))
+                    fields.append(("Node Name", node.name))
+                    fields.append(("Service Type", service.auto_name))
+                    fields.append(("Service ID", service.id))
+                    fields.append(("Status", service.status))
+                    
+                    ov = OrderedDict( fields )
+                    results.append( ov )
+                    
+                # end of individual service for loop
+            #end of service_typess for loop
+            
+        #end of nodes for loop
+        
+        return results
