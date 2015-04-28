@@ -1293,15 +1293,127 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
     err = om_reg_node_info(node_uuid, reg_node_req);
 
-    if (err.ok()) {
+    if ( err.ok() )
+    {
         om_locDomain->om_bcast_svcmap();
-    } else {
+
+        /*
+         * FS-1587 Tinius
+         */
+        if ( isKnownPM( *svcInfo ) && isPlatformSvc( *svcInfo ) )
+        {
+            LOGDEBUG << "Found well known platform service UUID ( "
+                     << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid
+                     <<   " ), telling the platformd which service to start";
+
+             /*
+              * delay the start of the scheduled thread to be one seconds.
+              */
+             MODULEPROVIDER()->proc_thrpool()->schedule(
+                 &OM_NodeDomainMod::om_activate_known_services,
+                 this,
+                 *svcInfo,
+                 1000 );
+        }
+        else
+        {
+            LOGDEBUG << "Platform Manager Service UUID ( "
+                     << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid
+                     << " ) is a new node.";
+        }
+        /*
+         * FS-1587 Tinius
+         */
+    }
+    else
+    {
         /* We updated the svcmap before, undo it by setting service status to invalid */
         svcInfo->svc_status = SVC_STATUS_INVALID;
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
         configDB->updateSvcMap(*svcInfo);
     }
     return err;
+}
+
+Error OM_NodeDomainMod::om_activate_known_services( fpi::SvcInfo pm,
+                                                    fds_uint32_t delayTime )
+{
+    if ( delayTime )
+    {
+        usleep( delayTime * 1000 );
+    }
+
+    Error err(ERR_OK);
+
+    NodeUuid node_uuid;
+        node_uuid.uuid_set_type( pm.svc_id.svc_uuid.svc_uuid, fpi::FDSP_PLATFORM );
+
+    NodeServices services;
+    if ( configDB->getNodeServices( node_uuid, services ) )
+    {
+      fds_bool_t activateAM = false;
+      fds_bool_t activateDM = false;
+      fds_bool_t activateSM = false;
+
+      if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
+      {
+          activateAM = true;
+      }
+
+      if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
+      {
+          activateDM = true;
+      }
+
+      if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
+      {
+          activateSM = true;
+      }
+
+      if ( activateAM || activateDM || activateSM )
+      {
+          OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+          err = local->om_activate_node_services( node_uuid,
+                                                  activateSM,
+                                                  activateDM,
+                                                  activateAM );
+      }
+    }
+
+    return err;
+}
+   
+bool OM_NodeDomainMod::isPlatformSvc(fpi::SvcInfo svcInfo)
+{
+    return svcInfo.svc_type == fpi::FDSP_PLATFORM;
+}
+
+bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
+{
+    bool bRetCode = false;
+
+    int64_t registerUUID = svcInfo.svc_id.svc_uuid.svc_uuid;
+    std::vector<SvcInfo> configDBSvcs;
+
+    configDB->getSvcMap( configDBSvcs );
+    if ( configDBSvcs.size() > 0 )
+    {
+        if ( isPlatformSvc( svcInfo ) )
+        {
+            for ( auto dbSvc : configDBSvcs )
+            {
+                int64_t knownUUID = dbSvc.svc_id.svc_uuid.svc_uuid;
+
+                if ( knownUUID == registerUUID )
+                {
+                    bRetCode = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    return bRetCode;
 }
 
 void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
@@ -1922,13 +2034,4 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
 
     return err;
 }
-
-// om_persist_node_info
-// --------------------
-//
-void
-OM_NodeDomainMod::om_persist_node_info(fds_uint32_t idx)
-{
-}
-
-}  // namespace fds
+} // namespace fds
