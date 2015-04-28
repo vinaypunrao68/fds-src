@@ -80,8 +80,7 @@
         - redis-tools
 
     - name: purge redis init script (just to be safe)
-      file: path=/etc/init.d/redis-server
-        state: absent
+      file: path=/etc/init.d/redis-server state=absent
 
     - name: purge libboost 1.54 packages
       apt: name={{item}} force=yes state=absent update_cache=no
