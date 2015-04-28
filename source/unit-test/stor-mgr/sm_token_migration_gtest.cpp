@@ -106,7 +106,7 @@ class TestReqHandler: public SmIoReqHandler {
         leveldb::ReadOptions options;
         leveldb::DB *db = odb->GetDB();
         options.snapshot = db->GetSnapshot();
-        snapReq->smio_snap_resp_cb(ERR_OK, snapReq, options, db);
+        snapReq->smio_snap_resp_cb(ERR_OK, snapReq, options, db, false);
 
         if (snapDoneHandler) {
             snapDoneHandler(1, snapReq->token_id, ERR_OK);

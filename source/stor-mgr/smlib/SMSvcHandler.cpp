@@ -198,10 +198,15 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // tell migration mgr to start object rebalance
     const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
     fds_verify(dlt != NULL);
-    err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
-                                                         asyncHdr->msg_src_uuid,
-                                                         objStorMgr->getUuid(),
-                                                         dlt->getNumBitsForToken(), dlt);
+
+    if (!(objStorMgr->objectStore->isReadyAsMigrationSrc())) {
+        err = ERR_SM_NOT_READY_AS_MIGR_SRC;
+    } else {
+        err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
+                                                             asyncHdr->msg_src_uuid,
+                                                             objStorMgr->getUuid(),
+                                                             dlt->getNumBitsForToken(), dlt);
+    }
 
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();

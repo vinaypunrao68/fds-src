@@ -379,7 +379,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db)> CbType;
+                                leveldb::DB* db,
+                                bool retry)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 std::string &snapDir,

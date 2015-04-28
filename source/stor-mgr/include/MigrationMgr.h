@@ -9,6 +9,7 @@
 #include <SmIo.h>
 #include <MigrationExecutor.h>
 #include <MigrationClient.h>
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -53,6 +54,8 @@ class SmTokenMigrationMgr {
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
+
+    typedef std::set<fds_token_id> RetrySmTokenSet;
 
     /**
      * Matches OM state, just for sanity checks that we are getting
@@ -181,7 +184,7 @@ class SmTokenMigrationMgr {
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db);
+                                   leveldb::DB *db, bool retry);
 
     /**
      * Callback for a migration executor that it finished migration
@@ -190,6 +193,10 @@ class SmTokenMigrationMgr {
                                  fds_token_id smToken,
                                  fds_bool_t isFirstRound,
                                  const Error& error);
+
+    void dltTokenMigrationFailedCb(fds_token_id &smToken);
+
+    void retryTokenMigrForFailedDltTokens();
 
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken);
@@ -257,6 +264,9 @@ class SmTokenMigrationMgr {
     fds_token_id smTokenInProgress;
     fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
 
+    /// SM token for which retry token migration is going on.
+    fds_token_id retrySmTokenInProgress;
+
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
      * passed in constructor, does not own
@@ -282,6 +292,19 @@ class SmTokenMigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+
+    /**
+     * SM tokens for which token migration of atleast 1 dlt token failed
+     * because the source SM was not ready.
+     */
+     RetrySmTokenSet retryMigrSmTokenSet;
+
+    /**
+     * FDS timer. Currently used for resending the CtrlObjectRebalanceFilerSet
+     * requests to the source SM which failed the first time because source SM
+     * was not ready.
+     */
+     FdsTimer mTimer;
 };
 
 }  // namespace fds
