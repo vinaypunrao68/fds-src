@@ -195,7 +195,7 @@ public class TrafficGen {
                 .create("token"));
         options.addOption(OptionBuilder.withArgName("runtime")
                 .hasArg()
-                .withDescription("Runtime")
+                .withDescription("Runtime (in seconds)")
                 .create("runtime"));
         options.addOption(OptionBuilder.withArgName("timeout")
                 .hasArg()

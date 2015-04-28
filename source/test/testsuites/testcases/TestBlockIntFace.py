@@ -61,6 +61,38 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
+# the FDS interface to list the exports.
+#
+class TestBlockListVolumes(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ListVolumes,
+                                             "List nbd-client volumes")
+
+    def test_ListVolumes(self):
+        """
+        Test Case:
+        Attempt to cause a list volumes
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        blkListExportCmd = 'nbd-client -l %s' % (om_node.nd_conf_dict['ip'] )
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(blkListExportCmd, return_stdin=True)
+
+        if status != 0:
+            self.log.info("Failed to list block volumes as expected.")
+            return True
+
+        self.log.error("Error, volumes returned: %s." % (stdout))
+        return False
+
+# This class contains the attributes and methods to test
 # the FDS interface to attach a volume.
 #
 class TestBlockAttachVolume(TestCase.FDSTestCase):
