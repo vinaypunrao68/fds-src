@@ -64,8 +64,7 @@ class AmProcessor_impl
     Error enqueueRequest(AmRequest* amReq);
 
     Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
-        return txMgr->modifyVolumePolicy(vol_uuid, vdesc)
-            && volTable->modifyVolumePolicy(vol_uuid, vdesc);
+        return volTable->modifyVolumePolicy(vol_uuid, vdesc);
     }
 
     void registerVolume(const VolumeDesc& volDesc, fds_int64_t const token = invalid_vol_token);
@@ -99,7 +98,7 @@ class AmProcessor_impl
     /// Unique ptr to the transaction manager
     std::unique_ptr<AmTxManager> txMgr;
 
-    // Unique ptr to the volume table
+    /// Unique ptr to the volume table
     std::unique_ptr<AmVolumeTable> volTable;
 
     /// Unique ptr to a random num generator for tx IDs
@@ -325,7 +324,7 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
-    auto qos_threads = conf.get<int>("qos_threads", 1);
+    auto qos_threads = conf.get<int>("qos_threads");
 
     /**
      * FEATURE TOGGLE: Single AM Enforcement
@@ -370,7 +369,7 @@ void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
 
 bool AmProcessor_impl::stop() {
     shut_down = true;
-    if (txMgr->drained() && volTable->drained()) {
+    if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
         std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
         volTable->getVolumeTokens(tokens);
@@ -456,6 +455,7 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
 
     if (ERR_OK != err) {
         LOGNOTIFY << "Failed to open volume, error: " << error;
+        // Flush the volume's wait queue and return errors for pending requests
         volTable->removeVolume(volDesc);
     }
 }
@@ -518,7 +518,7 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // Remove the volume from the caches
     auto err_2 = txMgr->removeVolume(volDesc);
 
-    if (shut_down && txMgr->drained())
+    if (shut_down && volTable->drained())
     {
        shutdown_cb();
     }

@@ -59,8 +59,6 @@ struct AmTxManager {
      */
     void init();
 
-    bool drained();
-
     /**
      * Removes an existing transaction from the manager, destroying
      * any staged object updates. An error is returned if the transaction
@@ -84,11 +82,6 @@ struct AmTxManager {
      * necessary data structures.
      */
     Error registerVolume(const VolumeDesc& volDesc);
-
-    /**
-     * Modify the policy for an attached volume.
-     */
-    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
 
     /**
      * Notify that we have detached a volume, and remove any available

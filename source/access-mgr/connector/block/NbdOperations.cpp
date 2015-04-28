@@ -337,6 +337,9 @@ NbdOperations::getBlobResp(const Error &error,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            fds_uint32_t& length) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
+    // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
+    // When AmProc supports vectored reads, return the whole vector,
+    // not just the front element. For now assume one object.
     auto buf = (bufs) ? bufs->front() : empty_buffer;
 
     NbdResponseVector* resp = NULL;

@@ -323,6 +323,9 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
     } else {
         auto buf = empty_buffer;
         if (bufs) {
+            // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
+            // When Xdi and AmProc support vectored reads, return the whole
+            // vector, not just the front element. For now assume one object.
             buf = bufs->front()->size() > length ? boost::make_shared<std::string>(*bufs->front(), 0, length)
                 : bufs->front();
         }

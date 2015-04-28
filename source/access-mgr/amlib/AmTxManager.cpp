@@ -29,11 +29,6 @@ void AmTxManager::init() {
     amCache.reset(new AmCache());
 }
 
-bool
-AmTxManager::drained() {
-    return true;
-}
-
 Error
 AmTxManager::addTx(fds_volid_t volId,
                    const BlobTxId &txId,
@@ -183,10 +178,6 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc)
     }
     return err;
 }
-
-Error
-AmTxManager::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
-{ return ERR_OK; }
 
 Error
 AmTxManager::removeVolume(const VolumeDesc& volDesc)
