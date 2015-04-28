@@ -95,11 +95,11 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
-                     api_type::shared_buffer_type buf,
+                     const api_type::shared_buffer_array_type& bufs,
                      api_type::size_type& length);
     void getBlobWithMetaResp(const api_type::error_type &error,
                              api_type::handle_type& requestId,
-                             api_type::shared_buffer_type buf,
+                             const api_type::shared_buffer_array_type& bufs,
                              api_type::size_type& length,
                              api_type::shared_descriptor_type& blobDesc);
 };

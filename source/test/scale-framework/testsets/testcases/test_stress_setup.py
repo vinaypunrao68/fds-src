@@ -44,17 +44,19 @@ class TestStressSetup(testcase.FDSTestCase):
     '''
     def runTest(self):
         test_passed = False
-        r = None
-        port = config.FDS_REST_PORT
-        s3_vols = s3_volumes.S3Volumes("stress_test_s3", self.om_ip_address)
+        s3_vols = s3_volumes.S3Volumes(self.om_ip_address)
         block_vols = block_volumes.BlockVolumes(self.om_ip_address)
 
         try:
 
             #Setup
-            s3_vols.create_volumes(self.s3_vol_count)
-            block_vols.create_block_volumes(self.block_vol_count,
+            s3_bucket_list = s3_vols.create_volumes(self.s3_vol_count,
+                    "stress_test_s3")
+            block_vol_list = block_vols.create_volumes(self.block_vol_count,
                     "stress_test_block", "1", "GB")
+
+            self.log.info(s3_bucket_list)
+            self.log.info(block_vol_list)
 
             #Yay?
             test_passed = True
