@@ -342,6 +342,15 @@ struct SvcMgr : HasModuleProvider, Module {
     static std::string mapToSvcName(const fpi::FDSP_MgrIdType &svcType);
 
     /**
+    * @brief maps svcUuid -> svcUuid:svcName string
+    *
+    * @param svcUuid
+    *
+    * @return 
+    */
+    static std::string mapToSvcUuidAndName(const fpi::SvcUuid &svcUuid);
+
+    /**
     * @brief Based on the svcType and platforPort (as the base) determines what the service
     * port should be
     *
@@ -362,6 +371,7 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
+
 
     /**
     * @brief Minimum connection retries

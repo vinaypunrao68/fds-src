@@ -53,7 +53,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * For executing certain blob operations (commit, delete) in a
      * synchronized manner
      */
-    SynchronizedTaskExecutor<std::string> opSynchronizer_;
+    SynchronizedTaskExecutor<fds_uint64_t> opSynchronizer_;
 
     // TODO(Andrew): Add a history log eventually...
 
@@ -307,6 +307,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     fds_bool_t isPendingTx(fds_volid_t volId, fds_uint64_t timeNano);
 
     void commitBlobTxWork(fds_volid_t volid,
+			  const std::string &blobName,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);

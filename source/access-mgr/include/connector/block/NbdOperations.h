@@ -63,22 +63,18 @@ struct SectorLockMap {
     std::pair<bool, entry_type> pop_and_delete(key_type const& k)
     {
         static std::pair<bool, entry_type> const no = {false, entry_type()};
-        map_lock.cond_write_lock();
+        WriteGuard wg(map_lock);
         map_it it = sector_map.find(k);
         if (sector_map.end() != it) {
             entry_type entry;
             if ((*it).second->pop(entry)) {
-                map_lock.cond_write_unlock();
                 return std::make_pair(true, entry);
             } else {
-                map_lock.upgrade();
                 // No more queued requests, return nullptr
                 sector_map.erase(it);
-                map_lock.write_unlock();
             }
         } else {
             fds_assert(false);  // This shouldn't happen, let's know in debug
-            map_lock.cond_write_unlock();
         }
         return no;
     }
@@ -101,7 +97,7 @@ class NbdResponseVector {
     explicit NbdResponseVector(int64_t hdl, NbdOperation op,
                                uint64_t off, uint32_t len, uint32_t maxOSize,
                                uint32_t objCnt)
-      : handle(hdl), operation(op), doneCount(), offset(off), length(len),
+      : handle(hdl), operation(op), doneCount(0), offset(off), length(len),
         maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK) {
         if (op == READ) {
             bufVec.resize(objCnt, NULL);

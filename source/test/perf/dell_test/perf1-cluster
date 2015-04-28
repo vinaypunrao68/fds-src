@@ -5,6 +5,7 @@ perf1-node3.formationds.com fds_node=node03
 perf1-node4.formationds.com fds_node=node04
 
 [perf1-cluster:vars]
+fds_authentication=false
 ansible_ssh_user=root
 ansible_ssh_pass=passwd
 cluster_location=fre

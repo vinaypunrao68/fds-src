@@ -24,6 +24,7 @@ namespace fds {
 #define SM_INIT_FILE_ID            0x0002
 
 typedef std::set<fds_token_id> SmTokenSet;
+typedef std::multiset<fds_token_id> SmTokenMultiSet;
 
 /// Migration types
 #define SM_INVALID_EXECUTOR_ID     0

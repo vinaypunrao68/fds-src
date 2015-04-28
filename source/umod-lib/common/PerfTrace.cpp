@@ -411,7 +411,7 @@ void PerfTracer::tracePointEnd(PerfContext & ctx) {
     ctx.end_cycle = util::getTimeStampNanos();
 #endif
     // Avoid creating a counter if counter has not been properly initialized. Print warning instead
-    if (ctx.name != "" && ctx.type != PerfEventType::TRACE) {
+    if (ctx.type != PerfEventType::TRACE) {
         createLatencyCounter(ctx);
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get()); //NOLINT
         incr(ctx.type, ctx.volid, plc->total_latency(), plc->count(), ctx.name);

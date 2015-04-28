@@ -246,11 +246,11 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
-  private:
-    // methods
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
             BlobMetaDesc & blobMeta);
 
+  private:
+    // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
                              fds_uint64_t * blobCount, fds_uint64_t * objCount);
 
