@@ -82,7 +82,7 @@ def get_conn(name):
     return conn
 
 def create_container(conn, name):
-    container = conn.create_container(IMAGE, name=name, volumes=["/mnt/ccache"])
+    container = conn.create_container(IMAGE, name=name, volumes=["/mnt/ccache", "/tmp/nbdadm"])
     return(container)
 
 def start_slave(name):
