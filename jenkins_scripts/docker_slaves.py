@@ -42,7 +42,7 @@ DOCKER_SLAVES = {
 IMAGE="registry.formationds.com:5000/fds_dev"
 
 def docker_connect(url):
-    return(docker.Client(base_url=url))
+    return(docker.Client(base_url=url, version='auto'))
 
 def get_container_by_name(conn, name, die=True):
     containers = conn.containers(all=True)
