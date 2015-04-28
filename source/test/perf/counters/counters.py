@@ -2,7 +2,6 @@
 
 import os, re, sys
 import time
-import pickle
 from optparse import OptionParser
 import signal
 import threading
@@ -62,29 +61,17 @@ class CounterMonitor(object):
             if e["status"] == "Active" and \
                     check_agent_filter(e["name"]) and \
                     check_ip_filter(e["ip"]):
-                # key = pickle.dumps(e)
                 try:
                     cntr = self.svc_map.client(e["uuid"]).getCounters('*')
                 except:
                     cntr = {}
                 timestamp = time.time()
         
-                # print time.time(), e, cntr
-                # generate list of pairs, name/value
-                                
-                #db.write_records(series, records)
-                series = e["name"] + ":" + e["ip"]
+                series = e["name"] + "." + e["ip"]
                 records = []
                 for k, v in e.iteritems():
                     records.append((k, v))
                 for k,v in cntr.iteritems():
-                    # m = re.match("(\w+):volume=(\d+)",k)
-                    # if m:
-                    #     name = m.group(1)
-                    #     volume = m.group(2)
-                    #     records.append((name, v))
-                    #     records.append(("volume_id", volume))
-                    # else:
                     if self.config["cntr_filter"]:
                         for e in self.config["cntr_filter"]:
                             if e in k:
@@ -99,7 +86,6 @@ class CounterMonitor(object):
         self.stop.set()
 
     def print_records(self, recs):
-        #print tabulate.tabulate(zip(*recs))
         print tabulate.tabulate(recs)
 
 def main():
@@ -119,7 +105,6 @@ def main():
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        #"ip" : "localhost",
         "ip" : "metrics.formationds.com",
         "port" : 8086,
         "user" : "root",

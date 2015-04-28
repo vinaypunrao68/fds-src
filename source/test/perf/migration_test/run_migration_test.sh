@@ -106,7 +106,7 @@ date > $outdir/migration.start
 sleep 1
 
 pushd $workspace/source/test/perf/counters
-./counters.py  --ip-filter=10.1.10.139 --agent-filter=sm &
+./counters.py --agent-filter=sm &
 counters_pid=$!
 popd
 
