@@ -2,7 +2,7 @@ from  svchelper import *
 from svc_api.ttypes import *
 import platformservice
 from platformservice import *
-import FdspUtils 
+import FdspUtils
 
 
 class ScavengerContext(Context):

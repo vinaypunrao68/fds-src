@@ -1,0 +1,67 @@
+---
+-   set_fact:
+        badger_cluster: "{{fds_cluster_name if fds_cluster_name is defined else 'undefined'}}"
+        badger_logfile: "/var/log/stat-badger/badger.log"
+        badger_disk_list: "[\"xvda\", \"sda\"]"
+        badger_influxdb08_host: "{{'127.0.0.1' if fds_customer_install is defined else '10.2.10.20'}}"
+        badger_influxdb08_port: 8086
+        badger_influxdb08_database: "system_stats"
+        badger_influxdb08_user: "fds1505"
+        badger_influxdb08_pass: "fds1505"
+
+-   name: set up badger user and group
+    group:
+        name=stat-badger
+
+-   user:
+        name=stat-badger
+        createhome=no
+        group=stat-badger
+
+-   name: set up stat-badger directories
+    file:
+        path={{item}}
+        state=directory
+        owner=stat-badger
+        group=stat-badger
+        mode=0755
+    with_items:
+        - "/var/log/stat-badger"
+        - "/etc/stat-badger"
+
+-   name: copy stat-badger upstart config
+    copy:
+        src=../../files/deploy_fds/upstart/stat-badger.conf
+        dest=/etc/init/stat-badger.conf
+        owner=root
+        group=root
+        mode=0644
+
+-   name: write stat-badger config 
+    template:
+        src=../../templates/badger/config.json.j2
+        dest=/etc/stat-badger/config.json
+        owner=stat-badger
+        group=stat-badger
+        mode=0755
+
+-   name: write stat-badger influxdb emitter config
+    template:
+        src=../../templates/badger/conf.d/influxdb08_emitter.conf.j2
+        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/conf.d/influxdb08_emitter.conf
+        owner=stat-badger
+        group=stat-badger
+        mode=0644
+
+-   name: write stat-badger disk module config
+    template:
+        src=../../templates/badger/conf.d/disk.conf.j2
+        dest=/opt/fds-deps/embedded/stat-badger/badger_modules/conf.d/disk.conf
+        owner=stat-badger
+        group=stat-badger
+        mode=0644
+
+-   name: ensure stat-badger is running
+    service:
+        name=stat-badger
+        state=restarted

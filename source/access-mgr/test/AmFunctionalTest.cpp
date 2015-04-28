@@ -316,7 +316,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     boost::shared_ptr<std::string> buf,
+                     const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                      fds_uint32_t& length) {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
@@ -327,7 +327,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void getBlobWithMetaResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             boost::shared_ptr<std::string> buf,
+                             const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                              fds_uint32_t& length,
                              boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         verifyResponse(error);

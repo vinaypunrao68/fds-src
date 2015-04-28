@@ -102,7 +102,8 @@ class MigrationExecutor {
     void handleMigrationRoundDone(const Error& error);
 
     /// callback from SL on rebalance filter set msg
-    void objectRebalanceFilterSetResp(EPSvcRequest* req,
+    void objectRebalanceFilterSetResp(fds_token_id dltToken,
+                                      EPSvcRequest* req,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload);
 

@@ -7,7 +7,6 @@
 #include "AmTxManager.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
-#include "AmVolumeTable.h"
 
 namespace fds {
 
@@ -15,46 +14,19 @@ static constexpr fds_uint32_t Ki { 1024 };
 static constexpr fds_uint32_t Mi { 1024 * Ki };
 
 AmTxManager::AmTxManager()
-    : amCache(nullptr),
-      volTable(nullptr)
+    : amCache(nullptr)
 {
 }
 
 AmTxManager::~AmTxManager() = default;
 
-void AmTxManager::init(processor_callback_type&& cb) {
+void AmTxManager::init() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
     // This is in terms of MiB
     maxPerVolumeCacheSize = Mi * conf.get<fds_uint32_t>("cache.max_volume_data");
-    qos_threads = conf.get<int>("qos_threads");
 
     amCache.reset(new AmCache());
-    volTable.reset(new AmVolumeTable(qos_threads, GetLog()));
-
-    auto closure = [cb](AmRequest* amReq) mutable -> void { cb(amReq); };
-    volTable->registerCallback(std::move(closure));
-}
-
-Error
-AmTxManager::enqueueRequest(AmRequest* amReq) {
-    return volTable->enqueueRequest(amReq);
-}
-
-Error
-AmTxManager::markIODone(AmRequest* amReq) {
-    return volTable->markIODone(amReq);
-}
-
-bool
-AmTxManager::drained() {
-    return volTable->drained();
-}
-
-Error
-AmTxManager::updateQoS(long int const* rate,
-                       float const* throttle) {
-    return volTable->updateQoS(rate, throttle);
 }
 
 Error
@@ -186,8 +158,7 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc,
-                           boost::shared_ptr<AmVolumeAccessToken> access_token)
+AmTxManager::registerVolume(const VolumeDesc& volDesc)
 {
     // The cache size is controlled in terms of MiB, but the LRU
     // knows only terms in # of elements. Do this conversion.
@@ -196,32 +167,21 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc,
 
     // A duplicate is ok, though strange that we got another register call
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs);
-    if ((ERR_OK == err) || (ERR_DUPLICATE == err)) {
-        LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-        err = volTable->registerVolume(volDesc, access_token);
-        if (ERR_OK != err) {
-            amCache->removeVolume(volDesc.volUUID);
-        }
+    if (ERR_DUPLICATE == err) {
+        err = ERR_OK;
     }
 
     if (!err.ok()) {
         LOGERROR << "Failed to register volume: " << err;
+    } else {
+        LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
     }
     return err;
 }
 
 Error
-AmTxManager::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
-{ return volTable->modifyVolumePolicy(vol_uuid, vdesc); }
-
-Error
 AmTxManager::removeVolume(const VolumeDesc& volDesc)
-{
-    auto err = volTable->removeVolume(volDesc);
-    if (ERR_OK == err)
-      { amCache->removeVolume(volDesc.volUUID); }
-    return err;
-}
+{ return amCache->removeVolume(volDesc.volUUID); }
 
 Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
@@ -231,14 +191,6 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
     }
     return ERR_NOT_FOUND;
 }
-
-AmVolumeTable::volume_ptr_type
-AmTxManager::getVolume(fds_volid_t vol_uuid) const
-{ return volTable->getVolume(vol_uuid); }
-
-void
-AmTxManager::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const
-{ return volTable->getVolumeTokens(tokens); }
 
 BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
