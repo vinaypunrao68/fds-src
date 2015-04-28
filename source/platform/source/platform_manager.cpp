@@ -20,8 +20,9 @@ namespace fds
 {
     namespace pm
     {
-        PlatformManager::PlatformManager() : Module("pm")
+        PlatformManager::PlatformManager() : Module("pm"), m_idToAppNameMap()
         {
+
         }
 
         int PlatformManager::mod_init(SysParams const *const param)
@@ -31,7 +32,7 @@ namespace fds
             db = new kvstore::PlatformDB(rootDir, conf->get<std::string>("redis_host","localhost"), conf->get<int>("redis_port", 6379), 1);
 
             if (!db->isConnected())
-            { 
+            {
                 LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string>("redis_host","localhost") << ":" << conf->get<int>("redis_port", 6379) << "]";
             } else {
                 db->getNodeInfo(nodeInfo);
@@ -51,6 +52,12 @@ namespace fds
             }
 
             determineDiskCapability();
+
+            // Setup the mapping for enums to string
+            m_idToAppNameMap[JAVA_AM]         = JAVA_AM_CLASS_NAME;
+            m_idToAppNameMap[BARE_AM]         = BARE_AM_NAME;
+            m_idToAppNameMap[DATA_MANAGER]    = DM_NAME;
+            m_idToAppNameMap[STORAGE_MANAGER] = SM_NAME;
 
             return 0;
         }
@@ -127,6 +134,46 @@ namespace fds
             return pid;
         }
 
+        void PlatformManager::startProcess (int processID)
+        {
+            std::vector<std::string>    args;
+            pid_t                       pid;
+            std::string                 command;
+
+            if (JAVA_AM == processID)
+            {
+                command = "java";
+                args.push_back ("-classpath");
+                args.push_back (JAVA_CLASSPATH_OPTIONS);
+                args.push_back (JAVA_AM_CLASS_NAME);
+            }
+            else
+            {
+                command = m_idToAppNameMap[processID];
+            }
+
+            // Common command line options
+            args.push_back("--foreground");
+            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
+            args.push_back(util::strformat("--fds.common.om_ip_list=%s", conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
+            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
+
+            pid = fds_spawn_service(command, rootDir, args, false);
+
+            if (pid > 0)
+            {
+                LOGDEBUG << m_idToAppNameMap[processID] << "PLATFORMSPAWN started by platformd as pid " << pid;
+                // add to pid list
+            }
+            else
+            {
+                LOGERROR << "PLATFORMSPAWN fds_spawn_service() for " << m_idToAppNameMap[processID] << " FAILED to start by platformd with errno=" << errno;
+            }
+        }
+
+
+
+/*
         // plf_start_node_services
         // -----------------------
         //
@@ -156,6 +203,41 @@ namespace fds
 
             db->setNodeInfo(nodeInfo);
         }
+*/
+        // plf_start_node_services
+        // -----------------------
+        //
+        void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
+        {
+            // pid_t    pid;
+            // bool     auto_start;
+
+            auto     &info = activateMsg->info;
+
+            if (info.has_sm_service)
+            {
+                nodeInfo.fHasAm = true;
+                startProcess(STORAGE_MANAGER);
+            }
+            if (info.has_dm_service)
+            {
+                nodeInfo.fHasDm = true;
+                startProcess(DATA_MANAGER);
+            }
+
+            if (info.has_am_service)
+            {
+                nodeInfo.fHasAm = true;
+                startProcess(BARE_AM);
+                sleep(10);                        // #### fs-1726 ####, remove this line when the ticket is being tested.
+                startProcess(JAVA_AM);
+            }
+
+            db->setNodeInfo(nodeInfo);
+        }
+
+
+
 
         void PlatformManager::loadProperties()
         {
@@ -199,6 +281,9 @@ namespace fds
         bool PlatformManager::sendNodeCapabilityToOM()
         {
             fpi::FDSP_RegisterNodeTypePtr    pkt(new fpi::FDSP_RegisterNodeType);
+
+            // populate diskCapabiilitye from DiskPlatMod data
+
             pkt->disk_info = diskCapability;
 
             if (conf->get<bool>("testing.manual_nodecap",false))
@@ -222,6 +307,7 @@ namespace fds
         int PlatformManager::run()
         {
             sendNodeCapabilityToOM();
+
             while (1)
             {
                 sleep(1000);   /* we'll do hotplug uevent thread in here */

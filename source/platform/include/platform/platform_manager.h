@@ -17,6 +17,21 @@ namespace fds
 {
     namespace pm
     {
+        enum
+        {
+            JAVA_AM,
+            BARE_AM,
+            DATA_MANAGER,
+            STORAGE_MANAGER
+        };
+
+        const std::string JAVA_AM_CLASS_NAME = "com.formationds.am.Main";
+        const std::string BARE_AM_NAME       = "bare_am";
+        const std::string DM_NAME            = "DataMgr";
+        const std::string SM_NAME            = "StorMgr";
+
+        const std::string JAVA_CLASSPATH_OPTIONS       = "/fds/lib/java/fds-1.0-bin/fds-1.0/*:/fds/lib/java/classes";                 // No spaces in this value
+
         class PlatformManager : public Module
         {
             public:
@@ -50,6 +65,9 @@ namespace fds
 
                 void loadProperties();
 
+                void startProcess (int id);
+                void stopProcess (int id);
+
             protected:
                 bool sendNodeCapabilityToOM();
 
@@ -63,6 +81,8 @@ namespace fds
                 fpi::NodeInfo                       nodeInfo;
                 std::string                         rootDir;
                 util::Properties                    props;
+
+                std::map<int, std::string>          m_idToAppNameMap;
         };
     }  // namespace pm
 }  // namespace fds

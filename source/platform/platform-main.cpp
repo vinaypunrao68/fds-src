@@ -31,6 +31,7 @@ namespace fds
                 props.setData(&svcInfo_.props);
 
                 gl_DiskPlatMod.mod_startup();
+
                 platform->loadProperties();
             }
 
