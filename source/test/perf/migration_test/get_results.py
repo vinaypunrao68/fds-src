@@ -26,6 +26,11 @@ cpus = [float(x) for x in filter(lambda x : len(x)> 0, subprocess.check_output(c
 #cpus = filter(lambda x : x > 5.0, cpus)
 norm_cpu =  sum(cpus)/duration
 print prefix, duration, norm_cpu
-plt.plot(cpus)
-plt.savefig("fig.png")
+with open("cpus.csv", "a") as _f:
+    _f.write(prefix + ' ')
+    [_f.write(str(x) + ',') for x in cpus]
+    _f.write('\n')
+
+#plt.plot(cpus)
+#plt.savefig("fig.png")
 

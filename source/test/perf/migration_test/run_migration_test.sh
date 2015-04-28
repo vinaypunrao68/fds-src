@@ -103,6 +103,13 @@ popd
 
 date > $outdir/migration.start
 
+sleep 1
+
+pushd $workspace/source/test/perf/counters
+./counters.py  --ip-filter=10.1.10.139 --agent-filter=sm &
+counters_pid=$!
+popd
+
 # fio --name=randread --rw=randread --filename=$nbd_disk --bs=$bs --numjobs=4 --iodepth=128 --ioengine=libaio --direct=1 --size=$size --time_based --runtime=30 | tee $outdir/fio.out &
 # fio_pid=$! 
 
@@ -118,5 +125,5 @@ date > $outdir/migration.end
 # wait $fio_pid
 
 kill -9 $mon_pid
-
+kill -9 $counters_pid
 
