@@ -487,6 +487,16 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     }
     fds_verify(curState == MIGR_IN_PROGRESS);
 
+    // Currently DTL tokens may become active in the following cases:
+    // 1) If this is NOT resync on restart, DLT tokens are active right away
+    // 2) If this is resync on restart, DLT token becomes available when source
+    // SM declines to be a source (because this SM has higher responsibility for
+    // this DLT token, so we declare the DLT token ready on this SM): this is the
+    // case when we just started round 1 of token resync (passed as round == 0) and
+    // source SM returned ERR_SM_RESYNC_SOURCE_DECLINE error.
+    // 3) If this is resync on restart, and we finished second round of resync (during
+    // resync, we go to the second round right away). This is the case when round == 2
+    // and no error happended (if error case, we are aborting the resync at the moment)
     if (resyncOnRestart &&
         (((round == 0) && (error == ERR_SM_RESYNC_SOURCE_DECLINE)) ||
          ((round == 2) && (error.ok())))) {
@@ -549,7 +559,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                     // done with executors
                     migrExecutors.clear();
                     // after resync on restart, migrating on DLT change does not
-                    // need token rediness at the moments; so setting all DLT tokens
+                    // need token readiness at the moments; so setting all DLT tokens
                     // in the vector as available
                     fds_uint32_t numTokens = dltTokenStates.size();
                     if (numTokens) {

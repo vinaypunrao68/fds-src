@@ -390,7 +390,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // check if DLT token ready -- we are doing it after creating
     // get request, because callback needs it
     if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
-        LOGERROR << "DLT token not ready, not going to do GET for " << objId;
+        LOGDEBUG << "DLT token not ready, not going to do GET for " << objId;
         getObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, getReq);
         return;
     }
@@ -500,7 +500,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // check if DLT token ready -- we are doing it after creating
     // put request, because callback needs it
     if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
-        LOGERROR << "DLT token not ready, not going to do PUT for " << objId;
+        LOGDEBUG << "DLT token not ready, not going to do PUT for " << objId;
         putObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, putReq);
         return;
     }
@@ -628,7 +628,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // check if DLT token ready -- we are doing it after creating
     // delete request, because callback needs it
     if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
-        LOGERROR << "DLT token not ready, not going to do DELETE for " << objId;
+        LOGDEBUG << "DLT token not ready, not going to do DELETE for " << objId;
         deleteObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, delReq);
         return;
     }
