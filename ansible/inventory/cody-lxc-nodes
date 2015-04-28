@@ -17,4 +17,5 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 fds_ft_common_enable_multi_om_support=true
 fds_om_host_count=3
-skip_uninstall=False
+skip_uninstall=True
+fds_system_stats_enabled=True
