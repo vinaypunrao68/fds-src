@@ -363,10 +363,12 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 #endif
 
     Error err(ERR_OK);
+    ObjectID objId(getObjMsg->data_obj_id.digest);
+
     auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
     getReq->setVolId(getObjMsg->volume_id);
-    getReq->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
+    getReq->setObjId(objId);
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     // perf-trace related data
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
@@ -384,6 +386,14 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start measuring E2E latency
     PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
+
+    // check if DLT token ready -- we are doing it after creating
+    // get request, because callback needs it
+    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+        LOGERROR << "DLT token not ready, not going to do GET for " << objId;
+        getObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, getReq);
+        return;
+    }
 
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
@@ -462,12 +472,13 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 #endif
 
     Error err(ERR_OK);
+    ObjectID objId(putObjMsg->data_obj_id.digest);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->dltVersion = asyncHdr->dlt_version;
     putReq->forwardedReq = putObjMsg->forwardedReq;
-    putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
+    putReq->setObjId(objId);
 
     // perf-trace related data
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
@@ -485,6 +496,14 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start measuring E2E latency
     PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
+
+    // check if DLT token ready -- we are doing it after creating
+    // put request, because callback needs it
+    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+        LOGERROR << "DLT token not ready, not going to do PUT for " << objId;
+        putObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, putReq);
+        return;
+    }
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
@@ -581,7 +600,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*deleteObjMsg));
     Error err(ERR_OK);
-
+    ObjectID objId(deleteObjMsg->objId.digest);
     auto delReq = new SmIoDeleteObjectReq(deleteObjMsg);
 
     // Set delReq stuffs
@@ -589,7 +608,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delReq->setVolId(deleteObjMsg->volId);
     delReq->dltVersion = asyncHdr->dlt_version;
-    delReq->setObjId(ObjectID(deleteObjMsg->objId.digest));
+    delReq->setObjId(objId);
     delReq->forwardedReq = deleteObjMsg->forwardedReq;
 
     // perf-trace related data
@@ -605,6 +624,14 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start measuring E2E latency
     PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
+
+    // check if DLT token ready -- we are doing it after creating
+    // delete request, because callback needs it
+    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+        LOGERROR << "DLT token not ready, not going to do DELETE for " << objId;
+        deleteObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, delReq);
+        return;
+    }
 
     err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
     if (err != fds::ERR_OK) {
