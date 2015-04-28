@@ -61,9 +61,6 @@
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
 
-    - name: add redis-server ppa
-      apt_repository: repo=ppa:chris-lea/redis-server state=present
-
     - name: add artifactory repo key
       apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
 
@@ -75,6 +72,16 @@
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
+
+    - name: purge redis packages
+      apt: name={{item}} force=yes state=absent update_cache=no
+      with_items:
+        - redis-server
+        - redis-tools
+
+    - name: purge redis init script (just to be safe)
+      file: path=/etc/init.d/redis-server
+        state: absent
 
     - name: purge libboost 1.54 packages
       apt: name={{item}} force=yes state=absent update_cache=no
@@ -117,8 +124,6 @@
         - build-essential
         - python-software-properties
         - software-properties-common
-        - redis-server
-        - redis-tools
         - maven
         - libudev-dev
         - libparted0-dev
