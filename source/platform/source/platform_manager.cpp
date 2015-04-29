@@ -157,8 +157,9 @@ namespace fds
             db->setNodeInfo(nodeInfo);
         }
 
-        void PlatformManager::loadProperties()
+        void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
         {
+            util::Properties props = util::Properties(data);
             props.set("fds_root", rootDir);
             props.setInt("uuid", nodeInfo.uuid);
             props.setInt("disk_iops_max", diskCapability.disk_iops_max);
@@ -174,6 +175,11 @@ namespace fds
             props.setInt("disk_type", diskCapability.disk_type);
         }
 
+        // TODO: this needs to populate real data from the disk module labels etc.
+        // it may want to load the value from the database and validate it against
+        // DiskPlatModule data, or just load from the DiskPlatModule and be done
+        // with it.  Depends somewhat on how expensive it is to traverse the DiskPlatModule
+        // and calculate all the data.
         void PlatformManager::determineDiskCapability()
         {
             diskCapability.disk_iops_max    = 100000;
@@ -196,21 +202,6 @@ namespace fds
             db->setNodeDiskCapability(diskCapability);
         }
 
-        bool PlatformManager::sendNodeCapabilityToOM()
-        {
-            fpi::FDSP_RegisterNodeTypePtr    pkt(new fpi::FDSP_RegisterNodeType);
-            pkt->disk_info = diskCapability;
-
-            if (conf->get<bool>("testing.manual_nodecap",false))
-            {
-                pkt->disk_info.disk_iops_min = conf->get<int>("testing.disk_iops_min", 6000);
-                pkt->disk_info.disk_iops_max = conf->get<int>("testing.disk_iops_max", 100000);
-            }
-            // do the send
-
-            return true;
-        }
-
         fds_int64_t PlatformManager::getNodeUUID(fpi::FDSP_MgrIdType svcType)
         {
             ResourceUUID    uuid;
@@ -221,7 +212,6 @@ namespace fds
 
         int PlatformManager::run()
         {
-            sendNodeCapabilityToOM();
             while (1)
             {
                 sleep(1000);   /* we'll do hotplug uevent thread in here */

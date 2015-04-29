@@ -26,12 +26,8 @@ namespace fds
                 auto processor = boost::make_shared <fpi::PlatNetSvcProcessor> (handler);
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
-                util::Properties& props = platform->getProperties();
-
-                props.setData(&svcInfo_.props);
-
                 gl_DiskPlatMod.mod_startup();
-                platform->loadProperties();
+                platform->updateServiceInfoProperties(&svcInfo_.props);
             }
 
             virtual void setupSvcInfo_()
