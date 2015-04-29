@@ -71,12 +71,13 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                                  std::bind(
                                                     &SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens,
                                                     this)));
-    int retryTimePeriod;
+    int retryTimePeriod = 2;
     mTimer.scheduleRepeated(retryTokenMigrationTask, std::chrono::seconds(retryTimePeriod));
+
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        LOGNOTIFY << "startMigration called in non-idle state " << migrState;
+        LOGMIGRATE << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
     resyncOnRestart = forResync;
@@ -93,7 +94,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         // iterate over DLT tokens for this source SM
         for (auto dltTok : migrGroup.tokens) {
             fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
-            LOGMIGRATE << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
+            LOGNOTIFY << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                        << " DLT token " << dltTok << " SM token " << smTok;
             // if we don't know about this SM token and source SM, create migration executor
             if ((migrExecutors.count(smTok) == 0) ||
@@ -134,16 +135,20 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 
 void
 SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens() {
-    retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
-    LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
-    // enqueue snapshot work
-    snapshotRequest.token_id = retrySmTokenInProgress;
-    Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
-    if (!err.ok()) {
-        LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
-        // for now, we are failing the whole migration on any error
-        abortMigration(err);
+    fds_mutex::scoped_lock l(migrSmTokenLock);
+    if (!retryMigrSmTokenSet.empty()) {
+        retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
+        LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
+
+        // enqueue snapshot work
+        snapshotRequest.token_id = retrySmTokenInProgress;
+        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
+        if (!err.ok()) {
+            LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
+            // for now, we are failing the whole migration on any error
+            abortMigration(err);
+        }
     }
 }
 /**
@@ -256,7 +261,9 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     // request for the next smToken for whom we want to retry migration because
     // it failed the first time with source SM not ready as the reason.
     if (retryMigrFailedTokens) {
+        migrSmTokenLock.lock();
         retryMigrSmTokenSet.erase(retryMigrSmTokenSet.begin());
+        migrSmTokenLock.unlock();
         retryTokenMigrForFailedDltTokens();
     }
 }
@@ -802,19 +809,21 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
         return;  // this is ok
     }
 
-    // if we need to ack Start  Migration from OM, we will have a cb to reply to
+    // if we need to ack Start Migration from OM, we will have a cb to reply to
     if (omStartMigrCb) {
         omStartMigrCb(error);
         omStartMigrCb = NULL;
     }
 
     migrExecutors.clear();
+    retryMigrSmTokenSet.clear();
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
 }
 
 void
 SmTokenMigrationMgr::dltTokenMigrationFailedCb(fds_token_id &smToken) {
+    fds_mutex::scoped_lock l(migrSmTokenLock);
     retryMigrSmTokenSet.insert(smToken);
 }
 

@@ -2035,6 +2035,42 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 
         return True
 
+#This class sets fault injection on source SM node before SM token migration is started
+class TestTokenMigrationRetry(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TokenMigrationRetry,
+                                             "Setting fault injection for SM token migration retry")
+        self.passedNode = node
+
+    def test_TokenMigrationRetry(self):
+        """
+        Test Case:
+        This testcase sets the fault injection parameter on the source SM before starting of a
+        SM token migration
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode is None):
+            self.log.error("Parameter missing values.")
+            raise Exception
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        nodes = fdscfg.rt_obj.cfg_nodes
+        nodeObj = findNodeFromInv(nodes, self.passedNode) 
+        smSvcId = getSvcPIDforNode('StorMgr', nodeObj);
+        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service setfault {} '
+                                                    '\"enable name=resend.dlt.token.filter.set\"'
+                                                    '{}/fdsconsole.out 2>&1) \"'.format(smSvcId, log_dir),
+                                                    fds_tools=True, return_stdin=True)
+
+        if (stdout == 'Ok'):
+            return True
+        else:
+            return False
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

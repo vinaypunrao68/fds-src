@@ -193,7 +193,10 @@ class SmTokenMigrationMgr {
                                  fds_token_id smToken,
                                  fds_bool_t isFirstRound,
                                  const Error& error);
-
+    /**
+     * This callback basically inserts the dlt token to the
+     * retry migration set.
+     */
     void dltTokenMigrationFailedCb(fds_token_id &smToken);
 
     void retryTokenMigrForFailedDltTokens();
@@ -298,6 +301,9 @@ class SmTokenMigrationMgr {
      * because the source SM was not ready.
      */
      RetrySmTokenSet retryMigrSmTokenSet;
+
+     // For synchronization between the timer thread and token migration thread.
+     fds_mutex migrSmTokenLock;
 
     /**
      * FDS timer. Currently used for resending the CtrlObjectRebalanceFilerSet

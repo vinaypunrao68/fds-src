@@ -85,6 +85,11 @@ class MigrationExecutor {
 
     Error startSecondObjectRebalanceRound();
 
+    /**
+     * Start object rebalance for sm tokens whose token migration
+     * failed in the previous try with error that source SM was
+     * not ready to become source.
+     */
     Error startObjectRebalanceAgain(leveldb::ReadOptions& options,
                                     leveldb::DB *db);
     /**
