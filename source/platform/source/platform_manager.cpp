@@ -168,7 +168,7 @@ namespace fds
                 LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap[id] << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
             }
 
-            // Wait for TERM to shutdown  he process, otherwise revert to using SIGKILL
+            // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
             if (false == waitPid (pid, 9))
             {
                 rc = kill (pid, SIGKILL);
