@@ -11,6 +11,7 @@
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TServerSocket.h>
 #include <net/SvcServer.h>
+#include <fds_error.h>
 
 namespace fds {
 
@@ -48,7 +49,12 @@ SvcServer::~SvcServer()
     GLOGNOTIFY << logString();
 }
 
-void SvcServer::start()
+void SvcServer::setListener(SvcServerListener *listener)
+{
+    listener_ = listener;
+}
+
+Error SvcServer::start()
 {
     GLOGNOTIFY << logString();
     fds_verify(stopped_ == true);
@@ -56,6 +62,10 @@ void SvcServer::start()
     stopped_ = false;
     server_->setServerEventHandler(shared_from_this());
     serverThread_.reset(new std::thread([this] {this->serve_();}));
+
+    /* Wait until server starts listening i.e preserve() callback is invoked form thrift */
+    startWaiter_.await();
+    return startWaiter_.status;
 }
 
 void SvcServer::stop()
@@ -126,14 +136,38 @@ void SvcServer::closeClientConnections_()
 }
 
 void SvcServer::serve_() {
+    Error e = ERR_OK;
+
     GLOGNOTIFY << logString();
+
     try {
         server_->serve();
-    } catch (std::exception &e) {
-        GLOGWARN << "Stopping " << logString() << " Exception: " << e.what();
+    } catch (std::exception &ex) {
+        GLOGWARN << "Stopping " << logString() << " Exception: " << ex.what();
+        e = ERR_SVC_SERVER_CRASH;
     } catch (...) {
         GLOGWARN << "Stopping " << logString() << " unknown exception";
+        e = ERR_SVC_SERVER_CRASH;
     }
+
+    if (startWaiter_.getNumTasks() > 0) {
+        /* This typically happens when TServer::listen() throws and exception.
+         * We returned from serve() even before waiting in start() finished.  If we are here
+         * because server crashed there is no need to notify the listener as waiting for start
+         * hans't finished yet.
+         * now we will notify with an error
+         */
+        startWaiter_.status = e;
+        startWaiter_.done();
+    } else if (e != ERR_OK) {
+        listener_->notifyServerDown(ERR_SVC_SERVER_CRASH);
+    }
+}
+
+void SvcServer::preServe() {
+    fds_assert(startWaiter_.getNumTasks() == 1);
+    startWaiter_.status = ERR_OK;
+    startWaiter_.done();
 }
 
 void* SvcServer::createContext(
