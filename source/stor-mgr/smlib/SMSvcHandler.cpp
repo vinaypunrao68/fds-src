@@ -28,34 +28,46 @@ extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& msg);
 SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     : PlatNetSvcHandler(provider)
 {
+    /* Data paths messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
+    REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
+    /* Service map messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
+
+    /* volume information and policy messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
+
+    /* GC control messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyScavenger, NotifyScavenger);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerStatus, queryScavengerStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerProgress, queryScavengerProgress);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScavengerPolicy, setScavengerPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerPolicy, queryScavengerPolicy);
+
+    /* scrubber, which is part of GC policy, status messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScrubberStatus, setScrubberStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScrubberStatus, queryScrubberStatus);
 
+    /* Online smcheck control messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMCheck, NotifySMCheck);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMCheckStatus, querySMCheckStatus);
 
+    /* hybrid tiering control messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartHybridTierCtrlrMsg, startHybridTierCtrlr);
 
+    /* DLT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
 
-    REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
-
+    /* SM Service shutdown message */
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownSM);
 
+    /* token migration messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
@@ -63,6 +75,7 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
 
+    /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
 }
 
@@ -738,6 +751,17 @@ SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
+
+    // Start the hybrid tier migration on the first volume add call. The volume information
+    // is propagated after DLT update, and this can cause missing volume and associated volume
+    // policy.
+    // Although this is called every time when a volume is added, but hybrid tier migration
+    // controller will decided if it need to start tier migration or not.
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+    if (err != ERR_OK) {
+        LOGWARN << "Failed to enable Hybrid Tier Migration";
+    }
 }
 
 // NotifyRmVol
@@ -813,13 +837,15 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 // CtrlStartHybridTierCtrlrMsg
+//
+// Manually start Hybrid Tiering.
 // ----------------
 //
 void
 SMSvcHandler::startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-        boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg)
+                                   boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg)
 {
-    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_MANUAL);
     Error err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
     if (err != ERR_OK) {
         LOGWARN << err;
