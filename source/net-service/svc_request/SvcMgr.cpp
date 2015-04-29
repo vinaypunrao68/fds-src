@@ -192,9 +192,8 @@ int SvcMgr::mod_init(SysParams const *const p)
     GLOGNOTIFY << "module initialize";
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
-    startServer();
-
-    return 0;
+    Error e = startServer();
+    return e.getFdspErr();
 }
 
 void SvcMgr::mod_startup()
@@ -212,6 +211,11 @@ void SvcMgr::mod_shutdown()
     GLOGNOTIFY;
 }
 
+void SvcMgr::setSvcServerListener(SvcServerListener* listener)
+{
+    svcServer_->setListener(listener);
+}
+
 SvcRequestPool* SvcMgr::getSvcRequestMgr() const {
     return svcRequestMgr_;
 }
@@ -224,9 +228,9 @@ SvcRequestTracker* SvcMgr::getSvcRequestTracker() const {
     return svcRequestMgr_->getSvcRequestTracker();
 }
 
-void SvcMgr::startServer()
+Error SvcMgr::startServer()
 {
-    svcServer_->start();
+    return svcServer_->start();
 }
 
 void SvcMgr::stopServer()
