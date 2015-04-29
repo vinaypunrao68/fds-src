@@ -55,7 +55,7 @@ class TierEngine : public Module {
     void disableTierMigration();
     void enableTierMigration();
     /* For manually starting hybrid tier controller */
-    void startHybridTierCtrlr();
+    void startHybridTierCtrlr(bool manual);
 
     /** Gets the threshold for considering SSDs full from
     * the tier migration policy.
