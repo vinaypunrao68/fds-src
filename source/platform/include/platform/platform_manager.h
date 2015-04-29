@@ -5,6 +5,8 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_MANAGER_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_MANAGER_H_
 
+#include <mutex>
+
 #include <fds_config.hpp>
 #include <fds_module.h>
 #include <kvstore/platformdb.h>
@@ -12,6 +14,8 @@
 #include <fds_typedefs.h>
 #include <disk_plat_module.h>
 #include <util/properties.h>
+
+#include "fdsp/pm_service_types.h"
 
 namespace fds
 {
@@ -45,14 +49,12 @@ namespace fds
 
                 virtual void mod_shutdown() override;
 
-                int  run();
+                int run();
 
-                pid_t startAM();
-                pid_t startSM();
-                pid_t startDM();
 
-                void determineDiskCapability();
                 void activateServices(const fpi::ActivateServicesMsgPtr &activateMsg);
+                void deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg);
+
                 const fpi::NodeInfo& getNodeInfo()
                 {
                     return nodeInfo;
@@ -65,13 +67,16 @@ namespace fds
 
                 void loadProperties();
 
-                void startProcess (int id);
-                void stopProcess (int id);
-
             protected:
                 bool sendNodeCapabilityToOM();
 
                 fds_int64_t getNodeUUID(fpi::FDSP_MgrIdType svcType);
+
+                void determineDiskCapability();
+
+                bool waitPid (pid_t pid, int waitTimeoutNanoSeconds);
+                pid_t startProcess (int id);
+                void stopProcess (int id);
 
             private:
                 FdsConfigAccessor                  *conf;
@@ -82,7 +87,10 @@ namespace fds
                 std::string                         rootDir;
                 util::Properties                    props;
 
-                std::map<int, std::string>          m_idToAppNameMap;
+                std::map<int, std::string>          m_idToAppNameMap;       // This is read only after initial population
+
+                std::mutex                          m_pidMapMutex;
+                std::map<std::string, pid_t>        m_appPidMap;
         };
     }  // namespace pm
 }  // namespace fds

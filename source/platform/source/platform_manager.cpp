@@ -2,6 +2,9 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <stdlib.h>
 #include <string>
 #include <vector>
@@ -14,13 +17,15 @@
 #include <platform/process.h>
 #include <util/stringutils.h>
 
+#include <fdsp/svc_types_types.h>
+
 #include "platform/platform_manager.h"
 
 namespace fds
 {
     namespace pm
     {
-        PlatformManager::PlatformManager() : Module("pm"), m_idToAppNameMap()
+        PlatformManager::PlatformManager() : Module("pm"), m_idToAppNameMap(), m_appPidMap()
         {
 
         }
@@ -67,74 +72,7 @@ namespace fds
 
         }
 
-        pid_t PlatformManager::startAM()
-        {
-            std::vector<std::string>    args;
-            pid_t                       pid;
-
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s",
-                                           conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
-            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
-            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
-
-            pid = fds_spawn_service("AMAgent", rootDir, args, true);
-
-            if (pid > 0)
-            {
-                LOGNOTIFY << "Spawn AM as daemon";
-            } else {
-                LOGCRITICAL << "error spawning AM";
-            }
-
-            return pid;
-        }
-
-        pid_t PlatformManager::startDM()
-        {
-            std::vector<std::string>    args;
-            pid_t                       pid;
-
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s",
-                                           conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
-            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
-            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
-
-            pid = fds_spawn_service("DataMgr", rootDir, args, true);
-
-            if (pid > 0)
-            {
-                LOGNOTIFY << "Spawn DM as daemon";
-                db->setNodeInfo(nodeInfo);
-            } else {
-                LOGCRITICAL << "error spawning DM";
-            }
-
-            return pid;
-        }
-
-        pid_t PlatformManager::startSM()
-        {
-            std::vector<std::string>    args;
-            pid_t                       pid;
-
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s",
-                                           conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
-            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
-            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
-
-            pid = fds_spawn_service("StorMgr", rootDir, args, true);
-
-            if (pid > 0)
-            {
-                LOGNOTIFY << "Spawn SM as daemon";
-            } else {
-                LOGCRITICAL << "error spawning SM";
-            }
-
-            return pid;
-        }
-
-        void PlatformManager::startProcess (int processID)
+        pid_t PlatformManager::startProcess (int processID)
         {
             std::vector<std::string>    args;
             pid_t                       pid;
@@ -162,82 +100,147 @@ namespace fds
 
             if (pid > 0)
             {
-                LOGDEBUG << m_idToAppNameMap[processID] << "PLATFORMSPAWN started by platformd as pid " << pid;
+                LOGDEBUG << m_idToAppNameMap[processID] << " started by platformd as pid " << pid;
                 // add to pid list
             }
             else
             {
-                LOGERROR << "PLATFORMSPAWN fds_spawn_service() for " << m_idToAppNameMap[processID] << " FAILED to start by platformd with errno=" << errno;
+                LOGERROR << "fds_spawn_service() for " << m_idToAppNameMap[processID] << " FAILED to start by platformd with errno=" << errno;
             }
+
+            return pid;
         }
 
+        bool PlatformManager::waitPid (pid_t const pid, int waitTimeoutNanoSeconds)  // 1-%-9
+        {
+            int    status;
+            pid_t  waitPidRC;
 
+            time_t timeNow = time(NULL);
+            int timeEnd = timeNow + 2;
 
-/*
+            do
+            {
+                waitPidRC = waitpid (pid, &status, WNOHANG);
+
+                if (pid == waitPidRC)
+                {
+                    if (WIFEXITED (status))
+                    {
+                        LOGDEBUG << "pid " << pid << " exited normally with exit code " << WEXITSTATUS (status);
+                    }
+                    else if (WIFSIGNALED (status))
+                    {
+                        LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                    }
+
+                    return true;
+                }
+
+                usleep (100000);
+                timeNow = time(NULL);
+            }
+            while (timeNow < timeEnd);
+
+            return false;
+        }
+
+        void PlatformManager::stopProcess (int id)
+        {
+            LOGDEBUG << "Attempting to Stop " << m_idToAppNameMap[id] << " via kill(pid, SIGTERM)";
+
+            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (m_idToAppNameMap[id]);
+
+            if (m_appPidMap.end() == mapIter)
+            {
+                LOGERROR << "Unable to find pid for " << m_idToAppNameMap[id] << " in stopProcess()";
+                return;
+            }
+
+            // TODO(DJN): check for pid < 2 here and error
+
+            pid_t pid = mapIter->second;
+
+            int rc = kill (pid, SIGTERM);
+
+            if (rc < 0)
+            {
+                LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap[id] << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
+            }
+
+            // Wait for TERM to shutdown  he process, otherwise revert to using SIGKILL
+            if (false == waitPid (pid, 9))
+            {
+                rc = kill (pid, SIGKILL);
+
+                if (rc < 0)
+                {
+                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap[id] << "(pid = " << pid << ") errno = " << rc << "";
+                }
+
+                waitPid (pid, 9);
+            }
+
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+
+            m_appPidMap.erase (mapIter);
+        }
+
         // plf_start_node_services
         // -----------------------
         //
         void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
         {
             pid_t    pid;
-            bool     auto_start;
+
             auto     &info = activateMsg->info;
+
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
             if (info.has_sm_service)
             {
-                nodeInfo.fHasAm = true;
-                startSM();
+                nodeInfo.fHasSm = true;
+                pid = startProcess(STORAGE_MANAGER);
+                m_appPidMap[SM_NAME] = pid;
             }
 
             if (info.has_dm_service)
             {
                 nodeInfo.fHasDm = true;
-                startDM();
+                pid = startProcess(DATA_MANAGER);
+                m_appPidMap[DM_NAME] = pid;
             }
 
             if (info.has_am_service)
             {
                 nodeInfo.fHasAm = true;
-                startAM();
+                pid = startProcess(BARE_AM);
+                m_appPidMap[BARE_AM_NAME] = pid;
+                pid = startProcess(JAVA_AM);
+                m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
             }
 
             db->setNodeInfo(nodeInfo);
         }
-*/
-        // plf_start_node_services
-        // -----------------------
-        //
-        void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
+
+        void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
         {
-            // pid_t    pid;
-            // bool     auto_start;
-
-            auto     &info = activateMsg->info;
-
-            if (info.has_sm_service)
+            if (deactivateMsg->deactivate_am_svc && nodeInfo.fHasAm)
             {
-                nodeInfo.fHasAm = true;
-                startProcess(STORAGE_MANAGER);
-            }
-            if (info.has_dm_service)
-            {
-                nodeInfo.fHasDm = true;
-                startProcess(DATA_MANAGER);
+                stopProcess(JAVA_AM);
+                stopProcess(BARE_AM);
             }
 
-            if (info.has_am_service)
+            if (deactivateMsg->deactivate_dm_svc && nodeInfo.fHasDm)
             {
-                nodeInfo.fHasAm = true;
-                startProcess(BARE_AM);
-                sleep(10);                        // #### fs-1726 ####, remove this line when the ticket is being tested.
-                startProcess(JAVA_AM);
+                stopProcess(DATA_MANAGER);
             }
 
-            db->setNodeInfo(nodeInfo);
+            if (deactivateMsg->deactivate_sm_svc && nodeInfo.fHasSm)
+            {
+                stopProcess(STORAGE_MANAGER);
+            }
         }
-
-
-
 
         void PlatformManager::loadProperties()
         {
@@ -308,10 +311,23 @@ namespace fds
         {
             sendNodeCapabilityToOM();
 
+            std::ostringstream message;
+
+            // message << "Prepparing to begin monitoring:  " << m_appPidMap.size() << " process(es)";
+
+            for (auto &element : m_appPidMap)
+            {
+                message << element.first << ":" << element.second << ", ";
+            }
+
+            LOGDEBUG << message.str();
+
             while (1)
             {
-                sleep(1000);   /* we'll do hotplug uevent thread in here */
+LOGDEBUG << "NOT monitoring:  " << m_appPidMap.size() << " process(es)";
+                sleep(66);   /* we'll do hotplug uevent thread in here */
             }
+
             return 0;
         }
     }  // namespace pm
