@@ -202,6 +202,7 @@ SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
 
     // enqueue snapshot work
     snapshotRequest.token_id = smTokenInProgress;
+    snapshotRequest.retryReq = false;
     Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;

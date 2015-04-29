@@ -98,7 +98,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         msg->tokenId = dltTok.first;
         msg->executorID = executorId;
         msg->seqNum = dltTok.second;
-        msg->lastFilterSet = (dltTok.second < dltTokens.size()) ? false : true;
+        msg->lastFilterSet = ((dltTok.second + 1) < dltTokens.size()) ? false : true;
         msg->forResync = forResync;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << msg->tokenId << ", seqNum="
@@ -170,9 +170,10 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                 LOGMIGRATE << "Async rebalance request failed for token " << dltTok.first << "to source SM "
                            << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             }
-            retryDltTokens.erase(dltTok.first);
         }
     }
+
+    retryDltTokens.clear();
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sent rebalance initial set msgs to source SM"
