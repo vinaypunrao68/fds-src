@@ -223,11 +223,15 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
             tokenOidMap[dlt->getToken(oid)]->push_back(tmpId);
         }
 
+#if 0
+    // disable the ObjRef count  login for now. will revisit this  once  we have complete
+    // design in place 
         for (auto it : tokenOidMap) {
             incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
             // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
             //         voldesc.volUUID, it.first, it.second);
         }
+#endif
     }
 
     return rc;
