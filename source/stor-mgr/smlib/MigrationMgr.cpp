@@ -85,6 +85,23 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     numBitsPerDltToken = bitsPerDltToken;
     omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
+    // reset DLT tokens state to "not ready" for all DLT tokens
+    if (dltTokenStates.size() == 0) {
+        // first time migration/resync started
+        fds_uint32_t numTokens = pow(2, bitsPerDltToken);
+        dltTokenStates.clear();
+        // if migration due to adding this SM first time to the domain
+        // we are setting tokens to 'ready' right away, since migration code is designed
+        // to propagate DLT only after all tokens are synced and ready -- we know we will
+        // not get IO for these tokens while first two rounds of migration finish.  So for now
+        // to make code simple and don't handle cases that currently do not
+        // happen we just making those tokens 'ready' in SM right away.
+        dltTokenStates.assign(numTokens, !resyncOnRestart);
+    } else {
+        // resync on restart should happen only once during on SM run between restarts
+        fds_verify(!resyncOnRestart);
+    }
+
     // create migration executors for each <SM token, source SM> pair
     for (auto migrGroup : migrationMsg->migrations) {
         // migrGroup is <source SM, set of DLT tokens> pair
@@ -117,7 +134,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4)));
+                                              std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -166,8 +183,8 @@ SmTokenMigrationMgr::startResync(const fds::DLT *dlt,
     resyncMsg->DLT_version = dlt->getVersion();
     DLT::SourceNodeMap srcSmTokensMap;
     bool forResync = true;
-    dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
 
+    dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
     for (auto &ptr: srcSmTokensMap) {
         fpi::SMTokenMigrationGroup grp;
         grp.source = ptr.first.toSvcUuid();
@@ -431,6 +448,7 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
 Error
 SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
+    fds_bool_t doneWithClients = false;
 
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
@@ -442,14 +460,22 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     // we must only receive this message when are resyncing on restart
     fds_verify(resyncOnRestart);
 
-    SCOPEDREAD(clientLock);
-    // ok if migration client does not exist
-    if (migrClients.count(executorId) > 0) {
-        LOGDEBUG << "Remove migration client for executor " << executorId
-                 << " which means that forwarding from this client will stop too";
-        // the destination SM told us it does not need this client anymore
-        // just remove it, which will also stop forwarding IO from this client
-        migrClients.erase(executorId);
+    {  // scope for client lock
+        SCOPEDREAD(clientLock);
+        // ok if migration client does not exist
+        if (migrClients.count(executorId) > 0) {
+            LOGDEBUG << "Remove migration client for executor " << executorId
+                     << " which means that forwarding from this client will stop too";
+            // the destination SM told us it does not need this client anymore
+            // just remove it, which will also stop forwarding IO from this client
+            migrClients.erase(executorId);
+            doneWithClients = (migrClients.size() == 0);
+        }
+    }
+
+    // check if the whole resync on restart is finished
+    if (doneWithClients) {
+        checkResyncDoneAndCleanup();
     }
 
     return err;
@@ -500,11 +526,14 @@ SmTokenMigrationMgr::rebalanceDeltaSetResp() {
 void
 SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
-                                             fds_bool_t isFirstRound,
+                                             const std::set<fds_token_id>& dltTokens,
+                                             fds_uint32_t round,
                                              const Error& error) {
+    fds_bool_t isFirstRound = (round == 1);
+
     LOGMIGRATE << "Migration executor " << std::hex << executorId << std::dec
-               << " finished migration round first? " << isFirstRound << " done? "
-               << !isFirstRound << error;
+               << " finished migration round " << round << " done? "
+               << (round == 2) << error;
 
     fds_verify(smToken == smTokenInProgress);
 
@@ -514,6 +543,32 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         return;
     }
     fds_verify(curState == MIGR_IN_PROGRESS);
+
+    // Currently DTL tokens may become active in the following cases:
+    // 1) If this is NOT resync on restart, DLT tokens are active right away
+    // 2) If this is resync on restart, DLT token becomes available when source
+    // SM declines to be a source (because this SM has higher responsibility for
+    // this DLT token, so we declare the DLT token ready on this SM): this is the
+    // case when we just started round 1 of token resync (passed as round == 0) and
+    // source SM returned ERR_SM_RESYNC_SOURCE_DECLINE error.
+    // 3) If this is resync on restart, and we finished second round of resync (during
+    // resync, we go to the second round right away). This is the case when round == 2
+    // and no error happended (if error case, we are aborting the resync at the moment)
+    if (resyncOnRestart &&
+        (((round == 0) && (error == ERR_SM_RESYNC_SOURCE_DECLINE)) ||
+         ((round == 2) && (error.ok())))) {
+        // ok if source declined, we declare this DLT token ready
+        fds_verify(dltTokenStates.size() > 0);
+        for (auto dltTok : dltTokens) {
+            dltTokenStates[dltTok] = true;
+            LOGDEBUG << "DLT token " << dltTok << " is now ACTIVE";
+        }
+        // if round 0, nothing else to do
+        if (round == 0) {
+            return;
+        }
+    }
+    fds_verify(round > 0);
 
     // beta2: stop the whole migration process on any error
     if (!error.ok()) {
@@ -560,6 +615,13 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 if (resyncOnRestart) {
                     // done with executors
                     migrExecutors.clear();
+                    // after resync on restart, migrating on DLT change does not
+                    // need token readiness at the moments; so setting all DLT tokens
+                    // in the vector as available
+                    fds_uint32_t numTokens = dltTokenStates.size();
+                    if (numTokens) {
+                        dltTokenStates.assign(numTokens, true);
+                    }
                     // see if clients are also done so we can cleanup
                     checkResyncDoneAndCleanup();
                 }
@@ -758,6 +820,18 @@ SmTokenMigrationMgr::handleDltClose() {
 }
 
 void
+SmTokenMigrationMgr::notifyDltUpdate(fds_uint32_t bitsPerDltToken) {
+    if (!isMigrationInProgress()) {
+        fds_verify(bitsPerDltToken > 0);
+        numBitsPerDltToken = bitsPerDltToken;
+        if (dltTokenStates.size() == 0) {
+            fds_uint32_t numTokens = pow(2, bitsPerDltToken);
+            dltTokenStates.assign(numTokens, true);
+        }
+    }
+}
+
+void
 SmTokenMigrationMgr::checkResyncDoneAndCleanup() {
     if (!resyncOnRestart) {
         // not resync case
@@ -773,10 +847,8 @@ SmTokenMigrationMgr::checkResyncDoneAndCleanup() {
                 LOGMIGRATE << "Already done or aborted, nothing to do, current state " << migrState;
                 return;  // this is ok
             }
-            LOGNOTIFY << "Token resync on restart completed for DLT version " << targetDltVersion;
-            // reset per-migration/resync state
-            targetDltVersion = DLT_VER_INVALID;
-            resyncOnRestart = false;
+            LOGNOTIFY << "Token resync on restart / or being resync client completed for DLT version "
+                      << targetDltVersion;
         }
     }
 }

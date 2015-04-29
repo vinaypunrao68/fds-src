@@ -342,6 +342,12 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                            << " ; ok will stop resync for this dlt token, executor "
                            << std::hex << executorId << std::dec;
                 dltTokens.erase(dltToken);
+                // notify that this particular DLT token is not going to resync = ready
+                if (migrDoneHandler) {
+                    std::set<fds_token_id> oneTokSet;
+                    oneTokSet.insert(dltToken);
+                    migrDoneHandler(executorId, smTokenId, oneTokSet, 0, error);
+                }
                 if (dltTokens.size() == 0) {
                     // resync was declined for all DLT tokens of this executor, we are done
                     LOGMIGRATE << "Resync was declined for all DLT tokens for executor "
@@ -538,7 +544,7 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 
 void
 MigrationExecutor::handleMigrationRoundDone(const Error& error) {
-    fds_bool_t firstRoundFinished = false;
+    fds_uint32_t roundNum = 2;
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states
@@ -560,7 +566,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                 sendFinishResyncToClient();
             }
         } else {
-            firstRoundFinished = true;
+            roundNum = 1;
             // we just finished first round and started second round
         }
     } else {
@@ -581,12 +587,12 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
-               << " firstRound? " << firstRoundFinished
+               << " Round " << roundNum
                << " isResync? " << forResync;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
-        migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
+        migrDoneHandler(executorId, smTokenId, dltTokens, roundNum, error);
     }
 }
 

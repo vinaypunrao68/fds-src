@@ -176,6 +176,14 @@ std::ostream& operator<< (std::ostream &out,
 
 /**** SmTokenPlacement implementation ***/
 
+/**
+ * Token replacement on prisitine (i.e. brand new SM node) SM storage.  This is
+ * a simple round-robin token placement.
+ *
+ * Assumptions:
+ * 1) Uniform storage capacity: since round-robin distribution, disks are of same or similiar
+ *    capacity.
+ */
 void
 SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
                           const std::set<fds_uint16_t>& ssds,
@@ -211,7 +219,26 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
 
 
 /**
- * This is called
+ * This is called if the SM Superblock detects changes in the storage topology:
+ *
+ * Assumptions:
+ * 1) Disk capacity is uniform in the SM storage -- existing is a simple round-robin distribution, which
+ *    does not account for per disk capacity.
+ * 2) Newly added disk(s) does not have any SM data.
+ *
+ * TODO(Sean): rebalance levelDB and token files across SM storage.
+ *             this requires
+ *             1) some code-refactoring
+ *             2) minimal rebalance of levelDB and token files
+ *             3) data verification
+ *             4) no io during re-balance.
+ *
+ * There are 3 scenarios we cover:
+ * 1) only new disks without lost disks/tokens - do nothing.  these disks are not used.  this will be
+ *    addressed in the future TODO(Sean).
+ * 2) new disks with lost disks/tokens - rebalance using new disks to distribute lost tokens uniformly across
+ *    SM storage.  For now  add lost tokens from lost disks to newly added disks, and also balance across existing storage.
+ * 3) no new disks with lost disks/tokens - rebalance tokens across existing storage.
  */
 bool
 SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
