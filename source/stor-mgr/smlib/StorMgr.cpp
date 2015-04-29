@@ -355,9 +355,14 @@ Error ObjectStorMgr::handleDltUpdate() {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         objStorMgr->getUuid(),
                                                         curDlt->getNumBitsForToken());
+        } else {
+            // not doing resync, making all DLT tokens ready
+            objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
         }
         // for now pretend we successfully started resync, return success
         err = ERR_OK;
+    } else if (err.ok()) {
+        objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
     }
 
     return err;
