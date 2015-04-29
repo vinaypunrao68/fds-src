@@ -131,11 +131,23 @@ def modWait(mod, node, forShutdown = False):
     else:
         found = False
 
+    mod_decorator = mod
+    java_class = None
+
+    if mod == "orchMgr":
+        mod_decorator = "java"
+        java_class = "com.formationds.om.Main"
+
+    if mod == "AMAgent":
+        print "============================== doing this"
+        mod_decorator = "java"
+        java_class = "com.formationds.am.Main"
+
     status = 0
     while (count < maxcount) and ((forShutdown and found) or (not forShutdown and not found)):
         time.sleep(1)
 
-        pid = getSvcPIDforNode(mod, node)
+        pid = getSvcPIDforNode(mod_decorator, node, java_class)
         if pid != -1:
             found = True
 
@@ -166,11 +178,11 @@ def modWait(mod, node, forShutdown = False):
         if forShutdown:
             return False
 
-    if orchMgrPID != '':
-        return pidWaitParent(int(orchMgrPID), 1, node)
-
-    if AMAgentPID != '':
-        return pidWaitParent(int(AMAgentPID), 2, node)
+#    if orchMgrPID != '':
+#        return pidWaitParent(int(orchMgrPID), 1, node)
+#
+#    if AMAgentPID != '':
+#        return pidWaitParent(int(AMAgentPID), 2, node)
 
     return True
 
