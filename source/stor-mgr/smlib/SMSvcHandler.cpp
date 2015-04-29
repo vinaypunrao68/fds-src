@@ -204,14 +204,14 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
     if (fault_enabled || !(objStorMgr->objectStore->isReadyAsMigrationSrc())) {
         err = ERR_SM_NOT_READY_AS_MIGR_SRC;
-        LOGDEBUG << "SM not ready as Migration source" << objStorMgr->getUuid();
+        LOGDEBUG << "SM not ready as Migration source " << objStorMgr->getUuid()
+                 << " for dlt token " << dlt;
         fiu_disable("resend.dlt.token.filter.set");
     } else {
         err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
                                                              asyncHdr->msg_src_uuid,
                                                              objStorMgr->getUuid(),
                                                              dlt->getNumBitsForToken(), dlt);
-        fiu_enable("resend.dlt.token.filter.set", 1, NULL, 0);
     }
 
     // respond with error code

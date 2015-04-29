@@ -417,6 +417,11 @@ class SmIoSnapshotObjectDB : public SmIoReq {
      */
     fds_uint64_t targetDltVersion;
 
+    /**
+     * Set if snapshot request is for retry of a SM token migration
+     */
+    bool retryReq;
+
     /* Response callback for in-memory snapshot request*/
     CbType smio_snap_resp_cb;
 

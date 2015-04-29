@@ -9,6 +9,7 @@ import unittest
 import xmlrunner
 import TestCase
 from fdslib.TestUtils import findNodeFromInv
+from fdslib import SvcHandle
 
 # Module-specific requirements
 import sys
@@ -16,6 +17,7 @@ import time
 import logging
 import shlex
 import random
+import re
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -2060,16 +2062,26 @@ class TestTokenMigrationRetry(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         nodes = fdscfg.rt_obj.cfg_nodes
         nodeObj = findNodeFromInv(nodes, self.passedNode) 
-        smSvcId = getSvcPIDforNode('StorMgr', nodeObj);
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service setfault {} '
-                                                    '\"enable name=resend.dlt.token.filter.set\"'
-                                                    '{}/fdsconsole.out 2>&1) \"'.format(smSvcId, log_dir),
-                                                    fds_tools=True, return_stdin=True)
+    
+        svc_re = re.compile(r'([0-9]+)(\s+)SM')
+        status, stdout = nodeObj.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service list) \"',
+                                                    return_stdin=True,
+                                                    fds_tools=True)
 
-        if (stdout == 'Ok'):
-            return True
-        else:
-            return False
+        if status == 0:
+            for line in stdout.split('\n'):
+                res = svc_re.match(line)
+                if res is not None:
+                    smSvcId = res.group(1)
+ 
+                    status, stdout = nodeObj.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service setfault {} \"enable name=resend.dlt.token.filter.set\") \"' 
+                                                                .format(smSvcId),
+                                                                fds_tools=True, return_stdin=True)
+                    print stdout
+                    if (stdout == 'Ok'):
+                        return True
+                    else:
+                        return False
 
 
 if __name__ == '__main__':

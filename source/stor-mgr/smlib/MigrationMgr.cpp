@@ -18,8 +18,8 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
-
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
+    snapshotRequest.retryReq = false;
     snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
                                                   this,
                                                   std::placeholders::_1,
@@ -143,6 +143,7 @@ SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens() {
 
         // enqueue snapshot work
         snapshotRequest.token_id = retrySmTokenInProgress;
+        snapshotRequest.retryReq = true;
         Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;

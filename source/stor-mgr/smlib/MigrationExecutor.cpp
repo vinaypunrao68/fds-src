@@ -62,13 +62,22 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 {
     Error err(ERR_OK);
     ObjMetaData omd;
-
-    MigrationExecutorState expectState = ME_SECOND_PHASE_APPLYING_DELTA;
-    if (!std::atomic_compare_exchange_strong(&state,
+    if (!forResync) {
+        MigrationExecutorState expectState = ME_FIRST_PHASE_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state,
+                                             &expectState,
+                                             ME_FIRST_PHASE_APPLYING_DELTA)) {
+            LOGNOTIFY << "Non- ME_INIT state " << state;
+            return ERR_NOT_READY;
+        }
+    } else {
+        MigrationExecutorState expectState = ME_SECOND_PHASE_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state,
                                              &expectState,
                                              ME_SECOND_PHASE_APPLYING_DELTA)) {
-        LOGNOTIFY << "startObjectRebalance called in non-ME_SECOND_PHASE_APPLYING_DELTA state " << state;
-        return ERR_NOT_READY;
+            LOGNOTIFY << "Non-ME_SECOND_PHASE_APPLYING_DELTA state " << state;
+            return ERR_NOT_READY;
+        }
     }
 
     LOGNORMAL << "Executor " << std::hex << executorId << " will send obj ids to source SM "
