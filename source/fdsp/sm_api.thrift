@@ -108,6 +108,8 @@ struct PutObjectRspMsg {
 struct CtrlNotifySMCheck {
   /** Checker command. */
   1: sm_types.SMCheckCmd    SmCheckCmd;
+  /** Target tokens to check (optional) **/
+  2: optional set<i32> targetTokens;
 }
 
 /**

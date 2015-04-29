@@ -7,6 +7,7 @@
 
 #include <fdsp/FDSP_types.h>
 #include <fdsp/sm_api_types.h>
+#include <SmTypes.h>
 
 namespace fds {
 
@@ -145,8 +146,10 @@ class SmTieringCmd {
     enum CommandType {
         TIERING_ENABLE,
         TIERING_DISABLE,
+        /* Automatically started when the volume add notification is first received */
+        TIERING_START_HYBRIDCTRLR_AUTO,
         /* Debug message for manually starting hybrid tier controller */
-        TIERING_START_HYBRIDCTRLR,
+        TIERING_START_HYBRIDCTRLR_MANUAL,
         TIERING_CMD_NOT_SET
     };
     SmTieringCmd() : command(TIERING_CMD_NOT_SET) {}
@@ -171,10 +174,11 @@ class SmCheckCmd {
 
 class SmCheckActionCmd: public SmCheckCmd {
   public:
-    explicit SmCheckActionCmd(const fpi::SMCheckCmd &cmd) {
+    SmCheckActionCmd(const fpi::SMCheckCmd &cmd, SmTokenSet tgtTokens) {
         switch (cmd) {
             case fpi::SMCHECK_START:
                 command = SMCHECK_START;
+                this->tgtTokens = tgtTokens;
                 break;
             case fpi::SMCHECK_STOP:
                 command = SMCHECK_STOP;
@@ -183,6 +187,8 @@ class SmCheckActionCmd: public SmCheckCmd {
                 fds_panic("Unknown SmCheckCmd");
         }
     }
+    // Optional parameters for SMCHECK_START
+    SmTokenSet tgtTokens;
 };
 
 class SmCheckStatusCmd: public SmCheckCmd {
