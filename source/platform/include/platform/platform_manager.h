@@ -76,7 +76,7 @@ namespace fds
 
                 bool waitPid (pid_t pid, int waitTimeoutNanoSeconds);
                 pid_t startProcess (int id);
-                void stopProcess (int id);
+                void stopProcess (int id, bool haveLock = false);
 
             private:
                 FdsConfigAccessor                  *conf;

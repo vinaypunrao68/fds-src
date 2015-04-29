@@ -145,7 +145,7 @@ namespace fds
             return false;
         }
 
-        void PlatformManager::stopProcess (int id)
+        void PlatformManager::stopProcess (int id, bool haveLock)
         {
             LOGDEBUG << "Attempting to Stop " << m_idToAppNameMap[id] << " via kill(pid, SIGTERM)";
 
@@ -181,7 +181,10 @@ namespace fds
                 waitPid (pid, 9);
             }
 
-            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+            if (!haveLock)
+            {
+                std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+            }
 
             m_appPidMap.erase (mapIter);
         }
@@ -199,25 +202,61 @@ namespace fds
 
             if (info.has_sm_service)
             {
-                nodeInfo.fHasSm = true;
                 pid = startProcess(STORAGE_MANAGER);
-                m_appPidMap[SM_NAME] = pid;
+
+                if (pid < 2)
+                {
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[STORAGE_MANAGER];
+                }
+                else
+                {
+                    m_appPidMap[SM_NAME] = pid;
+                    nodeInfo.fHasSm = true;
+                }
             }
 
             if (info.has_dm_service)
             {
-                nodeInfo.fHasDm = true;
                 pid = startProcess(DATA_MANAGER);
-                m_appPidMap[DM_NAME] = pid;
+
+                if (pid < 2)
+                {
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[DATA_MANAGER];
+                }
+                else
+                {
+                    m_appPidMap[DM_NAME] = pid;
+                    nodeInfo.fHasDm = true;
+                }
             }
 
             if (info.has_am_service)
             {
-                nodeInfo.fHasAm = true;
+
                 pid = startProcess(BARE_AM);
-                m_appPidMap[BARE_AM_NAME] = pid;
-                pid = startProcess(JAVA_AM);
-                m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
+
+                if (pid < 2)
+                {
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[BARE_AM];
+                }
+                else
+                {
+                    m_appPidMap[BARE_AM_NAME] = pid;
+
+                    pid = startProcess(JAVA_AM);
+
+                    if (pid < 2)
+                    {
+                        LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[JAVA_AM];
+
+                        stopProcess (BARE_AM, true);
+                    }
+                    else
+                    {
+                        m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
+                        nodeInfo.fHasAm = true;
+                    }
+                }
             }
 
             db->setNodeInfo(nodeInfo);
