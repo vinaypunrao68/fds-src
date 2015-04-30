@@ -85,6 +85,20 @@ class ServiceContext(Context):
             return 'unable to get volume list'
 
     #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('svcid', help= "Service Uuid",  type=long)
+    def showsvcmap(self, svcid):
+        try:
+            svcMap = ServiceMap.client(svcid).getSvcMap(None)
+            data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
+            data.sort(key=itemgetter(0))
+            return tabulate(data,headers=['uuid', 'incarnation', 'status', 'ip', 'port'], tablefmt=self.config.getTableFormat())
+            
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get volume list'
+
+    #--------------------------------------------------------------------------------------
     @clicmd
     @arg('svcid', help= "Service Uuid",  type=long)
     def listflag(self, svcid, name=None):
