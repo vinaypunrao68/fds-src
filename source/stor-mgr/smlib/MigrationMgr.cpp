@@ -14,24 +14,25 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
-          numBitsPerDltToken(0),
-          resyncOnRestart(false)
+          numBitsPerDltToken(0)
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
-
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
+    snapshotRequest.retryReq = false;
     snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
                                                   this,
                                                   std::placeholders::_1,
                                                   std::placeholders::_2,
                                                   std::placeholders::_3,
-                                                  std::placeholders::_4);
+                                                  std::placeholders::_4,
+                                                  std::placeholders::_5);
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 }
 
 SmTokenMigrationMgr::~SmTokenMigrationMgr() {
+    mTimer.destroy();
 }
 
 /**
@@ -65,10 +66,18 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         return err;
     }
 
+    FdsTimerTaskPtr retryTokenMigrationTask(
+                        new FdsTimerFunctionTask(mTimer,
+                                                 std::bind(
+                                                    &SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens,
+                                                    this)));
+    int retryTimePeriod = 2;
+    mTimer.scheduleRepeated(retryTokenMigrationTask, std::chrono::seconds(retryTimePeriod));
+
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        LOGNOTIFY << "startMigration called in non-idle state " << migrState;
+        LOGMIGRATE << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
     resyncOnRestart = forResync;
@@ -102,7 +111,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         // iterate over DLT tokens for this source SM
         for (auto dltTok : migrGroup.tokens) {
             fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
-            LOGMIGRATE << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
+            LOGNOTIFY << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                        << " DLT token " << dltTok << " SM token " << smTok;
             // if we don't know about this SM token and source SM, create migration executor
             if ((migrExecutors.count(smTok) == 0) ||
@@ -118,6 +127,10 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                           srcSmUuid,
                                           smTok, globalExecId, targetDltVersion,
                                           forResync,
+                                          std::bind(
+                                              &SmTokenMigrationMgr::dltTokenMigrationFailedCb,
+                                              this,
+                                              std::placeholders::_1),
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
@@ -137,6 +150,25 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     return err;
 }
 
+void
+SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens() {
+
+    fds_mutex::scoped_lock l(migrSmTokenLock);
+    if (!retryMigrSmTokenSet.empty()) {
+        retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
+        LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
+
+        // enqueue snapshot work
+        snapshotRequest.token_id = retrySmTokenInProgress;
+        snapshotRequest.retryReq = true;
+        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
+        if (!err.ok()) {
+            LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
+            // for now, we are failing the whole migration on any error
+            abortMigration(err);
+        }
+    }
+}
 /**
  * Starts token resync for all DLT tokens assigned to this SM.
  * It identifies the source SMs for assigned tokens from the
@@ -170,6 +202,7 @@ SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
 
     // enqueue snapshot work
     snapshotRequest.token_id = smTokenInProgress;
+    snapshotRequest.retryReq = false;
     Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
@@ -185,33 +218,47 @@ void
 SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
                                                leveldb::ReadOptions& options,
-                                               leveldb::DB *db) {
+                                               leveldb::DB *db,
+                                               bool retryMigrFailedTokens) {
     Error err(ERR_OK);
+    fds_token_id curSmTokenInProgress;
+
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         LOGMIGRATE << "Migration was aborted, ignoring migration task";
         return;
     }
 
-    // must match sm token id that is currently in progress
-    fds_verify(snapRequest->token_id == smTokenInProgress);
-    fds_verify(migrExecutors.count(smTokenInProgress) > 0);
+    if (retryMigrFailedTokens) {
+        curSmTokenInProgress = retrySmTokenInProgress;
+    } else {
+        curSmTokenInProgress = smTokenInProgress;
+    }
 
     // on error, we just stop the whole migration process
     if (!error.ok()) {
-        LOGERROR << "Failed to get index db snapshot for SM token " << smTokenInProgress;
+        LOGERROR << "Failed to get index db snapshot for SM token " << curSmTokenInProgress;
         abortMigration(error);
         return;
     }
 
+    // must match sm token id that is currently in progress
+    fds_verify(snapRequest->token_id == curSmTokenInProgress);
+    fds_verify(migrExecutors.count(curSmTokenInProgress) > 0);
+
     // pass this snapshot to all migration executors that are responsible for
     // migrating DLT tokens that belong to this SM token
-    for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smTokenInProgress].cbegin();
-         cit != migrExecutors[smTokenInProgress].cend();
+    for (SrcSmExecutorMap::const_iterator cit = migrExecutors[curSmTokenInProgress].cbegin();
+         cit != migrExecutors[curSmTokenInProgress].cend();
          ++cit) {
-        err = cit->second->startObjectRebalance(options, db);
+        if (retryMigrFailedTokens) {
+            err = cit->second->startObjectRebalanceAgain(options, db);
+        } else {
+            err = cit->second->startObjectRebalance(options, db);
+        }
+
         if (!err.ok()) {
             LOGERROR << "Failed to start object rebalance for SM token "
-                     << smTokenInProgress << ", source SM " << std::hex
+                     << curSmTokenInProgress << ", source SM " << std::hex
                      << (cit->first).uuid_get_val() << std::dec << " " << err;
             break;  // we are going to abort migration
         }
@@ -228,6 +275,16 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     // We are waiting for response(s) from source SMs to continue with migration
     // or we will get abort migration from OM if we don't get response from SM
     // because it is down (SL will timeout on these requests and send msg to OM)
+
+    // But in the case of token migration retry for dlt tokens, issue the snapshot
+    // request for the next smToken for whom we want to retry migration because
+    // it failed the first time with source SM not ready as the reason.
+    if (retryMigrFailedTokens) {
+        migrSmTokenLock.lock();
+        retryMigrSmTokenSet.erase(retryMigrSmTokenSet.begin());
+        migrSmTokenLock.unlock();
+        retryTokenMigrForFailedDltTokens();
+    }
 }
 
 /**
@@ -424,6 +481,7 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
 
     return err;
 }
+
 
 /**
  * Handle rebalance delta set at destination from the source
@@ -825,15 +883,22 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
         return;  // this is ok
     }
 
-    // if we need to ack Start  Migration from OM, we will have a cb to reply to
+    // if we need to ack Start Migration from OM, we will have a cb to reply to
     if (omStartMigrCb) {
         omStartMigrCb(error);
         omStartMigrCb = NULL;
     }
 
     migrExecutors.clear();
+    retryMigrSmTokenSet.clear();
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
+}
+
+void
+SmTokenMigrationMgr::dltTokenMigrationFailedCb(fds_token_id &smToken) {
+    fds_mutex::scoped_lock l(migrSmTokenLock);
+    retryMigrSmTokenSet.insert(smToken);
 }
 
 fds_uint64_t
