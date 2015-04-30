@@ -6,7 +6,7 @@ version "0.1.2" do
 end
 
 version "0.1.3" do
-  source md5: "67f7f7f8617542402ae8ba02687ed9cc"
+  source md5: "7cfe32d0a4af0f3f18a04969141d97d0"
 end
 
 source url: "http://bld-dev-02/stat-badger-#{version}.tar.gz"
