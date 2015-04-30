@@ -18,8 +18,6 @@ namespace fpi = FDS_ProtocolInterface;
 
 #include "EclipseWorkarounds.h"
 
-#include "EclipseWorkarounds.h"
-
 namespace fds {
 
 /* Forward declarations */

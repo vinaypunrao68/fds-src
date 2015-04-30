@@ -330,7 +330,7 @@ class FdsNodeConfig(FdsConfig):
             try:
                 log.debug("Drop database %s [Attempt %s]" % (db, retryCount))
                 response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root",
-                                    timeout=(5, 1))
+                                    timeout=5)
 
                 log.debug("Remove database %s request completed [response code %d msg: %s]" %
                           (db,response.status_code,response.text))
@@ -592,9 +592,7 @@ class FdsNodeConfig(FdsConfig):
                 self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
             log.info("Cleanup influx database in: %s" % influxdb_data_dir)
-            self.nd_clean_influxdb()
-
-            status = 0
+            status = self.nd_clean_influxdb()
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core); ' % bin_dir +
@@ -606,7 +604,7 @@ class FdsNodeConfig(FdsConfig):
                 '(rm -rf %s/ssd-*/*); ' % dev_dir +
                 '(rm -rf %s/*-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
-            self.nd_clean_influxdb()
+            status = self.nd_clean_influxdb()
 
 
         if status == -1:
