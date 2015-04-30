@@ -15,6 +15,7 @@ import java.util.stream.StreamSupport;
 import com.codepoetics.protonpack.StreamUtils;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.IoParams;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
@@ -28,7 +29,7 @@ import com.formationds.iodriver.operations.SetBucketQos;
 import com.formationds.iodriver.operations.StatBucketVolume;
 
 // TODO: This was intended to test the fairness QOS with multiple queues. Not complete.
-public final class S3QosTestWorkload extends S3Workload
+public final class S3QosTestWorkload extends Workload<S3Endpoint, S3Operation>
 {
     public S3QosTestWorkload(Collection<IoParams> bucketParams, Duration duration)
     {
@@ -113,7 +114,8 @@ public final class S3QosTestWorkload extends S3Workload
                          new StatBucketVolume(bucketName, statsSetter),
                          new LambdaS3Operation(() ->
                          {
-                             BucketState state = _bucketStats.get(bucketName);
+                             BucketState state =
+                                     _bucketStats.get(bucketName);
                              state.currentState =
                                      new VolumeQosSettings(state.currentState.getId(),
                                                            state.targetState.getAssured(),
