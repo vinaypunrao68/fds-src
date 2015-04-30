@@ -324,10 +324,16 @@ editVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStar
 
 deleteVolume = function( row ){
     element.all( by.css( '.volume-row' ) ).get( row ).click();
+    
+    browser.sleep( 200 );
+    
+    editButton = element( by.css( '.view-volume-screen' ) );
+    editButton = editButton.element( by.css( '.edit-volume-button' ) );
+    editButton.click();
 
     browser.sleep( 500 );
 
-    var viewEl = element( by.css( '.view-volume-screen' ) );
+    var viewEl = element( by.css( '.edit-panel' ) );
     viewEl.element( by.css( '.delete-volume' ) ).click();
 
     browser.sleep( 200 );
