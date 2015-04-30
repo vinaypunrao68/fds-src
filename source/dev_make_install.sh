@@ -23,7 +23,7 @@ ETCDIR=${DESTDIR}/etc
 
 JAVADIR=${DESTDIR}/lib/java
 
-echo "Installing FDS into ${DESTDIR}"
+echo "Symlinking FDS into ${DESTDIR}"
 
 for d in ${BINDIR} ${DESTDIR}/lib ${SBINDIR}
 do

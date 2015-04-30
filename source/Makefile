@@ -48,3 +48,6 @@ ifdef SKIP_JAVA_BUILD
 endif
 
 include $(topdir)/Makefile.incl
+
+install:
+	@./dev_make_install.sh
