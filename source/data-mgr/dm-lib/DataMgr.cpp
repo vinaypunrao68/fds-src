@@ -406,6 +406,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             // find the closest snapshot to clone the base from
             fds_volid_t srcVolumeId = vdesc->srcVolumeId;
 
+            LOGDEBUG << "Timeline time is: '" << vdesc->timelineTime << "' for clone: '"
+                    << vdesc->volUUID << "'";
             // timelineTime is in seconds
             util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
 
@@ -436,6 +438,15 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                     // vol create time is in millis
                     snapshotTime = volmeta->vol_desc->createTime * 1000;
                     err = timeVolCat_->addVolume(*vdesc);
+                    if (!err.ok()) {
+                        LOGWARN << "Add volume returned error: '" << err << "'";
+                    }
+                    // XXX: Here we are creating and activating clone without copying src
+                    // volume, directory needs to exist for activation
+                    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+                    const std::string dirPath = root->dir_sys_repo_dm() +
+                            std::to_string(vdesc->volUUID);
+                    root->fds_mkdir(dirPath.c_str());
                 }
 
                 // now replay necessary commit logs as needed
