@@ -135,8 +135,23 @@ def createSnapshotPolicy( policy ):
 def editSnapshotPolicy( policy ):
     return policy
 
-def listSnapshotPolicies():
+def listSnapshotPolicies( volume_id=None ):
     policies = []
     policy = SnapshotPolicy()
     policies.append( policy )
     return policies
+
+def attachPolicy( policy_id, volume_id ):
+    response = dict()
+    response["status"] = "OK"
+    return response 
+
+def detachPolicy( policy_id, volume_id ):
+    response = dict()
+    response["status"] = "OK"
+    return response 
+
+def deleteSnapshotPolicy( policy_id ):
+    response = dict()
+    response["status"] = "OK"
+    return response 
