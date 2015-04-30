@@ -2,6 +2,9 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <cstdlib>
 #include <cmath>
 #include <string>
@@ -17,6 +20,8 @@
 #include "disk_plat_module.h"
 #include <util/stringutils.h>
 
+#include <fdsp/svc_types_types.h>
+
 #include "platform/platform_manager.h"
 #include "platform/disk_capabilities.h"
 
@@ -24,8 +29,18 @@ namespace fds
 {
     namespace pm
     {
-        PlatformManager::PlatformManager() : Module("pm")
+        // Setup the mapping for enums to string
+        const std::map <int, std::string> m_idToAppNameMap =
         {
+            { JAVA_AM,         JAVA_AM_CLASS_NAME },
+            { BARE_AM,         BARE_AM_NAME       },
+            { DATA_MANAGER,    DM_NAME            },
+            { STORAGE_MANAGER, SM_NAME            }
+        };
+
+        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap()
+        {
+
         }
 
         int PlatformManager::mod_init(SysParams const *const param)
@@ -35,7 +50,7 @@ namespace fds
             db = new kvstore::PlatformDB(rootDir, conf->get<std::string>("redis_host","localhost"), conf->get<int>("redis_port", 6379), 1);
 
             if (!db->isConnected())
-            { 
+            {
                 LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string>("redis_host","localhost") << ":" << conf->get<int>("redis_port", 6379) << "]";
             } else {
                 db->getNodeInfo(nodeInfo);
@@ -64,71 +79,128 @@ namespace fds
 
         }
 
-        pid_t PlatformManager::startAM()
+        pid_t PlatformManager::startProcess (int processID)
         {
             std::vector<std::string>    args;
             pid_t                       pid;
+            std::string                 command;
 
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s",
-                                           conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
+            if (JAVA_AM == processID)
+            {
+                command = "java";
+                args.push_back ("-classpath");
+                args.push_back (JAVA_CLASSPATH_OPTIONS);
+
+#ifdef DEBUG
+                std::ostringstream remoteDebugger;
+                remoteDebugger << JAVA_DEBUGGER_OPTIONS << conf->get<int>("platform_port") + 7777;
+                args.push_back (remoteDebugger.str());
+#endif // DEBUG
+
+                args.push_back (JAVA_AM_CLASS_NAME);
+            }
+            else
+            {
+                command = m_idToAppNameMap.at(processID);
+            }
+
+            // Common command line options
+            args.push_back("--foreground");
             args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
+            args.push_back(util::strformat("--fds.common.om_ip_list=%s", conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
             args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
 
-            pid = fds_spawn_service("AMAgent", rootDir, args, true);
+            pid = fds_spawn_service(command, rootDir, args, false);
 
             if (pid > 0)
             {
-                LOGNOTIFY << "Spawn AM as daemon";
-            } else {
-                LOGCRITICAL << "error spawning AM";
+                LOGDEBUG << m_idToAppNameMap.at(processID) << " started by platformd as pid " << pid;
+                // add to pid list
+            }
+            else
+            {
+                LOGERROR << "fds_spawn_service() for " << m_idToAppNameMap.at(processID) << " FAILED to start by platformd with errno=" << errno;
             }
 
             return pid;
         }
 
-        pid_t PlatformManager::startDM()
+        bool PlatformManager::waitPid (pid_t const pid, int waitTimeoutNanoSeconds)  // 1-%-9
         {
-            std::vector<std::string>    args;
-            pid_t                       pid;
+            int    status;
+            pid_t  waitPidRC;
 
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s",
-                                           conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
-            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
-            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
+            time_t timeNow = time(NULL);
+            int timeEnd = timeNow + 2;
 
-            pid = fds_spawn_service("DataMgr", rootDir, args, true);
-
-            if (pid > 0)
+            do
             {
-                LOGNOTIFY << "Spawn DM as daemon";
-                db->setNodeInfo(nodeInfo);
-            } else {
-                LOGCRITICAL << "error spawning DM";
-            }
+                waitPidRC = waitpid (pid, &status, WNOHANG);
 
-            return pid;
+                if (pid == waitPidRC)
+                {
+                    if (WIFEXITED (status))
+                    {
+                        LOGDEBUG << "pid " << pid << " exited normally with exit code " << WEXITSTATUS (status);
+                    }
+                    else if (WIFSIGNALED (status))
+                    {
+                        LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                    }
+
+                    return true;
+                }
+
+                usleep (100000);
+                timeNow = time(NULL);
+            }
+            while (timeNow < timeEnd);
+
+            return false;
         }
 
-        pid_t PlatformManager::startSM()
+        void PlatformManager::stopProcess (int id, bool haveLock)
         {
-            std::vector<std::string>    args;
-            pid_t                       pid;
+            LOGDEBUG << "Attempting to Stop " << m_idToAppNameMap.at(id) << " via kill(pid, SIGTERM)";
 
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s",
-                                           conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
-            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
-            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
+            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (m_idToAppNameMap.at(id));
 
-            pid = fds_spawn_service("StorMgr", rootDir, args, true);
-
-            if (pid > 0)
+            if (m_appPidMap.end() == mapIter)
             {
-                LOGNOTIFY << "Spawn SM as daemon";
-            } else {
-                LOGCRITICAL << "error spawning SM";
+                LOGERROR << "Unable to find pid for " << m_idToAppNameMap.at(id) << " in stopProcess()";
+                return;
             }
 
-            return pid;
+            // TODO(DJN): check for pid < 2 here and error
+
+            pid_t pid = mapIter->second;
+
+            int rc = kill (pid, SIGTERM);
+
+            if (rc < 0)
+            {
+                LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
+            }
+
+            // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
+            if (false == waitPid (pid, 9))
+            {
+                rc = kill (pid, SIGKILL);
+
+                if (rc < 0)
+                {
+                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << "";
+                }
+
+                waitPid (pid, 9);
+            }
+
+            if (!haveLock)
+            {
+                std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+            }
+
+            m_appPidMap.erase (mapIter);
         }
 
         // plf_start_node_services
@@ -137,28 +209,90 @@ namespace fds
         void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
         {
             pid_t    pid;
-            bool     auto_start;
+
             auto     &info = activateMsg->info;
+
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
             if (info.has_sm_service)
             {
-                nodeInfo.fHasAm = true;
-                startSM();
+                pid = startProcess(STORAGE_MANAGER);
+
+                if (pid < 2)
+                {
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(STORAGE_MANAGER);
+                }
+                else
+                {
+                    m_appPidMap[SM_NAME] = pid;
+                    nodeInfo.fHasSm = true;
+                }
             }
 
             if (info.has_dm_service)
             {
-                nodeInfo.fHasDm = true;
-                startDM();
+                pid = startProcess(DATA_MANAGER);
+
+                if (pid < 2)
+                {
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(DATA_MANAGER);
+                }
+                else
+                {
+                    m_appPidMap[DM_NAME] = pid;
+                    nodeInfo.fHasDm = true;
+                }
             }
 
             if (info.has_am_service)
             {
-                nodeInfo.fHasAm = true;
-                startAM();
+
+                pid = startProcess(BARE_AM);
+
+                if (pid < 2)
+                {
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(BARE_AM);
+                }
+                else
+                {
+                    m_appPidMap[BARE_AM_NAME] = pid;
+
+                    pid = startProcess(JAVA_AM);
+
+                    if (pid < 2)
+                    {
+                        LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(JAVA_AM);
+
+                        stopProcess (BARE_AM, true);
+                    }
+                    else
+                    {
+                        m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
+                        nodeInfo.fHasAm = true;
+                    }
+                }
             }
 
             db->setNodeInfo(nodeInfo);
+        }
+
+        void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
+        {
+            if (deactivateMsg->deactivate_am_svc && nodeInfo.fHasAm)
+            {
+                stopProcess(JAVA_AM);
+                stopProcess(BARE_AM);
+            }
+
+            if (deactivateMsg->deactivate_dm_svc && nodeInfo.fHasDm)
+            {
+                stopProcess(DATA_MANAGER);
+            }
+
+            if (deactivateMsg->deactivate_sm_svc && nodeInfo.fHasSm)
+            {
+                stopProcess(STORAGE_MANAGER);
+            }
         }
 
         void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
@@ -232,10 +366,21 @@ namespace fds
 
         int PlatformManager::run()
         {
+            std::ostringstream message;
+
+            for (auto &element : m_appPidMap)
+            {
+                message << element.first << ":" << element.second << ", ";
+            }
+
+            LOGDEBUG << message.str();
+
             while (1)
             {
-                sleep(1000);   /* we'll do hotplug uevent thread in here */
+LOGDEBUG << "NOT monitoring:  " << m_appPidMap.size() << " process(es)";
+                sleep(66);   /* we'll do hotplug uevent thread in here */
             }
+
             return 0;
         }
     }  // namespace pm
