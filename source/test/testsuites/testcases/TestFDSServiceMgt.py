@@ -139,7 +139,6 @@ def modWait(mod, node, forShutdown = False):
         java_class = "com.formationds.om.Main"
 
     if mod == "AMAgent":
-        print "============================== doing this"
         mod_decorator = "java"
         java_class = "com.formationds.am.Main"
 
