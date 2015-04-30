@@ -249,7 +249,7 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             # Get file info
-            source_path = bin_dir + "/OrchMgr"
+            source_path = bin_dir + "/orchMgr"
             source_size = os.stat(source_path).st_size
 
             # Get a Key/Value object for th bucket.

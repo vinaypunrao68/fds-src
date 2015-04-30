@@ -86,6 +86,13 @@ namespace fds
                 command = "java";
                 args.push_back ("-classpath");
                 args.push_back (JAVA_CLASSPATH_OPTIONS);
+
+#ifdef DEBUG
+                std::ostringstream remoteDebugger;
+                remoteDebugger << JAVA_DEBUGGER_OPTIONS << conf->get<int>("platform_port") + 7777;
+                args.push_back (remoteDebugger.str());
+#endif // DEBUG
+
                 args.push_back (JAVA_AM_CLASS_NAME);
             }
             else

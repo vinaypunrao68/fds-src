@@ -36,6 +36,10 @@ namespace fds
 
         const std::string JAVA_CLASSPATH_OPTIONS       = "/fds/lib/java/fds-1.0-bin/fds-1.0/*:/fds/lib/java/classes";                 // No spaces in this value
 
+#ifdef DEBUG
+        const std::string JAVA_DEBUGGER_OPTIONS       = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=";             // No spaces in this value
+#endif // DEBUG
+
         class PlatformManager : public Module
         {
             public:
