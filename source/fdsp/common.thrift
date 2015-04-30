@@ -206,23 +206,12 @@ struct FDSP_VolumeDescType {
   // 20: Removed.
 }
 
-struct FDSP_CreateVolType {
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
-}
-
-struct FDSP_DeleteVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  // i64    		 vol_uuid,
-  2: i32			 domain_id,
-}
-
 struct FDSP_PolicyInfoType {
-  1: string                 policy_name, /* Name of the policy */
-  2: i32                    policy_id,   /* policy id */
-  3: double                 iops_min,    /* minimum (guaranteed) iops */
-  4: double                 iops_max,    /* maximum iops */
-  5: i32                    rel_prio,    /* relative priority */
+  1: string                 policy_name,    /* Name of the policy */
+  2: i32                    policy_id,      /* policy id */
+  3: double                 iops_assured,   /* minimum (guaranteed) iops */
+  4: double                 iops_throttle,  /* maximum iops */
+  5: i32                    rel_prio,       /* relative priority */
 }
 
 /**

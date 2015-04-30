@@ -78,13 +78,6 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
               serverIp("127.0.0.1"),
               serverPort(8899),
               responsePort(9876) {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_assured = 0;
-        volDesc.iops_throttle = 0;
-        volDesc.relativePrio = 1;
-        fds_verify(am->registerVolume(volDesc) == ERR_OK);
-
         namespace po = boost::program_options;
         po::options_description desc("AM functional test");
         desc.add_options()

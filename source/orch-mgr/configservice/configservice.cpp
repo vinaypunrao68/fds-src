@@ -695,8 +695,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
                 fdspQoSPolicy.policy_name = qosPolicy.volPolicyName;
                 fdspQoSPolicy.policy_id = qosPolicy.volPolicyId;
-                fdspQoSPolicy.iops_min = qosPolicy.iops_min;
-                fdspQoSPolicy.iops_max = qosPolicy.iops_max;
+                fdspQoSPolicy.iops_assured = qosPolicy.iops_assured;
+                fdspQoSPolicy.iops_throttle = qosPolicy.iops_throttle;
                 fdspQoSPolicy.rel_prio = qosPolicy.relativePrio;
 
                 _return.push_back(fdspQoSPolicy);
@@ -722,20 +722,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                          boost::shared_ptr<std::string>& currentPolicyName, boost::shared_ptr<std::string>& newPolicyName,
                          boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
                          boost::shared_ptr<int32_t>& relPrio ) {
+        fds_assert(*relPrio >= 0);
         FDS_VolumePolicy qosPolicy;
 
         qosPolicy.volPolicyId = configDB->getIdOfQoSPolicy(*currentPolicyName);
 
         if (qosPolicy.volPolicyId > 0) {
             qosPolicy.volPolicyName = *newPolicyName;
-            qosPolicy.iops_min = static_cast<fds_uint64_t>(*minIops);
-            qosPolicy.iops_max = static_cast<fds_uint64_t>(*maxIops);
+            qosPolicy.iops_assured = *minIops;
+            qosPolicy.iops_throttle = *maxIops;
             qosPolicy.relativePrio = static_cast<fds_uint32_t>(*relPrio);
             if (configDB->updatePolicy(qosPolicy)) {
                 _return.policy_id = qosPolicy.volPolicyId;
                 _return.policy_name = qosPolicy.volPolicyName;
-                _return.iops_min = qosPolicy.iops_min;
-                _return.iops_max = qosPolicy.iops_max;
+                _return.iops_assured = qosPolicy.iops_assured;
+                _return.iops_throttle = qosPolicy.iops_throttle;
                 _return.rel_prio = qosPolicy.relativePrio;
                 
                 LOGNOTIFY << "QoS Policy modification succeded. " << _return.policy_id << ": " << *currentPolicyName;

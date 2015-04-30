@@ -93,8 +93,8 @@ Error VolPolicyMgr::createPolicy(fpi::FDSP_PolicyInfoType& _return, const std::s
 
         _return.policy_id = policyId;
         _return.policy_name = policyName;
-        _return.iops_min = minIops;
-        _return.iops_max = maxIops;
+        _return.iops_assured = minIops;
+        _return.iops_throttle = maxIops;
         _return.rel_prio = relPrio;
     } else {
         LOGERROR << "Policy already exists: " << policyName << "ID: " << policyId;

@@ -225,14 +225,6 @@ struct FDSP_CreateDomainType {
 
 }
 
-struct FDSP_PolicyInfoType {
-  1: string                 policy_name, /* Name of the policy */
-  2: i32                    policy_id,   /* policy id */
-  3: i64                    iops_assured,  /* minimum (guaranteed) iops */
-  4: i64                    iops_throttle,  /* maximum iops */
-  5: i32                    rel_prio,    /* relative priority */
-}
-
 struct FDSP_AttachVolCmdType {
   1: string		 vol_name, // Name of the volume to attach
   // double		 vol_uuid, // UUID of the volume being attached

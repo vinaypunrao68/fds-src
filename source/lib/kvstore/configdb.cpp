@@ -868,8 +868,8 @@ fds_uint32_t ConfigDB::createQoSPolicy(const std::string& identifier,
         id = static_cast<fds_uint32_t>(reply.getLong());
         qosPolicy.volPolicyId = id;
         qosPolicy.volPolicyName = identifier;
-        qosPolicy.iops_min = minIops;
-        qosPolicy.iops_max = maxIops;
+        qosPolicy.iops_assured = minIops;
+        qosPolicy.iops_throttle = maxIops;
         qosPolicy.relativePrio = relPrio;
 
 #ifdef QOS_POLICY_MANAGEMENT_CORRECTED

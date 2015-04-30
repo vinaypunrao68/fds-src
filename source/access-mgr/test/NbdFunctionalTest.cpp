@@ -55,13 +55,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
   public:
     NbdOpsProc(int argc, char **argv)
             : volumeName(new std::string("Test Volume")) {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_assured = 0;
-        volDesc.iops_throttle = 0;
-        volDesc.relativePrio = 1;
-        fds_verify(am->registerVolume(volDesc) == ERR_OK);
-
         namespace po = boost::program_options;
         po::options_description desc("Nbd Operations functional test");
         desc.add_options()
