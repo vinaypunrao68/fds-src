@@ -72,6 +72,12 @@ function system_tests
    end_time=$(date +%s)
    performance_report SYSTEM_TEST $(( ${end_time} - ${start_time} ))
    cd -
+   
+   # Run QoS test.
+   #cd "${root_dir}/source/Build/linux-x86_64.debug/bin"
+   #./iodriver
+   #[[ $? -ne 0 ]] && echo "SYSTEM TEST:  FAILED" && exit 99
+   #cd -
 }
 
 root_dir=$(pwd)
