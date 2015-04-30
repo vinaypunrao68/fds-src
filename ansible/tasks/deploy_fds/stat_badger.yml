@@ -2,7 +2,17 @@
 -   set_fact:
         badger_cluster: "{{fds_cluster_name if fds_cluster_name is defined else 'undefined'}}"
         badger_logfile: "/var/log/stat-badger/badger.log"
-        badger_disk_list: "[\"xvda\", \"sda\"]"
+        badger_disk_list: "\"xvda,sda\""
+        badger_process_patterns:
+            - '{ "name": "stat-badger", "pattern": ".+badger_core\\.py -f.+" }'
+            - '{ "name": "bare-AM", "pattern": ".+bare_am.+" }'
+            - '{ "name": "bare-AM", "pattern": ".+bare_am.+" }'
+            - '{ "name": "AccessMgr", "pattern": "^java.+com.formationds.am.Main.+" }'
+            - '{ "name": "OrchMgr-java", "pattern": "^java.+com.formationds.om.Main.+" }'
+            - '{ "name": "OrchMgr-native", "pattern": "^bash.+orchMgr+" }'
+            - '{ "name": "StorMgr", "pattern": ".+StorMgr --fds-root.+" }'
+            - '{ "name": "DataMgr", "pattern": ".+DataMgr --fds-root.+" }'
+            - '{ "name": "PlatformMgr", "pattern": ".+platformd --fds-root.+" }'
         badger_influxdb08_host: "{{'127.0.0.1' if fds_customer_install is defined else '10.2.10.20'}}"
         badger_influxdb08_port: 8086
         badger_influxdb08_database: "system_stats"
@@ -55,11 +65,12 @@
 
 -   name: write stat-badger disk module config
     template:
-        src=../../templates/badger/conf.d/disk.conf.j2
-        dest=/opt/fds-deps/embedded/stat-badger/badger_modules/conf.d/disk.conf
+        src=../../templates/badger/conf.d/{{item}}.conf.j2
+        dest=/opt/fds-deps/embedded/stat-badger/badger_modules/conf.d/{{item}}.conf
         owner=stat-badger
-        group=stat-badger
-        mode=0644
+    with_items:
+        - disk
+        - process_stats
 
 -   name: ensure stat-badger is running
     service:
