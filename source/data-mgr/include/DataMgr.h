@@ -47,6 +47,8 @@
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
 
+#include "util/ExecutionGate.h"
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -54,9 +56,7 @@
 
 namespace fds {
 
-struct DataMgr;
 class DMSvcHandler;
-extern DataMgr *dataMgr;
 
 struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
@@ -230,16 +230,16 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
-                    threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
+                    threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
                     break;
                 case FDS_DM_PUSH_META_DONE:
-                    threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
+                    threadPool->schedule(&DataMgr::handleDMTClose, parentDm, io);
                     break;
                 case FDS_DM_PURGE_COMMIT_LOG:
                     threadPool->schedule(io->proc, io);
                     break;
                 case FDS_DM_META_RECVD:
-                    threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
+                    threadPool->schedule(&DataMgr::handleForwardComplete, parentDm, io);
                     break;
 
                 /* End of new refactored DM message types */
@@ -266,7 +266,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         dataMgr->handlers.at(io->io_type), io);
+                                         parentDm->handlers.at(io->io_type),
+                                         io);
                     break;
 
                 default:
@@ -426,6 +427,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
     friend class dm::DeleteBlobHandler;
+
+private:
+    ///
+    /// Don't shut down until this gate is opened.
+    ///
+    util::ExecutionGate _shutdownGate;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

@@ -8,6 +8,7 @@
 
 #include <fds_process.h>
 #include <fdsp/svc_types_types.h>
+#include <net/SvcServer.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -31,7 +32,7 @@ using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 * 2. Config db for persistence
 * 2. Service registration
 */
-struct SvcProcess : FdsProcess {
+struct SvcProcess : FdsProcess, SvcServerListener {
     SvcProcess();
     SvcProcess(int argc, char *argv[],
                    const std::string &def_cfg_file,
@@ -95,6 +96,9 @@ struct SvcProcess : FdsProcess {
     virtual void registerSvcProcess();
 
     virtual SvcMgr* getSvcMgr() override;
+
+    /* SvcServerListener notifications */
+    virtual void notifyServerDown(const Error &e) override;
 
  protected:
     /**

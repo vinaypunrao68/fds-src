@@ -16,7 +16,6 @@ import java.util.List;
 /**
  * @author ptinius
  */
-@SuppressWarnings( "unused" )
 public class SystemUtility
 {
   private static final String OS_NAME = "os.name";

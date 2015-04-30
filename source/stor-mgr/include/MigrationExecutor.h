@@ -19,10 +19,16 @@ class EPSvcRequest;
 
 /**
  * Callback to notify that migration executor is done with migration
+ * @param[in] round is the round that is finished:
+ *            0 -- one DLT token finished during resync, but the whole
+ *            executor haven't finished yet
+ *            1 -- first round of migration finished for the executor
+ *            2 -- second round of migration finished for the executor
  */
 typedef std::function<void (fds_uint64_t executorId,
                             fds_token_id smToken,
-                            fds_bool_t isFirstRound,
+                            const std::set<fds_token_id>& dltTokens,
+                            fds_uint32_t round,
                             const Error& error)> MigrationExecutorDoneHandler;
 
 class MigrationExecutor {

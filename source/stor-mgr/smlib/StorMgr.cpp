@@ -115,7 +115,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     static Module *smDepMods[] = {
         objectStore.get(),
         NULL
-    };                                                                                                                                                                            
+    };
     mod_intern = smDepMods;
     Module::mod_init(param);
     return 0;
@@ -355,9 +355,14 @@ Error ObjectStorMgr::handleDltUpdate() {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         objStorMgr->getUuid(),
                                                         curDlt->getNumBitsForToken());
+        } else {
+            // not doing resync, making all DLT tokens ready
+            objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
         }
         // for now pretend we successfully started resync, return success
         err = ERR_OK;
+    } else if (err.ok()) {
+        objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
     }
 
     return err;
@@ -695,18 +700,29 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_GET_OBJECT:
             {
             StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-            fds_assert(smVol);
+
+            // It's possible that the volume information on this SM may not have
+            // all volume information propagated when IO is enabled.  If the
+            // volume is not found, then the object lookup should fail.
+            if (NULL == smVol) {
+                err = fds::ERR_VOL_NOT_FOUND;
+                break;
+            }
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
                                      static_cast<FDS_IOType*>(ioReq));
             break;
             }
         case FDS_SM_PUT_OBJECT:
+            // Volume association resolution is handled in object store layer
+            // for putObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_ADD_OBJECT_REF:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_DELETE_OBJECT:
+            // Volume association resolution is handled in object store layer
+            // for deleteObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
