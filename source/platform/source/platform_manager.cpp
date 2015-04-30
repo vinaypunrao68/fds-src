@@ -174,6 +174,11 @@ namespace fds
             props.setInt("disk_type", diskCapability.disk_type);
         }
 
+        // TODO: this needs to populate real data from the disk module labels etc.
+        // it may want to load the value from the database and validate it against
+        // DiskPlatModule data, or just load from the DiskPlatModule and be done
+        // with it.  Depends somewhat on how expensive it is to traverse the DiskPlatModule
+        // and calculate all the data.
         void PlatformManager::determineDiskCapability()
         {
             auto ssd_iops_max = conf->get<uint32_t>("capabilities.disk.ssd.iops_max");

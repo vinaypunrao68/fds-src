@@ -10,6 +10,7 @@
 #include <kvstore/platformdb.h>
 #include <fdsp/pm_data_types.h>
 #include <fds_typedefs.h>
+#include <disk_plat_module.h>
 
 namespace fds
 {
