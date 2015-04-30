@@ -9,7 +9,7 @@ from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
-from thrift.server import TServer
+from thrift.server import TServer, TNonblockingServer
 
 from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
@@ -99,22 +99,20 @@ class PlatSvc(object):
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
         tfactory = TTransport.TFramedTransportFactory()
         pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TServer.TThreadedServer(processor, self.serverSock, tfactory, pfactory, daemon=True)
-        self.server.daemon = True
+        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
-        # issues exiting
         self.serverThread.setDaemon(True)
         log.info("Starting server on {}".format(self.basePort));
         self.serverThread.start()
 
     def serve(self):
-        try:
-            self.server.serve()
-        except TypeError as e:
-            log.warn("Caught TypeError in serve method. If this while exiting, this warning can be ignored.")
-            
+        self.server.serve()
         log.info("Exiting server")
+
+    def stop_serv(self):
+        self.server.stop()
+        self.server.close()
 
     def sendAsyncReqToSvc(self, node, svc, msg, cb=None, timeout=None):
         targetUuid = self.svcMap.svc_uuid(node, svc)
