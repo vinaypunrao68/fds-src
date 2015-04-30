@@ -279,9 +279,11 @@ def newCtrlStartHybridTierCtrlrMsg():
     return msg
 
 
-def newStartSmchkMsg():
+def newStartSmchkMsg(targetTokens):
     msg = smapi.ttypes.CtrlNotifySMCheck()
     msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_START
+    if targetTokens is not None:
+        msg.targetTokens = set(targetTokens)
 
     return msg
 

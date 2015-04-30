@@ -25,7 +25,8 @@ class StatStreamTimerTask : public FdsTimerTask {
 
     StatStreamTimerTask(FdsTimer &timer,
                         fpi::StatStreamRegistrationMsgPtr reg,
-                        StatStreamAggregator & statStreamAggr);
+                        StatStreamAggregator & statStreamAggr,
+                        DataMgr& dataManager);
     virtual ~StatStreamTimerTask() {}
 
     virtual void runTimerTask() override;
@@ -34,6 +35,7 @@ class StatStreamTimerTask : public FdsTimerTask {
     void cleanupVolumes(const std::vector<fds_volid_t>& cur_vols);
 
   private:
+    DataMgr& dataManager_;
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
     std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_ts_;
@@ -183,8 +185,9 @@ class StatStreamAggregator : public Module {
     typedef std::unordered_map<fds_uint32_t, fpi::StatStreamRegistrationMsgPtr>
             StatStreamRegistrationMap_t;
 
-    StatStreamAggregator(char const *const name,
-                         boost::shared_ptr<FdsConfig> fds_config);
+    StatStreamAggregator(char const* const name,
+                         boost::shared_ptr<FdsConfig> fds_config,
+                         DataMgr& dataManager);
     ~StatStreamAggregator();
 
     typedef boost::shared_ptr<StatStreamAggregator> ptr;
@@ -262,6 +265,8 @@ class StatStreamAggregator : public Module {
     VolumeStats::ptr getVolumeStats(fds_volid_t volid);
 
   private:  // members
+    DataMgr& dataManager_;
+
     /**
      * Config for different histories we keep in terms of timescale
      */

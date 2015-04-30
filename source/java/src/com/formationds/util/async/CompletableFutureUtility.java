@@ -3,6 +3,8 @@ package com.formationds.util.async;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.SupplierWithExceptions;
+
 import java.util.concurrent.CompletableFuture;
 
 public class CompletableFutureUtility {
@@ -20,7 +22,4 @@ public class CompletableFutureUtility {
         }
     }
 
-    interface SupplierWithExceptions<T> {
-        public T supply() throws Exception;
-    }
 }

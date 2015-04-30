@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-ReloadVolumeHandler::ReloadVolumeHandler() {
-    if (!dataMgr->features.isTestMode()) {
+ReloadVolumeHandler::ReloadVolumeHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::ReloadVolumeMsg, handleRequest);
     }
 }
@@ -27,7 +29,7 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::ReloadVolumeMsg>();
@@ -43,18 +45,18 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 }
 
 void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoReloadVolume* typedRequest = static_cast<DmIoReloadVolume*>(dmRequest);
 
     LOGTRACE << "Will reload volume " << *typedRequest;
 
-    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(typedRequest->message->volume_id);
+    const VolumeDesc * voldesc = dataManager.getVolumeDesc(typedRequest->message->volume_id);
     if (!voldesc) {
         LOGERROR << "Volume entry not found in descriptor map for volume '" << std::hex
                 << typedRequest->message->volume_id << std::dec << "'";
         helper.err = ERR_VOL_NOT_FOUND;
     } else {
-        helper.err = dataMgr->timeVolCat_->queryIface()->reloadCatalog(*voldesc);
+        helper.err = dataManager.timeVolCat_->queryIface()->reloadCatalog(*voldesc);
     }
 
     if (!helper.err.ok()) {

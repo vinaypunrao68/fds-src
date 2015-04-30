@@ -9,6 +9,7 @@ import com.formationds.apis.XdiService;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
+import com.formationds.util.ServerPortFinder;
 import com.formationds.util.libconfig.Assignment;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -92,7 +93,7 @@ public class Main {
         }
 
         int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 2876);
-        int amResponsePort = pmPort + amResponsePortOffset;
+        int amResponsePort = new ServerPortFinder().findPort("Async AM response port", pmPort + amResponsePortOffset);
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);
 
@@ -109,12 +110,6 @@ public class Main {
 
         // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;
-
-        // TODO: the base service port needs to configurable in platform.conf
-        int amServicePort = pmPort + amServicePortOffset;
-
-        XdiService.Iface am = useFakeAm ? new FakeAmService() :
-                clientFactory.remoteAmService(amHost, amServicePort);
 
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
         // This will result XDI create/delete Volume requests to redirect to the OM REST Client.
@@ -162,7 +157,7 @@ public class Main {
                 bbp,
                 configCache);
 
-        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, asyncAm, factory);
+        Xdi xdi = new Xdi(configCache, authenticator, authorizer, asyncAm, factory);
 
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port_offset", 1000);

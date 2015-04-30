@@ -18,6 +18,7 @@ class CommonModuleProviderIf;
 class fds_threadpool;
 class SmIoReqHandler;
 class FdsTimerTask;
+class fds_mutex;
 typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
 
 struct HTCCounters : FdsCounters {
@@ -40,6 +41,7 @@ struct HybridTierCtrlr {
 
     HybridTierCtrlr(SmIoReqHandler* storMgr,
                     SmDiskMap::ptr diskMap);
+    void enableFeature();
     void start(bool manual=false);
     void stop();
 
@@ -60,11 +62,14 @@ struct HybridTierCtrlr {
     static uint32_t BATCH_SZ;
     static uint32_t FREQUENCY;
 
+    fds_mutex hybridTierLock;
+    bool featureEnabled;
+    HTCState state_;
+
     fds_threadpool *threadpool_;
     SmIoReqHandler* storMgr_;
     SmDiskMap::ptr diskMap_;
     FdsTimerTaskPtr runTask_;
-    HTCState state_;
     std::set<fds_token_id> tokenSet_;
     std::set<fds_token_id>::iterator nextToken_;
     std::unique_ptr<SMTokenItr> tokenItr_;

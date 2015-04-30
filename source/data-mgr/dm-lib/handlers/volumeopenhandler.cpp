@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-VolumeOpenHandler::VolumeOpenHandler() {
-    if (!dataMgr->features.isTestMode()) {
+VolumeOpenHandler::VolumeOpenHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::OpenVolumeMsg, handleRequest);
     }
 }
@@ -28,7 +30,7 @@ void VolumeOpenHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -44,14 +46,14 @@ void VolumeOpenHandler::handleRequest(
 }
 
 void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
 
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataMgr->timeVolCat_->openVolume(request->volId, request->token,
-                                                  request->access_policy);
+    helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
+                                                     request->access_policy);
 }
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
