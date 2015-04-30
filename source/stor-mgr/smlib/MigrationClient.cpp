@@ -724,7 +724,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
         if (!verifySuccess) {
             migClientLock.unlock();
             LOGMIGRATE << "Filter set token migration message from destination is corrupt"
-                       << std::hex << executerId << std:dec << dltToken;
+                       << std::hex << executorId << std::dec << dltToken;
             return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
         }
 
