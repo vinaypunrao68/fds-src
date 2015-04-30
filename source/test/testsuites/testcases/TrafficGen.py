@@ -226,7 +226,6 @@ class RunTrafficGen(TestCase.FDSTestCase):
 
         curr = os.getcwd()
         # We need to be in the ./Build/tools directory for trafficgen to work
-        print curr
         os.chdir(self.traffic_gen_dir)
 
         try:
