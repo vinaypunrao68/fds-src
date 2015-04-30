@@ -146,8 +146,10 @@ class SmTieringCmd {
     enum CommandType {
         TIERING_ENABLE,
         TIERING_DISABLE,
+        /* Automatically started when the volume add notification is first received */
+        TIERING_START_HYBRIDCTRLR_AUTO,
         /* Debug message for manually starting hybrid tier controller */
-        TIERING_START_HYBRIDCTRLR,
+        TIERING_START_HYBRIDCTRLR_MANUAL,
         TIERING_CMD_NOT_SET
     };
     SmTieringCmd() : command(TIERING_CMD_NOT_SET) {}

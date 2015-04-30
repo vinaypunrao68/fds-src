@@ -89,6 +89,6 @@
 {% set fds_feature_web_tool_kit = fds_web_tool_kit_feature if fds_web_tool_kit_feature is defined else 'true' %}
 {% set fds_snmp_feature = fds_snmp_feature if fds_snmp_feature is defined else 'true' %}
 {% set fds_persist_objectdb = fds_persist_objectdb if fds_persist_objectdb is defined else 'true' %}
-{% set fds_persist_influxdb = fds_persist_influxdb if fds_persist_influxdb is defined else 'false' %}
-{% set fds_query_influxdb = fds_query_influxdb if fds_query_influxdb is defined else 'false' %}
+{% set fds_persist_influxdb = fds_persist_influxdb if fds_persist_influxdb is defined else 'true' %}
+{% set fds_query_influxdb = fds_query_influxdb if fds_query_influxdb is defined else 'true' %}
 {% block content %}{% endblock %}

@@ -7,6 +7,7 @@
 #include <concurrency/ThreadPool.h>
 #include <ObjMeta.h>
 #include <HybridTierCtrlr.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
@@ -26,7 +27,9 @@ HTCCounters::HTCCounters(const std::string &id)
 // -Expose stats for testing
 HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                  SmDiskMap::ptr diskMap)
-    : htcCntrs_("sm.htc.")
+    : htcCntrs_("sm.htc."),
+      featureEnabled(false),
+      hybridTierLock("HybridTierLock")
 {
     threadpool_ = MODULEPROVIDER()->proc_thrpool();
     storMgr_ = storMgr;
@@ -51,10 +54,26 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
             timer,
             std::bind(&HybridTierCtrlr::run, this)));
 }
+void
+HybridTierCtrlr::enableFeature()
+{
+    fds_mutex::scoped_lock l(hybridTierLock);
+    featureEnabled = true;
+}
 
 void HybridTierCtrlr::start(bool manual)
 {
-    GLOGNOTIFY << "manual: " << manual;
+
+    GLOGNOTIFY << "Starting hybrid tiering:  manual=" << manual;
+
+    fds_mutex::scoped_lock l(hybridTierLock);
+    /* Check if hybrid tiering is enabled or not.
+     * Allow manual start even if the feature is disabled.
+     */
+    if (!featureEnabled && !manual) {
+        GLOGNOTIFY << "Failed to starting hybrid tiering: enabled=" << featureEnabled << ", manual=" << manual;
+        return;
+    }
 
     auto nextScheduleInSecs = FREQUENCY;
 
@@ -68,9 +87,14 @@ void HybridTierCtrlr::start(bool manual)
         }
         /* Schedule in the next 1 second */
         nextScheduleInSecs = 1;
+    } else {
+        /* First time starting hybrid tier */
+        if (HTC_STOPPED == state_) {
+            scheduleNextRun_(nextScheduleInSecs);
+            GLOGNOTIFY << "Scheuduling Hybrid Tier Policy";
+        }
     }
 
-    scheduleNextRun_(nextScheduleInSecs);
 }
 
 void HybridTierCtrlr::scheduleNextRun_(uint32_t nextRunInSeconds)
@@ -87,12 +111,13 @@ void HybridTierCtrlr::run()
                tokenItr_.get() == nullptr &&
                state_ == HTC_SCHEDULED);
 
+    fds_mutex::scoped_lock l(hybridTierLock);
     state_ = HTC_READY;
     hybridMoveTs_ = util::getTimeStampSeconds() - FREQUENCY;
     tokenSet_ = diskMap_->getSmTokens();
     threadpool_->schedule(&HybridTierCtrlr::moveToNextToken, this);
 
-    GLOGNOTIFY << "Move objects older than ts: " << hybridMoveTs_ 
+    GLOGNOTIFY << "Move objects older than ts: " << hybridMoveTs_
         << " token cnt: " << tokenSet_.size();
 
 }
@@ -108,6 +133,8 @@ void HybridTierCtrlr::stop()
 
 void HybridTierCtrlr::moveToNextToken()
 {
+    fds_mutex::scoped_lock l(hybridTierLock);
+
     if (state_ == HTC_READY) {
         /* We are at first token..don't increment nextToken_ */
         state_ = HTC_INPROGRESS;
@@ -216,7 +243,7 @@ void HybridTierCtrlr::moveObjsToTierCb(const Error& e,
             schedule(&HybridTierCtrlr::constructTierMigrationList, this);
         return;
     }
-    
+
     LOGDEBUG << "Completed moving objects for token: " << *nextToken_;
 
     /* Completed current token.  Release snapshot */

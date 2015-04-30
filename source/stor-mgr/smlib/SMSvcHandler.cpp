@@ -28,34 +28,46 @@ extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& msg);
 SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     : PlatNetSvcHandler(provider)
 {
+    /* Data paths messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
+    REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
+    /* Service map messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
+
+    /* volume information and policy messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
+
+    /* GC control messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyScavenger, NotifyScavenger);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerStatus, queryScavengerStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerProgress, queryScavengerProgress);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScavengerPolicy, setScavengerPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerPolicy, queryScavengerPolicy);
+
+    /* scrubber, which is part of GC policy, status messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScrubberStatus, setScrubberStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScrubberStatus, queryScrubberStatus);
 
+    /* Online smcheck control messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMCheck, NotifySMCheck);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMCheckStatus, querySMCheckStatus);
 
+    /* hybrid tiering control messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartHybridTierCtrlrMsg, startHybridTierCtrlr);
 
+    /* DLT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
 
-    REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
-
+    /* SM Service shutdown message */
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownSM);
 
+    /* token migration messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
@@ -63,6 +75,7 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
 
+    /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
 }
 
@@ -363,10 +376,12 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 #endif
 
     Error err(ERR_OK);
+    ObjectID objId(getObjMsg->data_obj_id.digest);
+
     auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
     getReq->setVolId(getObjMsg->volume_id);
-    getReq->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
+    getReq->setObjId(objId);
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     // perf-trace related data
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
@@ -384,6 +399,14 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start measuring E2E latency
     PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
+
+    // check if DLT token ready -- we are doing it after creating
+    // get request, because callback needs it
+    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+        LOGDEBUG << "DLT token not ready, not going to do GET for " << objId;
+        getObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, getReq);
+        return;
+    }
 
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
@@ -462,12 +485,13 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 #endif
 
     Error err(ERR_OK);
+    ObjectID objId(putObjMsg->data_obj_id.digest);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->dltVersion = asyncHdr->dlt_version;
     putReq->forwardedReq = putObjMsg->forwardedReq;
-    putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
+    putReq->setObjId(objId);
 
     // perf-trace related data
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
@@ -485,6 +509,14 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start measuring E2E latency
     PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
+
+    // check if DLT token ready -- we are doing it after creating
+    // put request, because callback needs it
+    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+        LOGDEBUG << "DLT token not ready, not going to do PUT for " << objId;
+        putObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, putReq);
+        return;
+    }
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
@@ -581,7 +613,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*deleteObjMsg));
     Error err(ERR_OK);
-
+    ObjectID objId(deleteObjMsg->objId.digest);
     auto delReq = new SmIoDeleteObjectReq(deleteObjMsg);
 
     // Set delReq stuffs
@@ -589,7 +621,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delReq->setVolId(deleteObjMsg->volId);
     delReq->dltVersion = asyncHdr->dlt_version;
-    delReq->setObjId(ObjectID(deleteObjMsg->objId.digest));
+    delReq->setObjId(objId);
     delReq->forwardedReq = deleteObjMsg->forwardedReq;
 
     // perf-trace related data
@@ -605,6 +637,14 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start measuring E2E latency
     PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
+
+    // check if DLT token ready -- we are doing it after creating
+    // delete request, because callback needs it
+    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+        LOGDEBUG << "DLT token not ready, not going to do DELETE for " << objId;
+        deleteObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, delReq);
+        return;
+    }
 
     err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
     if (err != fds::ERR_OK) {
@@ -711,6 +751,17 @@ SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
+
+    // Start the hybrid tier migration on the first volume add call. The volume information
+    // is propagated after DLT update, and this can cause missing volume and associated volume
+    // policy.
+    // Although this is called every time when a volume is added, but hybrid tier migration
+    // controller will decided if it need to start tier migration or not.
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+    if (err != ERR_OK) {
+        LOGWARN << "Failed to enable Hybrid Tier Migration";
+    }
 }
 
 // NotifyRmVol
@@ -786,13 +837,15 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 // CtrlStartHybridTierCtrlrMsg
+//
+// Manually start Hybrid Tiering.
 // ----------------
 //
 void
 SMSvcHandler::startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-        boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg)
+                                   boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg)
 {
-    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_MANUAL);
     Error err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
     if (err != ERR_OK) {
         LOGWARN << err;
