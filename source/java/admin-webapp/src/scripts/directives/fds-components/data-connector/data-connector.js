@@ -11,7 +11,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope.sizes = [{name: 'MB'}, {name:'GB'}, {name:'TB'},{name:'PB'}];
             $scope.connectors = $data_connector_api.connectors;
             $scope._selectedSize = 1;
-            $scope._selectedUnit = $scope.sizes[0];
+            $scope._selectedUnit = $scope.sizes[1];
 
             var findUnit = function(){
 
