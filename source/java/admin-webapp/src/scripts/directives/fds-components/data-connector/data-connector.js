@@ -8,7 +8,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         scope: { dataConnector: '=ngModel', editable: '@', enable: '=?'},
         controller: function( $scope, $data_connector_api ){
             
-            $scope.sizes = [{name:'GB'}, {name:'TB'},{name:'PB'}];
+            $scope.sizes = [{name: 'MB'}, {name:'GB'}, {name:'TB'},{name:'PB'}];
             $scope.connectors = $data_connector_api.connectors;
             $scope._selectedSize = 1;
             $scope._selectedUnit = $scope.sizes[0];
