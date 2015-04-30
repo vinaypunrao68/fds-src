@@ -9,6 +9,7 @@
 #include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
+#include <fiu-control.h>
 #include <random>
 #include <chrono>
 #include <MockSMCallbacks.h>
@@ -193,6 +194,7 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                  fpi::CtrlObjectRebalanceFilterSetPtr& filterObjSet)
 {
     Error err(ERR_OK);
+    bool fault_enabled = false;
     LOGDEBUG << "Initiate Object Sync";
 
     // first disable GC and Tier Migration. If this SM is also a destination and
@@ -211,10 +213,21 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // tell migration mgr to start object rebalance
     const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
     fds_verify(dlt != NULL);
-    err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
-                                                         asyncHdr->msg_src_uuid,
-                                                         objStorMgr->getUuid(),
-                                                         dlt->getNumBitsForToken(), dlt);
+
+    fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
+    if (fault_enabled || !(objStorMgr->objectStore->isReadyAsMigrationSrc())) {
+        err = ERR_SM_NOT_READY_AS_MIGR_SRC;
+        LOGDEBUG << "SM not ready as Migration source " << std::hex
+        << objStorMgr->getUuid() << std::dec
+        << " for dlt token: " << filterObjSet->tokenId << std::hex
+        << " executor: " << filterObjSet->executorID;
+        fiu_disable("resend.dlt.token.filter.set");
+    } else {
+        err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
+                                                             asyncHdr->msg_src_uuid,
+                                                             objStorMgr->getUuid(),
+                                                             dlt->getNumBitsForToken(), dlt);
+    }
 
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();

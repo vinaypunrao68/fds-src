@@ -13,7 +13,6 @@
 #include <fdsp/pm_data_types.h>
 #include <fds_typedefs.h>
 #include <disk_plat_module.h>
-#include <util/properties.h>
 
 #include "fdsp/pm_service_types.h"
 
@@ -64,15 +63,13 @@ namespace fds
                     return nodeInfo;
                 }
 
-                util::Properties& getProperties()
-                {
-                    return props;
-                }
 
-                void loadProperties();
-
+                /**
+                 * Update the service info properties with disk information,
+                 * the node uuid, and fds_root.
+                 */
+                void updateServiceInfoProperties(std::map<std::string, std::string> *data);
             protected:
-                bool sendNodeCapabilityToOM();
 
                 fds_int64_t getNodeUUID(fpi::FDSP_MgrIdType svcType);
 
@@ -89,8 +86,6 @@ namespace fds
                 kvstore::PlatformDB                *db;
                 fpi::NodeInfo                       nodeInfo;
                 std::string                         rootDir;
-                util::Properties                    props;
-
                 std::mutex                          m_pidMapMutex;
                 std::map<std::string, pid_t>        m_appPidMap;
         };

@@ -36,7 +36,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
                                     volTbl, diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
-                                         diskMap, data_store))
+                                         diskMap, data_store)),
+          isReadyAsMigrSrc(true)
 {
 }
 
