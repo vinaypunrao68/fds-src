@@ -1,3 +1,4 @@
+from fds.model.recurrence_rule import RecurrenceRule
 
 class SnapshotPolicy():
     '''
@@ -7,7 +8,7 @@ class SnapshotPolicy():
     '''
 
     def __init__(self):
-        self.__recurrence_rule = ""
+        self.__recurrence_rule = RecurrenceRule()
         self.__name = ""
         self.__retention = 86400
         self.__timeline_time = 0
@@ -33,7 +34,7 @@ class SnapshotPolicy():
     def name(self):
         return self.__name
     
-    @name.property
+    @name.setter
     def name(self, a_name):
         self.__name = a_name
         

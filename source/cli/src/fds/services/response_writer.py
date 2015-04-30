@@ -11,6 +11,8 @@ from fds.utils.volume_converter import VolumeConverter
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.utils.node_converter import NodeConverter
 from fds.utils.domain_converter import DomainConverter
+from fds.utils.snapshot_policy_converter import SnapshotPolicyConverter
+from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
     
@@ -133,6 +135,37 @@ class ResponseWriter():
         #end for loop
         
         return resultList
+    
+    @staticmethod
+    def prep_snapshot_policy_for_table( session, response ):
+        ''' 
+        Take a snapshot policy and format it for easy display in a table
+        '''
+        
+        results = []
+        
+        for policy in response:
+            
+            fields = []
+            
+            policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( policy )
+            
+            retentionValue = policy.retention
+            
+            if ( retentionValue == 0 ):
+                retentionValue = "Forever"
+            
+            fields.append(("ID", policy.id))
+            fields.append(("Name", policy.name))
+            fields.append(("Retention", retentionValue ))
+            fields.append(("Recurrence Rule", RecurrenceRuleConverter.to_json( policy.recurrence_rule ) ))
+    
+            ov = OrderedDict( fields )
+            results.append( ov )
+        # end of for loop
+        
+        return results
+            
     
     @staticmethod
     def prep_domains_for_table( session, response ):

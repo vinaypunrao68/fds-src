@@ -23,7 +23,7 @@ class RESTHelper():
         print str(error.status_code) + ": " + errorText["message"]
         return
             
-    def post(self, session, url, data, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
+    def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         response = requests.post( url, data=data, headers=self.buildHeader( session ) )
         
         if ( response.ok == False ):
@@ -33,7 +33,7 @@ class RESTHelper():
         rj = response.json()
         return rj
     
-    def put(self, session, url, data, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
+    def put(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         response = requests.put( url, data=data, headers=self.buildHeader( session ) )
         
         if ( response.ok == False ):

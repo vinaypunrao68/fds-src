@@ -17,7 +17,7 @@ class SnapshotPolicyService( AbstractService ):
         '''
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies" )
         data = SnapshotPolicyConverter.to_json( policy )
-        return self.rest_helper().post( self.session, url, data )
+        return self.rest_helper.post( self.session, url, data )
 
     def delete_snapshot_policy(self, policy_id):
         '''
@@ -25,7 +25,7 @@ class SnapshotPolicyService( AbstractService ):
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id)
-        return self.rest_helper().delete( self.session, url )
+        return self.rest_helper.delete( self.session, url )
     
     def edit_snapshot_policy(self, policy ):
         '''
@@ -34,23 +34,23 @@ class SnapshotPolicyService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies" )
         data = SnapshotPolicyConverter.to_json(policy)
-        return self.rest_helper().put( self.session, url, data )
+        return self.rest_helper.put( self.session, url, data )
     
     def attach_snapshot_policy(self, policy_id, volume_id ):
         '''
         attach the given policy to the specified volume
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/attach", volume_id )
-        return self.rest_helper().put( self.session, url )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/attach/", volume_id )
+        return self.rest_helper.put( self.session, url )
     
     def detach_snapshot_policy(self, policy_id, volume_id):
         '''
         detach the given policy from the specified volume
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/detach", volume_id )
-        return self.rest_helper().put( self.session, url )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/detach/", volume_id )
+        return self.rest_helper.put( self.session, url )
     
     def list_snapshot_policies(self):
         '''
@@ -58,7 +58,7 @@ class SnapshotPolicyService( AbstractService ):
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies")
-        return self.rest_helper().get( self.session, url )
+        return self.rest_helper.get( self.session, url )
     
     def list_snapshot_policies_by_volume(self, volume_id):
         '''
@@ -66,5 +66,5 @@ class SnapshotPolicyService( AbstractService ):
         '''
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", volume_id, "/snapshot/policies" )
-        return self.rest_helper().get( self.session, url )
+        return self.rest_helper.get( self.session, url )
         
