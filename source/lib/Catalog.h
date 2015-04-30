@@ -4,6 +4,7 @@
 #ifndef SOURCE_LIB_CATALOG_H_
 #define SOURCE_LIB_CATALOG_H_
 
+#include <memory>
 #include <string>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,6 +13,7 @@
 #include <fds_error.h>
 #include <leveldb/db.h>
 #include <leveldb/env.h>
+#include <leveldb/filter_policy.h>
 #include "leveldb/write_batch.h"
 #include <leveldb/copy_env.h>
 
@@ -52,12 +54,12 @@ class Catalog {
      * and provide a generic interface for
      * when we change the backing DB.
      */
-    leveldb::DB* db;
+    std::unique_ptr<leveldb::DB> db;
 
     /*
      * leveldb file system interface 
      */
-    leveldb::Env* env;
+    std::unique_ptr<leveldb::CopyEnv> env;
 
     /*
      * Database options. These are not expected
@@ -66,6 +68,8 @@ class Catalog {
     leveldb::Options      options;       /**< LevelDB options */
     leveldb::WriteOptions write_options; /**< LevelDB write options */
     leveldb::ReadOptions  read_options;  /**< LevelDB read options */
+
+    std::unique_ptr<leveldb::FilterPolicy const> filter_policy;
 
     static const std::string empty;
 
@@ -78,18 +82,17 @@ class Catalog {
             fds_uint32_t cacheSize = CACHE_SIZE, const std::string& logDirName = empty,
             const std::string& logFilePrefix = empty, fds_uint32_t maxLogFiles = 0,
             leveldb::Comparator * cmp = 0);
-    /** Default destructor */
-    ~Catalog();
 
-    typedef boost::shared_ptr<Catalog> ptr;
-    typedef boost::shared_ptr<const Catalog> const_ptr;
+    ~Catalog();
 
     /** Uses the underlying leveldb iterator */
     typedef leveldb::Iterator catalog_iterator_t;
     /** Gets catalog iterator
      * @return Pointer to catalog iterator
      */
-    catalog_iterator_t *NewIterator() { return db->NewIterator(read_options); }
+    std::unique_ptr<catalog_iterator_t> NewIterator() {
+        return std::unique_ptr<catalog_iterator_t>(db->NewIterator(read_options));
+    }
 
     typedef leveldb::ReadOptions catalog_roptions_t;
 
@@ -115,8 +118,8 @@ class Catalog {
     void ReleaseSnapshot(catalog_roptions_t opts) {
         db->ReleaseSnapshot(opts.snapshot);
     }
-    catalog_iterator_t *NewIterator(catalog_roptions_t opts) {
-        return db->NewIterator(opts);
+    std::unique_ptr<catalog_iterator_t> NewIterator(catalog_roptions_t opts) {
+        return std::unique_ptr<catalog_iterator_t>(db->NewIterator(opts));
     }
 
     bool DbEmpty();
@@ -127,7 +130,7 @@ class Catalog {
 
     inline void clearLogRotate() {
         fds_assert(env);
-        static_cast<leveldb::CopyEnv*>(env)->logRotate() = false;
+        env->logRotate() = false;
     }
 
     std::string GetFile() const;
