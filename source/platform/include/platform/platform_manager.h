@@ -87,8 +87,6 @@ namespace fds
                 std::string                         rootDir;
                 util::Properties                    props;
 
-                std::map<int, std::string>          m_idToAppNameMap;       // This is read only after initial population
-
                 std::mutex                          m_pidMapMutex;
                 std::map<std::string, pid_t>        m_appPidMap;
         };

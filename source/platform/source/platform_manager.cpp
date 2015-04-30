@@ -25,7 +25,16 @@ namespace fds
 {
     namespace pm
     {
-        PlatformManager::PlatformManager() : Module("pm"), m_idToAppNameMap(), m_appPidMap()
+        // Setup the mapping for enums to string
+        const std::map <int, std::string> m_idToAppNameMap =
+        {
+            { JAVA_AM,         JAVA_AM_CLASS_NAME },
+            { BARE_AM,         BARE_AM_NAME       },
+            { DATA_MANAGER,    DM_NAME            },
+            { STORAGE_MANAGER, SM_NAME            }
+        };
+
+        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap()
         {
 
         }
@@ -58,12 +67,6 @@ namespace fds
 
             determineDiskCapability();
 
-            // Setup the mapping for enums to string
-            m_idToAppNameMap[JAVA_AM]         = JAVA_AM_CLASS_NAME;
-            m_idToAppNameMap[BARE_AM]         = BARE_AM_NAME;
-            m_idToAppNameMap[DATA_MANAGER]    = DM_NAME;
-            m_idToAppNameMap[STORAGE_MANAGER] = SM_NAME;
-
             return 0;
         }
 
@@ -87,7 +90,7 @@ namespace fds
             }
             else
             {
-                command = m_idToAppNameMap[processID];
+                command = m_idToAppNameMap.at(processID);
             }
 
             // Common command line options
@@ -100,12 +103,12 @@ namespace fds
 
             if (pid > 0)
             {
-                LOGDEBUG << m_idToAppNameMap[processID] << " started by platformd as pid " << pid;
+                LOGDEBUG << m_idToAppNameMap.at(processID) << " started by platformd as pid " << pid;
                 // add to pid list
             }
             else
             {
-                LOGERROR << "fds_spawn_service() for " << m_idToAppNameMap[processID] << " FAILED to start by platformd with errno=" << errno;
+                LOGERROR << "fds_spawn_service() for " << m_idToAppNameMap.at(processID) << " FAILED to start by platformd with errno=" << errno;
             }
 
             return pid;
@@ -147,13 +150,13 @@ namespace fds
 
         void PlatformManager::stopProcess (int id, bool haveLock)
         {
-            LOGDEBUG << "Attempting to Stop " << m_idToAppNameMap[id] << " via kill(pid, SIGTERM)";
+            LOGDEBUG << "Attempting to Stop " << m_idToAppNameMap.at(id) << " via kill(pid, SIGTERM)";
 
-            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (m_idToAppNameMap[id]);
+            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (m_idToAppNameMap.at(id));
 
             if (m_appPidMap.end() == mapIter)
             {
-                LOGERROR << "Unable to find pid for " << m_idToAppNameMap[id] << " in stopProcess()";
+                LOGERROR << "Unable to find pid for " << m_idToAppNameMap.at(id) << " in stopProcess()";
                 return;
             }
 
@@ -165,7 +168,7 @@ namespace fds
 
             if (rc < 0)
             {
-                LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap[id] << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
+                LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
             }
 
             // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
@@ -175,7 +178,7 @@ namespace fds
 
                 if (rc < 0)
                 {
-                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap[id] << "(pid = " << pid << ") errno = " << rc << "";
+                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << "";
                 }
 
                 waitPid (pid, 9);
@@ -206,7 +209,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[STORAGE_MANAGER];
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(STORAGE_MANAGER);
                 }
                 else
                 {
@@ -221,7 +224,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[DATA_MANAGER];
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(DATA_MANAGER);
                 }
                 else
                 {
@@ -237,7 +240,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[BARE_AM];
+                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(BARE_AM);
                 }
                 else
                 {
@@ -247,7 +250,7 @@ namespace fds
 
                     if (pid < 2)
                     {
-                        LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap[JAVA_AM];
+                        LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(JAVA_AM);
 
                         stopProcess (BARE_AM, true);
                     }
