@@ -18,6 +18,7 @@ from svc_types.constants import *
 
 from SvcHandle import *
 import FdspUtils
+import atexit
 
 log = logging.getLogger(__name__)
 
@@ -108,7 +109,11 @@ class PlatSvc(object):
         self.serverThread.start()
 
     def serve(self):
-        self.server.serve()
+        try:
+            self.server.serve()
+        except TypeError as e:
+            log.warn("Caught TypeError in serve method. If this while exiting, this warning can be ignored.")
+            
         log.info("Exiting server")
 
     def sendAsyncReqToSvc(self, node, svc, msg, cb=None, timeout=None):
