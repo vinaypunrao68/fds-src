@@ -14,6 +14,8 @@ class SnapshotPolicyService( AbstractService ):
     def create_snapshot_policy(self, policy):
         '''
         Create the snapshot policy
+        
+        policy is the SnapshotPolicy object that defines the policy to create
         '''
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies" )
         data = SnapshotPolicyConverter.to_json( policy )
@@ -22,6 +24,8 @@ class SnapshotPolicyService( AbstractService ):
     def delete_snapshot_policy(self, policy_id):
         '''
         delete the specified snapshot policy
+        
+        policy_id is the UUID of the policy that you would like to delete
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id)
@@ -30,6 +34,8 @@ class SnapshotPolicyService( AbstractService ):
     def edit_snapshot_policy(self, policy ):
         '''
         edit a specified policy with new settings
+        
+        policy is the SnapshotPolicy object that holds the new settings.  It will replace the policy by matching the UUID in the object with the one in the system
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies" )
@@ -39,6 +45,9 @@ class SnapshotPolicyService( AbstractService ):
     def attach_snapshot_policy(self, policy_id, volume_id ):
         '''
         attach the given policy to the specified volume
+        
+        policy_id is the UUID of the policy you'd like to attach
+        volume_id is the UUID of the volume you are attaching the policy to
         '''
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/attach/", volume_id )
@@ -47,6 +56,9 @@ class SnapshotPolicyService( AbstractService ):
     def detach_snapshot_policy(self, policy_id, volume_id):
         '''
         detach the given policy from the specified volume
+        
+        policy_id is the UUID of the policy you'd like to detach
+        volume_id is the UUID of the volume you are detaching the policy from
         '''
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies/", policy_id, "/detach/", volume_id )
@@ -58,13 +70,31 @@ class SnapshotPolicyService( AbstractService ):
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies")
-        return self.rest_helper.get( self.session, url )
+        j_policies = self.rest_helper.get( self.session, url )
+        
+        policies = []
+        
+        for j_policy in j_policies:
+            policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
+            policies.append( policy )
+            
+        return policies
     
     def list_snapshot_policies_by_volume(self, volume_id):
         '''
         Get a list of all snapshot policies that are attached to the specified volume
+        
+        volume_id is the UUID for the volume you would like to see the attached policies for
         '''
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", volume_id, "/snapshot/policies" )
-        return self.rest_helper.get( self.session, url )
+        j_policies = self.rest_helper.get( self.session, url )
+        
+        policies = []
+        
+        for j_policy in j_policies:
+            policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
+            policies.append( policy )
+            
+        return policies
         

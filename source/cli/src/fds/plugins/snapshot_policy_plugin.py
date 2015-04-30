@@ -31,11 +31,11 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         self.__parser = parentParser.add_parser( "snapshot_policy", help="Create, edit, delete and manipulate snapshot policies" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
         
-        self.create_create_parser( self.__subparser )
+        self.create_create_parser(self.__subparser)
+        self.create_edit_parser(self.__subparser)
         self.create_list_parser(self.__subparser)
         self.create_delete_parser(self.__subparser)
         self.create_attach_parser(self.__subparser)
-        self.create_list_policies_by_volume(self.__subparser)
         self.create_detach_parser(self.__subparser)
      
     '''
@@ -57,6 +57,8 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         __list_parser = subparser.add_parser( "list", help="List all of the snapshot policies in the system")
         self.add_format_arg( __list_parser )
         
+        __list_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="If a volume UUID is specified it will only list the policies attached to the specified volume", default=None)
+        
         __list_parser.set_defaults( func=self.list_snapshot_policies, format="tabular")
     
     def create_create_parser(self, subparser):
@@ -72,15 +74,39 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         __create_parser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that you want to keep snapshots that are created with this policy. 0 = forever", type=int, default=0)
         __create_parser.add_argument( "-" + AbstractPlugin.recurrence_rule_str, help="The iCal format recurrence rule you would like this policy to follow. http://www.kanzaki.com/docs/ical/rrule.html")
         __create_parser.add_argument( "-" + AbstractPlugin.frequency_str, help="The frequency for which you would like snapshots to be taken on volumes this policy is applied to.", choices=["DAILY", "HOURLY", "WEEKLY", "MONTHLY", "YEARLY"], default="DAILY")
-        __create_parser.add_argument( "-" + AbstractPlugin.day_of_week_str, help="The day(s) of the week you would like the policy to run (when applicable).", choices=["SU","MO","TU","WE","TH","FR","SA"], nargs="+", default="SU")
-        __create_parser.add_argument( "-" + AbstractPlugin.day_of_month_str, help="The number day you would like the policy to run.", type=SnapshotPolicyValidator.day_of_month_values)
-        __create_parser.add_argument( "-" + AbstractPlugin.day_of_year_str, help="The number day you would like the policy to run.", type=SnapshotPolicyValidator.day_of_year_values)
-        __create_parser.add_argument( "-" + AbstractPlugin.week_str, help="The week you would like this policy to run.", type=SnapshotPolicyValidator.week_value)
-        __create_parser.add_argument( "-" + AbstractPlugin.month_str, help="The month you would like this policy to run.", type=SnapshotPolicyValidator.month_value)
+        __create_parser.add_argument( "-" + AbstractPlugin.day_of_week_str, help="The day(s) of the week you would like the policy to run (when applicable).", choices=["SU","MO","TU","WE","TH","FR","SA"], nargs="+", default=["SU"])
+        __create_parser.add_argument( "-" + AbstractPlugin.day_of_month_str, help="The number day you would like the policy to run.", nargs="+", type=SnapshotPolicyValidator.day_of_month_values)
+        __create_parser.add_argument( "-" + AbstractPlugin.day_of_year_str, help="The number day you would like the policy to run.", nargs="+", type=SnapshotPolicyValidator.day_of_year_values)
+        __create_parser.add_argument( "-" + AbstractPlugin.month_str, help="The month you would like this policy to run.", nargs="+", type=SnapshotPolicyValidator.month_value)
         __create_parser.add_argument( "-" + AbstractPlugin.hour_str, help="The hour(s) of the day you wish this policy to run.", nargs="+", type=SnapshotPolicyValidator.hour_value, default=[0])
         __create_parser.add_argument( "-" + AbstractPlugin.minute_str, help="The minute(s) of the day you wish this policy to run.", nargs="+", type=SnapshotPolicyValidator.minute_value, default=[0])
         
         __create_parser.set_defaults( func=self.create_snapshot_policy, format="tabular")
+        
+    def create_edit_parser(self, subparser):
+        '''
+        Create a parser for editing a snapshot policy
+        '''
+        
+        __edit_parser = subparser.add_parser( "edit", help="Edit an existing snapshot policy")
+        self.add_format_arg(__edit_parser)
+        
+        __edit_group = __edit_parser.add_mutually_exclusive_group(required=True)
+        __edit_group.add_argument( "-" + AbstractPlugin.data_str, help="A JSON formatted string that defines your policy entirely.  If this is present all other arguments will be ignored.", default=None )
+        __edit_group.add_argument( "-" + AbstractPlugin.policy_id_str, help="The UUID of the policy you would like to edit.", default=None )
+        
+        __edit_parser.add_argument( "-" + AbstractPlugin.name_str, help="The name of the policy you are creating.", default=None)
+        __edit_parser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that you want to keep snapshots that are created with this policy. 0 = forever", type=int, default=0)
+        __edit_parser.add_argument( "-" + AbstractPlugin.recurrence_rule_str, help="The iCal format recurrence rule you would like this policy to follow. http://www.kanzaki.com/docs/ical/rrule.html")
+        __edit_parser.add_argument( "-" + AbstractPlugin.frequency_str, help="The frequency for which you would like snapshots to be taken on volumes this policy is applied to.", choices=["DAILY", "HOURLY", "WEEKLY", "MONTHLY", "YEARLY"], default="DAILY")
+        __edit_parser.add_argument( "-" + AbstractPlugin.day_of_week_str, help="The day(s) of the week you would like the policy to run (when applicable).", choices=["SU","MO","TU","WE","TH","FR","SA"], nargs="+", default=["SU"])
+        __edit_parser.add_argument( "-" + AbstractPlugin.day_of_month_str, help="The number day you would like the policy to run.", nargs="+", type=SnapshotPolicyValidator.day_of_month_values)
+        __edit_parser.add_argument( "-" + AbstractPlugin.day_of_year_str, help="The number day you would like the policy to run.", nargs="+", type=SnapshotPolicyValidator.day_of_year_values)
+        __edit_parser.add_argument( "-" + AbstractPlugin.month_str, help="The month you would like this policy to run.", nargs="+", type=SnapshotPolicyValidator.month_value)
+        __edit_parser.add_argument( "-" + AbstractPlugin.hour_str, help="The hour(s) of the day you wish this policy to run.", nargs="+", type=SnapshotPolicyValidator.hour_value, default=[0])
+        __edit_parser.add_argument( "-" + AbstractPlugin.minute_str, help="The minute(s) of the day you wish this policy to run.", nargs="+", type=SnapshotPolicyValidator.minute_value, default=[0])
+        
+        __edit_parser.set_defaults( func=self.edit_snapshot_policy, format="tabular")
         
     def create_delete_parser(self, subparser):
         '''
@@ -120,45 +146,30 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         
         __detach_parser.set_defaults( func=self.detach_snapshot_policy, format="tabular")  
         
-    def create_list_policies_by_volume(self, subparser):
-        '''
-        The parser that will list the policies attached to a specified volume
-        '''
-        
-        __list_policies_parser = subparser.add_parser( "list_policies", help="List the snapshot policies that are attached to a specified volume.")
-        self.add_format_arg( __list_policies_parser )
-        
-        __list_policies_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume for which you would like to list the attached policies.", required=True)
-        
-        __list_policies_parser.set_defaults( func=self.list_policies_for_volume, format="tabular")
-        
     # make the correct calls
     
     def list_snapshot_policies(self, args):
         '''
         List out all the snapshot policies in the system
         '''
+        j_list = []
         
-        j_list = self.get_snapshot_policy_service().list_snapshot_policies()
+        #means we want only policies attached to this volume
+        if ( AbstractPlugin.volume_id_str in  args and args[AbstractPlugin.volume_id_str] != None):
+            j_list = self.get_snapshot_policy_service().list_snapshot_policies_by_volume( args[AbstractPlugin.volume_id_str])
+        else:
+            j_list = self.get_snapshot_policy_service().list_snapshot_policies()
         
         if ( args[AbstractPlugin.format_str] == "json" ):
-            ResponseWriter.writeJson( j_list )
+            j_policies = []
+            
+            for policy in j_list:
+                j_policies.append( SnapshotPolicyConverter.to_json(policy) )
+                
+            ResponseWriter.writeJson( j_policies )
         else:
             cleaned = ResponseWriter.prep_snapshot_policy_for_table( self.session, j_list )
             ResponseWriter.writeTabularData( cleaned )
-        
-    def list_policies_for_volume(self, args):
-        '''
-        List out the policies that are attached to a specified volume
-        '''
-        
-        response = self.get_snapshot_policy_service().list_snapshot_policies_by_volume( args[AbstractPlugin.volume_id_str])
-        
-        if ( args[AbstractPlugin.format_str] == "json"):
-            ResponseWriter.writeJson( response )
-        else:
-            cleaned = ResponseWriter.prep_snapshot_policy_for_table(self.session, response)
-            ResponseWriter.writeTabularData(cleaned)
     
     def create_snapshot_policy(self, args):
         '''
@@ -176,19 +187,74 @@ class SnapshotPolicyPlugin( AbstractPlugin):
             policy.name = args[AbstractPlugin.name_str]
             policy.retention = args[AbstractPlugin.retention_str]
             policy.recurrence_rule = RecurrenceRule()
+            policy.recurrence_rule.frequency = args[AbstractPlugin.frequency_str]
             
             #if they specified a recurrence rule just use that
             if ( args[AbstractPlugin.recurrence_rule_str] != None ):
                 policy.recurrence_rule = RecurrenceRuleConverter.build_rule_from_json( json.loads( args[AbstractPlugin.recurrence_rule_str] ) )
             else:
-                policy.recurrence_rule.byday = args[AbstractPlugin.day_of_week_str]
+                # day of week is not applicable if the frequency is daily
+                if ( policy.recurrence_rule.frequency != "DAILY"):
+                    policy.recurrence_rule.byday = args[AbstractPlugin.day_of_week_str]
+                
+                # only applicable to yearly jobs
+                if ( policy.recurrence_rule.frequency == "YEARLY" ):
+                    policy.recurrence_rule.bymonth = args[AbstractPlugin.month_str]
+                    
+                #only applicable to monthly or yearly jobs
+                if ( policy.recurrence_rule.frequency == "YEARLY" or policy.recurrence_rule.frequency == "MONTHLY" ):    
+                    policy.recurrence_rule.bymonthday = args[AbstractPlugin.day_of_month_str]
+                    
+                # only applicable to a yearly job
+                if ( policy.recurrence_rule.frequency == "YEARLY" ):
+                    policy.recurrence_rule.byyearday = args[AbstractPlugin.day_of_year_str]
+                    
                 policy.recurrence_rule.byhour = args[AbstractPlugin.hour_str]
-                policy.recurrence_rule.bymonth = args[AbstractPlugin.month_str]
-                policy.recurrence_rule.bymonthday = args[AbstractPlugin.day_of_month_str]
-                policy.recurrence_rule.byyearday = args[AbstractPlugin.day_of_year_str]
                 policy.recurrence_rule.byminute = args[AbstractPlugin.minute_str]
             
         self.get_snapshot_policy_service().create_snapshot_policy( policy )
+
+        self.list_snapshot_policies(args)
+    
+    def edit_snapshot_policy(self, args):
+        '''
+        Take the arguments and construct a policy object to replace an existing one with
+        '''
+        policy = SnapshotPolicy()
+        
+        if ( args[AbstractPlugin.data_str] != None ):
+            policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( args[AbstractPlugin.data_str])
+        else:
+            policy.id = args[AbstractPlugin.policy_id_str]
+            policy.name = args[AbstractPlugin.name_str]
+            policy.retention = args[AbstractPlugin.retention_str]
+            policy.recurrence_rule = RecurrenceRule()
+            policy.recurrence_rule.frequency = args[AbstractPlugin.frequency_str]
+            
+            #if they specified a recurrence rule just use that
+            if ( args[AbstractPlugin.recurrence_rule_str] != None ):
+                policy.recurrence_rule = RecurrenceRuleConverter.build_rule_from_json( json.loads( args[AbstractPlugin.recurrence_rule_str] ) )
+            else:
+                # day of week is not applicable if the frequency is daily
+                if ( policy.recurrence_rule.frequency != "DAILY"):
+                    policy.recurrence_rule.byday = args[AbstractPlugin.day_of_week_str]
+                
+                # only applicable to yearly jobs
+                if ( policy.recurrence_rule.frequency == "YEARLY" ):
+                    policy.recurrence_rule.bymonth = args[AbstractPlugin.month_str]
+                    
+                #only applicable to monthly or yearly jobs
+                if ( policy.recurrence_rule.frequency == "YEARLY" or policy.recurrence_rule.frequency == "MONTHLY" ):    
+                    policy.recurrence_rule.bymonthday = args[AbstractPlugin.day_of_month_str]
+                    
+                # only applicable to a yearly job
+                if ( policy.recurrence_rule.frequency == "YEARLY" ):
+                    policy.recurrence_rule.byyearday = args[AbstractPlugin.day_of_year_str]
+                    
+                policy.recurrence_rule.byhour = args[AbstractPlugin.hour_str]
+                policy.recurrence_rule.byminute = args[AbstractPlugin.minute_str]
+            
+        self.get_snapshot_policy_service().edit_snapshot_policy( policy )
 
         self.list_snapshot_policies(args)
     
@@ -211,7 +277,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         response = self.get_snapshot_policy_service().attach_snapshot_policy( args[AbstractPlugin.policy_id_str], args[AbstractPlugin.volume_id_str])
         
         if ( response["status"].lower() == "ok" ):
-            self.list_snapshot_policies_for_volume(args)
+            self.list_snapshot_policies(args)
             
     def detach_snapshot_policy(self, args):
         '''
@@ -221,6 +287,6 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         response = self.get_snapshot_policy_service().detach_snapshot_policy( args[AbstractPlugin.policy_id_str], args[AbstractPlugin.volume_id_str])
         
         if ( response["status"].lower() == "ok" ):
-            self.list_policies_for_volume(args)
+            self.list_snapshot_policies(args)
             
         

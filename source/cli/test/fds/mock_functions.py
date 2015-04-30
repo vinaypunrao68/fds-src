@@ -8,6 +8,7 @@ import json
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.utils.node_converter import NodeConverter
 from fds.utils.domain_converter import DomainConverter
+from fds.model.snapshot_policy import SnapshotPolicy
 
 '''
 Created on Apr 22, 2015
@@ -126,3 +127,16 @@ def listLocalDomains():
     domains.append( json.loads( domain ))
     
     return domains
+
+def createSnapshotPolicy( policy ):
+    policy.id = 100
+    return policy
+
+def editSnapshotPolicy( policy ):
+    return policy
+
+def listSnapshotPolicies():
+    policies = []
+    policy = SnapshotPolicy()
+    policies.append( policy )
+    return policies

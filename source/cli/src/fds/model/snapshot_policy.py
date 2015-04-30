@@ -7,12 +7,12 @@ class SnapshotPolicy():
     @author: nate
     '''
 
-    def __init__(self):
+    def __init__(self, a_name="", timeline_time=0, retention=0, an_id=-1):
         self.__recurrence_rule = RecurrenceRule()
-        self.__name = ""
-        self.__retention = 86400
-        self.__timeline_time = 0
-        self.__id = -1
+        self.__name = a_name
+        self.__retention = retention
+        self.__timeline_time = timeline_time
+        self.__id = an_id
     
     @property
     def id(self):

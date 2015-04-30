@@ -13,6 +13,9 @@ class SnapshotPolicyConverter():
         
         snapshot_policy = SnapshotPolicy()
         
+        if isinstance( jsonString, dict ) == False:
+            jsonString = json.loads(jsonString)
+        
         snapshot_policy.name = jsonString.pop( "name", "" )
         snapshot_policy.retention = jsonString.pop( "retention", snapshot_policy.retention )
         snapshot_policy.timeline_time = jsonString.pop( "timelineTime", snapshot_policy.timeline_time )

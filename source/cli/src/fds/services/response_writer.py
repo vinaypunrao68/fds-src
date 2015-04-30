@@ -148,8 +148,6 @@ class ResponseWriter():
             
             fields = []
             
-            policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( policy )
-            
             retentionValue = policy.retention
             
             if ( retentionValue == 0 ):

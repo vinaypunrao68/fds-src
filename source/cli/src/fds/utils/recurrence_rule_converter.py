@@ -13,6 +13,9 @@ class RecurrenceRuleConverter(object):
         
         rule = RecurrenceRule()
         
+        if isinstance( jString, dict ) == False:
+            jString = json.loads( jString )
+        
         rule.frequency = jString.pop( "FREQ", rule.frequency )
         rule.byday = jString.pop( "BYDAY", None )
         rule.byhour = jString.pop( "BYHOUR", None )
