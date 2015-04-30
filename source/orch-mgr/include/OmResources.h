@@ -757,8 +757,13 @@ class OM_NodeDomainMod : public Module
     Error setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
                        NodeAgent::pointer   newNode,
-                       fds_uint32_t delayTime
-                       );
+                       fds_uint32_t delayTime );
+
+    /**
+     * Activate well known service on an node
+     */
+    Error om_activate_known_services( fpi::SvcInfo pm,
+                                      fds_uint32_t delayTime );
 
     /**
     * @brief Registers the service
@@ -851,7 +856,6 @@ class OM_NodeDomainMod : public Module
     virtual void om_dmt_waiting_timeout();
     virtual void om_dlt_update_cluster();
     virtual void om_dlt_waiting_timeout();
-    virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**
      * Domain support.
@@ -878,7 +882,9 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(ShutAckEvt const &evt);
 
   protected:
-    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+    bool isPlatformSvc(fpi::SvcInfo svcInfo);
+    bool isKnownPM(fpi::SvcInfo svcInfo);
+    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
                 fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
 
     fds_bool_t                       om_test_mode;
