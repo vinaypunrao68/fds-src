@@ -96,7 +96,7 @@ class ServiceContext(Context):
             
         except Exception, e:
             log.exception(e)
-            return 'unable to get volume list'
+            return 'unable to get svcmap'
 
     #--------------------------------------------------------------------------------------
     @clicmd
