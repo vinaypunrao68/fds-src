@@ -969,12 +969,12 @@ void DataMgr::mod_enable_service() {
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     fds_uint32_t diskIOPsMin = features.isTestMode() ? 60*1000 :
             svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
-                                                 "disk_iops_min");
+                                                 "node_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
     // perf capacity available (based on how fast IOs return). So setting
-    // totalRate to disk_iops_min does not actually restrict the SM from
+    // totalRate to node_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
     scheduleRate = 2 * diskIOPsMin;

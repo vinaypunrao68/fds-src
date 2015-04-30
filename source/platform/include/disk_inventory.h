@@ -18,7 +18,6 @@ namespace fds
         protected:
             int          dsk_count;
             ChainList    dsk_hdd;
-            ChainList    dsk_ssd;
 
             Resource *rs_new(const ResourceUUID &uuid);
             int dsk_array_snapshot(ChainList *list, DiskObjArray *arr);
