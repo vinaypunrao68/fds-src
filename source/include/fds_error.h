@@ -142,6 +142,8 @@ typedef enum {
     ERR_SVC_REQUEST_INVOCATION,
     ERR_SVC_REQUEST_USER_INTERRUPTED,
     ERR_SVC_REQUEST_TIMEOUT,
+    ERR_SVC_SERVER_PORT_ALREADY_INUSE,
+    ERR_SVC_SERVER_CRASH,
 
     /* FDSN status errors */
     // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix

@@ -105,7 +105,7 @@ Error ObjectRankEngine::initialize()
      * table or chg table will access these (they check if we are still in init state
      * and return right away), except for inser/delete cache which we don't access here */
 
-    Catalog::catalog_iterator_t *db_it = rankDB->NewIterator();
+    auto db_it = rankDB->NewIterator();
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next())
     {
         Record key = db_it->key();
@@ -639,7 +639,7 @@ Error ObjectRankEngine::doRanking()
     fds_uint32_t addt_count = 0;
     fds_uint32_t objs_count = 0;
 
-    Catalog::catalog_iterator_t *db_it = rankDB->NewIterator();
+    auto db_it = rankDB->NewIterator();
     fds_bool_t stopped = false;
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next())
     {
