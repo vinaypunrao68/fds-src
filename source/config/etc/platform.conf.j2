@@ -117,6 +117,20 @@ fds: {
             period = 5
         }
 
+        capabilities: {
+            disk: {
+                ssd: {
+                    iops_min = 5000
+                    iops_max = 10000
+                }
+                hdd: {
+                    iops_min = 500
+                    iops_max = 1000
+                }
+                /* GC..etc disk reservation */
+                reserved_space = 0.20
+            }
+        }
         threadpool: {
             num_threads = 10
 
@@ -128,8 +142,8 @@ fds: {
 	    standalone = false
             /* overwrite node capabilities from this config */
             manual_nodecap = true
-            disk_iops_max  = 100000
-            disk_iops_min  = 60000
+            node_iops_max  = 100000
+            node_iops_min  = 60000
         }
         /* Service layer stanza */
         svc: {

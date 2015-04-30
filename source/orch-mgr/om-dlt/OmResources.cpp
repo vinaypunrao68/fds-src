@@ -1328,17 +1328,11 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
         fpi::FDSP_AnnounceDiskCapability& diskInfo = reg_node_req->disk_info;
 
         util::Properties props(&svcInfo->props);
-        diskInfo.disk_iops_max = props.getInt("disk_iops_max");
-        diskInfo.disk_iops_min = props.getInt("disk_iops_min");
+        diskInfo.node_iops_max = props.getInt("node_iops_max");
+        diskInfo.node_iops_min = props.getInt("node_iops_min");
         diskInfo.disk_capacity = props.getDouble("disk_capacity");
 
-        diskInfo.disk_latency_max = props.getInt("disk_latency_max");
-        diskInfo.disk_latency_min = props.getInt("disk_latency_min");
-        diskInfo.ssd_iops_max = props.getInt("ssd_iops_max");
-        diskInfo.ssd_iops_min = props.getInt("ssd_iops_min");
         diskInfo.ssd_capacity = props.getDouble("ssd_capacity");
-        diskInfo.ssd_latency_max = props.getInt("ssd_latency_max");
-        diskInfo.ssd_latency_min = props.getInt("ssd_latency_min");
         diskInfo.disk_type = props.getInt("disk_type");
     }
 }

@@ -52,6 +52,7 @@ fds_plat_lib_cpp :=                              \
                     node_integrate.cpp           \
                     node_deploy.cpp              \
                     node_functional.cpp          \
+		    disk_capabilities.cpp	 \
                     fds_flags.cpp
 
 user_cpp := $(platfrom_cpp) $(fds_plat_lib_cpp)

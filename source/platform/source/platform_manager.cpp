@@ -2,7 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include <stdlib.h>
+#include <cstdlib>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -11,10 +12,13 @@
 #include <fds_uuid.h>
 #include <fdsp/svc_types_types.h>
 #include <fds_process.h>
+#include "fds_resource.h"
 #include <platform/process.h>
+#include "disk_plat_module.h"
 #include <util/stringutils.h>
 
 #include "platform/platform_manager.h"
+#include "platform/disk_capabilities.h"
 
 namespace fds
 {
@@ -157,58 +161,60 @@ namespace fds
             db->setNodeInfo(nodeInfo);
         }
 
-        void PlatformManager::loadProperties()
+        void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
         {
+            determineDiskCapability();
+            util::Properties props = util::Properties(data);
             props.set("fds_root", rootDir);
             props.setInt("uuid", nodeInfo.uuid);
-            props.setInt("disk_iops_max", diskCapability.disk_iops_max);
-            props.setInt("disk_iops_min", diskCapability.disk_iops_min);
+            props.setInt("node_iops_max", diskCapability.node_iops_max);
+            props.setInt("node_iops_min", diskCapability.node_iops_min);
             props.setDouble("disk_capacity", diskCapability.disk_capacity);
-            props.setInt("disk_latency_max", diskCapability.disk_latency_max);
-            props.setInt("disk_latency_min", diskCapability.disk_latency_min);
-            props.setInt("ssd_iops_max", diskCapability.ssd_iops_max);
-            props.setInt("ssd_iops_min", diskCapability.ssd_iops_min);
             props.setDouble("ssd_capacity", diskCapability.ssd_capacity);
-            props.setInt("ssd_latency_max", diskCapability.ssd_latency_max);
-            props.setInt("ssd_latency_min", diskCapability.ssd_latency_min);
             props.setInt("disk_type", diskCapability.disk_type);
         }
 
         void PlatformManager::determineDiskCapability()
         {
-            diskCapability.disk_iops_max    = 100000;
-            diskCapability.disk_iops_min    = 4000;
+            auto ssd_iops_max = conf->get<uint32_t>("capabilities.disk.ssd.iops_max");
+            auto ssd_iops_min = conf->get<uint32_t>("capabilities.disk.ssd.iops_min");
+            auto hdd_iops_max = conf->get<uint32_t>("capabilities.disk.hdd.iops_max");
+            auto hdd_iops_min = conf->get<uint32_t>("capabilities.disk.hdd.iops_min");
+            auto space_reserve = conf->get<float>("capabilities.disk.reserved_space");
+
+            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
+            auto disk_counts = dpm->disk_counts();
+
+            if (0 == (disk_counts.first + disk_counts.second)) {
+                // We don't have real disks
+                diskCapability.disk_capacity = 0x7ffff;
+                diskCapability.ssd_capacity = 0x10000;
+            } else {
+
+                // Calculate aggregate iops with both HDD and SDD
+                diskCapability.node_iops_max  = (hdd_iops_max * disk_counts.first);
+                diskCapability.node_iops_max += (ssd_iops_max * disk_counts.second);
+
+                diskCapability.node_iops_min  = (hdd_iops_min * disk_counts.first);
+                diskCapability.node_iops_min += (ssd_iops_min * disk_counts.second);
+
+                // We assume all disks are connected identically atm
+                diskCapability.disk_type = dpm->disk_type() ? FDS_DISK_SAS : FDS_DISK_SATA;
+
+                auto disk_capacities = dpm->disk_capacities();
+                diskCapability.disk_capacity = (1.0 - space_reserve) * disk_capacities.first;
+                diskCapability.ssd_capacity = (1.0 - space_reserve) * disk_capacities.second;
+            }
 
             if (conf->get<bool>("testing.manual_nodecap",false))
             {
-                diskCapability.disk_iops_max    = conf->get<int>("testing.disk_iops_max", 100000);
-                diskCapability.disk_iops_min    = conf->get<int>("testing.disk_iops_min", 6000);
+                diskCapability.node_iops_max    = conf->get<int>("testing.node_iops_max", 100000);
+                diskCapability.node_iops_min    = conf->get<int>("testing.node_iops_min", 6000);
             }
-            diskCapability.disk_capacity    = 0x7ffff;
-            diskCapability.disk_latency_max = 1000000 / diskCapability.disk_iops_min;
-            diskCapability.disk_latency_min = 1000000 / diskCapability.disk_iops_max;
-            diskCapability.ssd_iops_max     = 300000;
-            diskCapability.ssd_iops_min     = 1000;
-            diskCapability.ssd_capacity     = 0x10000;
-            diskCapability.ssd_latency_max  = 1000000 / diskCapability.ssd_iops_min;
-            diskCapability.ssd_latency_min  = 1000000 / diskCapability.ssd_iops_max;
-            diskCapability.disk_type        = FDS_DISK_SATA;
+            LOGDEBUG << "Set node iops max to: " << diskCapability.node_iops_max;
+            LOGDEBUG << "Set node iops min to: " << diskCapability.node_iops_min;
+
             db->setNodeDiskCapability(diskCapability);
-        }
-
-        bool PlatformManager::sendNodeCapabilityToOM()
-        {
-            fpi::FDSP_RegisterNodeTypePtr    pkt(new fpi::FDSP_RegisterNodeType);
-            pkt->disk_info = diskCapability;
-
-            if (conf->get<bool>("testing.manual_nodecap",false))
-            {
-                pkt->disk_info.disk_iops_min = conf->get<int>("testing.disk_iops_min", 6000);
-                pkt->disk_info.disk_iops_max = conf->get<int>("testing.disk_iops_max", 100000);
-            }
-            // do the send
-
-            return true;
         }
 
         fds_int64_t PlatformManager::getNodeUUID(fpi::FDSP_MgrIdType svcType)
@@ -221,7 +227,6 @@ namespace fds
 
         int PlatformManager::run()
         {
-            sendNodeCapabilityToOM();
             while (1)
             {
                 sleep(1000);   /* we'll do hotplug uevent thread in here */
