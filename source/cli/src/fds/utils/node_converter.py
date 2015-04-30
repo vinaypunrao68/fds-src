@@ -44,11 +44,8 @@ class NodeConverter():
         services = jsonString.pop( "services", None )
         
         if ( services != None ):
-            NodeConverter.create_services_from_json(node, "AM", services)
-            NodeConverter.create_services_from_json(node, "DM", services)
-            NodeConverter.create_services_from_json(node, "SM", services)
-            NodeConverter.create_services_from_json(node, "PM", services)
-            NodeConverter.create_services_from_json(node, "OM", services)
+            for key in ("AM","DM","SM","PM","OM"):
+                NodeConverter.create_services_from_json(node, key, services)
         
         return node
     
@@ -63,11 +60,9 @@ class NodeConverter():
         d["name"] = node.name
         
         s_dict = dict()
-        s_dict["AM"] = NodeConverter.create_service_from_objects(node, "AM")
-        s_dict["DM"] = NodeConverter.create_service_from_objects(node, "DM")
-        s_dict["SM"] = NodeConverter.create_service_from_objects(node, "SM")
-        s_dict["OM"] = NodeConverter.create_service_from_objects(node, "OM")
-        s_dict["PM"] = NodeConverter.create_service_from_objects(node, "PM")                                          
+        
+        for key in  ("AM","DM","PM","OM","SM"):
+            s_dict[key] = NodeConverter.create_service_from_objects(node, key)
         
         d["services"] = s_dict
         
