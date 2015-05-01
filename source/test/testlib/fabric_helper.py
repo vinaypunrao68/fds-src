@@ -1,8 +1,12 @@
 from fabric.api import *
+from fabric.contrib.files import *
 import random
 import time
 import logging
 import shlex
+import os
+import pdb
+from StringIO import StringIO
 
 random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
@@ -10,10 +14,14 @@ log = logging.getLogger(__name__)
 
 class FabricHelper():
     def __init__(self, fds_service, fds_node):
-	env.user='hlim'
-	env.password='Testlab'
+	env.user='root'
+	env.password='passwd'
 	env.host_string=fds_node
 	self.node_service=fds_service
+	self.fds_bin = '/fds/bin'
+	self.fds_sbin = '/fds/sbin'
+	self.fdsconsole = '{}/fdsconsole.py'.format(self.fds_sbin)
+
 
     def get_service_pid(self):
 	'''
@@ -43,9 +51,9 @@ class FabricHelper():
 			log.warning("Unable to locate {} service PID".format(self.node_service))
 
 
-    def get_service_uuid(self, service_pid):
+    def get_platform_uuid(self, service_pid):
 	'''
-	This function takes FDS service pid and returns its FDS uuid
+	This function takes FDS service pid and returns its platform uuid
 
 	ATTRIBUTES:
 	----------
@@ -53,7 +61,7 @@ class FabricHelper():
 
 	Returns:
 	--------
-	Returns FDS uuid 
+	Returns platform uuid 
 	'''
 
 	if service_pid > 0:
@@ -66,7 +74,40 @@ class FabricHelper():
 				return svc_uuid[1]
 
 			else:
-				log.warning("Unable to locate {} service uuid".format(self.node_service))
+				log.warning("Unable to locate {} platform service uuid".format(self.node_service))
 
 	else:
 		log.warning("{} service is not running".format(self.node_service))
+
+    def get_node_uuid(self, node_ip):
+	'''
+	This function queries and returns node_uuid
+
+	ATTRIBUTES:
+	----------
+	Takes node_ip address
+
+	Returns:
+	--------
+	Returns node uuid 
+	'''
+
+	if exists('{}'.format(self.fdsconsole)):
+		with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
+			with cd('{}'.format(self.fds_sbin)):
+				sudo('./fdsconsole.py accesslevel admin')
+				#run('./fdsconsole.py domain listServices local', stdout=self.sio)
+				cmd_output = run('./fdsconsole.py domain listServices local')
+				n_uuid = cmd_output.split()
+				
+				for i in range(len(n_uuid)): 
+					print n_uuid[i]
+					if n_uuid[i] == node_ip:
+						if n_uuid[i+2] == 'pm':
+							node_uuid = n_uuid[i-2]
+							return node_uuid
+
+	else:
+		log.warning("Unable to locate fdsconsole.py")
+	
+
