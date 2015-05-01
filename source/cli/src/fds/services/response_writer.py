@@ -76,26 +76,25 @@ class ResponseWriter():
             
             if ( iopsLimit == 0 ):
                 iopsLimit = "None"
+
+            ov = OrderedDict()
             
-            fields = [];
-            
-            fields.append(("ID", volume.id))
-            fields.append(("Name", volume.name))
+            ov["ID"] = volume.id
+            ov["Name"] = volume.name
             
             if ( session.is_allowed( "TENANT_MGMT" ) ):
-                fields.append(("Tenant ID", volume.tenant_id))
+                ov["Tenant ID"] = volume.tenant_id
+                
+            ov["State"] = volume.state
+            ov["Type"] = volume.type
+            ov["Usage"] = str(volume.current_size) + " " + volume.current_units
+            ov["Last Firebreak Type"] = lastFirebreakType
+            ov["Last Firebreak"] = lastFirebreak
+            ov["Priority"] = volume.priority
+            ov["IOPs Guarantee"] = iopsMin
+            ov["IOPs Limit"] = iopsLimit
+            ov["Media Policy"] = volume.media_policy
             
-            fields.append(("State", volume.state))
-            fields.append(("Type", volume.type))
-            fields.append(("Usage", str(volume.current_size) + " " + volume.current_units))
-            fields.append(("Last Firebreak Type", lastFirebreakType))
-            fields.append(("Last Firebreak", lastFirebreak))
-            fields.append(("Priority", volume.priority))
-            fields.append(("IOPs Guarantee", iopsMin))
-            fields.append(("IOPs Limit", iopsLimit))
-            fields.append(("Media Policy", volume.media_policy))
-            
-            ov = OrderedDict( fields )
             prepped_responses.append( ov )
         #end of for loop 
             
@@ -111,24 +110,23 @@ class ResponseWriter():
         resultList = []
         
         for snap in response:
-            fields = []
             
             snapshot = SnapshotConverter.build_snapshot_from_json( snap )
             created = time.localtime( snapshot.created )
             created = time.strftime( "%c", created )
-            
-            fields.append( ("ID", snapshot.id))
-            fields.append( ("Name", snapshot.name))
-            fields.append( ("Created", created))
             
             retentionValue = snapshot.retention
             
             if ( retentionValue == 0 ):
                 retentionValue = "Forever"
             
-            fields.append( ("Retention", retentionValue))
+            ov = OrderedDict()
             
-            ov = OrderedDict( fields )
+            ov["ID"] = snapshot.id
+            ov["Name"] = snapshot.name
+            ov["Created"] = created
+            ov["Retention"] = retentionValue
+            
             resultList.append( ov )   
         #end for loop
         
@@ -143,15 +141,14 @@ class ResponseWriter():
         
         for domain in response:
             
-            fields = []
-            
             domain = DomainConverter.build_domain_from_json( domain )
             
-            fields.append(("ID", domain.id))
-            fields.append(("Name", domain.name))
-            fields.append(("Site", domain.site))
+            ov = OrderedDict()
             
-            ov = OrderedDict( fields )
+            ov["ID"] = domain.id
+            ov["Name"] = domain.name
+            ov["Site"] = domain.site
+            
             results.append( ov )
         #end of for loop
         
@@ -167,17 +164,17 @@ class ResponseWriter():
         results = []
         
         for node in response:
-            fields = []
             
             node = NodeConverter.build_node_from_json( node ) 
             
-            fields.append(("ID", node.id))
-            fields.append(("Name", node.name))
-            fields.append(("State", node.state))
-            fields.append(("IP V4 Address", node.ip_v4_address))
-            fields.append(("IP V6 Address", node.ip_v6_address))
+            ov = OrderedDict()
             
-            ov = OrderedDict( fields )
+            ov["ID"] = node.id
+            ov["Name"] = node.name
+            ov["State"] = node.state
+            ov["IP V4 Address"] = node.ip_v4_address
+            ov["IP V6 Address"] = node.ip_v6_address
+            
             results.append( ov )
         
         return results
@@ -201,15 +198,13 @@ class ResponseWriter():
                 
                 for service in services[service_type]:
                     
-                    fields = []
+                    ov = OrderedDict()
+                    ov["Node ID"] = node.id
+                    ov["Node Name"] = node.name
+                    ov["Service Type"] = service.auto_name
+                    ov["Service ID"] = service.id
+                    ov["Status"] = service.status
                     
-                    fields.append(("Node ID", node.id))
-                    fields.append(("Node Name", node.name))
-                    fields.append(("Service Type", service.auto_name))
-                    fields.append(("Service ID", service.id))
-                    fields.append(("Status", service.status))
-                    
-                    ov = OrderedDict( fields )
                     results.append( ov )
                     
                 # end of individual service for loop
