@@ -138,7 +138,7 @@ namespace fds
          */
         pid_t fds_spawn_service(const char *prog, const char *fds_root, const char** extra_args, int daemonize)
         {
-            size_t    len, ret;
+            size_t    len {0}, ret;
             char      exec[1024];
             char      root[1024];
             char     *argv[12];
