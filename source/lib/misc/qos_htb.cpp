@@ -380,8 +380,8 @@ QoSHTBDispatcher::getNextQueueForDispatch()
 {
     fds_qid_t ret_qid = 0;
     TBQueueState *min_wma_qstate = NULL;
-    double min_wma;
-    uint min_wma_hiprio;
+    double min_wma {0.0};
+    uint min_wma_hiprio {0};
 
     while (1) {
 
