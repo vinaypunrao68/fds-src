@@ -379,7 +379,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db)> CbType;
+                                leveldb::DB* db,
+                                bool retry)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 std::string &snapDir,
@@ -415,6 +416,11 @@ class SmIoSnapshotObjectDB : public SmIoReq {
      * Target DLT version for which this snapshot will be taken.
      */
     fds_uint64_t targetDltVersion;
+
+    /**
+     * Set if snapshot request is for retry of a SM token migration
+     */
+    bool retryReq;
 
     /* Response callback for in-memory snapshot request*/
     CbType smio_snap_resp_cb;

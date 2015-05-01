@@ -37,7 +37,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
 
     if (!volQueue) {
         volQueue.reset(new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId
-                : voldesc->GetID(), 100, voldesc->getIopsMax(), voldesc->getIopsMin(),
+                : voldesc->GetID(), 100, voldesc->getIopsThrottle(), voldesc->getIopsAssured(),
                 voldesc->getPriority()));
     }
 

@@ -11,7 +11,8 @@
 #include <DataMgr.h>
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
-
+#include <util/stringutils.h>
+#include <util/path.h>
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -364,6 +365,13 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // create vol catalogs, etc first
 
     bool fPrimary = false;
+    bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
+
+    LOGDEBUG << "vol:" << vol_name
+             << " snap:" << vdesc->isSnapshot()
+             << " state:" << vdesc->getState()
+             << " created:" << vdesc->isStateCreated()
+             << " old:" << fOldVolume;
 
     if (vdesc->isSnapshot() || vdesc->isClone()) {
         fPrimary = amIPrimary(vdesc->srcVolumeId);
@@ -406,6 +414,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             // find the closest snapshot to clone the base from
             fds_volid_t srcVolumeId = vdesc->srcVolumeId;
 
+            LOGDEBUG << "Timeline time is: '" << vdesc->timelineTime << "' for clone: '"
+                    << vdesc->volUUID << "'";
             // timelineTime is in seconds
             util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
 
@@ -436,6 +446,15 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                     // vol create time is in millis
                     snapshotTime = volmeta->vol_desc->createTime * 1000;
                     err = timeVolCat_->addVolume(*vdesc);
+                    if (!err.ok()) {
+                        LOGWARN << "Add volume returned error: '" << err << "'";
+                    }
+                    // XXX: Here we are creating and activating clone without copying src
+                    // volume, directory needs to exist for activation
+                    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+                    const std::string dirPath = root->dir_sys_repo_dm() +
+                            std::to_string(vdesc->volUUID);
+                    root->fds_mkdir(dirPath.c_str());
                 }
 
                 // now replay necessary commit logs as needed
@@ -513,9 +532,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     bool needReg = false;
     if (!volmeta->dmVolQueue.get()) {
+        // FIXME: Why are we doubling the assured rate here?
         volmeta->dmVolQueue.reset(new FDS_VolumeQueue(4096,
-                                                      vdesc->iops_max,
-                                                      2*vdesc->iops_min,
+                                                      vdesc->iops_throttle,
+                                                      2*vdesc->iops_assured,
                                                       vdesc->relativePrio));
         volmeta->dmVolQueue->activate();
         needReg = true;
@@ -613,6 +633,43 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
+    // now load all the snapshots for the volume
+    if (fOldVolume) {
+        // get the list of snapshots.
+        std::string snapDir = dmutil::getSnapshotDir(vol_uuid);
+        std::vector<std::string> vecDirs;
+        util::getSubDirectories(snapDir, vecDirs);
+        fds_volid_t snapId;
+        LOGDEBUG << "will load [" << vecDirs.size() << "]"
+                 << " snapshots for vol:" << vol_uuid
+                 << " from:" << snapDir;
+        for (const auto& snap : vecDirs) {
+            snapId = std::atoll(snap.c_str());
+            //now add the snap
+            VolumeDesc *desc = new VolumeDesc(*vdesc);
+            desc->fSnapshot = true;
+            desc->srcVolumeId = vol_uuid;
+            desc->lookupVolumeId = vol_uuid;
+            desc->qosQueueId = vol_uuid;
+            desc->volUUID = snapId;
+            desc->contCommitlogRetention = 0;
+            desc->timelineTime = 0;
+            desc->setState(Active);
+            desc->name = util::strformat("snaphot_%ld_%ld", vol_uuid, snapId);
+            VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
+                                                            snapId,
+                                                            GetLog(),
+                                                            desc);
+            vol_meta_map[snapId] = meta;
+            LOGDEBUG << "Adding snapshot" << " name:" << desc->name << " vol:" << desc->volUUID;
+            Error err1 = timeVolCat_->addVolume(*desc);
+            if (!err1.ok()) {
+                LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< vol_uuid
+                         << " - " << err1;
+            }
+        }
+    }
+
     return err;
 }
 
@@ -651,10 +708,13 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
         return err;
     }
     VolumeMeta *vm = vol_meta_map[vol_uuid];
-    vm->vol_desc->modifyPolicyInfo(2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+    // FIXME: Why are we doubling assured?
+    vm->vol_desc->modifyPolicyInfo(2 * voldesc.iops_assured,
+                                   voldesc.iops_throttle,
+                                   voldesc.relativePrio);
     err = qosCtrl->modifyVolumeQosParams(vol_uuid,
-                                         2*voldesc.iops_min,
-                                         voldesc.iops_max,
+                                         2 * voldesc.iops_assured,
+                                         voldesc.iops_throttle,
                                          voldesc.relativePrio);
     vol_map_mtx->unlock();
 
@@ -969,12 +1029,12 @@ void DataMgr::mod_enable_service() {
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     fds_uint32_t diskIOPsMin = features.isTestMode() ? 60*1000 :
             svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
-                                                 "disk_iops_min");
+                                                 "node_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
     // perf capacity available (based on how fast IOs return). So setting
-    // totalRate to disk_iops_min does not actually restrict the SM from
+    // totalRate to node_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
     scheduleRate = 2 * diskIOPsMin;
@@ -1348,4 +1408,36 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
         msg_hdr->err_code = err.GetErrno();
     }
 }
+
+namespace dmutil {
+
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    if (snapId > 0) {
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb", root->dir_user_repo_dm().c_str(), volId, snapId);
+    } else {
+        return util::strformat("%s/%ld", root->dir_sys_repo_dm().c_str(), volId);
+    }
+}
+
+// location of all snapshots for a volume
+std::string getSnapshotDir(fds_volid_t volId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    return util::strformat("%s/%ld/snapshot", root->dir_user_repo_dm().c_str(), volId);
+}
+
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    if (snapId > 0) {
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
+                                 root->dir_user_repo_dm().c_str(), volId, snapId);
+    } else {
+        return util::strformat("%s/%ld/%ld_vcat.ldb",
+                                 root->dir_sys_repo_dm().c_str(), volId, volId);
+    }
+}
+}  // namespace dmutil
+
+
+
 }  // namespace fds

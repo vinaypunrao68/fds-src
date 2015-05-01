@@ -20,9 +20,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     volPolicyId = volinfo.volPolicyId;
     placementPolicy = volinfo.placementPolicy;
     mediaPolicy = volinfo.mediaPolicy;
-    iops_min = 0;
-    iops_max = 0;
-    iops_guarantee = 0;
+    iops_assured = 0;
+    iops_throttle = 0;
     relativePrio = 0;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
@@ -32,6 +31,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     contCommitlogRetention = volinfo.contCommitlogRetention;
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
+    state   = volinfo.state;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -45,9 +45,8 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     volPolicyId = vdesc.volPolicyId;
     placementPolicy = vdesc.placementPolicy;
     mediaPolicy = vdesc.mediaPolicy;
-    iops_min = vdesc.iops_min;
-    iops_max = vdesc.iops_max;
-    iops_guarantee = vdesc.iops_guarantee;
+    iops_assured = vdesc.iops_assured;
+    iops_throttle = vdesc.iops_throttle;
     relativePrio = vdesc.relativePrio;
     fSnapshot = vdesc.fSnapshot;
     srcVolumeId = vdesc.srcVolumeId;
@@ -70,9 +69,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     volPolicyId = voldesc.volPolicyId;
     placementPolicy = voldesc.placementPolicy;
     mediaPolicy = voldesc.mediaPolicy;
-    iops_min = voldesc.iops_min;
-    iops_max = voldesc.iops_max;
-    iops_guarantee = voldesc.iops_guarantee;
+    iops_assured = voldesc.iops_assured;
+    iops_throttle = voldesc.iops_throttle;
     relativePrio = voldesc.rel_prio;
     fSnapshot = voldesc.fSnapshot;
     srcVolumeId = voldesc.srcVolumeId;
@@ -80,6 +78,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     contCommitlogRetention = voldesc.contCommitlogRetention;
     timelineTime = voldesc.timelineTime;
     createTime  = voldesc.createTime;
+    state = voldesc.state;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -103,9 +102,8 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     volPolicyId = 0;
     placementPolicy = 0;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
-    iops_min = 0;
-    iops_max = 0;
-    iops_guarantee = 0;
+    iops_assured = 0;
+    iops_throttle = 0;
     fSnapshot = false;
     srcVolumeId = invalid_vol_id;
     relativePrio = 0;
@@ -118,13 +116,13 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
 
 VolumeDesc::VolumeDesc(const std::string& _name,
                        fds_volid_t _uuid,
-                       fds_uint32_t _iops_min,
-                       fds_uint32_t _iops_max,
+                       fds_int64_t _iops_assured,
+                       fds_int64_t _iops_throttle,
                        fds_uint32_t _priority)
         : name(_name),
           volUUID(_uuid),
-          iops_min(_iops_min),
-          iops_max(_iops_max),
+          iops_assured(_iops_assured),
+          iops_throttle(_iops_throttle),
           relativePrio(_priority) {
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
@@ -148,12 +146,12 @@ VolumeDesc::VolumeDesc(const std::string& _name,
 VolumeDesc::~VolumeDesc() {
 }
 
-void VolumeDesc::modifyPolicyInfo(fds_uint64_t _iops_min,
-                                  fds_uint64_t _iops_max,
+void VolumeDesc::modifyPolicyInfo(fds_int64_t _iops_assured,
+                                  fds_int64_t _iops_throttle,
                                   fds_uint32_t _priority)
 {
-    iops_min = _iops_min;
-    iops_max = _iops_max;
+    iops_assured = _iops_assured;
+    iops_throttle = _iops_throttle;
     relativePrio = _priority;
 }
 
@@ -165,12 +163,12 @@ fds_volid_t VolumeDesc::GetID() const {
     return volUUID;
 }
 
-double VolumeDesc::getIopsMin() const {
-    return iops_min;
+fds_int64_t VolumeDesc::getIopsAssured() const {
+    return iops_assured;
 }
 
-double VolumeDesc::getIopsMax() const {
-    return iops_max;
+fds_int64_t VolumeDesc::getIopsThrottle() const {
+    return iops_throttle;
 }
 
 int VolumeDesc::getPriority() const {
@@ -237,9 +235,8 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " vol.policy.id:" << vol.volPolicyId
               << " media.policy:" << vol.mediaPolicy
               << " placement.policy:" << vol.placementPolicy
-              << " iops.min:" << vol.iops_min
-              << " iops.max:" << vol.iops_max
-              << " iops.guarantee:" << vol.iops_guarantee
+              << " iops.assured:" << vol.iops_assured
+              << " iops.throttle:" << vol.iops_throttle
               << " rel.prio:" << vol.relativePrio
               << " isSnapshot:" << vol.fSnapshot
               << " srcVolumeId:" << vol.srcVolumeId
@@ -277,8 +274,8 @@ FDS_VolumePolicy::~FDS_VolumePolicy() {
 uint32_t FDS_VolumePolicy::write(serialize::Serializer* s) const {
     uint32_t b = 0;
     b += s->writeI32(volPolicyId);
-    b += s->writeI64(iops_max);
-    b += s->writeI64(iops_min);
+    b += s->writeI64(iops_throttle);
+    b += s->writeI64(iops_assured);
     b += s->writeI64(thruput);
     b += s->writeI32(relativePrio);
     b += s->writeString(volPolicyName);
@@ -288,8 +285,8 @@ uint32_t FDS_VolumePolicy::write(serialize::Serializer* s) const {
 uint32_t FDS_VolumePolicy::read(serialize::Deserializer* d) {
     uint32_t b = 0;
     b += d->readI32(volPolicyId);
-    b += d->readI64(iops_max);
-    b += d->readI64(iops_min);
+    b += d->readI64(iops_throttle);
+    b += d->readI64(iops_assured);
     b += d->readI64(thruput);
     b += d->readI32(relativePrio);
     b += d->readString(volPolicyName);
@@ -304,8 +301,8 @@ std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy) {
     os << "["
        << " id:" << policy.volPolicyId
        << " name:" << policy.volPolicyName
-       << " iops.max:" << policy.iops_max
-       << " iops.min:" << policy.iops_min
+       << " iops.throttle:" << policy.iops_throttle
+       << " iops.assured:" << policy.iops_assured
        << " thruput:" << policy.thruput
        << " relative.prio:" << policy.relativePrio
        << " ]";
@@ -315,11 +312,11 @@ std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy) {
 /***********************************************************************************/
 
 FDS_VolumeQueue::FDS_VolumeQueue(fds_uint32_t q_capacity,
-                                 fds_uint64_t _iops_max,
-                                 fds_uint64_t _iops_min,
+                                 fds_int64_t _iops_throttle,
+                                 fds_int64_t _iops_assured,
                                  fds_uint32_t prio) :
-        iops_max(_iops_max),
-        iops_min(_iops_min),
+        iops_throttle(_iops_throttle),
+        iops_assured(_iops_assured),
         priority(prio),
         count_(0) {
     volQueue = new boost::lockfree::queue<FDS_IOType *> (q_capacity);
@@ -330,12 +327,12 @@ FDS_VolumeQueue::~FDS_VolumeQueue() {
     delete volQueue;
 }
 
-void FDS_VolumeQueue::modifyQosParams(fds_uint64_t _iops_min,
-                                      fds_uint64_t _iops_max,
+void FDS_VolumeQueue::modifyQosParams(fds_int64_t _iops_assured,
+                                      fds_int64_t _iops_throttle,
                                       fds_uint32_t _prio)
 {
-    iops_max = _iops_max;
-    iops_min = _iops_min;
+    iops_throttle = _iops_throttle;
+    iops_assured = _iops_assured;
     priority = _prio;
 }
 

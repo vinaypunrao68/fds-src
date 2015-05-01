@@ -24,7 +24,7 @@ user_thrift       := \
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile
-user_install      := orchMgr AMAgent genkey xdi iodriver
+user_install      := orchMgr genkey iodriver
 user_install_loc  := exe
 user_clean        := \
 	target \
@@ -40,8 +40,6 @@ include $(topdir)/Makefile.incl
 
 compile:
 	@echo "Building Java components"
-	@rm -f $(comm_dir_bin)/AMAgent
-	@rm -f $(comm_dir_bin)/xdi
 	@rm -rf $(comm_dir_lib)/java
 	@rm -rf $(comm_dir_lib)/admin-webapp
 	@mkdir -p $(comm_dir_lib)/java/

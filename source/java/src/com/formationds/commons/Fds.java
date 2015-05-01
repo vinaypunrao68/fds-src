@@ -249,7 +249,7 @@ public final class Fds
          */
         static
         {
-            final String testingConfig = "fds.plat.testing";
+            final String testingConfig = "fds.pm.testing";
 
             DISK_IOPS_MAX_CONFIG = testingConfig + ".disk_iops_max";
             DISK_IOPS_MIN_CONFIG = testingConfig + ".disk_iops_min";

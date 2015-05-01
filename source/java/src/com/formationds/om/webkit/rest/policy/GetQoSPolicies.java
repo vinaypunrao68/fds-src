@@ -53,8 +53,8 @@ public class GetQoSPolicies
           array.put(new JSONObject()
                           .put("policy_name", qosPolicy.policy_name)
                           .put("policy_id", qosPolicy.policy_id)
-                          .put("iops_min", qosPolicy.iops_min)
-                          .put("iops_max", qosPolicy.iops_max)
+                          .put("iops_min", qosPolicy.iops_assured)
+                          .put("iops_max", qosPolicy.iops_throttle)
                           .put("rel_prio", qosPolicy.rel_prio));
       }
 

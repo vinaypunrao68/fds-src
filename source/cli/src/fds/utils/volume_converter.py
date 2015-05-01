@@ -14,32 +14,35 @@ This is that mechanism
 class VolumeConverter( object ):
     
     @staticmethod
-    def build_volume_from_json( json ):
+    def build_volume_from_json( jsonString ):
         '''
         This takes a json dictionary and turns it into a volume class instantiation
         '''
 
         volume = Volume();
         
-        volume.name = json.pop( "name", None )
-        volume.iops_guarantee = json.pop( "sla", int(volume.iops_guarantee) )
-        volume.iops_limit = json.pop( "limit", int(volume.iops_limit) )
-        volume.id = json.pop( "id", volume.id )
-        volume.media_policy = json.pop( "mediaPolicy", volume.media_policy )
-        volume.continuous_protection = json.pop( "commit_log_retention", int(volume.continuous_protection) )
-        volume.priority = json.pop( "priority", int(volume.priority) )
-        volume.tenant_id = json.pop( "tenantId", volume.tenant_id)
+        if not isinstance( jsonString, dict ):
+            jsonString = json.loads(jsonString)
         
-        dc = json.pop( "data_connector", None )
+        volume.name = jsonString.pop( "name", None )
+        volume.iops_guarantee = jsonString.pop( "sla", int(volume.iops_guarantee) )
+        volume.iops_limit = jsonString.pop( "limit", int(volume.iops_limit) )
+        volume.id = jsonString.pop( "id", volume.id )
+        volume.media_policy = jsonString.pop( "mediaPolicy", volume.media_policy )
+        volume.continuous_protection = jsonString.pop( "commit_log_retention", int(volume.continuous_protection) )
+        volume.priority = jsonString.pop( "priority", int(volume.priority) )
+        volume.tenant_id = jsonString.pop( "tenantId", volume.tenant_id)
         
-        if ( dc != None ):
+        dc = jsonString.pop( "data_connector", None )
+        
+        if ( dc is not None ):
             volume.type = dc.pop( "type", volume.type )
         
-        volume.state = json.pop( "state", volume.state )
+        volume.state = jsonString.pop( "state", volume.state )
         
-        cu = json.pop( "current_usage", None )
+        cu = jsonString.pop( "current_usage", None )
         
-        if ( cu != None ):
+        if ( cu is not None ):
             volume.current_size = cu.pop( "size", None )
             volume.current_units = cu.pop( "unit", None )
         
