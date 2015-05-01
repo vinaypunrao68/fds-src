@@ -104,7 +104,7 @@ struct DMTester :  SvcProcess {
         dataMgr->features.setCatSyncEnabled(false);
         dataMgr->features.setTimelineEnabled(false);
         dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
-                                               "am",
+                                               "dm",
                                                GetLog());
 
         dataMgr->initHandlers();

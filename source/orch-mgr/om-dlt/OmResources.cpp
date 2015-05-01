@@ -1392,7 +1392,7 @@ bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
     bool bRetCode = false;
 
     int64_t registerUUID = svcInfo.svc_id.svc_uuid.svc_uuid;
-    std::vector<SvcInfo> configDBSvcs;
+    std::vector<fpi::SvcInfo> configDBSvcs;
 
     configDB->getSvcMap( configDBSvcs );
     if ( configDBSvcs.size() > 0 )
