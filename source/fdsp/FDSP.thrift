@@ -281,17 +281,11 @@ struct FDSP_ModifyPolicyType {
 }
 
 struct FDSP_AnnounceDiskCapability {
-  1: i32	disk_iops_max,  /* iops suppported by */
-  2: i32	disk_iops_min,  /* iops suppported by */
-  3: double	disk_capacity, /* size of the disk  */
-  4: i32	disk_latency_max,  /* latency  */
-  5: i32	disk_latency_min,  /* latency  */
-  6: i32 	ssd_iops_max,  /* iops suppported by */
-  7: i32 	ssd_iops_min,  /* iops suppported by */
-  8: double	ssd_capacity, /* size of the disk  */
-  9: i32	ssd_latency_max,  /* latency  */
-  10: i32	ssd_latency_min,  /* latency  */
-  11: i32	disk_type,  /* disk type  */
+  1: i32	node_iops_max,  /* iops suppported by */
+  2: i32	node_iops_min,  /* iops suppported by */
+  3: i64	disk_capacity, /* size of the disk  */
+  4: i64	ssd_capacity, /* size of the ssd disks  */
+  5: i32	disk_type,  /* disk type  */
 }
 
 struct FDSP_RegisterNodeType {

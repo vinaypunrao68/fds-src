@@ -25,38 +25,24 @@ void FdsAdminCtrl::addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *diskC
 {
     ++num_nodes;
 
-    total_disk_iops_max += diskCaps->disk_iops_max;
-    total_disk_iops_min += diskCaps->disk_iops_min;
+    total_node_iops_max += diskCaps->node_iops_max;
+    total_node_iops_min += diskCaps->node_iops_min;
     total_disk_capacity += diskCaps->disk_capacity;
-    disk_latency_max     = diskCaps->disk_latency_max;
-    disk_latency_min     = diskCaps->disk_latency_min;
-    total_ssd_iops_max  += diskCaps->ssd_iops_max;
-    total_ssd_iops_min  += diskCaps->ssd_iops_min;
     total_ssd_capacity  += diskCaps->ssd_capacity;
-    ssd_latency_max      = diskCaps->ssd_latency_max;
-    ssd_latency_min      = diskCaps->ssd_latency_min;
 
-    avail_disk_iops_max += diskCaps->disk_iops_max;
-    avail_disk_iops_min += diskCaps->disk_iops_min;
+    avail_node_iops_max += diskCaps->node_iops_max;
+    avail_node_iops_min += diskCaps->node_iops_min;
     avail_disk_capacity += diskCaps->disk_capacity;
-    avail_ssd_iops_max  += diskCaps->ssd_iops_max;
-    avail_ssd_iops_min  += diskCaps->ssd_iops_min;
     avail_ssd_capacity  += diskCaps->ssd_capacity;
 
     LOGNOTIFY << "Total Disk Resources "
-              << "\n  Total Disk iops Max : " << total_disk_iops_max
-              << "\n  Total Disk iops Min : " << total_disk_iops_min
+              << "\n  Total Node iops Max : " << total_node_iops_max
+              << "\n  Total Node iops Min : " << total_node_iops_min
               << "\n  Total Disk capacity : " << total_disk_capacity
-              << "\n  Disk latency Max: " << disk_latency_max
-              << "\n  Disk latency Min: " << disk_latency_min
-              << "\n  Total Ssd iops Max : " << total_ssd_iops_max
-              << "\n  Total Ssd iops Min: " << total_ssd_iops_min
               << "\n  Total Ssd capacity : " << total_ssd_capacity
-              << "\n  Ssd latency Max: " << ssd_latency_max
-              << "\n  Ssd latency Min : " << ssd_latency_min
               << "\n  Avail Disk capacity : " << avail_disk_capacity
-              << "\n  Avail Disk  iops max : " << avail_disk_iops_max
-              << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
+              << "\n  Avail Disk  iops max : " << avail_node_iops_max
+              << "\n  Avail Disk  iops min : " << avail_node_iops_min;
 }
 
 void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *diskCaps)
@@ -64,41 +50,26 @@ void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *di
     fds_verify(num_nodes > 0);
     --num_nodes;
 
-    fds_verify(total_disk_iops_max >= static_cast<fds_uint64_t>(diskCaps->disk_iops_max));
-    total_disk_iops_max -= diskCaps->disk_iops_max;
-    total_disk_iops_min -= diskCaps->disk_iops_min;
+    fds_verify(total_node_iops_max >= static_cast<fds_uint64_t>(diskCaps->node_iops_max));
+    total_node_iops_max -= diskCaps->node_iops_max;
+    total_node_iops_min -= diskCaps->node_iops_min;
 
-    fds_verify(total_disk_capacity >= diskCaps->disk_capacity);
     total_disk_capacity -= diskCaps->disk_capacity;
-    disk_latency_max     = diskCaps->disk_latency_max;
-    disk_latency_min     = diskCaps->disk_latency_min;
-    total_ssd_iops_max  -= diskCaps->ssd_iops_max;
-    total_ssd_iops_min  -= diskCaps->ssd_iops_min;
     total_ssd_capacity  -= diskCaps->ssd_capacity;
-    ssd_latency_max      = diskCaps->ssd_latency_max;
-    ssd_latency_min      = diskCaps->ssd_latency_min;
 
-    avail_disk_iops_max -= diskCaps->disk_iops_max;
-    avail_disk_iops_min -= diskCaps->disk_iops_min;
+    avail_node_iops_max -= diskCaps->node_iops_max;
+    avail_node_iops_min -= diskCaps->node_iops_min;
     avail_disk_capacity -= diskCaps->disk_capacity;
-    avail_ssd_iops_max  -= diskCaps->ssd_iops_max;
-    avail_ssd_iops_min  -= diskCaps->ssd_iops_min;
     avail_ssd_capacity  -= diskCaps->ssd_capacity;
 
     LOGNOTIFY << "Total Disk Resources "
-              << "\n  Total Disk iops Max : " << total_disk_iops_max
-              << "\n  Total Disk iops Min : " << total_disk_iops_min
+              << "\n  Total Node iops Max : " << total_node_iops_max
+              << "\n  Total Node iops Min : " << total_node_iops_min
               << "\n  Total Disk capacity : " << total_disk_capacity
-              << "\n  Disk latency Max: " << disk_latency_max
-              << "\n  Disk latency Min: " << disk_latency_min
-              << "\n  Total Ssd iops Max : " << total_ssd_iops_max
-              << "\n  Total Ssd iops Min: " << total_ssd_iops_min
               << "\n  Total Ssd capacity : " << total_ssd_capacity
-              << "\n  Ssd latency Max: " << ssd_latency_max
-              << "\n  Ssd latency Min : " << ssd_latency_min
               << "\n  Avail Disk capacity : " << avail_disk_capacity
-              << "\n  Avail Disk  iops max : " << avail_disk_iops_max
-              << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
+              << "\n  Avail Disk  iops max : " << avail_node_iops_max
+              << "\n  Avail Disk  iops min : " << avail_node_iops_min;
 }
 
 void FdsAdminCtrl::getAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
@@ -141,7 +112,7 @@ fds_uint64_t FdsAdminCtrl::getMaxIOPC() const {
         replication_factor = num_nodes;
     }
     fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
-    double max_iopc_subcluster = (avail_disk_iops_max/replication_factor);
+    double max_iopc_subcluster = (avail_node_iops_max/replication_factor);
     return max_iopc_subcluster;
 }
 
@@ -174,10 +145,10 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // with more pessimistic admission control on min_iops, once QoS is
     // more stable, we may admit on average case or whatever we will find
     // works best
-    iopc_subcluster = (avail_disk_iops_min/replication_factor);
+    iopc_subcluster = (avail_node_iops_min/replication_factor);
     // TODO(Anna) I think max_iopc_subcluster should be calculated as
-    // num_nodes * min(disk_iops_min from all nodes) / replication_factor
-    max_iopc_subcluster = (avail_disk_iops_max/replication_factor);
+    // num_nodes * min(node_iops_min from all nodes) / replication_factor
+    max_iopc_subcluster = (avail_node_iops_max/replication_factor);
 
     if (pVolDesc->iops_guarantee <= 0) {
         LOGWARN << "iops gurantee is zero";
@@ -277,23 +248,15 @@ Error FdsAdminCtrl::checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc)
 
 void FdsAdminCtrl::initDiskCapabilities()
 {
-    total_disk_iops_max = 0;
-    total_disk_iops_min = 0;
+    total_node_iops_max = 0;
+    total_node_iops_min = 0;
     total_disk_capacity = 0;
-    disk_latency_max = 0;
-    disk_latency_min = 0;
-    total_ssd_iops_max = 0;
-    total_ssd_iops_min = 0;
     total_ssd_capacity = 0;
-    ssd_latency_max = 0;
-    ssd_latency_min = 0;
 
     /* Available  capacity */
-    avail_disk_iops_max = 0;
-    avail_disk_iops_min = 0;
+    avail_node_iops_max = 0;
+    avail_node_iops_min = 0;
     avail_disk_capacity = 0;
-    avail_ssd_iops_max = 0;
-    avail_ssd_iops_min = 0;
     avail_ssd_capacity = 0;
     /*  per volume capacity */
     total_vol_iops_min = 0;

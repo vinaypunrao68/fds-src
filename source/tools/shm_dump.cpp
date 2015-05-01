@@ -86,14 +86,9 @@ ShmDump::read_inv_shm(const char *fname)
                   << "Disk Type: " << np->nd_disk_type << std::endl
                   << "Capability: " << std::endl
                   << "\t Capacity: " << np->nd_capability.disk_capacity << std::endl
-                  << "\t IOPs Max: " << np->nd_capability.disk_iops_max << std::endl
-                  << "\t IOPs Min: " << np->nd_capability.disk_iops_min << std::endl
-                  << "\t Disk Latency Max: " << np->nd_capability.disk_latency_max << std::endl
-                  << "\t Disk Latency Min: " << np->nd_capability.disk_latency_min << std::endl
-                  << "\t SSD IOPs Max: " << np->nd_capability.ssd_iops_max << std::endl
-                  << "\t SSD IOPs Min: " << np->nd_capability.ssd_iops_min << std::endl
-                  << "\t SSD Latency Max: " << np->nd_capability.ssd_latency_max << std::endl
-                  << "\t SSD Latency Min: " << np->nd_capability.ssd_latency_min << std::endl
+                  << "\t Capacity: " << np->nd_capability.ssd_capacity << std::endl
+                  << "\t IOPs Max: " << np->nd_capability.node_iops_max << std::endl
+                  << "\t IOPs Min: " << np->nd_capability.node_iops_min << std::endl
                   << std::endl << std::endl;
     }
     if (empty_nodes) {
