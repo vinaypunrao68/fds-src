@@ -95,7 +95,8 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
         /*
          * TODO Tinius 02/11/2015
          * 
-         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+         * FS-936 -- AM and OM continuously log errors with
+         * "invalid bucket SYSTEM_VOLUME_0"
          * 
          * Not sure if this is expected behavior? Once re-written we will
          * handle this correctly. But for now remove the logging noise
@@ -578,7 +579,7 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& r
     }
 
     LOGDEBUG << "Will send StatStreamRegistration with id " << reg.id
-             << "to DM " << std::hex << rs_uuid.uuid_get_val() << ", AM uuid is "
+             << " to DM " << std::hex << rs_uuid.uuid_get_val() << ", AM uuid is "
              << std::hex << stream_dest_uuid.uuid_get_val() << std::dec;
 
     auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
@@ -2218,11 +2219,6 @@ void OM_NodeContainer::om_bcast_svcmap()
         svcMgr->getSelfSvcUuid(),
         fpi::SvcUuid());
 
-    /* NOTE: Ideally service map should be persisted in configdb also..But the current
-     * code stores node information which is slightly different from svc map.  Once,
-     * we unify svc map and node/domain container concpets, we will broadcast the persisted
-     * svc map
-     */
     // TODO(Rao): add the filter so that we don't send the broad cast to om
     svcMgr->broadcastAsyncSvcReqMessage(header, buf,
                                         [](const fpi::SvcInfo& info) {return true;});

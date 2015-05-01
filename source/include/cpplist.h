@@ -78,6 +78,17 @@ class ChainList
         }
         return nullptr;
     }
+    template <typename T>
+    inline T *chain_peek_back()
+    {
+        dlist_t *ptr;
+
+        ptr = dlist_peek_back(&chain_head);
+        if (ptr != nullptr) {
+            return ChainLink::chain_obj_frm_link<T>(ptr);
+        }
+        return nullptr;
+    }
     inline ChainLink *chain_front_elem()
     {
         dlist_t *ptr = dlist_peek_front(&chain_head);

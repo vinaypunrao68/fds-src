@@ -31,6 +31,8 @@ typedef std::function<void (fds_uint64_t executorId,
                             fds_uint32_t round,
                             const Error& error)> MigrationExecutorDoneHandler;
 
+typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
+
 class MigrationExecutor {
   public:
     MigrationExecutor(SmIoReqHandler *_dataStore,
@@ -40,6 +42,7 @@ class MigrationExecutor {
                       fds_uint64_t id,
                       fds_uint64_t targetDltVer,
                       bool forResync,
+                      MigrationDltFailedCb failedRetryHandler,
                       MigrationExecutorDoneHandler doneHandler);
     ~MigrationExecutor();
 
@@ -89,6 +92,13 @@ class MigrationExecutor {
     Error startSecondObjectRebalanceRound();
 
     /**
+     * Start object rebalance for sm tokens whose token migration
+     * failed in the previous try with error that source SM was
+     * not ready to become source.
+     */
+    Error startObjectRebalanceAgain(leveldb::ReadOptions& options,
+                                    leveldb::DB *db);
+    /**
      * Handles message from Source SM to apply delta set to this SM
      */
     Error applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
@@ -109,6 +119,7 @@ class MigrationExecutor {
 
     /// callback from SL on rebalance filter set msg
     void objectRebalanceFilterSetResp(fds_token_id dltToken,
+                                      uint64_t seqId,
                                       EPSvcRequest* req,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload);
@@ -136,6 +147,9 @@ class MigrationExecutor {
     /// callback to notify that migration finished
     MigrationExecutorDoneHandler migrDoneHandler;
 
+    /// callback to update failed dlt token migration set
+    MigrationDltFailedCb migrFailedRetryHandler;
+
     /**
      * Object data store handler.  Set during the initialization.
      */
@@ -162,6 +176,12 @@ class MigrationExecutor {
      */
     std::set<fds_token_id> dltTokens;
     fds_uint32_t bitsPerDltToken;
+
+    /**
+     * Set of DLT tokens that failed to be migrated from source SM
+     * because the source was not ready.
+     */
+     std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
 
     /**
      * Maintain messages from the source SM, so we don't lose it.  Each async message

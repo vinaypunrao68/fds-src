@@ -43,6 +43,10 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
 
+    /// Flag to depict if this object store is ready to become a source
+    /// for migration.
+    bool isReadyAsMigrSrc;
+
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
     // TODO(xxx) we should be able to get this from platform
@@ -206,6 +210,18 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Returns number of disks on this SM
      */
     fds_uint32_t getDiskCount() const;
+
+    /**
+     * Check if object store is ready to become source for SM token
+     * migration.
+     */
+    bool isReadyAsMigrationSrc() { return isReadyAsMigrSrc; } 
+
+    /**
+     * Mark this object store as ready for becoming source for
+     * SM token Migration.
+     */
+    void makeReadyForMigrationSrc() { isReadyAsMigrSrc = true; }
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);

@@ -56,6 +56,7 @@
    fds.om. specific entries
 #}
 {% set om_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set om_influxdb_url = fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://' + om_ip + ':8086' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
 {#

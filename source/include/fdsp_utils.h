@@ -150,7 +150,9 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
         return;
     }
 
-    payload = bo::make_shared<PayloadT>();
+    if (!payload) {
+        payload = bo::make_shared<PayloadT>();
+    }
     deserializeFdspMsg(*payloadBuf, *payload);
 }
 
