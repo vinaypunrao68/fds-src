@@ -28,6 +28,7 @@ namespace fds
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
                 gl_DiskPlatMod.mod_startup();
+
                 platform->updateServiceInfoProperties(&svcInfo_.props);
             }
 

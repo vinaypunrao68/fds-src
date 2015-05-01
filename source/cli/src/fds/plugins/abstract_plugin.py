@@ -27,6 +27,14 @@ class AbstractPlugin( object ):
     snapshot_id_str = "snapshot_id"
     time_str = "time"
     retention_str = "retention"
+    node_id_str = "node_id"
+    node_ids_str = "node_ids"
+    discovered_str = "discovered"
+    added_str = "added"
+    all_str = "all"
+    services_str = "services"
+    state_str = "state"
+    domain_name_str = "domain_name"
 
 
     def __init__(self, session):

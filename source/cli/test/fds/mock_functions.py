@@ -1,8 +1,13 @@
 from fds.utils.volume_converter import VolumeConverter
 from fds.model.volume import Volume
 from fds.model.snapshot import Snapshot
+from fds.model.node import Node
+from fds.model.service import Service
+from fds.model.domain import Domain
 import json
 from fds.utils.snapshot_converter import SnapshotConverter
+from fds.utils.node_converter import NodeConverter
+from fds.utils.domain_converter import DomainConverter
 
 '''
 Created on Apr 22, 2015
@@ -78,4 +83,46 @@ def listSnapshots( volumeName ):
     snapshot = json.loads( tempSnap )
     snaps.append( snapshot )
     return snaps
+
+def listNodes():
+    node = Node()
+    node.name = "FakeNode"
+    node.ip_v4_address = "10.12.14.15"
+    node.id = "21ABC"
+    node.state = "ACTIVE"
     
+    node.services["AM"]  = [Service(a_type="FDSP_ACCESS_MGR",auto_name="AM")]
+    node.services["DM"]  = [Service(a_type="FDSP_DATA_MGR",auto_name="DM")]
+    node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM")]
+    node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM")]                
+ 
+    jNode = NodeConverter.to_json( node )
+    nodes = json.loads( jNode )
+    
+    d = dict()
+    d["nodes"] = [nodes]
+    return d
+
+def activateNode( node_id, state ):
+    response = dict()
+    response["status"] = "OK"
+    return response
+    
+def deactivateNode( node_id, state ):
+    response = dict()
+    response["status"] = "OK"
+    return response   
+
+def shutdownDomain( domain_name ):
+    response = dict()
+    response["status"] = "OK"
+    return response 
+
+def listLocalDomains():
+    
+    domain = Domain()
+    domain = DomainConverter.to_json(domain)
+    domains = []
+    domains.append( json.loads( domain ))
+    
+    return domains

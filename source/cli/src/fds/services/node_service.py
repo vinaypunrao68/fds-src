@@ -20,23 +20,29 @@ class NodeService( AbstractService ):
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/services" )
-        return self.rest_helper().get( self.session, url )
+        return self.rest_helper.get( self.session, url )
     
     def activate_node(self, node_id, node_state):
         '''
         This method will activate a node and put the services in the desired state.
+        
+        node_id is the UUID of the node to activate
+        node_state is a node state object defines which services will be started
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/services/", node_id)
         data = NodeStateConverter.to_json( node_state )
-        return self.rest_helper().post( self.session, url, data )
+        return self.rest_helper.post( self.session, url, data )
     
     def deactivate_node(self, node_id, node_state):
         '''
         This method will deactivate the node and remember the state that is sent in
+        
+        node_id is the UUID of the node to de-activate
+        node_state is a node state object defines which services will be stopped        
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/services/", node_id )
         data = NodeStateConverter.to_json( node_state )
-        return self.rest_helper().put( self.session, url, data )
+        return self.rest_helper.put( self.session, url, data )
         
