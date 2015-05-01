@@ -13,6 +13,9 @@ class DomainConverter():
         
         domain = Domain()
         
+        if not isinstance( jsonString, dict ):
+            jsonString = json.loads( jsonString )
+        
         domain.name = jsonString.pop( "name", domain.name )
         domain.id = jsonString.pop( "id", domain.id )
         domain.site = jsonString.pop( "site", domain.site )

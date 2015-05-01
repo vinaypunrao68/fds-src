@@ -1,6 +1,9 @@
 from abstract_plugin import AbstractPlugin
 from fds.services.local_domain_service import LocalDomainService
 from fds.services.response_writer import ResponseWriter
+from fds.utils.domain_converter import DomainConverter
+
+import json
 
 '''
 Created on Apr 13, 2015
@@ -69,7 +72,15 @@ class LocalDomainPlugin( AbstractPlugin):
         domains = self.get_local_domain_service().get_local_domains()
         
         if ( args[AbstractPlugin.format_str] == "json" ):
-            ResponseWriter.writeJson( domains )
+            
+            j_domains = []
+            
+            for domain in domains:
+                j_domain = DomainConverter.to_json(domain)
+                j_domain = json.loads( j_domain )
+                j_domains.append( j_domain )
+            
+            ResponseWriter.writeJson( j_domains )
         else:
             domains = ResponseWriter.prep_domains_for_table( self.session, domains )
             ResponseWriter.writeTabularData( domains )

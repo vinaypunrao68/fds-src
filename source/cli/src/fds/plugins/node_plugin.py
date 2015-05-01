@@ -2,6 +2,9 @@ from abstract_plugin import AbstractPlugin
 from fds.services.node_service import NodeService
 from fds.services.response_writer import ResponseWriter
 from fds.model.node_state import NodeState
+from fds.utils.node_converter import NodeConverter
+
+import json
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -51,7 +54,7 @@ class NodePlugin( AbstractPlugin ):
         __service_parser = subparser.add_parser( "list_services", help="List services that are running on a node or nodes.  Default is to see all services on all nodes." )
         __service_parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         __service_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="Specify which node you would like to list the services for.")
-        __service_parser.add_argument( "-" + AbstractPlugin.services_str, help="A list of what type of services you would like to see in the results.", nargs="+", choices=["am","dm","sm", "pm", "om"],required=False)
+        __service_parser.add_argument( "-" + AbstractPlugin.services_str, help="A list of what type of services you would like to see in the results.", nargs="+", choices=["am","dm","sm", "pm", "om"],default=["am","dm","sm","pm","om"],required=False)
          
         __service_parser.set_defaults( func=self.list_services, format="tabular")
      
@@ -144,7 +147,7 @@ class NodePlugin( AbstractPlugin ):
         d_nodes = []
         
         for node in nodes:
-            if ( node["state"] == "DISCOVERED" ):
+            if ( node.state == "DISCOVERED" ):
                 d_nodes.append( node )
     
         return d_nodes
@@ -158,7 +161,7 @@ class NodePlugin( AbstractPlugin ):
         d_nodes = []
         
         for node in nodes:
-            if ( node["state"] != "DISCOVERED" ):
+            if ( node.state != "DISCOVERED" ):
                 d_nodes.append( node )
     
         return d_nodes
@@ -175,7 +178,7 @@ class NodePlugin( AbstractPlugin ):
         This should be fixed in the next revision of the REST API
         '''
         
-        nodes = self.get_node_service().list_nodes().pop( "nodes" )
+        nodes = self.get_node_service().list_nodes()
         show_list = []
         
         if ( AbstractPlugin.state_str in args and args[AbstractPlugin.state_str] == "discovered" ):
@@ -189,7 +192,14 @@ class NodePlugin( AbstractPlugin ):
             print "\nNo nodes matching the request were found."
             
         if args[AbstractPlugin.format_str] == "json":
-            ResponseWriter.writeJson( show_list)
+            j_nodes = []
+            
+            for node in nodes:
+                j_node = NodeConverter.to_json(node)
+                j_node = json.loads( j_node )
+                j_nodes.append( j_node )
+                
+            ResponseWriter.writeJson( j_nodes )
         else:
             cleaned = ResponseWriter.prep_node_for_table( self.session, show_list )
             ResponseWriter.writeTabularData( cleaned )    
@@ -200,8 +210,8 @@ class NodePlugin( AbstractPlugin ):
         '''
         id_list = []
         
-        if ( args[AbstractPlugin.node_ids_str] == None ):
-            nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes().pop( "nodes" ) )
+        if ( args[AbstractPlugin.node_ids_str] is None ):
+            nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes() )
             for node in nodes:
                 id_list.append( node["uuid"] )
             #end of for loop
@@ -249,7 +259,7 @@ class NodePlugin( AbstractPlugin ):
         state.dm = None
         state.sm = None
         
-        if ( args[AbstractPlugin.services_str] != None ):
+        if ( not args[AbstractPlugin.services_str] is None ):
             
             for service in args[AbstractPlugin.services_str]:
                 if service == "am":
@@ -280,7 +290,7 @@ class NodePlugin( AbstractPlugin ):
         state.dm = None
         state.sm = None        
         
-        if ( args[AbstractPlugin.services_str] != None ):
+        if ( args[AbstractPlugin.services_str] is not None ):
             for service in args[AbstractPlugin.services_str]:
                 if service == "am":
                     state.am = False
@@ -304,68 +314,71 @@ class NodePlugin( AbstractPlugin ):
         Handler to figure out which services to list
         '''
         
-        nodes = self.get_node_service().list_nodes().pop( "nodes" )
-        service_list = []
+        nodes = self.get_node_service().list_nodes()
+        node_list = []
         
         # filter everything but the node we want
-        if ( args[AbstractPlugin.node_id_str] != None ):
+        if ( args[AbstractPlugin.node_id_str] is not None ):
             for node in nodes:
-                if ( node["uuid"] == args[AbstractPlugin.node_id_str]):
-                    service_list.append( node )
+                if ( node.id == args[AbstractPlugin.node_id_str]):
+                    node_list.append( node )
             # end of For
         else:
-            service_list = nodes
+            node_list = nodes
             
-        #now we actually remove all the services not included in the desired output
-        if ( args[AbstractPlugin.services_str] != None):
-            
-            #OM is not part of the object yet but when it is,
-            # these commented out portions will be useful
-            
-            am = False
-            sm = False
-            dm = False
-            pm = False
+        #OM is not part of the object yet but when it is,
+        # these commented out portions will be useful
+        
+        am = False
+        sm = False
+        dm = False
+        pm = False
 #             om = False
-            
-            for service in args[AbstractPlugin.services_str]:
-                if ( service == "am" ):
-                    am = True
-                elif ( service == "dm" ):
-                    dm = True
-                elif ( service == "sm" ):
-                    sm = True
-                elif ( service == "pm" ):
-                    pm = True
+        
+        for service in args[AbstractPlugin.services_str]:
+            if ( service == "am" ):
+                am = True
+            elif ( service == "dm" ):
+                dm = True
+            elif ( service == "sm" ):
+                sm = True
+            elif ( service == "pm" ):
+                pm = True
 #                 elif ( service == "om" ):
 #                     om = True
-            #end of for loop
+        #end of for loop
+        
+        for node in node_list:
             
-            for node in service_list:
+            if ( am is False ):
+                del node.services["AM"]
                 
-                if ( am == False ):
-                    del node["services"]["AM"]
-                    
-                if ( sm == False ):
-                    del node["services"]["SM"]
-                    
-                if ( dm == False ):
-                    del node["services"]["DM"]
-                    
-                if ( pm == False ):
-                    del node["services"]["PM"]
-                    
+            if ( sm is False ):
+                del node.services["SM"]
+                
+            if ( dm is False ):
+                del node.services["DM"]
+                
+            if ( pm is False ):
+                del node.services["PM"]
+                
 #                 if ( om == False ):
 #                     del node["services"]["OM"]
-            #end of for loop
+        #end of for loop
             
         # now we have a list of matching nodes with only the services filled in that are requested
         # if JSON is requested we just spit it out
         if ( args[AbstractPlugin.format_str] == "json" ):
-            ResponseWriter.writeJson( service_list )
+            
+            j_nodes = []
+            
+            for j_node in node_list:
+                j_node = NodeConverter.to_json(j_node)
+                j_nodes.append( j_node )
+                
+            ResponseWriter.writeJson( j_nodes )
         else:
-            cleaned = ResponseWriter.prep_services_for_table( self.session, service_list )
+            cleaned = ResponseWriter.prep_services_for_table( self.session, node_list )
             ResponseWriter.writeTabularData( cleaned )
-                
-                
+                     
         
