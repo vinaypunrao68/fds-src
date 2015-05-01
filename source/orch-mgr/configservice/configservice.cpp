@@ -482,7 +482,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         } while (count > 0 && vol && !vol->isStateActive());
 
         if (!vol || !vol->isStateActive()) {
-            LOGERROR << "Some issue in volume creation " << *volumeName;
+            LOGERROR << "Timeout on waiting for volume to become ACTIVE " << *volumeName;
             apiException("error creating volume");
         }
     }
