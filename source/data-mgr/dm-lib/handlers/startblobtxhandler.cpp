@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-StartBlobTxHandler::StartBlobTxHandler() {
-    if (!dataMgr->features.isTestMode()) {
+StartBlobTxHandler::StartBlobTxHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::StartBlobTxMsg, handleRequest);
     }
 }
@@ -30,9 +32,16 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     HANDLE_U_TURN();
 
     // start blob tx specific U-turn
-    if (dataMgr->testUturnStartTx) {
+    if (dataManager.testUturnStartTx) {
         LOGNOTIFY << "Uturn testing start blob tx " << logString(*asyncHdr) << logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, nullptr);
+        return;
+    }
+
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 
@@ -50,32 +59,32 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 }
 
 void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoStartBlobTx* typedRequest = static_cast<DmIoStartBlobTx*>(dmRequest);
 
     LOGTRACE << "Will start transaction " << *typedRequest;
 
     // TODO(Anna) If this DM is not forwarding for this io's volume anymore
     // we reject start TX on DMT mismatch
-    dataMgr->vol_map_mtx->lock();
+    dataManager.vol_map_mtx->lock();
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator volMetaIter =
-            dataMgr->vol_meta_map.find(typedRequest->volId);
-    if (dataMgr->vol_meta_map.end() != volMetaIter) {
+            dataManager.vol_meta_map.find(typedRequest->volId);
+    if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
-            (typedRequest->dmt_version != dataMgr->omClient->getDMTVersion())) {
+            (typedRequest->dmt_version != dataManager.omClient->getDMTVersion())) {
             helper.err = ERR_IO_DMT_MISMATCH;
         }
     } else {
         helper.err = ERR_VOL_NOT_FOUND;
     }
-    dataMgr->vol_map_mtx->unlock();
+    dataManager.vol_map_mtx->unlock();
 
     if (helper.err.ok()) {
-        helper.err = dataMgr->timeVolCat_->startBlobTx(typedRequest->volId,
-                                                       typedRequest->blob_name,
-                                                       typedRequest->blob_mode,
-                                                       typedRequest->ioBlobTxDesc);
+        helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
+                                                          typedRequest->blob_name,
+                                                          typedRequest->blob_mode,
+                                                          typedRequest->ioBlobTxDesc);
     }
 }
 
@@ -85,7 +94,9 @@ void StartBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     asyncHdr->msg_code = e.GetErrno();
     LOGDEBUG << "startBlobTx completed " << e << " " << logString(*asyncHdr);
 
-    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), fpi::StartBlobTxRspMsg());
+    DM_SEND_ASYNC_RESP(*asyncHdr,
+                       FDSP_MSG_TYPEID(fpi::StartBlobTxRspMsg),
+                       fpi::StartBlobTxRspMsg());
 
     delete dmRequest;
 }

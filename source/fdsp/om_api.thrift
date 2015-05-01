@@ -64,15 +64,6 @@ service OMSvc extends svc_api.PlatNetSvc {
   void registerService(1: svc_types.SvcInfo svcInfo) throws (1: om_types.OmRegisterException e);
 
   /**
-  * @brief Returns service map
-  *
-  * @param nullarg
-  *
-  * @return
-  */
-  list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
-
-  /**
   * @brief Returns service infomation identified by svcUuid
   *
   * @param svcUuid

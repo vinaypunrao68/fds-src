@@ -79,6 +79,11 @@ class FDSServices(object):
                                                 VolumeType.BLOCK,
                                                 volume['size'] * (1024 ** 3),
                                                 0), # cont Commit Log Retention, wtf?
+                                                    # ^ this is the duration to keep full
+                                                    #   transaction replay logs. You can
+                                                    #   create a new snapshot at any time
+                                                    #   from now until the end of commit
+                                                    #   log retention.
                                  0) # Tenant ID, default to admin
         except ApiException as ex:
             if ex.errorCode != 3:
@@ -105,7 +110,9 @@ class NbdManager(object):
 
     @staticmethod
     def execute_remote_nbd_operation(url, operation, nbd_server, volume_name):
-        params = {'op': operation, 'host': nbd_server, 'volume': volume_name}
+        params = {'op': operation, 'volume': volume_name}
+        if nbd_server is not None:
+            params["host"] = nbd_server
         result = requests.get(url, params=params)
         if result.status_code != 200:
             raise Exception('NBD REST service responded with HTTP status code %d' % result.status_code)
@@ -117,6 +124,9 @@ class NbdManager(object):
 
     def detach_nbd_remote(self, url, nbd_server, volume_name):
         self.execute_remote_nbd_operation(url, 'detach', nbd_server, volume_name)
+
+    def detach_nbd_remote_all(self, url, volume_name):
+        self.execute_remote_nbd_operation(url, 'detach', None, volume_name)
 
     def attach_nbd_remote(self, url, nbd_server, volume_name):
         return self.execute_remote_nbd_operation(url, 'attach', nbd_server, volume_name)

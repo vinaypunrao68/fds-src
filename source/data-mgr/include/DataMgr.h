@@ -47,6 +47,8 @@
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
 
+#include "util/ExecutionGate.h"
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -54,9 +56,7 @@
 
 namespace fds {
 
-struct DataMgr;
 class DMSvcHandler;
-extern DataMgr *dataMgr;
 
 struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
@@ -77,7 +77,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
     VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
-
     /**
     * Callback for DMT close
     */
@@ -104,6 +103,28 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 vol_meta_map.find(volId);
         return (vol_meta_map.end() != iter && iter->second ?
                 iter->second->vol_desc : 0);
+    }
+
+    ///
+    /// Check if a given volume is active.
+    ///
+    /// @param volumeId The ID of the volume to check.
+    ///
+    /// @return ERR_OK if the volume is active. ERR_VOL_NOT_FOUND if @p volumeId is not in the
+    ///         volume map. ERR_DM_VOL_NOT_ACTIVATED if the volume exists but is not active.
+    ///
+    Error validateVolumeIsActive(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+
+        if (volumeDesc->state != Active)
+        {
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
+
+        return ERR_OK;
     }
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
@@ -208,16 +229,16 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
-                    threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
+                    threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
                     break;
                 case FDS_DM_PUSH_META_DONE:
-                    threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
+                    threadPool->schedule(&DataMgr::handleDMTClose, parentDm, io);
                     break;
                 case FDS_DM_PURGE_COMMIT_LOG:
                     threadPool->schedule(io->proc, io);
                     break;
                 case FDS_DM_META_RECVD:
-                    threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
+                    threadPool->schedule(&DataMgr::handleForwardComplete, parentDm, io);
                     break;
 
                 /* End of new refactored DM message types */
@@ -237,10 +258,15 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
                 case FDS_STAT_VOLUME:
+                case FDS_GET_VOLUME_METADATA:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
+                case FDS_OPEN_VOLUME:
+                case FDS_CLOSE_VOLUME:
+                case FDS_DM_RELOAD_VOLUME:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         dataMgr->handlers.at(io->io_type), io);
+                                         parentDm->handlers.at(io->io_type),
+                                         io);
                     break;
 
                 default:
@@ -361,6 +387,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     void updateCatalog(dmCatReq *io);
     /* End of new refactored DM message handlers */
 
+    void flushIO();
     void scheduleDeleteCatObjSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void snapVolCat(dmCatReq *io);
@@ -399,6 +426,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
     friend class dm::DeleteBlobHandler;
+
+private:
+    ///
+    /// Don't shut down until this gate is opened.
+    ///
+    util::ExecutionGate _shutdownGate;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
@@ -415,6 +448,16 @@ class CloseDMTTimerTask : public FdsTimerTask {
   private:
     cbType timeout_cb;
 };
+
+namespace dmutil {
+// location of volume
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = 0);
+
+// location of all snapshots for a volume
+std::string getSnapshotDir(fds_volid_t volId);
+
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = 0);
+}  // namespace dmutil
 
 }  // namespace fds
 

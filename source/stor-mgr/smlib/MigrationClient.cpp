@@ -24,13 +24,15 @@ namespace fds {
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
                                  fds_uint64_t& _targetDltVersion,
-                                 fds_uint32_t bitsPerToken)
+                                 fds_uint32_t bitsPerToken,
+                                 bool resync)
     : dataStore(_dataStore),
       destSMNodeID(_destSMNodeID),
       targetDltVersion(_targetDltVersion),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
+      forResync(resync),
       testMode(false)
 {
 
@@ -52,7 +54,9 @@ MigrationClient::~MigrationClient()
 
 void
 MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
-    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET) {
+    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET ||
+        (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET &&
+        forResync == true)) {
         fds_verify(smTok == SMTokenID);
         LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
                    << " executorId " << std::hex << executorID << std::dec;
@@ -115,6 +119,12 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         }
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
+        // we are currently not forwarding 'delete' during resync on restart
+        if (forResync) {
+            LOGMIGRATE << "Not forwarding delete during resync on restart " << *delReq;
+            return false;
+        }
+
         LOGMIGRATE << "Forwarding " << *delReq
                    << " to Uuid " << std::hex << destSMNodeID << std::dec;
         if (!testMode) {
@@ -674,9 +684,9 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
 }
 
 
-
 Error
-MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet)
+MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
+                                                   fds_bool_t srcAccepted)
 {
     /* Verify that the token and executor ID matches known SM token and perviously
      * set exector ID.
@@ -690,7 +700,8 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": seqNum=" << curSeqNum << ", "
                << "DLT token=" << dltToken << ", "
-               << "executorId=" << std::hex << executorId << std::dec;
+               << "executorId=" << std::hex << executorId << std::dec
+               << ", accepted? " << srcAccepted;
 
     if (getMigClientState() == MIG_CLIENT_ERROR) {
         LOGMIGRATE << "Migration Client in error state";
@@ -701,30 +712,37 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
      */
     setMigClientState(MIG_CLIENT_FILTER_SET);
 
-    migClientLock.lock();
+    // this method may be called if source did not accept to process this
+    // filter set; we are calling the method in that case to ensure that
+    // we properly detect end of sequence and go to the right state
+    if (srcAccepted) {
+        migClientLock.lock();
 
-    /* Verify message destination.
-     */
-    bool verifySuccess = migClientVerifyDestination(dltToken, executorId);
-    if (!verifySuccess) {
+        /* Verify message destination.
+         */
+        bool verifySuccess = migClientVerifyDestination(dltToken, executorId);
+        if (!verifySuccess) {
+            migClientLock.unlock();
+            LOGMIGRATE << "Filter set token migration message from destination is corrupt"
+                       << std::hex << executorId << std::dec << dltToken;
+            return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
+        }
+
+        /* since the MigrationMgr may add tokenID and objects to filter asynchronously,
+         * need to protect it.
+         */
+        /* For debugging, keep set of DLT token ids.
+         */
+        dltTokenIDs.insert(filterSet->tokenId);
+
+        /* Now, add the objects and corresponding refcnts to the local filter set.
+         */
+        for (auto& objAndRefCnt : filterSet->objectsToFilter) {
+            filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
+                                    objAndRefCnt);
+        }
         migClientLock.unlock();
-        return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
     }
-
-    /* since the MigrationMgr may add tokenID and objects to filter asynchronously,
-     * need to protect it.
-     */
-    /* For debugging, keep set of DLT token ids.
-     */
-    dltTokenIDs.insert(filterSet->tokenId);
-
-    /* Now, add the objects and corresponding refcnts to the local filter set.
-     */
-    for (auto& objAndRefCnt : filterSet->objectsToFilter) {
-      filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
-                              objAndRefCnt);
-    }
-    migClientLock.unlock();
 
     /* Set the sequence number of the received message to ensure all messages are received.
      */
@@ -734,7 +752,16 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
          * Safe to snapshot.
          */
         LOGMIGRATE << "MigClientState=" << getMigClientState()
-                   << ": Received complete FilterSet with last seqNum=" << filterSet->seqNum;
+                   << ": Received complete FilterSet with last seqNum=" << filterSet->seqNum
+                   << " for number of DLT tokens: " << dltTokenIDs.size()
+                   << ", executorId " << std::hex << executorId << std::dec;
+
+        if (dltTokenIDs.size() == 0) {
+            LOGMIGRATE << "This SM declined to be a source for all DLT tokens from ExecutorID "
+                       << std::hex << executorId << std::dec << "; no need to proceed with this client";
+            // basically declining the whole set...
+            return ERR_SM_RESYNC_SOURCE_DECLINE;
+        }
 
         /* Transition to the first phase of delta set generation.
          */

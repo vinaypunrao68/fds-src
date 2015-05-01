@@ -6,20 +6,12 @@
 #include <unistd.h>
 #include <fds_assert.h>
 #include <fds_process.h>
-#include "platform/platform_consts.h"
 #include "platform/platform.h"
 
-#include <dlt.h>
 #include <ObjectId.h>
 #include <StorMgr.h>
-#include <object-store/SmDiskMap.h>
-#include <object-store/ObjectMetaDb.h>
-#include <object-store/ObjectMetadataStore.h>
-#include <object-store/ObjectStore.h>
-#include <vector>
-#include <string>
 #include <boost/program_options.hpp>
-#include <persistent-layer/dm_io.h>
+#include <net/SvcMgr.h>
 
 
 #include <SMCheck.h>
@@ -68,8 +60,13 @@ SMCheckOffline::SMCheckOffline(SmDiskMap::ptr smDiskMap,
         std::cout << "DLT Table:" << std::endl << *curDLT << std::endl;
     }
 
-    Error err = smDiskMap->handleNewDlt(curDLT, smUuid);
+    Error err = smDiskMap->loadPersistentState();
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+
+    Error dltErr = smDiskMap->handleNewDlt(curDLT, smUuid);
+    fds_verify(dltErr.ok() ||
+               (dltErr == ERR_SM_NOERR_GAINED_SM_TOKENS) ||
+               (dltErr == ERR_SM_NOERR_NEED_RESYNC));
 
     // Open the data store
     smObjStore->openDataStore(smDiskMap,
@@ -370,7 +367,6 @@ SMCheckOnline::SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap)
 
 {
     SMChkActive = ATOMIC_VAR_INIT(false);
-
     resetStats();
 
     snapRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
@@ -422,7 +418,7 @@ SMCheckOnline::getStats(fpi::CtrlNotifySMCheckStatusRespPtr resp)
 // After snapshot callback is called, it will process then the call back will
 // enqueue snapshot request for the next token in the set...  and so on...
 Error
-SMCheckOnline::startIntegrityCheck()
+SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
 {
     Error err(ERR_OK);
 
@@ -448,7 +444,7 @@ SMCheckOnline::startIntegrityCheck()
     SMCheckUuid = objStorMgr->getUuid();
 #endif
     // Get UUID of the SM.
-    SMCheckUuid = *(Platform::plf_get_my_svc_uuid());
+    SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
     LOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
 
@@ -456,9 +452,21 @@ SMCheckOnline::startIntegrityCheck()
              << " UUID=" << SMCheckUuid
              << " DLT=" << latestClosedDLT;
 
-    // get all the SM tokens in the system.  Now
-    allTokens = diskMap->getSmTokens();
-
+    targetDLTTokens = tgtDltTokens;
+    if (!targetDLTTokens.empty()) {
+        for (auto token : targetDLTTokens) {
+            fds_token_id smToken;
+            smToken = diskMap->smTokenId(token);
+            LOGDEBUG << "Token " << token << " found in sm token: " << smToken;
+            allTokens.insert(smToken);
+        }
+        LOGDEBUG << "Received target tokens list, verifying " << allTokens.size() << " SM tokens"
+                 << " and " << tgtDltTokens.size() << " dlt tokens.\n";
+    } else {
+        LOGDEBUG << "No target tokens found, verifying ALL SM tokens.\n";
+        // get all the SM tokens in the system.  Now
+        allTokens = diskMap->getSmTokens();
+    }
     // update stats on number of tokens to be checked
     totalNumTokens = allTokens.size();
     // assert in debug mode.
@@ -518,6 +526,13 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
     leveldb::Iterator* ldbIter = db->NewIterator(options);
     for (ldbIter->SeekToFirst(); ldbIter->Valid(); ldbIter->Next()) {
         ObjectID id(ldbIter->key().ToString());
+
+        if (!targetDLTTokens.empty()) {
+            // If this object isn't in the DLT token we're checking
+            if (targetDLTTokens.count(latestClosedDLT->getToken(id)) == 0) {
+                continue;
+            }
+        }
 
         ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
         objMetaDataPtr->deserializeFrom(ldbIter->value());

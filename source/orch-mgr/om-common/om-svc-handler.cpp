@@ -51,7 +51,6 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
-    REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, getSvcMap);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
 }
 
@@ -169,23 +168,6 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 
-void
-OmSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
-                        boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
-{
-    Error err(ERR_OK);
-    LOGDEBUG << " received " << hdr->msg_code
-             << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
-
-    fpi::GetSvcMapRespMsgPtr respMsg (new fpi::GetSvcMapRespMsg());
-    boost::shared_ptr<int64_t> nullarg;
-    getSvcMap(respMsg->svcMap, nullarg);
-
-    // initialize the response message with the service map
-    hdr->msg_code = 0;
-    sendAsyncResp (*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
-}
-
 void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
     LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
@@ -195,13 +177,6 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         LOGERROR << logString(*svcInfo) << err;
         throw fpi::OmRegisterException();
     }
-}
-
-void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
-                       boost::shared_ptr<int64_t>& nullarg)
-{
-    LOGDEBUG << "Service map request";
-    MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
 }
 
 void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,

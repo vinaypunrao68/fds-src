@@ -9,6 +9,7 @@
 #include <fds_process.h>
 #include <fds_module.h>
 #include <util/timeutils.h>
+#include <util/path.h>
 
 #include <dm-vol-cat/DmPersistVolDB.h>
 
@@ -24,8 +25,7 @@ const std::string DmPersistVolDB::CATALOG_CACHE_SIZE_STR("catalog_cache_size");
 const std::string DmPersistVolDB::CATALOG_MAX_LOG_FILES_STR("catalog_max_log_files");
 
 DmPersistVolDB::~DmPersistVolDB() {
-    delete catalog_;
-
+    catalog_.reset();
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
@@ -54,6 +54,14 @@ Error DmPersistVolDB::activate() {
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     }
 
+    bool fAlreadyExists = util::dirExists(catName);
+    if (clone_ || snapshot_) {
+        if (!fAlreadyExists) {
+            LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
+            return ERR_OK;
+        }
+    }
+
     LOGNOTIFY << "Activating '" << catName << "'";
     FdsRootDir::fds_mkdir(catName.c_str());
 
@@ -72,14 +80,22 @@ Error DmPersistVolDB::activate() {
 
     try
     {
-        if (catalog_) delete catalog_;
-        catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
-                    logFilePrefix, maxLogFiles, &cmp_);
+        catalog_.reset(new Catalog(catName,
+                                   writeBufferSize,
+                                   cacheSize,
+                                   logDirName,
+                                   logFilePrefix,
+                                   maxLogFiles,
+                                   &cmp_));
     }
     catch(const CatalogException& e)
     {
         LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
         LOGERROR << e.what();
+        if (fAlreadyExists) {
+            LOGERROR << "unable to load existing vol:" << volId_ << " ...not activating";
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
         return ERR_NOT_READY;
     }
 
@@ -130,7 +146,7 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 
 Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) {
     Catalog::catalog_roptions_t opts;
-    Catalog::catalog_iterator_t * dbIt = getSnapshotIter(opts);
+    auto dbIt = getSnapshotIter(opts);
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record dbKey = dbIt->key();
@@ -141,7 +157,6 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
@@ -183,7 +198,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
@@ -194,13 +209,11 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         fpi::FDSP_BlobObjectInfo blobInfo;
         blobInfo.offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
         blobInfo.size = objSize_;
-        blobInfo.blob_end = false;  // assume false
         blobInfo.data_obj_id.digest = std::move(dbIt->value().ToString());
 
         objList.push_back(std::move(blobInfo));
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
@@ -221,7 +234,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
@@ -235,7 +248,6 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         objList[static_cast<fds_uint64_t>(key->objIndex) * objSize_] = blobInfo;
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }

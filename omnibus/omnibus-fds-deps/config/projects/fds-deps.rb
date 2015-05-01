@@ -16,14 +16,15 @@ raise "FDS_SRC_DIR must be set'" unless fds_src_dir
 install_dir "#{default_root}/#{name}"
 
 #build_version Omnibus::BuildVersion.semver
-build_version '0.7.5'
-build_iteration 1
+build_version '0.7.7'
+build_iteration 3
 
 # Creates required build directories
 dependency "preparation"
 
 # fds-deps dependencies/components
 dependency "python"
+dependency "badger"
 dependency "pip"
 dependency "pcre"
 dependency "boto"
@@ -32,6 +33,7 @@ dependency "pycrypto"
 dependency "html5lib"
 dependency "colorama"
 dependency "distlib"
+dependency "requests"
 dependency "fstab"
 dependency "parted"
 dependency "libconfig"

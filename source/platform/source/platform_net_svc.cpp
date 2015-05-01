@@ -10,7 +10,6 @@
 #include <net/PlatNetSvcHandler.h>
 #include "node_shm_rw_ctrl.h"
 #include "plat_work_flow.h"
-#include "disk_plat_module.h"
 #include "plat_agent.h"
 #include "platform_net_svc.h"
 #include "platform_ep_handler.h"

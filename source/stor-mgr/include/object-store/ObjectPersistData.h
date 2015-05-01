@@ -103,7 +103,10 @@ class ObjectPersistData : public Module,
     std::map<fds_uint64_t, fds_uint16_t> writeFileIdMap;
     fds_rwlock mapLock;  // lock for both tokFileTbl and writeFileIdMap
 
-    // Scavenget (garbage collector)
+    // when flag is true, do not reopen any files...
+    fds_bool_t shuttingDown;
+
+    // Scavenger (garbage collector)
     ScavControl::unique_ptr scavenger;
 
   public:
@@ -114,12 +117,24 @@ class ObjectPersistData : public Module,
     typedef std::unique_ptr<ObjectPersistData> unique_ptr;
 
     /**
-     * Opens object data files
+     * Opens object data files (token files) for all SM tokens
+     * that are this SM owns.
+     * If any token file already open, keeps open and does not do anything
+     * on that file. If method called more than once for the same
+     * disk map, all subsequent calls are noop.
      * @param[in] diskMap map of SM tokens to disks
      * @param[in] true if SM comes up for the first time
      */
-    Error openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
-                               fds_bool_t pristineState);
+    Error openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+                              fds_bool_t pristineState);
+
+    /**
+     * Closes object data files on both tiers for all given SM tokens
+     * and deletes these files.
+     * @param[in] smTokensLost a list of SM tokens for which this SM
+     * lost ownership
+     */
+    Error closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost);
 
     /**
      * Peristently stores object data.
@@ -169,12 +184,14 @@ class ObjectPersistData : public Module,
                         fds_uint16_t fileId);
 
     /**
-     * Closes SM token file on a given tier and givel file id
+     * Closes SM token file on a given tier and given file id
      * and removes associated entry from tokFileTbl
+     * @param delFile true if file should be deleted
      */
     void closeTokenFile(diskio::DataTier tier,
                         fds_token_id smTokId,
-                        fds_uint16_t fileId);
+                        fds_uint16_t fileId,
+                        fds_bool_t delFile);
     /**
      * Translates <tier, SM token id, file id> into uint64 key
      * into tokFileTbl

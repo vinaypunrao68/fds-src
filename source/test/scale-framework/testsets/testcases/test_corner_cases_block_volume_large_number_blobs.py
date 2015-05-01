@@ -47,8 +47,8 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
                                                             self.inventory_file)
         
         self.all_blob_sizes = [0] 
-        #self.filesystem_types = ['mkfs.ext2', 'mkfs.ext3', 'mkfs.ext4'] #not sure if we need ext2
-        self.filesystem_types = ['mkfs.ext4'] #not sure if we need ext2
+        self.filesystem_types = ['mkfs.ext2', 'mkfs.ext3', 'mkfs.ext4'] #not sure if we need ext2
+        #self.filesystem_types = ['mkfs.ext4'] #not sure if we need ext2
         utils.create_dir(config.DOWNLOAD_DIR)
 
 	self.bv = block_volumes.BlockVolumes(self.om_ip_address)

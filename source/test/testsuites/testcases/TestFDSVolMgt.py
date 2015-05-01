@@ -9,7 +9,7 @@
 import unittest
 import traceback
 import TestCase
-
+from fdslib.TestUtils import findNodeFromInv
 # Module-specific requirements
 import sys
 import os
@@ -90,13 +90,15 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # volume attachment.
 class TestVolumeAttach(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, volume=None):
+    def __init__(self, parameters=None, volume=None, node=None, expect_to_fail=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_VolumeAttach,
                                              "Attach volume")
 
         self.passedVolume = volume
+        self.passedNode = node
+        self.expect_to_fail = expect_to_fail
 
     def test_VolumeAttach(self):
         """
@@ -107,7 +109,8 @@ class TestVolumeAttach(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        # Currently, all volumes are attached using our one well-known OM.
+        # Currently, all volumes are attached using our one well-known OM
+        # in case a node hosting an AM is not passed as an argument.
         om_node = fdscfg.rt_om_node
         log_dir = fdscfg.rt_env.get_log_dir()
 
@@ -117,31 +120,112 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             if self.passedVolume is not None:
                 volume = self.passedVolume
 
+            # If a node is passed, attach volume to AM on this node.
+            if self.passedNode is not None:
+                am_node = self.passedNode
+            else:
+                am_node = volume.nd_am_node.nd_conf_dict['node-name']
+
+            volName = volume.nd_conf_dict['vol-name']
 
             # Object volumes currently attach implicitly
             if 'block' != volume.nd_conf_dict['access']:
                 break
 
-            cmd = (' attach %s %s' %
-               (volume.nd_conf_dict['vol-name'],
-                volume.nd_am_node.nd_conf_dict['node-name']))
+            nodes = fdscfg.rt_obj.cfg_nodes
+            node = findNodeFromInv(nodes, am_node)
 
-            self.log.info("Attach volume %s on OM node %s." %
-                          (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
+            ip = node.nd_conf_dict['ip']
+            offset = 3809
+            port = int(node.nd_conf_dict['fds_port']) + offset
+            self.log.info("Attach volume %s on node %s." % (volName, am_node))
+            cmd = ('attach %s:%s %s' % (ip, port, volName))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./nbdadm.py  %s > %s/nbdadm.out 2>&1 &) \"' %
-                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+            status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
+                                                        (cinder_dir, cmd), return_stdin=True)
+            if status != 0 and not self.expect_to_fail:
+                self.log.error("Attach volume %s on %s returned status %d." %
+                               (volName, am_node, status))
+                return False
+
+            #stdout has the nbd device to which the volume was attached
+            volume.nd_conf_dict['nbd-dev'] = stdout
+            self.log.info("volume = %s and it's nbd device = %s" %
+                          (volume.nd_conf_dict['vol-name'], volume.nd_conf_dict['nbd-dev']))
+
+            if self.passedVolume is not None:
+                break
+
+        return True
+
+# This class contains the attributes and methods to test
+# volume detachment.
+class TestVolumeDetach(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, volume=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeDetach,
+                                             "Detach volume")
+
+        self.passedVolume = volume
+        self.passedNode = node
+
+    def test_VolumeDetach(self):
+        """
+        Test Case:
+        Attempt to detach a volume.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # Currently, all volumes are assumed to be attached to one well-known
+        # OM in case a node hosting an AM is not passed as an argument.
+        om_node = fdscfg.rt_om_node
+        log_dir = fdscfg.rt_env.get_log_dir()
+
+        volumes = fdscfg.rt_get_obj('cfg_volumes')
+        for volume in volumes:
+            # If we were passed a volume, detach that one and exit.
+            if self.passedVolume is not None:
+                volume = self.passedVolume
+
+            if self.passedNode is not None:
+                am_node = self.passedNode
+            else:
+                am_node = volume.nd_am_node.nd_conf_dict['node-name']
+
+            volName = volume.nd_conf_dict['vol-name']
+
+            # Object volumes currently detach implicitly
+            if 'block' != volume.nd_conf_dict['access']:
+                break
+
+            nodes = fdscfg.rt_obj.cfg_nodes
+            for node in nodes:
+                if am_node == node.nd_conf_dict['node-name']:
+                    break;
+            ip = node.nd_conf_dict['ip']
+            offset = 3809
+            port = int(node.nd_conf_dict['fds_port']) + offset
+            self.log.info("Detach volume %s on node %s." % (volName, am_node))
+            cmd = ('detach %s' % (volName))
+
+
+            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
+            status = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s >> %s/nbdadm.out 2>&1 &) \"' %
+                                                (cinder_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
                                                 fds_tools=True)
 
             if status != 0:
-                self.log.error("Attach volume %s on %s returned status %d." %
-                               (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
+                self.log.error("Detach volume %s on %s returned status %d." %
+                               (volName, am_node, status))
                 return False
             elif self.passedVolume is not None:
                 break
 
         return True
-
 
 # This class contains the attributes and methods to test
 # volume delete.

@@ -49,7 +49,7 @@ set(SOURCE_FILES
 ./access-mgr/include/am-tx-mgr.h
 ./access-mgr/include/fdsn-server.h
 ./access-mgr/include/requests/AbortBlobTxReq.h
-./access-mgr/include/requests/AttachVolBlobReq.h
+./access-mgr/include/requests/AttachVolumeReq.h
 ./access-mgr/include/requests/CommitBlobTxReq.h
 ./access-mgr/include/requests/DeleteBlobReq.h
 ./access-mgr/include/requests/GetBlobReq.h

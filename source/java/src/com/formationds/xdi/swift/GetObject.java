@@ -8,12 +8,13 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
-import com.formationds.web.toolkit.StreamResource;
+import com.formationds.xdi.BlobInfo;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 
-import java.io.InputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -40,17 +41,7 @@ public class GetObject implements RequestHandler {
         String object = requiredString(routeParameters, "object");
 
         ArrayList<Range> ranges = parseRanges(request.getHeader("Range"));
-        BlobDescriptor stat = xdi.statBlob(token, domain, volume, object);
-
-        InputStream objStream = null;
-        if(ranges.size() == 0) {
-            objStream = xdi.readStream(token, domain, volume, object, 0, stat.getByteCount());
-        } else if(ranges.size() == 1) {
-            objStream = readStreamForRange(xdi, domain, volume, object, ranges.get(0), stat.byteCount);
-        } else {
-            // FIXME: support multiple ranges
-            throw new Exception("multiple ranges are not supported");
-        }
+        BlobDescriptor stat = xdi.statBlob(token, domain, volume, object).get();
 
         // FIXME: add Accept-Ranges header
         // FIXME: add actual value for Last-Modified header
@@ -58,24 +49,48 @@ public class GetObject implements RequestHandler {
         Map<String, String> metadata = stat.getMetadata();
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
+        BlobInfo blobInfo = xdi.getBlobInfo(token, domain, volume, object).get();
 
-        return SwiftUtility.swiftResource(new StreamResource(objStream, contentType))
+        Resource resource = new Resource() {
+            @Override
+            public String getContentType() {
+                return contentType;
+            }
+
+            @Override
+            public void render(OutputStream outputStream) throws IOException {
+                try {
+                    renderRange(outputStream, ranges, blobInfo);
+                } catch (Exception e) {
+                    throw new IOException(e);
+                }
+            }
+        };
+        return SwiftUtility.swiftResource(resource)
                 .withHeader("ETag", stat.getMetadata().getOrDefault("etag", ""))
                 .withHeader("Last-Modified", lastModified);
     }
 
-    private InputStream readStreamForRange(Xdi xdi, String domain, String volume, String object, Range range, long blobLength) throws Exception {
-        // NB: this case is inconsistently specified in the openstack API docs
-        if(range.rangeMin.isPresent() && range.rangeMax.isPresent())
-            return xdi.readStream(token, domain, volume, object, range.rangeMin.get(), 1 + range.rangeMax.get() - range.rangeMin.get());
+    private void renderRange(OutputStream outputStream, ArrayList<Range> ranges, BlobInfo blobInfo) throws Exception {
+        if (ranges.size() == 0) {
+            xdi.readToOutputStream(token, blobInfo, outputStream).get();
+        } else if (ranges.size() == 1) {
+            Range range = ranges.get(0);
+            // NB: this case is inconsistently specified in the openstack API docs
+            if (range.rangeMin.isPresent() && range.rangeMax.isPresent())
+                xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), 1 + range.rangeMax.get() - range.rangeMin.get());
 
-        if(range.rangeMin.isPresent())
-            return xdi.readStream(token, domain, volume, object, range.rangeMin.get(), blobLength - range.rangeMin.get());
+            if (range.rangeMin.isPresent())
+                xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), blobInfo.getBlobDescriptor().byteCount - range.rangeMin.get());
 
-        if(range.rangeMax.isPresent())
-            return xdi.readStream(token, domain, volume, object, blobLength - range.rangeMax.get(), range.rangeMax.get() );
+            if (range.rangeMax.isPresent())
+                xdi.readToOutputStream(token, blobInfo, outputStream, blobInfo.getBlobDescriptor().byteCount - range.rangeMax.get(), range.rangeMax.get());
 
-        throw new Exception("Invalid range specified");
+            throw new Exception("Invalid range specified");
+        } else {
+            // FIXME: support multiple ranges
+            throw new Exception("multiple ranges are not supported");
+        }
     }
 
     private ArrayList<Range> parseRanges(String rangeDefinition) {

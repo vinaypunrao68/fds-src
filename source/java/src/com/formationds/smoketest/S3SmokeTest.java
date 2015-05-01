@@ -1,15 +1,28 @@
 package com.formationds.smoketest;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
-import com.amazonaws.services.s3.model.*;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.protocol.Snapshot;
-import com.formationds.util.RngFactory;
-import com.formationds.util.s3.S3SignatureGenerator;
-import com.formationds.xdi.XdiClientFactory;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -20,15 +33,33 @@ import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import javax.servlet.http.HttpServletResponse;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.*;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.SDKGlobalConfiguration;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadResult;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PutObjectResult;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
 
-import static org.junit.Assert.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.commons.Fds;
+import com.formationds.commons.util.Uris;
+import com.formationds.protocol.Snapshot;
+import com.formationds.util.RngFactory;
+import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.xdi.XdiClientFactory;
 
 /**
  * Copyright (c) 2014 Formation Data Systems. All rights reserved.
@@ -37,14 +68,11 @@ import static org.junit.Assert.*;
 // We're just telling the unit test runner to ignore this, the class is ran SmokeTestRunner
 @Ignore
 public class S3SmokeTest {
-    private static final String AMAZON_DISABLE_SSL = "com.amazonaws.sdk.disableCertChecking";
-    private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
     private final int amResponsePortOffset = 2876;
 
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
-    private final String adminToken;
 
     private final String adminBucket;
     private final String userBucket;
@@ -62,14 +90,19 @@ public class S3SmokeTest {
 
     public S3SmokeTest()
             throws Exception {
-        System.setProperty(AMAZON_DISABLE_SSL, "true");
-        host = (String) System.getProperties()
-                .getOrDefault("fds.host", "localhost");
+        System.setProperty(SDKGlobalConfiguration.DISABLE_CERT_CHECKING_SYSTEM_PROPERTY, "true");
+        host = Fds.getFdsHost();
 
         String omUrl = "https://" + host + ":7443";
         SmokeTestRunner.turnLog4jOff();
-        JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
-        adminToken = adminUserObject.getString("token");
+        JSONObject adminUserObject =
+                getObject(Uris.withQueryParameters(Fds.Api.getAuthToken(),
+                                                   Fds.USERNAME_QUERY_PARAMETER,
+                                                   "admin",
+                                                   Fds.PASSWORD_QUERY_PARAMETER,
+                                                   "admin").toString(),
+                          "");
+        String adminToken = adminUserObject.getString("token");
 
         String tenantName = UUID.randomUUID().toString();
         long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
@@ -199,6 +232,7 @@ public class S3SmokeTest {
             testBucketExists(bucketName, true);
             userClient.deleteBucket(bucketName);
             testBucketNotExists(bucketName, true);
+            userClient.deleteBucket(bucketName);  // this should not throw an exception
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
@@ -255,49 +289,76 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testMultipartUpload() {
+    public void testMultipartUpload() throws Exception {
         String key = UUID.randomUUID()
                 .toString();
-        InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
 
+        uploadMultipart(userClient, userBucket, key);
+    }
+
+    private void uploadMultipart(AmazonS3Client client, String bucket, String blobName) throws NoSuchAlgorithmException {
         int partCount = 5;
+        InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName));
 
+        MessageDigest md5 = MessageDigest.getInstance("MD5");
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     UploadPartRequest request = new UploadPartRequest()
-                            .withBucketName(userBucket)
-                            .withKey(key)
+                            .withBucketName(bucket)
+                            .withKey(blobName)
                             .withInputStream(new ByteArrayInputStream(randomBytes))
                             .withPartNumber(i)
                             .withUploadId(initiateResult.getUploadId())
                             .withPartSize(randomBytes.length);
-
-                    UploadPartResult uploadPartResult = userClient.uploadPart(request);
+                    md5.update(randomBytes);
+                    UploadPartResult uploadPartResult = client.uploadPart(request);
                     return uploadPartResult.getPartETag();
                 })
                 .collect(Collectors.toList());
 
-        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
-        userClient.completeMultipartUpload(completeRequest);
-
-        ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, blobName, initiateResult.getUploadId(), etags);
+        CompleteMultipartUploadResult result = client.completeMultipartUpload(completeRequest);
+        byte[] digest = md5.digest();
+        assertEquals(result.getETag(), Hex.encodeHexString(digest));
+        ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }
 
-    // @Test
+    @Test
     public void testCopyObject() {
         String source = UUID.randomUUID()
                 .toString();
         String destination = UUID.randomUUID()
                 .toString();
         userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
-        userClient.copyObject(userBucket, source, userBucket, destination);
-        String sourceEtag = userClient.getObjectMetadata(userBucket, destination)
-                .getETag();
-        String destinationEtag = userClient.getObjectMetadata(userBucket, destination)
-                .getETag();
+        ObjectMetadata newObjectMetadata = new ObjectMetadata();
+        newObjectMetadata.addUserMetadata("foo", "bar");
+        CopyObjectRequest request = new CopyObjectRequest(userBucket, source, userBucket, destination)
+                .withNewObjectMetadata(newObjectMetadata);
+        userClient.copyObject(request);
+
+        ObjectMetadata sourceMetadata = userClient.getObjectMetadata(userBucket, source);
+        String sourceEtag = sourceMetadata.getETag();
+        ObjectMetadata destinationMetadata = userClient.getObjectMetadata(userBucket, destination);
+        String destinationEtag = destinationMetadata.getETag();
         assertEquals(sourceEtag, destinationEtag);
+        assertEquals("bar", destinationMetadata.getUserMetadata().get("foo"));
+    }
+
+    @Test
+    public void testCopyToSelf() {
+        String source = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        ObjectMetadata newObjectMetadata = new ObjectMetadata();
+        newObjectMetadata.addUserMetadata("foo", "bar");
+        CopyObjectRequest request = new CopyObjectRequest(userBucket, source, userBucket, source)
+                .withNewObjectMetadata(newObjectMetadata);
+        userClient.copyObject(request);
+
+        ObjectMetadata metadata = userClient.getObjectMetadata(userBucket, source);
+        assertEquals("bar", metadata.getUserMetadata().get("foo"));
     }
 
     @Test
@@ -316,7 +377,6 @@ public class S3SmokeTest {
             config.createSnapshot(volumeId, snapBucket + "_1", 0, 0);
             long clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
             assertEquals(true, clonedVolumeId > 0);
-            String key = prefix + "-" + 9;
             int numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
             assertEquals(10, numKeys);
         } catch (Exception e) {
@@ -341,13 +401,13 @@ public class S3SmokeTest {
         IntStream.range(from, to)
                 .map(new ConsoleProgress("Putting objects into volume", count))
                 .forEach(i -> {
-                        ObjectMetadata objectMetadata = new ObjectMetadata();
-                        Map<String, String> customMetadata = new HashMap<String, String>();
-                        String key = prefix + "-" + i;
-                        customMetadata.put(CUSTOM_METADATA_HEADER, key);
-                        objectMetadata.setUserMetadata(customMetadata);
-                        last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
-                    });
+                    ObjectMetadata objectMetadata = new ObjectMetadata();
+                    Map<String, String> customMetadata = new HashMap<String, String>();
+                    String key = prefix + "-" + i;
+                    customMetadata.put(CUSTOM_METADATA_HEADER, key);
+                    objectMetadata.setUserMetadata(customMetadata);
+                    last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
+                });
     }
 
     private void putGetOneObject(int byteCount) throws Exception {
@@ -438,6 +498,8 @@ public class S3SmokeTest {
         userClient.putObject(adminBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
         S3Object object = userClient.getObject(adminBucket, key);
         assertEquals(42l, object.getObjectMetadata().getContentLength());
+
+        uploadMultipart(userClient, adminBucket, key);
     }
 
     @Test
@@ -582,7 +644,7 @@ public class S3SmokeTest {
             throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet(url);
-        httpGet.setHeader(FDS_AUTH_HEADER, token);
+        httpGet.setHeader(Fds.FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpGet);
         return IOUtils.toString(response.getEntity()
                 .getContent());
@@ -592,7 +654,7 @@ public class S3SmokeTest {
             throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpPost httpPost = new HttpPost(url);
-        httpPost.setHeader(FDS_AUTH_HEADER, token);
+        httpPost.setHeader(Fds.FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpPost);
         return new JSONObject(IOUtils.toString(response.getEntity()
                 .getContent()));
@@ -602,13 +664,13 @@ public class S3SmokeTest {
             throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpPut httpPut = new HttpPut(url);
-        httpPut.setHeader(FDS_AUTH_HEADER, token);
+        httpPut.setHeader(Fds.FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpPut);
         return new JSONObject(IOUtils.toString(response.getEntity()
                 .getContent()));
     }
 
-    private void assertSecurityFailure(Supplier action) {
+    private void assertSecurityFailure(Supplier<?> action) {
         try {
             action.get();
             fail("Should have gotten an AmazonS3Exception");

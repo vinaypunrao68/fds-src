@@ -8,21 +8,30 @@
 namespace fds {
 namespace dm {
 
-UpdateCatalogHandler::UpdateCatalogHandler() {
-    if (!dataMgr->features.isTestMode()) {
+UpdateCatalogHandler::UpdateCatalogHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogMsg, handleRequest);
     }
 }
 
 void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::UpdateCatalogMsg> & message) {
-    if ((dataMgr->testUturnAll == true) || (dataMgr->testUturnUpdateCat == true)) {
+    if (dataManager.testUturnAll || dataManager.testUturnUpdateCat) {
         GLOGDEBUG << "Uturn testing update catalog " << logString(*asyncHdr) <<
             logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, NULL);
     }
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
 
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
@@ -39,14 +48,15 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
 }
 
 void UpdateCatalogHandler::handleQueueItem(dmCatReq * dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoUpdateCat * request = static_cast<DmIoUpdateCat *>(dmRequest);
 
     LOGDEBUG << "Will update blob: '" << request->blob_name << "' of volume: '" <<
             std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataMgr->timeVolCat_->updateBlobTx(request->volId, request->ioBlobTxDesc,
-            request->obj_list);
+    helper.err = dataManager.timeVolCat_->updateBlobTx(request->volId,
+                                                       request->ioBlobTxDesc,
+                                                       request->obj_list);
 }
 
 void UpdateCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -56,8 +66,8 @@ void UpdateCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyn
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg),
             fpi::UpdateCatalogRspMsg());
-    if (dmRequest)
-        delete dmRequest;
+
+    delete dmRequest;
 }
 }  // namespace dm
 }  // namespace fds

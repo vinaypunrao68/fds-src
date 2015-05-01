@@ -98,7 +98,6 @@ public class TrafficGen {
     static int osize = 4096;
     static int n_conns = 2;
     static boolean no_reuse = false;
-    static boolean verify = false;
     static int port = 8000;
     static long runtime = 0;
     static long timeout = Long.MAX_VALUE;
@@ -184,7 +183,6 @@ public class TrafficGen {
                 .withDescription("Number of NIO connections")
                 .create("n_conns"));
         options.addOption("no_reuse", false, "Disable connection reuse");
-        options.addOption("verify", false, "Verify data");
         options.addOption(OptionBuilder.withArgName("username")
                 .isRequired(false)
                 .hasArg()
@@ -197,7 +195,7 @@ public class TrafficGen {
                 .create("token"));
         options.addOption(OptionBuilder.withArgName("runtime")
                 .hasArg()
-                .withDescription("Runtime")
+                .withDescription("Runtime (in seconds)")
                 .create("runtime"));
         options.addOption(OptionBuilder.withArgName("timeout")
                 .hasArg()
@@ -245,9 +243,6 @@ public class TrafficGen {
             if (line.hasOption("no_reuse")) {
                 no_reuse = true;
             }
-            if (line.hasOption("verify")) {
-                verify = true;
-            }
             if (line.hasOption("username")) {
                 username = line.getOptionValue("username");
             }
@@ -276,7 +271,6 @@ public class TrafficGen {
         System.out.println("hostname: " + hostname);
         System.out.println("port: " + port);
         System.out.println("no_reuse: " + no_reuse);
-        System.out.println("verify: " + verify);
         System.out.println("runtime: " + runtime);
         System.out.println("timeout: " + timeout);
 
@@ -402,25 +396,6 @@ public class TrafficGen {
                                 successes.incrementAndGet();
                             }
                             // System.out.println(target + "->" + response.getStatusLine());
-                            if (verify) {
-                                try {
-                                    System.out.println("Status code: " + response.getStatusLine().getStatusCode());
-                                    InputStream is = response.getEntity().getContent();
-                                    int len = is.available();
-                                    byte [] buf = new byte[len];
-                                    is.read(buf);
-                                    try {
-                                        MessageDigest md = MessageDigest.getInstance("MD5");
-                                        byte[] thedigest = md.digest(buf);
-                                        System.out.println("len: " + len + " md5sum: " + thedigest.toString());
-                                    } catch (NoSuchAlgorithmException e1) {
-                                        throw new RuntimeException(e1);
-                                    }
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-
-                            }
                         }
 
                         public void failed(final Exception ex) {

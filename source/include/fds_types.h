@@ -32,6 +32,8 @@
 
 #include <util/Log.h>
 
+#include "EclipseWorkarounds.h"
+
 // struct PerfContext;
 
 /*
@@ -217,6 +219,7 @@ typedef enum {
     FDS_ABORT_BLOB_TX,
     FDS_COMMIT_BLOB_TX,
     FDS_ATTACH_VOL,
+    FDS_DETACH_VOL,
     FDS_OPEN_VOLUME,
     FDS_CLOSE_VOLUME,
     FDS_LIST_BLOB,
@@ -251,6 +254,7 @@ typedef enum {
     FDS_DM_PURGE_COMMIT_LOG,
     FDS_DM_STAT_STREAM,
     FDS_DM_SYS_STATS,
+    FDS_DM_RELOAD_VOLUME,
     FDS_OP_INVALID,
     FDS_DM_LIST_BLOBS_BY_PATTERN
 } fds_io_op_t;
@@ -286,7 +290,6 @@ class FDS_IOType {
     fds_uint64_t io_done_ts;
 
     // performance data collection related structures
-    std::string perfNameStr;
     PerfEventType opReqFailedPerfEventType;
     PerfContext opReqLatencyCtx;
     PerfContext opLatencyCtx;

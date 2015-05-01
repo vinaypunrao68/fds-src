@@ -7,12 +7,14 @@
 
 namespace fds { namespace dm {
 
-RequestHelper::RequestHelper(dmCatReq *dmRequest) : dmRequest(dmRequest) {
-}
+RequestHelper::RequestHelper(DataMgr& dataManager, dmCatReq *dmRequest)
+    : dmRequest(dmRequest),
+      _dataManager(dataManager)
+{}
 
 RequestHelper::~RequestHelper() {
-    if (dataMgr->features.isQosEnabled()) {
-        Error err = dataMgr->qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
+    if (_dataManager.features.isQosEnabled()) {
+        Error err = _dataManager.qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
         if (err != ERR_OK) {
             LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
             dmRequest->cb(err, dmRequest);
@@ -20,12 +22,13 @@ RequestHelper::~RequestHelper() {
     }
 }
 
-QueueHelper::QueueHelper(dmCatReq *dmRequest)
+QueueHelper::QueueHelper(DataMgr& dataManager, dmCatReq *dmRequest)
         : dmRequest(dmRequest),
           ioIsMarkedAsDone(false),
           cancelled(false),
-          skipImplicitCb(false) {
-}
+          skipImplicitCb(false),
+          dataManager_(dataManager)
+{}
 
 QueueHelper::~QueueHelper() {
     if (!cancelled) {
@@ -35,8 +38,7 @@ QueueHelper::~QueueHelper() {
         PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
         PerfTracer::tracePointEnd(dmRequest->opReqLatencyCtx);
         if (!err.ok()) {
-            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
-                    dmRequest->perfNameStr);
+            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId());
         }
          */
         if (!skipImplicitCb) {
@@ -48,7 +50,7 @@ QueueHelper::~QueueHelper() {
 
 void QueueHelper::markIoDone() {
     if (!ioIsMarkedAsDone) {
-        if (dataMgr->features.isQosEnabled()) dataMgr->qosCtrl->markIODone(*dmRequest);
+        if (dataManager_.features.isQosEnabled()) dataManager_.qosCtrl->markIODone(*dmRequest);
         ioIsMarkedAsDone = true;
     }
 }
@@ -57,25 +59,30 @@ void QueueHelper::cancel() {
     cancelled = true;
 }
 
+Handler::Handler(DataMgr& dataManager)
+    : dataManager(dataManager)
+{}
+
 void Handler::handleQueueItem(dmCatReq *dmRequest) {
 }
 
 void Handler::addToQueue(dmCatReq *dmRequest) {
-    if (!dataMgr->features.isQosEnabled()) {
+    if (!dataManager.features.isQosEnabled()) {
         LOGWARN << "qos disabled .. not queuing";
         return;
     }
-    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmRequest->getVolId());
-    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-            voldesc->qosQueueId : dmRequest->getVolId(), dmRequest);
+    const VolumeDesc * voldesc = dataManager.getVolumeDesc(dmRequest->getVolId());
+    Error err = dataManager.qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot()
+                                               ? voldesc->qosQueueId
+                                               : dmRequest->getVolId(),
+                                               dmRequest);
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
         /*
          * TODO(umesh): ignore this for now, uncomment it later
         PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
         if (!err.ok()) {
-            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
-                    dmRequest->perfNameStr);
+            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId());
         }
          */
         dmRequest->cb(err, dmRequest);

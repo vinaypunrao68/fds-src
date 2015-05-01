@@ -29,7 +29,7 @@ struct SetBlobMetaDataReq :
                        CallbackPtr cb) :
             AmRequest(FDS_SET_BLOB_METADATA, _volid, _vol_name, _blob_name, cb),
             AmTxReq(_txDesc), metaDataList(_metaDataList) {
-        e2e_req_perf_ctx.type = AM_SET_BLOB_META_OBJ_REQ;
+        e2e_req_perf_ctx.type = PerfEventType::AM_SET_BLOB_META_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 

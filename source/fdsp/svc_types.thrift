@@ -50,6 +50,7 @@ enum  FDSPMsgTypeId {
   GetSvcStatusMsgTypeId                     = 1018;
   GetSvcStatusRespMsgTypeId                 = 1019;
   ActivateServicesMsgTypeId                 = 1020;
+  DeactivateServicesMsgTypeId               = 1021;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
@@ -89,6 +90,8 @@ enum  FDSPMsgTypeId {
   CtrlNotifySMAbortMigrationTypeId          = 2065;
   CtrlGetSecondRebalanceDeltaSetTypeId      = 2066;
   CtrlGetSecondRebalanceDeltaSetRspTypeId   = 2067;
+  CtrlFinishClientTokenResyncMsgTypeId      = 2068;
+  CtrlFinishClientTokenResyncRspMsgTypeId   = 2069;
 
   /** DM messages. */
   CtrlNotifyDMTCloseTypeId                  = 2081;
@@ -168,6 +171,8 @@ enum  FDSPMsgTypeId {
   OpenVolumeRspMsgTypeId;
   CloseVolumeMsgTypeId;
   CloseVolumeRspMsgTypeId;
+  ReloadVolumeMsgTypeId;
+  ReloadVolumeRspMsgTypeId;
 }
 
 /**
@@ -193,7 +198,7 @@ struct AsyncHdr {
   /** Message Type */
   2: required FDSPMsgTypeId     msg_type_id;
   /**  */
-  3: required i32               msg_src_id;
+  3: required i64               msg_src_id;
   /** Sender's Uuid */
   4: required common.SvcUuid    msg_src_uuid;
   /** Destination Uuid */
@@ -287,19 +292,11 @@ struct DomainNodes {
 }
 
 struct StorCapMsg {
-    1: i32                    disk_iops_max,
-    2: i32                    disk_iops_min,
+    1: i32                    node_iops_max,
+    2: i32                    node_iops_min,
     3: double                 disk_capacity,
-    4: i32                    disk_latency_max,
-    5: i32                    disk_latency_min,
-    6: i32                    ssd_iops_max,
-    7: i32                    ssd_iops_min,
-    8: double                 ssd_capacity,
-    9: i32                    ssd_latency_max,
-    10: i32                   ssd_latency_min,
-    11: i32                   ssd_count,
-    12: i32                   disk_type,
-    13: i32                   disk_count,
+    4: double                 ssd_capacity,
+    5: i32                    disk_type,
 }
 
 /**

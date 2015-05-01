@@ -19,8 +19,10 @@
 namespace fds {
 namespace dm {
 
-CommitBlobTxHandler::CommitBlobTxHandler() {
-    if (!dataMgr->features.isTestMode()) {
+CommitBlobTxHandler::CommitBlobTxHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::CommitBlobTxMsg, handleRequest);
     }
 }
@@ -33,6 +35,13 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 
     // Handle U-turn
     HANDLE_U_TURN();
+
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
 
     auto dmReq = new DmIoCommitBlobTx(message->volume_id,
                                       message->blob_name,
@@ -50,23 +59,24 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 }
 
 void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
     LOGTRACE << "Will commit blob " << typedRequest->blob_name << " to tvc";
-    helper.err = dataMgr->timeVolCat_->commitBlobTx(typedRequest->volId,
-                                                    typedRequest->blob_name,
-                                                    typedRequest->ioBlobTxDesc,
-                                                    // TODO(Rao): We should use a static commit
-                                                    //            callback
-                                                    std::bind(&CommitBlobTxHandler::volumeCatalogCb,
-                                                              this,
-                                                              std::placeholders::_1,
-                                                              std::placeholders::_2,
-                                                              std::placeholders::_3,
-                                                              std::placeholders::_4,
-                                                              std::placeholders::_5,
-                                                              typedRequest));
+    helper.err = dataManager
+                .timeVolCat_->commitBlobTx(typedRequest->volId,
+                                           typedRequest->blob_name,
+                                           typedRequest->ioBlobTxDesc,
+                                           // TODO(Rao): We should use a static commit
+                                           //            callback
+                                           std::bind(&CommitBlobTxHandler::volumeCatalogCb,
+                                                     this,
+                                                     std::placeholders::_1,
+                                                     std::placeholders::_2,
+                                                     std::placeholders::_3,
+                                                     std::placeholders::_4,
+                                                     std::placeholders::_5,
+                                                     typedRequest));
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
         helper.cancel();
@@ -86,7 +96,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           MetaDataList::const_ptr const& meta_list,
                                           fds_uint64_t const blobSize,
                                           DmIoCommitBlobTx* commitBlobReq) {
-    QueueHelper helper(commitBlobReq);
+    QueueHelper helper(dataManager, commitBlobReq);
     helper.err = e;
     if (!helper.err.ok()) {
         LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
@@ -98,7 +108,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
     LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
-             << " current DMT version " << dataMgr->omClient->getDMTVersion();
+             << " current DMT version " << dataManager.omClient->getDMTVersion();
 
     // 'finish this io' for qos accounting purposes, if we are
     // forwarding, the main time goes to waiting for response
@@ -110,27 +120,27 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
-    if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
+    if (commitBlobReq->dmt_version != dataManager.omClient->getDMTVersion()) {
         VolumeMeta* vol_meta = nullptr;
         fds_bool_t is_forwarding = false;
 
         // check if we need to forward this commit to receiving
         // DM if we are in progress of migrating volume catalog
-        dataMgr->vol_map_mtx->lock();
-        fds_verify(dataMgr->vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = dataMgr->vol_meta_map[commitBlobReq->volId];
+        dataManager.vol_map_mtx->lock();
+        fds_verify(dataManager.vol_meta_map.count(commitBlobReq->volId) > 0);
+        vol_meta = dataManager.vol_meta_map[commitBlobReq->volId];
         is_forwarding = vol_meta->isForwarding();
-        dataMgr->vol_map_mtx->unlock();
+        dataManager.vol_map_mtx->unlock();
 
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
-            if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
+            if (commitBlobReq->dmt_version != dataManager.omClient->getDMTVersion()) {
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-                           << " because our DMT is " << dataMgr->omClient->getDMTVersion();
-                helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
-                                                                       blob_version,
-                                                                       blob_obj_list,
-                                                                       meta_list);
+                           << " because our DMT is " << dataManager.omClient->getDMTVersion();
+                helper.err = dataManager.catSyncMgr->forwardCatalogUpdate(commitBlobReq,
+                                                                          blob_version,
+                                                                          blob_obj_list,
+                                                                          meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
@@ -141,23 +151,23 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
             }
         } else {
             // DMT mismatch must not happen if volume is in 'not forwarding' state
-            fds_verify(commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion());
+            fds_verify(commitBlobReq->dmt_version != dataManager.omClient->getDMTVersion());
         }
     }
 
     // check if we can finish forwarding if volume still forwards cat commits
-    if (dataMgr->features.isCatSyncEnabled() && dataMgr->catSyncMgr->isSyncInProgress()) {
+    if (dataManager.features.isCatSyncEnabled() && dataManager.catSyncMgr->isSyncInProgress()) {
         fds_bool_t is_finish_forward = false;
         VolumeMeta* vol_meta = nullptr;
-        dataMgr->vol_map_mtx->lock();
-        fds_verify(dataMgr->vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = dataMgr->vol_meta_map[commitBlobReq->volId];
+        dataManager.vol_map_mtx->lock();
+        fds_verify(dataManager.vol_meta_map.count(commitBlobReq->volId) > 0);
+        vol_meta = dataManager.vol_meta_map[commitBlobReq->volId];
         is_finish_forward = vol_meta->isForwardFinishing();
-        dataMgr->vol_map_mtx->unlock();
+        dataManager.vol_map_mtx->unlock();
         if (is_finish_forward) {
-            if (!dataMgr->timeVolCat_->isPendingTx(commitBlobReq->volId,
-                    dataMgr->catSyncMgr->dmtCloseTs())) {
-                dataMgr->finishForwarding(commitBlobReq->volId);
+            if (!dataManager.timeVolCat_->isPendingTx(commitBlobReq->volId,
+                                                      dataManager.catSyncMgr->dmtCloseTs())) {
+                dataManager.finishForwarding(commitBlobReq->volId);
             }
         }
     }

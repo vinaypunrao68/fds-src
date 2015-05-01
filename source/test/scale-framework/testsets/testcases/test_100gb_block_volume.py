@@ -11,12 +11,17 @@ import unittest
 import requests
 import json
 import sys
+import time
 
 import ssh
 import os
-from boto.s3.key import Key
-import testsets.testcase as testcase
+import utils
 
+from boto.s3.key import Key
+
+import testsets.testcase as testcase
+import utils
+import file_generator
 
 class Test100GBBlockVolume(testcase.FDSTestCase):
     '''
@@ -27,11 +32,16 @@ class Test100GBBlockVolume(testcase.FDSTestCase):
         super(Test100GBBlockVolume, self).__init__(parameters=parameters,
                                                config_file=config_file,
                                                om_ip_address=om_ip_address)
-    
+
+        self.fgen = file_generator.FileGenerator(10, 1, 'M')
+
     def runTest(self):
         self.upload_block_volume()
-                
+
     def upload_block_volume(self):
+        '''
+        Create a block volume, and move a 100GB file to it
+        '''
         test_passed = False
         r = None
         port = config.FDS_REST_PORT
@@ -48,11 +58,6 @@ class Test100GBBlockVolume(testcase.FDSTestCase):
             header = {'FDS-Auth' : userToken}
             self.log.info("header = %s", header)
 
-            #Get the s3 connection from the testcase parameters
-            if 's3' not in self.parameters:
-                raise ValueError, "S3 connection not present in the parameters"
-                test_passed = False
-    
             #Get number of volumes currently?
             volume_name = "test-block-100GB-block-volume"
             #prep data
@@ -73,36 +78,54 @@ class Test100GBBlockVolume(testcase.FDSTestCase):
             if r is None:
                 raise ValueError, "r is None"
                 test_passed = False
-            else:  
+            else:
                 self.log.info("request = %s", r.request)
                 self.log.info("response = %s", r.json())
                 self.log.info("status = %s", r.status_code)
-    
+
                 #Check return code
                 self.assertTrue(200 == r.status_code)
-                
-                local_ssh = ssh.SSHConn(config.NDBADM_CLIENT, config.SSH_USER,
-                                        config.SSH_PASSWORD)
-                
-                cmds = (
-                    'mkdir /fdsmount',
-                    './nbdadm.py attach %s %s' % (self.om_ip_address, volume_name),
-                    'mkfs.ext4 /dev/nbd15',
-                    'mount /dev/nbd15  /fdsmount',
-                    'fallocate -l 10G sample_file',
-                    'mv sample_file /fdsmount',
-                    'umount /fdsmount',
-                    'rm -rf /fdsmount',
-                    'rm -rf sample_file',
-                    './nbdadm.py detach %s' % (volume_name),
-                )
-                
-                for cmd in cmds:
-                    self.log.info("Executing %s" % cmd)
-                    (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
-                    self.log.info(stdout.readlines())
-    
-                local_ssh.client.close()
+                fdsmount = config.FDS_MOUNT % "100_block_volume"
+                utils.execute_cmd("sudo mkdir -p %s" % fdsmount)
+                attach = 'sudo %s attach %s %s' % (config.NDBADM_ROOT, self.om_ip_address,
+                                              volume_name)
+                mount_point = utils.execute_cmd(attach)
+                # move any leading character
+                mount_point = mount_point.strip()
+                self.fgen.generate_files()
+                utils.execute_cmd("sudo mkfs.ext4 %s" % mount_point)
+                if not utils.is_device_mounted(fdsmount):
+                    self.log.info("Mounting from %s to %s" % (mount_point, fdsmount))
+                    output = utils.execute_cmd("sudo mount %s %s" % (mount_point, fdsmount))
+                    self.log.info(output)
+                self.fgen.sudo_copy_files(mount_point)
+                time.sleep(30)
+                detach = 'sudo %s detach %s' % (config.NDBADM_ROOT, volume_name)
+                self.log.info(utils.execute_cmd(detach))
+                # umount the file system
+                if utils.is_device_mounted(fdsmount):
+                    utils.execute_cmd("sudo umount %s" % fdsmount)
+                utils.execute_cmd("sudo rm -rf %s" % fdsmount)
+                self.fgen.clean_up()
+                #cmds = (
+                #'mkdir /fdsmount',
+                #'%s attach %s %s' % (config.NDBADM_ROOT, self.om_ip_address, volume_name),
+                # 'mkfs.ext4 /dev/nbd15',
+                # 'mount /dev/nbd15  /fdsmount',
+                # 'fallocate -l 10G sample_file',
+                # 'mv sample_file /fdsmount',
+                # 'umount /fdsmount',
+                #'rm -rf /fdsmount',
+                # 'rm -rf sample_file',
+                # './nbdadm.py detach %s' % (volume_name),
+                #)
+
+                #for cmd in cmds:
+                #    self.log.info("Executing %s" % cmd)
+                #    (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
+                #    self.log.info(stdout.readlines())
+
+                #local_ssh.client.close()
                 test_passed = True
 
         except Exception, e:

@@ -67,7 +67,7 @@ void
 AmDataApi::attachVolume(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
     AttachVolumeResponseHandler::ptr handler(new AttachVolumeResponseHandler());
-    AmRequest *blobReq = new AttachVolBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
                                               *volumeName,
                                               SHARED_DYN_CAST(Callback, handler));
     amProcessor->enqueueRequest(blobReq);
@@ -297,6 +297,7 @@ AmDataApi::getBlob(std::string& _return,
                    boost::shared_ptr<std::string>& blobName,
                    boost::shared_ptr<int32_t>& length,
                    boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if ((true == testUturnAll) ||
         (true == testUturnGetBlob)) {
         LOGDEBUG << "Uturn testing get blob";
@@ -333,7 +334,10 @@ AmDataApi::getBlob(std::string& _return,
         throw fdsE;
     }
 
-    boost::shared_ptr<std::string> buf = getHandler->returnBuffer;
+    auto buf = empty_buffer;
+    if (getHandler->return_buffers) {
+        buf = getHandler->return_buffers->front();
+    }
     _return = buf->size() > getHandler->returnSize ?
         std::string(*buf, 0, getHandler->returnSize)
         : *buf;
@@ -458,8 +462,7 @@ AmDataApi::updateBlob(const std::string& domainName,
                       const apis::TxDescriptor& txDesc,
                       const std::string& bytes,
                       const int32_t length,
-                      const apis::ObjectOffset& objectOffset,
-                      const bool isLast) {
+                      const apis::ObjectOffset& objectOffset) {
     fds_panic("You shouldn't be here.");
 }
 
@@ -470,8 +473,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<apis::TxDescriptor>& txDesc,
                       boost::shared_ptr<std::string>& bytes,
                       boost::shared_ptr<int32_t>& length,
-                      boost::shared_ptr<apis::ObjectOffset>& objectOffset,
-                      boost::shared_ptr<bool>& isLast) {
+                      boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
     if ((true == testUturnAll) ||
         (true == testUturnUpdateBlob)) {
         LOGDEBUG << "Uturn testing update blob";
@@ -496,7 +498,6 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                                         *length,
                                         bytes,
                                         blobTxDesc,
-                                        *isLast,
                                         putHandler);
     amProcessor->enqueueRequest(blobReq);
 

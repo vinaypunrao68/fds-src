@@ -9,6 +9,7 @@
 #include <SmIo.h>
 #include <MigrationExecutor.h>
 #include <MigrationClient.h>
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -54,6 +55,8 @@ class SmTokenMigrationMgr {
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
 
+    typedef std::set<fds_token_id> RetrySmTokenSet;
+
     /**
      * Matches OM state, just for sanity checks that we are getting
      * messages from OM/SMs in the correct state...
@@ -81,7 +84,16 @@ class SmTokenMigrationMgr {
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
-                         fds_uint32_t bitsPerDltToken);
+                         fds_uint32_t bitsPerDltToken,
+                         bool forResync);
+
+    /**
+     * Start resync process for SM tokens. Find the list of
+     * SMTokenMigrationGroups and call startMigration.
+     */
+     Error startResync(const fds::DLT *dlt,
+                       const NodeUuid& mySvcUuid,
+                       fds_uint32_t bitsPerDltToken);
 
     /**
      * Handles message from OM to abort migration
@@ -93,7 +105,9 @@ class SmTokenMigrationMgr {
      */
     Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                const fpi::SvcUuid &executorSmUuid,
-                               fds_uint32_t bitsPerDltToken);
+                               const NodeUuid& mySvcUuid,
+                               fds_uint32_t bitsPerDltToken,
+                               const DLT* dlt);
 
     /**
      * Ack from source SM when it receives the whole filter set of
@@ -117,6 +131,13 @@ class SmTokenMigrationMgr {
      * Ack from destination for rebalance delta set message
      */
     Error rebalanceDeltaSetResp();
+
+    /**
+     * Handle message from destination SM to finish token resync.
+     * Migration client corresponding to given executorId will stop forwarding IO
+     * and migration manager will remove the corresponding migration client
+     */
+    Error finishClientResync(fds_uint64_t executorId);
 
     /**
      * Forwards object to destination SM if needed
@@ -156,6 +177,21 @@ class SmTokenMigrationMgr {
      */
     Error handleDltClose();
 
+    inline fds_bool_t isDltTokenReady(const ObjectID& objId) const {
+        if (dltTokenStates.size() > 0) {
+            fds_verify(numBitsPerDltToken > 0);
+            fds_token_id dltTokId = DLT::getToken(objId, numBitsPerDltToken);
+            return dltTokenStates[dltTokId];
+        }
+        return false;
+    }
+    /**
+     * If migration not in progress and DLT tokens active/not active
+     * states are not assigned, activate DLT tokens (this SM did not need
+     * to resync or get data from other SMs).
+     */
+    void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
+
   private:
     /**
      * Callback function from the metadata snapshot request for a particular SM token
@@ -163,15 +199,29 @@ class SmTokenMigrationMgr {
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db);
+                                   leveldb::DB *db, bool retry);
 
     /**
      * Callback for a migration executor that it finished migration
+     *
+     * @param[in] round is the round that is finished:
+     *            0 -- one DLT token finished during resync, but the whole
+     *            executor haven't finished yet
+     *            1 -- first round of migration finished for the executor
+     *            2 -- second round of migration finished for the executor
      */
     void migrationExecutorDoneCb(fds_uint64_t executorId,
                                  fds_token_id smToken,
-                                 fds_bool_t isFirstRound,
+                                 const std::set<fds_token_id>& dltTokens,
+                                 fds_uint32_t round,
                                  const Error& error);
+    /**
+     * This callback basically inserts the dlt token to the
+     * retry migration set.
+     */
+    void dltTokenMigrationFailedCb(fds_token_id &smToken);
+
+    void retryTokenMigrForFailedDltTokens();
 
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken);
@@ -188,9 +238,28 @@ class SmTokenMigrationMgr {
                                const NodeUuid& smSvcUuid) const;
 
     /**
+     * If this is migration due to DLT change, decline to be a source
+     * if this SM is already a destination for the given dltToken;
+     * If this is resync on restart, decline to be a source if this SM is
+     * already a destination for the given SM token AND it has lower
+     * responsibility for this DLT token
+     */
+    fds_bool_t acceptSourceResponsibility(fds_token_id dltToken,
+                                          fds_bool_t resyncOnRestart,
+                                          const fpi::SvcUuid &executorSmUuid,
+                                          const NodeUuid& mySvcUuid,
+                                          const DLT* dlt);
+
+    /**
      * Stops migration and sends ack with error to OM
      */
     void abortMigration(const Error& error);
+
+    /**
+     * If all executors and clients are done, moves migration to IDLE state
+     * and resets the state
+     */
+    void checkResyncDoneAndCleanup();
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
@@ -198,6 +267,8 @@ class SmTokenMigrationMgr {
     /// does not mean anything if mgr in IDLE state
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
+
+    std::vector<fds_bool_t> dltTokenStates;
 
     /// next ID to assign to a migration executor
     /**
@@ -218,6 +289,10 @@ class SmTokenMigrationMgr {
     /// TODO(Anna) make it more general if we want to migrate several
     /// tokens at a time
     fds_token_id smTokenInProgress;
+    fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
+
+    /// SM token for which retry token migration is going on.
+    fds_token_id retrySmTokenInProgress;
 
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
@@ -244,6 +319,22 @@ class SmTokenMigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+
+    /**
+     * SM tokens for which token migration of atleast 1 dlt token failed
+     * because the source SM was not ready.
+     */
+     RetrySmTokenSet retryMigrSmTokenSet;
+
+     // For synchronization between the timer thread and token migration thread.
+     fds_mutex migrSmTokenLock;
+
+    /**
+     * FDS timer. Currently used for resending the CtrlObjectRebalanceFilerSet
+     * requests to the source SM which failed the first time because source SM
+     * was not ready.
+     */
+     FdsTimer mTimer;
 };
 
 }  // namespace fds

@@ -94,7 +94,11 @@ if __name__ == '__main__':
     # Cleanup
     if options.clus_clean:
         for n in nodes:
+            ## ensure services are down before cleaning
+            n.nd_cleanup_daemons()
+
             n.nd_cleanup_node()
+            # todo: move into BringUpCfg.py where all the other cleanup is done
             n.nd_agent.ssh_exec('(cd {} && ./redis.sh clean)'.format(
                 os.path.join(options.fds_root, 'sbin')), output=True)
             n.nd_agent.ssh_exec('rm {}'.format(
@@ -123,7 +127,6 @@ if __name__ == '__main__':
             n.nd_start_platform(om_ip)
 
         if start_om:
-            print "Start OM on IP", om_ip
             om.nd_start_om()
         time.sleep(30) # Do not remove this sleep
         sys.exit(0)
@@ -143,7 +146,6 @@ if __name__ == '__main__':
         n.nd_start_platform(om_ip)
 
     if start_om:
-        print "Start OM on IP", om_ip
         om.nd_start_om()
 	time.sleep(8)
 

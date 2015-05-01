@@ -39,6 +39,20 @@ class ObjectMetadataDb {
     Error openMetadataDb(const SmDiskMap::const_ptr& diskMap);
 
     /**
+     * Closes object metadata DB
+     */
+    void closeMetadataDb();
+
+    /**
+     * Closes and deletes level db files corresponding to given SM tokens
+     * @param[in] smTokensLost list of SM tokens for which this SM lost
+     * ownership
+     * @return ERR_NOT_FOUND if a level DB file does not exist
+     * for at least one token in the given set of SM tokens
+     */
+    Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    /**
      * Set number of bits per (global) token
      * ObjectMetadataDB will cache it and use it to retrieve
      * SM tokens from object IDs
@@ -83,9 +97,9 @@ class ObjectMetadataDb {
     /**
      * Returns snapshot of metadata DB for a given SM token
      */
-    void snapshot(fds_token_id smTokId,
-                  leveldb::DB*& db,
-                  leveldb::ReadOptions& opts);
+    Error snapshot(fds_token_id smTokId,
+                   leveldb::DB*& db,
+                   leveldb::ReadOptions& opts);
 
     /**
      * Returns persistent snapshot of metadata DB for a given SM token
@@ -104,8 +118,10 @@ class ObjectMetadataDb {
     osm::ObjectDB *getObjectDB(const ObjectID& objId);
     /**
      * Closes object metadata DB for a given SM token
+     * If destroy is true, also destroys the levelDB files
      */
-    void closeObjectDB(fds_token_id smTokId);
+    Error closeObjectDB(fds_token_id smTokId,
+                        fds_bool_t destroy);
 
   private:  // data
      std::unordered_map<fds_token_id, osm::ObjectDB *> tokenTbl;

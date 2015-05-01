@@ -1,8 +1,8 @@
-from  svchelper import *
+from svchelper import *
 from svc_api.ttypes import *
-import platformservice
+from common.ttypes import *
 from platformservice import *
-import FdspUtils 
+import FdspUtils
 
 
 class SMDebugContext(Context):
@@ -38,6 +38,27 @@ class SMDebugContext(Context):
         except Exception, e:
             log.exception(e)
             return 'Enable failed'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('--targetTokens', help="-List of tokens to check", type=str)
+    def startSmchk(self, sm, targetTokens=None):
+        """
+        Start the online smchk for the specified sm node
+        """
+        try:
+            if targetTokens is not None:
+                targetTokens = targetTokens.split(',')
+                targetTokens = map(int, targetTokens)
+
+            startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
+            self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
+        except Exception, e:
+            log.exception(e)
+            print e.message
+            print "msg = {}".format(startSmchk)
+            return 'Start online smchk failed'
 
     #--------------------------------------------------------------------------------------
     @clicmd

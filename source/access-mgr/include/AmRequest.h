@@ -52,7 +52,6 @@ class AmRequest : public FDS_IOType {
         io_type   = _op;
         io_vol_id = _vol_id;
 
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
         e2e_req_perf_ctx.reset_volid(_vol_id);
     }
 

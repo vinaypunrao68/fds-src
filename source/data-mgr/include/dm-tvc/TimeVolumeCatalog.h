@@ -20,6 +20,8 @@
 
 namespace fds {
 
+struct DmVolumeAccessTable;
+
 /**
  * The time volume catalog manages the update history of a volume
  * and current pending updates to a volume. The TVC allows updates
@@ -28,6 +30,8 @@ namespace fds {
  */
 class DmTimeVolCatalog : public Module, boost::noncopyable {
   private:
+    DataMgr& dataManager_;
+
     /* Lock around commit log */
     fds_spinlock commitLogLock_;
 
@@ -37,11 +41,21 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
 
+    /** Mutual exclusion for AccessTable operations */
+    std::mutex accessTableLock_;
+
+    /**
+     * Volume access map. Each volume has an access policy which controls
+     * the exclusivity of AM attachments.
+     */
+    std::unordered_map<fds_volid_t, std::unique_ptr<DmVolumeAccessTable>> accessTable_;
+    std::chrono::duration<fds_uint32_t> vol_tok_lease_time {60};
+
     /**
      * For executing certain blob operations (commit, delete) in a
      * synchronized manner
      */
-    SynchronizedTaskExecutor<std::string> opSynchronizer_;
+    SynchronizedTaskExecutor<fds_uint64_t> opSynchronizer_;
 
     // TODO(Andrew): Add a history log eventually...
 
@@ -81,7 +95,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
             fds_bool_t dirs = true);
 
     // volcat  replay
-    Error dmReplayCatJournalOps(Catalog *destCat,
+    Error dmReplayCatJournalOps(Catalog& destCat,
                                 const std::vector<std::string> &files,
                                 util::TimeStamp fromTime,
                                 util::TimeStamp toTime);
@@ -94,7 +108,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Constructs the TVC object but does not init
      */
-    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp);
+    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp, DataMgr& dataManager);
     ~DmTimeVolCatalog();
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;
@@ -127,7 +141,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Attempt to "open" this volume for access
      */
     Error openVolume(fds_volid_t const volId,
-                     fds_int64_t const token,
+                     fds_int64_t& token,
                      fpi::VolumeAccessPolicy const& policy);
 
     /**
@@ -295,6 +309,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     fds_bool_t isPendingTx(fds_volid_t volId, fds_uint64_t timeNano);
 
     void commitBlobTxWork(fds_volid_t volid,
+			  const std::string &blobName,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);

@@ -61,6 +61,38 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
+# the FDS interface to list the exports.
+#
+class TestBlockListVolumes(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ListVolumes,
+                                             "List nbd-client volumes")
+
+    def test_ListVolumes(self):
+        """
+        Test Case:
+        Attempt to cause a list volumes
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        blkListExportCmd = 'nbd-client -l %s' % (om_node.nd_conf_dict['ip'] )
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(blkListExportCmd, return_stdin=True)
+
+        if status != 0:
+            self.log.info("Failed to list block volumes as expected.")
+            return True
+
+        self.log.error("Error, volumes returned: %s." % (stdout))
+        return False
+
+# This class contains the attributes and methods to test
 # the FDS interface to attach a volume.
 #
 class TestBlockAttachVolume(TestCase.FDSTestCase):
@@ -84,12 +116,20 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 
         volume = 'volume1'
 
+	#Per FS-1368, make use of --lockfile /tmp/nbdadm/nbdadm.lock
+	nbdadm_tmp = '/tmp/nbdadm'
+	nbdadm_lockfile = 'nbdadm.lock'
+
+	if not os.path.exists(nbdadm_tmp):
+		os.makedirs('%s' % nbdadm_tmp)
+
         # Check if a volume was passed to us.
         if self.passedVolume is not None:
             volume = self.passedVolume
 
         cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
-        blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
+        #blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
+        blkAttCmd = '%s/nbdadm.py --lockfile %s/%s attach %s %s' % (cinder_dir, nbdadm_tmp, nbdadm_lockfile, om_node.nd_conf_dict['ip'], volume)
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = om_node.nd_agent.exec_wait(blkAttCmd, return_stdin=True)
@@ -153,12 +193,12 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
 # writing block data.
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, volume=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_BlockFioWrite,
                                              "Writing a block volume")
-
+        self.passedVol = volume
 
     def test_BlockFioWrite(self):
         """
@@ -178,6 +218,15 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
             # Running in a forked process. Don't
             # stop on failures.
             verify_fatal = 0
+
+        if self.passedVol is not None:
+            volumes = fdscfg.rt_get_obj('cfg_volumes')
+            for volume in volumes:
+                if self.passedVol == volume.nd_conf_dict['vol-name']:
+                    global nbd_device
+                    nbd_device = volume.nd_conf_dict['nbd-dev']
+                    self.log.info("nbd_device is %s" % (nbd_device))
+                    break
 
         # TODO(Andrew): Don't hard code all of this stuff...
         fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
@@ -235,7 +284,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=4 --size=50M --filename=%s" % (nbd_device)
+        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run read/write workload")

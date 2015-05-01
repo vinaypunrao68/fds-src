@@ -12,13 +12,15 @@ import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.*;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiAsync;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
 
 import javax.crypto.SecretKey;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -31,10 +33,10 @@ public class S3Endpoint {
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
     private final AsyncWebapp webApp;
     private Xdi xdi;
-    private Supplier<XdiAsync> xdiAsync;
+    private Supplier<AsyncStreamer> xdiAsync;
     private SecretKey secretKey;
 
-    public S3Endpoint(Xdi xdi, Supplier<XdiAsync> xdiAsync, SecretKey secretKey,
+    public S3Endpoint(Xdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
                       HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
@@ -53,7 +55,7 @@ public class S3Endpoint {
                 (t) -> new MultiPartListParts(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, new AsyncGetObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
+                executeAsync(ctx, new AsyncGetObject(xdi)));
 
         syncRoute(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
 
@@ -81,7 +83,7 @@ public class S3Endpoint {
                 (t) -> new PutObjectAcl(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, new AsyncPutObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
+                executeAsync(ctx, new AsyncPutObject(xdi)));
 
         syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
                 .withUrlParam("delete"), (t) -> new DeleteMultipleObjects(xdi, t));
@@ -100,8 +102,15 @@ public class S3Endpoint {
         webApp.start();
     }
 
-    private CompletableFuture<Void> executeAsync(HttpContext ctx, Function<HttpContext, CompletableFuture<Void>> function) {
-        CompletableFuture<Void> cf = function.apply(ctx);
+    private CompletableFuture<Void> executeAsync(HttpContext ctx, BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> function) {
+        CompletableFuture<Void> cf = null;
+        try {
+            AuthenticationToken token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
+            cf = function.apply(ctx, token);
+        } catch (Exception e) {
+            cf.completeExceptionally(e);
+        }
+
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequestURI();
             Resource resource = new TextResource("");
@@ -130,11 +139,17 @@ public class S3Endpoint {
                         AuthenticatedRequestContext.begin(token);
                         Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
                         resource = errorHandler.apply(token).handle(ctx);
-                    } catch (SecurityException e) {
-                        resource = new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", ctx.getRequestURI());
-                    } catch (Exception e) {
-                        LOG.debug("Got an exception: ", e);
-                        resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
+                    } catch (Throwable t) {
+                        if (t instanceof ExecutionException) {
+                            t = t.getCause();
+                        }
+
+                        if (t instanceof SecurityException) {
+                            resource = new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", ctx.getRequestURI());
+                        } else {
+                            LOG.debug("Got an exception: ", t);
+                            resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
+                        }
                     } finally {
                         AuthenticatedRequestContext.complete();
                         resource.renderTo(ctx);

@@ -58,9 +58,25 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
 
     auto callback = create_async_handler<AttachCallback>(std::move(closure));
 
-    AmRequest *blobReq = new AttachVolBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
                                               *volumeName,
                                               callback);
+    amProcessor->enqueueRequest(blobReq);
+}
+
+template<typename H>
+void AmAsyncDataApi<H>::detachVolume(H& requestId,
+                                     shared_string_type& domainName,
+                                     shared_string_type& volumeName) {
+    // Closure for response call
+    auto closure = [p = responseApi, volumeName](DetachCallback* cb, Error const& e) mutable -> void {
+        LOGDEBUG << "Detached volume: " << *volumeName;
+        p.reset();
+    };
+
+    auto callback = create_async_handler<DetachCallback>(std::move(closure));
+
+    AmRequest *blobReq = new DetachVolumeReq(invalid_vol_id, *volumeName, callback);
     amProcessor->enqueueRequest(blobReq);
 }
 
@@ -259,7 +275,7 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
-        p->getBlobResp(e, requestId, cb->returnBuffer, cb->returnSize);
+        p->getBlobResp(e, requestId, cb->return_buffers, cb->returnSize);
     };
 
     auto callback = create_async_handler<GetObjectCallback>(std::move(closure));
@@ -288,10 +304,10 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
         typename response_api_type::shared_descriptor_type retBlobDesc = e.ok() ?
             transform_descriptor(cb->blobDesc) : nullptr;
         p->getBlobWithMetaResp(e,
-                                         requestId,
-                                         cb->returnBuffer,
-                                         cb->returnSize,
-                                         retBlobDesc);
+                               requestId,
+                               cb->return_buffers,
+                               cb->returnSize,
+                               retBlobDesc);
     };
 
     auto callback = create_async_handler<GetObjectWithMetadataCallback>(std::move(closure));
@@ -360,6 +376,14 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
         p->updateBlobResp(e, requestId);
     };
 
+    // Quick check, if these don't match reject!
+    if (*length != bytes->size()) {
+        LOGWARN << "Rejecting updateBlobOnce,"
+                << " request specified length: " << *length
+                << " actual length of payload was: " << bytes->size();
+        return closure(nullptr, ERR_INVALID_ARG);
+    }
+
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
@@ -382,22 +406,29 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                    shared_tx_ctx_type& txDesc,
                                    shared_buffer_type& bytes,
                                    shared_int_type& length,
-                                   shared_offset_type& objectOffset,
-                                   shared_bool_type& isLast) {
+                                   shared_offset_type& objectOffset) {
 
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
-
-    // Setup the transcation descriptor
-    BlobTxId::ptr blobTxDesc(new BlobTxId(
-            txDesc->txId));
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
         p->updateBlobResp(e, requestId);
     };
 
+    // Quick check, if these don't match reject!
+    if (*length != bytes->size()) {
+        LOGWARN << "Rejecting updateBlob,"
+                << " request specified length: " << *length
+                << " actual length of payload was: " << bytes->size();
+        return closure(nullptr, ERR_INVALID_ARG);
+    }
+
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
+
+
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(txDesc->txId));
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
@@ -406,7 +437,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         *length,
                                         bytes,
                                         blobTxDesc,
-                                        *isLast,
                                         callback);
     amProcessor->enqueueRequest(blobReq);
 }

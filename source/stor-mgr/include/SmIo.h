@@ -70,19 +70,15 @@ class SmIoReq : public FDS_IOType {
         delObjReq = NULL;
 
         // perf-trace related data
-        perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+        opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
-        opReqLatencyCtx.type = SM_E2E_PUT_OBJ_REQ;
-        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.type = PerfEventType::SM_E2E_PUT_OBJ_REQ;
         opReqLatencyCtx.reset_volid(_volUuid);
 
-        opLatencyCtx.type = SM_PUT_IO;
-        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.type = PerfEventType::SM_PUT_IO;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opQoSWaitCtx.type = SM_PUT_QOS_QUEUE_WAIT;
-        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.type = PerfEventType::SM_PUT_QOS_QUEUE_WAIT;
         opQoSWaitCtx.reset_volid(_volUuid);
     }
 
@@ -111,19 +107,15 @@ class SmIoReq : public FDS_IOType {
         delObjReq = NULL;
 
         // perf-trace related data
-        perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = SM_GET_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+        opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
-        opReqLatencyCtx.type = SM_E2E_GET_OBJ_REQ;
-        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.type = PerfEventType::SM_E2E_GET_OBJ_REQ;
         opReqLatencyCtx.reset_volid(_volUuid);
 
-        opLatencyCtx.type = SM_GET_IO;
-        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.type = PerfEventType::SM_GET_IO;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opQoSWaitCtx.type = SM_GET_QOS_QUEUE_WAIT;
-        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
         opQoSWaitCtx.reset_volid(_volUuid);
     }
 
@@ -157,19 +149,15 @@ class SmIoReq : public FDS_IOType {
         putObjReq = NULL;
 
         // perf-trace related data
-        perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+        opReqFailedPerfEventType = PerfEventType::SM_DELETE_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
-        opReqLatencyCtx.type = SM_E2E_DELETE_OBJ_REQ;
-        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.type = PerfEventType::SM_E2E_DELETE_OBJ_REQ;
         opReqLatencyCtx.reset_volid(_volUuid);
 
-        opLatencyCtx.type = SM_DELETE_IO;
-        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.type = PerfEventType::SM_DELETE_IO;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opQoSWaitCtx.type = SM_DELETE_QOS_QUEUE_WAIT;
-        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.type = PerfEventType::SM_DELETE_QOS_QUEUE_WAIT;
         opQoSWaitCtx.reset_volid(_volUuid);
     }
     void setObjId(const ObjectID &id) {
@@ -391,7 +379,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db)> CbType;
+                                leveldb::DB* db,
+                                bool retry)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 std::string &snapDir,
@@ -427,6 +416,11 @@ class SmIoSnapshotObjectDB : public SmIoReq {
      * Target DLT version for which this snapshot will be taken.
      */
     fds_uint64_t targetDltVersion;
+
+    /**
+     * Set if snapshot request is for retry of a SM token migration
+     */
+    bool retryReq;
 
     /* Response callback for in-memory snapshot request*/
     CbType smio_snap_resp_cb;

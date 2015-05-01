@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-GetBucketHandler::GetBucketHandler() {
-    if (!dataMgr->features.isTestMode()) {
+GetBucketHandler::GetBucketHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetBucketMsg, handleRequest);
     }
 }
@@ -23,6 +25,14 @@ GetBucketHandler::GetBucketHandler() {
 void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                      boost::shared_ptr<fpi::GetBucketMsg>& message) {
     LOGDEBUG << "volume: " << message->volume_id;
+
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::GetBucketRspMsg>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
 
     // setup the request
     auto dmRequest = new DmIoGetBucket(message);
@@ -34,12 +44,12 @@ void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
-    QueueHelper helper(dmRequest);  // this will call the callback
+    QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoGetBucket *request = static_cast<DmIoGetBucket*>(dmRequest);
 
     fpi::BlobDescriptorListType & blobVec = request->response->blob_descr_list;
     // do processing and set the error
-    helper.err = dataMgr->timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
+    helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
 
     // match pattern if specified
     if (!request->message->pattern.empty()) {
@@ -89,8 +99,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                                       const Error &e, dmCatReq *dmRequest) {
-    LOGDEBUG << " volid: " << dmRequest->volId
-             << " err: " << e;
+    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : 0) << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;

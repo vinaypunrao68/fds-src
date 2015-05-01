@@ -24,7 +24,7 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
-	    volume_open_support = false
+	        volume_open_support = true
         }
         plat: {
 
@@ -47,6 +47,7 @@ fds: {
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
 
+{# This block should be reinstated when FS-1697 is resolved ...
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
@@ -55,6 +56,8 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
+#}
+	om_ip_list = "{{ om_ip }}"
 	om_port = 7004
 	om_uuid = 1028
 
@@ -82,13 +85,14 @@ fds: {
         log_severity = "{{ pm_log_severity }}"
 
         /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
-	platform_uuid = 1024
+	    platform_uuid = 1024
+
         /* Platform port.  This is the node base port.  All services running on this node derive */
-	/* their port based on this port */
+	    /* their port based on this port */
         platform_port = 7000
 
         /* Orchestration manager info */
-	/* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
+	    /* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
@@ -114,6 +118,20 @@ fds: {
             period = 5
         }
 
+        capabilities: {
+            disk: {
+                ssd: {
+                    iops_min = 5000
+                    iops_max = 10000
+                }
+                hdd: {
+                    iops_min = 500
+                    iops_max = 1000
+                }
+                /* GC..etc disk reservation */
+                reserved_space = 0.20
+            }
+        }
         threadpool: {
             num_threads = 10
 
@@ -125,8 +143,8 @@ fds: {
 	    standalone = false
             /* overwrite node capabilities from this config */
             manual_nodecap = true
-            disk_iops_max  = 100000
-            disk_iops_min  = 60000
+            node_iops_max  = 100000
+            node_iops_min  = 60000
         }
         /* Service layer stanza */
         svc: {
@@ -171,7 +189,7 @@ fds: {
         /* process id */
         id      = "dm"
         no_om   = false;
-	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
+	    /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -180,6 +198,9 @@ fds: {
 
         /* Log severity */
         log_severity = "{{ dm_log_severity }}"
+
+	    /* Lease time (seconds) for volume access tokens */
+	    token_lease_time=60
 
         cache: {
            /* Default max entries in a volume's DM catalog cache */
@@ -257,7 +278,7 @@ fds: {
         /* process id */
         id      = "sm"
         prefix  = ""
-	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
+	    /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -360,6 +381,9 @@ fds: {
 
             /* boolean to enable/disable SM token migration feature */
             enable_feature = true
+
+            /* boolean to enable/disable SM resync feature */
+            enable_resync = false
         }
 	tiering: {
 	    hybrid: {
@@ -393,17 +417,18 @@ fds: {
                 worker_thread_cnt = 2
             }
             timeout: {
+		io_message = {{ am_svc_io_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
         perf: { enable = {{ perf_tracing }} }
 
         /* process id */
-	id = "am"
+    	id = "am"
 
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
-	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
+    	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
@@ -432,10 +457,17 @@ fds: {
         fdsn_server_threads=30
         qos_threads=4
 
+        /* Frequency (seconds) to notify DM we are using a volume */
+        token_renewal_freq=30
+
         connector: {
             nbd: {
                 server_port_offset=3809
-                non_block_io=true
+                options: {
+                    /* Time (seconds) to retry connection to client before disconnect */
+                    keep_alive=30
+                    non_block_io=true
+                }
             }
         }
 
@@ -446,8 +478,8 @@ fds: {
             use_lftp = true
         }
         cache: {
-            /* Default max data entries in a volume's AM cache */
-            max_data_entries =  {{ am_cache_max_data_entries }}
+            /* Default max data size in MiB per volume */
+            max_volume_data =  {{ am_cache_max_volume_data }}
             /* Default max entries in a volume's AM cache */
             max_metadata_entries =  {{ am_cache_max_metadata_entries }}
             /* Default max staged entries in a volume's tx descriptor */
@@ -461,9 +493,6 @@ fds: {
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
-
-            /* NBD module driver */
-            nbd_vol_module = "sm"
 
             /* Forces all AM processor APIs to immediately return success */
             uturn_processor_all = false
@@ -518,17 +547,19 @@ fds: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
-	/* Testing stanza */
-	testing: {
+
+        /* Testing stanza */
+        testing: {
             /* Toggle stand alone mode */
             standalone = false
-	}
+        }
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"
         logfile="om"
         config_port=8903
-	/* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
+
+	    /* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
         ip_address = "{{ om_ip }}"
         token_factor=8
@@ -540,9 +571,14 @@ fds: {
         web_dir="../lib/admin-webapp/"
         http_port=7777
         https_port=7443
-        configdb : {
+        configdb: {
             port=6379
         }
+
+        influxdb: {
+            url="{{ om_influxdb_url }}"
+        }
+
         test_mode=false
         threadpool: {
             num_threads = 10
@@ -557,6 +593,7 @@ fds: {
             targetip = "{{ snmp_targetip }}"
             community = "{{ snmp_community }}"
         }
+        prevent_adding_dm_after_startup = true
     }
 
     checker: {
@@ -569,7 +606,7 @@ fds: {
         control_port = 6991
 
         /* Orchestration manager ip */
-	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
+	    /* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */
@@ -584,6 +621,13 @@ fds: {
 
     xdi: {
         am_host = "{{ am_host }}"
+    }
+
+    test: {
+        testing: {
+            /* Toggle stand alone mode */
+            standalone = true
+        }
     }
 }
 {% endblock %}

@@ -27,7 +27,7 @@ public class FirebreakEvent extends Event {
     public static final String MESSAGE_KEY = "FIREBREAK_EVENT";
     public static final String[] MESSAGE_ARG_NAMES = {"volumeName", "firebreakType", "currentUsageBytes", "sigma"};
 
-    private String volumeId;
+    private Long volumeId;
     private String volumeName;
 
     @Enumerated(EnumType.ORDINAL)
@@ -52,7 +52,7 @@ public class FirebreakEvent extends Event {
     public FirebreakEvent(Volume vol, FirebreakType t,  Long ts, Long currentUsageInBytes, Double sigma) {
         super(ts, EventType.FIREBREAK_EVENT, EventCategory.FIREBREAK, EventSeverity.WARNING,
               DEFAULT_MESSAGE_FMT, MESSAGE_KEY, vol.getName(), t, currentUsageInBytes, sigma);
-        this.volumeId = vol.getId();
+        this.volumeId = Long.valueOf( vol.getId() );
         this.volumeName = vol.getName();
         this.firebreakType = t;
         this.currentUsageBytes = currentUsageInBytes;
@@ -86,7 +86,7 @@ public class FirebreakEvent extends Event {
     /**
      * @return the volume id
      */
-    public String getVolumeId() {
+    public Long getVolumeId() {
         return volumeId;
     }
 
@@ -95,7 +95,7 @@ public class FirebreakEvent extends Event {
      *
      * @param volId
      */
-    protected void setVolumeId(String volId) {
+    protected void setVolumeId(Long volId) {
         this.volumeId = volId;
     }
 

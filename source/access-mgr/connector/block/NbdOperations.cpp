@@ -14,6 +14,15 @@
 
 namespace fds {
 
+/**
+ * Since multiple connections can serve the same volume we need
+ * to keep this association information somewhere so we can
+ * properly detach from the volume when unused.
+ */
+static std::unordered_map<std::string, std::uint_fast16_t> assoc_map {};
+static std::mutex assoc_map_lock {};
+
+
 fds_bool_t
 NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
                                       fds_uint32_t len,
@@ -128,7 +137,15 @@ NbdOperations::attachVolumeResp(const Error& error,
                                 boost::shared_ptr<VolumeDesc>& volDesc) {
     LOGDEBUG << "Reponse for attach: [" << error << "]";
     if (ERR_OK == error) {
+        if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
+            LOGWARN << "Wrong volume type: " << volDesc->volType;
+            return nbdResp->attachResp(ERR_INVALID_VOL_ID, nullptr);
+        }
         maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+
+        // Reference count this association
+        std::unique_lock<std::mutex> lk(assoc_map_lock);
+        ++assoc_map[volDesc->name];
     }
     nbdResp->attachResp(error, volDesc);
 }
@@ -317,8 +334,14 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 void
 NbdOperations::getBlobResp(const Error &error,
                            handle_type& requestId,
-                           boost::shared_ptr<std::string> buf,
+                           const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            fds_uint32_t& length) {
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
+    // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
+    // When AmProc supports vectored reads, return the whole vector,
+    // not just the front element. For now assume one object.
+    auto buf = (bufs) ? bufs->front() : empty_buffer;
+
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
@@ -374,19 +397,20 @@ NbdOperations::getBlobResp(const Error &error,
     }
 
     if (done) {
+        bool response_removed = false;
         {
             // nbd connector will free resp
             // remove from the wait list
             fds_mutex::scoped_lock l(respLock);
-            if (1 != responses.erase(handle)) {
-                LOGERROR << "Handle 0x" << std::hex
-                         << handle << std::dec
-                         << " was missing from the response map!";
-            }
+            response_removed = (1 == responses.erase(handle));
         }
-
-        // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(resp);
+        if (response_removed) {
+            // we are done collecting responses for this handle, notify nbd connector
+            nbdResp->readWriteResp(resp);
+        } else {
+            LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
+                      << " was missing from the response map!";
+        }
     }
 }
 
@@ -453,6 +477,22 @@ NbdOperations::updateBlobResp(const Error &error,
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readWriteResp(resp);
     }
+}
+
+void
+NbdOperations::shutdown()
+{
+    // If NbdConnection has not received the command to attach, volumeName
+    // will still be NULL
+    if (volumeName) {
+        // Only close the volume if it's the last connection
+        std::unique_lock<std::mutex> lk(assoc_map_lock);
+        if (0 == --assoc_map[*volumeName]) {
+            handle_type reqId{0, 0};
+            amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+        }
+    }
+    amAsyncDataApi.reset();
 }
 
 /**

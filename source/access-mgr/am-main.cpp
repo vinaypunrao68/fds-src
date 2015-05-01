@@ -41,7 +41,12 @@ class AMMain : public SvcProcess
 
     int run() override {
         am->run();
-
+        /**
+         * Destroying the Access Manager and AMProcessor, as by now all
+         * data servers have been stopped and prepareForShutdown mesg
+         * response notification have been sent back to OM.
+         */
+        am.reset(nullptr);
         std::call_once(mod_shutdown_invoked_,
                         &FdsProcess::shutdown_modules,
                         this);

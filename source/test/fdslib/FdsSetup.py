@@ -300,6 +300,10 @@ class FdsLocalEnv(FdsEnv):
                 if 'InsecureRequestWarning' in line:
                     continue
 
+                # From fdsconsole.py
+                if 'InsecurePlatformWarning' in line:
+                    continue
+
                 if status == 0:
                     log.warning("Shell reported status 0 from command execution but stderr "
                                 "contains unexpected output as follows. Forcing status to -1.")
