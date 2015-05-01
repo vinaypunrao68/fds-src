@@ -48,8 +48,8 @@ proc["om"]="java"
 
 declare -A apps
 apps["om"]="orchMgr"
-apps["am"]="AMAgent"
-apps["xdi"]="AMAgent"
+apps["am"]="bare_am"
+apps["xdi"]="am.Main"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
@@ -131,7 +131,7 @@ function activate() {
     if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
     if [[ -n $actapps ]]; then
         # Bao: wait for platformd before activate
-        sleep 5
+        sleep 3
 
         logwarn "asking OM to accept all discovered nodes..."
 	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local > cli.out) 2>/dev/null
@@ -169,13 +169,13 @@ function startApp() {
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
                 (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
-                sleep 2s
+
 		if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
                     loginfo "here is the log file: ${BINDIR}/${name}.out"
                     tail ${BINDIR}/${name}.out
                 fi
-                sleep 1s
+
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -254,7 +254,7 @@ function cleanInfluxDB() {
     ## if it is not running, start it.
     if [ $isRunning != 0 ]; then
         startInfluxDB
-        sleep 5
+        sleep 2
     fi
 
     loginfo "cleaning up InfluxDB databases"

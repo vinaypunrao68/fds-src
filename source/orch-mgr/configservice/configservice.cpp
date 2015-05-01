@@ -824,6 +824,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.qosQueueId = invalid_vol_id;
         volPolicyMgr->fillVolumeDescPolicy(&desc);
         LOGDEBUG << "adding a clone request..";
+        desc.setState(fpi::ResourceState::Loading);
         volContainer->addVolume(desc);
 
         // wait for the volume to be active upto 30 seconds

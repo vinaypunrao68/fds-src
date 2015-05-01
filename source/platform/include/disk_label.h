@@ -131,7 +131,6 @@ namespace fds
             ChainLink             dl_link;
             dlabel_hdr_t         *dl_label;
             dlabel_disk_uuid_t   *dl_disk_uuids;
-            DiskUuidArray         dl_uuids;
             PmDiskObj::pointer    dl_owner;
 
             void dsk_label_fixup_header();

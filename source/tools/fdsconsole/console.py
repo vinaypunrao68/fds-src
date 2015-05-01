@@ -446,17 +446,18 @@ class FDSConsole(cmd.Cmd):
             else:
                 if argv[-1] == '?':
                     argv[-1] = '-h'
-            
-            if self.has_access(argv) == False:
-                print 'oops!!!! you do not have privileges to run this command'
-            else:
-                ctx, pos, m = self.get_context_for_command(argv)
-                if ctx == None:
-                    print 'unable to determine correct context or function!!!'
-                    ctx = self.context
-                    pos = 0
-                #print 'dispatching : %s' % (argv[pos:])            
-                ctx.parser.dispatch(argv[pos:])
+
+            # We ignore accesslevel check now that this tool will not be customer-facing.
+            #if self.has_access(argv) == False:
+            #    print 'oops!!!! you do not have privileges to run this command'
+            #else:
+            ctx, pos, m = self.get_context_for_command(argv)
+            if ctx == None:
+                print 'unable to determine correct context or function!!!'
+                ctx = self.context
+                pos = 0
+            #print 'dispatching : %s' % (argv[pos:])
+            ctx.parser.dispatch(argv[pos:])
         except ConsoleExit:
             raise
         except SystemExit:

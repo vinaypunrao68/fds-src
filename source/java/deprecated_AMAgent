@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo "This script should no longer be used"
+echo "Platformd starts bare_am and the JAVA am independently."
+
+
 ./bare_am $* &
 sleep 3
 

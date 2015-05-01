@@ -32,6 +32,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     contCommitlogRetention = volinfo.contCommitlogRetention;
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
+    state   = volinfo.state;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -80,6 +81,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     contCommitlogRetention = voldesc.contCommitlogRetention;
     timelineTime = voldesc.timelineTime;
     createTime  = voldesc.createTime;
+    state = voldesc.state;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }

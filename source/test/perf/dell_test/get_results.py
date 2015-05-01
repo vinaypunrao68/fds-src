@@ -14,6 +14,7 @@ def order_by(table, columns):
 	return table
 
 directory=sys.argv[1]
+files = os.listdir(directory)
 
 table = []
 for f in files:
