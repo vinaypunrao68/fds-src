@@ -97,12 +97,8 @@ def listNodes():
     node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM")]
     node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM")]                
  
-    jNode = NodeConverter.to_json( node )
-    nodes = json.loads( jNode )
-    
-    d = dict()
-    d["nodes"] = [nodes]
-    return d
+    nodes = [node]
+    return nodes
 
 def activateNode( node_id, state ):
     response = dict()

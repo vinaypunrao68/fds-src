@@ -1,5 +1,6 @@
 from abstract_service import AbstractService
 from fds.utils.node_state_converter import NodeStateConverter
+from fds.utils.node_converter import NodeConverter
 
 class NodeService( AbstractService ):
     '''
@@ -20,7 +21,15 @@ class NodeService( AbstractService ):
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/services" )
-        return self.rest_helper.get( self.session, url )
+        j_nodes = self.rest_helper.get( self.session, url )
+        j_nodes = j_nodes.pop( "nodes", [] )
+        nodes = []
+        
+        for j_node in j_nodes:
+            node = NodeConverter.build_node_from_json( j_node )
+            nodes.append( node )
+            
+        return nodes
     
     def activate_node(self, node_id, node_state):
         '''

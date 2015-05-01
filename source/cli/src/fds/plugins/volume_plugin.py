@@ -195,7 +195,14 @@ class VolumePlugin( AbstractPlugin):
         
         #write the volumes out
         if "format" in args  and args[AbstractPlugin.format_str] == "json":
-            response_writer.ResponseWriter.writeJson( response )
+            
+            j_volumes = []
+            
+            for volume in response:
+                j_volume = VolumeConverter.to_json(volume)
+                j_volumes.append( j_volume )
+                
+            response_writer.ResponseWriter.writeJson( j_volumes )
         else:
             #The tabular format is very poor for a volume object, so we need to remove some keys before display
             response = response_writer.ResponseWriter.prep_volume_for_table( self.session, response )

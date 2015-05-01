@@ -11,7 +11,6 @@ from fds.utils.volume_converter import VolumeConverter
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.utils.node_converter import NodeConverter
 from fds.utils.domain_converter import DomainConverter
-from fds.utils.snapshot_policy_converter import SnapshotPolicyConverter
 from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
@@ -49,8 +48,7 @@ class ResponseWriter():
         if ( isinstance( response, dict ) ):
             response = [response]
         
-        for jVolume in response:
-            volume = VolumeConverter.build_volume_from_json( jVolume )
+        for volume in response:
             
             #figure out what to show for last firebreak occurrence
             lastFirebreak = volume.last_capacity_firebreak
@@ -111,9 +109,8 @@ class ResponseWriter():
         #The tabular format is very poor for a volume object, so we need to remove some keys before display
         resultList = []
         
-        for snap in response:
+        for snapshot in response:
             
-            snapshot = SnapshotConverter.build_snapshot_from_json( snap )
             created = time.localtime( snapshot.created )
             created = time.strftime( "%c", created )
             
@@ -172,8 +169,6 @@ class ResponseWriter():
         
         for domain in response:
             
-            domain = DomainConverter.build_domain_from_json( domain )
-            
             ov = OrderedDict()
             
             ov["ID"] = domain.id
@@ -196,8 +191,6 @@ class ResponseWriter():
         
         for node in response:
             
-            node = NodeConverter.build_node_from_json( node ) 
-            
             ov = OrderedDict()
             
             ov["ID"] = node.id
@@ -218,10 +211,9 @@ class ResponseWriter():
         '''
         results = []
         
-        for j_node in response:
+        for node in response:
             
             # we'll need this data for each service
-            node = NodeConverter.build_node_from_json( j_node )
             
             services = node.services
             

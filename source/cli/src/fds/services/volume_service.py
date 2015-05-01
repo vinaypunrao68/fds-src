@@ -27,8 +27,8 @@ class VolumeService( AbstractService ):
         volumes = self.list_volumes()
         
         for volume in volumes:
-            if ( volume["id"] == an_id ):
-                return VolumeConverter.build_volume_from_json( volume )
+            if ( volume.id == an_id ):
+                return volume
             
     def find_volume_by_name(self, aName):  
         '''
@@ -38,8 +38,8 @@ class VolumeService( AbstractService ):
         volumes = self.list_volumes()
         
         for volume in volumes:
-            if ( volume["name"] == aName ):
-                return VolumeConverter.build_volume_from_json( volume )  
+            if ( volume.name == aName ):
+                return volume  
             
     def find_volume_from_snapshot_id(self, snapshotId ):
         '''
@@ -47,7 +47,6 @@ class VolumeService( AbstractService ):
         '''
         snapshot_service = SnapshotService( self.__session)
         snapshot = snapshot_service.get_snapshot_by_id( snapshotId )
-        snapshot = SnapshotConverter.build_snapshot_from_json( snapshot )
         
         if ( snapshot == None ):
             return
@@ -61,7 +60,15 @@ class VolumeService( AbstractService ):
         Return the raw json list of volumes from the FDS REST call
         '''
         url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes" )
-        return self.rest_helper.get( self.session, url )
+        response = self.rest_helper.get( self.session, url )
+        
+        volumes = []
+        
+        for j_volume in response:
+            volume = VolumeConverter.build_volume_from_json( j_volume )
+            volumes.append( volume )
+            
+        return volumes
     
     def create_volume(self, volume):
         '''
@@ -124,7 +131,15 @@ class VolumeService( AbstractService ):
         '''
         
         url = "{}{}{}{}".format ( self.get_url_preamble(), "/api/config/volumes/", an_id, "/snapshots" )
-        return self.rest_helper.get( self.session, url )
+        response = self.rest_helper.get( self.session, url )
+        
+        snapshots = []
+        
+        for j_snapshot in response:
+            snapshot = SnapshotConverter.build_snapshot_from_json( j_snapshot )
+            snapshots.append( snapshot )
+            
+        return snapshots
     
     def list_volume_ids_by_snapshot_policy(self, snapshot_policy_id ):
         '''

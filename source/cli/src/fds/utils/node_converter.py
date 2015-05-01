@@ -34,6 +34,9 @@ class NodeConverter():
     def build_node_from_json( jsonString ):
         
         node = Node()
+        
+        if isinstance( jsonString, dict ) == False:
+            jsonString = json.loads(jsonString)
 
         node.id = jsonString.pop( "uuid", -1 )
         node.state = jsonString.pop( "state", "UP" )
