@@ -19,30 +19,25 @@ Created on Apr 22, 2015
 def listVolumes():
     volume = Volume()
     vols = []
-    tempStr = VolumeConverter.to_json( volume )
-    volume = json.loads( tempStr )
+
     vols.append( volume )
     
     return vols
 
 def createVolume(volume):
-    volume = VolumeConverter.to_json( volume )
     return volume
 
 def editVolume(volume):
-    volume = VolumeConverter.to_json( volume )
     return volume
 
 def cloneFromTimelineTime( a_time, volume ):
     
     volume.id = 354
     volume.timeline_time = a_time
-    volume = VolumeConverter.to_json(volume)
     return volume
 
 def cloneFromSnapshotId( snapshot_id, volume):
     volume.id = 789
-    volume = VolumeConverter.to_json( volume )
     return volume
 
 def deleteVolume(name):
@@ -79,9 +74,7 @@ def createSnapshot( snapshot ):
 
 def listSnapshots( volumeName ):
     snapshot = Snapshot()
-    tempSnap = SnapshotConverter.to_json( snapshot )
     snaps = []
-    snapshot = json.loads( tempSnap )
     snaps.append( snapshot )
     return snaps
 
@@ -118,9 +111,8 @@ def shutdownDomain( domain_name ):
 def listLocalDomains():
     
     domain = Domain()
-    domain = DomainConverter.to_json(domain)
     domains = []
-    domains.append( json.loads( domain ))
+    domains.append(domain)
     
     return domains
 

@@ -209,7 +209,7 @@ class NodePlugin( AbstractPlugin ):
         id_list = []
         
         if ( args[AbstractPlugin.node_ids_str] == None ):
-            nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes().pop( "nodes" ) )
+            nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes() )
             for node in nodes:
                 id_list.append( node["uuid"] )
             #end of for loop

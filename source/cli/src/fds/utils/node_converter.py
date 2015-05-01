@@ -24,6 +24,9 @@ class NodeConverter():
         
         services = []
         
+        if ( key in node.services ) == False:
+            return services
+        
         for service in node.services[key]:
             j_service = ServiceConverter.to_json( service )
             services.append( json.loads(j_service) )

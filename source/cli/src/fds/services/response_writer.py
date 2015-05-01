@@ -7,10 +7,6 @@ import tabulate
 import json
 import time
 from collections import OrderedDict
-from fds.utils.volume_converter import VolumeConverter 
-from fds.utils.snapshot_converter import SnapshotConverter
-from fds.utils.node_converter import NodeConverter
-from fds.utils.domain_converter import DomainConverter
 from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
@@ -38,8 +34,7 @@ class ResponseWriter():
     @staticmethod
     def prep_volume_for_table( session, response ):
         '''
-        Flatten the volume JSON object dictionary so it's more user friendly - mainly
-        for use with the tabular print option
+        making the structure table friendly
         '''        
         
         prepped_responses = []
@@ -69,13 +64,13 @@ class ResponseWriter():
             iopsMin = volume.iops_guarantee
             
             if ( iopsMin == 0 ):
-                iopsMin = "Unlimited"
+                iopsMin = "None"
                 
             #sanitize the IOPs limit
             iopsLimit = volume.iops_limit
             
             if ( iopsLimit == 0 ):
-                iopsLimit = "None"
+                iopsLimit = "Unlimited"
 
             ov = OrderedDict()
             
@@ -141,19 +136,18 @@ class ResponseWriter():
         
         for policy in response:
             
-            fields = []
-            
             retentionValue = policy.retention
             
             if ( retentionValue == 0 ):
                 retentionValue = "Forever"
+        
+            ov = OrderedDict()
             
-            fields.append(("ID", policy.id))
-            fields.append(("Name", policy.name))
-            fields.append(("Retention", retentionValue ))
-            fields.append(("Recurrence Rule", RecurrenceRuleConverter.to_json( policy.recurrence_rule ) ))
-    
-            ov = OrderedDict( fields )
+            ov["ID"] = policy.id
+            ov["Name"] = policy.name
+            ov["Retention"] = retentionValue
+            ov["Recurrence Rule"] = RecurrenceRuleConverter.to_json( policy.recurrence_rule )
+            
             results.append( ov )
         # end of for loop
         
