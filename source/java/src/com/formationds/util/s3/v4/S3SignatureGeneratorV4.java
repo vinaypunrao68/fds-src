@@ -1,5 +1,6 @@
 package com.formationds.util.s3.v4;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.bouncycastle.util.encoders.Hex;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -18,13 +19,37 @@ public class S3SignatureGeneratorV4 {
         builder.append(utcDate.toString(ISODateTimeFormat.basicDateTimeNoMillis()));
         builder.append("\n");
 
-        builder.append(utcDate.toString(ISODateTimeFormat.basicDate()));
-        builder.append("/");
-        builder.append(awsRegion);
-        builder.append("/s3/aws4_request\n");
+        builder.append(scope(utcDate, awsRegion));
+        builder.append("\n");
 
         builder.append(Hex.toHexString(canonicalRequestSha));
         return builder.toString();
+    }
+
+    private String createChunkStringToSign(byte[] priorSignature, byte[] contentSha, String awsRegion, DateTime date) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("AWS4-HMAC-SHA256-PAYLOAD\n");
+
+        DateTime utcDate = date.toDateTime(DateTimeZone.UTC);
+        builder.append(utcDate.toString(ISODateTimeFormat.basicDateTimeNoMillis()));
+        builder.append("\n");
+
+        builder.append(scope(utcDate, awsRegion));
+        builder.append("\n");
+
+        builder.append(Hex.toHexString(priorSignature));
+        builder.append("\n");
+
+        String emptyHash = DigestUtils.sha256Hex("");
+        builder.append(emptyHash);
+        builder.append("\n");
+
+        builder.append(Hex.toHexString(contentSha));
+        return builder.toString();
+    }
+
+    private String scope(DateTime utcDateTime, String region) {
+        return String.format("%s/%s/s3/aws4_request", utcDateTime.toString(ISODateTimeFormat.basicDate()), region);
     }
 
     // TODO: this is very similar to the HMAC code in S3SignatureGenerator
@@ -65,5 +90,16 @@ public class S3SignatureGeneratorV4 {
     public byte[] fullContentSignature(String secretKey, SignatureRequestData requestData, String awsRegion, byte[] fullContentSha) {
         byte[] requestSha = requestData.fullCanonicalRequestHash(fullContentSha);
         return signature(secretKey, requestData.getDate(), awsRegion, requestSha);
+    }
+
+    public byte[] seedSignature(String secretKey, SignatureRequestData requestData, String awsRegion) {
+        byte[] requestSha = requestData.chunkedCanonicalRequestHash();
+        return signature(secretKey, requestData.getDate(), awsRegion, requestSha);
+    }
+
+    public byte[] chunkSignature(String secretKey, SignatureRequestData requestData, String awsRegion, byte[] priorChunkSignature, byte[] contentHash) {
+        String stringToSign = createChunkStringToSign(priorChunkSignature, contentHash, awsRegion, requestData.getDate());
+        byte[] signingKey = createSigningKey(secretKey, requestData.getDate(), awsRegion);
+        return hmacSha256(signingKey, stringToSign);
     }
 }
