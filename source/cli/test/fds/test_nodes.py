@@ -108,9 +108,9 @@ class TestNodes( BaseCliTest ):
         
         assert first[0][0] == "1"
         
-        assert first[0][1].am == False
-        assert first[0][1].dm == False
-        assert first[0][1].sm == False
+        assert first[0][1].am is False
+        assert first[0][1].dm is False
+        assert first[0][1].sm is False
         
     @patch( "fds.services.node_service.NodeService.activate_node", side_effect=mock_functions.activateNode)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)        
@@ -137,9 +137,9 @@ class TestNodes( BaseCliTest ):
         state = mockActivate.call_args[0][1]
         
         assert node_id == "4"
-        assert state.am == True
-        assert state.dm == True
-        assert state.sm == True
+        assert state.am is True
+        assert state.dm is True
+        assert state.sm is True
     
         #test only certain services
         args = ["node", "start_service", "-node_id=4", "-services", "am", "dm"]
@@ -151,9 +151,9 @@ class TestNodes( BaseCliTest ):
         
         state = mockActivate.call_args[0][1]
         
-        assert state.am == True
-        assert state.dm == True
-        assert state.sm == None
+        assert state.am is True
+        assert state.dm is True
+        assert state.sm is None
         
         args = ["node", "start_service", "-node_id=4", "-services", "sm"]
         
@@ -164,9 +164,9 @@ class TestNodes( BaseCliTest ):
         
         state = mockActivate.call_args[0][1]
         
-        assert state.am == None
-        assert state.dm == None
-        assert state.sm == True
+        assert state.am is None
+        assert state.dm is None
+        assert state.sm is True
     
     @patch( "fds.services.node_service.NodeService.activate_node", side_effect=mock_functions.activateNode)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)        
@@ -193,9 +193,9 @@ class TestNodes( BaseCliTest ):
         state = mockActivate.call_args[0][1]
         
         assert node_id == "4"
-        assert state.am == False
-        assert state.dm == False
-        assert state.sm == False
+        assert state.am is False
+        assert state.dm is False
+        assert state.sm is False
     
         #test only certain services
         args = ["node", "stop_service", "-node_id=4", "-services", "am", "dm"]
@@ -207,9 +207,9 @@ class TestNodes( BaseCliTest ):
         
         state = mockActivate.call_args[0][1]
         
-        assert state.am == False
-        assert state.dm == False
-        assert state.sm == None
+        assert state.am is False
+        assert state.dm is False
+        assert state.sm is None
         
         args = ["node", "stop_service", "-node_id=4", "-services", "sm"]
         
@@ -220,9 +220,9 @@ class TestNodes( BaseCliTest ):
         
         state = mockActivate.call_args[0][1]
         
-        assert state.am == None
-        assert state.dm == None
-        assert state.sm == False    
+        assert state.am is None
+        assert state.dm is None
+        assert state.sm is False    
     
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes) 
     @patch( "fds.services.response_writer.ResponseWriter.writeJson", side_effect=writeJson)

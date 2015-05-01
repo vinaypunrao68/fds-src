@@ -48,7 +48,7 @@ class VolumeService( AbstractService ):
         snapshot_service = SnapshotService( self.__session)
         snapshot = snapshot_service.get_snapshot_by_id( snapshotId )
         
-        if ( snapshot == None ):
+        if ( snapshot is None ):
             return
         
         volume = self.find_volume_by_id( snapshot.volume_id )

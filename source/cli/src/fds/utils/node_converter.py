@@ -24,7 +24,7 @@ class NodeConverter():
         
         services = []
         
-        if ( key in node.services ) == False:
+        if not key in node.services:
             return services
         
         for service in node.services[key]:
@@ -38,7 +38,7 @@ class NodeConverter():
         
         node = Node()
         
-        if isinstance( jsonString, dict ) == False:
+        if not isinstance( jsonString, dict ):
             jsonString = json.loads(jsonString)
 
         node.id = jsonString.pop( "uuid", -1 )
@@ -49,7 +49,7 @@ class NodeConverter():
         
         services = jsonString.pop( "services", None )
         
-        if ( services != None ):
+        if ( services is not None ):
             for key in ("AM","DM","SM","PM","OM"):
                 NodeConverter.create_services_from_json(node, key, services)
         

@@ -210,7 +210,7 @@ class NodePlugin( AbstractPlugin ):
         '''
         id_list = []
         
-        if ( args[AbstractPlugin.node_ids_str] == None ):
+        if ( args[AbstractPlugin.node_ids_str] is None ):
             nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes() )
             for node in nodes:
                 id_list.append( node["uuid"] )
@@ -259,7 +259,7 @@ class NodePlugin( AbstractPlugin ):
         state.dm = None
         state.sm = None
         
-        if ( args[AbstractPlugin.services_str] != None ):
+        if ( not args[AbstractPlugin.services_str] is None ):
             
             for service in args[AbstractPlugin.services_str]:
                 if service == "am":
@@ -290,7 +290,7 @@ class NodePlugin( AbstractPlugin ):
         state.dm = None
         state.sm = None        
         
-        if ( args[AbstractPlugin.services_str] != None ):
+        if ( args[AbstractPlugin.services_str] is not None ):
             for service in args[AbstractPlugin.services_str]:
                 if service == "am":
                     state.am = False
@@ -318,7 +318,7 @@ class NodePlugin( AbstractPlugin ):
         node_list = []
         
         # filter everything but the node we want
-        if ( args[AbstractPlugin.node_id_str] != None ):
+        if ( args[AbstractPlugin.node_id_str] is not None ):
             for node in nodes:
                 if ( node.id == args[AbstractPlugin.node_id_str]):
                     node_list.append( node )
@@ -350,16 +350,16 @@ class NodePlugin( AbstractPlugin ):
         
         for node in node_list:
             
-            if ( am == False ):
+            if ( am is False ):
                 del node.services["AM"]
                 
-            if ( sm == False ):
+            if ( sm is False ):
                 del node.services["SM"]
                 
-            if ( dm == False ):
+            if ( dm is False ):
                 del node.services["DM"]
                 
-            if ( pm == False ):
+            if ( pm is False ):
                 del node.services["PM"]
                 
 #                 if ( om == False ):

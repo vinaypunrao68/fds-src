@@ -1,6 +1,5 @@
 import json
 from fds.model.domain import Domain
-from __builtin__ import False
 
 class DomainConverter():
     '''
@@ -14,7 +13,7 @@ class DomainConverter():
         
         domain = Domain()
         
-        if isinstance( jsonString, dict ) == False:
+        if not isinstance( jsonString, dict ):
             jsonString = json.loads( jsonString )
         
         domain.name = jsonString.pop( "name", domain.name )

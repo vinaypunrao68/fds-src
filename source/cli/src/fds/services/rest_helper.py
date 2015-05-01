@@ -24,9 +24,9 @@ class RESTHelper():
         return
             
     def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
-        response = requests.post( url, data=data, headers=self.buildHeader( session ) )
+        response = requests.post( url, data=data, headers=self.buildHeader( session ), verify=False )
         
-        if ( response.ok == False ):
+        if ( response.ok is False ):
             failureCallback( self, response )
             return
         
@@ -34,9 +34,9 @@ class RESTHelper():
         return rj
     
     def put(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
-        response = requests.put( url, data=data, headers=self.buildHeader( session ) )
+        response = requests.put( url, data=data, headers=self.buildHeader( session ), verify=False )
         
-        if ( response.ok == False ):
+        if ( response.ok is False ):
             failureCallback( self, response )
             return
         
@@ -45,9 +45,9 @@ class RESTHelper():
     
     def get(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        response = requests.get( url, params=params, headers=self.buildHeader( session ) )
+        response = requests.get( url, params=params, headers=self.buildHeader( session ), verify=False )
         
-        if ( response.ok == False ):
+        if ( response.ok is False ):
             failureCallback( self, response )
             return
         
@@ -56,9 +56,9 @@ class RESTHelper():
     
     def delete(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        response = requests.delete( url, params=params, headers=self.buildHeader(session))
+        response = requests.delete( url, params=params, headers=self.buildHeader(session), verify=False)
         
-        if ( response.ok == False ):
+        if ( response.ok is False ):
             failureCallback( self, response )
             return
         

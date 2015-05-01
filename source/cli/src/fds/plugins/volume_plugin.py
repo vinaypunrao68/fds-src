@@ -30,7 +30,7 @@ class VolumePlugin( AbstractPlugin):
         @see: AbstractPlugin
         '''         
         
-        if ( self.session.is_allowed( "VOL_MGMT" ) == False ):
+        if not self.session.is_allowed( "VOL_MGMT" ):
             return
         
         self.__volume_service = volume_service.VolumeService( session )
@@ -191,7 +191,7 @@ class VolumePlugin( AbstractPlugin):
         '''
         response = self.get_volume_service().list_volumes()
         
-        if ( len( response ) == 0 ):
+        if len( response ) == 0:
             print "\nNo volumes found."
         
         #write the volumes out
@@ -218,12 +218,12 @@ class VolumePlugin( AbstractPlugin):
         '''        
         volume = None
         
-        if ( args[AbstractPlugin.data_str] == None and args[AbstractPlugin.name_str] == None ):
+        if ( args[AbstractPlugin.data_str] is None and args[AbstractPlugin.name_str] is None ):
             print "Either -data or -name must be present"
             return
         
         #if -data exists all other arguments will be ignored!
-        if ( args[AbstractPlugin.data_str] != None ):
+        if ( args[AbstractPlugin.data_str] is not None ):
             jsonData = json.loads( args[AbstractPlugin.data_str] )
             volume = VolumeConverter.build_volume_from_json( jsonData )
         # build the volume object from the arguments
@@ -243,7 +243,7 @@ class VolumePlugin( AbstractPlugin):
         
         volume = self.get_volume_service().create_volume( volume )
         
-        if ( volume != None ):
+        if ( volume is not None ):
             self.list_volumes(args)
             
         return
@@ -257,35 +257,35 @@ class VolumePlugin( AbstractPlugin):
         volume = None
         isFromData = False
         
-        if ( args[AbstractPlugin.data_str] != None):
+        if ( args[AbstractPlugin.data_str] is not None):
             isFromData = True
             jsonData = json.loads( args[AbstractPlugin.data_str] )
             volume =  VolumeConverter.build_volume_from_json( jsonData )  
         
-        if ( isFromData == False and args[AbstractPlugin.volume_name_str] != None ):
+        if ( isFromData is False and args[AbstractPlugin.volume_name_str] is not None ):
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
-        elif ( isFromData == False and args[AbstractPlugin.volume_id_str] != None ):
+        elif ( isFromData is False and args[AbstractPlugin.volume_id_str] is not None ):
             volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
                
-        if ( volume.id == None ):
+        if ( volume.id is None ):
             print "Could not find a volume that matched your entry.\n"
             return       
            
-        if ( args[AbstractPlugin.iops_guarantee_str] != None and isFromData == False ):
+        if ( args[AbstractPlugin.iops_guarantee_str] is not None and isFromData is False ):
             volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
             
-        if ( args[AbstractPlugin.iops_limit_str] != None and isFromData == False):
+        if ( args[AbstractPlugin.iops_limit_str] is not None and isFromData is False):
             volume.iops_limit = args[AbstractPlugin.iops_limit_str]
             
-        if ( args[AbstractPlugin.priority_str] != None and isFromData == False):
+        if ( args[AbstractPlugin.priority_str] is not None and isFromData is False):
             volume.priority = args[AbstractPlugin.priority_str]
             
-        if ( args[AbstractPlugin.continuous_protection_str] != None and isFromData == False):
+        if ( args[AbstractPlugin.continuous_protection_str] is not None and isFromData is False):
             volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]      
             
         response = self.get_volume_service().edit_volume( volume );
         
-        if ( response != None ):
+        if ( response is not None ):
             self.list_volumes( args )                 
             
     def clone_volume(self, args):
@@ -295,19 +295,19 @@ class VolumePlugin( AbstractPlugin):
         #now
         fromTime = time.time()
         
-        if ( args[AbstractPlugin.time_str] != None ):
+        if ( args[AbstractPlugin.time_str] is not None ):
             fromTime = args[AbstractPlugin.time_str]
         
         volume = None
         
-        if ( args[AbstractPlugin.volume_name_str] != None):
+        if ( args[AbstractPlugin.volume_name_str] is not None):
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
-        elif ( args[AbstractPlugin.volume_id_str] != None):
+        elif ( args[AbstractPlugin.volume_id_str] is not None):
             volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
-        elif ( args[AbstractPlugin.snapshot_id_str] != None):
+        elif ( args[AbstractPlugin.snapshot_id_str] is not None):
             volume = self.get_volume_service().find_volume_from_snapshot_id( args[AbstractPlugin.snapshot_id_str] )
         
-        if ( volume == None ):
+        if ( volume is None ):
             print "Could not find a volume associated with the input parameters."
             return
         
@@ -316,31 +316,31 @@ class VolumePlugin( AbstractPlugin):
         priority = volume.priority
         continuous_protection = volume.continuous_protection
         
-        if ( args[AbstractPlugin.iops_guarantee_str] != None ):
+        if ( args[AbstractPlugin.iops_guarantee_str] is not None ):
             iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
         
-        if ( args[AbstractPlugin.iops_limit_str] != None):
+        if ( args[AbstractPlugin.iops_limit_str] is not None):
             iops_limit = args[AbstractPlugin.iops_limit_str]
             
-        if ( args[AbstractPlugin.priority_str] != None):
+        if ( args[AbstractPlugin.priority_str] is not None):
             priority = args[AbstractPlugin.priority_str]
             
-        if ( args[AbstractPlugin.continuous_protection_str] != None):
+        if ( args[AbstractPlugin.continuous_protection_str] is not None):
             continuous_protection = args[AbstractPlugin.continuous_protection_str]
         
-        if ( args[AbstractPlugin.data_str] != None ):
+        if ( args[AbstractPlugin.data_str] is not None ):
             jsonData = json.loads( args[AbstractPlugin.data_str] )
             
-            if ( jsonData["priority"] != None ):
+            if ( jsonData["priority"] is not None ):
                 priority = jsonData["priority"]
                 
-            if ( jsonData["sla"] != None ):
+            if ( jsonData["sla"] is not None ):
                 iops_guarantee = jsonData["sla"]
                 
-            if ( jsonData["limit"] != None ):
+            if ( jsonData["limit"] is not None ):
                 iops_limit = jsonData["limit"]
                 
-            if ( jsonData["commit_log_retention"] != None ):
+            if ( jsonData["commit_log_retention"] is not None ):
                 continuous_protection = jsonData["commit_log_retention"]
                 
         volume.iops_guarantee = iops_guarantee
@@ -351,12 +351,12 @@ class VolumePlugin( AbstractPlugin):
         
         # one URL when snapshot was chosen, a different one if the time / volume was chosen
         response = None
-        if ( args[AbstractPlugin.snapshot_id_str] != None ):
+        if ( args[AbstractPlugin.snapshot_id_str] is not None ):
             response = self.get_volume_service().clone_from_snapshot_id( args[AbstractPlugin.snapshot_id_str], volume )
         else:
             response = self.get_volume_service().clone_from_timeline( fromTime, volume )
             
-        if ( response != None ):
+        if ( response is not None ):
             print "Volume cloned successfully."
             self.list_volumes( args );
     
@@ -366,10 +366,10 @@ class VolumePlugin( AbstractPlugin):
         '''
         volName = args[AbstractPlugin.volume_name_str]
         
-        if ( args[AbstractPlugin.volume_id_str] != None):
+        if ( args[AbstractPlugin.volume_id_str] is not None):
             volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str])
             
-            if ( volume == None ):
+            if ( volume is None ):
                 print "No volume found with an ID of " + args[AbstractPlugin.volume_id_str]
                 return
                 
@@ -389,12 +389,12 @@ class VolumePlugin( AbstractPlugin):
         
         volume = None
         
-        if ( args[AbstractPlugin.volume_name_str] != None ):
+        if ( args[AbstractPlugin.volume_name_str] is not None ):
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
         else:
             volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
             
-        if ( volume == None ):
+        if ( volume is None ):
             print "No volume found with the specified identification.\n"
             return
         
@@ -407,7 +407,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().create_snapshot( snapshot )
         
-        if ( response != None ):
+        if ( response is not None ):
             self.list_snapshots(args)
          
     def list_snapshots(self, args):
@@ -416,10 +416,10 @@ class VolumePlugin( AbstractPlugin):
         '''
         volId = args[AbstractPlugin.volume_id_str]
         
-        if ( args[AbstractPlugin.volume_name_str] != None):
+        if ( args[AbstractPlugin.volume_name_str] is not None):
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str])
             
-            if ( volume == None ):
+            if ( volume is None ):
                 print "No volume found with a name of " + args[AbstractPlugin.volume_name_str] + "\n"
                 return
             

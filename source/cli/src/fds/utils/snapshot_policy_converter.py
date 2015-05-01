@@ -13,7 +13,7 @@ class SnapshotPolicyConverter():
         
         snapshot_policy = SnapshotPolicy()
         
-        if isinstance( jsonString, dict ) == False:
+        if not isinstance( jsonString, dict ):
             jsonString = json.loads(jsonString)
         
         snapshot_policy.name = jsonString.pop( "name", "" )

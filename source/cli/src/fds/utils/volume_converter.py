@@ -21,7 +21,7 @@ class VolumeConverter( object ):
 
         volume = Volume();
         
-        if isinstance( jsonString, dict ) == False:
+        if not isinstance( jsonString, dict ):
             jsonString = json.loads(jsonString)
         
         volume.name = jsonString.pop( "name", None )
@@ -35,14 +35,14 @@ class VolumeConverter( object ):
         
         dc = jsonString.pop( "data_connector", None )
         
-        if ( dc != None ):
+        if ( dc is not None ):
             volume.type = dc.pop( "type", volume.type )
         
         volume.state = jsonString.pop( "state", volume.state )
         
         cu = jsonString.pop( "current_usage", None )
         
-        if ( cu != None ):
+        if ( cu is not None ):
             volume.current_size = cu.pop( "size", None )
             volume.current_units = cu.pop( "unit", None )
         

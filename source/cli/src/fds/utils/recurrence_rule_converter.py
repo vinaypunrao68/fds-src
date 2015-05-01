@@ -13,7 +13,7 @@ class RecurrenceRuleConverter(object):
         
         rule = RecurrenceRule()
         
-        if isinstance( jString, dict ) == False:
+        if not isinstance( jString, dict ):
             jString = json.loads( jString )
         
         rule.frequency = jString.pop( "FREQ", rule.frequency )
@@ -33,22 +33,22 @@ class RecurrenceRuleConverter(object):
         
         d["FREQ"] = rule.frequency
         
-        if ( rule.byday != None ):
+        if ( rule.byday is not None ):
             d["BYDAY"] = rule.byday
             
-        if ( rule.bymonth != None ):
+        if ( rule.bymonth is not None ):
             d["BYMONTH"] = rule.bymonth
             
-        if ( rule.byhour != None ):
+        if ( rule.byhour is not None ):
             d["BYHOUR"] = rule.byhour
             
-        if ( rule.bymonthday != None ):
+        if ( rule.bymonthday is not None ):
             d["BYMONTHDAY"] = rule.bymonthday
         
-        if ( rule.byyearday != None ):
+        if ( rule.byyearday is not None ):
             d["BYYEARDAY"] = rule.byyearday
             
-        if ( rule.byminute != None ):
+        if ( rule.byminute is not None ):
             d["BYMINUTE"] = rule.byminute 
             
         result = json.dumps( d )

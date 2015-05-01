@@ -155,7 +155,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         j_list = []
         
         #means we want only policies attached to this volume
-        if ( AbstractPlugin.volume_id_str in  args and args[AbstractPlugin.volume_id_str] != None):
+        if ( AbstractPlugin.volume_id_str in  args and args[AbstractPlugin.volume_id_str] is not None):
             j_list = self.get_snapshot_policy_service().list_snapshot_policies_by_volume( args[AbstractPlugin.volume_id_str])
         else:
             j_list = self.get_snapshot_policy_service().list_snapshot_policies()
@@ -179,11 +179,11 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         '''
         policy = SnapshotPolicy()
         
-        if ( args[AbstractPlugin.data_str] == None and args[AbstractPlugin.name_str] == None ):
+        if ( args[AbstractPlugin.data_str] is None and args[AbstractPlugin.name_str] is None ):
             print "Either -data or -name must be present"
             return
         
-        if ( args[AbstractPlugin.data_str] != None ):
+        if ( args[AbstractPlugin.data_str] is not None ):
             policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( args[AbstractPlugin.data_str])
         else:
             policy.name = args[AbstractPlugin.name_str]
@@ -192,7 +192,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
             policy.recurrence_rule.frequency = args[AbstractPlugin.frequency_str]
             
             #if they specified a recurrence rule just use that
-            if ( args[AbstractPlugin.recurrence_rule_str] != None ):
+            if ( args[AbstractPlugin.recurrence_rule_str] is not None ):
                 policy.recurrence_rule = RecurrenceRuleConverter.build_rule_from_json( json.loads( args[AbstractPlugin.recurrence_rule_str] ) )
             else:
                 # day of week is not applicable if the frequency is daily
@@ -224,7 +224,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         '''
         policy = SnapshotPolicy()
         
-        if ( args[AbstractPlugin.data_str] != None ):
+        if ( args[AbstractPlugin.data_str] is not None ):
             policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( args[AbstractPlugin.data_str])
         else:
             policy.id = args[AbstractPlugin.policy_id_str]
@@ -234,7 +234,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
             policy.recurrence_rule.frequency = args[AbstractPlugin.frequency_str]
             
             #if they specified a recurrence rule just use that
-            if ( args[AbstractPlugin.recurrence_rule_str] != None ):
+            if ( args[AbstractPlugin.recurrence_rule_str] is not None ):
                 policy.recurrence_rule = RecurrenceRuleConverter.build_rule_from_json( json.loads( args[AbstractPlugin.recurrence_rule_str] ) )
             else:
                 # day of week is not applicable if the frequency is daily

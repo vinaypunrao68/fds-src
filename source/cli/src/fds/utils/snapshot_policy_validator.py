@@ -1,5 +1,4 @@
 from argparse import ArgumentTypeError
-from __builtin__ import staticmethod
 
 class SnapshotPolicyValidator(object):
     '''
@@ -67,4 +66,3 @@ class SnapshotPolicyValidator(object):
                 raise ArgumentTypeError( "The value for minute must be between 0 and 59.")
             
         return value 
-          

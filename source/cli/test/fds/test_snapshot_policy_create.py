@@ -80,7 +80,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         
         policy = mockCreate.call_args[0][0]
         
-        assert policy.recurrence_rule.byday == None
+        assert policy.recurrence_rule.byday is None
         
         #make sure month, day of month and day of year don't make it in a weekly
         args = ["snapshot_policy", "create", "-name=MyPolicy", "-frequency=WEEKLY", "-day_of_month", "15", "-day_of_year", "255", "-month", "2", "5", "-day_of_week", "TH"]
@@ -93,9 +93,9 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         
         policy = mockCreate.call_args[0][0]
         
-        assert policy.recurrence_rule.bymonth == None
-        assert policy.recurrence_rule.byyearday == None
-        assert policy.recurrence_rule.bymonthday == None
+        assert policy.recurrence_rule.bymonth is None
+        assert policy.recurrence_rule.byyearday is None
+        assert policy.recurrence_rule.bymonthday is None
         assert policy.recurrence_rule.byday == ["TH"]
         
         #make sure month and day of the year dont' make it in the monthly
@@ -109,8 +109,8 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         
         policy = mockCreate.call_args[0][0]
         
-        assert policy.recurrence_rule.bymonth == None
-        assert policy.recurrence_rule.byyearday == None
+        assert policy.recurrence_rule.bymonth is None
+        assert policy.recurrence_rule.byyearday is None
         assert policy.recurrence_rule.bymonthday == [15]
         assert policy.recurrence_rule.byday == ["TH"]
         
