@@ -175,7 +175,7 @@ void SvcProcess::setupSvcInfo_()
     svcInfo_.svc_type = svcType;
     svcInfo_.svc_id.svc_uuid = SvcMgr::mapToSvcUuid(platformUuid,
                                                     svcType);
-    svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
+    svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if", ""));
     svcInfo_.svc_port = SvcMgr::mapToSvcPort(platformPort, svcType);
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
 
