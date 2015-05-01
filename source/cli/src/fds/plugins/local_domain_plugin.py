@@ -3,6 +3,8 @@ from fds.services.local_domain_service import LocalDomainService
 from fds.services.response_writer import ResponseWriter
 from fds.utils.domain_converter import DomainConverter
 
+import json
+
 '''
 Created on Apr 13, 2015
 
@@ -75,6 +77,7 @@ class LocalDomainPlugin( AbstractPlugin):
             
             for domain in domains:
                 j_domain = DomainConverter.to_json(domain)
+                j_domain = json.loads( j_domain )
                 j_domains.append( j_domain )
             
             ResponseWriter.writeJson( j_domains )

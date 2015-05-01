@@ -3,7 +3,8 @@ from fds.services.node_service import NodeService
 from fds.services.response_writer import ResponseWriter
 from fds.model.node_state import NodeState
 from fds.utils.node_converter import NodeConverter
-from fds.utils.service_converter import ServiceConverter
+
+import json
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -195,6 +196,7 @@ class NodePlugin( AbstractPlugin ):
             
             for node in nodes:
                 j_node = NodeConverter.to_json(node)
+                j_node = json.loads( j_node )
                 j_nodes.append( j_node )
                 
             ResponseWriter.writeJson( j_nodes )

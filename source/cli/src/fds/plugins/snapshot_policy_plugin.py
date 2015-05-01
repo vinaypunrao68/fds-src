@@ -164,7 +164,9 @@ class SnapshotPolicyPlugin( AbstractPlugin):
             j_policies = []
             
             for policy in j_list:
-                j_policies.append( SnapshotPolicyConverter.to_json(policy) )
+                j_policy = SnapshotPolicyConverter.to_json(policy)
+                j_policy = json.loads( j_policy )
+                j_policies.append( j_policy )
                 
             ResponseWriter.writeJson( j_policies )
         else:

@@ -8,6 +8,7 @@ from abstract_plugin import AbstractPlugin
 import json
 import time
 from fds.utils.volume_validator import VolumeValidator
+from fds.utils.snapshot_converter import SnapshotConverter
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -200,6 +201,7 @@ class VolumePlugin( AbstractPlugin):
             
             for volume in response:
                 j_volume = VolumeConverter.to_json(volume)
+                j_volume = json.loads(j_volume)
                 j_volumes.append( j_volume )
                 
             response_writer.ResponseWriter.writeJson( j_volumes )
@@ -430,7 +432,15 @@ class VolumePlugin( AbstractPlugin):
         
         #print it all out
         if "format" in args  and args[AbstractPlugin.format_str] == "json":
-            response_writer.ResponseWriter.writeJson( response )
+            
+            j_snapshots = []
+            
+            for snapshot in response:
+                j_snapshot = SnapshotConverter.to_json(snapshot)
+                j_snapshot = json.loads( j_snapshot )
+                j_snapshots.append( j_snapshot )
+                
+            response_writer.ResponseWriter.writeJson( j_snapshots )
         else:
             resultList = response_writer.ResponseWriter.prep_snapshot_for_table( self.session, response)
             response_writer.ResponseWriter.writeTabularData( resultList )  
