@@ -82,6 +82,7 @@ typedef enum {
     ERR_ARCHIVE_GET_FAILED = 58,
     ERR_VOLUME_ACCESS_DENIED = 59,
     ERR_TOKEN_NOT_READY      = 60,
+    ERR_DM_INVALID_REGEX     = 61,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
