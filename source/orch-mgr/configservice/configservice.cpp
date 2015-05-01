@@ -472,8 +472,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
 
-        // wait for the volume to be active upto 30 seconds
-        int count = 60;
+        // wait for the volume to be active upto 5 minutes
+        int count = 600;
 
         do {
             usleep(500000);  // 0.5s
@@ -482,7 +482,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         } while (count > 0 && vol && !vol->isStateActive());
 
         if (!vol || !vol->isStateActive()) {
-            LOGERROR << "some issue in volume creation";
+            LOGERROR << "Some issue in volume creation " << *volumeName;
             apiException("error creating volume");
         }
     }
