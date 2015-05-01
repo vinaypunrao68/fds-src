@@ -11,6 +11,8 @@
 #include "disk_op.h"
 #include "disk_label_op.h"
 #include "disk_label_mgr.h"
+#include "disk_capability_op.h"
+#include "platform/disk_capabilities.h"
 
 namespace fds
 {
@@ -114,11 +116,10 @@ namespace fds
 
         if (disk->dsk_parent == disk)
         {
-            DiskInventory::dsk_add_to_inventory_mtx(disk, &dsk_hdd);
-
             if (disk->dsk_capacity_gb() >= DISK_ALPHA_CAPACITY_GB)
             {
                 dsk_qualify_cnt++;
+                DiskInventory::dsk_add_to_inventory_mtx(disk, &dsk_hdd);
             }else {
                 LOGNORMAL << " disk rejected due to capacity under sized ..." << disk;
             }
@@ -281,6 +282,19 @@ namespace fds
     //
     void PmDiskInventory::dsk_admit_all()
     {
+    }
+
+    // disk_capabilities
+    // --------------
+    //
+    bool PmDiskInventory::disk_read_capabilities(DiskCapabilitiesMgr *mgr)
+    {
+        DiskCapabilityOp    op(DISK_CAPABILITIES_READ, mgr);
+
+        // First partition contains the capabilities
+        dsk_foreach(&op);
+
+        return true;
     }
 
     // disk_read_label

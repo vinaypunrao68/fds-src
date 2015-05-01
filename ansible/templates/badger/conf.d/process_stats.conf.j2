@@ -1,0 +1,10 @@
+{
+    "interval": 0,
+    "blacklist": [],
+    "processes": [
+{% for p in badger_process_patterns %}
+        {{p}}{% if not loop.last %},{% endif %}
+
+{% endfor %}
+    ]
+}

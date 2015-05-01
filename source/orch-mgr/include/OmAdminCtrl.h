@@ -34,23 +34,15 @@ class FdsAdminCtrl {
     static const fds_uint32_t minVolObjSize = 512;
 
     /* Per local domain  dynamic disk resource  counters */
-    fds_uint64_t  total_disk_iops_max;
-    fds_uint64_t  total_disk_iops_min;
+    fds_uint64_t  total_node_iops_max;
+    fds_uint64_t  total_node_iops_min;
     fds_uint64_t  total_disk_capacity;
-    fds_uint64_t  disk_latency_max;
-    fds_uint64_t  disk_latency_min;
-    fds_uint64_t  total_ssd_iops_max;
-    fds_uint64_t  total_ssd_iops_min;
     fds_uint64_t  total_ssd_capacity;
-    fds_uint64_t  ssd_latency_max;
-    fds_uint64_t  ssd_latency_min;
 
     /* Available  capacity */
-    fds_uint64_t  avail_disk_iops_max;
-    fds_uint64_t  avail_disk_iops_min;
+    fds_uint64_t  avail_node_iops_max;
+    fds_uint64_t  avail_node_iops_min;
     fds_uint64_t  avail_disk_capacity;
-    fds_uint64_t  avail_ssd_iops_max;
-    fds_uint64_t  avail_ssd_iops_min;
     fds_uint64_t  avail_ssd_capacity;
 
     /*  per volume resouce  counter */

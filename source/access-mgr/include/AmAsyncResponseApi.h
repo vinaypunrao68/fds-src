@@ -32,6 +32,7 @@ class AmAsyncResponseApi {
     typedef Error error_type;
     typedef uint32_t size_type;
     typedef sp<std::string> shared_buffer_type;
+    typedef sp<std::vector<shared_buffer_type>> shared_buffer_array_type;
     typedef sp<BlobDescriptor> shared_descriptor_type;
     typedef sp<VolumeDesc> shared_vol_descriptor_type;
     typedef sp<std::vector<BlobDescriptor>> shared_descriptor_vec_type;
@@ -80,11 +81,11 @@ class AmAsyncResponseApi {
 
     virtual void getBlobResp(const error_type &error,
                              handle_type& requestId,
-                             shared_buffer_type buf,
+                             shared_buffer_array_type const& buf,
                              fds_uint32_t& length) = 0;
     virtual void getBlobWithMetaResp(const error_type &error,
                                      handle_type& requestId,
-                                     shared_buffer_type buf,
+                                     shared_buffer_array_type const& buf,
                                      fds_uint32_t& length,
                                      shared_descriptor_type& blobDesc) = 0;
 };

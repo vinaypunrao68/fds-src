@@ -11,18 +11,22 @@ namespace fds
 {
     namespace pm
     {
-
-        SvcHandler::SvcHandler(CommonModuleProviderIf *provider, PlatformManager *platform)
-            : PlatNetSvcHandler(provider)
+        SvcHandler::SvcHandler(CommonModuleProviderIf *provider, PlatformManager *platform) : PlatNetSvcHandler(provider)
         {
             this->platform = platform;
             REGISTER_FDSP_MSG_HANDLER(fpi::ActivateServicesMsg, activateServices);
+            REGISTER_FDSP_MSG_HANDLER(fpi::DeactivateServicesMsg, deactivateServices);
         }
 
-        void SvcHandler::activateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                                          boost::shared_ptr <fpi::ActivateServicesMsg> &activateMsg)
+        void SvcHandler::activateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::ActivateServicesMsg> &activateMsg)
         {
             platform->activateServices(activateMsg);
+            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::deactivateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::DeactivateServicesMsg> &deactivateMsg)
+        {
+            platform->deactivateServices(deactivateMsg);
             sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         }
 

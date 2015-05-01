@@ -684,7 +684,6 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
 }
 
 
-
 Error
 MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
                                                    fds_bool_t srcAccepted)
@@ -724,6 +723,8 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
         bool verifySuccess = migClientVerifyDestination(dltToken, executorId);
         if (!verifySuccess) {
             migClientLock.unlock();
+            LOGMIGRATE << "Filter set token migration message from destination is corrupt"
+                       << std::hex << executorId << std::dec << dltToken;
             return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
         }
 

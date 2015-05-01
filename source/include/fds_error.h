@@ -131,6 +131,7 @@ typedef enum {
     ERR_SM_NOERR_LOST_SM_TOKENS,
     ERR_SM_NOERR_NEED_RESYNC,
     ERR_SM_RESYNC_SOURCE_DECLINE,
+    ERR_SM_NOT_READY_AS_MIGR_SRC,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
@@ -142,6 +143,8 @@ typedef enum {
     ERR_SVC_REQUEST_INVOCATION,
     ERR_SVC_REQUEST_USER_INTERRUPTED,
     ERR_SVC_REQUEST_TIMEOUT,
+    ERR_SVC_SERVER_PORT_ALREADY_INUSE,
+    ERR_SVC_SERVER_CRASH,
 
     /* FDSN status errors */
     // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix

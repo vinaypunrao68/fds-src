@@ -42,7 +42,7 @@ DOCKER_SLAVES = {
 IMAGE="registry.formationds.com:5000/fds_dev"
 
 def docker_connect(url):
-    return(docker.Client(base_url=url))
+    return(docker.Client(base_url=url, version='auto'))
 
 def get_container_by_name(conn, name, die=True):
     containers = conn.containers(all=True)
@@ -82,7 +82,7 @@ def get_conn(name):
     return conn
 
 def create_container(conn, name):
-    container = conn.create_container(IMAGE, name=name, volumes=["/mnt/ccache"])
+    container = conn.create_container(IMAGE, name=name, volumes=["/mnt/ccache", "/tmp/nbdadm"])
     return(container)
 
 def start_slave(name):

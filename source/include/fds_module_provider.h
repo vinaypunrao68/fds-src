@@ -22,11 +22,11 @@ struct SvcMgr;
 
 /* Interface for providing common process modules
  * NOTES
- * 1. Keep it abastract.  Don't add any memebers to it.
+ * 1. Keep it abstract.  Don't add any members to it.
  * 2. DON'T add lot of methods for returning modules in here.  Keep this interface simple.
  * Only add things are that absolutely needed for every process.  Keep in mind adding
- * an item here impacts all implemeters of this interface.
- * 3. Return types are a bit consistent.  This because of supporting legacy code.  Ideally
+ * an item here impacts all implementers of this interface.
+ * 3. Return types are a bit inconsistent.  This because of supporting legacy code.  Ideally
       all the interfaces should return just a pointer.
 */
 // TODO(Rao):
@@ -59,7 +59,7 @@ class CommonModuleProviderIf {
 #define MODULEPROVIDER() getModuleProvider()
 
 /**
-* @brief Derive from this class to have access to moduel provider.
+* @brief Derive from this class to have access to module provider.
 * IMPORTANT - FOR ANY NEW CODE, DON'T USE GLOBALS.  INSTEAD DERIVE THIS CLASS.
 */
 struct HasModuleProvider {

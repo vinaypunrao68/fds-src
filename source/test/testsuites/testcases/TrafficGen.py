@@ -18,7 +18,7 @@ import subprocess
 
 # This class wraps TrafficGen to provide test suite feedback
 class TestTrafficGen(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, hostname=None, n_conns=None,
+    def __init__(self, parameters=None, hostname=None, n_conns=None, exp_fail=None,
                  n_files=None, n_reqs=None, no_reuse=None, object_size=None,
                  outstanding_reqs=None, port=None, runtime=None, test_type=None,
                  timeout=None, token=None, username=None, volume_name=None):
@@ -35,7 +35,10 @@ class TestTrafficGen(TestCase.FDSTestCase):
 
         self.traffic_gen_dir = os.path.join(src_dir, 'Build/linux-x86_64.debug/tools/')
         self.traffic_gen_cmd = ['./trafficgen']
+        self.traffic_gen_expect_failure = False
 
+        if exp_fail is not None:
+            self.traffic_gen_expect_failure = True
         if hostname is not None:
             self.traffic_gen_cmd.append('-hostname')
             self.traffic_gen_cmd.append(hostname)
@@ -101,20 +104,29 @@ class TestTrafficGen(TestCase.FDSTestCase):
                 self.traffic_gen_cmd.append('-volume_name')
                 self.traffic_gen_cmd.append(self.parameters['s3'].bucket1.name)
 
+        retval = True
         curr = os.getcwd()
         # We need to be in the ./Build/tools directory for trafficgen to work
         os.chdir(self.traffic_gen_dir)
 
         try:
             output = subprocess.check_output(self.traffic_gen_cmd)
+            if self.traffic_gen_expect_failure:
+                # Shouldn't be hitting this point
+                self.log.error('TrafficGen expects to hit I/O error, but I/O seems to be working.')
+                retval = False
         except subprocess.CalledProcessError as e:
-            self.log.error("CalledProcessError: {}. The return "
-                           "code was: {}. Output was: {}".format(e.message, e.returncode, e.output))
-            return False
+            if self.traffic_gen_expect_failure:
+                self.log.info('TrafficGen returned non zero error code, but this was expected.')
+                retval = True
+            else:
+                self.log.error("CalledProcessError: {}. The return "
+                               "code was: {}. Output was: {}".format(e.message, e.returncode, e.output))
+                retval = False
         except OSError as e:
             self.log.error("OSError: {}. The return "
                            "code was: {}. Output was: {}".format(e.message, e.returncode, e.output))
-            return False
+            retval = False
 
         # Change back?
         os.chdir(curr)
@@ -122,7 +134,7 @@ class TestTrafficGen(TestCase.FDSTestCase):
         # Suppressing the output for now as it spams our logs
         #self.log.info(output)
 
-        return True
+        return retval
 
 
 # This class runs trafficgen and only reports an error if the executable failed to run
@@ -131,8 +143,8 @@ class TestTrafficGen(TestCase.FDSTestCase):
 class RunTrafficGen(TestCase.FDSTestCase):
     def __init__(self, parameters=None, hostname=None, n_conns=None,
                  n_files=None, n_reqs=None, no_reuse=None, object_size=None,
-                 outstanding_reqs=None, port=None, runtime=None, test_type=None,
-                 timeout=None, token=None, username=None, volume_name=None):
+                 outstanding_reqs=None, port=None, runtime=None,
+                 test_type=None, timeout=None, token=None, username=None, volume_name=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.run_TrafficGen,

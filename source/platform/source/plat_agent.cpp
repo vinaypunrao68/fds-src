@@ -6,7 +6,6 @@
 #include "platform/platform.h"
 #include "plat_agent.h"
 #include "node_shm_rw_ctrl.h"
-#include "disk_plat_module.h"
 
 namespace fds
 {

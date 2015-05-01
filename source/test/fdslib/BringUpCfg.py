@@ -13,7 +13,6 @@ import os.path
 import FdsSetup as inst
 import socket
 import requests
-from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 ###
@@ -290,58 +289,87 @@ class FdsNodeConfig(FdsConfig):
     ##
     #
     #
-    def dropInfluxDBDatabase(self, db, max_retries=6, backoff_factor=0.5):
+    def dropInfluxDBDatabase(self, db, max_retries=8, backoff_factor=0.5):
         """Drop the InfluxDB database
 
         db -- the database name
-        max_retries -- max number of retries (default 6)
+        max_retries -- max number of retries (default 8)
         backoff_factor -- amount of time to factor the backoff time per retry (default 0.5)
 
-        The backoff factor is the amount of time added for each retry.  The default setting
-        amounts to a possible total wait time of 31.5 seconds.
+        The backoff factor is the amount of time added for each retry.  For each retry, the
+        wait time is calculated as (1 + ((retryCount-1) * backoff_factory)). The default setting
+        amounts to a possible total wait time of 27 seconds.
 
-        For 10 retries at 0.1, its a total wait time of:
-           (0.1 + 0.2 + 0.4 + 0.8 + 1.6 + 3.2 + 6.4 + 12.8 + 25.6 + 51.2) = 102.3 Seconds
-        and 8 @ 0.4s = 102.0
-        and 5 retries at 0.5:
-           (0.5 + 1.0 + 2 + 4 + 8) = 15500  (and 6 is 31500)
-
+        1 + ( 0 * 0.5 ) = 1       1.0
+        1 + ( 1 * 0.5 ) = 1.5     2.5
+        1 + ( 2 * 0.5 ) = 2       4.5
+        1 + ( 3 * 0.5 ) = 2.5     7.0
+        1 + ( 4 * 0.5 ) = 3      10.0
+        1 + ( 5 * 0.5 ) = 3.5    13.5
+        1 + ( 6 * 0.5 ) = 4      17.5
+        1 + ( 7 * 0.5 ) = 4.5    22.0
+        1 + ( 8 * 0.5 ) = 5      27.0
+        1 + ( 9 * 0.5 ) = 5.5    32.5
+        1 + (10 * 0.5 ) = 6      38.5
         """
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
         status = 0
         ## setup the http requests session with an adapter configured for retries.
         s = requests.session()
-        a = requests.adapters.HTTPAdapter(max_retries=Retry(total=max_retries,
-                                                            backoff_factor=backoff_factor))
+        a = requests.adapters.HTTPAdapter()
         s.mount("http://", a)
 
+        print "Removing database %s" % db
         log.debug('Removing database %s with up to %d retries @ %s seconds backoff factor' %
                   (db,max_retries,backoff_factor))
-        try:
-            response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root")
-            log.debug("Remove database %s request completed [response code %d msg: %s]" %
-                      (db,response.status_code,response.text))
-            if response.status_code < 200 or response.status_code >= 300:
-                if response.status_code == 400:
-                    ## 400 indicates the database does not exist
-                    log.info("InfluxDB database %s does not exist. [OK]" % (db))
-                    status = 0
-                else:
-                    # influx reported an unsuccessful error code.  Print the message output from the response.
-                    # we don't currently distinguish between errors and things like redirects.
-                    print('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
 
-                    # todo: attempted to use log.warning, but getting error message about no handlers.
-                    log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+        retryCount = 0
+        while retryCount < max_retries:
+            retryCount += 1
+            try:
+                log.debug("Drop database %s [Attempt %s]" % (db, retryCount))
+                response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root",
+                                    timeout=5)
+
+                log.debug("Remove database %s request completed [response code %d msg: %s]" %
+                          (db,response.status_code,response.text))
+
+                if response.status_code < 200 or response.status_code >= 300:
+                    if response.status_code == 400:
+                        ## 400 indicates the database does not exist
+                        print "InfluxDB database %s does not exist. [OK]" % db
+                        log.info("InfluxDB database %s does not exist. [OK]" % (db))
+                        status = 0
+                        break
+                    else:
+                        # influx reported an unsuccessful error code.  Print the message output from the response.
+                        # we don't currently distinguish between errors and things like redirects.
+                        print('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+
+                        # todo: attempted to use log.warning, but getting error message about no handlers.
+                        log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+                        status = 1
+                        break
+                else:
+                    print "Successfully dropped InfluxDB database %s" % db
+                    log.info("Successfully dropped InfluxDB database %s" % (db))
+                    break;
+
+            except Exception as e:
+
+                if retryCount < max_retries:
+                    retryTime = 1 + ( (retryCount - 1) * backoff_factor )
+                    print "Drop InfluxDB database %s attempt failed - Retrying in %s seconds" % (db, retryTime)
+                    log.info("Drop InfluxDB database %s attempt failed - Retrying in %s seconds" % (db, retryTime))
+                    time.sleep(retryTime)
+                else:
+                    print "Failed to drop influxDB database %s after %s retry attempts: %s" % (db, max_retries, e)
+                    # todo: attempted to use log.warn, but getting error message about no handlers.
+                    log.info("Failed to drop influxDB database %s after %s retry attempts: %s" % (db, max_retries, e))
                     status = 1
-            else:
-                log.info("Successfully dropped InfluxDB database %s" % (db))
-        except Exception as e:
-            print "Failed to drop influxDB database: %s: %s" % (db, e)
-            # todo: attempted to use log.warn, but getting error message about no handlers.
-            log.info("Failed to drop influxDB database: %s: %s" % (db, e))
-            status = 1
+
+                continue
 
         ## close the http session
         s.close()
@@ -564,9 +592,7 @@ class FdsNodeConfig(FdsConfig):
                 self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
             log.info("Cleanup influx database in: %s" % influxdb_data_dir)
-            self.nd_clean_influxdb()
-
-            status = 0
+            status = self.nd_clean_influxdb()
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core); ' % bin_dir +
@@ -578,7 +604,7 @@ class FdsNodeConfig(FdsConfig):
                 '(rm -rf %s/ssd-*/*); ' % dev_dir +
                 '(rm -rf %s/*-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
-            self.nd_clean_influxdb()
+            status = self.nd_clean_influxdb()
 
 
         if status == -1:

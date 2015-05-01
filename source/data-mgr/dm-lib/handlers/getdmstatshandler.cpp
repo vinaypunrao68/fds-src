@@ -13,17 +13,19 @@
 namespace fds {
 namespace dm {
 
-DmSysStatsHandler::DmSysStatsHandler() {
-    if (!dataMgr->features.isTestMode()) {
+DmSysStatsHandler::DmSysStatsHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetDmStatsMsg, handleRequest);
     }
 }
 
 void DmSysStatsHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                     boost::shared_ptr<fpi::GetDmStatsMsg>& message) {
+                                      boost::shared_ptr<fpi::GetDmStatsMsg>& message) {
     LOGDEBUG << "volume: " << message->volume_id;
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -40,24 +42,24 @@ void DmSysStatsHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 }
 
 void DmSysStatsHandler::handleQueueItem(dmCatReq *dmRequest) {
-    QueueHelper helper(dmRequest);  // this will call the callback
+    QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoGetSysStats *request = static_cast<DmIoGetSysStats*>(dmRequest);
 
     LOGDEBUG << "volume: " << dmRequest->volId;
     // do processing and set the error
-     DmCommitLog::ptr commitLog;
-     VolumeCatalogQueryIface::ptr volCatIf = dataMgr->timeVolCat_->queryIface();
-     dataMgr->timeVolCat_->getCommitlog(dmRequest->volId, commitLog);
+    DmCommitLog::ptr commitLog;
+    VolumeCatalogQueryIface::ptr volCatIf = dataManager.timeVolCat_->queryIface();
+    dataManager.timeVolCat_->getCommitlog(dmRequest->volId, commitLog);
 
-     request->message->commitlog_size = commitLog->getActiveTx();
-     request->message->extent0_size = MAX_EXTENT0_OBJS;
-     request->message->extent_size = MAX_EXTENT_OBJS;
-     request->message->metadata_size = volCatIf->getTotalMetadataSize(dmRequest->volId);
+    request->message->commitlog_size = commitLog->getActiveTx();
+    request->message->extent0_size = MAX_EXTENT0_OBJS;
+    request->message->extent_size = MAX_EXTENT_OBJS;
+    request->message->metadata_size = volCatIf->getTotalMetadataSize(dmRequest->volId);
 }
 
 void DmSysStatsHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                      boost::shared_ptr<fpi::GetDmStatsMsg>& message,
-                                      const Error &e, dmCatReq *dmRequest) {
+                                       boost::shared_ptr<fpi::GetDmStatsMsg>& message,
+                                       const Error &e, dmCatReq *dmRequest) {
     LOGDEBUG << " volid: " << dmRequest->volId
              << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
