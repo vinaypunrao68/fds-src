@@ -7,6 +7,7 @@
 #include <MigrationMgr.h>
 #include <fds_process.h>
 #include <fdsp_utils.h>
+#include "PerfTrace.h"
 
 namespace fds {
 

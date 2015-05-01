@@ -91,8 +91,7 @@ sleep 5
 
 # launch monitoring script
 pushd $workspace/source/test/perf/migration_test
-./monitor.sh $outdir/monitor &
-mon_pid=$!
+mon_pids=`./monitor.sh $outdir/monitor`
 popd
 
 sleep 5
@@ -124,6 +123,6 @@ date > $outdir/migration.end
 
 # wait $fio_pid
 
-kill -9 $mon_pid
+kill -9 $mon_pids
 kill -9 $counters_pid
 
