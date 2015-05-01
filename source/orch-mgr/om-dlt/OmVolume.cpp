@@ -823,9 +823,8 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volType       = pVol->volType;
 
     pkt->volPolicyId   = pVol->volPolicyId;
-    pkt->iops_max      = pVol->iops_max;
-    pkt->iops_min      = pVol->iops_min;
-    pkt->iops_guarantee      = pVol->iops_guarantee;
+    pkt->iops_throttle = pVol->iops_throttle;
+    pkt->iops_assured  = pVol->iops_assured;
     pkt->rel_prio      = pVol->relativePrio;
 
     pkt->mediaPolicy   = pVol->mediaPolicy;
@@ -849,8 +848,8 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
 
             fds_verify(stat != NULL);
             stat->vol_name = vol_name;
-            stat->sla      = desc->iops_min;
-            stat->limit    = desc->iops_max;
+            stat->assured  = desc->iops_assured;
+            stat->throttle = desc->iops_throttle;
             stat->rel_prio = desc->relativePrio;
             break;
         }
@@ -1342,7 +1341,6 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         // Change policy id and its description from the catalog.
         //
         new_desc->volPolicyId = mod_msg->vol_desc.volPolicyId;
-        new_desc->iops_guarantee = mod_msg->vol_desc.iops_guarantee;
         err = v_pol->fillVolumeDescPolicy(new_desc.get());
         if (!err.ok()) {
             const char *msg = (err == ERR_CAT_ENTRY_NOT_FOUND) ?
@@ -1362,14 +1360,13 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     } else {
         // Don't modify policy id, just min/max ips and priority.
         //
-        new_desc->iops_min     = mod_msg->vol_desc.iops_min;
-        new_desc->iops_max     = mod_msg->vol_desc.iops_max;
-        new_desc->iops_guarantee     = mod_msg->vol_desc.iops_guarantee;
+        new_desc->iops_assured = mod_msg->vol_desc.iops_assured;
+        new_desc->iops_throttle = mod_msg->vol_desc.iops_throttle;
         new_desc->relativePrio = mod_msg->vol_desc.rel_prio;
         LOGNOTIFY << "Modify volume " << vname
                   << " - keeps policy id " << vol->vol_get_properties()->volPolicyId
-                  << " with new min iops " << new_desc->iops_min
-                  << " max iops " << new_desc->iops_max
+                  << " with new assured iops " << new_desc->iops_assured
+                  << " throttle iops " << new_desc->iops_throttle
                   << " priority " << new_desc->relativePrio;
     }
     if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {

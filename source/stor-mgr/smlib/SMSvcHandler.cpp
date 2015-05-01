@@ -837,9 +837,9 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         vol->voldesc->mediaPolicy = vdb->mediaPolicy;
     }
 
-    vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+    vol->voldesc->modifyPolicyInfo(vdb->iops_assured, vdb->iops_throttle, vdb->relativePrio);
     err = objStorMgr->modVolQos(vol->getVolId(),
-                                vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+                                vdb->iops_assured, vdb->iops_throttle, vdb->relativePrio);
     if ( !err.ok() )  {
         GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
                   << std::hex << volumeId << std::dec << " error: "

@@ -314,8 +314,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_desc.volPolicyId = vm["volume-policy"].as<int>();
         } else {
             volData.vol_desc.volPolicyId = 0; /* 0 means don't modify actual policy id */
-            volData.vol_desc.iops_min = vm["iops-min"].as<double>();
-            volData.vol_desc.iops_max = vm["iops-max"].as<double>();
+            volData.vol_desc.iops_assured = vm["iops-min"].as<fds_int64_t>();
+            volData.vol_desc.iops_throttle = vm["iops-max"].as<fds_int64_t>();
             volData.vol_desc.rel_prio = vm["rel-prio"].as<int>();
         }
         NETWORKCHECK(cfgPrx->ModifyVol(msg_hdr, volData));
@@ -344,8 +344,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             cout << "Volume " << vol_info.vol_name << ":"
                  << std::hex << vol_info.volUUID << std::dec << std::endl
                  << "     capacity " << vol_info.capacity << " MB"
-                 << ", iops_min " << vol_info.iops_min
-                 << ", iops_max " << vol_info.iops_max
+                 << ", iops_assured " << vol_info.iops_assured
+                 << ", iops_throttle " << vol_info.iops_throttle
                  << ", priority " << vol_info.rel_prio
                  << ", media policy " << mediaPolicyToString(vol_info.mediaPolicy)
                  << std::endl;
@@ -363,8 +363,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             cout << "Volume " << vec[i].vol_name << ":"
                  << std::hex << vec[i].volUUID << std::dec << std::endl
                  << "     capacity " << vec[i].capacity << " MB"
-                 << ", iops_min " << vec[i].iops_min
-                 << ", iops_max " << vec[i].iops_max
+                 << ", iops_assured " << vec[i].iops_assured
+                 << ", iops_throttle " << vec[i].iops_throttle
                  << ", priority " << vec[i].rel_prio
                  << ", media policy " << mediaPolicyToString(vec[i].mediaPolicy)
                  << std::endl;
@@ -383,8 +383,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         policyData.policy_info.policy_name = vm["policy-create"].as<std::string>();
         policyData.policy_info.policy_id = vm["volume-policy"].as<int>();
-        policyData.policy_info.iops_min = vm["iops-min"].as<double>();
-        policyData.policy_info.iops_max = vm["iops-max"].as<double>();
+        policyData.policy_info.iops_assured = vm["iops-min"].as<fds_int64_t>();
+        policyData.policy_info.iops_throttle = vm["iops-max"].as<fds_int64_t>();
         policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
         NETWORKCHECK(cfgPrx->CreatePolicy(msg_hdr, policyData));
@@ -415,8 +415,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         policyData.policy_info.policy_name = vm["policy-modify"].as<std::string>();
         policyData.policy_info.policy_id = vm["volume-policy"].as<int>();
-        policyData.policy_info.iops_min = vm["iops-min"].as<double>();
-        policyData.policy_info.iops_max = vm["iops-max"].as<double>();
+        policyData.policy_info.iops_assured = vm["iops-min"].as<fds_int64_t>();
+        policyData.policy_info.iops_throttle = vm["iops-max"].as<fds_int64_t>();
         policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
         NETWORKCHECK(cfgPrx->ModifyPolicy(msg_hdr, policyData));

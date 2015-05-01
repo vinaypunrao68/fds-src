@@ -92,8 +92,8 @@ public class PostQoSPolicy
           o.put("status", "success");
           o.put("policy_name",  qosPolicy.getPolicy_name());
           o.put("policy_id",  qosPolicy.getPolicy_id());
-          o.put("iops_min",  qosPolicy.getIops_min());
-          o.put("iops_max",  qosPolicy.getIops_max());
+          o.put("iops_min",  qosPolicy.getIops_assured());
+          o.put("iops_max",  qosPolicy.getIops_throttle());
           o.put("rel_prio",  qosPolicy.getRel_prio());
           return new JsonResource(o);
       }
