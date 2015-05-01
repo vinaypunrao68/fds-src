@@ -403,10 +403,10 @@ class FdsNodeConfig(FdsConfig):
         else:
             port = 7000  # PM default.
 
-        # From the --list-services output we can determine node name
+        # From the listServices output we can determine node name
         # and node UUID.
         # Figure out the platform uuid.  Platform has 'pm' as the name
-        # port should match the read port from fdscli --list-services output
+        # port should match the read port from [fdsconsole.py domain listServices] output
         # Group 0 = Entire matched expression
         # Group 1 = node UUID
         # Group 2 = Node root (not showing up)
@@ -433,7 +433,7 @@ class FdsNodeConfig(FdsConfig):
                                                     fds_tools=True)
 
         # Figure out the platform uuid.  Platform has 'pm' as the name
-        # port should match the read port from fdscli --list-services output
+        # port should match the read port from [fdsconsole.py domain listServices] output
         if status == 0:
             for line in stdout.split('\n'):
                 res = svc_re.match(line)
@@ -659,28 +659,33 @@ class FdsVolConfig(FdsConfig):
         sys.exit(1)
 
     def vol_create(self, cli):
-        cmd = (' --volume-create %s' % self.nd_conf_dict['vol-name'])
-        if 'id' not in self.nd_conf_dict:
-            print('Volume section must have "id" keyword')
-            sys.exit(1)
+        volume = self
 
-        cmd = cmd + (' -i %s' % self.nd_conf_dict['id'])
-        if 'size' not in self.nd_conf_dict:
-            print('Volume section must have "size" keyword')
-            sys.exit(1)
+        cmd = (' volume create %s' % volume.nd_conf_dict['vol-name'])
 
-        cmd = cmd + (' -s %s' % self.nd_conf_dict['size'])
-        if 'policy' not in self.nd_conf_dict:
-            print('Volume section must have "policy" keyword')
-            sys.exit(1)
+        if 'id' not in volume.nd_conf_dict:
+            raise Exception('Volume section %s must have "id" keyword.' % volume.nd_conf_dict['vol-name'])
+        cmd = cmd + (' --tenant-id %s' % volume.nd_conf_dict['id'])
 
-        cmd = cmd + (' -p %s' % self.nd_conf_dict['policy'])
-        if 'access' not in self.nd_conf_dict:
-            access = 's3'
+        if 'access' not in volume.nd_conf_dict:
+            access = 'object'
         else:
-            access = self.nd_conf_dict['access']
+            access = volume.nd_conf_dict['access']
 
-        cmd = cmd + (' -y %s' % access)
+        # Size only makes sense for block volumes
+        if 'block' == access:
+            if 'size' not in volume.nd_conf_dict:
+                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
+            cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
+
+        cmd = cmd + (' --vol-type %s' % access)
+        if 'media' not in volume.nd_conf_dict:
+            media = 'hdd'
+        else:
+            media = volume.nd_conf_dict['media']
+
+        cmd = cmd + (' --media-policy %s' % media)
+
         cli.run_cli(cmd)
 
     def vol_attach(self, cli):
@@ -709,16 +714,16 @@ class FdsVolPolicyConfig(FdsConfig):
             sys.exit(1)
 
         pol = self.nd_conf_dict['id']
-        cmd = (' --policy-create policy_%s -p %s' % (pol, pol))
+        cmd = (' qospolicy create policy_%s ' % (pol))
 
         if 'iops_min' in self.nd_conf_dict:
-            cmd = cmd + (' -g %s' % self.nd_conf_dict['iops_min'])
+            cmd = cmd + (' %s' % self.nd_conf_dict['iops_min'])
 
         if 'iops_max' in self.nd_conf_dict:
-            cmd = cmd + (' -m %s' % self.nd_conf_dict['iops_max'])
+            cmd = cmd + (' %s' % self.nd_conf_dict['iops_min'])
 
         if 'priority' in self.nd_conf_dict:
-            cmd = cmd + (' -r %s' % self.nd_conf_dict['priority'])
+            cmd = cmd + (' %s' % self.nd_conf_dict['priority'])
 
         cli.run_cli(cmd)
 
@@ -750,7 +755,7 @@ class FdsCliConfig(FdsConfig):
         return nodes[0]
 
     ###
-    # Pass arguments to fdscli running on OM node.
+    # Pass arguments to fdsconsole running on OM node.
     #
     def run_cli(self, command):
         if self.nd_om_node is None:
@@ -760,9 +765,10 @@ class FdsCliConfig(FdsConfig):
         om = self.nd_om_node
         self.debug_print("Run %s on OM %s" % (command, om.nd_host_name()))
 
-        om.nd_agent.ssh_exec_fds(
-            ('fdscli --fds-root %s ') % om.nd_agent.get_fds_root() + command,
-            wait_compl=True)
+        om.nd_agent.exec_wait(
+            ('fdsconsole.py ') + command,
+            wait_compl=True,
+            fds_tools=True)
 
 ###
 # Run a specific test step
@@ -814,7 +820,6 @@ class FdsScenarioConfig(FdsConfig):
         elif re.match('\[fdscli.*\]', script) != None:
             for s in self.cfg_sect_cli:
                 if '[' + s.nd_conf_dict['cli-name'] + ']' == script:
-                    #s.run_cli('--activate-nodes abc -k 1 -e sm,dm')
                     s.run_cli(self.nd_conf_dict['script_args'])
                     break
         else:
