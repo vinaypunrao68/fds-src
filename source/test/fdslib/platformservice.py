@@ -61,7 +61,7 @@ class PlatSvc(object):
         self.serverThread = None
         self.startServer()
         time.sleep(1)
-        
+
         # register with OM
         try :
             self.registerService(basePort, omPlatIp, omPlatPort)
@@ -69,7 +69,13 @@ class PlatSvc(object):
             print e
             print 'failed to register with om'
             self.stop()
-    
+
+    def __del__(self):
+        # This should stop the Thrift server when the main thread is destructed so that the daemon
+        # process doesn't throw errors before it's killed.
+        serv = self.smClient()
+        serv.stop_serv()
+
     def stop(self):
         if self.serverSock:
             self.serverSock.close()

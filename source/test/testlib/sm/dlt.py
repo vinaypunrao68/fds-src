@@ -2,7 +2,7 @@
 :author: Brian Madden
 :email: brian@formationds.com
 """
-
+import collections
 import struct
 
 class DLT(object):
@@ -37,9 +37,7 @@ class DLT(object):
         node_uuid_list = []
         # The the number of UUIDs to unpack
         node_list_size = struct.unpack('>I', fh.read(4))[0]
-        print("NODE LIST SIZE = {}".format(node_list_size))
         for i in xrange(node_list_size):
-            print node_uuid_list
             node_uuid_list.append(struct.unpack('>Q', fh.read(8))[0])
 
         dlt_list = []
@@ -58,3 +56,21 @@ class DLT(object):
 
         return dlt_list
 
+
+    @staticmethod
+    def transpose_dlt(dlt):
+        """
+        Transpose a DLT from the list of lists to a dict in the form:
+        {
+           'nodeUUID': [tokenID1, tokenID2, ...],
+        }
+        :param dlt: The DLT to transpose
+        :return: The transposed DLT
+        """
+        dlt_dict = collections.defaultdict(list)
+        # Enumerate over all of the token groups
+        for count, group in enumerate(dlt):
+            for node in group:
+                dlt_dict[node].append(count)
+
+        return dlt_dict
