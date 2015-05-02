@@ -28,7 +28,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
 
             $scope.snapshotPolicies = notTimelinePolicies;
             $scope.timelinePolicies = {
-                continuous: $scope.thisVolume.commit_log_retention,
+                commitLogRetention: $scope.thisVolume.commit_log_retention,
                 policies: timelinePolicies
             };
         });
@@ -85,7 +85,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         $scope.thisVolume.priority = $scope.editQos.priority;
         $scope.thisVolume.limit = $scope.editQos.limit;
         
-        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
+        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
             $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );

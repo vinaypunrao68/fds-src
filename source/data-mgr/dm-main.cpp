@@ -12,6 +12,7 @@
 #include <fdsp/DMSvc.h>
 #include <DMSvcHandler.h>
 
+#include "util/ExecutionGate.h"
 #include "util/Log.h"
 
 template<class T, class... ArgTs> std::unique_ptr<T> make_unique(ArgTs&&... args)
@@ -30,6 +31,8 @@ using fds::DataMgr;
 using fds::DMSvcHandler;
 using fds::Module;
 
+using fds::util::ExecutionGate;
+
 class DMMain : public SvcProcess
 {
  public:
@@ -39,8 +42,21 @@ class DMMain : public SvcProcess
 
     virtual ~DMMain() {}
 
-    virtual int run() {
-        return _dm->run();
+    virtual void interrupt_cb(int signum) override
+    {
+        SvcProcess::interrupt_cb(signum);
+
+        _shutdownGate.open();
+    }
+
+    virtual int run()
+    {
+        int retval = _dm->run();
+        _dm.reset();
+
+        _shutdownGate.waitUntilOpened();
+
+        return retval;
     }
 
     static unique_ptr<DMMain> build(int argc, char* argv[])
@@ -58,6 +74,8 @@ class DMMain : public SvcProcess
     DMPointer _dm;
 
     Module* _dmVec[2];
+
+    ExecutionGate _shutdownGate;
 
     void internal_constructor(DMPointer dm, int argc, char* argv[])
     {

@@ -30,6 +30,7 @@ class LocalDomainPlugin( AbstractPlugin):
         
         self.create_list_parser( self.__subparser )
         self.create_shutdown_parser( self.__subparser )
+        self.create_startup_parser(self.__subparser)
     
     '''
     @see: AbstractPlugin
@@ -63,6 +64,16 @@ class LocalDomainPlugin( AbstractPlugin):
         
         __shutdown_parser.set_defaults( func=self.shutdown, format="tabular" )
         
+    def create_startup_parser(self, subparser):
+        '''
+        Create the parser for the startup command
+        '''
+        
+        __startup_parser = subparser.add_parser( "start", help="Start all the nodes and services in a given domain" )
+        self.add_format_arg( __startup_parser )
+        __startup_parser.add_argument( "-" + AbstractPlugin.domain_name_str, help="The name of the domain you wish to start.", required=True )
+        
+        __startup_parser.set_defaults( func=self.startup, format="tabular")
     #real work
     
     def list_domains(self, args):
@@ -90,6 +101,16 @@ class LocalDomainPlugin( AbstractPlugin):
         shutdown a specific domain
         '''
         response = self.get_local_domain_service().shutdown( args[AbstractPlugin.domain_name_str] )
+        
+        if response["status"].lower() == "ok":
+            self.list_domains(args)
+            
+    def startup(self, args):
+        '''
+        start a specific domain gracefully
+        '''
+        
+        response = self.get_local_domain_service().start( args[AbstractPlugin.domain_name_str] )
         
         if response["status"].lower() == "ok":
             self.list_domains(args)
