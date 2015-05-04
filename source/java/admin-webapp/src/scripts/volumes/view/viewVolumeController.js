@@ -144,32 +144,6 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         return firstLetter + theRest;
     };
-    
-    $scope.deleteVolume = function(){
-        
-        var confirm = {
-            type: 'CONFIRM',
-            text: $filter( 'translate' )( 'volumes.desc_confirm_delete' ),
-            confirm: function( result ){
-                if ( result === false ){
-                    return;
-                }
-                
-                $volume_api.delete( $scope.volumeVars.selectedVolume,
-                    function(){ 
-                        var $event = {
-                            type: 'INFO',
-                            text: $filter( 'translate' )( 'volumes.desc_volume_deleted' )
-                        };
-
-                        $rootScope.$emit( 'fds::alert', $event );
-                        $scope.volumeVars.back();
-                });
-            }
-        };
-        
-        $rootScope.$emit( 'fds::confirm', confirm );
-    };
 
     $scope.formatDate = function( ms ){
         var d = new Date( parseInt( ms ) );
