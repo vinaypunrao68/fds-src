@@ -87,7 +87,7 @@ struct FakeSyncSvcDomain : FakeSvcDomain {
 using FakeSyncSvcDomainPtr = boost::shared_ptr<FakeSyncSvcDomain>;
 
 struct FakeSvc : SvcProcess {
-    FakeSvc(FakeSvcDomain *domain, const std::string &configFile, long long uuid, int port);
+    FakeSvc(FakeSvcDomain *domain, const std::string &configFile, fds_int64_t uuid, int port);
     ~FakeSvc();
     virtual void registerSvcProcess() override;
     virtual int run() {return 0;}
@@ -234,7 +234,7 @@ void FakeSyncSvcDomain::broadcastSvcMap() {
 
 FakeSvc::FakeSvc(FakeSvcDomain *domain, 
                  const std::string &configFile,
-                 long long uuid, int port) {
+                 fds_int64_t uuid, int port) {
     domain_ = domain;
 
     /* config */

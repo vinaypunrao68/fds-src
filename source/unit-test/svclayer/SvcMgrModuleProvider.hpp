@@ -16,7 +16,7 @@ namespace fds {
 * @brief Testing helper for providing the necessary modules for svc mgr
 */
 struct SvcMgrModuleProvider : CommonModuleProviderIf {
-    SvcMgrModuleProvider(const std::string &configFile, long long uuid, int port) {
+    SvcMgrModuleProvider(const std::string &configFile, fds_int64_t uuid, int port) {
         /* config */
         std::string configBasePath = "fds.dm.";
         boost::shared_ptr<FdsConfig> config(new FdsConfig(configFile, 0, {nullptr}));
