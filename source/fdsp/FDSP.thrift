@@ -307,8 +307,8 @@ struct FDSP_RegisterNodeType {
 struct FDSP_BucketStatType {
   1: string             vol_name,
   2: double             performance,  /* average iops */
-  3: double             sla,          /* minimum (guaranteed) iops */
-  4: double             limit,        /* maximum iops */
+  3: i64                assured,      /* minimum (guaranteed) iops */
+  4: i64                throttle,     /* maximum iops */
   5: i32                rel_prio,     /* relative priority */
 }
 

@@ -1,5 +1,6 @@
 from abstract_service import AbstractService
 import json
+from fds.utils.domain_converter import DomainConverter
 
 class LocalDomainService( AbstractService ):
     '''
@@ -17,7 +18,15 @@ class LocalDomainService( AbstractService ):
         '''
         
         url = "{}{}".format(self.get_url_preamble(), "/local_domains")
-        return self.rest_helper.get( self.session, url )
+        j_domains = self.rest_helper.get( self.session, url )
+        
+        domains = []
+        
+        for j_domain in j_domains:
+            domain = DomainConverter.build_domain_from_json( j_domain )
+            domains.append( domain )
+            
+        return domains
     
     def shutdown(self, domain_name):
         '''

@@ -7,10 +7,7 @@ import tabulate
 import json
 import time
 from collections import OrderedDict
-from fds.utils.volume_converter import VolumeConverter 
-from fds.utils.snapshot_converter import SnapshotConverter
-from fds.utils.node_converter import NodeConverter
-from fds.utils.domain_converter import DomainConverter
+from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
     
@@ -37,8 +34,7 @@ class ResponseWriter():
     @staticmethod
     def prep_volume_for_table( session, response ):
         '''
-        Flatten the volume JSON object dictionary so it's more user friendly - mainly
-        for use with the tabular print option
+        making the structure table friendly
         '''        
         
         prepped_responses = []
@@ -47,8 +43,7 @@ class ResponseWriter():
         if ( isinstance( response, dict ) ):
             response = [response]
         
-        for jVolume in response:
-            volume = VolumeConverter.build_volume_from_json( jVolume )
+        for volume in response:
             
             #figure out what to show for last firebreak occurrence
             lastFirebreak = volume.last_capacity_firebreak
@@ -69,13 +64,13 @@ class ResponseWriter():
             iopsMin = volume.iops_guarantee
             
             if ( iopsMin == 0 ):
-                iopsMin = "Unlimited"
+                iopsMin = "None"
                 
             #sanitize the IOPs limit
             iopsLimit = volume.iops_limit
             
             if ( iopsLimit == 0 ):
-                iopsLimit = "None"
+                iopsLimit = "Unlimited"
 
             ov = OrderedDict()
             
@@ -109,9 +104,8 @@ class ResponseWriter():
         #The tabular format is very poor for a volume object, so we need to remove some keys before display
         resultList = []
         
-        for snap in response:
+        for snapshot in response:
             
-            snapshot = SnapshotConverter.build_snapshot_from_json( snap )
             created = time.localtime( snapshot.created )
             created = time.strftime( "%c", created )
             
@@ -133,6 +127,34 @@ class ResponseWriter():
         return resultList
     
     @staticmethod
+    def prep_snapshot_policy_for_table( session, response ):
+        ''' 
+        Take a snapshot policy and format it for easy display in a table
+        '''
+        
+        results = []
+        
+        for policy in response:
+            
+            retentionValue = policy.retention
+            
+            if ( retentionValue == 0 ):
+                retentionValue = "Forever"
+        
+            ov = OrderedDict()
+            
+            ov["ID"] = policy.id
+            ov["Name"] = policy.name
+            ov["Retention"] = retentionValue
+            ov["Recurrence Rule"] = RecurrenceRuleConverter.to_json( policy.recurrence_rule )
+            
+            results.append( ov )
+        # end of for loop
+        
+        return results
+            
+    
+    @staticmethod
     def prep_domains_for_table( session, response ):
         '''
         Take the domain JSON and turn it into a table worthy presentation
@@ -140,8 +162,6 @@ class ResponseWriter():
         results = []
         
         for domain in response:
-            
-            domain = DomainConverter.build_domain_from_json( domain )
             
             ov = OrderedDict()
             
@@ -165,8 +185,6 @@ class ResponseWriter():
         
         for node in response:
             
-            node = NodeConverter.build_node_from_json( node ) 
-            
             ov = OrderedDict()
             
             ov["ID"] = node.id
@@ -187,10 +205,9 @@ class ResponseWriter():
         '''
         results = []
         
-        for j_node in response:
+        for node in response:
             
             # we'll need this data for each service
-            node = NodeConverter.build_node_from_json( j_node )
             
             services = node.services
             

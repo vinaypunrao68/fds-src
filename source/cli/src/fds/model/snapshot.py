@@ -9,12 +9,12 @@ class Snapshot( object ):
     @author: nate
     '''
 
-    def __init__(self, name="Unnamed", retention=0, timeline_time=0):
+    def __init__(self, name="Unnamed", retention=0, timeline_time=0, an_id=-1, volume_id=None):
         self.__name = name
         self.__retention = retention
         self.__timeline_time = timeline_time
-        self.__volume_id = None
-        self.__id = -1
+        self.__volume_id = volume_id
+        self.__id = an_id
         self.__created = time.time() * 1000
        
     @property 

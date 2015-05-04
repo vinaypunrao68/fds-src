@@ -8,6 +8,7 @@ import json
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.utils.node_converter import NodeConverter
 from fds.utils.domain_converter import DomainConverter
+from fds.model.snapshot_policy import SnapshotPolicy
 
 '''
 Created on Apr 22, 2015
@@ -18,30 +19,25 @@ Created on Apr 22, 2015
 def listVolumes():
     volume = Volume()
     vols = []
-    tempStr = VolumeConverter.to_json( volume )
-    volume = json.loads( tempStr )
+
     vols.append( volume )
     
     return vols
 
 def createVolume(volume):
-    volume = VolumeConverter.to_json( volume )
     return volume
 
 def editVolume(volume):
-    volume = VolumeConverter.to_json( volume )
     return volume
 
 def cloneFromTimelineTime( a_time, volume ):
     
     volume.id = 354
     volume.timeline_time = a_time
-    volume = VolumeConverter.to_json(volume)
     return volume
 
 def cloneFromSnapshotId( snapshot_id, volume):
     volume.id = 789
-    volume = VolumeConverter.to_json( volume )
     return volume
 
 def deleteVolume(name):
@@ -78,9 +74,7 @@ def createSnapshot( snapshot ):
 
 def listSnapshots( volumeName ):
     snapshot = Snapshot()
-    tempSnap = SnapshotConverter.to_json( snapshot )
     snaps = []
-    snapshot = json.loads( tempSnap )
     snaps.append( snapshot )
     return snaps
 
@@ -96,12 +90,8 @@ def listNodes():
     node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM")]
     node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM")]                
  
-    jNode = NodeConverter.to_json( node )
-    nodes = json.loads( jNode )
-    
-    d = dict()
-    d["nodes"] = [nodes]
-    return d
+    nodes = [node]
+    return nodes
 
 def activateNode( node_id, state ):
     response = dict()
@@ -121,8 +111,35 @@ def shutdownDomain( domain_name ):
 def listLocalDomains():
     
     domain = Domain()
-    domain = DomainConverter.to_json(domain)
     domains = []
-    domains.append( json.loads( domain ))
+    domains.append(domain)
     
     return domains
+
+def createSnapshotPolicy( policy ):
+    policy.id = 100
+    return policy
+
+def editSnapshotPolicy( policy ):
+    return policy
+
+def listSnapshotPolicies( volume_id=None ):
+    policies = []
+    policy = SnapshotPolicy()
+    policies.append( policy )
+    return policies
+
+def attachPolicy( policy_id, volume_id ):
+    response = dict()
+    response["status"] = "OK"
+    return response 
+
+def detachPolicy( policy_id, volume_id ):
+    response = dict()
+    response["status"] = "OK"
+    return response 
+
+def deleteSnapshotPolicy( policy_id ):
+    response = dict()
+    response["status"] = "OK"
+    return response 

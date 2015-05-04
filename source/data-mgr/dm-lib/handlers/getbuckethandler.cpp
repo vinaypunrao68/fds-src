@@ -57,6 +57,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
         if (!pattern.error().empty()) {
             LOGWARN << "Error initializing pattern: " << quoteString(request->message->pattern)
                     << " " << pattern.error();
+            helper.err = ERR_DM_INVALID_REGEX;
             return;
         }
 

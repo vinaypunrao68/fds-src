@@ -36,7 +36,7 @@ Error QoSMinPrioDispatcher::registerQueue(fds_qid_t queue_id,
 
   /* we need a new queue state to control new queue */
   TBQueueState *qstate = new TBQueueState(queue_id,
-					  queue->iops_min,
+					  queue->iops_assured,
 					  10000,
 					  queue->priority,
 					  wait_time_microsec,
@@ -66,7 +66,7 @@ Error QoSMinPrioDispatcher::registerQueue(fds_qid_t queue_id,
 
   FDS_PLOG_SEV(qda_log, fds::fds_log::notification) 
     << "QoSMinPrioDispatcher: registered queue " << queue_id
-    << " with min_iops=" << queue->iops_min
+    << " with iops_assured=" << queue->iops_assured
     << " ; prio=" << queue->priority;
 
   return err;
@@ -130,8 +130,8 @@ fds_qid_t QoSMinPrioDispatcher::getNextQueueForDispatch()
 {
   fds_qid_t ret_qid = 0;
   TBQueueState *dispatch_qstate = NULL;
-  double min_wma;
-  uint min_wma_hiprio;
+  double min_wma {0.0};
+  uint min_wma_hiprio {0};
 
   /* this is work-conserving dispatcher, since this function is called only when:
    * 1) we have at least one pending IO (in any queue); AND

@@ -178,6 +178,37 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 
         fds_uint32_t acks_to_wait;
     };
+    struct DST_RestartCommit : public msm::front::state<>
+    {
+        typedef mpl::vector<DltComputeEvt> deferred_events;
+
+        DST_RestartCommit() : acks_to_wait(0),
+                      tryAgainTimer(new FdsTimer()),
+                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)) {}
+
+        ~DST_RestartCommit() {
+            tryAgainTimer->destroy();
+        }
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_RestartCommit. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_RestartCommit. Evt: " << e.logString();
+        }
+
+        fds_uint32_t acks_to_wait;
+
+        /**
+         * timer to try to compute DLT (in case new SMs joined while we were
+         * deploying the current DLT)
+         */
+        FdsTimerPtr tryAgainTimer;
+        FdsTimerTaskPtr tryAgainTimerTask;
+    };
     struct DST_Close : public msm::front::state<>
     {
         typedef mpl::vector<DltComputeEvt> deferred_events;
@@ -351,7 +382,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // | Start            | Event          | Next        | Action        | Guard        |
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Idle    , DltComputeEvt  , DST_Waiting , DACT_Waiting  ,GRD_DltCompute>,
-    msf::Row< DST_Idle    , DltLoadedDbEvt , DST_Commit  , DACT_Commit   , msf::none    >,
+    msf::Row< DST_Idle    , DltLoadedDbEvt , DST_RestartCommit, DACT_Commit , msf::none>,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Waiting , DltTimeoutEvt  , DST_SendDlts, DACT_Compute  , msf::none    >,
     msf::Row< DST_Waiting , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
@@ -367,6 +398,8 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit  , DltCommitOkEvt , DST_Close   , DACT_Close    , GRD_DltCommit>,
     msf::Row< DST_Commit  , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_RestartCommit, DltCommitOkEvt, DST_Idle, DACT_UpdDone , GRD_DltCommit >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_DltClose >,
     msf::Row< DST_Close   , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
@@ -800,11 +833,6 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // those SMs fails or gets removed. In near future, we need to handle
     // SM removal case in the middle of DLT update.
     dst.acks_to_wait = close_cnt;
-
-    // in case we are in domain bring up state, notify domain that current
-    // DLT is up (we got quorum number of acks for DLT commit)
-    LOGDEBUG << "Sending dlt up event";
-    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
 }
 
 // GRD_DltClose
@@ -845,6 +873,7 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     LOGDEBUG << "DltFSM DACT_UpdDone";
     OM_Module *om = OM_Module::om_singleton();
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     ClusterMap* cm = om->om_clusmap_mod();
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(cm != NULL);
@@ -863,6 +892,11 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         LOGWARN << "DACT_UpdDone: failed to start try againtimer!!!"
                 << " SM additions/deletions may be pending for long time!";
     }
+
+    // in case we are in domain bring up state, notify domain that current
+    // DLT is up (we got quorum number of acks for DLT commit)
+    LOGDEBUG << "Sending dlt up event";
+    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
 }
 
 // GRD_DltRebal
