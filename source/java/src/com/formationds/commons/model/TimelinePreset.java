@@ -1,5 +1,6 @@
 package com.formationds.commons.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.formationds.commons.model.abs.ModelBase;
@@ -42,6 +43,10 @@ public class TimelinePreset extends ModelBase{
 	}
 	
 	public List<SnapshotPolicy> getPolicies() {
+		
+		if ( policies == null ) {
+			policies = new ArrayList<SnapshotPolicy>();
+		}
 		return policies;
 	}
 	

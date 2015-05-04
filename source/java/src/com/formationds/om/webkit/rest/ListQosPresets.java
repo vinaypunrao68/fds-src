@@ -31,16 +31,16 @@ public class ListQosPresets implements RequestHandler {
 		least.setSla( 0L );
 		
 		QosPreset standard = new QosPreset();
-		least.setName( "Standard" );
-		least.setPriority( 7 );
-		least.setLimit( 0L );
-		least.setSla( 0L );
+		standard.setName( "Standard" );
+		standard.setPriority( 7 );
+		standard.setLimit( 0L );
+		standard.setSla( 0L );
 		
 		QosPreset most = new QosPreset();
 		most.setName( "Most Important" );
-		least.setPriority( 1 );
-		least.setLimit( 0L );
-		least.setSla( 0L );
+		most.setPriority( 1 );
+		most.setLimit( 0L );
+		most.setSla( 0L );
 		
 		qosPresets.add( least );
 		qosPresets.add( standard );
