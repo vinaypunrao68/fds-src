@@ -66,6 +66,7 @@ class TestAMProcessConsistency(testcase.FDSTestCase):
                     )
         self.s3conn.s3_connect()
 
+    @unittest.expectedFailure
     def runTest(self):
         # run the test 3 times
         for i in xrange(0, 3):

@@ -13,8 +13,10 @@
 namespace fds {
 namespace dm {
 
-GetBlobMetaDataHandler::GetBlobMetaDataHandler() {
-    if (!dataMgr->features.isTestMode()) {
+GetBlobMetaDataHandler::GetBlobMetaDataHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetBlobMetaDataMsg, handleRequest);
     }
 }
@@ -22,6 +24,13 @@ GetBlobMetaDataHandler::GetBlobMetaDataHandler() {
 void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                            boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
 
     auto dmReq = new DmIoGetBlobMetaData(message->volume_id,
                                          message->blob_name,
@@ -35,20 +44,22 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
 }
 
 void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoGetBlobMetaData* typedRequest = static_cast<DmIoGetBlobMetaData*>(dmRequest);
 
     // TODO(Andrew): We're not using the size...we can remove it
     fds_uint64_t blobSize;
-    helper.err = dataMgr->timeVolCat_->queryIface()->getBlobMeta(typedRequest->volId,
-                                                          typedRequest->blob_name,
-                                                          &typedRequest->blob_version,
-                                                          &blobSize,
-                                                          &typedRequest->message->metaDataList);
+    helper.err = dataManager
+                .timeVolCat_
+               ->queryIface()
+               ->getBlobMeta(typedRequest->volId,
+                             typedRequest->blob_name,
+                             &typedRequest->blob_version,
+                             &blobSize,
+                             &typedRequest->message->metaDataList);
     if (!helper.err.ok()) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType,
-                         typedRequest->getVolId(),
-                         typedRequest->perfNameStr);
+                         typedRequest->getVolId());
     }
     typedRequest->message->byteCount = blobSize;
 }

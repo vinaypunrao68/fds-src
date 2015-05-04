@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.influxdb.InfluxEventRepository;
 import com.formationds.om.repository.influxdb.InfluxMetricRepository;
 import com.formationds.om.repository.influxdb.InfluxRepository;
@@ -16,6 +16,8 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 /**
  * Factory to access to Metrics and Events repositories.
@@ -40,6 +42,8 @@ public enum SingletonRepositoryManager {
      */
     static class InfluxRepositoryProxyIH implements InvocationHandler {
 
+        static final int DEFAULT_INFLUXDB_PORT = 8086;
+
         /**
          * @return a proxy to the InfluxRepository
          *
@@ -63,8 +67,12 @@ public enum SingletonRepositoryManager {
 
             if ( influxEnabled ) {
                 logger.info( "InfluxDB feature is enabled." );
-                // TODO: need values from config
-                influxRepository = new InfluxMetricRepository( "http://localhost:8086",
+
+                String url = getInfluxDBUrl();
+
+                // TODO: credentials need to be externalized to a secure store.
+                logger.info( String.format( "InfluxDB url is %s", url ) );
+                influxRepository = new InfluxMetricRepository( url,
                                                                "root",
                                                                "root".toCharArray() );
 
@@ -75,6 +83,30 @@ public enum SingletonRepositoryManager {
                                                               new InfluxRepositoryProxyIH( jdoRepository,
                                                                                            influxRepository,
                                                                                            influxQueryEnabled ) );
+        }
+
+        private static String getInfluxDBUrl() {
+            String url = SingletonConfiguration.instance()
+                                               .getConfig()
+                                               .getPlatformConfig()
+                                               .defaultString( "fds.om.influxdb.url", null );
+
+            if ( url == null || url.trim().isEmpty() ) {
+
+                logger.warn( "fds.om.influxdb.url is not defined in the configuration.  " +
+                             "Using default based on local host address." );
+                String host = "localhost";
+                try {
+                    host = InetAddress.getLocalHost().getHostAddress();
+                } catch ( UnknownHostException uhe ) {
+                    // ignore - use localhost
+                }
+
+                url = String.format( "http://%s:%d",
+                                     host,
+                                     DEFAULT_INFLUXDB_PORT );
+            }
+            return url;
         }
 
         /**
@@ -100,8 +132,12 @@ public enum SingletonRepositoryManager {
 
             if ( influxEnabled ) {
                 logger.info( "InfluxDB feature is enabled." );
-                // TODO: need values from config
-                influxEventRepository = new InfluxEventRepository( "http://localhost:8086",
+
+                String url = getInfluxDBUrl();
+
+                // TODO: credentials need to be externalized to a secure store.
+                logger.info( String.format( "InfluxDB url is %s", url ) );
+                influxEventRepository = new InfluxEventRepository( url,
                                                                    "root",
                                                                    "root".toCharArray() );
             }
@@ -140,50 +176,64 @@ public enum SingletonRepositoryManager {
         }
 
         protected Object doInvoke(Object proxy, Method method, Object[] args ) throws Throwable {
+
             switch ( method.getName() ) {
                 case "save":
 
-                    Object results = null;
-                    if ( jdoRepository != null ) {
-                        results = method.invoke( jdoRepository, args );
-                    }
+                    return doInvoke0( false, proxy, method, args );
 
-                    if ( influxRepository != null ) {
-
-                        try {
-                            Object influxResult = method.invoke( influxRepository, args );
-                            if ( jdoRepository == null ) {
-                                // use the results from the influx repo
-                                results = influxResult;
-                            }
-                        } catch (Exception e) {
-                            //
-                            if ( jdoRepository == null ) {
-                                // error since ObjectDB repo is disabled
-                                logger.error( "Failed to write data to influx repository.", e );
-                                throw e;
-                            } else {
-                                // only a warning since we are still using the ObjectDB repo as the main repo.
-                                logger.warn( "Failed to write data to influx repository.  Returning data from ObjectDB repo" + e.getMessage() );
-                                logger.trace( "Influx repository write error is ", e );
-                            }
-                        }
-                    }
-
-                    return results;
-
+                // generic, base query api
                 case "query":
+                case "count":
+                // event-specific queries
+                case "findLatestFirebreak":
+                case "queryTenantUsers":
+                // metric specific queries
+                case "mostRecentOccurrenceBasedOnTimestamp":
+                case "leastRecentOccurrenceBasedOnTimestamp":
+                case "getLatestVolumeStatus":
 
-                    if ( influxRepository != null && influxQueryEnabled ) {
-                        return method.invoke( influxRepository, args );
-                    } else {
-                        return method.invoke( jdoRepository, args );
-                    }
+                    return doInvoke0( true, proxy, method, args );
 
                 default:
-                    // everything else allow to pass-through on the JDO repository for now
-                    return method.invoke( jdoRepository, args );
+
+                    // everything else allow to pass-through on the JDO repository for now if it is enabled.
+                    return doInvoke0( false, proxy, method, args );
+
             }
+        }
+
+        protected Object doInvoke0(boolean isQuery, Object proxy, Method method, Object[] args ) throws Throwable {
+            if ( jdoRepository == null && influxRepository == null ) {
+                throw new IllegalStateException( "No repository is enabled.  Ensure one of the repositories is enabled in the fds-features.conf file." );
+            }
+
+            Object results = null;
+            if (jdoRepository != null) {
+                results = method.invoke( jdoRepository, args );
+            }
+
+            if ( influxRepository != null ) {
+                try {
+                    Object influxResult = method.invoke( influxRepository, args );
+                    if ( jdoRepository == null || (isQuery && influxQueryEnabled)) {
+                        // use the results from the influx repo
+                        results = influxResult;
+                    }
+                } catch (Exception e) {
+                    //
+                    if ( jdoRepository == null ) {
+                        // error since ObjectDB repo is disabled
+                        logger.error( "Failed to influx repository operation.", e );
+                        throw e;
+                    } else {
+                        // only a warning since we are still using the ObjectDB repo as the main repo.
+                        logger.warn( "Failed to execute influx repository operation.  Returning data from ObjectDB repo" + e.getMessage() );
+                        logger.trace( "Influx repository error is ", e );
+                    }
+                }
+            }
+            return results;
         }
     }
 

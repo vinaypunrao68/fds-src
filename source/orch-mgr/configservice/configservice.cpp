@@ -301,11 +301,27 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         OM_NodeContainer *localDomain = OM_NodeDomainMod::om_loc_domain_ctrl();
 
+        // Determine if I can activate DM or not. (fs-1637). If Activate services has been already called, prevent
+        // DM to be activated again
+        bool prevent_adding_dm_after_startup = MODULEPROVIDER()->get_conf_helper().get_abs<bool>("fds.om.prevent_adding_dm_after_startup", false);
+        if (prevent_adding_dm_after_startup)
+            LOGNOTIFY << "fs-1637 is enabled (fds.om.prevent_adding_dm_after_startup=true): We want to prevent DMs are activated " <<
+                         "once the system has started, so we prevent any DM to be activated once activate " <<
+                         "has been issued once";
+        bool activate_services_done_once = localDomain->have_services_been_activated_once();
+        bool activate_dm = *dm;
+        if (prevent_adding_dm_after_startup && activate_services_done_once) {
+            if (activate_dm) {
+                 LOGWARN << "fs-1637: Preventing DM to be activated";
+            }
+            activate_dm = false;
+        }
+
         try {
             LOGNORMAL << "Received activate services for Local Domain " << domainName;
-            LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
+            LOGNORMAL << "SM: " << *sm << "; DM: " << activate_dm << "; AM: " << *am;
 
-            localDomain->om_cond_bcast_activate_services(*sm, *dm, *am);
+            localDomain->om_cond_bcast_activate_services(*sm, activate_dm, *am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -456,8 +472,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
 
-        // wait for the volume to be active upto 30 seconds
-        int count = 60;
+        // wait for the volume to be active upto 5 minutes
+        int count = 600;
 
         do {
             usleep(500000);  // 0.5s
@@ -466,7 +482,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         } while (count > 0 && vol && !vol->isStateActive());
 
         if (!vol || !vol->isStateActive()) {
-            LOGERROR << "some issue in volume creation";
+            LOGERROR << "Timeout on waiting for volume to become ACTIVE " << *volumeName;
             apiException("error creating volume");
         }
     }
@@ -544,9 +560,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                          << ":" << vol->vol_get_properties()->getStateName();
 
                 if (!vol->vol_get_properties()->isSnapshot()) {
-                    VolumeDescriptor volDescriptor;
-                    convert::getVolumeDescriptor(volDescriptor, vol);
-                    vec.push_back(volDescriptor);
+                    if (vol->getState() == Active) {
+                        VolumeDescriptor volDescriptor;
+                        convert::getVolumeDescriptor(volDescriptor, vol);
+                        vec.push_back(volDescriptor);
+                    }
                 }
             });
     }
@@ -677,8 +695,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
                 fdspQoSPolicy.policy_name = qosPolicy.volPolicyName;
                 fdspQoSPolicy.policy_id = qosPolicy.volPolicyId;
-                fdspQoSPolicy.iops_min = qosPolicy.iops_min;
-                fdspQoSPolicy.iops_max = qosPolicy.iops_max;
+                fdspQoSPolicy.iops_assured = qosPolicy.iops_assured;
+                fdspQoSPolicy.iops_throttle = qosPolicy.iops_throttle;
                 fdspQoSPolicy.rel_prio = qosPolicy.relativePrio;
 
                 _return.push_back(fdspQoSPolicy);
@@ -704,20 +722,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                          boost::shared_ptr<std::string>& currentPolicyName, boost::shared_ptr<std::string>& newPolicyName,
                          boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
                          boost::shared_ptr<int32_t>& relPrio ) {
+        fds_assert(*relPrio >= 0);
         FDS_VolumePolicy qosPolicy;
 
         qosPolicy.volPolicyId = configDB->getIdOfQoSPolicy(*currentPolicyName);
 
         if (qosPolicy.volPolicyId > 0) {
             qosPolicy.volPolicyName = *newPolicyName;
-            qosPolicy.iops_min = static_cast<fds_uint64_t>(*minIops);
-            qosPolicy.iops_max = static_cast<fds_uint64_t>(*maxIops);
+            qosPolicy.iops_assured = *minIops;
+            qosPolicy.iops_throttle = *maxIops;
             qosPolicy.relativePrio = static_cast<fds_uint32_t>(*relPrio);
             if (configDB->updatePolicy(qosPolicy)) {
                 _return.policy_id = qosPolicy.volPolicyId;
                 _return.policy_name = qosPolicy.volPolicyName;
-                _return.iops_min = qosPolicy.iops_min;
-                _return.iops_max = qosPolicy.iops_max;
+                _return.iops_assured = qosPolicy.iops_assured;
+                _return.iops_throttle = qosPolicy.iops_throttle;
                 _return.rel_prio = qosPolicy.relativePrio;
                 
                 LOGNOTIFY << "QoS Policy modification succeded. " << _return.policy_id << ": " << *currentPolicyName;
@@ -806,6 +825,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.qosQueueId = invalid_vol_id;
         volPolicyMgr->fillVolumeDescPolicy(&desc);
         LOGDEBUG << "adding a clone request..";
+        desc.setState(fpi::ResourceState::Loading);
         volContainer->addVolume(desc);
 
         // wait for the volume to be active upto 30 seconds

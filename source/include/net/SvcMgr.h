@@ -72,6 +72,7 @@ struct SvcRequestPool;
 struct SvcRequestCounters;
 struct SvcRequestTracker;
 struct SvcServer;
+struct SvcServerListener; 
 struct SvcHandle;
 using SvcHandlePtr = boost::shared_ptr<SvcHandle>;
 using StringPtr = boost::shared_ptr<std::string>;
@@ -123,6 +124,13 @@ struct SvcMgr : HasModuleProvider, Module {
     virtual void mod_shutdown() override;
 
     /**
+    * @brief Set listener for svc server
+    *
+    * @param listener
+    */
+    void setSvcServerListener(SvcServerListener* listener);
+
+    /**
     * @brief 
     */
     SvcRequestPool* getSvcRequestMgr() const;
@@ -138,9 +146,11 @@ struct SvcMgr : HasModuleProvider, Module {
     SvcRequestTracker* getSvcRequestTracker() const;
 
     /**
-    * @brief 
+    * @brief Start the server.  Blocks untils server starts listening.
+    *
+    * @return OK if we are able to start server.
     */
-    void startServer();
+    Error startServer();
 
     /**
     * @brief
@@ -342,6 +352,15 @@ struct SvcMgr : HasModuleProvider, Module {
     static std::string mapToSvcName(const fpi::FDSP_MgrIdType &svcType);
 
     /**
+    * @brief maps svcUuid -> svcUuid:svcName string
+    *
+    * @param svcUuid
+    *
+    * @return 
+    */
+    static std::string mapToSvcUuidAndName(const fpi::SvcUuid &svcUuid);
+
+    /**
     * @brief Based on the svcType and platforPort (as the base) determines what the service
     * port should be
     *
@@ -362,6 +381,7 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
+
 
     /**
     * @brief Minimum connection retries

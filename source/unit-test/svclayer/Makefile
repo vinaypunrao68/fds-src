@@ -25,7 +25,8 @@ user_cpp          := \
     OMSvcProcess.cpp \
     SvcRequestMgr_gtest.cpp \
     SvcServer_gtest.cpp \
-    SvcMgr_gtest.cpp
+    SvcMgr_gtest.cpp \
+    SvcMapChecker.cpp
 
 user_no_style     :=
 
@@ -34,12 +35,14 @@ user_bin_exe      := \
 	omsvc \
 	svcrequestmgr_gtest \
 	svcserver_gtest \
-	svcmgr_gtest
+	svcmgr_gtest \
+	svcmapchecker
 
 omsvc := OMSvcProcess.cpp 
 testsvc := TestSvcProcess.cpp
 svcrequestmgr_gtest := SvcRequestMgr_gtest.cpp
 svcserver_gtest := SvcServer_gtest.cpp
 svcmgr_gtest := SvcMgr_gtest.cpp
+svcmapchecker := SvcMapChecker.cpp
 
 include $(test_topdir)/Makefile.svc

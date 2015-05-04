@@ -21,6 +21,7 @@
 #include <AmDispatcherMocks.hpp>
 #include "lib/OMgrClient.h"
 #include "lib/StatsCollector.h"
+#include "TypeIdMap.h"
 
 namespace fds {
 
@@ -55,6 +56,10 @@ AmDispatcher::start() {
         fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
         mockTimeoutUs_ = conf.get<uint32_t>("uturn_dispatcher_timeout");
         mockHandler_.reset(new MockSvcHandler());
+    } else {
+        // Set a custom time for the io messages to dm and sm
+        message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
+        LOGNOTIFY << "AM IO timeout set to: " << message_timeout_io  << " ms";
     }
 
     if (conf.get<bool>("standalone", false)) {
@@ -80,13 +85,6 @@ AmDispatcher::start() {
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
-
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
-    volume_open_support = features.get<bool>("common.volume_open_support", false);
 }
 
 Error
@@ -126,41 +124,55 @@ AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
     amReq->proc_cb(error);
 }
 
+template<typename Msg>
+QuorumSvcRequestPtr
+AmDispatcher::createQuorumRequest(fds_volid_t const vol_id,
+                                  boost::shared_ptr<Msg> const& payload) const {
+    auto commited_group = dmtMgr->getCommittedNodeGroup(vol_id);
+    auto ep_provider = boost::make_shared<DmtVolumeIdEpProvider>(commited_group);
+    auto req = gSvcRequestPool->newQuorumSvcRequest(ep_provider);
+    req->setPayload(message_type_id(*payload), payload);
+    return req;
+}
+
+template<typename Msg>
+FailoverSvcRequestPtr
+AmDispatcher::createFailoverRequest(fds_volid_t const vol_id,
+                                  boost::shared_ptr<Msg> const& payload) const {
+    auto commited_group = dmtMgr->getCommittedNodeGroup(vol_id);
+    auto ep_provider = boost::make_shared<DmtVolumeIdEpProvider>(commited_group);
+    auto req = gSvcRequestPool->newFailoverSvcRequest(ep_provider);
+    req->setPayload(message_type_id(*payload), payload);
+    return req;
+}
+
 /**
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
-                                 std::function<void(fds_int64_t, Error)> cb) {
+AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
+                                 fds_int64_t const token,
+                                 std::function<void(fds_int64_t const, Error const)> cb) {
     fiu_do_on("am.uturn.dispatcher", cb(0, ERR_OK); return;);
 
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    if (volume_open_support) {
-        auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
-        volMDMsg->volume_id = vol_desc.volUUID;
+    LOGDEBUG << "Attempting to open volume: " << std::hex << vol_id;
+    auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
+    volMDMsg->volume_id = vol_id;
+    volMDMsg->token = token;
 
-        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
-            boost::make_shared<DmtVolumeIdEpProvider>(
-                dmtMgr->getCommittedNodeGroup(vol_desc.volUUID)));
-        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
+    auto asyncOpenVolReq = createQuorumRequest(vol_id, volMDMsg);
 
-        /** What to do with the response */
-        auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
-                            const Error& error,
-                            boost::shared_ptr<std::string> payload) {
-            auto e = error;
-            auto msg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-            cb((msg ? msg->token : invalid_vol_token), e);
-        };
+    /** What to do with the response */
+    auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload) {
+        auto e = error;
+        auto msg = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
+        cb((msg ? msg->token : invalid_vol_token), e);
+    };
+    asyncOpenVolReq->onResponseCb(svc_cb);
 
-        asyncStatVolReq->onResponseCb(svc_cb);
-        asyncStatVolReq->invoke();
-    } else {
-        cb(0, ERR_OK);
-    }
+    asyncOpenVolReq->invoke();
 }
 
 /**
@@ -170,36 +182,26 @@ void
 AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
     fiu_do_on("am.uturn.dispatcher", return;);
 
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    if (volume_open_support) {
-        auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
-        volMDMsg->volume_id = vol_id;
-        volMDMsg->token = token;
+    LOGDEBUG << "Attempting to close volume: " << std::hex << vol_id;
+    auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
+    volMDMsg->volume_id = vol_id;
+    volMDMsg->token = token;
 
-        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
-            boost::make_shared<DmtVolumeIdEpProvider>(
-                dmtMgr->getCommittedNodeGroup(vol_id)));
-        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
-        asyncStatVolReq->invoke();
-    }
+    auto asyncCloseVolReq = createQuorumRequest(vol_id, volMDMsg);
+
+    asyncCloseVolReq->invoke();
 }
 
 void
 AmDispatcher::dispatchStatVolume(AmRequest *amReq) {
     fpi::StatVolumeMsgPtr volMDMsg = boost::make_shared<fpi::StatVolumeMsg>();
     volMDMsg->volume_id = amReq->io_vol_id;
-    FailoverSvcRequestRespCb respCb(
-        RESPONSE_MSG_HANDLER(AmDispatcher::statVolumeCb, amReq));
 
-    auto asyncStatVolReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
-                                    volMDMsg);
+    auto asyncStatVolReq = createFailoverRequest(amReq->io_vol_id, volMDMsg);
+
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statVolumeCb, amReq));
     asyncStatVolReq->onResponseCb(respCb);
+
     asyncStatVolReq->invoke();
 }
 
@@ -209,10 +211,8 @@ AmDispatcher::statVolumeCb(AmRequest* amReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
-    StatVolumeReq * volReq =
-            static_cast<fds::StatVolumeReq*>(amReq);
-    fpi::StatVolumeMsgPtr volMDMsg =
-        fds::deserializeFdspMsg<fpi::StatVolumeMsg>(const_cast<Error&>(error), payload);
+    auto volReq = static_cast<fds::StatVolumeReq*>(amReq);
+    auto volMDMsg = deserializeFdspMsg<fpi::StatVolumeMsg>(const_cast<Error&>(error), payload);
 
     if (ERR_OK == error)
         volReq->volumeStatus = volMDMsg->volumeStatus;
@@ -226,8 +226,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
 
     fpi::SetVolumeMetadataMsgPtr volMetaMsg =
             boost::make_shared<fpi::SetVolumeMetadataMsg>();
-    SetVolumeMetadataReq * volReq =
-            static_cast<SetVolumeMetadataReq*>(amReq);
+    auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
 
     volMetaMsg->volumeId = amReq->io_vol_id;
     // Copy api structure into fdsp structure.
@@ -238,15 +237,12 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
         metaPair.value = meta.second;
         volMetaMsg->metadataList.push_back(metaPair);
     }
-    QuorumSvcRequestRespCb respCb(
-        RESPONSE_MSG_HANDLER(AmDispatcher::setVolumeMetadataCb, amReq));
 
-    auto asyncSetVolMetadataReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncSetVolMetadataReq->setPayload(FDSP_MSG_TYPEID(fpi::SetVolumeMetadataMsg),
-                                       volMetaMsg);
+    auto asyncSetVolMetadataReq = createQuorumRequest(amReq->io_vol_id, volMetaMsg);
+
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setVolumeMetadataCb, amReq));
     asyncSetVolMetadataReq->onResponseCb(respCb);
+
     asyncSetVolMetadataReq->invoke();
 }
 
@@ -256,11 +252,9 @@ AmDispatcher::setVolumeMetadataCb(AmRequest* amReq,
                                   const Error& error,
                                   boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
-    SetVolumeMetadataReq * volReq =
-            static_cast<SetVolumeMetadataReq*>(amReq);
-    fpi::SetVolumeMetadataMsgRspPtr volMetaMsgRsp =
-        fds::deserializeFdspMsg<fpi::SetVolumeMetadataMsgRsp>(
-            const_cast<Error&>(error), payload);
+    auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
+    auto volMetaMsgRsp = deserializeFdspMsg<fpi::SetVolumeMetadataMsgRsp>(
+        const_cast<Error&>(error), payload);
 
     amReq->proc_cb(error);
 }
@@ -269,19 +263,14 @@ void
 AmDispatcher::dispatchGetVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
-    fpi::GetVolumeMetadataMsgPtr volMetaMsg =
-            boost::make_shared<fpi::GetVolumeMetadataMsg>();
-
+    auto volMetaMsg = boost::make_shared<fpi::GetVolumeMetadataMsg>();
     volMetaMsg->volumeId = amReq->io_vol_id;
-    FailoverSvcRequestRespCb respCb(
-        RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, amReq));
 
-    auto asyncGetVolMetadataReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncGetVolMetadataReq->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeMetadataMsg),
-                                       volMetaMsg);
+    auto asyncGetVolMetadataReq = createFailoverRequest(amReq->io_vol_id, volMetaMsg);
+
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, amReq));
     asyncGetVolMetadataReq->onResponseCb(respCb);
+
     asyncGetVolMetadataReq->invoke();
 }
 
@@ -291,11 +280,13 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
                                   const Error& error,
                                   boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
+    auto err = error;
 
     if (error.ok()) {
-        auto response = MSG_DESERIALIZE(GetVolumeMetadataMsgRsp, error, payload);
-        boost::shared_ptr<GetVolumeMetadataCallback> cb =
-                SHARED_DYN_CAST(GetVolumeMetadataCallback, amReq->cb);
+        auto response = deserializeFdspMsg<fpi::GetVolumeMetadataMsgRsp>(
+            const_cast<Error&>(error), payload);
+        auto cb = SHARED_DYN_CAST(GetVolumeMetadataCallback, amReq->cb);
+        cb->metadata = boost::make_shared<std::map<std::string, std::string>>();
         // Copy the FDSP structure into the API structure
         for (auto const &meta : response->metadataList) {
             cb->metadata->emplace(std::pair<std::string, std::string>(meta.key, meta.value));
@@ -311,15 +302,14 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
 
     fds_volid_t volId = amReq->io_vol_id;
 
-    fpi::AbortBlobTxMsgPtr stBlobTxMsg = boost::make_shared<fpi::AbortBlobTxMsg>();
+    auto stBlobTxMsg = boost::make_shared<fpi::AbortBlobTxMsg>();
     stBlobTxMsg->blob_name      = amReq->getBlobName();
     stBlobTxMsg->blob_version   = blob_version_invalid;
     stBlobTxMsg->txId           = static_cast<AbortBlobTxReq *>(amReq)->tx_desc->getValue();
     stBlobTxMsg->volume_id      = volId;
 
-    auto asyncAbortBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(dmtMgr->getCommittedNodeGroup(volId)));
-    asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
+    auto asyncAbortBlobTxReq = createQuorumRequest(volId, stBlobTxMsg);
+
     asyncAbortBlobTxReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, amReq));
 
     asyncAbortBlobTxReq->invoke();
@@ -337,7 +327,7 @@ AmDispatcher::abortBlobTxCb(AmRequest *amReq,
 
 void
 AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
-    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(amReq);
+    auto *blobReq = static_cast<StartBlobTxReq *>(amReq);
 
     // Update DMT version in request
     // TODO(Andrew): There's a potential race here between the
@@ -347,12 +337,8 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
 
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
-    // Create callback
-    QuorumSvcRequestRespCb respCb(
-        RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
-
     // Create network message
-    fpi::StartBlobTxMsgPtr startBlobTxMsg = boost::make_shared<fpi::StartBlobTxMsg>();
+    auto startBlobTxMsg = boost::make_shared<fpi::StartBlobTxMsg>();
     startBlobTxMsg->blob_name    = amReq->getBlobName();
     startBlobTxMsg->blob_version = blob_version_invalid;
     startBlobTxMsg->volume_id    = amReq->io_vol_id;
@@ -360,12 +346,11 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     startBlobTxMsg->txId         = blobReq->tx_desc->getValue();
     startBlobTxMsg->dmt_version  = blobReq->dmt_version;
 
-    auto asyncStartBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncStartBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg),
-                                    startBlobTxMsg);
+    auto asyncStartBlobTxReq = createQuorumRequest(amReq->io_vol_id, startBlobTxMsg);
+
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
     asyncStartBlobTxReq->onResponseCb(respCb);
+
     asyncStartBlobTxReq->invoke();
 
     LOGDEBUG << asyncStartBlobTxReq->logString()
@@ -388,21 +373,18 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
-    fpi::DeleteBlobMsgPtr message = boost::make_shared<fpi::DeleteBlobMsg>();
+    auto message = boost::make_shared<fpi::DeleteBlobMsg>();
     message->volume_id = amReq->io_vol_id;
     message->blob_name = amReq->getBlobName();
     message->blob_version = blob_version_invalid;
     message->txId = static_cast<DeleteBlobReq *>(amReq)->tx_desc->getValue();
 
-    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
+    auto asyncReq = createQuorumRequest(amReq->io_vol_id, message);
 
     // Create callback
-    QuorumSvcRequestRespCb respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, amReq));
-
-    asyncReq->setPayload(fpi::DeleteBlobMsgTypeId, message);
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, amReq));
     asyncReq->onResponseCb(respCb);
+
     asyncReq->invoke();
 }
 
@@ -425,12 +407,12 @@ AmDispatcher::deleteBlobCb(AmRequest* amReq,
 
 void
 AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
     fiu_do_on("am.uturn.dispatcher",
               blobReq->notifyResponse(ERR_OK);  \
               return;);
 
-    fpi::UpdateCatalogMsgPtr updCatMsg(boost::make_shared<fpi::UpdateCatalogMsg>());
+    auto updCatMsg(boost::make_shared<fpi::UpdateCatalogMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = amReq->io_vol_id;
@@ -442,20 +424,19 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
     updBlobInfo.offset   = amReq->blob_offset;
     updBlobInfo.size     = amReq->data_len;
-    updBlobInfo.blob_end = blobReq->last_buf;
     updBlobInfo.data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
         amReq->obj_id.GetLen());
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
 
-    fds::PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
+    auto asyncUpdateCatReq = createQuorumRequest(amReq->io_vol_id, updCatMsg);
 
-    auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
+    if (0 < message_timeout_io)
+        { asyncUpdateCatReq->setTimeoutMs(message_timeout_io); }
+
+    fds::PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
@@ -463,12 +444,12 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
 
 void
 AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
     fiu_do_on("am.uturn.dispatcher",
               blobReq->notifyResponse(ERR_OK); \
               return;);
 
-    fpi::UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
+    auto updCatMsg(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = amReq->io_vol_id;
@@ -496,14 +477,14 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
         updCatMsg->meta_list.push_back(metaDataPair);
     }
 
-    PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
-
     // Always use the current DMT version since we're updating in a single request
-    auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), updCatMsg);
+    auto asyncUpdateCatReq = createQuorumRequest(amReq->io_vol_id, updCatMsg);
+
     asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
+    if (0 < message_timeout_io)
+        { asyncUpdateCatReq->setTimeoutMs(message_timeout_io); }
+
+    PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
@@ -516,8 +497,7 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
                               boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
-    fpi::UpdateCatalogOnceRspMsgPtr updCatRsp =
-        fds::deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
+    auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
 
     auto blobReq = static_cast<PutBlobReq *>(amReq);
     if (error != ERR_OK) {
@@ -540,8 +520,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
                               boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
-    fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        fds::deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+    auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -556,14 +535,14 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
 
 void
 AmDispatcher::dispatchPutObject(AmRequest *amReq) {
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
     fds_verify(amReq->data_len > 0);
 
     fiu_do_on("am.uturn.dispatcher",
               static_cast<PutBlobReq*>(amReq)->notifyResponse(ERR_OK); \
               return;);
 
-    fpi::PutObjectMsgPtr putObjMsg(boost::make_shared<fpi::PutObjectMsg>());
+    auto putObjMsg(boost::make_shared<fpi::PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id;
     putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
@@ -574,16 +553,19 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
-
-    PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
+    auto const dlt = dltMgr->getAndLockCurrentDLT();
 
     auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
             dlt->getNodes(amReq->obj_id)));
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
+
     asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
                                                    amReq, dlt->getVersion()));
+    if (0 < message_timeout_io)
+        { asyncPutReq->setTimeoutMs(message_timeout_io); }
+
+    PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
@@ -598,8 +580,7 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
                           boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
-    fpi::PutObjectRspMsgPtr putObjRsp =
-            fds::deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+    auto putObjRsp = deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -620,13 +601,11 @@ void
 AmDispatcher::dispatchGetObject(AmRequest *amReq)
 {
     // The connectors expect some underlying string even for empty buffers
-    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     fiu_do_on("am.uturn.dispatcher",
               mockHandler_->schedule(mockTimeoutUs_,
                                      std::bind(&AmDispatcherMockCbs::getObjectCb, amReq)); \
                                      return;);
 
-    PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     fds_volid_t volId = amReq->io_vol_id;
     ObjectID objId    = amReq->obj_id;
 
@@ -636,15 +615,15 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // length to 0 and return. We should figure out how we want this flow to
     // actually go (the entire read API and path should be improved).
     if (objId == NullObjectID) {
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-        cb->returnBuffer = empty_buffer;
+        auto cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        cb->return_buffers = nullptr;
         cb->returnSize = 0;
 
         amReq->proc_cb(ERR_OK);
         return;
     }
 
-    fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
+    auto getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
     getObjMsg->volume_id = volId;
     getObjMsg->data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(objId.GetId()),
@@ -653,12 +632,17 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+    auto const dlt = dltMgr->getAndLockCurrentDLT();
 
     auto asyncGetReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
+
     asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
     asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
+    if (0 < message_timeout_io)
+        { asyncGetReq->setTimeoutMs(message_timeout_io); }
+
+    PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     asyncGetReq->invoke();
 
     LOGDEBUG << asyncGetReq->logString() << logString(*getObjMsg);
@@ -672,19 +656,20 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
                           boost::shared_ptr<std::string> payload)
 {
     fds_verify(amReq->magicInUse());
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
+
+    auto cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
     // notify DLT manager that request completed, so we can decrement refcnt
     dltMgr->decDLTRefcnt(dltVersion);
 
-    fpi::GetObjectRespPtr getObjRsp =
-        fds::deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
-    PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
+    auto getObjRsp = deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
 
     if (error == ERR_OK) {
         LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
                  << " DLT version " << dltVersion;
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
-        cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
+        auto buffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
+        cb->return_buffers = boost::make_shared<std::vector<decltype(buffer)>>(1, std::move(buffer));
     } else {
         cb->returnSize = 0;
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
@@ -702,18 +687,17 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
                                      return;);
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
-    std::string blobName = amReq->getBlobName();
-    size_t blobOffset = amReq->blob_offset;
-    fds_volid_t volId = amReq->io_vol_id;
+    auto blobOffset = amReq->blob_offset;
+    auto volId = amReq->io_vol_id;
 
-    LOGDEBUG << "blob name: " << blobName << " offset: " << blobOffset << " volid: " << volId;
+    LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: " << blobOffset << " volid: " << volId;
     /*
      * TODO(Andrew): We should eventually specify the offset in the blob
      * we want...all objects won't work well for large blobs.
      */
-    fpi::QueryCatalogMsgPtr queryMsg = boost::make_shared<fpi::QueryCatalogMsg>();
+    auto queryMsg = boost::make_shared<fpi::QueryCatalogMsg>();
     queryMsg->volume_id    = volId;
-    queryMsg->blob_name    = blobName;
+    queryMsg->blob_name    = amReq->getBlobName();
     queryMsg->start_offset = blobOffset;
     queryMsg->end_offset   = blobOffset;
     // We don't currently specify a version
@@ -721,16 +705,16 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
-    auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
+    auto asyncQueryReq = createFailoverRequest(amReq->io_vol_id, queryMsg);
+
     asyncQueryReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, amReq));
     asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::getQueryCatalogAppStatusCb,
                                              this, amReq, std::placeholders::_1,
                                              std::placeholders::_2));
-    asyncQueryReq->invoke();
+    if (0 < message_timeout_io)
+        { asyncQueryReq->setTimeoutMs(message_timeout_io); }
 
+    asyncQueryReq->invoke();
     LOGDEBUG << asyncQueryReq->logString() << logString(*queryMsg);
 }
 
@@ -755,10 +739,9 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
                                 boost::shared_ptr<std::string> payload)
 {
     fds_verify(amReq->magicInUse());
-    fpi::QueryCatalogMsgPtr qryCatRsp =
-        fds::deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
-
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
+
+    auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         // TODO(Andrew): We should consider logging this error at a
@@ -772,7 +755,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     LOGDEBUG << svcReq->logString() << logString(*qryCatRsp);
 
     // Copy the metadata into the callback, if needed
-    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
+    auto blobReq = static_cast<GetBlobReq *>(amReq);
     if (true == blobReq->get_metadata) {
         auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
         // Fill in the data here
@@ -816,22 +799,18 @@ void
 AmDispatcher::dispatchStatBlob(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
-              StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb); \
+              auto cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb); \
               cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
               cb->blobDesc->setBlobName(amReq->getBlobName()); \
               cb->blobDesc->setBlobSize(0); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
-    fpi::GetBlobMetaDataMsgPtr message = boost::make_shared<fpi::GetBlobMetaDataMsg>();
+    auto message = boost::make_shared<fpi::GetBlobMetaDataMsg>();
     message->volume_id = amReq->io_vol_id;
     message->blob_name = amReq->getBlobName();
 
-    auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-
-    asyncReq->setPayload(fpi::GetBlobMetaDataMsgTypeId, message);
+    auto asyncReq = createFailoverRequest(amReq->io_vol_id, message);
     asyncReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, amReq));
 
     asyncReq->invoke();
@@ -839,10 +818,10 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
 
 void
 AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
-    fds_volid_t   vol_id = amReq->io_vol_id;
+    auto vol_id = amReq->io_vol_id;
 
-    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
-    fpi::SetBlobMetaDataMsgPtr setMDMsg = boost::make_shared<fpi::SetBlobMetaDataMsg>();
+    auto blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
+    auto setMDMsg = boost::make_shared<fpi::SetBlobMetaDataMsg>();
     setMDMsg->blob_name = amReq->getBlobName();
     setMDMsg->blob_version = blob_version_invalid;
     setMDMsg->volume_id = vol_id;
@@ -850,14 +829,11 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
 
-    auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getVersionNodeGroup(vol_id, blobReq->dmt_version)));
+    auto asyncSetMDReq = createQuorumRequest(vol_id, setMDMsg);
 
     // Create callback
-    QuorumSvcRequestRespCb respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, amReq));
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, amReq));
 
-    asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
     asyncSetMDReq->onResponseCb(respCb);
     asyncSetMDReq->invoke();
 }
@@ -868,8 +844,7 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
                                 const Error &error,
                                 boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
-    fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
-        fds::deserializeFdspMsg<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
+    auto setMDRsp = deserializeFdspMsg<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << amReq->getBlobName() << " Error: " << error;
     } else {
@@ -890,7 +865,7 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
         // using the same structure for input and output
         auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
 
-        StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
+        auto cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
         // Fill in the data here
         cb->blobDesc = boost::make_shared<BlobDescriptor>();
         cb->blobDesc->setBlobName(amReq->getBlobName());
@@ -906,24 +881,20 @@ void
 AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
-    // Create callback
-    QuorumSvcRequestRespCb respCb(
-        RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
-
     // Create network message
-    fpi::CommitBlobTxMsgPtr commitBlobTxMsg = boost::make_shared<fpi::CommitBlobTxMsg>();
+    auto commitBlobTxMsg = boost::make_shared<fpi::CommitBlobTxMsg>();
     commitBlobTxMsg->blob_name    = amReq->getBlobName();
     commitBlobTxMsg->blob_version = blob_version_invalid;
     commitBlobTxMsg->volume_id    = amReq->io_vol_id;
     commitBlobTxMsg->txId         = static_cast<CommitBlobTxReq *>(amReq)->tx_desc->getValue();
     commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
-    auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
-    asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg),
-                                    commitBlobTxMsg);
+    auto asyncCommitBlobTxReq = createQuorumRequest(amReq->io_vol_id, commitBlobTxMsg);
+
+    // Create callback
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
     asyncCommitBlobTxReq->onResponseCb(respCb);
+
     asyncCommitBlobTxReq->invoke();
 
     LOGDEBUG << asyncCommitBlobTxReq->logString()
@@ -936,8 +907,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
-    fpi::CommitBlobTxRspMsgPtr response =
-        fds::deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
+    auto response = deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
     if (ERR_OK == error) {
         auto blobReq =  static_cast<CommitBlobTxReq *>(amReq);
@@ -952,12 +922,12 @@ void
 AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
-              GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
+              auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
               cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
-    fpi::GetBucketMsgPtr message = boost::make_shared<fpi::GetBucketMsg>();
+    auto message = boost::make_shared<fpi::GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
     message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
     message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
@@ -965,11 +935,8 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
     message->orderBy = static_cast<VolumeContentsReq *>(amReq)->orderBy;
     message->descending = static_cast<VolumeContentsReq *>(amReq)->descending;
 
-    auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(
-            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
+    auto asyncReq = createFailoverRequest(amReq->io_vol_id, message);
 
-    asyncReq->setPayload(fpi::GetBucketMsgTypeId, message);
     asyncReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::volumeContentsCb, amReq));
 
     asyncReq->invoke();
@@ -990,7 +957,7 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " <<
                 response->blob_descr_list.size();
 
-        GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
+        auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
         cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
         cb->vecBlobs->swap(response->blob_descr_list);
     }

@@ -3,18 +3,22 @@ package com.formationds.hadoop;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.HostAndPort;
+import com.formationds.util.ServerPortFinder;
+import com.formationds.util.SupplierWithExceptions;
 import com.formationds.util.blob.Mode;
+import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
+import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -22,6 +26,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -43,18 +49,17 @@ import java.util.*;
 // - platform support does not exist for rename() - it does a copy and then a delete instead
 //
 public class FdsFileSystem extends FileSystem {
+    private static final Logger LOG = Logger.getLogger(FdsFileSystem.class);
     public static final String DOMAIN = "HDFS";
     public static final String DIRECTORY_SPECIFIER_KEY = "directory";
     public static final String LAST_MODIFIED_KEY = "last-modified";
     public static final String CREATED_BY_USER = "created-by-user";
     public static final String CREATED_BY_GROUP = "created-by-group";
-    public static final int amServicePortOffset = 2988;
-    public static int amResponsePortOffset = 2876;
 
-    private XdiService.Iface am;
     private Path workingDirectory;
     private URI uri;
     private int blockSize;
+    private AsyncAm asyncAm;
 
     public FdsFileSystem() {
     }
@@ -64,75 +69,74 @@ public class FdsFileSystem extends FileSystem {
         initialize(uri, conf);
     }
 
-    public FdsFileSystem(XdiService.Iface am, String uri, int blockSize) throws URISyntaxException, IOException {
-        this();
-        this.am = am;
-        this.blockSize = blockSize;
-        this.uri = new URI(uri);
-        this.workingDirectory = new Path(uri);
-        setConf(new Configuration());
-        createRootIfNeeded();
-    }
-
     @Override
     public void initialize(URI uri, Configuration conf) throws IOException {
         setConf(conf);
         String am = conf.get("fds.am.endpoint");
         String cs = conf.get("fds.cs.endpoint");
-	Integer pmPort = 7000;
 
-        XdiClientFactory cf = new XdiClientFactory(pmPort + amResponsePortOffset);
-        XdiService.Iface amClient = null;
+        int amResponsePort = new ServerPortFinder().findPort("HDFS async AM response port", 10000);
+        HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 8899);
+        XdiClientFactory cf = new XdiClientFactory(amResponsePort);
+        try {
+            asyncAm = new RealAsyncAm(cf.remoteOnewayAm(amConnectionData.getHost(), amConnectionData.getPort()), amResponsePort, 10, TimeUnit.SECONDS);
+            asyncAm.start();
+        } catch (Exception e) {
+            LOG.error("Error starting async AM", e);
+            throw new IOException(e);
+        }
 
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
         workingDirectory = new Path(uri);
 
-        if (am != null) {
-            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, pmPort + amServicePortOffset);
-            amClient = cf.remoteAmService(amConnectionData.getHost(), amConnectionData.getPort());
-        } else if (this.am != null) {
-            amClient = this.am;
-        } else {
-            throw new IOException("required configuration key 'fds.am.endpoint' with format HOST:PORT not found in configuration");
-        }
-        this.am = amClient;
-
-        if (cs != null) {
-            ConfigurationService.Iface csClient = null;
-            HostAndPort csConnectionData = HostAndPort.parseWithDefaultPort(cs, 9090);
-            csClient = cf.remoteOmService(csConnectionData.getHost(), csConnectionData.getPort());
-            try {
-                VolumeDescriptor status = csClient.statVolume(DOMAIN, getVolume());
-                if (status == null)
-                    throw new FileNotFoundException();
-                blockSize = status.getPolicy().getMaxObjectSizeInBytes();
-            } catch (ApiException ex) {
-                if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
-                    throw new FileNotFoundException();
-                throw new IOException(ex);
-            } catch (Exception e) {
-                throw new IOException(e);
-            }
-        } else if (blockSize == 0) {
-            throw new IOException("required configuration key 'fds.cs.endpoint' with format HOST:PORT not found in configuration");
+        ConfigurationService.Iface csClient = null;
+        HostAndPort csConnectionData = HostAndPort.parseWithDefaultPort(cs, 9090);
+        csClient = cf.remoteOmService(csConnectionData.getHost(), csConnectionData.getPort());
+        try {
+            VolumeDescriptor status = csClient.statVolume(DOMAIN, getVolume());
+            if (status == null)
+                throw new FileNotFoundException();
+            blockSize = status.getPolicy().getMaxObjectSizeInBytes();
+        } catch (ApiException ex) {
+            LOG.error("Error getting volume info", ex);
+            if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
+                throw new FileNotFoundException();
+            throw new IOException(ex);
+        } catch (Exception e) {
+            LOG.error("Error getting volume info", e);
+            throw new IOException(e);
         }
 
         createRootIfNeeded();
     }
-
     private void createRootIfNeeded() throws IOException {
         Path root = new Path(uri + "/");
         try {
-            am.statBlob(DOMAIN, getVolume(), root.toString());
+            unwindExceptions(() -> asyncAm.statBlob(DOMAIN, getVolume(), root.toString()).get());
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 mkDirBlob(root);
+            } else {
+                throw new IOException(e);
             }
         } catch (Exception e) {
             throw new IOException(e);
         }
     }
 
+    static <T> T unwindExceptions(SupplierWithExceptions<T> supplier) throws ApiException, Exception {
+        try {
+            return supplier.supply();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof ApiException) {
+                throw (ApiException) e.getCause();
+            } else {
+                throw new Exception(e.getCause());
+            }
+        } catch (Exception e) {
+            throw e;
+        }
+    }
     @Override
     public String getScheme() {
         return "fds";
@@ -147,7 +151,7 @@ public class FdsFileSystem extends FileSystem {
     public FSDataInputStream open(Path path, int bufferSize) throws IOException {
         Path absolutePath = getAbsolutePath(path);
         ensureReadingPossible(absolutePath);
-        return new FSDataInputStream(new FdsInputStream(am, DOMAIN, getVolume(), absolutePath.toString(), blockSize));
+        return new FSDataInputStream(new FdsInputStream(asyncAm, DOMAIN, getVolume(), absolutePath.toString(), blockSize));
     }
 
     private void ensureReadingPossible(Path absolutePath) throws IOException {
@@ -164,7 +168,7 @@ public class FdsFileSystem extends FileSystem {
             mkdirs(absolutePath.getParent());
         }
         ensureWritingPossible(absolutePath);
-        return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
+        return new FSDataOutputStream(FdsOutputStream.openNew(asyncAm, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
     }
 
     @Override
@@ -176,7 +180,7 @@ public class FdsFileSystem extends FileSystem {
             throw new IOException("Parent does not exist!");
         }
         ensureWritingPossible(absolutePath);
-        return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
+        return new FSDataOutputStream(FdsOutputStream.openNew(asyncAm, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
 
     }
 
@@ -198,7 +202,7 @@ public class FdsFileSystem extends FileSystem {
     public FSDataOutputStream append(Path path, int bufferSize, Progressable progress) throws IOException {
         Path absolutePath = getAbsolutePath(path);
         ensureReadingPossible(absolutePath);
-        return new FSDataOutputStream(FdsOutputStream.openForAppend(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize()));
+        return new FSDataOutputStream(FdsOutputStream.openForAppend(asyncAm, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize()));
     }
 
 
@@ -253,10 +257,10 @@ public class FdsFileSystem extends FileSystem {
                     throw new IOException("HDFS: please use recursive delete for directories");
                 List<BlobDescriptor> bds = listAllSubPaths(absolutePath, true, true);
                 for (BlobDescriptor bd : bds) {
-                    am.deleteBlob(DOMAIN, getVolume(), bd.getName());
+                    asyncAm.deleteBlob(DOMAIN, getVolume(), bd.getName()).get();
                 }
             } else {
-                am.deleteBlob(DOMAIN, getVolume(), absolutePath.toString());
+                asyncAm.deleteBlob(DOMAIN, getVolume(), absolutePath.toString()).get();
             }
             return true;
         } catch (Exception e) {
@@ -282,7 +286,7 @@ public class FdsFileSystem extends FileSystem {
         }
 
         try {
-            return am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, filter, BlobListOrder.LEXICOGRAPHIC, descending);
+            return asyncAm.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, filter, BlobListOrder.LEXICOGRAPHIC, descending).get();
         } catch (Exception e) {
             throw new IOException(e);
         }
@@ -326,7 +330,7 @@ public class FdsFileSystem extends FileSystem {
     public FileStatus getFileStatus(Path path) throws IOException {
         try {
             Path absolutePath = getAbsolutePath(path);
-            BlobDescriptor bd = am.statBlob(DOMAIN, getVolume(), absolutePath.toString());
+            BlobDescriptor bd = unwindExceptions(() -> asyncAm.statBlob(DOMAIN, getVolume(), absolutePath.toString()).get());
             return asFileStatus(bd);
         } catch (ApiException ex) {
             if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE) {
@@ -376,7 +380,7 @@ public class FdsFileSystem extends FileSystem {
             map.put(FdsFileSystem.CREATED_BY_USER, owner.getOwner());
             map.put(FdsFileSystem.CREATED_BY_GROUP, owner.getGroup());
 
-            am.updateBlobOnce(DOMAIN, getVolume(), targetPath, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), map);
+            asyncAm.updateBlobOnce(DOMAIN, getVolume(), targetPath, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), map).get();
         } catch (Exception ex) {
             throw new IOException(ex);
         }

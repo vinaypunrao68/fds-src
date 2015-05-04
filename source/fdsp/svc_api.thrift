@@ -121,9 +121,14 @@ struct UpdateSvcMapMsg {
 service PlatNetSvc {
     oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
     oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
-    svc_types.AsyncHdr uuidBind(1: svc_types.UuidBindMsg msg);
-
-    oneway void allUuidBinding(1: svc_types.UuidBindMsg mine);
+    /**
+     * @brief Returns service map
+     *
+     * @param nullarg
+     *
+     * @return
+     */
+    list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
     oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
 
     list<svc_types.NodeInfoMsg> notifyNodeInfo(1: svc_types.NodeInfoMsg info, 2: bool bcast);

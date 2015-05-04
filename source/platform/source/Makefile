@@ -1,19 +1,19 @@
 topdir         := ../..
 user_target    := lib
 user_rtime_env := user
-user_incl_dir  :=                              \
-                  ../include                   \
-	$(topdir)/net-service/include
+user_incl_dir  :=                                \
+                  ../include                     \
+                  $(topdir)/net-service/include
 
-platform_cpp  := \
-	platformmanager.cpp \
-	svchandler.cpp \
-	process.cpp
+platform_cpp  :=                        \
+                 platform_manager.cpp   \
+                 svc_handler.cpp        \
+                 process.cpp
 
-disk_cpp := \
-	$(wildcard pm_disk_*.cpp) \
-	$(wildcard file_disk_*.cpp) \
-	$(wildcard disk_*.cpp)
+disk_cpp :=                              \
+            $(wildcard pm_disk_*.cpp)    \
+            $(wildcard file_disk_*.cpp)  \
+            $(wildcard disk_*.cpp)
 
 
 fds_plat_lib_cpp :=                              \
@@ -52,6 +52,7 @@ fds_plat_lib_cpp :=                              \
                     node_integrate.cpp           \
                     node_deploy.cpp              \
                     node_functional.cpp          \
+		    disk_capabilities.cpp	 \
                     fds_flags.cpp
 
 user_cpp := $(platfrom_cpp) $(fds_plat_lib_cpp)

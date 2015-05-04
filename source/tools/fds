@@ -48,8 +48,8 @@ proc["om"]="java"
 
 declare -A apps
 apps["om"]="orchMgr"
-apps["am"]="AMAgent"
-apps["xdi"]="AMAgent"
+apps["am"]="bare_am"
+apps["xdi"]="am.Main"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
@@ -134,8 +134,7 @@ function activate() {
         sleep 5
 
         logwarn "asking OM to accept all discovered nodes..."
-        (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e "$actapps" > cli.out) 2>/dev/null
-        loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
+	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local > cli.out) 2>/dev/null
     fi
 }
 
@@ -159,13 +158,7 @@ function startApp() {
     # start influxdb if needed
     case "$appname" in
         om|all|influx*)
-            sudo service influxdb status 2>&1 >> /dev/null
-            if [ $? != 0 ]; then
-                sudo service influxdb start 2>&1 >> /dev/null
-                if [ $? != 0 ]; then
-                    logwarn "Failed to start InfluxDB"
-                fi
-            fi
+            startInfluxDB
             ;;
     esac
 
@@ -174,15 +167,15 @@ function startApp() {
             pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
-                (cd ${BINDIR}; ./${apps[$name]} --fds-root ${FDSROOT} > ${name}.out 2>&1 &)
+                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
-                sleep 2s
+
 		if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
                     loginfo "here is the log file: ${BINDIR}/${name}.out"
                     tail ${BINDIR}/${name}.out
                 fi
-                sleep 1s
+
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -205,13 +198,7 @@ function stopApp() {
 
     case "$appname" in 
         om|all|influx*)
-            sudo service influxdb status 2>&1 >> /dev/null
-            if [ $? == 0 ]; then
-                sudo service influxdb stop 2>&1 >> /dev/null
-                if [ $? != 0 ]; then
-                    logwarn "Failed to stop InfluxDB"
-                fi
-            fi
+            stopInfluxDB
             ;;
     esac
 
@@ -230,6 +217,65 @@ function stopApp() {
     done
 
     # Not stopping redis for now
+}
+
+function startInfluxDB() {
+    local ret=0
+    sudo service influxdb status 2>&1 >> /dev/null
+    if [ $? != 0 ]; then
+        sudo service influxdb start 2>&1 >> /dev/null
+        ret=$?
+        if [ $ret != 0 ]; then
+            logwarn "Failed to start InfluxDB"
+        fi
+    fi
+    return $ret
+}
+
+function stopInfluxDB() {
+    local ret=0
+    sudo service influxdb status 2>&1 >> /dev/null
+    if [ $? == 0 ]; then
+        sudo service influxdb stop 2>&1 >> /dev/null
+        ret=$?
+        if [ $ret != 0 ]; then
+            logwarn "Failed to stop InfluxDB"
+        fi
+    fi
+    return $ret;
+}
+
+function cleanInfluxDB() {
+
+    ## first check if influx is running
+    sudo service influxdb status 2>&1 >> /dev/null
+    local isRunning=$?
+
+    ## if it is not running, start it.
+    if [ $isRunning != 0 ]; then
+        startInfluxDB
+        sleep 2
+    fi
+
+    loginfo "cleaning up InfluxDB databases"
+    for db in om-eventdb om-metricdb; do
+        local out=$(curl -s --write-out ":%{http_code}" -X DELETE "http://localhost:8086/db/$db?u=root&p=root")
+        if [ $? != 0 ]; then
+            logwarn InfluxDB Request failed: $out
+        fi
+        local msg=$(echo $out | cut -d : -f 1)
+        local httpCode=$(echo $out | cut -d : -f 2)
+        if [[ "$httpCode" -lt 200 || "$httpCode" -ge 300 ]]; then
+            # influx reported an unsuccessful error code.  Print the message output from the response.
+            # we don't currently distinguish between errors and things like redirects.
+            loginfo "InfluxDB [HTTP $httpCode]: $msg"
+        fi
+    done
+
+    ## if influx was NOT running originally, stop it again.
+    if [ $isRunning != 0 ]; then
+        stopInfluxDB
+    fi
 }
 
 function statusApp() {
@@ -449,8 +495,6 @@ function clean() {
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
 
-                # influxdb
-                # TODO: how to clean influx data?
 				rm -rf /${node}/var/logs
                 #cleanlogs
             ) 2>/dev/null
@@ -459,6 +503,7 @@ function clean() {
 
 	rm -f /dev/shm/0x*
 
+    cleanInfluxDB
     cleanBinDirs
 }
 
@@ -573,7 +618,10 @@ case "${CMD}" in
         ;;
     stop) stopApp  $APP;;
     status) statusApp $APP;;
-    clean) clean ;;
+    clean)
+        stopApp "all"
+        clean
+        ;;
     clogs) cleanlogs ;;
     restart)
             stopApp $APP

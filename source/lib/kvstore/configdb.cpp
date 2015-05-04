@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+#include <ratio>
 
 #include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
@@ -248,9 +249,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " app.workload %d"
                               " media.policy %d"
                               " backup.vol.id %ld"
-                              " iops.min %.3f"
-                              " iops.max %.3f"
-                              " iops.guarantee %d"
+                              " iops.min %d"
+                              " iops.max %d"
                               " relative.priority %d"
                               " fsnapshot %d"
                               " parentvolumeid %ld"
@@ -275,9 +275,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.appWorkload,
                               vol.mediaPolicy,
                               vol.backupVolume,
-                              vol.iops_min,
-                              vol.iops_max,
-                              vol.iops_guarantee,
+                              vol.iops_assured,
+                              vol.iops_throttle,
                               vol.relativePrio,
                               vol.fSnapshot,
                               vol.srcVolumeId,
@@ -425,9 +424,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "app.workload") {vol.appWorkload = (fpi::FDSP_AppWorkload)atoi(value.c_str());} //NOLINT
             else if (key == "media.policy") {vol.mediaPolicy = (fpi::FDSP_MediaPolicy)atoi(value.c_str());} //NOLINT
             else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
-            else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(), NULL);}
-            else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
-            else if (key == "iops.guarantee") {vol.iops_guarantee = atoi (value.c_str());}
+            else if (key == "iops.min") {vol.iops_assured = strtod (value.c_str(), NULL);}
+            else if (key == "iops.max") {vol.iops_throttle = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
@@ -869,8 +867,8 @@ fds_uint32_t ConfigDB::createQoSPolicy(const std::string& identifier,
         id = static_cast<fds_uint32_t>(reply.getLong());
         qosPolicy.volPolicyId = id;
         qosPolicy.volPolicyName = identifier;
-        qosPolicy.iops_min = minIops;
-        qosPolicy.iops_max = maxIops;
+        qosPolicy.iops_assured = minIops;
+        qosPolicy.iops_throttle = maxIops;
         qosPolicy.relativePrio = relPrio;
 
 #ifdef QOS_POLICY_MANAGEMENT_CORRECTED
@@ -1715,23 +1713,42 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
     return setSnapshotState(snapshot, state);
 }
 
-#if 0
-/* NOTE (March 3, 2015): Keeping this code commented here in hopes this code will get
- * uncommented.  If this code isn't used in 2 months, it's safe to get rid of it
- */
-bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
-    TRACKMOD();
+bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo) {
     try {
-        boost::shared_ptr<std::string> serialized;
-        fds::serializeFdspMsg(svcinfo, serialized);
-
-        r.hset("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid, *serialized); //NOLINT
+        std::stringstream uuid;
+        uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
+        
+        Reply reply = r.sendCommand( "hdel svcmap %s", uuid.str().c_str() ); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
         return false;
     }
     return true;
+}
+
+bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
+    bool bRetCode = false;
+    try {
+        
+        std::stringstream uuid;
+        uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
+        
+        LOGDEBUG << "CONFIGDB::UPDATE::SVC::MAP " 
+                 << svcinfo.name << " "
+                 << uuid.str();
+        
+        std::string key = "svcmap";
+                
+        FDSP_SERIALIZE( svcinfo, serialized );        
+        bRetCode = r.hset( key, uuid.str().c_str(), *serialized );
+                       
+    } catch(const RedisException& e) {
+        
+        LOGCRITICAL << "error with redis " << e.what();
+        
+    }
+    
+    return bRetCode;
 }
 
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
@@ -1756,7 +1773,7 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
     return true;
 
 }
-#endif
+
 
 }  // namespace kvstore
 }  // namespace fds

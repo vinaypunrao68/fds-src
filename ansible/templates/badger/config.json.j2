@@ -1,0 +1,35 @@
+{
+    "core":
+        {
+            /* base_interval is in seconds - decimal values accepted */
+            "interval": 1,
+            /* keep these values present with empty strings if they are not
+               applicable - deliverable payload expects them to be present,
+               even if not populated */
+            "datacenter": "{{badger_datacenter if badger_datacenter is defined else ''}}",
+            "region": "{{badger_region if badger_region is defined else ''}}",
+            "zone": "{{badger_zone if badger_zone is defined else ''}}",
+            "cluster": "{{badger_cluster if badger_cluster is defined else ''}}",
+            "hostname": "{{inventory_hostname}}",
+            "ipv4": "{{ansible_default_ipv4['address']}}",
+            "ipv6": "{{ansible_default_ipv6['address'] if ansible_default_ipv6['address'] is defined else ''}}",
+            "log": {
+                "dest": "file",
+                "fileName": "{{ badger_logfile if badger_logfile is defined else 'badger.log'}}",
+                "level": "{{badger_loglevel if badger_loglevel is defined else 'info'}}"
+            }
+        },
+    "modules":
+        {
+            "dir": "badger_modules",
+            "config": "badger_modules/conf.d",
+            "included_modules": ["load", "system", "cpu", "disk", "network", "memory", "process_stats"]
+        },
+    "emitters":
+        {
+            "dir": "badger_emitters",
+            "config": "badger_emitters/conf.d",
+            "workers": 3,
+            "included_emitters": ["influxdb08_emitter"]
+        }
+}

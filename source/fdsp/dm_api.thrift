@@ -533,6 +533,16 @@ struct VolSyncStateMsg
 struct VolSyncStateRspMsg {
 }
 
+/**
+ * Reload volume will close leveldb for a specified volume
+ * and re-instantiate it
+ */
+struct ReloadVolumeMsg {
+    1: i64 volume_id;
+}
+struct ReloadVolumeRspMsg {
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/

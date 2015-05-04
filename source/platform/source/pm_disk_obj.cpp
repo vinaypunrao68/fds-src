@@ -2,11 +2,15 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+extern "C" {
+#include <fcntl.h>
 #include <libudev.h>
+}
 
 #include "fds_uuid.h"
 #include "disk_common.h"
 #include "disk_label.h"
+#include "disk_capability.h"
 #include "disk_obj_iter.h"
 #include "disk_plat_module.h"
 #include "platform_disk_obj.h"               // TODO(donavan) the .h file is named wrong
@@ -48,7 +52,7 @@ namespace fds
     }
 
     PmDiskObj::PmDiskObj() : dsk_part_link(this), dsk_disc_link(this), dsk_raw_path(NULL),
-        dsk_parent(NULL), dsk_my_dev(NULL), dsk_common(NULL), dsk_label(NULL)
+        dsk_parent(NULL), dsk_my_dev(NULL), dsk_common(NULL), dsk_label(NULL), dsk_capability(nullptr)
     {
         rs_name[0]   = '\0';
         dsk_cap_gb   = 0;
@@ -157,6 +161,45 @@ namespace fds
             dsk_parent->rs_mutex()->unlock();
         }
         return found;
+    }
+
+    // dsk_read_capability
+    // -------------
+    //
+    void PmDiskObj::dsk_read_capability()
+    {
+        fds_uint64_t    uuid;
+        DiskCapability  *tmp;
+
+        if (dsk_capability == NULL)
+        {
+            tmp = new DiskCapability(this);
+            rs_mutex()->lock();
+
+            if (dsk_capability == NULL)
+            {
+                dsk_capability = tmp;
+            }else {
+                delete tmp;
+            }
+            rs_mutex()->unlock();
+        }
+        LOGDEBUG << "Reading capabilities from: " << rs_name;
+        dsk_capability->dsk_capability_read();
+
+        // Don't look at partitions if we couldn't find the disk marker
+        if (!dsk_capability->initialized) {
+            return;
+        }
+
+        // Storage space is on the last partition
+        dsk_parent->rs_mutex()->lock();
+        auto partition = dsk_parent->dsk_part_head.chain_peek_back<PmDiskObj>();
+        if (partition) {
+            dsk_capability->capacity_gb = partition->dsk_cap_gb;
+            LOGDEBUG << "Discovered storage size: " << partition->dsk_cap_gb;
+        }
+        dsk_parent->rs_mutex()->unlock();
     }
 
     // dsk_read_uuid
@@ -342,13 +385,20 @@ namespace fds
     //
     ssize_t PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt)
     {
-        int        fd;
-        ssize_t    rt;
+        int        fd {0};
+        ssize_t    rt {0};
 
-        fd = open(rs_name, O_RDWR | O_SYNC);
-        rt = pread(fd, buf,
-                   fds_disk_sector_to_byte(sec_cnt), fds_disk_sector_to_byte(sector));
+        fd = open(rs_name, O_RDONLY | O_CLOEXEC);
+        ssize_t to_read = fds_disk_sector_to_byte(sec_cnt);
+        do {
+            rt = pread(fd, buf, to_read, fds_disk_sector_to_byte(sector));
+        } while ((0 > rt) && (EINTR == errno));
         close(fd);
+
+        if (0 > rt) {
+            perror(strerror(errno));
+        }
+
         return rt;
     }
 
@@ -358,7 +408,7 @@ namespace fds
     ssize_t PmDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sec_cnt)
     {
         int        fd;
-        ssize_t    rt;
+        ssize_t    rt {0};
 
         /* Don't touch sda device */
         if (sim == true)
@@ -367,19 +417,20 @@ namespace fds
             return 0;
         }
         fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
-        fd = open(rs_name, O_RDWR | O_SYNC);
-        rt = pwrite(fd, buf,
-                    fds_disk_sector_to_byte(sec_cnt), fds_disk_sector_to_byte(sector));
+        fd = open(rs_name, O_WRONLY | O_SYNC | O_CLOEXEC);
+
+        ssize_t const to_write = fds_disk_sector_to_byte(sec_cnt);
+        do {
+            rt = pwrite(fd, buf, to_write, fds_disk_sector_to_byte(sector));
+        } while ((0 > rt) && (EINTR == errno));
         close(fd);
 
-        if (rt < 0)
-        {
-            perror("Error");
-            return rt;
+        if (to_write != rt) {
+            perror(strerror(errno));
+        } else {
+            LOGNORMAL << "Write superblock to " << rs_name << ", sector " << sector
+            << ", ret " << rt << ", sect cnt " << sec_cnt;
         }
-
-        LOGNORMAL << "Write superblock to " << rs_name << ", sector " << sector
-        << ", ret " << rt << ", sect cnt " << sec_cnt;
         return rt;
     }
 }  // namespace fds

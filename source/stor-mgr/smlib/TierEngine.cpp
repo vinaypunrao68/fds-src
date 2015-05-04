@@ -43,9 +43,10 @@ TierEngine::~TierEngine() {
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
 
-    if (MODULEPROVIDER()->get_fds_config()->\
-        get<bool>("fds.sm.tiering.hybrid.enable")) {
-        hybridTierCtrlr.start(false);
+    // set the enable flag based on the configuration.
+    bool enableHybridTier =  MODULEPROVIDER()->get_fds_config()->get<bool>("fds.sm.tiering.hybrid.enable");
+    if (enableHybridTier) {
+        hybridTierCtrlr.enableFeature();
     }
 
     /*
@@ -71,9 +72,11 @@ int TierEngine::mod_init(SysParams const *const param) {
 }
 
 void TierEngine::mod_startup() {
+    Module::mod_startup();
 }
 
 void TierEngine::mod_shutdown() {
+    Module::mod_shutdown();
 }
 
 void TierEngine::disableTierMigration() {
@@ -91,9 +94,9 @@ void TierEngine::enableTierMigration() {
 }
 
 /* For manually starting hybrid tier controller */
-void TierEngine::startHybridTierCtrlr()
+void TierEngine::startHybridTierCtrlr(bool manual)
 {
-    hybridTierCtrlr.start(true);
+    hybridTierCtrlr.start(manual);
 }
 
 /*

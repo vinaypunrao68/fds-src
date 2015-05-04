@@ -130,3 +130,4 @@ ExtendedFstabTest.unit.bak
 ExtendedFstabTest.unit.1*
 ExtendedFstabTest.unit.altered.1*
 .coverage
+CMakeLists.txt

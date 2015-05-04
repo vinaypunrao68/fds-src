@@ -108,11 +108,9 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
                 suffix: parts[1].toLowerCase() 
             };
             
-            // longer than 10 years
-            if ( secondsToFull > (10*365*24*60*60) ){
-                fullInfo.number = $filter( 'translate' )( 'common.l_never' );
-                fullInfo.description = '';
-                fullInfo.suffix = '';
+            // longer than 3 years
+            if ( secondsToFull > (3*365*24*60*60) ){
+                fullInfo.number = '>3';
             }
 
             $scope.capacityItems.push( fullInfo );

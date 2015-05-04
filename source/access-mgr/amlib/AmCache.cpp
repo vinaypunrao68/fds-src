@@ -11,18 +11,16 @@
 namespace fds {
 
 AmCache::AmCache()
-    : max_data_entries(0),
-      max_metadata_entries(0)
+    : max_metadata_entries(0)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    max_data_entries = conf.get<fds_uint32_t>("cache.max_data_entries");
     max_metadata_entries = conf.get<fds_uint32_t>("cache.max_metadata_entries");
 }
 
 AmCache::~AmCache() = default;
 
 Error
-AmCache::registerVolume(fds_volid_t const vol_uuid) {
+AmCache::registerVolume(fds_volid_t const vol_uuid, size_t const num_objs) {
     Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
     if (ERR_OK != err) {
         return err;
@@ -32,7 +30,7 @@ AmCache::registerVolume(fds_volid_t const vol_uuid) {
         descriptor_cache.removeVolume(vol_uuid);
         return err;
     }
-    err = object_cache.addVolume(vol_uuid, max_data_entries);
+    err = object_cache.addVolume(vol_uuid, num_objs);
     if (ERR_OK != err) {
         offset_cache.removeVolume(vol_uuid);
         descriptor_cache.removeVolume(vol_uuid);
@@ -64,7 +62,7 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     BlobDescriptor::ptr blobDescPtr;
     error = descriptor_cache.get(volId, blobName, blobDescPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_DESC_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_DESC_CACHE_HIT, volId);
     }
     return blobDescPtr;
 }
@@ -80,7 +78,7 @@ AmCache::getBlobOffsetObject(fds_volid_t volId,
     ObjectID::ptr blobOffsetPtr;
     error = offset_cache.get(volId, BlobOffsetPair(blobName, blobOffset), blobOffsetPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_OFFSET_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
     }
     return blobOffsetPtr;
 }
@@ -95,7 +93,7 @@ AmCache::getBlobObject(fds_volid_t volId,
     boost::shared_ptr<std::string> blobObjectPtr;
     error = object_cache.get(volId, objectId, blobObjectPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_OBJECT_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, volId);
     }
     return blobObjectPtr;
 }

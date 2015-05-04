@@ -15,11 +15,6 @@
 typedef unsigned int volid_t;
 #define INV_VOL_ID (unsigned int)(-1)
 
-/*
-  TODO: Move this definition into fds_types.h
-*/
-typedef long long fds_int64_t;
-
 #define FDS_UINT16_MAX (unsigned short) 0xffff
 #define FDS_UINT32_MAX (unsigned int) 0xffffffff
 

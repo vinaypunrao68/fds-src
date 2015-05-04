@@ -6,7 +6,6 @@
 #include "platform/platform.h"
 #include "plat_agent.h"
 #include "node_shm_rw_ctrl.h"
-#include "disk_plat_module.h"
 
 namespace fds
 {
@@ -17,28 +16,6 @@ namespace fds
      */
     PlatAgent::PlatAgent(const NodeUuid &uuid) : DomainAgent(uuid, false)
     {
-    }
-
-    // init_stor_cap_msg
-    // -----------------
-    //
-    void PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
-    {
-        DiskPlatModule   *disk;
-
-        LOGNORMAL << "Platform agent fill in storage cap msg" << std::endl;
-        disk = DiskPlatModule::dsk_plat_singleton();
-        // if we are in perf test mode, over-write some node capabilities
-        // from config
-        FdsConfigAccessor    conf(g_fdsprocess->get_fds_config(), "fds.pm.testing.");
-        NodeAgent::init_stor_cap_msg(msg);
-
-        if (conf.get<bool>("manual_nodecap"))
-        {
-            msg->disk_iops_min = conf.get<int>("disk_iops_min");
-            msg->disk_iops_max = conf.get<int>("disk_iops_max");
-            LOGNORMAL << "Over-writing node perf capability from config ";
-        }
     }
 
     // pda_register

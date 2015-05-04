@@ -11,6 +11,24 @@
 #include <DataMgr.h>
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
+#include <util/stringutils.h>
+#include <util/path.h>
+namespace {
+Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
+    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+
+    boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
+    msg->volume_id = volId;
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
+    asyncReq->onResponseCb(waiter.cb);
+
+    asyncReq->invoke();
+    waiter.await();
+    return waiter.error;
+}
+} // namespace
 
 namespace fds {
 
@@ -347,6 +365,13 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // create vol catalogs, etc first
 
     bool fPrimary = false;
+    bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
+
+    LOGDEBUG << "vol:" << vol_name
+             << " snap:" << vdesc->isSnapshot()
+             << " state:" << vdesc->getState()
+             << " created:" << vdesc->isStateCreated()
+             << " old:" << fOldVolume;
 
     if (vdesc->isSnapshot() || vdesc->isClone()) {
         fPrimary = amIPrimary(vdesc->srcVolumeId);
@@ -389,6 +414,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             // find the closest snapshot to clone the base from
             fds_volid_t srcVolumeId = vdesc->srcVolumeId;
 
+            LOGDEBUG << "Timeline time is: '" << vdesc->timelineTime << "' for clone: '"
+                    << vdesc->volUUID << "'";
             // timelineTime is in seconds
             util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
 
@@ -419,6 +446,15 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                     // vol create time is in millis
                     snapshotTime = volmeta->vol_desc->createTime * 1000;
                     err = timeVolCat_->addVolume(*vdesc);
+                    if (!err.ok()) {
+                        LOGWARN << "Add volume returned error: '" << err << "'";
+                    }
+                    // XXX: Here we are creating and activating clone without copying src
+                    // volume, directory needs to exist for activation
+                    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+                    const std::string dirPath = root->dir_sys_repo_dm() +
+                            std::to_string(vdesc->volUUID);
+                    root->fds_mkdir(dirPath.c_str());
                 }
 
                 // now replay necessary commit logs as needed
@@ -434,7 +470,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                 if (err.ok()) {
                     LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
                     err = timeVolCat_->activateVolume(vdesc->volUUID);
-                    fActivated = true;
+                    if (err.ok()) fActivated = true;
                 }
 
                 err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
@@ -457,13 +493,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-        fActivated = true;
+        if (err.ok()) fActivated = true;
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
         // all actions were successful now rsync it to other DMs
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
-        Error err1;
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
@@ -472,7 +507,11 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             if (!err.ok()) {
                 LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
             } else {
-                // send message to reload DB
+                // send message to reload volume
+                err = sendReloadVolumeRequest((*nodes)[i], vdesc->volUUID);
+                if (!err.ok()) {
+                    LOGWARN << "catalog reload failed on clone, vol:" << vdesc->volUUID;
+                }
             }
         }
     }
@@ -493,9 +532,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     bool needReg = false;
     if (!volmeta->dmVolQueue.get()) {
+        // FIXME: Why are we doubling the assured rate here?
         volmeta->dmVolQueue.reset(new FDS_VolumeQueue(4096,
-                                                      vdesc->iops_max,
-                                                      2*vdesc->iops_min,
+                                                      vdesc->iops_throttle,
+                                                      2*vdesc->iops_assured,
                                                       vdesc->relativePrio));
         volmeta->dmVolQueue->activate();
         needReg = true;
@@ -507,10 +547,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     vol_map_mtx->lock();
     if (needReg) {
-        err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
-                                               vdesc->qosQueueId : vol_uuid,
-                                               static_cast<FDS_VolumeQueue*>(
-                                                   volmeta->dmVolQueue.get()));
+        err = qosCtrl->registerVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid,
+                                      static_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue.get()));
     }
     if (!err.ok()) {
         delete volmeta;
@@ -553,6 +591,14 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     }
 
     if (err.ok()) {
+        // For now, volumes only land in the map if it is already active.
+        if (fActivated) {
+            volmeta->vol_desc->setState(Active);
+        } else {
+            LOGWARN << "vol:" << vol_uuid << " not activated";
+            volmeta->vol_desc->setState(InError);
+        }
+
         // we registered queue and shadow queue if needed
         vol_meta_map[vol_uuid] = volmeta;
     }
@@ -562,7 +608,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // cleanup volmeta and deregister queue
         LOGERROR << "Cleaning up volume queue and vol meta because of error "
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
-        dataMgr->qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
+        qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
     }
@@ -585,6 +631,43 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
         const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid);
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
+    }
+
+    // now load all the snapshots for the volume
+    if (fOldVolume) {
+        // get the list of snapshots.
+        std::string snapDir = dmutil::getSnapshotDir(vol_uuid);
+        std::vector<std::string> vecDirs;
+        util::getSubDirectories(snapDir, vecDirs);
+        fds_volid_t snapId;
+        LOGDEBUG << "will load [" << vecDirs.size() << "]"
+                 << " snapshots for vol:" << vol_uuid
+                 << " from:" << snapDir;
+        for (const auto& snap : vecDirs) {
+            snapId = std::atoll(snap.c_str());
+            //now add the snap
+            VolumeDesc *desc = new VolumeDesc(*vdesc);
+            desc->fSnapshot = true;
+            desc->srcVolumeId = vol_uuid;
+            desc->lookupVolumeId = vol_uuid;
+            desc->qosQueueId = vol_uuid;
+            desc->volUUID = snapId;
+            desc->contCommitlogRetention = 0;
+            desc->timelineTime = 0;
+            desc->setState(Active);
+            desc->name = util::strformat("snaphot_%ld_%ld", vol_uuid, snapId);
+            VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
+                                                            snapId,
+                                                            GetLog(),
+                                                            desc);
+            vol_meta_map[snapId] = meta;
+            LOGDEBUG << "Adding snapshot" << " name:" << desc->name << " vol:" << desc->volUUID;
+            Error err1 = timeVolCat_->addVolume(*desc);
+            if (!err1.ok()) {
+                LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< vol_uuid
+                         << " - " << err1;
+            }
+        }
     }
 
     return err;
@@ -625,10 +708,13 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
         return err;
     }
     VolumeMeta *vm = vol_meta_map[vol_uuid];
-    vm->vol_desc->modifyPolicyInfo(2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+    // FIXME: Why are we doubling assured?
+    vm->vol_desc->modifyPolicyInfo(2 * voldesc.iops_assured,
+                                   voldesc.iops_throttle,
+                                   voldesc.relativePrio);
     err = qosCtrl->modifyVolumeQosParams(vol_uuid,
-                                         2*voldesc.iops_min,
-                                         voldesc.iops_max,
+                                         2 * voldesc.iops_assured,
+                                         voldesc.iops_throttle,
                                          voldesc.relativePrio);
     vol_map_mtx->unlock();
 
@@ -813,6 +899,7 @@ int DataMgr::mod_init(SysParams const *const param)
     standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
+    shuttingDown = false;
 
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
@@ -875,28 +962,33 @@ int DataMgr::mod_init(SysParams const *const param)
 }
 
 void DataMgr::initHandlers() {
-    handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
-    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
-    handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
-    handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
-    handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
-    handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
-    handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
-    handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
-    handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
-    handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
-    handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
-    handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
-    handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
-    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
-    handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
-    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
-    handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
-    handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
+    // TODO: Inject these.
+    handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler(*this);
+    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler(*this);
+    handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler(*this);
+    handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler(*this);
+    handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler(*this);
+    handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler(*this);
+    handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler(*this);
+    handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler(*this);
+    handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler(*this);
+    handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler(*this);
+    handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler(*this);
+    handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler(*this);
+    handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler(*this);
+    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler(*this);
+    handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
+    handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
+    handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
+    handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
 }
 
 DataMgr::~DataMgr()
 {
+    // shutdown all data manager modules
+    LOGDEBUG << "Received shutdown message DM ... shutdown mnodules..";
+    mod_shutdown();
 }
 
 int DataMgr::run()
@@ -904,9 +996,7 @@ int DataMgr::run()
     // TODO(Rao): Move this into module init
     initHandlers();
 
-    while (true) {
-        sleep(1);
-    }
+    _shutdownGate.waitUntilOpened();
 
     return 0;
 }
@@ -939,12 +1029,12 @@ void DataMgr::mod_enable_service() {
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     fds_uint32_t diskIOPsMin = features.isTestMode() ? 60*1000 :
             svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
-                                                 "disk_iops_min");
+                                                 "node_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
     // perf capacity available (based on how fast IOs return). So setting
-    // totalRate to disk_iops_min does not actually restrict the SM from
+    // totalRate to node_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
     scheduleRate = 2 * diskIOPsMin;
@@ -965,15 +1055,17 @@ void DataMgr::mod_enable_service() {
 
 
     // create time volume catalog
-    timeVolCat_ = DmTimeVolCatalog::ptr(new
-                                        DmTimeVolCatalog("DM Time Volume Catalog",
-                                                         *qosCtrl->threadPool));
+    timeVolCat_ = DmTimeVolCatalog::ptr(new DmTimeVolCatalog("DM Time Volume Catalog",
+                                                             *qosCtrl->threadPool,
+                                                             *this));
 
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
-    statStreamAggr_ = StatStreamAggregator::ptr(
-        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
+    statStreamAggr_ =
+            StatStreamAggregator::ptr(new StatStreamAggregator("DM Stat Stream Aggregator",
+                                                               modProvider_->get_fds_config(),
+                                                               *this));
 
     // enable collection of local stats in DM
     StatsCollector::singleton()->registerOmClient(omClient);
@@ -1007,6 +1099,19 @@ void DataMgr::mod_enable_service() {
     }
 }
 
+//   Block new IO's  and flush queued IO's 
+void DataMgr::flushIO()
+{
+    shuttingDown = true;
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+                 it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        qosCtrl->quieseceIOs(it->first);
+    }
+
+}
+
 void DataMgr::mod_shutdown()
 {
     shuttingDown = true;
@@ -1027,7 +1132,7 @@ void DataMgr::mod_shutdown()
                  it = vol_meta_map.begin();
          it != vol_meta_map.end();
          it++) {
-        qosCtrl->quieseceIOs(it->first);
+        //  qosCtrl->quieseceIOs(it->first);
         qosCtrl->deregisterVolume(it->first);
         delete it->second;
     }
@@ -1038,11 +1143,13 @@ void DataMgr::mod_shutdown()
     delete omClient;
     delete vol_map_mtx;
     delete qosCtrl;
+
+    _shutdownGate.open();
 }
 
 void DataMgr::setup_metasync_service()
 {
-    catSyncMgr.reset(new CatalogSyncMgr(1, this));
+    catSyncMgr.reset(new CatalogSyncMgr(1, this, *this));
     // TODO(xxx) should we start catalog sync manager when no OM?
     catSyncMgr->mod_startup();
 }
@@ -1234,7 +1341,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
-    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    DLTManagerPtr dltMgr = omClient->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
     const DLT* dlt = dltMgr->getAndLockCurrentDLT();
@@ -1258,7 +1365,7 @@ DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    DLTManagerPtr dltMgr = omClient->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
 }
 
@@ -1301,4 +1408,36 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
         msg_hdr->err_code = err.GetErrno();
     }
 }
+
+namespace dmutil {
+
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    if (snapId > 0) {
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb", root->dir_user_repo_dm().c_str(), volId, snapId);
+    } else {
+        return util::strformat("%s/%ld", root->dir_sys_repo_dm().c_str(), volId);
+    }
+}
+
+// location of all snapshots for a volume
+std::string getSnapshotDir(fds_volid_t volId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    return util::strformat("%s/%ld/snapshot", root->dir_user_repo_dm().c_str(), volId);
+}
+
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    if (snapId > 0) {
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
+                                 root->dir_user_repo_dm().c_str(), volId, snapId);
+    } else {
+        return util::strformat("%s/%ld/%ld_vcat.ldb",
+                                 root->dir_sys_repo_dm().c_str(), volId, volId);
+    }
+}
+}  // namespace dmutil
+
+
+
 }  // namespace fds

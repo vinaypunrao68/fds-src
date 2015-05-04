@@ -45,6 +45,7 @@ loadDiskMap(fds_uint32_t sm_count) {
     Error err(ERR_OK);
     SmDiskMap::ptr smDiskMap(new SmDiskMap("Test SM Disk Map"));
     smDiskMap->mod_init(NULL);
+    smDiskMap->loadPersistentState();
 
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
     DLT* dlt = new DLT(10, cols, 1, true);
@@ -214,6 +215,172 @@ TEST(SmDiskMap, up_down) {
         // cleanup
         SmUtUtils::cleanAllInDir(devPath);
     }
+}
+
+TEST(SmDiskMap, token_ownership) {
+    Error err(ERR_OK);
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string devPath = dir->dir_dev();
+    SmUtUtils::cleanAllInDir(devPath);
+
+    // create our own disk map
+    SmUtUtils::setupDiskMap(dir, 10, 2);
+
+    // only do initialization
+    SmDiskMap::ptr smDiskMap(new SmDiskMap("Test SM Disk Map"));
+    smDiskMap->mod_init(NULL);
+    smDiskMap->loadPersistentState();
+
+    // at this point, none of the SM tokens are valid
+    SmTokenSet smToks = smDiskMap->getSmTokens();
+    EXPECT_EQ(smToks.size(), 0);
+
+    // pretend this is new SM added to the domain
+    // first comes DLT update
+    NodeUuid myNodeUuid(1);
+    fds_uint32_t sm_count = 8;
+    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+    // we are using very small DLT, where DLT token = SM token
+    // so we can verify things easily...
+    DLT* dlt = new DLT(8, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Using DLT: " << *dlt;
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_SM_NOERR_GAINED_SM_TOKENS);
+
+    // since we made DLT tokens match SM tokens, verify it is true
+    smToks.clear();
+    smToks = smDiskMap->getSmTokens();
+
+    const TokenList& dlt_toks = dlt->getTokens(1);
+    GLOGDEBUG << "SM is responsible for " << dlt_toks.size()
+              << " DLT tokens" << *dlt;
+
+    SmTokenSet verifySmToks;
+    for (TokenList::const_iterator cit = dlt_toks.cbegin();
+         cit != dlt_toks.cend();
+         ++cit) {
+        verifySmToks.insert(smDiskMap->smTokenId(*cit));
+    }
+    EXPECT_EQ(smToks.size(), verifySmToks.size());
+
+    // next we recieve DLT close, but nothing should change
+    SmTokenSet rmToks = smDiskMap->handleDltClose(dlt);
+    // since it was the first DLT, we should not 'lose' any SM tokens
+    EXPECT_EQ(rmToks.size(), 0);
+    smToks.clear();
+    smToks = smDiskMap->getSmTokens();
+    EXPECT_EQ(smToks.size(), verifySmToks.size());
+
+    // we are done with this dlt
+    delete dlt;
+    dlt = nullptr;
+
+    // pretend DLT changes -- 2 SMs go away
+    // sine we are using round-robing algorithm in this test
+    // SM should gain and should lose ownership of some DLT tokens
+    sm_count -= 2;
+    dlt = new DLT(8, cols, 2, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Using DLT: " << *dlt;
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+
+    const TokenList& dlt2_toks = dlt->getTokens(1);
+    GLOGDEBUG << "SM is responsible for " << dlt2_toks.size()
+              << " DLT tokens" << *dlt;
+    SmTokenSet verifySmToks2;
+    for (TokenList::const_iterator cit = dlt2_toks.cbegin();
+         cit != dlt2_toks.cend();
+         ++cit) {
+        verifySmToks2.insert(smDiskMap->smTokenId(*cit));
+    }
+
+    std::set<fds_uint32_t> gainedToks;
+    std::set<fds_uint32_t> lostToks;
+    std::set<fds_uint32_t>::iterator it;
+    std::set_difference(verifySmToks2.begin(),
+                        verifySmToks2.end(),
+                        verifySmToks.begin(),
+                        verifySmToks.end(), std::inserter(gainedToks, gainedToks.end()));
+    std::set_difference(verifySmToks.begin(),
+                        verifySmToks.end(),
+                        verifySmToks2.begin(),
+                        verifySmToks2.end(), std::inserter(lostToks, lostToks.end()));
+
+    if (gainedToks.size() > 0) {
+        EXPECT_TRUE(err == ERR_SM_NOERR_GAINED_SM_TOKENS);
+    } else {
+        EXPECT_TRUE(err.ok());
+    }
+
+    // see if SM tokens match what we expect
+    smToks.clear();
+    smToks = smDiskMap->getSmTokens();
+    // disk map did not update lost tokens yet
+    EXPECT_EQ(smToks.size(), verifySmToks.size() + gainedToks.size());
+
+    // next we recieve DLT close, see if we lost ownership
+    rmToks = smDiskMap->handleDltClose(dlt);
+    EXPECT_EQ(rmToks.size(), lostToks.size());
+    smToks.clear();
+    smToks = smDiskMap->getSmTokens();
+    // now disk map should match DLT
+    EXPECT_EQ(smToks.size(), verifySmToks2.size());
+
+    // cleanup
+    SmUtUtils::cleanAllInDir(devPath);
+}
+
+TEST(SmDiskMap, restart) {
+    Error err(ERR_OK);
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string devPath = dir->dir_dev();
+    SmUtUtils::cleanAllInDir(devPath);
+
+    // create our own disk map
+    SmUtUtils::setupDiskMap(dir, 10, 2);
+
+    // only do initialization
+    SmDiskMap::ptr smDiskMap(new SmDiskMap("Test SM Disk Map"));
+    smDiskMap->mod_init(NULL);
+    err = smDiskMap->loadPersistentState();
+    EXPECT_TRUE(err == ERR_SM_NOERR_PRISTINE_STATE);
+
+    // pretend this is new SM added to the domain
+    // first comes DLT update
+    NodeUuid myNodeUuid(1);
+    fds_uint32_t sm_count = 16;
+    // we are using very small DLT, where DLT token = SM token
+    // so we can verify things easily...
+    DLT* dlt = new DLT(8, 4, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Using DLT: " << *dlt;
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_SM_NOERR_GAINED_SM_TOKENS);
+
+    // next we receive DLT close, should not 'lose' any SM tokens
+    SmTokenSet rmToks = smDiskMap->handleDltClose(dlt);
+    EXPECT_EQ(rmToks.size(), 0);
+
+    // restart
+    smDiskMap->mod_shutdown();
+    smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
+    smDiskMap->mod_init(NULL);
+    err = smDiskMap->loadPersistentState();
+    EXPECT_TRUE(err.ok());
+
+    // SM will receive DLT that was there before restart
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_SM_NOERR_NEED_RESYNC);
+
+    // second DLT notification about the same DLT should
+    // return an error
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_DUPLICATE);
+
+    // cleanup
+    delete dlt;
+    SmUtUtils::cleanAllInDir(devPath);
 }
 
 }  // namespace fds

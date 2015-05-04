@@ -12,7 +12,7 @@
             {{data[visibleIndex].wholeNumber}}
         </div>
         <div class="decimals" ng-style="{ 'min-width': decimalMinWidth }">
-            <span ng-show="data[visibleIndex].decimals > 0">{{ separator }}{{data[visibleIndex].decimals}}</span>
+            <span class="decimal-number" ng-show="data[visibleIndex].decimals > 0">{{ separator }}{{data[visibleIndex].decimals}}</span>
             <span>{{data[visibleIndex].suffix}}</span>
         </div>
         <div class="tile-description">{{data[visibleIndex].description}}</div>

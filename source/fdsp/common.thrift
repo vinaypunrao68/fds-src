@@ -21,6 +21,7 @@ enum ResourceState {
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */
   Deleted, /* resource is gone now and will not come back*/
+  InError,  /*in known erroneous state*/
 }
 
 enum BlobListOrder {
@@ -191,8 +192,8 @@ struct FDSP_VolumeDescType {
   9: i32                        placementPolicy,  // Can change placement policy
 
   // volume policy details
-  10: double                    iops_min, /* minimum (guaranteed) iops */
-  11: double                    iops_max, /* maximum iops */
+  10: i64                       iops_assured, /* minimum (guaranteed) iops */
+  11: i64                       iops_throttle, /* maximum iops */
   12: i32                       rel_prio, /* relative priority */
   13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
 
@@ -201,16 +202,16 @@ struct FDSP_VolumeDescType {
   16: i64                       contCommitlogRetention,
   17: i64                       srcVolumeId,
   18: i64                       timelineTime,
-  19: i64                       createTime,
-  20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
+  19: i64                       createTime
+  // 20: Removed.
 }
 
 struct FDSP_PolicyInfoType {
-  1: string                 policy_name, /* Name of the policy */
-  2: i32                    policy_id,   /* policy id */
-  3: double                 iops_min,    /* minimum (guaranteed) iops */
-  4: double                 iops_max,    /* maximum iops */
-  5: i32                    rel_prio,    /* relative priority */
+  1: string                 policy_name,    /* Name of the policy */
+  2: i32                    policy_id,      /* policy id */
+  3: double                 iops_assured,   /* minimum (guaranteed) iops */
+  4: double                 iops_throttle,  /* maximum iops */
+  5: i32                    rel_prio,       /* relative priority */
 }
 
 /**

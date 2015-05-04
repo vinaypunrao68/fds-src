@@ -28,9 +28,10 @@ PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
 : HasModuleProvider(provider),
 Module("PlatNetSvcHandler")
 {
-    deferRequests_ = false;
+    handlerState_ = ACCEPT_REQUESTS;
     REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcStatusMsg, getStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateSvcMapMsg, updateSvcMap);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, getSvcMap);
 }
 
 PlatNetSvcHandler::~PlatNetSvcHandler()
@@ -49,23 +50,29 @@ void PlatNetSvcHandler::mod_shutdown()
 {
 }
 
-void PlatNetSvcHandler::deferRequests(bool defer)
+void PlatNetSvcHandler::setHandlerState(PlatNetSvcHandler::State newState)
 {
-    /* NOTE: For now the supported deferring sequence is to start with 
-     * defer set to true and at a later point set defer to false.
+    /* NOTE: For now the supported  state sequest is
+     * DEFER_REQUESTS(During init)->ACCEPT_REQUESTS(After registration
+     * completes)->DROP_REQUESTS(preparing to shutdown)
      */
 
-    deferRequests_ = defer;
+    auto oldState = std::atomic_exchange(&handlerState_, newState);
 
-    if (deferRequests_ == false) {
+    fds_assert((oldState == ACCEPT_REQUESTS && newState == DEFER_REQUESTS) ||
+               (oldState == DEFER_REQUESTS && newState == ACCEPT_REQUESTS) ||
+               (oldState == ACCEPT_REQUESTS && newState == DROP_REQUESTS) ||
+               (oldState == DEFER_REQUESTS && newState == DROP_REQUESTS));
+
+    if (oldState == DEFER_REQUESTS && newState == ACCEPT_REQUESTS) {
         /* Drain all the deferred requests.  NOTE it's possible to drain them
          * on a threadpool as well
          */
-        fds_scoped_lock l(lock_);
         for (auto &reqPair: deferredReqs_) {
+            LOGNORMAL << "Replaying deferred request: " << fds::logString(*(reqPair.first));
             asyncReqt(reqPair.first, reqPair.second);        
         }
-     }
+    }
 }
 
 
@@ -85,20 +92,6 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
  * @param _return
  * @param msg
  */
-void PlatNetSvcHandler::uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg)
-{
-}
-
-/**
- * @brief
- *
- * @param _return
- * @param msg
- */
-void PlatNetSvcHandler::uuidBind(fpi::AsyncHdr &_return,
-                                   boost::shared_ptr<fpi::UuidBindMsg>& msg)
-{
-}
 
 void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
                                        const std::string& payload)
@@ -116,19 +109,21 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
 {
     SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
-    sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
+              sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
 
-    while (deferRequests_) {
-        fds_scoped_lock l(lock_);
-        if (!deferRequests_) {
-            break;
-         }
-         GLOGNOTIFY << "Deferred: " << logString(*header);
-         deferredReqs_.push_back(std::make_pair(header, payload));
-         return;
+    /* Based on current handler state take appropriate action */
+    PlatNetSvcHandler::State state = handlerState_;
+    if (state == DEFER_REQUESTS) {
+        LOGWARN << "Deferring request: " << fds::logString(*header);
+        deferredReqs_.push_back(std::make_pair(header, payload));
+        return;
+    } else if (state == DROP_REQUESTS) {
+        LOGWARN << "Dropping request: " << fds::logString(*header);
+        return;
     }
 
-    GLOGDEBUG << logString(*header);
+    fds_assert(state == ACCEPT_REQUESTS);
+    LOGDEBUG << logString(*header);
     try
     {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
@@ -222,6 +217,36 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
      MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, payload);
 }
 
+void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                                  const int64_t nullarg)
+{
+    // thrift generated..don't add anything here
+    fds_assert(!"shouldn't be here");
+}
+
+void
+PlatNetSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
+                        boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << " received " << hdr->msg_code
+             << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
+
+    fpi::GetSvcMapRespMsgPtr respMsg (new fpi::GetSvcMapRespMsg());
+    boost::shared_ptr<int64_t> nullarg;
+    getSvcMap(respMsg->svcMap, nullarg);
+
+    // initialize the response message with the service map
+    hdr->msg_code = 0;
+    sendAsyncResp (*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
+}
+
+void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                       boost::shared_ptr<int64_t>& nullarg)
+{
+    LOGDEBUG << "Service map request";
+    MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
+}
 
 void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)
 {

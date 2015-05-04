@@ -196,6 +196,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      virtual void mod_startup() override;
      virtual void mod_shutdown() override;
      virtual void mod_enable_service() override;
+     virtual void mod_disable_service() override;
 
      int run();
 
@@ -203,8 +204,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_bool_t testUturnAll;
      /// Enables uturn testing for put object ops
      fds_bool_t testUturnPutObj;
-
-     checksum_calc   *chksumPtr;
 
      fds_bool_t isShuttingDown() const {
          return shuttingDown;
@@ -223,11 +222,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
     }
 
     Error modVolQos(fds_volid_t vol_uuid,
-                    fds_uint64_t iops_min,
-                    fds_uint64_t iops_max,
+                    fds_int64_t iops_assured,
+                    fds_int64_t iops_throttle,
                     fds_uint32_t prio) {
         return qosCtrl->modifyVolumeQosParams(vol_uuid,
-                    iops_min, iops_max, prio);
+                    iops_assured, iops_throttle, prio);
     }
 
     StorMgrVolume * getVol(fds_volid_t volId)
@@ -324,6 +323,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
 
      friend class SmLoadProc;
+     friend class SmUnitTest;
      friend class SMSvcHandler;
 
   private:
@@ -332,6 +332,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                  FDSP_NotifyVolFlag vol_flag,
                                  FDSP_ResultType resut);
 
+     // for standalone test
+     DLT* standaloneTestDlt;
+     void setTestDlt(DLT* dlt) {
+         standaloneTestDlt = dlt;
+     }
 };
 
 }  // namespace fds

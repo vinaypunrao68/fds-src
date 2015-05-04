@@ -18,6 +18,7 @@
 #include "qos_ctrl.h"
 #include "PerfTrace.h"
 
+#include "EclipseWorkarounds.h"
 
 namespace fds {
 
@@ -30,7 +31,7 @@ namespace fds {
         queue_map_t queue_map;
         FDS_QoSControl *parent_ctrlr;
         float current_throttle_level;
-        fds_uint64_t total_svc_rate;
+        fds_int64_t total_svc_iops;
         fds_uint32_t max_outstanding_ios;
         fds_rwlock qda_lock;  // Protects queue_map (and any high level structures in derived class)
                               // from events like volumes being inserted or removed during
@@ -58,12 +59,12 @@ namespace fds {
 
         FDS_QoSDispatcher(FDS_QoSControl *ctrlr,
                           fds_log *log,
-                          fds_uint64_t total_server_rate) :
+                          fds_int64_t total_server_iops) :
         FDS_QoSDispatcher()
         {
             parent_ctrlr = ctrlr;
             qda_log = log;
-            total_svc_rate = total_server_rate;
+            total_svc_iops = total_server_iops;
             max_outstanding_ios = 0;
             num_pending_ios = ATOMIC_VAR_INIT(0);
             num_outstanding_ios = ATOMIC_VAR_INIT(0);
@@ -92,10 +93,10 @@ namespace fds {
             queue_map[queue_id] = queue;
 
             LOGNOTIFY << "Dispatcher: registering queue - 0x"
-                      << std::hex << queue_id << std::dec << " with min - "
-                      << queue->iops_min << ", max - " << queue->iops_max
+                      << std::hex << queue_id << std::dec << " with assured - "
+                      << queue->iops_assured << ", throttle - " << queue->iops_throttle
                       << ", priority - " << queue->priority
-                      << ", total server rate = " << total_svc_rate;
+                      << ", total server iops = " << total_svc_iops;
 
             return err;
         }
@@ -111,20 +112,20 @@ namespace fds {
 
 
         virtual Error modifyQueueQosParams(fds_qid_t queue_id,
-                                           fds_uint64_t iops_min,
-                                           fds_uint64_t iops_max,
+                                           fds_int64_t iops_assured,
+                                           fds_int64_t iops_throttle,
                                            fds_uint32_t prio)
         {
             Error err(ERR_OK);
             qda_lock.write_lock();
-            err = modifyQueueQosWithLockHeld(queue_id, iops_min, iops_max, prio);
+            err = modifyQueueQosWithLockHeld(queue_id, iops_assured, iops_throttle, prio);
             qda_lock.write_unlock();
             return err;
         }
 
         Error modifyQueueQosWithLockHeld(fds_qid_t queue_id,
-                                         fds_uint64_t iops_min,
-                                         fds_uint64_t iops_max,
+                                         fds_int64_t iops_assured,
+                                         fds_int64_t iops_throttle,
                                          fds_uint32_t prio)
         {
             Error err(ERR_OK);
@@ -136,12 +137,12 @@ namespace fds {
             FDS_VolumeQueue *que = queue_map[queue_id];
 
             LOGNOTIFY << "Dispatcher: modifying queue qos params- 0x"
-                      << std::hex << queue_id << std::dec << " with min - "
-                      << iops_min << ", max - " << iops_max
+                      << std::hex << queue_id << std::dec << " with assured - "
+                      << iops_assured << ", throttle - " << iops_throttle
                       << ", priority - " << prio
-                      << ", total server rate = " << total_svc_rate;
+                      << ", total server iops = " << total_svc_iops;
 
-            que->modifyQosParams(iops_min, iops_max, prio);
+            que->modifyQosParams(iops_assured, iops_throttle, prio);
             return err;
         }
 
@@ -258,7 +259,11 @@ namespace fds {
 
             if (bypass_dispatcher == false) {
                 FDS_VolumeQueue *que = queue_map[queue_id];
-                que->enqueueIO(io);
+                err = que->enqueueIO(io);
+                if (!err.ok()) {
+                    qda_lock.read_unlock();
+                    return err;
+                }
 
                 ioProcessForEnqueue(queue_id, io);
 

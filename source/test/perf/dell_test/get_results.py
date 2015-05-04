@@ -14,8 +14,8 @@ def order_by(table, columns):
 	return table
 
 directory=sys.argv[1]
-
 files = os.listdir(directory)
+
 table = []
 for f in files:
 	# out.numjobs=4.workload=write.bs=512.iodepth=256.disksize=8g

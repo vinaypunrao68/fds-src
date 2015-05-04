@@ -54,10 +54,6 @@ namespace fds {
 
 extern const std::string PERF_COUNTERS_NAME;
 
-
-// XXX: update eventTypeToStr[] for each event added
-extern const char * eventTypeToStr[];
-
 /**
  * Per module (SM/DM/SH) performance tracer
  *
@@ -117,12 +113,6 @@ public:
     // reload the configuration
     static void refresh();
 
-    // at the moment our perfName depend on volume id only, so just use this method
-    // unless we change that
-    static std::string perfNameStr(fds_volid_t volId) {
-        return "volume:" + std::to_string(volId);
-    }
-
 private:
 
     typedef std::unordered_map<std::string, PerfContext *> PerfContextMap;
@@ -147,7 +137,7 @@ private:
     bool enable_;
 
     // events filter for event type
-    std::bitset<MAX_EVENT_TYPE> eventsFilter_;
+    std::bitset<fds_enum::get_size<PerfEventType>()> eventsFilter_;
     bool useEventsFilter_;
 
     // events filter for event name

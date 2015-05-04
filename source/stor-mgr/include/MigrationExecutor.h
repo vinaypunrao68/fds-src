@@ -19,11 +19,19 @@ class EPSvcRequest;
 
 /**
  * Callback to notify that migration executor is done with migration
+ * @param[in] round is the round that is finished:
+ *            0 -- one DLT token finished during resync, but the whole
+ *            executor haven't finished yet
+ *            1 -- first round of migration finished for the executor
+ *            2 -- second round of migration finished for the executor
  */
 typedef std::function<void (fds_uint64_t executorId,
                             fds_token_id smToken,
-                            fds_bool_t isFirstRound,
+                            const std::set<fds_token_id>& dltTokens,
+                            fds_uint32_t round,
                             const Error& error)> MigrationExecutorDoneHandler;
+
+typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
 
 class MigrationExecutor {
   public:
@@ -33,6 +41,8 @@ class MigrationExecutor {
                       fds_token_id smTokId,
                       fds_uint64_t id,
                       fds_uint64_t targetDltVer,
+                      bool forResync,
+                      MigrationDltFailedCb failedRetryHandler,
                       MigrationExecutorDoneHandler doneHandler);
     ~MigrationExecutor();
 
@@ -70,6 +80,7 @@ class MigrationExecutor {
      * Can only be called before startObjectRebalance
      */
     void addDltToken(fds_token_id dltTok);
+    fds_bool_t responsibleForDltToken(fds_token_id dltTok) const;
 
     /**
      * Start the object rebalance.  The rebalance inintiated by the
@@ -80,6 +91,13 @@ class MigrationExecutor {
 
     Error startSecondObjectRebalanceRound();
 
+    /**
+     * Start object rebalance for sm tokens whose token migration
+     * failed in the previous try with error that source SM was
+     * not ready to become source.
+     */
+    Error startObjectRebalanceAgain(leveldb::ReadOptions& options,
+                                    leveldb::DB *db);
     /**
      * Handles message from Source SM to apply delta set to this SM
      */
@@ -100,7 +118,9 @@ class MigrationExecutor {
     void handleMigrationRoundDone(const Error& error);
 
     /// callback from SL on rebalance filter set msg
-    void objectRebalanceFilterSetResp(EPSvcRequest* req,
+    void objectRebalanceFilterSetResp(fds_token_id dltToken,
+                                      uint64_t seqId,
+                                      EPSvcRequest* req,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload);
 
@@ -108,6 +128,15 @@ class MigrationExecutor {
     void getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
+
+
+    // send finish resync msg to source SM for corresponding client
+    void sendFinishResyncToClient();
+
+    // callback from SL on response for finish client resync message
+    void finishResyncResp(EPSvcRequest* req,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
 
     /// Id of this executor, used for communicating with source SM
     fds_uint64_t executorId;
@@ -117,6 +146,9 @@ class MigrationExecutor {
 
     /// callback to notify that migration finished
     MigrationExecutorDoneHandler migrDoneHandler;
+
+    /// callback to update failed dlt token migration set
+    MigrationDltFailedCb migrFailedRetryHandler;
 
     /**
      * Object data store handler.  Set during the initialization.
@@ -146,10 +178,21 @@ class MigrationExecutor {
     fds_uint32_t bitsPerDltToken;
 
     /**
+     * Set of DLT tokens that failed to be migrated from source SM
+     * because the source was not ready.
+     */
+     std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+
+    /**
      * Maintain messages from the source SM, so we don't lose it.  Each async message
      * from source SM has a unique sequence number.
      */
     MigrationDoubleSeqNum seqNumDeltaSet;
+
+    /**
+     * Is this migration for a SM resync
+     */
+     bool forResync;
 
     /// true if standalone (no rpc sent)
     fds_bool_t testMode;

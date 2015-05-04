@@ -8,7 +8,8 @@ import unittest
 
 import xmlrunner
 import TestCase
-
+from fdslib.TestUtils import findNodeFromInv
+from fdslib import SvcHandle
 
 # Module-specific requirements
 import sys
@@ -16,7 +17,7 @@ import time
 import logging
 import shlex
 import random
-
+import re
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -132,11 +133,22 @@ def modWait(mod, node, forShutdown = False):
     else:
         found = False
 
+    mod_decorator = mod
+    java_class = None
+
+    if mod == "orchMgr":
+        mod_decorator = "java"
+        java_class = "com.formationds.om.Main"
+
+    if mod == "AMAgent":
+        mod_decorator = "java"
+        java_class = "com.formationds.am.Main"
+
     status = 0
     while (count < maxcount) and ((forShutdown and found) or (not forShutdown and not found)):
         time.sleep(1)
 
-        pid = getSvcPIDforNode(mod, node)
+        pid = getSvcPIDforNode(mod_decorator, node, java_class)
         if pid != -1:
             found = True
 
@@ -167,32 +179,13 @@ def modWait(mod, node, forShutdown = False):
         if forShutdown:
             return False
 
-    if orchMgrPID != '':
-        return pidWaitParent(int(orchMgrPID), 1, node)
-
-    if AMAgentPID != '':
-        return pidWaitParent(int(AMAgentPID), 2, node)
+#    if orchMgrPID != '':
+#        return pidWaitParent(int(orchMgrPID), 1, node)
+#
+#    if AMAgentPID != '':
+#        return pidWaitParent(int(AMAgentPID), 2, node)
 
     return True
-
-
-def findNodeFromInv(node_inventory, target):
-    '''
-    Looks for target in node_inventory and returns the target object.
-    :param node_inventory: A list of nodes to search through (typically nd_confg_dict)
-    :param target: Target node to find (a parameter passed into the test case)
-    :return: Returns the node object identified by target
-    '''
-
-    # If we didn't get a string, just return the original object
-    if not isinstance(target, str):
-        return target
-
-    # Otherwise look for a node with the target name
-    for node in node_inventory:
-        if node.nd_conf_dict['node-name'] == target:
-            return node
-
 
 def generic_kill(node, service):
     '''
@@ -2054,6 +2047,52 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
                 break
 
         return True
+
+#This class sets fault injection on source SM node before SM token migration is started
+class TestTokenMigrationRetry(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TokenMigrationRetry,
+                                             "Setting fault injection for SM token migration retry")
+        self.passedNode = node
+
+    def test_TokenMigrationRetry(self):
+        """
+        Test Case:
+        This testcase sets the fault injection parameter on the source SM before starting of a
+        SM token migration
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode is None):
+            self.log.error("Parameter missing values.")
+            raise Exception
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        nodes = fdscfg.rt_obj.cfg_nodes
+        nodeObj = findNodeFromInv(nodes, self.passedNode) 
+    
+        svc_re = re.compile(r'([0-9]+)(\s+)SM')
+        status, stdout = nodeObj.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service list) \"',
+                                                    return_stdin=True,
+                                                    fds_tools=True)
+
+        if status == 0:
+            for line in stdout.split('\n'):
+                res = svc_re.match(line)
+                if res is not None:
+                    smSvcId = res.group(1)
+ 
+                    status, stdout = nodeObj.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service setfault {} \"enable name=resend.dlt.token.filter.set\") \"' 
+                                                                .format(smSvcId),
+                                                                fds_tools=True, return_stdin=True)
+                    print stdout
+                    if (stdout == 'Ok'):
+                        return True
+                    else:
+                        return False
 
 
 if __name__ == '__main__':

@@ -24,6 +24,7 @@ namespace fds {
 struct AmQoSCtrl;
 struct AmRequest;
 struct AmVolume;
+struct AmVolumeAccessToken;
 struct WaitQueue;
 
 struct AmVolumeTable : public HasLogger {
@@ -39,13 +40,18 @@ struct AmVolumeTable : public HasLogger {
     using tx_callback_type = std::function<void(AmRequest*)>;
     void registerCallback(tx_callback_type cb);
 
-    Error registerVolume(const VolumeDesc& vdesc, fds_int64_t token);
+    Error registerVolume(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
     Error removeVolume(const VolumeDesc& volDesc);
 
     /**
      * Returns NULL is volume does not exist
      */
     volume_ptr_type getVolume(fds_volid_t vol_uuid) const;
+
+    /**
+     * Return tokens to all attached volumes
+     */
+    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
 
     /**
      * Returns the volumes max object size

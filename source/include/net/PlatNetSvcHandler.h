@@ -61,26 +61,30 @@ namespace fds {
 struct SvcRequestTracker;
 using StringPtr = boost::shared_ptr<std::string>;
 
-class PlatNetSvcHandler : public HasModuleProvider,
-    virtual public FDS_ProtocolInterface::PlatNetSvcIf, public Module
+struct PlatNetSvcHandler : HasModuleProvider,
+    virtual FDS_ProtocolInterface::PlatNetSvcIf, Module
 {
     typedef std::function<void (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>&,
                                 boost::shared_ptr<std::string>&)> FdspMsgHandler;
-  public:
+    /* Handler state */
+    enum State {
+        /* In thi state requests are queued up to be replayed when you
+         * transition to ACCEPT_REQUESTS */
+        DEFER_REQUESTS, 
+        /* Accept requests */
+        ACCEPT_REQUESTS,
+        /* Drop requests */
+        DROP_REQUESTS
+    };
+
     explicit PlatNetSvcHandler(CommonModuleProviderIf *provider);
     virtual ~PlatNetSvcHandler();
 
     virtual int mod_init(SysParams const *const param) override;
     virtual void mod_startup() override;
     virtual void mod_shutdown() override;
-    /**
-    * @brief If true will defer the request.  If set to false, will drain any
-    * deferred requests
-    *
-    * @param defer
-    */
-    void deferRequests(bool defer);
 
+    void setHandlerState(PlatNetSvcHandler::State newState);
 
     void setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  * taskExecutor);
 
@@ -88,6 +92,12 @@ class PlatNetSvcHandler : public HasModuleProvider,
                    const std::string& payload) override;
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
+    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                           const int64_t nullarg) override;
+    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                           boost::shared_ptr<int64_t>& nullarg) override;
+    virtual void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                           boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
 
     // void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                     // boost::shared_ptr<std::string>& payload);
@@ -95,10 +105,6 @@ class PlatNetSvcHandler : public HasModuleProvider,
             const std::string& payload) override;
     void asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
-
-    void uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg) override;
-    void uuidBind(fpi::AsyncHdr &_return,
-                          boost::shared_ptr<fpi::UuidBindMsg>& msg) override;
 
     static void asyncRespHandler(SvcRequestTracker* reqTracker,
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
@@ -139,8 +145,7 @@ class PlatNetSvcHandler : public HasModuleProvider,
      * registration isn't complete all incoming async requests get queued up
      */
     using AsyncReqPair = std::pair<fpi::AsyncHdrPtr, StringPtr>;
-    std::atomic<bool> deferRequests_;
-    fds_mutex lock_;
+    std::atomic<State> handlerState_;
     std::list<AsyncReqPair> deferredReqs_; 
 
     /* Request handlers */

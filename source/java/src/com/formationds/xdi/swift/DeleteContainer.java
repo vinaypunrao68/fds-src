@@ -26,7 +26,7 @@ public class DeleteContainer implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String accountName = requiredString(routeParameters, "account");
         String containerName = requiredString(routeParameters, "container");
-        VolumeStatus status = xdi.statVolume(token, accountName, containerName);
+        VolumeStatus status = xdi.statVolume(token, accountName, containerName).get();
 
         if (status.getBlobCount() != 0) {
             TextResource tr = new TextResource(409, "There was a conflict when trying to complete your request.");

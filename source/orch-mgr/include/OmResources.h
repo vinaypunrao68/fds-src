@@ -146,6 +146,9 @@ class OM_NodeAgent : public NodeAgent
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
     virtual Error om_send_shutdown();
+    void om_send_shutdown_resp(EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
@@ -191,6 +194,12 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_activate_services(fds_bool_t activate_sm,
                                  fds_bool_t activate_dm,
                                  fds_bool_t activate_am);
+    /**
+     * Send 'deactivate services' message to Platform
+     */
+    Error send_deactivate_services(fds_bool_t deactivate_sm,
+                                   fds_bool_t deactivate_dm,
+                                   fds_bool_t deactivate_am);
 
     /**
      * Tell platform Agent about new active service
@@ -236,7 +245,7 @@ class OM_PmAgent : public OM_NodeAgent
     }
     inline fpi::FDSP_AnnounceDiskCapability* getDiskCapabilities() {
         /* NOTE: We could get this info from configdb..for now returning from
-         * the cached nodinfo
+         * the cached node info
          */
         return &(nodeInfo->disk_info);
     }
@@ -487,7 +496,7 @@ class OM_NodeContainer : public DomainContainer
                                       fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
-    virtual void om_bcast_shutdown_msg();
+    virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
     /**
@@ -518,6 +527,12 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
                                                fds_bool_t activate_dm,
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
+
+    // broadcast "deactivate services" message to all PMs in the domain
+    virtual void om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
+                                                   fds_bool_t deactivate_dm,
+                                                   fds_bool_t deactivate_am);
+
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
@@ -528,6 +543,17 @@ class OM_NodeContainer : public DomainContainer
     * @brief Broadcasts svcmap around the domain
     */
     virtual void om_bcast_svcmap();
+
+    /**
+    * fs-1637: returns true if the services have been activated at least once,
+    * otherwise it returns false
+    */
+    bool have_services_been_activated_once() {
+        static bool activate_services_done_once = false;
+        bool tmp = activate_services_done_once;
+        activate_services_done_once =  true;
+        return tmp;
+    }
 
   private:
     friend class OM_NodeDomainMod;
@@ -633,6 +659,20 @@ class ShutdownEvt
     }
 };
 
+struct ShutAckEvt
+{
+    ShutAckEvt(fpi::FDSP_MgrIdType type,
+               const Error& err) {
+        svc_type = type;
+        error = err;
+    }
+    std::string logString() const {
+        return "ShutAckEvt";
+    }
+
+    fpi::FDSP_MgrIdType svc_type;
+    Error error;  // error that came with ack
+};
 
 class OM_NodeDomainMod : public Module
 {
@@ -658,7 +698,7 @@ class OM_NodeDomainMod : public Module
     static fds_bool_t om_local_domain_up();
 
     /**
-     * Accessor methods to retrive the local node domain.  Retyping it here to avoid
+     * Accessors methods to retreive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
      */
     inline OM_SmContainer::pointer om_sm_nodes() {
@@ -717,8 +757,13 @@ class OM_NodeDomainMod : public Module
     Error setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
                        NodeAgent::pointer   newNode,
-                       fds_uint32_t delayTime
-                       );
+                       fds_uint32_t delayTime );
+
+    /**
+     * Activate well known service on an node
+     */
+    Error om_activate_known_services( fpi::SvcInfo pm,
+                                      fds_uint32_t delayTime );
 
     /**
     * @brief Registers the service
@@ -758,7 +803,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received migration done message from
-     * node with uuid 'uuid' for dlt version 'dlt_version'
+     * node with uuid 'uuid' for dlt version dlt_version
      */
     virtual Error om_recv_migration_done(const NodeUuid& uuid,
                                          fds_uint64_t dlt_version,
@@ -766,7 +811,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received DLT update response from
-     * node with uuid 'uuid' for dlt version 'dlt_version'
+     * node with uuid 'uuid' for dlt version dlt_version
      */
     virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
@@ -774,7 +819,7 @@ class OM_NodeDomainMod : public Module
                                           const Error& respError);
     /**
      * Notification that OM received DMT update response from
-     * node with uuid 'uuid' for dmt version 'dmt_version'
+     * node with uuid 'uuid' for dmt version dmt_version
      */
     virtual Error om_recv_dmt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
@@ -790,7 +835,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received DLT close response from
-     * node with uuid 'uuid' for dlt version 'dlt_version'
+     * node with uuid 'uuid' for dlt version dlt_version
      */
     virtual Error om_recv_dlt_close_resp(const NodeUuid& uuid,
                                          fds_uint64_t dlt_version,
@@ -798,7 +843,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received DMT close response from
-     * node with uuid 'uuid' for dmt version 'dmt_version'
+     * node with uuid 'uuid' for dmt version dmt_version
      */
     virtual Error om_recv_dmt_close_resp(const NodeUuid& uuid,
                                          fds_uint64_t dmt_version,
@@ -811,7 +856,6 @@ class OM_NodeDomainMod : public Module
     virtual void om_dmt_waiting_timeout();
     virtual void om_dlt_update_cluster();
     virtual void om_dlt_waiting_timeout();
-    virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**
      * Domain support.
@@ -835,9 +879,12 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(TimeoutEvt const &evt);
     void local_domain_event(NoPersistEvt const &evt);
     void local_domain_event(ShutdownEvt const &evt);
+    void local_domain_event(ShutAckEvt const &evt);
 
   protected:
-    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+    bool isPlatformSvc(fpi::SvcInfo svcInfo);
+    bool isKnownPM(fpi::SvcInfo svcInfo);
+    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
                 fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
 
     fds_bool_t                       om_test_mode;

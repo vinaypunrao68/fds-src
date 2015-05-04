@@ -55,6 +55,10 @@ class AmAsyncDataApi {
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
+    void detachVolume(handle_type& requestId,
+                      shared_string_type& domainName,
+                      shared_string_type& volumeName);
+
     void volumeStatus(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
@@ -138,8 +142,7 @@ class AmAsyncDataApi {
                     shared_tx_ctx_type& txDesc,
                     shared_buffer_type& bytes,
                     shared_int_type& length,
-                    shared_offset_type& objectOffset,
-                    shared_bool_type& isLast);
+                    shared_offset_type& objectOffset);
 
     void deleteBlob(handle_type& requestId,
                     shared_string_type& domainName,

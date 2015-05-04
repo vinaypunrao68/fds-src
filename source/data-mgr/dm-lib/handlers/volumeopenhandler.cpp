@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-VolumeOpenHandler::VolumeOpenHandler() {
-    if (!dataMgr->features.isTestMode()) {
+VolumeOpenHandler::VolumeOpenHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::OpenVolumeMsg, handleRequest);
     }
 }
@@ -28,6 +30,13 @@ void VolumeOpenHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     auto dmReq = new DmIoVolumeOpen(message);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeOpenHandler::handleResponse, asyncHdr, message);
 
@@ -37,14 +46,14 @@ void VolumeOpenHandler::handleRequest(
 }
 
 void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
 
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataMgr->timeVolCat_->openVolume(request->volId, request->token,
-                                                  request->access_policy);
+    helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
+                                                     request->access_policy);
 }
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -52,10 +61,13 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                               Error const& e, dmCatReq* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg),
-            fpi::OpenVolumeRspMsg());
-    if (dmRequest)
+    auto response = fpi::OpenVolumeRspMsg();
+    if (dmRequest) {
+        DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
+        response.token = request->token;
         delete dmRequest;
+    }
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
 }
 
 }  // namespace dm

@@ -54,11 +54,21 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     static const std::string CATALOG_MAX_LOG_FILES_STR;
 
     // ctor & dtor
-    DmPersistVolDB(fds_volid_t volId, fds_uint32_t objSize,
-                   fds_bool_t snapshot, fds_bool_t readOnly,
+    DmPersistVolDB(fds_volid_t volId,
+                   fds_uint32_t objSize,
+                   fds_bool_t snapshot,
+                   fds_bool_t readOnly,
+                   fds_bool_t clone,
                    fds_volid_t srcVolId = invalid_vol_id)
-            : DmPersistVolCat(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_S3_TYPE,
-            srcVolId), catalog_(0), configHelper_(g_fdsprocess->get_conf_helper()) {
+            : DmPersistVolCat(volId,
+                              objSize,
+                              snapshot,
+                              readOnly,
+                              clone,
+                              fpi::FDSP_VOL_S3_TYPE,
+                              srcVolId),
+              configHelper_(g_fdsprocess->get_conf_helper())
+    {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";
     }
@@ -112,12 +122,12 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteBlobMetaDesc(const std::string & blobName);
 
     Catalog* getCatalog() {
-        return catalog_;
+        return catalog_.get();
     }
 
   private:
     // methods
-    inline Catalog::catalog_iterator_t * getSnapshotIter(Catalog::catalog_roptions_t& opts) {
+    std::unique_ptr<Catalog::catalog_iterator_t> getSnapshotIter(Catalog::catalog_roptions_t& opts) {
         catalog_->GetSnapshot(opts);
         return catalog_->NewIterator(opts);
     }
@@ -125,7 +135,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     // vars
 
     // Catalog that stores volume's objects
-    Catalog * catalog_;
+    std::unique_ptr<Catalog> catalog_;
     BlobObjKeyComparator cmp_;
 
     // as the configuration will not be refreshed frequently, we can read it without lock

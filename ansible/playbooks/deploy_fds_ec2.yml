@@ -37,7 +37,6 @@
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
             key_name: fds-ie
-            group_id: sg-43b9c126
             instance_type:  "{{ instance_type }}"
             image: "{{ image }}"
             volumes:
@@ -120,9 +119,11 @@
 
     tasks:
 
-
     -   name: DUMPING EC2 IP ADDRESS AT -- /tmp/yourinventoryfilename_ips.txt
         local_action: template src=../templates/deploy_fds/ec2_ips.txt.j2
             dest=/tmp/{{fds_cluster_name}}_ips.txt
             mode=0400
+        sudo: false
+        ignore_errors: true
+
     -   include: ../tasks/deploy_fds/deploy_fds.yml
