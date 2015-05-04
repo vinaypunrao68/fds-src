@@ -58,9 +58,10 @@ class CounterMonitor(object):
             return False
         self.svc_table = self.get_svc_table()
         for e in self.svc_table:
-            if e["status"] == "Active" and \
-                    check_agent_filter(e["name"]) and \
-                    check_ip_filter(e["ip"]):
+            if (    e["status"] == "Active" and 
+                    check_agent_filter(e["name"]) and 
+                    check_ip_filter(e["ip"])
+                    ):
                 try:
                     cntr = self.svc_map.client(e["uuid"]).getCounters('*')
                 except:
