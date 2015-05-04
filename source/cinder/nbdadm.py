@@ -119,7 +119,7 @@ def insmod_nbd():
 def attach(args):
     if os.geteuid() != 0:
         sys.stderr.write('you must be root to attach\n')
-        return 1
+        return (None, 1)
 
     (host, port) = split_host(args.nbd_host)
 
@@ -127,14 +127,13 @@ def attach(args):
     if len(devs) == 0:
         if not insmod_nbd():
             sys.stderr.write("no nbd devices found and modprobe nbd failed")
-            return 5
+            return (None, 5)
         devs = list(device_paths())
 
     for conn in nbd_connections():
         (p, dev, c_host, volume) = conn
         if args.volume_name == volume and split_host(c_host) == (host, port):
-            print dev
-            return 0
+            return (dev, 0)
 
     conns = set([d for (_, d, _, _) in nbd_connections()])
     for dev in devs:
@@ -161,19 +160,18 @@ def attach(args):
             (stdout, stderr) = nbd_client.communicate()
 
             if nbd_client.returncode == 0:
-                print dev
-                return 0
+                return (dev, 0)
             elif 'Server closed connection' in stderr:
                 sys.stderr.write('server closed connection - does specified volume exist?\n')
-                return 2
+                return (None, 2)
             elif 'Socket failed: Connection refused' in stderr:
                 sys.stderr.write('connection refused by server - is nbd host up?\n')
-                return 3
+                return (None, 3)
             else:
                 continue
 
     sys.stderr.write('no eligible nbd devices found\n')
-    return 4
+    return (None, 4)
 
 def safekill(process):
     try:
