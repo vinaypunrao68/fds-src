@@ -125,7 +125,8 @@ ycm.flags
 /CMakeCache.txt
 /CMakeFiles/2.8.12.2/
 /CMakeFiles/
-/source/java/nb-configuration.xml
+**/nb-configuration.xml
+**/nbproject/
 ExtendedFstabTest.unit.bak
 ExtendedFstabTest.unit.1*
 ExtendedFstabTest.unit.altered.1*

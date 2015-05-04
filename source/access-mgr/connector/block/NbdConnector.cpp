@@ -32,7 +32,7 @@ void NbdConnector::initialize() {
     int pmPort = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.pm.platform_port", 7000);
     nbdPort = pmPort + conf.get<uint32_t>("server_port_offset", 3809);
 
-    cfg_non_blocking_io = conf.get<bool>("options.non_block_io", cfg_non_blocking_io);
+    cfg_no_delay = conf.get<bool>("options.no_delay", cfg_no_delay);
     cfg_keep_alive = conf.get<uint32_t>("options.keep_alive", cfg_keep_alive);
 
     // Shutdown the socket if we are reinitializing
@@ -69,8 +69,17 @@ void NbdConnector::stop() {
 
 void NbdConnector::configureSocket(int fd) const {
     // Enable Non-Blocking mode
-    if (cfg_non_blocking_io) {
-        fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+    if (0 > fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK)) {
+        LOGWARN << "Failed to set NON-BLOCK on NBD connection";
+    }
+
+    // Disable Nagle's algorithm, we do our own Corking
+    if (cfg_no_delay) {
+        LOGDEBUG << "Disabling Nagle's algorithm.";
+        int opt_val = 1;
+        if (0 > setsockopt(fd, SOL_TCP, TCP_NODELAY, &opt_val, sizeof(opt_val))) {
+            LOGWARN << "Failed to set socket NON-BLOCKING on NBD connection";
+        }
     }
 
     // Keep-alive

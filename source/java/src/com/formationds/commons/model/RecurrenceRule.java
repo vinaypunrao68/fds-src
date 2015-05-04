@@ -9,8 +9,8 @@ import com.formationds.commons.model.type.iCalFrequency;
 import com.formationds.commons.model.type.iCalKeys;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
+import com.google.common.base.Preconditions;
 import com.google.gson.annotations.SerializedName;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,6 +220,10 @@ public class RecurrenceRule
      */
     public RecurrenceRule parser( final String rrule )
         throws ParseException {
+
+
+        Preconditions.checkNotNull( rrule,
+                                    "argument \'rrule\' must not be null." );
 
         final RecurrenceRule RRule = new RecurrenceRule();
         @SuppressWarnings( "UseOfStringTokenizer" )
