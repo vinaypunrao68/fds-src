@@ -70,7 +70,7 @@ void NbdConnector::stop() {
 void NbdConnector::configureSocket(int fd) const {
     // Enable Non-Blocking mode
     if (0 > fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK)) {
-        LOGWARN << "Failed to set socket NON-BLOCKING on NBD connection";
+        LOGWARN << "Failed to disable Nagle on NBD connection";
     }
 
     // Disable Nagle's algorithm, we do our own Corking
