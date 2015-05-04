@@ -223,7 +223,7 @@ public class RecurrenceRule
 
 
         Preconditions.checkNotNull( rrule,
-                                    "argument \'rrukle\' must not be null." );
+                                    "argument \'rrule\' must not be null." );
 
         final RecurrenceRule RRule = new RecurrenceRule();
         @SuppressWarnings( "UseOfStringTokenizer" )
