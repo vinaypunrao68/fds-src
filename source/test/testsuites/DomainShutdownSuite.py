@@ -43,15 +43,19 @@ def suiteConstruction(self, action="kill-uninst"):
         # One test case to shutdown the domain.
         suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
-        # Verify that all nodes are down.
-        nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None)
-        suite.addTest(nodeDownSuite)
-
-        # Shutdown Redis.
+        # Shutdown Redis and InfluxDB.
         suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
-        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
         suite.addTest(testcases.TestFDSEnvMgt.TestShutdownInfluxDB())
-        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
+
+        # Verify down unless requested not to.
+        if action.count("kill_noverify") == 0:
+            # Verify that all nodes are down.
+            nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None)
+            suite.addTest(nodeDownSuite)
+
+            # Verify operational DBs are down.
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
     if action.count("uninst") > 0:
         # Cleanup FDS installation directory.

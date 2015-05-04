@@ -5,6 +5,10 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_FILE_DISK_INVENTORY_H_
 #define SOURCE_PLATFORM_INCLUDE_FILE_DISK_INVENTORY_H_
 
+#include "cpplist.h"
+
+#include "pm_disk_inventory.h"
+
 namespace fds
 {
     /**
@@ -25,6 +29,7 @@ namespace fds
             virtual void dsk_do_partition();
             virtual void dsk_admit_all();
             virtual void dsk_mount_all();
+            virtual bool disk_capabilities(DiskCapabilitiesMgr *mgr);
             virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
 
         private:

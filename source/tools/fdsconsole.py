@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import sys
 import os
+import urllib3
+urllib3.disable_warnings()
+
 dirname = os.path.dirname(os.path.abspath(os.curdir))
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0,'{}/test/fdslib/pyfdsp/'.format(dirname))

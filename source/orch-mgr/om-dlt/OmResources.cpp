@@ -19,6 +19,9 @@
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>
 #include <unistd.h>
+
+#include "util/process.h"
+
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
 
@@ -1116,13 +1119,13 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 }
             }
         }
-        
+
         /*
          * Update Service Map, then broadcast it!
          */
         std::vector<fpi::SvcInfo> svcinfos;
         if ( configDB->getSvcMap( svcinfos ) ) {
-            
+
             if ( svcinfos.size() > 0 ) {
                 LOGDEBUG << "Updating Service Map from persist store.";
                 MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
@@ -1130,7 +1133,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 LOGNORMAL << "No persisted Service Map found.";
             }
         }
-        
+				//
         // load DLT (and save as not committed) from config DB and
         // check if DLT matches the set of persisted nodes
         err = dp->loadDltsFromConfigDB(sm_services);
@@ -1268,40 +1271,163 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
     TRACEFUNC;
     Error err;
-    
-    /* 
-     * TODO(OM team): This registration should be handled in synchronized manner (single thread
-     * handling is better) to avoid race conditions.
-     */
 
-    LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
+		try
+		{
+			/*
+			* TODO(OM team): This registration should be handled in synchronized manner (single thread
+			* handling is better) to avoid race conditions.
+			*/
 
-    /* Convert new registration request to existing registration request */
-    fpi::FDSP_RegisterNodeTypePtr reg_node_req;
-    reg_node_req.reset(new FdspNodeReg());
+			LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
 
-    fromTo(svcInfo, reg_node_req);
+			/* Convert new registration request to existing registration request */
+			fpi::FDSP_RegisterNodeTypePtr reg_node_req;
+			reg_node_req.reset(new FdspNodeReg());
 
-    /* 
-     * Update the service layer service map up front so that any subsequent 
-     * communication with that service will work.
-     */
-    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-    configDB->updateSvcMap(*svcInfo);
+			fromTo(svcInfo, reg_node_req);
 
-    /* Do the registration */
-    NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
-    err = om_reg_node_info(node_uuid, reg_node_req);
+			/*
+			* Update the service layer service map up front so that any subsequent 
+			* communication with that service will work.
+			*/
+			MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+			configDB->updateSvcMap(*svcInfo);
 
-    if (err.ok()) {
-        om_locDomain->om_bcast_svcmap();
-    } else {
+			/* Do the registration */
+			NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
+			err = om_reg_node_info(node_uuid, reg_node_req);
+
+			if ( err.ok() )
+			{
+				om_locDomain->om_bcast_svcmap();
+
+        /*
+         * FS-1587 Tinius
+         */
+        if ( isKnownPM( *svcInfo ) && isPlatformSvc( *svcInfo ) )
+        {
+            LOGDEBUG << "Found well known platform service UUID ( "
+                     << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid
+                     <<   " ), telling the platformd which service to start";
+
+             /*
+              * delay the start of the scheduled thread to be one seconds.
+              */
+             MODULEPROVIDER()->proc_thrpool()->schedule(
+                 &OM_NodeDomainMod::om_activate_known_services,
+                 this,
+                 *svcInfo,
+                 1000 );
+        }
+        else
+        {
+            LOGDEBUG << "Platform Manager Service UUID ( "
+                     << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid
+                     << " ) is a new node.";
+        }
+        /*
+         * FS-1587 Tinius
+         */
+			}
+			else
+			{
         /* We updated the svcmap before, undo it by setting service status to invalid */
         svcInfo->svc_status = SVC_STATUS_INVALID;
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
         configDB->updateSvcMap(*svcInfo);
-    }
+			}
+		}
+		catch(const Exception& e)
+		{
+			LOGERROR << "Orch Manager encountered exception while "
+							 << "Registeringering service " << e.what();
+			err = Error(ERR_SVC_REQUEST_FAILED);
+			fds::util::print_stacktrace( );
+		}
+
     return err;
+}
+
+Error OM_NodeDomainMod::om_activate_known_services( fpi::SvcInfo pm,
+                                                    fds_uint32_t delayTime )
+{
+    if ( delayTime )
+    {
+        usleep( delayTime * 1000 );
+    }
+
+    Error err(ERR_OK);
+
+    NodeUuid node_uuid;
+        node_uuid.uuid_set_type( pm.svc_id.svc_uuid.svc_uuid, fpi::FDSP_PLATFORM );
+
+    NodeServices services;
+    if ( configDB->getNodeServices( node_uuid, services ) )
+    {
+      fds_bool_t activateAM = false;
+      fds_bool_t activateDM = false;
+      fds_bool_t activateSM = false;
+
+      if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
+      {
+          activateAM = true;
+      }
+
+      if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
+      {
+          activateDM = true;
+      }
+
+      if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
+      {
+          activateSM = true;
+      }
+
+      if ( activateAM || activateDM || activateSM )
+      {
+          OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+          err = local->om_activate_node_services( node_uuid,
+                                                  activateSM,
+                                                  activateDM,
+                                                  activateAM );
+      }
+    }
+
+    return err;
+}
+   
+bool OM_NodeDomainMod::isPlatformSvc(fpi::SvcInfo svcInfo)
+{
+    return svcInfo.svc_type == fpi::FDSP_PLATFORM;
+}
+
+bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
+{
+    bool bRetCode = false;
+
+    int64_t registerUUID = svcInfo.svc_id.svc_uuid.svc_uuid;
+    std::vector<SvcInfo> configDBSvcs;
+
+    configDB->getSvcMap( configDBSvcs );
+    if ( configDBSvcs.size() > 0 )
+    {
+        if ( isPlatformSvc( svcInfo ) )
+        {
+            for ( auto dbSvc : configDBSvcs )
+            {
+                int64_t knownUUID = dbSvc.svc_id.svc_uuid.svc_uuid;
+
+                if ( knownUUID == registerUUID )
+                {
+                    bRetCode = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    return bRetCode;
 }
 
 void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
@@ -1328,17 +1454,11 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
         fpi::FDSP_AnnounceDiskCapability& diskInfo = reg_node_req->disk_info;
 
         util::Properties props(&svcInfo->props);
-        diskInfo.disk_iops_max = props.getInt("disk_iops_max");
-        diskInfo.disk_iops_min = props.getInt("disk_iops_min");
+        diskInfo.node_iops_max = props.getInt("node_iops_max");
+        diskInfo.node_iops_min = props.getInt("node_iops_min");
         diskInfo.disk_capacity = props.getDouble("disk_capacity");
 
-        diskInfo.disk_latency_max = props.getInt("disk_latency_max");
-        diskInfo.disk_latency_min = props.getInt("disk_latency_min");
-        diskInfo.ssd_iops_max = props.getInt("ssd_iops_max");
-        diskInfo.ssd_iops_min = props.getInt("ssd_iops_min");
         diskInfo.ssd_capacity = props.getDouble("ssd_capacity");
-        diskInfo.ssd_latency_max = props.getInt("ssd_latency_max");
-        diskInfo.ssd_latency_min = props.getInt("ssd_latency_min");
         diskInfo.disk_type = props.getInt("disk_type");
     }
 }
@@ -1922,13 +2042,4 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
 
     return err;
 }
-
-// om_persist_node_info
-// --------------------
-//
-void
-OM_NodeDomainMod::om_persist_node_info(fds_uint32_t idx)
-{
-}
-
-}  // namespace fds
+} // namespace fds

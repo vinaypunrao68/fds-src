@@ -328,29 +328,16 @@ describe( 'Testing volume creation permutations', function(){
         // go back
         var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();        
     });
-
-//    it( 'should be able to delete all the volumes', function(){
-//        
-//        mainEl.all( by.css( '.volume-row' )).then( function( list ){
-//            
-//            for ( var i = 0; i < list.length; i++ ){
-//                deleteVolume( 0 );
-//            }
-//        });
-//                
-//        mainEl.all( by.css( '.volume-row' )).count().then( function( num ){
-//            
-//            expect( num ).toBe( 0 );
-//        });
-//    });
     
     it ( 'should be able to switch presets for a volume', function(){
+        
+        browser.sleep( 220 );
         
         var qos = { preset: 2 };
         var timeline = { preset: 2 };
         
         var name = 'Dumb One';
-        
+
         editVolume( name, undefined, qos, 'HDD_ONLY', timeline );
         
         verifyVolume( 
@@ -375,6 +362,7 @@ describe( 'Testing volume creation permutations', function(){
 
     it( 'should be able to cancel editing and show default values on next entry', function(){
 
+        browser.sleep( 220 );
         createLink.click();
         browser.sleep( 210 );
 
@@ -395,6 +383,17 @@ describe( 'Testing volume creation permutations', function(){
 
         cancelButton.click();
         browser.sleep( 210 );
+        
+    });
+    
+    it( 'should be able to delete a volume', function(){
+        
+        deleteVolume( "Dumb One" );
+        browser.sleep( 320 );
+        
+        var rows = mainEl.all( by.css( '.volume-row' ) ).count().then( function( num ){
+            expect( num ).toBe( 3 );
+        });
         
         logout();
     });

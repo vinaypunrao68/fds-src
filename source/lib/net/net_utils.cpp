@@ -9,6 +9,8 @@
 #include <net/net_utils.h>
 #include <fds_assert.h>
 
+#include "util/Log.h"
+
 namespace fds {
 namespace net {
 std::string get_my_hostname()
@@ -25,18 +27,24 @@ std::string get_my_hostname()
  */
 std::string get_local_ip(std::string ifc)
 {
-    struct ifaddrs *ifAddrStruct = NULL;
-    struct ifaddrs *ifa          = NULL;
-    void   *tmpAddrPtr           = NULL;
+    static std::string const lo_if {"lo"};
+
+    struct ifaddrs *ifAddrStruct = nullptr;
+    struct ifaddrs *ifa          = nullptr;
+    void   *tmpAddrPtr           = nullptr;
     std::string myIp;
 
     /*
      * Get the local IP of the host.  This is needed by the OM.
      */
     getifaddrs(&ifAddrStruct);
-    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
-            if (strcmp(ifa->ifa_name, ifc.c_str()) == 0) {
+    for (ifa = ifAddrStruct; ifa != nullptr; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr != nullptr && ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
+            // If a name was supplied, match it, otherwise pick the first
+            // non-loopback interface
+            if ((ifc.empty() && strcmp(ifa->ifa_name, lo_if.c_str()) != 0)
+                || strcmp(ifa->ifa_name, ifc.c_str()) == 0) {
+                LOGNORMAL << "Returning IP to interface: " << ifa->ifa_name;
                 tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;  // NOLINT
                 char addrBuf[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
@@ -44,7 +52,7 @@ std::string get_local_ip(std::string ifc)
             }
         }
     }
-    if (ifAddrStruct != NULL) {
+    if (ifAddrStruct != nullptr) {
         freeifaddrs(ifAddrStruct);
     }
     fds_verify(myIp.size() > 0 && "Request ifc not found");

@@ -482,6 +482,12 @@ AmProcessor_impl::renewTokenCb(fds_volid_t const vol_id,
     // Get the current volume
     auto shVol = volTable->getVolume(vol_id);
 
+    // Volume could have detached since we dispatched renewal.
+    if (!shVol) {
+        LOGDEBUG << "Received renewal for detached volume: " << vol_id;
+        return;
+    }
+
     if (ERR_OK == error) {
         // TODO(bszmyd): Tue 14 Apr 2015 04:08:24 PM PDT
         // Eventually DM could issue a new token...should mean something

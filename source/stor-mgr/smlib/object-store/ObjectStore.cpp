@@ -36,7 +36,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
                                     volTbl, diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
-                                         diskMap, data_store))
+                                         diskMap, data_store)),
+          isReadyAsMigrSrc(true)
 {
 }
 
@@ -127,6 +128,7 @@ ObjectStore::putObject(fds_volid_t volId,
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
     PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
+
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -252,8 +254,17 @@ ObjectStore::putObject(fds_volid_t volId,
         // object not duplicate
         // select tier to put object
         StorMgrVolume *vol = volumeTbl->getVolume(volId);
-        fds_verify(vol);
-        useTier = tierEngine->selectTier(objId, *vol->voldesc);
+
+        // Depending on when the IO is available on this SM and when the volume
+        // information is propoated when the cluster restarts or SM service
+        // restarts after offline.
+        if (vol != NULL) {
+            useTier = tierEngine->selectTier(objId, *vol->voldesc);
+        } else {
+            useTier = diskio::diskTier;
+        }
+
+        // Adjust the tier depending on the system disk topology.
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
             LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
@@ -1113,8 +1124,11 @@ ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
         case SmTieringCmd::TIERING_DISABLE:
             tierEngine->disableTierMigration();
             break;
-        case SmTieringCmd::TIERING_START_HYBRIDCTRLR:
-            tierEngine->startHybridTierCtrlr();
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR_MANUAL:
+            tierEngine->startHybridTierCtrlr(true);
+            break;
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO:
+            tierEngine->startHybridTierCtrlr(false);
             break;
         default:
             fds_panic("Unknown tiering command");

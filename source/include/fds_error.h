@@ -82,6 +82,7 @@ typedef enum {
     ERR_ARCHIVE_GET_FAILED = 58,
     ERR_VOLUME_ACCESS_DENIED = 59,
     ERR_TOKEN_NOT_READY      = 60,
+    ERR_DM_INVALID_REGEX     = 61,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -131,6 +132,7 @@ typedef enum {
     ERR_SM_NOERR_LOST_SM_TOKENS,
     ERR_SM_NOERR_NEED_RESYNC,
     ERR_SM_RESYNC_SOURCE_DECLINE,
+    ERR_SM_NOT_READY_AS_MIGR_SRC,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
@@ -142,6 +144,8 @@ typedef enum {
     ERR_SVC_REQUEST_INVOCATION,
     ERR_SVC_REQUEST_USER_INTERRUPTED,
     ERR_SVC_REQUEST_TIMEOUT,
+    ERR_SVC_SERVER_PORT_ALREADY_INUSE,
+    ERR_SVC_SERVER_CRASH,
 
     /* FDSN status errors */
     // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix

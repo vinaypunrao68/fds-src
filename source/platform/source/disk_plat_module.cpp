@@ -41,6 +41,7 @@ namespace fds
         dsk_inuse   = NULL;
         dsk_ctrl    = udev_new();
         label_manager   = new DiskLabelMgr();
+        capabilities_manager   = new DiskCapabilitiesMgr();
         dsk_enum    = udev_enumerate_new(dsk_ctrl);
         dsk_mon     = udev_monitor_new_from_netlink(dsk_ctrl, "udev");
         fds_assert((dsk_ctrl != NULL) && (dsk_enum != NULL));
@@ -92,6 +93,7 @@ namespace fds
             dsk_sim->dsk_dump_all();
         }
 
+        dsk_inuse->disk_read_capabilities(capabilities_manager);
         dsk_inuse->disk_read_label(label_manager, true);
     }
 
@@ -157,6 +159,26 @@ namespace fds
         udev_enumerate_unref(dsk_enum);
         udev_monitor_unref(dsk_mon);
         udev_unref(dsk_ctrl);
+    }
+
+    /// The aggregate capacities for storage disks <hdd, sdd>
+    std::pair<size_t, size_t> DiskPlatModule::disk_capacities()
+    {
+        return capabilities_manager->disk_capacities();
+    }
+
+    /// The aggregate counts for storage disks <hdd, sdd>
+    std::pair<size_t, size_t> DiskPlatModule::disk_counts()
+    {
+        return capabilities_manager->disk_counts();
+    }
+
+    /// Disk interface type
+    fds_disk_type_t DiskPlatModule::disk_type()
+    {
+        // NOTE(bszmyd): Wed 29 Apr 2015 07:11:40 AM MDT
+        // Right now we assume all disks have a single interface
+        return capabilities_manager->disk_type();
     }
 
     // dsk_rescan

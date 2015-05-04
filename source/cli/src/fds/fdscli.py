@@ -106,7 +106,7 @@ class FDSShell( cmd.Cmd ):
         '''         
         
         # If there are no arguments we will execute as an interactive shell
-        if argv == None or len( argv ) == 0:
+        if argv is None or len( argv ) == 0:
             self.cmdloop( '\n' )
         # Otherwise just run this one command
         else:
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     token = auth.login()
     
     #login failures will return empty tokens
-    if ( token == None ):
+    if ( token is None ):
         print 'Authentication failed.'
         sys.exit( 1 )
     
@@ -184,13 +184,13 @@ if __name__ == '__main__':
             detectMethod = getattr( plugin, "detect_shortcut", None )
             
             # the plugin does not support shortcut argv[0] stuff
-            if ( detectMethod == None or not callable( plugin.detect_shortcut ) ):
+            if ( detectMethod is None or not callable( plugin.detect_shortcut ) ):
                 continue
             
             tempArgs = plugin.detect_shortcut( cmdargs )
                 
             # we got a new argument set
-            if ( tempArgs != None ):
+            if ( tempArgs is not None ):
                 cmdargs = tempArgs
                 break
         # end of for loop

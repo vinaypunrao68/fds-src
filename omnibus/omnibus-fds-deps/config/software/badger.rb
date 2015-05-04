@@ -1,8 +1,12 @@
 name "badger"
-default_version "0.1.2"
+default_version "0.1.3"
 
 version "0.1.2" do
   source md5: "3b1fccfe84ff236df043b393918331c0"
+end
+
+version "0.1.3" do
+  source md5: "7cfe32d0a4af0f3f18a04969141d97d0"
 end
 
 source url: "http://bld-dev-02/stat-badger-#{version}.tar.gz"

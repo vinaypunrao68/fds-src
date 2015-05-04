@@ -127,7 +127,10 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
                 queue = qos_ctrl->getQueue(vdesc.qosQueueId);
             }
             if (!queue) {
-                queue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+                queue = new FDS_VolumeQueue(4096,
+                                            vdesc.iops_throttle,
+                                            vdesc.iops_assured,
+                                            vdesc.relativePrio);
                 err = qos_ctrl->registerVolume(vdesc.volUUID, queue);
             }
 
@@ -142,10 +145,12 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
                                   });
                 volume_map[vol_uuid] = std::move(new_vol);
 
-                LOGNOTIFY << "AmVolumeTable - Register new volume " << vdesc.name << " "
-                          << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-                          << " (iops_min=" << vdesc.iops_min << ", iops_max="
-                          << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
+                LOGNOTIFY << "AmVolumeTable - Register new volume " << vdesc.name
+                          << " " << std::hex << vol_uuid << std::dec
+                          << ", policy " << vdesc.volPolicyId
+                          << " (iops_throttle=" << vdesc.iops_throttle
+                          << ", iops_assured=" << vdesc.iops_assured
+                          << ", prio=" << vdesc.relativePrio << ")"
                           << " result: " << err.GetErrstr();
             } else {
                 LOGERROR << "Volume failed to register : [0x"
@@ -166,23 +171,23 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
     if (vol && vol->volQueue)
     {
         /* update volume descriptor */
-        (vol->voldesc)->modifyPolicyInfo(vdesc.iops_min,
-                                         vdesc.iops_max,
+        (vol->voldesc)->modifyPolicyInfo(vdesc.iops_assured,
+                                         vdesc.iops_throttle,
                                          vdesc.relativePrio);
 
         /* notify appropriate qos queue about the change in qos params*/
         err = qos_ctrl->modifyVolumeQosParams(vol_uuid,
-                                                          vdesc.iops_min,
-                                                          vdesc.iops_max,
-                                                          vdesc.relativePrio);
+                                              vdesc.iops_assured,
+                                              vdesc.iops_throttle,
+                                              vdesc.relativePrio);
     } else {
         err = Error(ERR_NOT_FOUND);
     }
 
     LOGNOTIFY << "AmVolumeTable - modify policy info for volume "
         << vdesc.name
-        << " (iops_min=" << vdesc.iops_min
-        << ", iops_max=" << vdesc.iops_max
+        << " (iops_assured=" << vdesc.iops_assured
+        << ", iops_throttle=" << vdesc.iops_throttle
         << ", prio=" << vdesc.relativePrio << ")"
         << " RESULT " << err.GetErrstr();
 
