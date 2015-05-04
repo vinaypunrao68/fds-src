@@ -201,6 +201,13 @@ class OM_PmAgent : public OM_NodeAgent
                                    fds_bool_t deactivate_dm,
                                    fds_bool_t deactivate_am);
 
+    void send_deactivate_services_resp(fds_bool_t deactivate_sm,
+                                       fds_bool_t deactivate_dm,
+                                       fds_bool_t deactivate_am,
+                                       EPSvcRequest* req,
+                                       const Error& error,
+                                       boost::shared_ptr<std::string> payload);
+
     /**
      * Tell platform Agent about new active service
      * Platform Agent keeps a pointer to active services node agents
@@ -227,6 +234,13 @@ class OM_PmAgent : public OM_NodeAgent
      * handle its deregister
      */
     void handle_unregister_service(const NodeUuid& svc_uuid);
+
+    /**
+     * Deactivates service on this platform
+     * This method just updates local info, does not actually send msg to platform
+     * to deactivate; should be called when de-active is sent to platform
+     */
+    void handle_deactivate_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
     inline OM_SmAgent::pointer get_sm_service() {
         return activeSmAgent;
