@@ -19,10 +19,15 @@ class TestAM(unittest.TestCase):
 		am_obj = am.am_service('127.0.0.1')
 		am_obj.add()
 
-	def test_kill(self):
+	def _test_kill(self):
 		#am_obj = am.am_service('10.3.64.96')
 		am_obj = am.am_service('127.0.0.1')
 		am_obj.kill()
+
+	def test_remove(self):
+		#am_obj = am.am_service('10.3.64.96')
+		am_obj = am.am_service('10.3.115.157')
+		am_obj.remove('10.3.115.157')
 
 	def _test_stop(self):
 		#am_obj = am.am_service('10.3.64.96')

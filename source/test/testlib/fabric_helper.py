@@ -12,7 +12,7 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class FabricHelper():
+class FdsFabricHelper():
     def __init__(self, fds_service, fds_node):
 	env.user='root'
 	env.password='passwd'

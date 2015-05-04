@@ -27,17 +27,17 @@ class am_service(object):
 		env.host_string = am_ip
 		self.fh = fabric_helper.FabricHelper('AMAgent', am_ip)
 		self.fds_log = '/tmp'
-		#self.fds_sbin = '/fds/sbin'
-		self.fds_sbin = '/home/hlim/projects/fds-src/source/tools'
+		#self.fds_bin = '/fds/bin'
+		self.fds_bin = '/home/hlim/projects/fds-src/source/tools'
 
 		self.am_pid = self.fh.get_service_pid()
-		self.am_uuid = self.fh.get_service_uuid(self.am_pid)
+		self.platform_uuid = self.fh.get_platform_uuid(self.am_pid)
 		self.am_port = 7000
 		self.fds_dir = '/fds'
 
 	def start(self):
 		#run('ifconfig eth0')
-		with cd('{}'.format(self.fds_sbin)):
+		with cd('{}'.format(self.fds_bin)):
 			#sudo('./fdsconsole.py service removeService {} am > {}/cli.out 2>&1'.format(self.am_uuid, self.fds_log))
 			sudo('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> %s/am.out &) \"'.format(self.fds_dir, self.fds_log))
 
@@ -63,17 +63,18 @@ class am_service(object):
 		else:
 			log.info('AMAgent service is not running.')
 
-	def remove(self):
+	def remove(self, node_ip):
 
-		
-		with cd('{}'.format(self.fds_sbin)):
+		node_uuid = self.fh.get_node_uuid(node_ip)
+		pdb.set_trace()
+		with cd('{}'.format(self.fds_bin)):
 			#run('./fdsconsole.py service removeService {} am > {}/cli.out 2>&1'.format(self.am_uuid, self.fds_log))
-			sudo('./fdsconsole.py service removeService {} am > cli.out 2>&1'.format(self.am_uuid))
+			sudo('./fdsconsole.py service removeService {} am > cli.out 2>&1'.format(node_uuid))
 		
 	def add(self):
-		with cd('{}'.format(self.fds_sbin)):
+		with cd('{}'.format(self.fds_bin)):
 			#run('./fdsconsole.py service addService {} am > {}/cli.out 2>&1'.format(self.am_uuid, self.fds_log))
-			run('./fdsconsole.py service addService {} am > cli.out 2>&1'.format(self.am_uuid))
+			run('./fdsconsole.py service addService {} am > cli.out 2>&1'.format(self.node_uuid))
 
 		
 
