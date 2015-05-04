@@ -169,10 +169,11 @@ class NBD(object):
             self.unmount(mount_point)
             return -1
 
+    @timeout_decorator.timeout(30)
     def unmount(self, mount_point):
         # umount the device
         # remove mount point
-        if os.path.exists(mount_point):
+        if os.path.exists(mount_point) and os.path.ismount(mount_point):
             self.log.info("Unmounting device {}".format(mount_point))
             sh.umount(mount_point)
             self.log.info("Cleaning up...")
