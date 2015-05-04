@@ -21,11 +21,9 @@ import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
-import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 
@@ -42,8 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.persistence.EntityManager;
 
 /**
  * @author ptinius

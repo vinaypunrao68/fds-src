@@ -7,23 +7,16 @@ package com.formationds.commons.model.entity;
 import com.formationds.commons.model.abs.ModelBase;
 import com.google.gson.annotations.SerializedName;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
 import java.util.Objects;
 
 /**
  * @author ptinius
  */
-@Entity
 public class VolumeDatapoint
   extends ModelBase implements IVolumeDatapoint {
   private static final long serialVersionUID = -528746171551767393L;
 
-  @GeneratedValue
   private Integer id;
-  @Temporal( TemporalType.TIMESTAMP )
   @SerializedName("timestamp")
   private Long timestamp;
   @SerializedName("volume")

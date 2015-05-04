@@ -20,7 +20,6 @@ import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.EventRepository;
-import com.formationds.om.repository.JDOEventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.Configuration;
@@ -408,13 +407,15 @@ public class EventManagerTest {
 //                                  .findAll()
 //                                  .forEach((e) -> System.out.println("Event: " + e));
 
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+
         final Volume v3 = new VolumeBuilder().withId("3").withName("u1-ov1").build();
-        FirebreakEvent fbe = new JDOEventRepository().findLatestFirebreak(v3, FirebreakType.CAPACITY);
-        FirebreakEvent fbpe = new JDOEventRepository().findLatestFirebreak(v3, FirebreakType.PERFORMANCE);
+        FirebreakEvent fbe = er.findLatestFirebreak(v3, FirebreakType.CAPACITY);
+        FirebreakEvent fbpe = er.findLatestFirebreak(v3, FirebreakType.PERFORMANCE);
 
         final Volume v5 = new VolumeBuilder().withId("5").withName("u2-ov1").build();
-        FirebreakEvent fbe2 = new JDOEventRepository().findLatestFirebreak(v5, FirebreakType.CAPACITY);
-        FirebreakEvent fbpe2 = new JDOEventRepository().findLatestFirebreak(v5, FirebreakType.PERFORMANCE);
+        FirebreakEvent fbe2 = er.findLatestFirebreak(v5, FirebreakType.CAPACITY);
+        FirebreakEvent fbpe2 = er.findLatestFirebreak(v5, FirebreakType.PERFORMANCE);
 
 //        if (fbe != null) System.out.println("Latest FBE(u1-ov1): " + fbe);
 //        if (fbpe != null) System.out.println("Latest FBPE(u1-ov1): " + fbpe);
@@ -472,8 +473,8 @@ public class EventManagerTest {
 //        System.out.println("now: " + nowMS + ";2 mins ago: " + (nowMS-120000) + "; 25 hours ago: " + oldTsMS + "; diff(ms): " + (nowMS-oldTsMS));
 //        er.findAll().forEach((e) -> System.out.println("Event: " + e));
 
-        FirebreakEvent fbe = new JDOEventRepository().findLatestFirebreak(v1, FirebreakType.CAPACITY);
-        FirebreakEvent fbe2 = new JDOEventRepository().findLatestFirebreak(v2, FirebreakType.CAPACITY);
+        FirebreakEvent fbe = er.findLatestFirebreak( v1, FirebreakType.CAPACITY );
+        FirebreakEvent fbe2 = er.findLatestFirebreak( v2, FirebreakType.CAPACITY );
 
 //        if (fbe != null) System.out.println("Latest FBE(v1): " + fbe);
 //        if (fbe2 != null) System.out.println("Latest FBE(v2): " + fbe2);
