@@ -424,8 +424,6 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
     domain->om_recv_dlt_commit_resp(node_type, node_uuid, msg->dlt_version, error);
 }
 
-    //  PAUL to enable this code
-
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
@@ -619,9 +617,6 @@ OM_NodeAgent::om_pushmeta_resp(EPSvcRequest* req,
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     domain->om_recv_push_meta_resp(node_uuid, error);
 }
-
-
-    //   PAUL to  enable this code
 
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {

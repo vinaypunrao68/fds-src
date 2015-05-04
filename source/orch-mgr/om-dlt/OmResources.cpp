@@ -19,6 +19,9 @@
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>
 #include <unistd.h>
+
+#include "util/process.h"
+
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
 
@@ -1116,13 +1119,13 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 }
             }
         }
-        
+
         /*
          * Update Service Map, then broadcast it!
          */
         std::vector<fpi::SvcInfo> svcinfos;
         if ( configDB->getSvcMap( svcinfos ) ) {
-            
+
             if ( svcinfos.size() > 0 ) {
                 LOGDEBUG << "Updating Service Map from persist store.";
                 MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
@@ -1130,7 +1133,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 LOGNORMAL << "No persisted Service Map found.";
             }
         }
-        
+				//
         // load DLT (and save as not committed) from config DB and
         // check if DLT matches the set of persisted nodes
         err = dp->loadDltsFromConfigDB(sm_services);
@@ -1268,34 +1271,36 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
     TRACEFUNC;
     Error err;
-    
-    /* 
-     * TODO(OM team): This registration should be handled in synchronized manner (single thread
-     * handling is better) to avoid race conditions.
-     */
 
-    LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
+		try
+		{
+			/*
+			* TODO(OM team): This registration should be handled in synchronized manner (single thread
+			* handling is better) to avoid race conditions.
+			*/
 
-    /* Convert new registration request to existing registration request */
-    fpi::FDSP_RegisterNodeTypePtr reg_node_req;
-    reg_node_req.reset(new FdspNodeReg());
+			LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
 
-    fromTo(svcInfo, reg_node_req);
+			/* Convert new registration request to existing registration request */
+			fpi::FDSP_RegisterNodeTypePtr reg_node_req;
+			reg_node_req.reset(new FdspNodeReg());
 
-    /* 
-     * Update the service layer service map up front so that any subsequent 
-     * communication with that service will work.
-     */
-    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-    configDB->updateSvcMap(*svcInfo);
+			fromTo(svcInfo, reg_node_req);
 
-    /* Do the registration */
-    NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
-    err = om_reg_node_info(node_uuid, reg_node_req);
+			/*
+			* Update the service layer service map up front so that any subsequent 
+			* communication with that service will work.
+			*/
+			MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+			configDB->updateSvcMap(*svcInfo);
 
-    if ( err.ok() )
-    {
-        om_locDomain->om_bcast_svcmap();
+			/* Do the registration */
+			NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
+			err = om_reg_node_info(node_uuid, reg_node_req);
+
+			if ( err.ok() )
+			{
+				om_locDomain->om_bcast_svcmap();
 
         /*
          * FS-1587 Tinius
@@ -1324,14 +1329,23 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         /*
          * FS-1587 Tinius
          */
-    }
-    else
-    {
+			}
+			else
+			{
         /* We updated the svcmap before, undo it by setting service status to invalid */
         svcInfo->svc_status = SVC_STATUS_INVALID;
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
         configDB->updateSvcMap(*svcInfo);
-    }
+			}
+		}
+		catch(const Exception& e)
+		{
+			LOGERROR << "Orch Manager encountered exception while "
+							 << "Registeringering service " << e.what();
+			err = Error(ERR_SVC_REQUEST_FAILED);
+			fds::util::print_stacktrace( );
+		}
+
     return err;
 }
 

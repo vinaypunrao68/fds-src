@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$volume_api', '$snapshot_service', function( $scope, $volume_api, $snapshot_service ){
+angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$rootScope', '$filter', function( $scope, $volume_api, $snapshot_service, $rootScope, $filter ){
     
     $scope.disableName = true;
     $scope.disableTiering = true;
@@ -33,6 +33,33 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
             };
         });
     };
+    
+    $scope.deleteVolume = function(){
+        
+        var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'volumes.desc_confirm_delete' ),
+            confirm: function( result ){
+                if ( result === false ){
+                    return;
+                }
+                
+                $volume_api.delete( $scope.volumeVars.selectedVolume,
+                    function(){ 
+                        var $event = {
+                            type: 'INFO',
+                            text: $filter( 'translate' )( 'volumes.desc_volume_deleted' )
+                        };
+
+                        $rootScope.$emit( 'fds::alert', $event );
+                        $scope.volumeVars.back();
+                        $scope.volumeVars.back();
+                });
+            }
+        };
+        
+        $rootScope.$emit( 'fds::confirm', confirm );
+    };    
     
     $scope.$watch( 'volumeVars.editing', function( newVal, oldVal ){
         
