@@ -22,13 +22,13 @@ class NodeStateConverter():
     def to_json( node_state ):
         d = dict()
         
-        if ( node_state.am != None ):
+        if ( node_state.am is not None ):
             d["am"] = node_state.am
             
-        if ( node_state.dm != None ):
+        if ( node_state.dm is not None ):
             d["dm"] = node_state.dm
             
-        if ( node_state.sm != None ):
+        if ( node_state.sm is not None ):
             d["sm"] = node_state.sm
         
         result = json.dumps( d )

@@ -30,7 +30,7 @@ using ::testing::Return;
 using namespace fds;  // NOLINT
 
 struct SvcMgrModuleProvider : CommonModuleProviderIf {
-    SvcMgrModuleProvider(const std::string &configFile, long long uuid, int port) {
+    SvcMgrModuleProvider(const std::string &configFile, fds_uint64_t uuid, int port) {
         /* config */
         std::string configBasePath = "fds.dm.";
         boost::shared_ptr<FdsConfig> config(new FdsConfig(configFile, 0, {nullptr}));

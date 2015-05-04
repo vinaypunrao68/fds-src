@@ -351,7 +351,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(60000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(300000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     curDlt->dump();
@@ -423,8 +423,6 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
     FdspNodeType node_type = rs_get_uuid().uuid_get_type();
     domain->om_recv_dlt_commit_resp(node_type, node_uuid, msg->dlt_version, error);
 }
-
-    //  PAUL to enable this code
 
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
@@ -619,9 +617,6 @@ OM_NodeAgent::om_pushmeta_resp(EPSvcRequest* req,
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     domain->om_recv_push_meta_resp(node_uuid, error);
 }
-
-
-    //   PAUL to  enable this code
 
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {

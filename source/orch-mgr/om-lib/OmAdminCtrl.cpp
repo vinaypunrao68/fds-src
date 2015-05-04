@@ -72,14 +72,6 @@ void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *di
               << "\n  Avail Disk  iops min : " << avail_node_iops_min;
 }
 
-void FdsAdminCtrl::getAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
-{
-}
-
-void FdsAdminCtrl::updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
-{
-}
-
 void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
     /* release  the resources since volume is deleted */
@@ -88,18 +80,18 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
 
-    LOGNOTIFY<< "desc iops_min: " << pVolDesc->iops_min
-             << "desc iops_max: " << pVolDesc->iops_max
+    LOGNOTIFY<< "desc iops_assured: " << pVolDesc->iops_assured
+             << "desc iops_throttle: " << pVolDesc->iops_throttle
              << "desc capacity (MB): " << pVolDesc->capacity
-             << "total iops min : " << total_vol_iops_min
-             << "total iops max: " << total_vol_iops_max
+             << "total iops assured : " << total_vol_iops_assured
+             << "total iops throttle: " << total_vol_iops_throttle
              << "total capacity (GB): " << total_vol_disk_cap_GB;
-    fds_verify(pVolDesc->iops_min <= total_vol_iops_min);
-    fds_verify(pVolDesc->iops_max <= total_vol_iops_max);
+    fds_verify(pVolDesc->iops_assured <= total_vol_iops_assured);
+    fds_verify(pVolDesc->iops_throttle <= total_vol_iops_throttle);
     fds_verify(vol_capacity_GB <= total_vol_disk_cap_GB);
 
-    total_vol_iops_min -= pVolDesc->iops_min;
-    total_vol_iops_max -= pVolDesc->iops_max;
+    total_vol_iops_assured -= pVolDesc->iops_assured;
+    total_vol_iops_throttle -= pVolDesc->iops_throttle;
     total_vol_disk_cap_GB -= vol_capacity_GB;
 }
 
@@ -150,19 +142,14 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // num_nodes * min(node_iops_min from all nodes) / replication_factor
     max_iopc_subcluster = (avail_node_iops_max/replication_factor);
 
-    if (pVolDesc->iops_guarantee <= 0) {
-        LOGWARN << "iops gurantee is zero";
-        pVolDesc->iops_guarantee = 0;
+    if (pVolDesc->iops_assured <= 0) {
+        LOGWARN << "assured iops is zero";
+        pVolDesc->iops_assured = 0;
     }
-
-    // https://formationds.atlassian.net/browse/FS-597
-    pVolDesc->iops_min = int(pVolDesc->iops_guarantee * 0.01 *
-            ((pVolDesc->iops_max == 0)?iopc_subcluster*LOAD_FACTOR:pVolDesc->iops_max));
     
     LOGNORMAL << "new data "
-              << "[iops.min:" << pVolDesc->iops_min << "] "
-              << "[iops.max:" << pVolDesc->iops_max << "] "
-              << "[iops.guarantee:" << pVolDesc->iops_guarantee << "] ";
+              << "[iops.assured:" << pVolDesc->iops_assured << "] "
+              << "[iops.throttle:" << pVolDesc->iops_throttle << "]";
 
     // Check max object size
     if ((pVolDesc->maxObjSizeInBytes < minVolObjSize) ||
@@ -174,9 +161,9 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
-    if ((pVolDesc->iops_max > 0) && (pVolDesc->iops_min > pVolDesc->iops_max)) {
+    if ((pVolDesc->iops_throttle > 0) && (pVolDesc->iops_assured > pVolDesc->iops_throttle)) {
         LOGERROR << " Cannot admit volume " << pVolDesc->name
-                 << " -- iops_min must be below iops_max";
+                 << " -- iops_assured must be below iops_throttle";
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
@@ -190,34 +177,39 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     LOGNORMAL << *pVolDesc;
     LOGNORMAL << " iopc_subcluster: " << iopc_subcluster
               << " replication_factor: " << replication_factor
-              << " iops_max: " << total_vol_iops_max
-              << " iops_min: " << total_vol_iops_min
+              << " iops_throttle: " << total_vol_iops_throttle
+              << " iops_assured: " << total_vol_iops_assured
               << " loadfactor: " << LOAD_FACTOR
               << " BURST_FACTOR: " << BURST_FACTOR;
 
     /* check the resource availability, if not return Error  */
-    if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&
-        ((((total_vol_iops_min) +
-           ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
-         (pVolDesc->iops_min +
-          ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
-         max_iopc_subcluster)) {
-        total_vol_iops_min += pVolDesc->iops_min;
-        total_vol_iops_max += pVolDesc->iops_max;
+    auto projected_total_vol_iops_assured = total_vol_iops_assured + pVolDesc->iops_assured;
+    auto avail_iops = iopc_subcluster * LOAD_FACTOR;
+    auto current_burst_iops = total_vol_iops_assured
+            + (total_vol_iops_assured - total_vol_iops_assured) * BURST_FACTOR;
+    auto newvol_burst_iops = pVolDesc->iops_assured
+            + (pVolDesc->iops_throttle - pVolDesc->iops_assured) * BURST_FACTOR;
+    if (projected_total_vol_iops_assured <= avail_iops
+            && (current_burst_iops + newvol_burst_iops <= max_iopc_subcluster)) {
+        total_vol_iops_assured += pVolDesc->iops_assured;
+        total_vol_iops_throttle += pVolDesc->iops_throttle;
         total_vol_disk_cap_GB += vol_capacity_GB;
 
         LOGNOTIFY << "updated disk params disk-cap:"
-                  << avail_disk_capacity << ":: min:"
-                  << total_vol_iops_min << ":: max:"
-                  << total_vol_iops_max << "\n";
+                  << avail_disk_capacity << ":: assured:"
+                  << total_vol_iops_assured << ":: throttle:"
+                  << total_vol_iops_throttle << "\n";
         LOGNORMAL << " admin control successful \n";
         return Error(ERR_OK);
     } else  {
         LOGERROR << " Unable to create Volume,Running out of IOPS";
-        LOGERROR << "Available disk Capacity:"
-                 << avail_disk_capacity << "::Total min IOPS:"
-                 <<  total_vol_iops_min << ":: Total max IOPS:"
-                 << total_vol_iops_max;
+        LOGERROR << "Available disk Capacity:" << avail_disk_capacity
+                 << ":: Total assured IOPS:" << total_vol_iops_assured
+                 << ":: Total throttle IOPS:" << total_vol_iops_throttle
+                 << ":: Requested assured IOPS:" << pVolDesc->iops_assured
+                 << ":: Requested throttle IOPS:" << pVolDesc->iops_throttle
+                 << ":: System min IOPS:" << iopc_subcluster
+                 << ":: System max IOPS:" << max_iopc_subcluster;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
     return err;
@@ -227,8 +219,8 @@ Error FdsAdminCtrl::checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc)
 {
     Error err(ERR_OK);
     double cur_total_vol_disk_cap_GB = total_vol_disk_cap_GB;
-    fds_uint64_t cur_total_vol_iops_min = total_vol_iops_min;
-    fds_uint64_t cur_total_vol_iops_max = total_vol_iops_max;
+    fds_int64_t cur_total_vol_iops_assured = total_vol_iops_assured;
+    fds_int64_t cur_total_vol_iops_throttle = total_vol_iops_throttle;
 
     /* check modify by first subtracting current vol values and doing admin 
      * control based on new values */
@@ -238,8 +230,8 @@ Error FdsAdminCtrl::checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc)
     if (!err.ok()) {
         /* cannot admit volume -- revert to original values */
         total_vol_disk_cap_GB = cur_total_vol_disk_cap_GB;
-        total_vol_iops_min = cur_total_vol_iops_min;
-        total_vol_iops_max = cur_total_vol_iops_max;
+        total_vol_iops_assured = cur_total_vol_iops_assured;
+        total_vol_iops_throttle = cur_total_vol_iops_throttle;
         return err;
     }
     /* success */
@@ -259,8 +251,8 @@ void FdsAdminCtrl::initDiskCapabilities()
     avail_disk_capacity = 0;
     avail_ssd_capacity = 0;
     /*  per volume capacity */
-    total_vol_iops_min = 0;
-    total_vol_iops_max = 0;
+    total_vol_iops_assured = 0;
+    total_vol_iops_throttle = 0;
     total_vol_disk_cap_GB = 0;
 }
 
@@ -278,11 +270,11 @@ void FdsAdminCtrl::userQosToServiceQos(fpi::FDSP_VolumeDescType *voldesc,
         }
         fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
 
-        // translate min_iops
-        double vol_min_iops = voldesc->iops_min;
-        voldesc->iops_min = vol_min_iops * replication_factor / num_nodes;
-        LOGNORMAL << "User min_iops " << vol_min_iops
-                  << " SM volume's min_iops " << voldesc->iops_min;
+        // translate assured_iops
+        auto vol_assured_iops = voldesc->iops_assured;
+        voldesc->iops_assured = vol_assured_iops * replication_factor / num_nodes;
+        LOGNORMAL << "User assured_iops " << vol_assured_iops
+                  << " SM volume's assured_iops " << voldesc->iops_assured;
     }
 }
 
