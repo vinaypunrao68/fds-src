@@ -312,18 +312,28 @@ editVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStar
     
     viewEl.element( by.css( '.edit-volume-button' )).click();
     
-    browser.sleep( 220 );
+    browser.sleep( 320 );
     
     var editEl = element( by.css( '.edit-panel' ));
     
     setVolumeValues( editEl, data_type, qos, undefined, timeline, timelineStartTimes );
     
-    element( by.css( '.submit-changes-button' )).click();
+    browser.sleep( 300 );
+    editEl.element( by.css( '.submit-changes-button' )).click();
     browser.sleep( 300 );
 };
 
-deleteVolume = function( row ){
-    element.all( by.css( '.volume-row' ) ).get( row ).click();
+deleteVolume = function( name ){
+    //assume that you are on the volume list page
+    var mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
+    
+    mainEl.all( by.css( '.volume-row td.name' )).each( function( elem ){
+        elem.getText().then( function( text ){
+            if ( text === name ){
+                elem.click();
+            }
+        });
+    });
     
     browser.sleep( 200 );
     
@@ -331,10 +341,11 @@ deleteVolume = function( row ){
     editButton = editButton.element( by.css( '.edit-volume-button' ) );
     editButton.click();
 
-    browser.sleep( 500 );
+    browser.sleep( 300 );
 
     var viewEl = element( by.css( '.edit-panel' ) );
-    viewEl.element( by.css( '.delete-volume' ) ).click();
+    deleteButton = viewEl.element( by.css( '.delete-volume' ) );
+    deleteButton.click();
 
     browser.sleep( 200 );
 
