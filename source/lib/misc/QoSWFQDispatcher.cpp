@@ -214,7 +214,7 @@ QoSWFQDispatcher::getNextQueueForDispatch()
 
 
 QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr,
-                                   fds_uint64_t total_server_rate,
+                                   fds_int64_t total_server_iops,
                                    fds_uint32_t maximum_outstanding_ios,
                                    fds_log *parent_log)
 {
@@ -236,7 +236,7 @@ QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr,
     last_reset_time = util::getTimeStampMicros();
 
     cur_total_min_rate = 0;
-    total_capacity = total_svc_rate = total_server_rate;
+    total_capacity = total_svc_iops = total_server_iops;
     rate_based_qlist.clear();
     next_rate_based_spot = 0;
     total_rate_based_spots = 0;
@@ -259,7 +259,7 @@ QoSWFQDispatcher::assignSpotsToQueue(WFQQueueDesc *qd)
 
     fds_uint64_t current_spot = 0;
     // std::string spot_list_string = "(";
-    for (fds_uint64_t i = 0; i < queue->iops_min; ++i) {
+    for (fds_int64_t i = 0; i < queue->iops_assured; ++i) {
         fds_uint64_t num_spots_searched = 0;
         while ((rate_based_qlist[current_spot] != 0) &&
                 (num_spots_searched < total_capacity)) {
@@ -271,10 +271,10 @@ QoSWFQDispatcher::assignSpotsToQueue(WFQQueueDesc *qd)
         // spot_list_string = spot_list_string + std::to_string(current_spot) + ", ";
         qd->rate_based_rr_spots.push_back(current_spot);
         current_spot =
-            (current_spot + static_cast<int>(total_capacity / queue->iops_min)) % total_capacity;
+            (current_spot + total_capacity / queue->iops_assured) % total_capacity;
     }
     // spot_list_string = spot_list_string + ")";
-    total_rate_based_spots += queue->iops_min;
+    total_rate_based_spots += queue->iops_assured;
     // LOGDEBUG << "Dispatcher: assigning to queue " << qd->queue_id
     //         << " slots - " << spot_list_string;
 
@@ -305,30 +305,30 @@ QoSWFQDispatcher::registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue)
 {
     Error err(ERR_OK);
 
-    if (queue->iops_min == 0) {
-        queue->iops_min = 1;
+    if (queue->iops_assured == 0) {
+        queue->iops_assured = 1;
     }
 
-    WFQQueueDesc *qd = new WFQQueueDesc(queue_id, queue, queue->iops_min, queue->priority);
-    qd->rate_based_weight = queue->iops_min;
+    WFQQueueDesc *qd = new WFQQueueDesc(queue_id, queue, queue->iops_assured, queue->priority);
+    qd->rate_based_weight = queue->iops_assured;
     qd->priority_based_weight = priority_to_wfq_weight(queue->priority);
     qd->num_pending_ios = ATOMIC_VAR_INIT(0);
     qd->num_outstanding_ios = ATOMIC_VAR_INIT(0);
     qd->num_priority_based_ios_dispatched = 0;
     qd->num_rate_based_credits = 0;
     // Can accumulate up to half a second worth of spots.
-    qd->max_rate_based_credits = queue->iops_min / 2 + 1;
+    qd->max_rate_based_credits = queue->iops_assured / 2 + 1;
 
     qda_lock.write_lock();
     // do not allow registering the queue that will exceed total
     // server rate, so that we can still promise min iops to everyone
-    if ((queue->iops_min + cur_total_min_rate) > total_capacity) {
+    if ((queue->iops_assured + cur_total_min_rate) > total_capacity) {
         qda_lock.write_unlock();
         delete qd;
         LOGERROR << "QoSWFQDispatcher: could not admit this volume, because "
                  << " total min iops would exceed total rate" << std::endl
                  << "  cur_total_min_rate " << cur_total_min_rate
-                 << " volume's min rate " << queue->iops_min
+                 << " volume's assured rate " << queue->iops_assured
                  << " total server rate " << total_capacity;
         return Error(ERR_EXCEED_MIN_IOPS);
     }
@@ -346,7 +346,7 @@ QoSWFQDispatcher::registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue)
     }
 
     // we are admitting this queue, update total min rate
-    cur_total_min_rate += queue->iops_min;
+    cur_total_min_rate += queue->iops_assured;
 
     // Now fill the vacant spots in the rate based qlist based on the queue_rate
     // Start at the first vacant spot and fill at intervals of capacity/queue_rate.

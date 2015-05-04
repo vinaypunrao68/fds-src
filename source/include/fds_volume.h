@@ -71,9 +71,8 @@ class VolumeDesc : public HasState {
     int                    backupVolume;  // UUID of backup volume
 
     // QoS settings
-    double                 iops_min;
-    double                 iops_max;
-    int                    iops_guarantee;
+    fds_int64_t            iops_assured;
+    fds_int64_t            iops_throttle;
     int                    relativePrio;
     ptime                  tier_start_time;
     fds_uint32_t           tier_duration_sec;
@@ -104,21 +103,21 @@ class VolumeDesc : public HasState {
     VolumeDesc(const std::string& _name, fds_volid_t _uuid);
     VolumeDesc(const std::string& _name,
                fds_volid_t _uuid,
-               fds_uint32_t _iops_min,
-               fds_uint32_t _iops_max,
+               fds_int64_t _iops_assured,
+               fds_int64_t _iops_throttle,
                fds_uint32_t _priority);
     ~VolumeDesc();
 
-    void modifyPolicyInfo(fds_uint64_t _iops_min,
-                          fds_uint64_t _iops_max,
+    void modifyPolicyInfo(fds_int64_t _iops_assured,
+                          fds_int64_t _iops_throttle,
                           fds_uint32_t _priority);
 
     std::string getName() const;
     fds_volid_t GetID() const;
 
-    double getIopsMin() const;
+    fds_int64_t getIopsAssured() const;
 
-    double getIopsMax() const;
+    fds_int64_t getIopsThrottle() const;
     int getPriority() const;
 
     std::string ToString();
@@ -191,8 +190,8 @@ enum FDS_ConsisProtoType {
 class FDS_Volume {
   public:
     VolumeDesc   *voldesc;
-    fds_uint64_t  real_iops_max;
-    fds_uint64_t  real_iops_min;
+    fds_int64_t  real_iops_throttle;
+    fds_int64_t  real_iops_assured;
 
     FDS_Volume();
     explicit FDS_Volume(const VolumeDesc& vol_desc);
@@ -209,8 +208,8 @@ class FDS_VolumePolicy : public serialize::Serializable {
   public:
     fds_uint32_t   volPolicyId;
     std::string    volPolicyName;
-    fds_uint64_t   iops_max;
-    fds_uint64_t   iops_min;
+    fds_int64_t    iops_throttle;
+    fds_int64_t    iops_assured;
     fds_uint64_t   thruput;       // in MByte/sec
     fds_uint32_t   relativePrio;  // Relative priority
 
@@ -242,20 +241,20 @@ class FDS_VolumeQueue {
         VolumeQState volQState;
 
         // Qos Parameters set for this volume/VolumeQueue
-        fds_uint64_t  iops_max;
-        fds_uint64_t iops_min;
+        fds_int64_t iops_throttle;
+        fds_int64_t iops_assured;
         fds_uint32_t priority;  // Relative priority
 
         // Ctor/dtor
         FDS_VolumeQueue(fds_uint32_t q_capacity,
-                        fds_uint64_t _iops_max,
-                        fds_uint64_t _iops_min,
+                        fds_int64_t _iops_throttle,
+                        fds_int64_t _iops_assured,
                         fds_uint32_t prio);
 
         ~FDS_VolumeQueue();
 
-        void modifyQosParams(fds_uint64_t _iops_min,
-                             fds_uint64_t _iops_max,
+        void modifyQosParams(fds_int64_t _iops_assured,
+                             fds_int64_t _iops_throttle,
                              fds_uint32_t _prio);
 
         void activate();

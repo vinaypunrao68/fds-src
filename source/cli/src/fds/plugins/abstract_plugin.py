@@ -35,7 +35,16 @@ class AbstractPlugin( object ):
     services_str = "services"
     state_str = "state"
     domain_name_str = "domain_name"
-
+    recurrence_rule_str = "recurrence_rule"
+    frequency_str = "frequency"
+    day_of_month_str = "day_of_month"
+    day_of_week_str = "day_of_week"
+    day_of_year_str = "day_of_year"
+    week_str = "week"
+    month_str = "month"
+    hour_str = "hour"
+    minute_str = "minute"
+    policy_id_str = "policy_id"    
 
     def __init__(self, session):
         self.__session = session
@@ -49,3 +58,10 @@ class AbstractPlugin( object ):
     @property
     def session(self):
         return self.__session
+    
+    def add_format_arg(self, parser):
+        '''
+        Add the format argument to the passed in parser
+        '''
+        parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
+        

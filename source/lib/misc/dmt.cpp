@@ -350,32 +350,29 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
     return err;
 }
 
-DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t vol_id) {
-    dmt_lock.read_lock();
+DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t const vol_id) const {
+    ReadGuard guard(dmt_lock);
     fds_verify(committed_version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(committed_version) > 0);
-    DmtColumnPtr col = (dmt_map[committed_version])->getNodeGroup(vol_id);
-    dmt_lock.read_unlock();
-    return col;
+    auto const it = dmt_map.find(committed_version);
+    fds_verify(dmt_map.cend() != it);
+    return it->second->getNodeGroup(vol_id);
 }
 
-DmtColumnPtr DMTManager::getTargetNodeGroup(fds_volid_t vol_id) {
-    dmt_lock.read_lock();
+DmtColumnPtr DMTManager::getTargetNodeGroup(fds_volid_t const vol_id) const {
+    ReadGuard guard(dmt_lock);
     fds_verify(target_version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(target_version) > 0);
-    DmtColumnPtr col = (dmt_map[target_version])->getNodeGroup(vol_id);
-    dmt_lock.read_unlock();
-    return col;
+    auto const it = dmt_map.find(target_version);
+    fds_verify(dmt_map.cend() != it);
+    return it->second->getNodeGroup(vol_id);
 }
 
-DmtColumnPtr DMTManager::getVersionNodeGroup(fds_volid_t volume_id,
-                                             fds_uint64_t version) {
-    dmt_lock.read_lock();
+DmtColumnPtr DMTManager::getVersionNodeGroup(fds_volid_t const volume_id,
+                                             fds_uint64_t const version) const {
+    ReadGuard guard(dmt_lock);
     fds_verify(version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(version) > 0);
-    DmtColumnPtr col = (dmt_map[version])->getNodeGroup(volume_id);
-    dmt_lock.read_unlock();
-    return col;
+    auto const it = dmt_map.find(version);
+    fds_verify(dmt_map.cend() != it);
+    return it->second->getNodeGroup(volume_id);
 }
 
 DMTPtr DMTManager::getDMT(fds_uint64_t version) {

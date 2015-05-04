@@ -222,11 +222,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
     }
 
     Error modVolQos(fds_volid_t vol_uuid,
-                    fds_uint64_t iops_min,
-                    fds_uint64_t iops_max,
+                    fds_int64_t iops_assured,
+                    fds_int64_t iops_throttle,
                     fds_uint32_t prio) {
         return qosCtrl->modifyVolumeQosParams(vol_uuid,
-                    iops_min, iops_max, prio);
+                    iops_assured, iops_throttle, prio);
     }
 
     StorMgrVolume * getVol(fds_volid_t volId)
