@@ -12,8 +12,26 @@ public class TimelinePreset extends ModelBase{
 	private static final long serialVersionUID = 1L;
 
 	private Long commitLogRetention;
+	private Long uuid;
+	private String name;
 	
 	private List<SnapshotPolicy> policies;
+	
+	public Long getUuid() {
+		return uuid;
+	}
+	
+	public void setUuid( Long anId ) {
+		uuid = anId;
+	}
+	
+	public String getName() {
+		return name;
+	}
+	
+	public void setName( String aName ) {
+		name = aName;
+	}
 	
 	public Long getCommitLogRetention() {
 		return commitLogRetention;

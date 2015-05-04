@@ -17,7 +17,7 @@ public class ListQosPresets implements RequestHandler {
 	/**
 	 * This method is totally hard coded right now because we are not yet storing  presets
 	 * or have them in an editable fashion.  However, by hard coding them here we can
-	 * allow the UI and CLI to utlize them as if they were dynamic.
+	 * allow the UI and CLI to utilize them as if they were dynamic.
 	 */
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
@@ -25,16 +25,19 @@ public class ListQosPresets implements RequestHandler {
 		List<QosPreset> qosPresets = new ArrayList<QosPreset>();
 		
 		QosPreset least = new QosPreset();
+		least.setName( "Least Important" );
 		least.setPriority( 10 );
 		least.setLimit( 0L );
 		least.setSla( 0L );
 		
 		QosPreset standard = new QosPreset();
+		least.setName( "Standard" );
 		least.setPriority( 7 );
 		least.setLimit( 0L );
 		least.setSla( 0L );
 		
 		QosPreset most = new QosPreset();
+		most.setName( "Most Important" );
 		least.setPriority( 1 );
 		least.setLimit( 0L );
 		least.setSla( 0L );

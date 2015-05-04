@@ -41,6 +41,7 @@ public class ListTimelinePresets implements RequestHandler{
 		monday.add( "MO" );
 		
 		TimelinePreset least = new TimelinePreset();
+		least.setName( "Sparse Coverage" );
 		least.setCommitLogRetention( oneday );
 		
 		SnapshotPolicy days = new SnapshotPolicy();
@@ -90,6 +91,7 @@ public class ListTimelinePresets implements RequestHandler{
 		monday.add( "MO" );
 		
 		TimelinePreset standard = new TimelinePreset();
+		standard.setName( "Standard" );
 		standard.setCommitLogRetention( oneday );
 		
 		SnapshotPolicy days = new SnapshotPolicy();
@@ -139,6 +141,7 @@ public class ListTimelinePresets implements RequestHandler{
 		monday.add( "MO" );
 		
 		TimelinePreset most = new TimelinePreset();
+		most.setName( "Dense Coverage" );
 		most.setCommitLogRetention( oneday );
 		
 		SnapshotPolicy days = new SnapshotPolicy();
