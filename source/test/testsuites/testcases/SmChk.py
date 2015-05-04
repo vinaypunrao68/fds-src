@@ -72,10 +72,10 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
                     log_files = os.listdir(fds_dir + "/var/logs")
                     for log_file in filter(lambda x: 'sm' in x, log_files):
                         result = smchk_re.findall(log_file)
-                        if result is not None and (result[-1].group('total_verified') != num_checked_tokens or
-                                                           result[-1].group('num_corrupted') > 0 or
-                                                           result[-1].group('ownership_mismatch') > 0):
+                        if result is not None and (result[-1].group('total_verified') == num_checked_tokens and
+                                                           result[-1].group('num_corrupted') == 0 and
+                                                           result[-1].group('ownership_mismatch') == 0):
                             # Now verify that we got what was expected
-                            return False
+                            return True
 
-        return True
+        return False
