@@ -142,7 +142,7 @@ public class ListTimelinePresets implements RequestHandler{
 		
 		TimelinePreset most = new TimelinePreset();
 		most.setName( "Dense Coverage" );
-		most.setCommitLogRetention( oneday );
+		most.setCommitLogRetention( oneday * 2L );
 		
 		SnapshotPolicy days = new SnapshotPolicy();
 		days.setRetention( 30L * oneday );
