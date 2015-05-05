@@ -240,7 +240,7 @@ class OM_PmAgent : public OM_NodeAgent
      * This method just updates local info, does not actually send msg to platform
      * to deactivate; should be called when de-active is sent to platform
      */
-    void handle_deactivate_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
+    void handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
     inline OM_SmAgent::pointer get_sm_service() {
         return activeSmAgent;

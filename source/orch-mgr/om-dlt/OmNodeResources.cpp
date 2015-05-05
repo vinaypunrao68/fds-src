@@ -874,7 +874,7 @@ OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
 // ------------------
 //
 void
-OM_PmAgent::handle_deactivate_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
+OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
     LOGDEBUG << "Will deactivate service " << svc_type;
 
