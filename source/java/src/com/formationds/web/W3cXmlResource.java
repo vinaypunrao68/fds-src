@@ -5,6 +5,7 @@
 package com.formationds.web;
 
 import com.formationds.web.toolkit.Resource;
+import org.w3c.dom.Document;
 
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -15,18 +16,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 public class W3cXmlResource implements Resource {
-    org.w3c.dom.Document document;
+    Document document;
 
-    public W3cXmlResource( org.w3c.dom.Document document ) {
+    public W3cXmlResource( Document document ) {
         this.document = document;
     }
+
     @Override
     public String getContentType() {
         return "application/xml; charset=utf-8";
     }
 
     @Override
-    public void render(OutputStream outputStream) throws IOException {
+    public void render( OutputStream outputStream ) throws IOException {
         try {
             // Use a Transformer for output
             TransformerFactory tFactory =
@@ -42,7 +44,7 @@ public class W3cXmlResource implements Resource {
 
             return;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new IOException( e );
         }
     }
 }
