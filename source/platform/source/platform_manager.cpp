@@ -11,6 +11,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>  // NOLINT
+#include <thread>
 
 #include <fds_uuid.h>
 #include <fdsp/svc_types_types.h>
@@ -38,7 +39,7 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap()
+        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap(), m_childMonitor(NULL)
         {
 
         }
@@ -125,13 +126,19 @@ namespace fds
             return pid;
         }
 
-        bool PlatformManager::waitPid (pid_t const pid, int waitTimeoutNanoSeconds)  // 1-%-9
+        bool PlatformManager::waitPid (pid_t const pid, long waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
         {
             int    status;
             pid_t  waitPidRC;
 
-            time_t timeNow = time(NULL);
-            int timeEnd = timeNow + 2;
+            timespec startTime;
+            timespec timeNow;
+            timespec endTime;
+
+            clock_gettime (CLOCK_REALTIME, &startTime);
+
+            endTime.tv_sec = startTime.tv_sec + (waitTimeoutNanoSeconds / NANO_SECONDS_IN_1_SECOND) + (startTime.tv_nsec + waitTimeoutNanoSeconds) / NANO_SECONDS_IN_1_SECOND;
+            endTime.tv_nsec = (startTime.tv_nsec + waitTimeoutNanoSeconds) % NANO_SECONDS_IN_1_SECOND;
 
             do
             {
@@ -145,16 +152,23 @@ namespace fds
                     }
                     else if (WIFSIGNALED (status))
                     {
-                        LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                        if (!monitoring)
+                        {
+                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                        }
+                        else
+                        {
+                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
+                        }
                     }
 
                     return true;
                 }
 
-                usleep (100000);
-                timeNow = time(NULL);
+                usleep (50000);
+                clock_gettime (CLOCK_REALTIME, &timeNow);
             }
-            while (timeNow < timeEnd);
+            while (timeNow.tv_sec < endTime.tv_sec || timeNow.tv_nsec < endTime.tv_nsec);
 
             return false;
         }
@@ -183,7 +197,7 @@ namespace fds
             }
 
             // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
-            if (false == waitPid (pid, 9))
+            if (false == waitPid (pid, 500000000))   // 1/2 seconds (in nanoseconds
             {
                 rc = kill (pid, SIGKILL);
 
@@ -192,7 +206,7 @@ namespace fds
                     LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << "";
                 }
 
-                waitPid (pid, 9);
+                waitPid (pid, 900000000);           // 1/2 seconds (in nanoseconds
             }
 
             if (!haveLock)
@@ -364,24 +378,53 @@ namespace fds
             return uuid.uuid_get_val();
         }
 
-        int PlatformManager::run()
+        void PlatformManager::childProcessMonitor()
         {
-            std::ostringstream message;
+            LOGDEBUG << "Starting thread for PlatformManager::childProcessMonitor()";
 
-            for (auto &element : m_appPidMap)
+            uint32_t count = 0;
+            uint32_t lastCount = 0;
+
+            while (true)
             {
-                message << element.first << ":" << element.second << ", ";
-            }
+                {   // Create a context for the lock_guard
+                    std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+#ifdef DEBUG
+                    count = m_appPidMap.size();
+                    if (count != lastCount)
+                    {
+                        LOGDEBUG << "Now monitoring " << count << " children (was " << lastCount << ")";
+                        lastCount = count;
+                    }
+#endif
+                    std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.begin();
 
-            LOGDEBUG << message.str();
+                    while (m_appPidMap.end() != mapIter)
+                    {
+                        if (waitPid (mapIter->second, 1000, true))
+                        {
+                            m_appPidMap.erase (mapIter++);
+                            continue;
+                        }
+                        else
+                        {
+                            mapIter++;
+                        }
+                    }
+                }  // lock_guard context
+
+                usleep (500000);
+            }
+        }
+
+        void PlatformManager::run()
+        {
+            m_childMonitor = new std::thread (&PlatformManager::childProcessMonitor, this);
 
             while (1)
             {
-LOGDEBUG << "NOT monitoring:  " << m_appPidMap.size() << " process(es)";
-                sleep(66);   /* we'll do hotplug uevent thread in here */
+                sleep(999);   /* we'll do hotplug uevent thread in here */
             }
-
-            return 0;
         }
     }  // namespace pm
 }  // namespace fds
