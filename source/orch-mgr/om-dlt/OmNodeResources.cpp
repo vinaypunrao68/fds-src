@@ -918,7 +918,8 @@ OM_PmAgent::handle_deactivate_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
             }
             break;
         default:
-            fds_verify(false);
+            LOGWARN << "Unknown service type " << svc_type << ". Did we add a new"
+                    << " service type? If so, update this method";
     };
 }
 
@@ -1110,6 +1111,7 @@ OM_PmAgent::send_deactivate_services(fds_bool_t deactivate_sm,
                                 deactivate_sm, deactivate_dm, deactivate_am,
                                 std::placeholders::_1, std::placeholders::_2,
                                 std::placeholders::_3));
+    req->setTimeoutMs(10000);
     req->invoke();
 
     return err;
