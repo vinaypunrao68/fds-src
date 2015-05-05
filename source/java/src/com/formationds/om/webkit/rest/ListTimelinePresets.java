@@ -20,8 +20,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class ListTimelinePresets implements RequestHandler{
 
-	private Long oneday = 24L * 60L * 60L;
-	private Numbers<Integer> zero = new Numbers<Integer>(0);
+	private Long oneday = 24L * 60L * 60L;	
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
@@ -36,6 +35,9 @@ public class ListTimelinePresets implements RequestHandler{
 	}
 	
 	private TimelinePreset buildLeast() throws ParseException {
+		
+		Numbers<Integer> zero = new Numbers<Integer>();
+		zero.add( 0 );
 		
 		WeekDays<String> monday = new WeekDays<String>();
 		monday.add( "MO" );
@@ -87,6 +89,9 @@ public class ListTimelinePresets implements RequestHandler{
 	
 	private TimelinePreset buildStandard() throws ParseException {
 		
+		Numbers<Integer> zero = new Numbers<Integer>();
+		zero.add( 0 );		
+		
 		WeekDays<String> monday = new WeekDays<String>();
 		monday.add( "MO" );
 		
@@ -136,6 +141,9 @@ public class ListTimelinePresets implements RequestHandler{
 	}
 
 	private TimelinePreset buildMosts() throws ParseException {
+		
+		Numbers<Integer> zero = new Numbers<Integer>();
+		zero.add( 0 );		
 		
 		WeekDays<String> monday = new WeekDays<String>();
 		monday.add( "MO" );

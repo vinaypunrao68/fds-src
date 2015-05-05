@@ -115,7 +115,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.priority = $scope.newQos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
         volume.timelinePolicies = $scope.timelinePolicies.policies;
-        volume.commit_log_retention = $scope.timelinePolicies.continuous;
+        volume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
         volume.mediaPolicy = $scope.mediaPolicy.value;
@@ -209,7 +209,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             
             // default timeline policies
             $scope.timelinePolicies = {
-                continuous: 24*60*60,
+                commitLogRetention: 24*60*60,
                 policies: [
                     // daily
                     {
