@@ -14,12 +14,15 @@ log = logging.getLogger(__name__)
 
 class FdsFabricHelper():
     def __init__(self, fds_service, fds_node):
-	env.user='root'
-	env.password='passwd'
+	#env.user='root'
+	#env.password='passwd'
+	env.user='hlim'
+	env.password='Testlab'
 	env.host_string=fds_node
 	self.node_service=fds_service
 	self.fds_bin = '/fds/bin'
-	self.fds_sbin = '/fds/sbin'
+	#self.fds_sbin = '/fds/sbin'
+	self.fds_sbin = '/home/hlim/projects/fds-src/source/tools'
 	self.fdsconsole = '{}/fdsconsole.py'.format(self.fds_sbin)
 
 
@@ -49,6 +52,7 @@ class FdsFabricHelper():
 
 		else:
 			log.warning("Unable to locate {} service PID".format(self.node_service))
+			return None
 
 
     def get_platform_uuid(self, service_pid):
@@ -97,17 +101,17 @@ class FdsFabricHelper():
 			with cd('{}'.format(self.fds_sbin)):
 				sudo('./fdsconsole.py accesslevel admin')
 				#run('./fdsconsole.py domain listServices local', stdout=self.sio)
-				cmd_output = run('./fdsconsole.py domain listServices local')
+				cmd_output = sudo('./fdsconsole.py domain listServices local')
 				n_uuid = cmd_output.split()
 				
 				for i in range(len(n_uuid)): 
-					print n_uuid[i]
-					if n_uuid[i] == node_ip:
+					if n_uuid[i] == '127.0.0.1' or n_uuid[i] == node_ip:
 						if n_uuid[i+2] == 'pm':
 							node_uuid = n_uuid[i-2]
-							return node_uuid
+							#convert hex to decimal
+							return int(node_uuid, 16)
 
 	else:
-		log.warning("Unable to locate fdsconsole.py")
+		log.warning("Unable to locate {}".format(self.fdsconsole))
 	
 

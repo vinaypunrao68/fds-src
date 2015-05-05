@@ -1,7 +1,9 @@
-import am
 import logging
 import unittest
 import pdb
+import sys
+sys.path.append("..")
+import am
 
 class TestAM(unittest.TestCase):
 
@@ -26,8 +28,10 @@ class TestAM(unittest.TestCase):
 
 	def test_remove(self):
 		#am_obj = am.am_service('10.3.64.96')
-		am_obj = am.am_service('10.3.115.157')
-		am_obj.remove('10.3.115.157')
+		#am_obj = am.am_service('10.3.115.157')
+		#am_obj.remove('10.3.115.157')
+		am_obj = am.am_service('10.2.10.206')
+		am_obj.remove('10.2.10.206')
 
 	def _test_stop(self):
 		#am_obj = am.am_service('10.3.64.96')
