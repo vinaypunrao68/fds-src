@@ -422,6 +422,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     virtual std::string getSnapDirName(const fds_volid_t &volId,
                                        const int64_t snapId) const override;
 
+    ///
+    /// Cleanly shut down.
+    ///
+    /// run() will exit after this is called.
+    ///
+    void shutdown();
+
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;

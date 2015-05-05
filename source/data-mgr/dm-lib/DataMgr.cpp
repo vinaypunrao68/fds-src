@@ -1099,6 +1099,12 @@ void DataMgr::mod_enable_service() {
     }
 }
 
+void DataMgr::shutdown()
+{
+    flushIO();
+    mod_shutdown();
+}
+
 //   Block new IO's  and flush queued IO's 
 void DataMgr::flushIO()
 {
@@ -1114,7 +1120,18 @@ void DataMgr::flushIO()
 
 void DataMgr::mod_shutdown()
 {
-    shuttingDown = true;
+    // Don't double-free.
+    {
+        // The expected goofiness is due to c_e_s() setting "expected" to the current value if it
+        // is not equal to expected. Which makes "expected" a misnomer as it's an in/out variable.
+        // We don't care (or rather, we already know) what the current value is if it's not equal
+        // to expected though, so we ignore it.
+        bool expected = false;
+        if (!shuttingDown.compare_exchange_strong(expected, true))
+        {
+            return;
+        }
+    }
 
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();
