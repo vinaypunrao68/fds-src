@@ -49,8 +49,10 @@ public enum SingletonRepositoryManager {
             // TODO: credentials need to be externalized to a secure store.
             logger.info( String.format( "InfluxDB url is %s", url ) );
             InfluxMetricRepository influxRepository = new InfluxMetricRepository( url,
-                                                           "root",
-                                                           "root".toCharArray() );
+                                                                                  "root",
+                                                                                  "root".toCharArray() );
+
+            influxRepository.open( null );
 
             return influxRepository;
        }
@@ -89,11 +91,13 @@ public enum SingletonRepositoryManager {
 
             // TODO: credentials need to be externalized to a secure store.
             logger.info( String.format( "InfluxDB url is %s", url ) );
-            InfluxEventRepository influxEventRepository = new InfluxEventRepository( url,
-                                                               "root",
-                                                               "root".toCharArray() );
+            InfluxEventRepository influxRepository = new InfluxEventRepository( url,
+                                                                               "root",
+                                                                               "root".toCharArray() );
 
-            return influxEventRepository;
+            influxRepository.open( null );
+
+            return influxRepository;
         }
     }
 
