@@ -122,6 +122,10 @@ function setupFdsDirs() {
     if [[ $(readlink ${FDSTEST_ROOT}/etc) != "${CONFIG_ETC}" ]] ; then
         cp -rf ${CONFIG_ETC} ${FDSTEST_ROOT}
     fi
+
+    cd ../
+    ./dev_make_install.sh
+    cd - > /dev/null
 }
 
 function activate() {
