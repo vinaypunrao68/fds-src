@@ -337,7 +337,7 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
         err = Error(ERR_DISK_WRITE_FAILED);
     }
 
-    CopyDetails * details = new CopyDetails(file, fileName);
+    CopyDetails *details = new CopyDetails(file, fileName);
     status = env->Copy(file, &doCopyFile, reinterpret_cast<void *>(details));
     if (!status.ok()) {
         GLOGNORMAL << " Copy failed for " << file << " destination file " << fileName;
@@ -345,6 +345,8 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
     }
 
     *cenv = env;
+
+    delete details;
     return err;
 }
 
