@@ -3,11 +3,17 @@ from svc_api.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
+import pdb
 
 
 class SMDebugContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+
+    def __del__(self):
+        pdb.set_trace()
+        serv = self.smClient()
+        serv.stop_serv()
 
     def smClient(self):
         return self.config.getPlatform()
@@ -53,7 +59,6 @@ class SMDebugContext(Context):
                 targetTokens = map(int, targetTokens)
 
             startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
-            self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
         except Exception, e:
             log.exception(e)
             print e.message
