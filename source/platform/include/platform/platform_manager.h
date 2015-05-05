@@ -35,8 +35,6 @@ namespace fds
 
         const std::string JAVA_CLASSPATH_OPTIONS       = "/fds/lib/java/fds-1.0-bin/fds-1.0/*:/fds/lib/java/classes";                 // No spaces in this value
 
-        const uint64_t NANO_SECONDS_IN_1_SECOND = 1000000000;
-
 #ifdef DEBUG
         const std::string JAVA_DEBUGGER_OPTIONS       = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=";             // No spaces in this value
 #endif // DEBUG
@@ -54,7 +52,7 @@ namespace fds
 
                 virtual void mod_shutdown() override;
 
-                void run();
+                int run();
 
 
                 void activateServices(const fpi::ActivateServicesMsgPtr &activateMsg);
@@ -65,19 +63,19 @@ namespace fds
                     return nodeInfo;
                 }
 
+
                 /**
                  * Update the service info properties with disk information,
                  * the node uuid, and fds_root.
                  */
                 void updateServiceInfoProperties(std::map<std::string, std::string> *data);
-
             protected:
 
                 fds_int64_t getNodeUUID(fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();
 
-                bool waitPid (pid_t pid, long waitTimeoutNanoSeconds, bool monitoring = false);
+                bool waitPid (pid_t pid, int waitTimeoutNanoSeconds);
                 pid_t startProcess (int id);
                 void stopProcess (int id, bool haveLock = false);
 
@@ -88,13 +86,8 @@ namespace fds
                 kvstore::PlatformDB                *db;
                 fpi::NodeInfo                       nodeInfo;
                 std::string                         rootDir;
-
                 std::mutex                          m_pidMapMutex;
                 std::map<std::string, pid_t>        m_appPidMap;
-
-                std::thread                        *m_childMonitor;
-
-                void childProcessMonitor();
         };
     }  // namespace pm
 }  // namespace fds
