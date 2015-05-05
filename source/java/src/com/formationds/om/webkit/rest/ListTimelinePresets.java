@@ -68,7 +68,7 @@ public class ListTimelinePresets implements RequestHandler{
 		months.setRecurrenceRule( monthRule.toString() );
 		
 		SnapshotPolicy years = new SnapshotPolicy();
-		years.setRetention( 2L * 365L * oneday );
+		years.setRetention( 2L * 366L * oneday );
 		RecurrenceRule yearRule = (new RecurrenceRuleBuilder(iCalFrequency.YEARLY ))
 			.byHour( zero )
 			.byMinute( zero )
@@ -118,7 +118,7 @@ public class ListTimelinePresets implements RequestHandler{
 		months.setRecurrenceRule( monthRule.toString() );
 		
 		SnapshotPolicy years = new SnapshotPolicy();
-		years.setRetention( 5L * 365L * oneday );
+		years.setRetention( 5L * 366L * oneday );
 		RecurrenceRule yearRule = (new RecurrenceRuleBuilder(iCalFrequency.YEARLY ))
 			.byHour( zero )
 			.byMinute( zero )
@@ -159,7 +159,7 @@ public class ListTimelinePresets implements RequestHandler{
 		weeks.setRecurrenceRule( weekRule.toString() );
 		
 		SnapshotPolicy months = new SnapshotPolicy();
-		months.setRetention( 2L * 365L * oneday );
+		months.setRetention( 2L * 366L * oneday );
 		RecurrenceRule monthRule = (new RecurrenceRuleBuilder( iCalFrequency.MONTHLY ))
 			.byHour( zero )
 			.byMinute( zero )
@@ -168,7 +168,7 @@ public class ListTimelinePresets implements RequestHandler{
 		months.setRecurrenceRule( monthRule.toString() );
 		
 		SnapshotPolicy years = new SnapshotPolicy();
-		years.setRetention( 15L * 365L * oneday );
+		years.setRetention( 15L * 366L * oneday );
 		RecurrenceRule yearRule = (new RecurrenceRuleBuilder(iCalFrequency.YEARLY ))
 			.byHour( zero )
 			.byMinute( zero )
