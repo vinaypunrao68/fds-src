@@ -38,7 +38,7 @@ done
 
 for f in ${SBIN_LINK_FILE_LIST}
 do
-    [[ -L ${SBINDIR}/${f} ]] || unlink ${SBINDIR}/${f}
+    [[ -L ${SBINDIR}/${f} ]] && unlink ${SBINDIR}/${f}
 
     if [[ ! -f ${SBINDIR}/${f} ]]
     then
@@ -57,7 +57,3 @@ ln -s ${PWD}/config/etc/ ${ETCDIR}
 [[ -L ${JAVADIR} ]] && unlink ${JAVADIR}
 echo "linking ${JAVADIR}"
 ln -s ${PWD}/Build/linux-x86_64.debug/lib/java/ ${JAVADIR}
-
-
-
-
