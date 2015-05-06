@@ -9,7 +9,7 @@ from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
-from thrift.server import TServer
+from thrift.server import TServer, TNonblockingServer
 
 from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
@@ -18,6 +18,7 @@ from svc_types.constants import *
 
 from SvcHandle import *
 import FdspUtils
+import atexit
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class PlatSvc(object):
         self.serverThread = None
         self.startServer()
         time.sleep(1)
-        
+
         # register with OM
         try :
             self.registerService(basePort, omPlatIp, omPlatPort)
@@ -68,7 +69,13 @@ class PlatSvc(object):
             print e
             print 'failed to register with om'
             self.stop()
-    
+
+    def __del__(self):
+        # This should stop the Thrift server when the main thread is destructed so that the daemon
+        # process doesn't throw errors before it's killed.
+        serv = self.smClient()
+        serv.stop_serv()
+
     def stop(self):
         if self.serverSock:
             self.serverSock.close()
@@ -98,11 +105,9 @@ class PlatSvc(object):
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
         tfactory = TTransport.TFramedTransportFactory()
         pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TServer.TThreadedServer(processor, self.serverSock, tfactory, pfactory, daemon=True)
-        self.server.daemon = True
+        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
-        # issues exiting
         self.serverThread.setDaemon(True)
         log.info("Starting server on {}".format(self.basePort));
         self.serverThread.start()
@@ -110,6 +115,10 @@ class PlatSvc(object):
     def serve(self):
         self.server.serve()
         log.info("Exiting server")
+
+    def stop_serv(self):
+        self.server.stop()
+        self.server.close()
 
     def sendAsyncReqToSvc(self, node, svc, msg, cb=None, timeout=None):
         targetUuid = self.svcMap.svc_uuid(node, svc)
