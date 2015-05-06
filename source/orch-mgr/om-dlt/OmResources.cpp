@@ -1050,10 +1050,6 @@ NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, 
         // broadcast DMT to DMs so they can start resync
         local->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT());
 
-        // now since AMs contact DMs on volume notification, we are broadcasting
-        // volume list here on domain restart, since we know that DMs in the DMTs are up
-        local->om_bcast_vol_list_to_services(fpi::FDSP_ACCESS_MGR);
-
     } catch(exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_SvcActive :: " << e.what();
@@ -1784,9 +1780,8 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             // on domain re-activate, ok so send volume list right away
             // on restarting from persistent state, none of the volumes will
             // be loaded yet at this point, so broadcast will be noop
-            // we are going to broadcast volumes to AMs once DMTs and DLTs are
-            // broadcasted, because AM needs to be able to contact DM to get
-            // lease on a volume
+            // Do not broadcast volumes to AMs!!! An AM will get volume info when
+            // it receives an IO for that volume
             if (msg->node_type != fpi::FDSP_ACCESS_MGR) {
                 om_locDomain->om_bcast_vol_list(newNode);
             }
