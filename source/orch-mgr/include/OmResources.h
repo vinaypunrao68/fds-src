@@ -809,6 +809,11 @@ class OM_NodeDomainMod : public Module
                                   fds_bool_t remove_am);
 
     /**
+     * This will set domain up so that DLT and DMT state machine
+     */
+    virtual Error om_startup_domain();
+    
+    /**
      * This will set domain down so that DLT and DMT state machine
      * will not try to add/remove services and send shutdown message
      * to all 
