@@ -134,6 +134,36 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         FdsTimerPtr waitTimer;
         FdsTimerTaskPtr waitTimerTask;
     };
+    struct DST_WaitActNds : public msm::front::state<>
+    {
+        DST_WaitActNds() : waitTimer(new FdsTimer()),
+                           waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+
+        ~DST_WaitActNds() {
+            waitTimer->destroy();
+        }
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitActNds. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitActNds. Evt: " << e.logString();
+        }
+
+        NodeUuidSet sm_services;  // sm services we are waiting to come up
+        NodeUuidSet sm_up;  // sm services that are already up
+        NodeUuidSet dm_services;  // dm services we are waiting to come up
+        NodeUuidSet dm_up;  // dm services that are already up
+
+        /**
+         * timer to come out of this state if we don't get all SMs up
+         */
+        FdsTimerPtr waitTimer;
+        FdsTimerTaskPtr waitTimerTask;
+    };
     struct DST_WaitDltDmt : public msm::front::state<>
     {
         typedef mpl::vector<RegNodeEvt> deferred_events;
@@ -255,6 +285,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_SvcActive
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct DACT_UpdDlt
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -336,7 +371,13 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         msf::Row<DST_DomainUp, RegNodeEvt  ,DST_DomainUp,DACT_SendDltDmt,  msf::none   >,
         // +-----------------+-------------+------------+---------------+--------------+
         msf::Row<DST_WaitShutAm, ShutAckEvt, DST_WaitShutDmSm, DACT_ShutDmSm, GRD_AmShut >,
-        msf::Row<DST_WaitShutDmSm, ShutAckEvt, DST_DomainShutdown, DACT_Shutdown, GRD_DmSmShut >
+        msf::Row<DST_WaitShutDmSm, ShutAckEvt, DST_DomainShutdown, DACT_Shutdown, GRD_DmSmShut >,
+        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row<DST_DomainShutdown, WaitNdsEvt, DST_WaitActNds, DACT_WaitNds, msf::none>,
+        msf::Row<DST_DomainShutdown, NoPersistEvt, DST_Wait,   DACT_Wait,   msf::none>,
+        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row< DST_WaitActNds, RegNodeEvt, DST_DomainUp, DACT_SvcActive, GRD_NdsUp> ,  // NOLINT
+        msf::Row< DST_WaitActNds, TimeoutEvt, DST_DomainShutdown, msf::none, msf::none>   // NOLINT
         // +-----------------+-------------+------------+---------------+--------------+
         >{};  // NOLINT
 
@@ -548,7 +589,7 @@ NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         dst.sm_services.swap(waitEvt.sm_services);
         dst.dm_services.swap(waitEvt.dm_services);
 
-        LOGDEBUG << "NodeDomainFSM DACT_WaitNds: will wait for " << dst.sm_services.size()
+        LOGDEBUG << "Domain will wait for " << dst.sm_services.size()
                  << " SM(s) to come up and " << dst.dm_services.size() << " << DM(s) to come up";
 
         // start timer to timeout in case services do not come up
@@ -980,13 +1021,52 @@ NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
 }
 
+/**
+ * DACT_SvcActive
+ * ------------
+ * We got all SMs and DMs that we were waiting for up.
+ * DLT and DMT is already committed, so we cancel the timer and broadcast DLTs and DMTs
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "All services re-activated on domain activate";
+
+    try {
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        OM_Module *om = OM_Module::om_singleton();
+        DataPlacement *dp = om->om_dataplace_mod();
+        VolumePlacement* vp = om->om_volplace_mod();
+
+        // cancel timeout timer
+        src.waitTimer->cancel(src.waitTimerTask);
+
+        // Broadcast DLT to SMs. We did not do this on SM register, so that
+        // SMs can resync with each other, better do it when all SMs that are in DLT
+        // are up (or all that could get up).
+        local->om_bcast_dlt(dp->getCommitedDlt(), true, false, false);
+
+        // broadcast DMT to DMs so they can start resync
+        local->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT());
+
+        // now since AMs contact DMs on volume notification, we are broadcasting
+        // volume list here on domain restart, since we know that DMs in the DMTs are up
+        local->om_bcast_vol_list_to_services(fpi::FDSP_ACCESS_MGR);
+
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                 << "processing FSM DACT_SvcActive :: " << e.what();
+    }
+}
 
 //--------------------------------------------------------------------
 // OM Node Domain
 //--------------------------------------------------------------------
 OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
         : Module(name),
-          fsm_lock("OM_NodeDomainMod fsm lock")
+          fsm_lock("OM_NodeDomainMod fsm lock"),
+          configDB(nullptr)
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -1087,7 +1167,9 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
     VolumePlacement* vp = om->om_volplace_mod();
 
     LOGNOTIFY << "Loading persistent state to local domain";
-    configDB = _configDB;  // cache config db in local domain
+    if (_configDB) {
+        configDB = _configDB;  // cache config db in local domain
+    }
 
     // get SMs that were up before and persistent in config db
     // if no SMs were up, even if platforms were running, we
@@ -1156,19 +1238,105 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                    (sm_services.size() > 0 && dm_services.size() > 0));
     }
 
-    if (sm_services.size() > 0) {
+    if ((sm_services.size() > 0) ||
+        (dm_services.size() > 0)){
         LOGNOTIFY << "Will wait for " << sm_services.size()
                   << " SMs and " << dm_services.size()
                   << " DMs to come up within next few minutes";
         local_domain_event(WaitNdsEvt(sm_services, dm_services));
     } else {
-        LOGNOTIFY << "We didn't persist any SMs or we couldn't load "
+        LOGNOTIFY << "We didn't persist any SMs and any DMs or we couldn't load "
                   << "persistent state, so OM will come up in a moment.";
         local_domain_event(NoPersistEvt());
     }
 
     return err;
 }
+
+Error
+OM_NodeDomainMod::om_startup_domain()
+{
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    VolumePlacement* vp = om->om_volplace_mod();
+    ClusterMap *cm = om->om_clusmap_mod();
+    NodeUuidSet sm_services;
+    NodeUuidSet dm_services;
+
+    // if domain is already UP, nothing to do
+    if (om_local_domain_up()) {
+        LOGWARN << "Domain is already active, not going to activate";
+        return ERR_DUPLICATE;
+    }
+
+    LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
+              << " and other commands for the domain";
+
+    // get SMs and DMs from cluster map
+    for (ClusterMap::const_sm_iterator sm_cit = cm->cbegin_sm();
+         sm_cit != cm->cend_sm();
+         ++sm_cit) {
+        sm_services.insert(sm_cit->first);
+        LOGDEBUG << "Found SM with UUID "
+                 << std::hex << (sm_cit->first).uuid_get_val() << std::dec;
+    }
+    for (ClusterMap::const_dm_iterator dm_cit = cm->cbegin_dm();
+         dm_cit != cm->cend_dm();
+         ++dm_cit) {
+        dm_services.insert(dm_cit->first);
+        LOGDEBUG << "Found DM with UUID "
+                 << std::hex << (dm_cit->first).uuid_get_val() << std::dec;
+    }
+
+    // check that commited DLT matches the SM services in cluster map
+    err = dp->validateDltOnDomainActivate(sm_services);
+    if (!err.ok()) {
+        LOGERROR << "Mismatch between cluster map and DLT " << err
+                 << " local domain will remain in down state."
+                 << " Need to implement recovery from this state";
+        return err;
+    }
+
+    // check that commited DMT matches the DM services in cluster map
+    err = vp->validateDmtOnDomainActivate(dm_services);
+    if (!err.ok()) {
+        LOGERROR << "Mismatch between cluster map and DMT " << err
+                 << " local domain will remain in down state."
+                 << " Need to implement recovery from this state";
+        return err;
+    }
+
+    if ((sm_services.size() > 0) ||
+        (dm_services.size() > 0)){
+        LOGNOTIFY << "Will wait for " << sm_services.size()
+                  << " SMs and " << dm_services.size()
+                  << " DMs to come up within next few minutes";
+        local_domain_event(WaitNdsEvt(sm_services, dm_services));
+    } else {
+        LOGNOTIFY << "We didn't persist any SMs and any DMs or we couldn't load "
+                  << "persistent state, so Domain will come up in a moment.";
+        local_domain_event(NoPersistEvt());
+    }
+
+    // once domain state machine is in correct waiting state,
+    // activate all known services on all known nodes (platforms)
+    RsArray pmNodes;
+    fds_uint32_t pmCount = om_locDomain->om_pm_nodes()->rs_container_snapshot(&pmNodes);
+    for (RsContainer::const_iterator it = pmNodes.cbegin();
+         it != pmNodes.cend();
+         ++it) {
+        NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(*it);
+        if ((cur != NULL) &&
+            (om_locDomain->om_pm_nodes()->rs_get_resource(cur->get_uuid()))) {
+            // above check is because apparently we can have NULL pointer in RsArray
+            om_activate_known_services(cur->get_uuid(), 0);
+        }
+    }
+
+    return err;
+}
+
 
 Error
 OM_NodeDomainMod::om_load_volumes()
@@ -1314,10 +1482,12 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
              /*
               * delay the start of the scheduled thread to be one seconds.
               */
+            NodeUuid pmUuid;
+            pmUuid.uuid_set_type( (svcInfo->svc_id).svc_uuid.svc_uuid, fpi::FDSP_PLATFORM );
              MODULEPROVIDER()->proc_thrpool()->schedule(
                  &OM_NodeDomainMod::om_activate_known_services,
                  this,
-                 *svcInfo,
+                 pmUuid,
                  1000 );
         }
         else
@@ -1349,7 +1519,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     return err;
 }
 
-Error OM_NodeDomainMod::om_activate_known_services( fpi::SvcInfo pm,
+Error OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
                                                     fds_uint32_t delayTime )
 {
     if ( delayTime )
@@ -1358,9 +1528,6 @@ Error OM_NodeDomainMod::om_activate_known_services( fpi::SvcInfo pm,
     }
 
     Error err(ERR_OK);
-
-    NodeUuid node_uuid;
-        node_uuid.uuid_set_type( pm.svc_id.svc_uuid.svc_uuid, fpi::FDSP_PLATFORM );
 
     NodeServices services;
     if ( configDB->getNodeServices( node_uuid, services ) )
@@ -1578,14 +1745,6 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
         om_locDomain->om_update_node_list(newNode, msg);
 
-        if (msg->node_type != fpi::FDSP_DATA_MGR) {
-            om_locDomain->om_bcast_vol_list(newNode);
-            // for new DMs, we send volume list as part of DMT deploy state machine
-        }
-
-        // send qos related info to this node
-        om_locDomain->om_send_me_qosinfo(newNode);
-
         // Let this new node know about existing dlt if this is not SM node
         // DLT deploy state machine will take care of SMs
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
@@ -1594,7 +1753,19 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             DataPlacement *dp = om->om_dataplace_mod();
             OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
         }
+        if (msg->node_type != fpi::FDSP_DATA_MGR) {
+            OM_Module *om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            if (vp->hasCommittedDMT()) {
+                OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
+            } else {
+                LOGWARN << "Not sending DMT to new node, because no "
+                        << " committed DMT yet";
+            }
+        }
 
+        // send qos related info to this node
+        om_locDomain->om_send_me_qosinfo(newNode);
 
         if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
@@ -1604,18 +1775,23 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             if (msg->node_type == fpi::FDSP_DATA_MGR) {
                 om_dmt_update_cluster();
             } else {
-                OM_Module *om = OM_Module::om_singleton();
-                VolumePlacement* vp = om->om_volplace_mod();
-                if (vp->hasCommittedDMT()) {
-                    OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
-                } else {
-                    LOGWARN << "Not sending DMT to new node, because no "
-                        << " committed DMT yet";
-                }
+                om_locDomain->om_bcast_vol_list(newNode);
+                // for new DMs, we send volume list as part of DMT deploy state machine
             }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
+
+            // on domain re-activate, ok so send volume list right away
+            // on restarting from persistent state, none of the volumes will
+            // be loaded yet at this point, so broadcast will be noop
+            // we are going to broadcast volumes to AMs once DMTs and DLTs are
+            // broadcasted, because AM needs to be able to contact DM to get
+            // lease on a volume
+            if (msg->node_type != fpi::FDSP_ACCESS_MGR) {
+                om_locDomain->om_bcast_vol_list(newNode);
+            }
         }
+
     return err;
 }
 

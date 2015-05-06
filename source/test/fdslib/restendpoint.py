@@ -732,6 +732,31 @@ class DomainEndpoint():
         else:
             return False
 
+    def startupLocalDomain(self, domain_name):
+        '''
+        Startuo the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain to be started
+        Returns:
+           True success, False otherwise
+        '''
+
+        path = '{}/{}'.format(self.rest_path, domain_name)
+
+        domain_info = {
+            'action': 'startup',
+            }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
     def shutdownLocalDomain(self, domain_name):
         '''
         Shutdown the specified local domain.
