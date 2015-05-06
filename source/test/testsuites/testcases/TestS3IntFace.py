@@ -27,7 +27,7 @@ class S3(object):
         self.conn = conn
         self.bucket1 = None
         self.keys = []  # As we add keys to the bucket, add them here as well.
-        self.verifiers = {} # As we track objects to verify, add object name 
+        self.verifiers = {} # As we track objects to verify, add object name
                             # and hash here
 
 
@@ -71,7 +71,49 @@ class TestS3GetConn(TestCase.FDSTestCase):
                                om_node.nd_conf_dict['node-name'])
                 return False
 
-            self.parameters["s3"] = S3(s3conn)
+            # This method may be called multiple times in the even the connection
+            # is closed and needs to be re-opened. But we only want to instantiate the
+            # S3 object once.
+            if not "s3" in self.parameters:
+                self.parameters["s3"] = S3(s3conn)
+            else:
+                self.parameters["s3"].conn = s3conn
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to close a connection.
+#
+# You must have successfully created a connection.
+class TestS3CloseConn(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3CloseConn,
+                                             "Closing an S3 connection")
+
+    def test_S3CloseConn(self):
+        """
+        Test Case:
+        Attempt to close an S3 connection.
+        """
+
+        if not "s3" in self.parameters:
+            self.log.error("No S3 interface object so no connection to close.")
+            return False
+        elif self.parameters["s3"].conn is None:
+            self.log.error("No S3 connection to close.")
+            return False
+        else:
+            self.log.info("Close an S3 connection.")
+            s3 = self.parameters["s3"]
+            try:
+                s3.conn.close()
+            except Exception as e:
+                self.log.error("Could not close S3 connection.")
+                self.log.error(e.message)
+                return False
 
         return True
 
@@ -657,19 +699,18 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
             verifiable_object.set_contents_from_string(verifiable_file_contents)
 
             # Grab the object and capture the hash for verification
-
+            test_passed = False
             try:
                 obj = bucket.get_key('s3VerifiableObject')
-            except:
-                self.log.error("Could not verify object")
+            except Exception as e:
+                self.log.error("Could not get object just put.")
+                self.log.error(e.message)
             else:
                 if obj:
                     stored_hash = hashlib.sha1(obj.get_contents_as_string()).hexdigest()
                     self.log.info("Hash of object stored in FDS: %s" % stored_hash)
                     self.parameters["s3"].verifiers['s3VerifiableObject'] = stored_hash
                     test_passed = True
-                else:
-                    test_passed = False
 
             return test_passed
 
@@ -716,16 +757,21 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
             self.log.info("Verify contents of verifiable object in an S3 bucket.")
             bucket = self.parameters["s3"].bucket1
 
-            verifiable_object = bucket.get_key('s3VerifiableObject')
-            verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
-            self.log.info("Hash of object read from FDS: %s" % verify_hash)
-            stored_verify_hash = self.parameters['s3'].verifiers['s3VerifiableObject']
-            self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
-            if stored_verify_hash == verify_hash:
-                test_passed = True
+            test_passed = False
+            try:
+                verifiable_object = bucket.get_key('s3VerifiableObject')
+            except Exception as e:
+                self.log.error("Could not get object to be verified.")
+                self.log.error(e.message)
             else:
-                self.log.error("S3 Verifiable Object hash did not match")
-                test_passed = False
+                verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
+                self.log.info("Hash of object read from FDS: %s" % verify_hash)
+                stored_verify_hash = self.parameters['s3'].verifiers['s3VerifiableObject']
+                self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
+                if stored_verify_hash == verify_hash:
+                    test_passed = True
+                else:
+                    self.log.error("S3 Verifiable Object hash did not match")
 
             return test_passed
 
@@ -851,6 +897,33 @@ class TestS3DelBucket(TestCase.FDSTestCase):
 
             s3.bucket1 = None
             return True
+
+
+# This class contains the attributes and methods to reset
+# the S3 object so that we can reuse these test cases.
+#
+# You must have successfully created a connection.
+class TestS3ObjReset(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3ObjReset,
+                                             "Resetting S3 object")
+
+    def test_S3ObjReset(self):
+        """
+        Test Case:
+        Reset teh S3 object.
+        """
+
+        if not "s3" in self.parameters:
+            self.log.error("No S3 interface object to reset.")
+        else:
+            self.log.info("Reset S3 object.")
+            del self.parameters["s3"]
+
+        return True
+
 
 
 if __name__ == '__main__':

@@ -201,6 +201,13 @@ class OM_PmAgent : public OM_NodeAgent
                                    fds_bool_t deactivate_dm,
                                    fds_bool_t deactivate_am);
 
+    void send_deactivate_services_resp(fds_bool_t deactivate_sm,
+                                       fds_bool_t deactivate_dm,
+                                       fds_bool_t deactivate_am,
+                                       EPSvcRequest* req,
+                                       const Error& error,
+                                       boost::shared_ptr<std::string> payload);
+
     /**
      * Tell platform Agent about new active service
      * Platform Agent keeps a pointer to active services node agents
@@ -227,6 +234,13 @@ class OM_PmAgent : public OM_NodeAgent
      * handle its deregister
      */
     void handle_unregister_service(const NodeUuid& svc_uuid);
+
+    /**
+     * Deactivates service on this platform
+     * This method just updates local info, does not actually send msg to platform
+     * to deactivate; should be called when de-active is sent to platform
+     */
+    void handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
     inline OM_SmAgent::pointer get_sm_service() {
         return activeSmAgent;
@@ -483,6 +497,7 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_set_throttle_lvl(float level);
 
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
+    virtual void om_bcast_vol_list_to_services(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
@@ -584,7 +599,8 @@ class OM_NodeContainer : public DomainContainer
 class WaitNdsEvt
 {
  public:
-    explicit WaitNdsEvt(const NodeUuidSet& sms, const NodeUuidSet& dms)
+    WaitNdsEvt(const NodeUuidSet& sms,
+               const NodeUuidSet& dms)
             : sm_services(sms.begin(), sms.end()),
             dm_services(dms.begin(), dms.end())
             {}
@@ -762,7 +778,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    Error om_activate_known_services( fpi::SvcInfo pm,
+    Error om_activate_known_services( const NodeUuid& node_uuid,
                                       fds_uint32_t delayTime );
 
     /**
@@ -794,6 +810,14 @@ class OM_NodeDomainMod : public Module
                                   fds_bool_t remove_dm,
                                   fds_bool_t remove_am);
 
+    /**
+     * This will set domain up by calling Domain state machine to move
+     * to UP state. Noop if domain is already up.
+     * Domain state machine will wait for all services currently
+     * in the cluster map to come up, before moving to UP state
+     */
+    virtual Error om_startup_domain();
+    
     /**
      * This will set domain down so that DLT and DMT state machine
      * will not try to add/remove services and send shutdown message

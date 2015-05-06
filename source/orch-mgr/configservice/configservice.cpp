@@ -65,6 +65,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void updateLocalDomainSite(const std::string& domainName, const std::string& newSiteName) {}
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
+    void startupLocalDomain(const std::string& domainName) {}
     void shutdownLocalDomain(const std::string& domainName) {}
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
@@ -224,6 +225,39 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         local->om_bcast_scavenger_cmd(cmd);
     }
 
+    void startupLocalDomain(boost::shared_ptr<std::string>& domainName)
+    {
+        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        if ( domainID <= 0 )
+        {
+            LOGERROR << "Local Domain not found: " << domainName;
+            
+            apiException( "Error starting Local Domain " + 
+                          *domainName + 
+                          ". Local Domain not found." );
+        }
+        
+        /*
+         * Currently (05/05/2015) we only have support for one Local Domain. 
+         * So the specified name is ignored. At some point we should be able 
+         * to look up the DomainContainer based on Domain ID (or name).
+         */
+        
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        try
+        {
+            domain->om_startup_domain();
+        }
+        catch(...) 
+        {
+            LOGERROR << "Orch Manager encountered exception while "
+                            << "processing startup local domain";
+            apiException( "Error starting up Local Domain " + 
+                          *domainName + 
+                          " Services. Broadcast startup failed." );        
+        }
+    }
+    
     /**
     * Shutdown the named Local Domain.
     *
@@ -234,12 +268,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         if (domainID <= 0) {
             LOGERROR << "Local Domain not found: " << domainName;
-            apiException("Error shutting down Local Domain " + *domainName + ". Local Domain not found.");
+            apiException( "Error shutting down Local Domain " + 
+                          *domainName + 
+                          ". Local Domain not found.");
         }
 
         /*
-         * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
-         * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+         * Currently (3/21/2015) we only have support for one Local Domain. 
+         * So the specified name is ignored. At some point we should be able 
+         * to look up the DomainContainer based on Domain ID (or name).
          */
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();

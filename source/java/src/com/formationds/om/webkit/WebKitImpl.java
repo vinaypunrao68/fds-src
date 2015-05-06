@@ -153,6 +153,12 @@ public class WebKitImpl {
                                             .api(),
                           authorizer,
                           t ) );
+        
+        authenticate( HttpMethod.GET, "/api/config/volumes/presets/qos",
+        			  ( t ) -> new ListQosPresets() );
+        
+        authenticate( HttpMethod.GET, "/api/config/volumes/presets/timeline",
+  			  		  ( t ) -> new ListTimelinePresets() );        
 
         fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid",
                       ( t ) -> new ShowToken( configAPI,
