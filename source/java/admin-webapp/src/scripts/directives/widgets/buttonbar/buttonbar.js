@@ -6,11 +6,15 @@ angular.module( 'form-directives' ).directive( 'buttonBar', function(){
         transclude: false,
         templateUrl: 'scripts/directives/widgets/buttonbar/buttonbar.html',
         // buttons [{label: <>, value: <>}...]
-        scope: { buttons: '=', selected: '=ngModel', disabled: '=?' },
+        scope: { buttons: '=', selected: '=ngModel', disabled: '=?', label: '@' },
         controller: function( $scope ){
             
             if ( !angular.isDefined( $scope.disabled ) ){
                 $scope.disabled = false;
+            }
+            
+            if ( !angular.isDefined( $scope.label ) ){
+                $scope.label = 'label';
             }
             
             $scope.selectButton = function( button ){
