@@ -1811,9 +1811,14 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
     fpi::FDSP_NotifyVolFlag vol_flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
+    // TODO(Anna) Since DM migration is disabled and we are going to re-implement it
+    // do not set "volume will sync" flag; otherwise it has unexpected effect of
+    // volume queues being not active in DMs
+    /*
     if (vp->hasCommittedDMT()) {
       vol_flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
     }
+    */
     LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name()
              << "; will sync flag " << vp->hasCommittedDMT();
     OM_NodeAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol,
@@ -1832,6 +1837,32 @@ OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
                               (node, &cnt, om_send_vol_info);
     LOGDEBUG << "Dmt bcast Volume list :" << cnt;
     return cnt;
+}
+
+static void
+om_bcast_volumes(VolumeContainer::pointer om_volumes, NodeAgent::pointer node) {
+    fds_uint32_t cnt = 0;
+    om_volumes->vol_foreach<NodeAgent::pointer, fds_uint32_t *>
+                              (node, &cnt, om_send_vol_info);
+}
+
+void
+OM_NodeContainer::om_bcast_vol_list_to_services(fpi::FDSP_MgrIdType svc_type) {
+    if (svc_type == fpi::FDSP_DATA_MGR) {
+        dc_dm_nodes->agent_foreach<VolumeContainer::pointer>(om_volumes, om_bcast_volumes);
+        LOGDEBUG << "Sent Volume List to DM services successfully";
+    } else if (svc_type == fpi::FDSP_STOR_MGR) {
+        dc_sm_nodes->agent_foreach<VolumeContainer::pointer>(om_volumes, om_bcast_volumes);
+        LOGDEBUG << "Sent Volume List to SM services successfully";
+    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
+        // this method must only be called for either DM, SM or AM!
+        fds_verify(svc_type == fpi::FDSP_ACCESS_MGR);
+        dc_am_nodes->agent_foreach<VolumeContainer::pointer>(om_volumes, om_bcast_volumes);
+        LOGDEBUG << "Sent Volume List to AM services successfully";
+    } else {
+        LOGERROR << "Received request to bcast Volume List to invalid svc type.";
+    }
+
 }
 
 void
