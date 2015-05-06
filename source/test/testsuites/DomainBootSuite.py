@@ -104,7 +104,7 @@ def suiteConstruction(self, action="installbootactivate"):
             suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
         else:
             # Activate the domain with default services.
-            suite.addTest(testcases.TestFDSSysMgt.TestDomainActivate())
+            suite.addTest(testcases.TestFDSSysMgt.TestDomainActivateServices())
 
         suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the domain activate"))
 

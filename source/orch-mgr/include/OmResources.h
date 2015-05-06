@@ -497,6 +497,7 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_set_throttle_lvl(float level);
 
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
+    virtual void om_bcast_vol_list_to_services(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
@@ -598,7 +599,8 @@ class OM_NodeContainer : public DomainContainer
 class WaitNdsEvt
 {
  public:
-    explicit WaitNdsEvt(const NodeUuidSet& sms, const NodeUuidSet& dms)
+    WaitNdsEvt(const NodeUuidSet& sms,
+               const NodeUuidSet& dms)
             : sm_services(sms.begin(), sms.end()),
             dm_services(dms.begin(), dms.end())
             {}
@@ -759,6 +761,14 @@ class OM_NodeDomainMod : public Module
     virtual fds_bool_t om_rm_sm_configDB(const NodeUuid& uuid);
 
     /**
+     * Will call Domain state machine to move to UP state
+     * Noop if domain is already UP
+     * Domain state machine will wait for all services currently
+     * in the cluster map to come up, before moving to UP state
+     */
+    virtual Error om_start_domain_activate();
+
+    /**
      * Register node info to the domain manager.
      * @return ERR_OK if success, ERR_DUPLICATE if node already
      * registered; ERR_UUID_EXISTS if this is a new node, but
@@ -776,7 +786,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    Error om_activate_known_services( fpi::SvcInfo pm,
+    Error om_activate_known_services( const NodeUuid& node_uuid,
                                       fds_uint32_t delayTime );
 
     /**

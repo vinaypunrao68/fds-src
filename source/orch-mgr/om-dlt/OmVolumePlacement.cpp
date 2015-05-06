@@ -409,6 +409,34 @@ VolumePlacement::persistCommitedTargetDmt() {
     return err;
 }
 
+Error
+VolumePlacement::validateDmtOnDomainActivate(const NodeUuidSet& dm_services) {
+    Error err(ERR_OK);
+
+    if (dmtMgr->hasCommittedDMT()) {
+        std::set<fds_uint64_t> uniqueNodes;
+        dmtMgr->getDMT(DMT_COMMITTED)->getUniqueNodes(&uniqueNodes);
+        if (dm_services.size() == uniqueNodes.size()) {
+            LOGDEBUG << "DMT is valid!";
+            // but we must not have any target DMT at this point
+            // when we shutdown domain, we should have aborted any ongoing migrations
+            if (dmtMgr->hasTargetDMT()) {
+                LOGERROR << "Unexpected target DMT exists! We should have aborted "
+                         << " DMT update during domain shutdown!";
+                return ERR_NOT_IMPLEMENTED;
+            }
+        }
+    } else {
+        // there must be no DM services
+        if (dm_services.size() > 0) {
+            LOGERROR << "No DMT but " << dm_services.size() << " known DM services";
+            return ERR_PERSIST_STATE_MISMATCH;
+        }
+    }
+
+    return err;
+}
+
 Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
 {
     Error err(ERR_OK);

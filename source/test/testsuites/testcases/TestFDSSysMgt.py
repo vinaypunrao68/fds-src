@@ -18,7 +18,7 @@ from TestFDSServiceMgt import TestAMBringUp
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
 # services on each node.
-class TestDomainActivate(TestCase.FDSTestCase):
+class TestDomainActivateServices(TestCase.FDSTestCase):
     def __init__(self, parameters=None, services="dm,sm,am"):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
@@ -27,10 +27,10 @@ class TestDomainActivate(TestCase.FDSTestCase):
 
         self.passedServices = services
 
-    def test_DomainActivate(self):
+    def test_DomainActivateServices(self):
         """
         Test Case:
-        Attempt to activate a domain.
+        Attempt to activate services in a domain.
         """
 
         # Get the FdsConfigRun object for this test.
