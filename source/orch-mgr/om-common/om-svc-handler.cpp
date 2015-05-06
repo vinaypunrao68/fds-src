@@ -179,6 +179,36 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     }
 }
 
+
+/**
+ * Allows the pulling of the DMT. Returns DMT_VER_INVALID if there's no committed DMT yet.
+ */
+
+void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, boost::shared_ptr<int64_t>& nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	VolumePlacement* vp = om->om_volplace_mod();
+	std::string data_buffer;
+	DMTPtr dp = NULL;
+    if (vp->hasCommittedDMT()) {
+    	// TODO(neil) : remove debug msg?
+    	LOGWARN << "DEBUG should have DMT to send";
+    	dp = vp->getCommittedDMT();
+    	(*dp).getSerialized(data_buffer);
+
+    	FDSP_DMT_Type fdt;
+    	fdt.__set_dmt_version(vp->getCommittedDMTVersion());
+    	fdt.__set_dmt_data(data_buffer);
+
+    	dmt.__set_dmt_version(vp->getCommittedDMTVersion());
+    	dmt.__set_dmt_data(fdt);
+    } else {
+        LOGWARN << "Not sending DMT to new node, because no "
+                << " committed DMT yet";
+        dmt.__set_dmt_version(DMT_VER_INVALID);
+    }
+	return;
+}
+
 void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,
                               boost::shared_ptr< fpi::SvcUuid>& svcUuid)
 {

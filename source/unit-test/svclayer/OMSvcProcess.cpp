@@ -39,10 +39,17 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-
     void getSvcMap(std::vector<fpi::SvcInfo> & _return, boost::shared_ptr<int64_t>& nullarg) {
         // Your implementation goes here
         om_->getSvcMap(_return);
+    }
+
+    void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg)  {
+    	// Make compiler happy
+    }
+
+    void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
+    	// Nothing
     }
 
     virtual void getSvcInfo(fpi::SvcInfo & _return,

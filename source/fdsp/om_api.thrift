@@ -3,8 +3,10 @@
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
+include "dm_types.thrift"
 include "om_types.thrift"
 
+include "dm_api.thrift"
 include "common.thrift"
 include "svc_types.thrift"
 include "svc_api.thrift"
@@ -71,4 +73,11 @@ service OMSvc extends svc_api.PlatNetSvc {
   * @return
   */
   svc_types.SvcInfo getSvcInfo(1: common.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
+
+  /**
+  * @brief Called by other managers to pull the DMT
+  *
+  * @param NULL
+  */
+  dm_api.CtrlNotifyDMTUpdate getDMT(1: i64 nullarg);
 }
