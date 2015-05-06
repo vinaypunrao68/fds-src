@@ -22,7 +22,7 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
     def __init__(self, parameters=None, services="dm,sm,am"):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_DomainActivate,
+                                             self.test_DomainActivateServices,
                                              "Domain activation")
 
         self.passedServices = services
