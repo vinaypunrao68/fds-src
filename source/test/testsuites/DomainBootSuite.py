@@ -108,6 +108,10 @@ def suiteConstruction(self, action="installbootactivate"):
 
         suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the domain activate"))
 
+    if action.count("graceful_restart") > 0:
+        # This restarts the domain after graceful shutdown
+        suite.addTest(testcases.TestFDSSysMgt.TestDomainStartup())
+
     if ((action.count("boot") > 0) or (action.count("activate") > 0)) and (action.count("noverify") == 0):
         # Check that all nodes are up.
         nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)

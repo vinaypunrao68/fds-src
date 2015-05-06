@@ -288,6 +288,36 @@ class TestDomainShutdown(TestCase.FDSTestCase):
         else:
             return True
 
+# This class contains the attributes and methods to test
+# domain restart
+class TestDomainStartup(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DomainStartup,
+                                             "Domain startup")
+
+    def test_DomainStartup(self):
+        """
+        Test Case:
+        Attempt to execute domain-startup
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        self.log.info("Startup domain after shutdown.")
+
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain startup local) \"',
+                                            fds_tools=True)
+
+        if status != 0:
+            self.log.error("Domain startup returned status %d." % (status))
+            return False
+        else:
+            return True
+
 
 # This class contains the attributes and methods to test
 # domain create
