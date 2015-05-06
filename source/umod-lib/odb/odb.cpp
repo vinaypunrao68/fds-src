@@ -334,7 +334,7 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
     leveldb::Status status = env->CreateDir(fileName);
     if (!status.ok()) {
         GLOGNORMAL << " CreateDir failed for " << fileName << "status " << status.ToString() ;
-        err = Error(ERR_DISK_WRITE_FAILED);
+        err = ERR_DISK_WRITE_FAILED;
         return err;
     }
 
@@ -348,6 +348,8 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
             return err;
         }
         delete details;
+    } else {
+        err = ERR_OUT_OF_MEMORY;
     }
 
     *cenv = env;
