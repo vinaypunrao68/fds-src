@@ -761,14 +761,6 @@ class OM_NodeDomainMod : public Module
     virtual fds_bool_t om_rm_sm_configDB(const NodeUuid& uuid);
 
     /**
-     * Will call Domain state machine to move to UP state
-     * Noop if domain is already UP
-     * Domain state machine will wait for all services currently
-     * in the cluster map to come up, before moving to UP state
-     */
-    virtual Error om_start_domain_activate();
-
-    /**
      * Register node info to the domain manager.
      * @return ERR_OK if success, ERR_DUPLICATE if node already
      * registered; ERR_UUID_EXISTS if this is a new node, but
@@ -819,7 +811,10 @@ class OM_NodeDomainMod : public Module
                                   fds_bool_t remove_am);
 
     /**
-     * This will set domain up so that DLT and DMT state machine
+     * This will set domain up by calling Domain state machine to move
+     * to UP state. Noop if domain is already up.
+     * Domain state machine will wait for all services currently
+     * in the cluster map to come up, before moving to UP state
      */
     virtual Error om_startup_domain();
     

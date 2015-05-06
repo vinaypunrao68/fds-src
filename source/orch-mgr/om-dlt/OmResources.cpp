@@ -1254,7 +1254,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 }
 
 Error
-OM_NodeDomainMod::om_start_domain_activate()
+OM_NodeDomainMod::om_startup_domain()
 {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
@@ -1269,6 +1269,9 @@ OM_NodeDomainMod::om_start_domain_activate()
         LOGWARN << "Domain is already active, not going to activate";
         return ERR_DUPLICATE;
     }
+
+    LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
+              << " and other commands for the domain";
 
     // get SMs and DMs from cluster map
     for (ClusterMap::const_sm_iterator sm_cit = cm->cbegin_sm();
@@ -1886,23 +1889,6 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             }
         }
     }
-
-    return err;
-}
-
-Error
-OM_NodeDomainMod::om_startup_domain()
-{
-    Error err(ERR_OK);
-    if (!om_local_domain_up()) {
-        LOGWARN << "Domain is not up yet.. not going to shutdown, try again soon";
-        return ERR_NOT_READY;
-    }
-
-    LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
-              << " and other commands for the domain";
-    // TODO uncomment StartupEvt
-//    local_domain_event(StartupEvt());
 
     return err;
 }
