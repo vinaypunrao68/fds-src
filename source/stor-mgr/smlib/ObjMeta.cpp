@@ -318,7 +318,7 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     }
     obj_assoc_entry_t new_association;
     new_association.vol_uuid = vol_id;
-    new_association.ref_cnt = 1L;
+    new_association.ref_cnt = 1UL;
     new_association.vol_migration_reconcile_ref_cnt = 0L;
     obj_map.obj_refcnt++;
     assoc_entry.push_back(new_association);
@@ -770,6 +770,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                 return ERR_INVALID_ARG;
             }
             new_association.ref_cnt = volAssoc.volumeRefCnt;
+            new_association.vol_migration_reconcile_ref_cnt = 0L;
             assoc_entry.push_back(new_association);
         }
         obj_map.obj_num_assoc_entry = assoc_entry.size();
@@ -829,10 +830,10 @@ ObjMetaData::initializeDelReconcile(const ObjectID& objId, fds_volid_t volId)
     obj_assoc_entry_t new_association;
 
     new_association.vol_uuid = volId;
-    new_association.ref_cnt = 0;
-    new_association.vol_migration_reconcile_ref_cnt = -1;
-    obj_map.obj_refcnt = 0;
-    obj_map.obj_migration_reconcile_ref_cnt = -1;
+    new_association.ref_cnt = 0UL;
+    new_association.vol_migration_reconcile_ref_cnt = -1L;
+    obj_map.obj_refcnt = 0UL;
+    obj_map.obj_migration_reconcile_ref_cnt = -1L;
     assoc_entry.push_back(new_association);
     obj_map.obj_num_assoc_entry = assoc_entry.size();
 
@@ -851,8 +852,8 @@ ObjMetaData::isVolAssocReconciled(fds_uint64_t& totalVolRefCnt,
 
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
-        fds_assert((*it).vol_migration_reconcile_ref_cnt <= 0);
-        if ((*it).vol_migration_reconcile_ref_cnt == 0) {
+        fds_assert((*it).vol_migration_reconcile_ref_cnt <= 0L);
+        if ((*it).vol_migration_reconcile_ref_cnt == 0L) {
             ++reconciledVols;
         }
         totalReconcileVolRefCnt += (*it).vol_migration_reconcile_ref_cnt;
@@ -1063,16 +1064,14 @@ ObjMetaData::reconcileDeltaObjMetaData(const fpi::CtrlObjectMetaDataPropagate& o
 #endif
             int64_t newRefCnt;
             if (it->vol_migration_reconcile_ref_cnt < 0L) {
-            newRefCnt = it->vol_migration_reconcile_ref_cnt +
-                        volAssoc.volumeRefCnt;
+                newRefCnt = it->vol_migration_reconcile_ref_cnt + volAssoc.volumeRefCnt;
             } else {
-                newRefCnt = it->ref_cnt +
-                            volAssoc.volumeRefCnt;
+                newRefCnt = it->ref_cnt + volAssoc.volumeRefCnt;
             }
 
             if (newRefCnt >= 0) {
                 it->ref_cnt = newRefCnt;
-                it->vol_migration_reconcile_ref_cnt = 0;
+                it->vol_migration_reconcile_ref_cnt = 0L;
                 if (0L == newRefCnt) {
                     assoc_entry.erase(it);
                 }
