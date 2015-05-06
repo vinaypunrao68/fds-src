@@ -31,6 +31,7 @@ import TestFDSPolMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
 import TestIOCounter
+import SmChk
 
 def str_to_obj(astr):
     """
