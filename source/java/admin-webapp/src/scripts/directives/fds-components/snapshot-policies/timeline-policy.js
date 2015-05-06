@@ -490,6 +490,11 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
 
             });
             
+            $scope.$on( 'fds::timeline_init', function(){
+                
+                $scope.timelinePreset = $scope.presets[1];
+            });
+            
             $scope.$watch( 'timelinePreset', function( newVal, oldVal ){
                 
                 if ( newVal === oldVal || !angular.isDefined( newVal ) ){

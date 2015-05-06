@@ -158,7 +158,7 @@ public class ListTimelinePresets implements RequestHandler{
 		days.setRecurrenceRule( dayRule.toString() );
 		
 		SnapshotPolicy weeks = new SnapshotPolicy();
-		weeks.setRetention( 210L * oneday );
+		weeks.setRetention( 240L * oneday );
 		RecurrenceRule weekRule = (new RecurrenceRuleBuilder( iCalFrequency.WEEKLY ))
 			.byHour( zero )
 			.byMinute( zero )
