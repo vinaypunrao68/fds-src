@@ -508,6 +508,31 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                 else {
                     $scope.editing = false;
                     
+                    // if they already have an ID or name, we need to keep that in place
+                    for ( var j = 0; angular.isDefined( $scope.timelinePolicies ) && 
+                         angular.isDefined( $scope.timelinePolicies.policies ) && 
+                         j < $scope.timelinePolicies.policies.length; j++ ){
+                        
+                        var tPolicy = $scope.timelinePolicies.policies[j];
+                        
+                        if ( !angular.isDefined( tPolicy.name ) || tPolicy.name === '' || 
+                            tPolicy.name.indexOf( '_TIMELINE_' ) === -1 || 
+                            !angular.isDefined( tPolicy.id ) || tPolicy.id === -1 ){
+                            continue;
+                        }
+                        
+                        // we've already weeded out any policy that's not a timeline policy so now we only have 1 frequency of each
+                        for ( var i = 0; angular.isDefined( newVal.policies ) && i < newVal.policies.length; i++ ){
+                        
+                            var newPolicy = newVal.policies[i];
+
+                            if ( newPolicy.recurrenceRule.FREQ === tPolicy.recurrenceRule.FREQ ){
+                                newPolicy.name = tPolicy.name;
+                                newPolicy.id = tPolicy.id;
+                            }
+                        }// i
+                    }//j
+                    
                     $scope.timelinePolicies = newVal;
                     translatePoliciesToScreen();
                 }

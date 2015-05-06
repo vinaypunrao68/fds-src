@@ -39,6 +39,9 @@ public class ListTimelinePresets implements RequestHandler{
 		Numbers<Integer> zero = new Numbers<Integer>();
 		zero.add( 0 );
 		
+		Numbers<Integer> one = new Numbers<Integer>();
+		one.add( 1 );
+		
 		WeekDays<String> monday = new WeekDays<String>();
 		monday.add( "MO" );
 		
@@ -65,7 +68,7 @@ public class ListTimelinePresets implements RequestHandler{
 		RecurrenceRule monthRule = (new RecurrenceRuleBuilder( iCalFrequency.MONTHLY ))
 			.byHour( zero )
 			.byMinute( zero )
-			.byMonthDay( new Numbers<Integer>(1) )
+			.byMonthDay( one )
 			.build();
 		months.setRecurrenceRule( monthRule.toString() );
 		
@@ -74,8 +77,8 @@ public class ListTimelinePresets implements RequestHandler{
 		RecurrenceRule yearRule = (new RecurrenceRuleBuilder(iCalFrequency.YEARLY ))
 			.byHour( zero )
 			.byMinute( zero )
-			.byMonth( new Numbers<Integer>( 1 ) )
-			.byMonthDay( new Numbers<Integer>( 1 ) )
+			.byMonth( one )
+			.byMonthDay( one )
 			.build();
 		years.setRecurrenceRule( yearRule.toString() );
 		
@@ -91,6 +94,9 @@ public class ListTimelinePresets implements RequestHandler{
 		
 		Numbers<Integer> zero = new Numbers<Integer>();
 		zero.add( 0 );		
+		
+		Numbers<Integer> one = new Numbers<Integer>();
+		one.add( 1 );
 		
 		WeekDays<String> monday = new WeekDays<String>();
 		monday.add( "MO" );
@@ -118,7 +124,7 @@ public class ListTimelinePresets implements RequestHandler{
 		RecurrenceRule monthRule = (new RecurrenceRuleBuilder( iCalFrequency.MONTHLY ))
 			.byHour( zero )
 			.byMinute( zero )
-			.byMonthDay( new Numbers<Integer>(1) )
+			.byMonthDay( one )
 			.build();
 		months.setRecurrenceRule( monthRule.toString() );
 		
@@ -127,8 +133,8 @@ public class ListTimelinePresets implements RequestHandler{
 		RecurrenceRule yearRule = (new RecurrenceRuleBuilder(iCalFrequency.YEARLY ))
 			.byHour( zero )
 			.byMinute( zero )
-			.byMonth( new Numbers<Integer>( 1 ) )
-			.byMonthDay( new Numbers<Integer>( 1 ) )
+			.byMonth( one )
+			.byMonthDay( one )
 			.build();
 		years.setRecurrenceRule( yearRule.toString() );
 		
@@ -143,7 +149,10 @@ public class ListTimelinePresets implements RequestHandler{
 	private TimelinePreset buildMosts() throws ParseException {
 		
 		Numbers<Integer> zero = new Numbers<Integer>();
-		zero.add( 0 );		
+		zero.add( 0 );	
+		
+		Numbers<Integer> one = new Numbers<Integer>();
+		one.add( 1 );
 		
 		WeekDays<String> monday = new WeekDays<String>();
 		monday.add( "MO" );
@@ -171,7 +180,7 @@ public class ListTimelinePresets implements RequestHandler{
 		RecurrenceRule monthRule = (new RecurrenceRuleBuilder( iCalFrequency.MONTHLY ))
 			.byHour( zero )
 			.byMinute( zero )
-			.byMonthDay( new Numbers<Integer>(1) )
+			.byMonthDay( one )
 			.build();
 		months.setRecurrenceRule( monthRule.toString() );
 		
@@ -180,8 +189,8 @@ public class ListTimelinePresets implements RequestHandler{
 		RecurrenceRule yearRule = (new RecurrenceRuleBuilder(iCalFrequency.YEARLY ))
 			.byHour( zero )
 			.byMinute( zero )
-			.byMonth( new Numbers<Integer>( 1 ) )
-			.byMonthDay( new Numbers<Integer>( 1 ) )
+			.byMonth( one )
+			.byMonthDay( one )
 			.build();
 		years.setRecurrenceRule( yearRule.toString() );
 		
