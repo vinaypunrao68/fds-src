@@ -129,13 +129,6 @@ void SvcProcess::registerSvcProcess()
 {
     LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
     std::vector<fpi::SvcInfo> svcMap;
-    // TODO(neil) - remove these test variables
-    DMTManager dmtm;
-    DLTManager dltm;
-    DLT const *dltp = NULL;
-    ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate test;
-    ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate dlt_test;
-    int64_t nullarg = 0;
 
     do {
         try {
@@ -146,21 +139,6 @@ void SvcProcess::registerSvcProcess()
 
             omSvcRpc->registerService(svcInfo_);
             LOGNOTIFY << "registerService() call completed";
-
-            omSvcRpc->getDMT(test, nullarg);
-            // TODO(neil) : need to work out API and deserialize the test data
-            // into the right DMT instance.
-            dmtm.addSerializedDMT(test.dmt_data.dmt_data, DMT_TARGET);
-            LOGNOTIFY << "NEIL DEBUG: added DMT data completed... version: " << dmtm.getTargetVersion();
-
-            omSvcRpc->getDLT(dlt_test, nullarg);
-            dltm.addSerializedDLT(dlt_test.dlt_data.dlt_data, NULL);
-            dltp = dltm.getDLT(0);
-            if (!dltp) {
-            	LOGNOTIFY << "NEIL DEBUG: added DLT data completed... versions: 0";
-            } else {
-            	LOGNOTIFY << "NEIL DEBUG: added DLT data completed... versions:" << dltp->getVersion();
-            }
 
             omSvcRpc->getSvcMap(svcMap, 0);
             LOGNOTIFY << "got service map.  size: " << svcMap.size();

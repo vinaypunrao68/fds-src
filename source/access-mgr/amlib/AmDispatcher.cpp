@@ -74,15 +74,15 @@ AmDispatcher::start() {
 
         // TODO(bszmyd): Thu 26 Mar 2015 02:39:33 PM PDT
         // Shouldn't be using .get() on a unique_ptr, fix this
-		StatsCollector::singleton()->registerOmClient(om_client.get());
-		fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
-		fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
-		if (print_qos_stats) {
-			StatsCollector::singleton()->enableQosStats("AM");
-		}
-		if (!disableStreamingStats) {
-			StatsCollector::singleton()->startStreaming(nullptr, nullptr);
-		}
+	StatsCollector::singleton()->registerOmClient(om_client.get());
+	fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
+	fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
+	if (print_qos_stats) {
+	    StatsCollector::singleton()->enableQosStats("AM");
+	}
+	if (!disableStreamingStats) {
+	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
+	}
     }
 }
 

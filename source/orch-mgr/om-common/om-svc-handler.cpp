@@ -180,7 +180,7 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 }
 
 /**
- * Allows the pulling of the DMT. Returns DMT_VER_INVALID if there's no committed DMT yet.
+ * Allows the pulling of the DLT. Returns DLT_VER_INVALID if there's no committed DLT yet.
  */
 
 void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, boost::shared_ptr<int64_t>& nullarg) {
@@ -189,13 +189,13 @@ void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, bo
 	std::string data_buffer;
 	DLT const *dtp = NULL;
 	FDSP_DLT_Data_Type dlt_val;
-	if (dp->getLatestDltVersion() == DLT_VER_INVALID) {
-        LOGWARN << "Not sending DLT to new node, because no "
+	if (!(dp->getCommitedDlt())){
+		LOGDEBUG << "Not sending DLT to new node, because no "
                 << " committed DLT yet";
         dlt.__set_dlt_version(DLT_VER_INVALID);
 
 	} else {
-		LOGWARN << "DEBUG should have DLT to send";
+		LOGDEBUG << "Should have DLT to send";
 		dtp = dp->getCommitedDlt();
 		dtp->getSerialized(data_buffer);
 		dlt.__set_dlt_version(dp->getCommitedDltVersion());
@@ -214,9 +214,8 @@ void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, bo
 	std::string data_buffer;
 	DMTPtr dp = NULL;
     if (vp->hasCommittedDMT()) {
-    	// TODO(neil) : remove debug msg?
-    	LOGWARN << "DEBUG should have DMT to send";
-    	dp = vp->getCommittedDMT();
+    	DMTPtr dp = vp->getCommittedDMT();
+    	LOGDEBUG << "Should have DMT to send";
     	(*dp).getSerialized(data_buffer);
 
     	FDSP_DMT_Type fdt;
@@ -226,7 +225,7 @@ void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, bo
     	dmt.__set_dmt_version(vp->getCommittedDMTVersion());
     	dmt.__set_dmt_data(fdt);
     } else {
-        LOGWARN << "Not sending DMT to new node, because no "
+        LOGDEBUG << "Not sending DMT to new node, because no "
                 << " committed DMT yet";
         dmt.__set_dmt_version(DMT_VER_INVALID);
     }
