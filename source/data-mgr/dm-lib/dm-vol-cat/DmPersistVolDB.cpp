@@ -117,7 +117,8 @@ Error DmPersistVolDB::copyVolDir(const std::string & destName) {
 }
 
 Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
-    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+    const BlobObjKey key(VOL_META_ID, BLOB_META_INDEX);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = catalog_->Query(keyRec, &value);
@@ -253,7 +254,8 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
 }
 
 Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
-    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+    const BlobObjKey key(VOL_META_ID, BLOB_META_INDEX);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = volDesc.getSerialized(value);
