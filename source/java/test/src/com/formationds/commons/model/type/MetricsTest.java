@@ -138,7 +138,7 @@ public class MetricsTest {
     for( final VolumeDatapoint vdp : DATAPOINTS ) {
       try {
         if( vdp != null ) {
-          Metrics.byMetadataKey( vdp.getKey() );
+          Metrics.lookup( vdp.getKey() );
         }
       } catch( UnsupportedMetricException e ) {
         e.printStackTrace();
@@ -150,7 +150,7 @@ public class MetricsTest {
   @Test
   public void failTest() {
     try {
-      Metrics.byMetadataKey( "Unknown Metric Name" );
+      Metrics.lookup( "Unknown Metric Name" );
       Assert.fail( "Excepted to fail, but was successful!" );
     } catch( UnsupportedMetricException ignore ) {
       // thrown exception is expected in this junit test

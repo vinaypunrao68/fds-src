@@ -7,9 +7,7 @@ package com.formationds.commons.model.type;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.i18n.ModelResource;
 
-import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.List;
 
 /**
  * @author ptinius
@@ -86,9 +84,11 @@ public enum Metrics {
     }
     
     /**
-     * Takes a string and checks it against both the name and the 
-     * @param aValue
-     * @return
+     * Takes a string and checks it against both the name and the metadata key
+     *
+     * @param aValue the value to check
+     *
+     * @return true if the value matches either the name or the key, ignoring case
      */
     public boolean matches( String aValue ) {
     	
@@ -96,20 +96,22 @@ public enum Metrics {
     }
 
     /**
+     * Lookup the metric by the name or the metadata key name.  This does a case-insensitive comparison
+     * against the metadata key and the metric enum name
+     *
      * @param metadataKey the case sensitive {@link String} representing the
-     *                    metadata key name
+     *                    metric name OR the metadata key name
      *
      * @return Returns {@link com.formationds.commons.model.type.Metrics}
      * associated with {@code metadataKey}
      *
-     * @throws UnsupportedMetricException if the the {@code metadataKey} is not
-     *                                    found
+     * @throws UnsupportedMetricException if the the {@code metadataKey} is not found
      */
-    public static Metrics byMetadataKey( final String metadataKey )
+    public static Metrics lookup( final String metadataKey )
         throws UnsupportedMetricException {
+        String tmdk = metadataKey.trim();
         for( final Metrics m : values() ) {
-            if( m.key()
-                 .equals( metadataKey ) ) {
+            if( m.matches( tmdk ) ) {
                 return m;
             }
         }

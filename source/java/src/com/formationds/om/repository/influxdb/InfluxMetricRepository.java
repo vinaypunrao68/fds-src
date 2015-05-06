@@ -76,9 +76,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     /**
-     * @param url
-     * @param adminUser
-     * @param adminCredentials
+     * @param url the url
+     * @param adminUser the admin user
+     * @param adminCredentials the credentials
      */
     public InfluxMetricRepository( String url, String adminUser, char[] adminCredentials ) {
         super( url, adminUser, adminCredentials );
@@ -209,9 +209,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     /**
      * Convert an influxDB return type into VolumeDatapoints that we can use
      *
-     * @param series
+     * @param series the series to convert
      *
-     * @return
+     * @return the list of volume data points from the series
      */
     protected List<IVolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
 
@@ -232,9 +232,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         for ( Map<String, Object> row : rowList ) {
 
             // get the timestamp
-            Object timestampO = null;
-            Object volumeIdO = null;
-            Object volumeNameO = null;
+            Object timestampO;
+            Object volumeIdO;
+            Object volumeNameO;
 
             try {
                 timestampO = row.get( getTimestampColumnName() );
@@ -258,7 +258,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 // If we run across a column for metadata we just skip it.
                 // we're only interested in the stats columns at this point
                 try {
-                    if ( key.equals( getTimestampColumnName() ) ||
+                    if ( super.isTimestampColumn( key ) ||
+                         super.isSequenceColumn( key ) ||
                          key.equals( getVolumeIdColumnName().get() ) ||
                          key.equals( getVolumeNameColumnName().get() ) ||
                          key.equals( getVolumeDomainColumnName().get() ) ||
