@@ -870,6 +870,59 @@ OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
     }
 }
 
+// unregister_service
+// ------------------
+//
+void
+OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
+{
+    LOGDEBUG << "Will deactivate service " << svc_type;
+
+    // we are just deactivating the service during this run, so no
+    // need to update configDB
+
+    // Here we are reading the node info from DB, modifying a service info
+    // within the node info, and storing it. Have to do it under the lock
+    // since multiple threads can be modifying same node info (e.g. removing
+    // different services to it).
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
+    switch (svc_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            if (activeSmAgent) {
+                LOGDEBUG << "Will deactivate SM service " << std::hex
+                         << (activeSmAgent->get_uuid()).uuid_get_val() << std::dec;
+                activeSmAgent = nullptr;
+            } else {
+                LOGDEBUG << "SM service already not active on platform " << std::hex
+                         << get_uuid().uuid_get_val() << std::dec;
+            }
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            if (activeDmAgent) {
+                LOGDEBUG << "Will deactivate DM service " << std::hex
+                         << (activeDmAgent->get_uuid()).uuid_get_val() << std::dec;
+                activeDmAgent = nullptr;
+            } else {
+                LOGDEBUG << "DM service already not active on platform " << std::hex
+                         << get_uuid().uuid_get_val() << std::dec;
+            }
+            break;
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
+            if (activeAmAgent) {
+                LOGDEBUG << "Will deactivate AM service " << std::hex
+                         << (activeAmAgent->get_uuid()).uuid_get_val() << std::dec;
+                activeAmAgent = nullptr;
+            } else {
+                LOGDEBUG << "AM service already not active on platform " << std::hex
+                         << get_uuid().uuid_get_val() << std::dec;
+            }
+            break;
+        default:
+            LOGWARN << "Unknown service type " << svc_type << ". Did we add a new"
+                    << " service type? If so, update this method";
+    };
+}
+
 // send_activate_services
 // -----------------------
 //
@@ -1054,9 +1107,45 @@ OM_PmAgent::send_deactivate_services(fds_bool_t deactivate_sm,
 
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::DeactivateServicesMsg), deactivateMsg);
+    req->onResponseCb(std::bind(&OM_PmAgent::send_deactivate_services_resp, this,
+                                deactivate_sm, deactivate_dm, deactivate_am,
+                                std::placeholders::_1, std::placeholders::_2,
+                                std::placeholders::_3));
+    req->setTimeoutMs(10000);
     req->invoke();
 
     return err;
+}
+
+void
+OM_PmAgent::send_deactivate_services_resp(fds_bool_t deactivate_sm,
+                                          fds_bool_t deactivate_dm,
+                                          fds_bool_t deactivate_am,
+                                          EPSvcRequest* req,
+                                          const Error& error,
+                                          boost::shared_ptr<std::string> payload) {
+    LOGNORMAL << "ACK for deactivate services for node" << get_node_name()
+              << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+              << " deactivate am ? " << deactivate_am
+              << " deactivate sm ? " << deactivate_sm
+              << " deactivate dm ? " << deactivate_dm
+              << " " << error;
+    if (error.ok()) {
+        // deactivate services on platform agent
+        if (deactivate_sm) {
+            handle_deactivate_service(FDS_ProtocolInterface::FDSP_STOR_MGR);
+        }
+        if (deactivate_dm) {
+            handle_deactivate_service(FDS_ProtocolInterface::FDSP_DATA_MGR);
+        }
+        if (deactivate_am) {
+            handle_deactivate_service(FDS_ProtocolInterface::FDSP_ACCESS_MGR);
+        }
+    } else {
+        LOGERROR << "Failed to deactivate services on node " << get_node_name()
+                 << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+                 << " not updating local state of PM agent .... " << error;
+    }
 }
 
 
