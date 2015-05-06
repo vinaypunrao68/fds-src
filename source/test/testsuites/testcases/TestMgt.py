@@ -110,7 +110,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         else:
             action = "install-boot-activate"
 
-        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
+        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or\
+               (action.count("graceful_restart") > 0):
             # Start this domain as indicated by the action.
             domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainBootSuite)
