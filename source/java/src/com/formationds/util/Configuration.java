@@ -18,12 +18,10 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 public class Configuration {
     public static final String KEYSTORE_PATH = "fds.ssl.keystore_path";
@@ -118,19 +116,19 @@ public class Configuration {
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
 //      properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{yyyy-MM-dd'T'hh:mm:ss.SSSSSS} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 
     private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
-        Calendar cal = Calendar.getInstance();
-        cal.add(Calendar.DATE, 1);
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        String date = dateFormat.format(cal.getTime());
+        TimeZone timeZone = TimeZone.getTimeZone("UTC");
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        dateFormat.setTimeZone(timeZone);
+        String iso = dateFormat.format(new Date());
 
-        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log"+"-"+date).toAbsolutePath();
+        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log"+"-"+iso).toAbsolutePath();
         properties.put("log4j.rootLogger", "FATAL, rolling");
         properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
@@ -139,8 +137,8 @@ public class Configuration {
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
 //      properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
 //      properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{dd MMM yyyy HH:mm:ss.SSS z} - %p %c - %m%n");
-//     TODO: use trace id in logs Follow @aaron's log standards
-        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
+//     TODO: use trace id in logs follow log standards from fds wiki page
+               properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{yyyy-MM-dd'T'hh:mm:ss.SSSSSS} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
