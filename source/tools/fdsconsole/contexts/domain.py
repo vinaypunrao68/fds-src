@@ -101,7 +101,7 @@ class DomainContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('domain_name', help="Name of the Local Domain to be started.")
-    def shutdown(self, domain_name):
+    def startup(self, domain_name):
         """
         Startup the Local Domain.
         """
