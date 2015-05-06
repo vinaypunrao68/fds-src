@@ -1890,6 +1890,23 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
     return err;
 }
 
+Error
+OM_NodeDomainMod::om_startup_domain()
+{
+    Error err(ERR_OK);
+    if (!om_local_domain_up()) {
+        LOGWARN << "Domain is not up yet.. not going to shutdown, try again soon";
+        return ERR_NOT_READY;
+    }
+
+    LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
+              << " and other commands for the domain";
+    // TODO uncomment StartupEvt
+//    local_domain_event(StartupEvt());
+
+    return err;
+}
+
 // om_shutdown_domain
 // ------------------------
 //
