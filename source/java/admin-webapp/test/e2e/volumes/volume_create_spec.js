@@ -349,7 +349,7 @@ describe( 'Testing volume creation permutations', function(){
                 settings: [
                     { predicate: 'Kept', value: 'for 2 days' },
                     { predicate: 'at 12am', value: 'for 30 days' },
-                    { predicate: 'Mondays', value: 'for 240 days' },
+                    { predicate: 'Mondays', value: 'for 210 days' },
                     { predicate: 'First day of the month', value: 'for 2 years' },
                     { predicate: 'January', value: 'for 15 years' }
                 ]

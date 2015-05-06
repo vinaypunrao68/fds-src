@@ -215,107 +215,126 @@ mockVolume = function(){
         
         volService.getSnapshotPolicyPresets = function( callback, failure ){
             
-            var presets = [
-                {
-                    commitLogRetention: 86400,
-                    name: 'Sparse Coverage',
-                    policies: [
-                        {
-                            recurrenceRule: {
-                              FREQ: 'DAILY'
-                            },
-                            retention: 172800
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'WEEKLY',
-                                BYDAY: [
-                                    'MO'
-                                ]
-                            },
-                            retention: 604800
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'MONTHLY'
-                                },
-                            retention: 7776000
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'YEARLY'
-                            },
-                            retention: 63244800 
-                        }
-                    ]
+            var presets = [{
+                commitLogRetention: 86400,
+                name: 'Sparse Coverage',
+                policies: [{
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retention: 172800
                 },
                 {
-                    commitLogRetention: 86400,
-                    name: 'Standard',
-                    policies: [
-                        {
-                            recurrenceRule: {
-                                FREQ: 'DAILY'
-                            },
-                            retention: 604800
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'WEEKLY',
-                                BYDAY: [
-                                    'MO'
-                                ]
-                            },
-                            retention: 7776000
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'MONTHLY'
-                            },
-                            retention: 15552000
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'YEARLY'
-                            },
-                            retention: 158112000 
-                        }
-                    ]
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retention: 604800
                 },
                 {
-                    commitLogRetention: 86400,
-                    name: 'Dense Coverage',
-                    policies: [
-                        {
-                            recurrenceRule: {
-                                FREQ: 'DAILY'
-                            },
-                            retention: 2592000
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'WEEKLY',
-                                BYDAY: [
-                                    'MO'
-                                ]
-                            },
-                            retention: 18144000
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'MONTHLY'
-                            },
-                            retention: 63244800 
-                        },
-                        {
-                            recurrenceRule: {
-                                FREQ: 'YEARLY'
-                            },
-                            retention: 474336000 
-                        }
-                    ]
-                }
-            ];
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retention: 7776000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retention: 63244800
+                }]
+            },
+            {
+                commitLogRetention: 86400,
+                name: 'Standard',
+                policies: [{
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retention: 604800
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retention: 7776000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retention: 15552000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retention: 158112000
+                }]
+            },
+            {
+                commitLogRetention: 172800,
+                name: 'Dense Coverage',
+                policies: [{
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retention: 2592000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retention: 18144000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retention: 63244800
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retention: 474336000
+                }]
+            }];
             
             if ( angular.isFunction( callback ) ) {
                 callback( presets );
