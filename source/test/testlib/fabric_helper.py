@@ -16,8 +16,8 @@ class FdsFabricHelper():
     def __init__(self, fds_service, fds_node):
 	#env.user='root'
 	#env.password='passwd'
-	env.user='hlim'
-	env.password='Testlab'
+	env.user='root'
+	env.password='passwd'
 	env.host_string=fds_node
 	self.node_service=fds_service
 	self.fds_bin = '/fds/bin'

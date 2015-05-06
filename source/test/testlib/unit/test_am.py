@@ -23,6 +23,7 @@ class TestAM(unittest.TestCase):
 
 	def _test_kill(self):
 		#am_obj = am.am_service('10.3.64.96')
+		pdb.set_trace()
 		am_obj = am.am_service('127.0.0.1')
 		am_obj.kill()
 
@@ -30,8 +31,8 @@ class TestAM(unittest.TestCase):
 		#am_obj = am.am_service('10.3.64.96')
 		#am_obj = am.am_service('10.3.115.157')
 		#am_obj.remove('10.3.115.157')
-		am_obj = am.am_service('10.2.10.206')
-		am_obj.remove('10.2.10.206')
+		am_obj = am.am_service('127.0.0.1')
+		am_obj.remove()
 
 	def _test_stop(self):
 		#am_obj = am.am_service('10.3.64.96')

@@ -10,13 +10,13 @@ import pdb
 from StringIO import StringIO
 import re
 import fabric_helper
-import pdb
 import logging
 import random
 import time
 
-env.user='hlim'
-env.password='Testlab'
+#Need to get this from config.py file
+env.user='root'
+env.password='passwd'
 
 random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
@@ -28,44 +28,50 @@ class am_service(object):
 		env.host_string = am_ip
 		self.fh = fabric_helper.FdsFabricHelper('AMAgent', am_ip)
 		self.fds_log = '/tmp'
-		#self.fds_bin = '/fds/bin'
+		self.fds_bin = '/fds/bin'
 		#self.fdsconsole= '/fds/sbin/fdsconsole.py'
 		#self.fds_sbin = '/fds/sbin'
-		self.fds_sbin= '/home/hlim/projects/fds-src/source/tools'
 		self.fdsconsole= '{}/fdsconsole.py'.format(self.fds_sbin)
-		self.am_pid = self.fh.get_service_pid()
-		self.platform_uuid = self.fh.get_platform_uuid(self.am_pid)
-		pdb.set_trace()
+		self.fds_sbin= '/home/hlim/projects/fds-src/source/tools'
 		self.am_port = 7000
 		self.fds_dir = '/fds'
 
 	def start(self):
-		#run('ifconfig eth0')
+		'''
+		Start AM service
+		'''
+
 		with cd('{}'.format(self.fds_sbin)):
-			sudo('bash -c \"(nohup ./AMAgent --fds-root={} 0<&- &> {}/cli.out &) \"'.format(self.fds_dir, self.fds_log))
+			cmd_status = sudo('bash -c \"(nohup ./AMAgent --fds-root={} 0<&- &> {}/cli.out &) \"'.format(self.fds_dir, self.fds_log))
+
+			if cmd_status.return_code == 0:
+				log.info('AMAgent service started')
+
+			else:
+				log.warn('Failed to start AMAgent service: cmd_status={}'.format(cmd_status))
+			
 
 	def stop(self):
 		'''
-		stop am service
+		Stop AM service
 		'''
-
-		#run('pkill -9 bare_am')
-		output = run('ps auxw | grep -i amagent')
+		#sudo('pkill -9 bare_am')
+		output = sudo('ps auxw | grep -i amagent')
 		if re.search('170483924568920640', output):
 			print 'true'
-		#run('ls -ltr')
 			
 	def kill(self):
 		'''
-		Kill am service
+		Kill AM service
 		'''
 
-		if self.am_pid > 0:
+		am_pid = self.fh.get_service_pid()
+		if am_pid > 0:
 			log.info('Killing AMAgent service')
-			cmd_status= sudo('kill -9 {}'.format(self.am_pid))
+			cmd_status= sudo('kill -9 {}'.format(am_pid))
 
 			if cmd_status.return_code == 0:
-				log.info('Killed AMAgent service')
+				log.info('Successfully killed AMAgent service')
 
 			else:
 				log.warn('Failed to kill AMAgent service {}'.format(cmd_status))
@@ -73,19 +79,17 @@ class am_service(object):
 		else:
 			log.info('AMAgent service is not running.')
 
-	def remove(self, node_ip):
+	def remove(self):
 		'''
-		Remove am service
+		Remove AM service
 		'''
 		
-		pdb.set_trace()
-
 		if exists('{}'.format(self.fdsconsole)):
-			node_uuid = self.fh.get_node_uuid(node_ip)
+			node_uuid = self.fh.get_node_uuid(env.host_string)
+			print 'node_uuid = {}'.format(node_uuid)
 			if node_uuid != None:
-				pdb.set_trace()
 				with cd('{}'.format(self.fds_sbin)):
-					sudo('./fdsconsole.py service removeService {} am > {}/cli.out 2>&1'.format(self.node_uuid, self.fds_log))
+					sudo('./fdsconsole.py service removeService {} am > {}/cli.out 2>&1'.format(node_uuid, self.fds_log))
 			else:
 				log.warn('Unable to locate node_uuid for AMAgent service: node_uuid={}'.format(node_uuid))
 		else:
@@ -93,14 +97,14 @@ class am_service(object):
 				
 	def add(self):
 		'''
-		Add am service
+		Add AM service
 		'''
 
 		if exists('{}'.format(self.fdsconsole)):
-			node_uuid = self.fh.get_node_uuid(node_ip)
+			node_uuid = self.fh.get_node_uuid(env.host_string)
 			if node_uuid != None:
 				with cd('{}'.format(self.fds_sbin)):
-					sudo('./fdsconsole.py service addService {} am > {}/cli.out 2>&1'.format(self.node_uuid, self.fds_log))
+					sudo('./fdsconsole.py service addService {} am > {}/cli.out 2>&1'.format(node_uuid, self.fds_log))
 
 			else:
 				log.warn('Unable to locate node_uuid for AMAgent service: node_uuid={}'.format(node_uuid))
