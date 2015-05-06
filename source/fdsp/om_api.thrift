@@ -80,4 +80,11 @@ service OMSvc extends svc_api.PlatNetSvc {
   * @param NULL
   */
   dm_api.CtrlNotifyDMTUpdate getDMT(1: i64 nullarg);
+
+  /**
+  * @brief Called by other managers to pull the DLT
+  *
+  * @param NULL
+  */
+  svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg);
 }

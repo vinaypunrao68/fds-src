@@ -34,6 +34,10 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
+    virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg) override {
+    	// Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
     virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg) override {
     	// Don't do anything here. This stub is just to keep cpp compiler happy
     	return;
@@ -48,6 +52,7 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
      * RPC overrides from fpi::OMSvcIf
      */
     virtual void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo) override;
+    virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
     virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;

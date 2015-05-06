@@ -44,6 +44,14 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
         om_->getSvcMap(_return);
     }
 
+    void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg) {
+    	// Nothing
+    }
+
+    void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
+    	// Nothing
+    }
+
     void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg)  {
     	// Make compiler happy
     }

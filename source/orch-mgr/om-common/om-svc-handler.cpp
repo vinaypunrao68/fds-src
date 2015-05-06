@@ -179,6 +179,30 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     }
 }
 
+/**
+ * Allows the pulling of the DMT. Returns DMT_VER_INVALID if there's no committed DMT yet.
+ */
+
+void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, boost::shared_ptr<int64_t>& nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	DataPlacement *dp = om->om_dataplace_mod();
+	std::string data_buffer;
+	DLT const *dtp = NULL;
+	FDSP_DLT_Data_Type dlt_val;
+	if (dp->getLatestDltVersion() == DLT_VER_INVALID) {
+        LOGWARN << "Not sending DLT to new node, because no "
+                << " committed DLT yet";
+        dlt.__set_dlt_version(DLT_VER_INVALID);
+
+	} else {
+		LOGWARN << "DEBUG should have DLT to send";
+		dtp = dp->getCommitedDlt();
+		dtp->getSerialized(data_buffer);
+		dlt.__set_dlt_version(dp->getCommitedDltVersion());
+		dlt_val.__set_dlt_data(data_buffer);
+		dlt.__set_dlt_data(dlt_val);
+	}
+}
 
 /**
  * Allows the pulling of the DMT. Returns DMT_VER_INVALID if there's no committed DMT yet.
@@ -206,7 +230,6 @@ void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, bo
                 << " committed DMT yet";
         dmt.__set_dmt_version(DMT_VER_INVALID);
     }
-	return;
 }
 
 void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,

@@ -8,6 +8,7 @@
 
 #include <fds_process.h>
 #include <fds_dmt.h>
+#include <dlt.h>
 #include <fdsp/svc_types_types.h>
 #include <net/SvcServer.h>
 
