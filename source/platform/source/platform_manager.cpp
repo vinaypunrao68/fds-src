@@ -39,7 +39,7 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap(), m_childMonitor(NULL)
+        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap()
         {
 
         }
@@ -85,6 +85,17 @@ namespace fds
             std::vector<std::string>    args;
             pid_t                       pid;
             std::string                 command;
+            std::string                 procName;
+
+            try
+            {
+                procName = m_idToAppNameMap.at(processID);
+            }
+            catch (const std::out_of_range &error)
+            {
+                LOGERROR << "startProcess is unable to identify a process name for index value " << processID << ", " << error.what();
+                return -1;
+            }
 
             if (JAVA_AM == processID)
             {
@@ -102,7 +113,7 @@ namespace fds
             }
             else
             {
-                command = m_idToAppNameMap.at(processID);
+                command = procName;
             }
 
             // Common command line options
@@ -115,18 +126,17 @@ namespace fds
 
             if (pid > 0)
             {
-                LOGDEBUG << m_idToAppNameMap.at(processID) << " started by platformd as pid " << pid;
-                // add to pid list
+                LOGDEBUG << procName << " started by platformd as pid " << pid;
             }
             else
             {
-                LOGERROR << "fds_spawn_service() for " << m_idToAppNameMap.at(processID) << " FAILED to start by platformd with errno=" << errno;
+                LOGERROR << "fds_spawn_service() for " << procName << " FAILED to start by platformd with errno=" << errno;
             }
 
             return pid;
         }
 
-        bool PlatformManager::waitPid (pid_t const pid, long waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
+        bool PlatformManager::waitPid (pid_t const pid, uint64_t waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
         {
             int    status;
             pid_t  waitPidRC;
@@ -165,7 +175,7 @@ namespace fds
                     return true;
                 }
 
-                usleep (50000);
+                usleep (WAIT_PID_SLEEP_TIMER_MICROSECONDS);
                 clock_gettime (CLOCK_REALTIME, &timeNow);
             }
             while (timeNow.tv_sec < endTime.tv_sec || (timeNow.tv_sec <= endTime.tv_sec && timeNow.tv_nsec < endTime.tv_nsec));
@@ -175,15 +185,27 @@ namespace fds
 
         void PlatformManager::stopProcess (int id, bool haveLock)
         {
-            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (m_idToAppNameMap.at(id));
+            std::string    procName;
 
-            if (m_appPidMap.end() == mapIter)
+            try
             {
-                LOGERROR << "Unable to find pid for " << m_idToAppNameMap.at(id) << " in stopProcess()";
+                procName = m_idToAppNameMap.at(id);
+            }
+            catch (const std::out_of_range &error)
+            {
+                LOGERROR << "stopProcess is unable to identify a process name for index value " << id << ", " << error.what();
                 return;
             }
 
-            LOGDEBUG << "Preparing to stop " << m_idToAppNameMap.at(id) << " via kill(pid, SIGTERM)";
+            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (procName);
+
+            if (m_appPidMap.end() == mapIter)
+            {
+                LOGERROR << "Unable to find pid for " << procName << " in stopProcess()";
+                return;
+            }
+
+            LOGDEBUG << "Preparing to stop " << procName << " via kill(pid, SIGTERM)";
 
             pid_t pid = mapIter->second;
 
@@ -193,24 +215,24 @@ namespace fds
 
             if (rc < 0)
             {
-                LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
+                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
             }
 
             // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
-            if (rc < 0 || false == waitPid (pid, 500000000))   // 1/2 seconds (in nanoseconds
+            if (rc < 0 || false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
             {
                 rc = kill (pid, SIGKILL);
 
                 if (rc < 0)
                 {
-                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << "";
+                    LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << rc << "";
                 }
 
-                waitPid (pid, 500000000);           // 1/2 seconds (in nanoseconds
+                waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS);
 
                 if (rc < 0)
                 {
-                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << errno << "";
+                    LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << errno << "";
                 }
             }
 
@@ -228,13 +250,14 @@ namespace fds
 
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
+
             if (info.has_sm_service)
             {
                 pid = startProcess(STORAGE_MANAGER);
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(STORAGE_MANAGER);
+                    LOGCRITICAL << "Failed to start:  " << SM_NAME;
                 }
                 else
                 {
@@ -249,7 +272,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(DATA_MANAGER);
+                    LOGCRITICAL << "Failed to start:  " << DM_NAME;
                 }
                 else
                 {
@@ -265,7 +288,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(BARE_AM);
+                    LOGCRITICAL << "Failed to start:  " << BARE_AM_NAME;
                 }
                 else
                 {
@@ -275,7 +298,7 @@ namespace fds
 
                     if (pid < 2)
                     {
-                        LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(JAVA_AM);
+                        LOGCRITICAL << "Failed to start:  " << JAVA_AM_CLASS_NAME;
 
                         stopProcess (BARE_AM, true);
                     }
@@ -384,8 +407,10 @@ namespace fds
         {
             LOGDEBUG << "Starting thread for PlatformManager::childProcessMonitor()";
 
+#ifdef DEBUG
             uint32_t count = 0;
             uint32_t lastCount = 0;
+#endif
 
             while (true)
             {
@@ -399,29 +424,28 @@ namespace fds
                         lastCount = count;
                     }
 #endif
-                    std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.begin();
-
-                    while (m_appPidMap.end() != mapIter)
+                    for (auto mapIter = m_appPidMap.begin(); m_appPidMap.end() != mapIter;)
                     {
                         if (waitPid (mapIter->second, 1000, true))
                         {
                             m_appPidMap.erase (mapIter++);
-                            continue;
                         }
                         else
                         {
-                            mapIter++;
+                            ++mapIter;
                         }
                     }
                 }  // lock_guard context
 
-                usleep (500000);
+                usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
             }
         }
 
         void PlatformManager::run()
         {
-            m_childMonitor = new std::thread (&PlatformManager::childProcessMonitor, this);
+            std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
+
+            childMonitorThread.detach();
 
             while (1)
             {
