@@ -44,6 +44,6 @@ const uint32_t DISK_ALPHA_COUNT_SSD     = 2;
 const uint32_t DISK_ALPHA_COUNT_HDD     = 12;
 const uint32_t DISK_ALPHA_COUNT_HDD_MIN = 4;
 
-constexpr uint32_t DISK_MINIMUM_CAPACITY_GB   = 10;    // Enhance testability on VMs rather than real hardware
+constexpr uint32_t DISK_MINIMUM_CAPACITY_GB   = 10;
 
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_CONSTANTS_H_
