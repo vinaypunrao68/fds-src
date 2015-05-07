@@ -843,6 +843,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // We will update metadata with metadata sent to us from source SM
     ObjMetaData::ptr updatedMeta;
 
+    LOGMIGRATE << "Applyying Object: " << fds::logString(msg);
+
     // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
     //
     // If the metadata exists at this point, following matrix of operation is possible:
@@ -1089,8 +1091,10 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     }
 
     LOGDEBUG << "Applied object data/metadata to object store " << objId
-             << " delta from src SM " << fds::logString(msg)
-             << " updated meta " << *updatedMeta << " " << err;
+             << ": Delta from src SM " << fds::logString(msg)
+             << " >>> "
+             << " Updated meta " << *updatedMeta << " "
+             << " Error=" << err;
     return err;
 }
 
