@@ -14,8 +14,10 @@
         - post-install
 
 -   name: run fdsinstall step 3 - setup storage
+    environment:
+        PATH: /opt/fds-deps/embedded/sbin:{{ ansible_env.PATH }}
     shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "true")
     tags:
         - post-install
 
