@@ -227,6 +227,13 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     svcReqHandler_->asyncResp(header, payload);
 }
 
+void SvcRequestPool::postEmptyResponse(boost::shared_ptr<fpi::AsyncHdr> &header) {
+    header->msg_code = ERR_OK;
+    header->msg_type_id = FDSP_MSG_TYPEID(fpi::EmptyMsg); 
+    boost::shared_ptr<std::string> payload;
+    svcReqHandler_->asyncResp(header, payload);
+}
+
 LFMQThreadpool* SvcRequestPool::getSvcSendThreadpool()
 {
     return svcSendTp_.get();

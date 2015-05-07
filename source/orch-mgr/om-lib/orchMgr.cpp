@@ -408,6 +408,12 @@ bool OrchMgr::loadFromConfigDB() {
         return false;
     }
 
+    // load/create system volumes
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volContainer = local->om_vol_mgr();
+    volContainer->createSystemVolume();
+    volContainer->createSystemVolume(0);
+
     // keep the pointer in data placement module
     DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
     dp->setConfigDB(configDB);
