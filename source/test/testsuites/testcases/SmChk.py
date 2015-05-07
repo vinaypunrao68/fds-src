@@ -45,11 +45,9 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
         om_node = fdscfg.rt_om_node
 
         dlt_file = os.path.join(om_node.nd_conf_dict['fds_root'], 'var', 'logs', 'currentDLT')
-
         current_dlt = dlt.transpose_dlt(dlt.load_dlt(dlt_file))
 
         for node_uuid, tokens in current_dlt.items():
-
             # Setup stuff we'll want to check against
             num_checked_tokens = len(tokens)
 
@@ -57,7 +55,10 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
             tokens_str = ''.join(tokens_str.split())
 
             call = ' '.join(['./fdsconsole.py', 'smdebug', 'startSmchk', str(node_uuid), '--targetTokens', tokens_str])
-            om_node.nd_agent.exec_wait(call, fds_tools=True)
+            res = om_node.nd_agent.exec_wait(call, fds_tools=True)
+            if res != 0:
+                print "start smchk failed..."
+                return False
 
             # We'll want to search the SM log for this output:
             # Completed SM Integrity Check:
@@ -67,14 +68,17 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
             # TODO(brian): This will not work in a 'real' environment, only in simulated local env
             nodes = fdscfg.rt_obj.cfg_nodes
             for node in nodes:
-                if node.nd_uuid == node_uuid:
+                # Remember to subtract 1 from node_uuid because it's actually an SM svc uuid
+                if node.nd_uuid is not None and (int(node.nd_uuid, 0) == node_uuid - 1):
+                    print "FOUND NODE UUID, CHECKING LOGS..."
                     fds_dir = node.nd_conf_dict['fds_root']
                     log_files = os.listdir(fds_dir + "/var/logs")
                     for log_file in filter(lambda x: 'sm' in x, log_files):
                         result = smchk_re.findall(log_file)
-                        if result is not None and (result[-1].group('total_verified') == num_checked_tokens and
-                                                           result[-1].group('num_corrupted') == 0 and
-                                                           result[-1].group('ownership_mismatch') == 0):
+                        print "RESULT = {}".format(result)
+                        if result != [] and (result[-1].group('total_verified') == num_checked_tokens and
+                                                     result[-1].group('num_corrupted') == 0 and
+                                                     result[-1].group('ownership_mismatch') == 0):
                             # Now verify that we got what was expected
                             return True
 

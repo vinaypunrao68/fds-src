@@ -481,16 +481,16 @@ class FdsNodeConfig(FdsConfig):
                         break
 
             if (self.nd_uuid is None):
-                log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
-                log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
-                log.error("Results from service list:\n%s." % stdout)
+                print("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+                print("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
+                print("Results from service list:\n%s." % stdout)
                 status = -1
             else:
-                log.debug("Node %s has assigned name %s and UUID %s." %
+                print("Node %s has assigned name %s and UUID %s." %
                           (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
         else:
-            log.error("status = %s" % status)
-            log.error("Results from service list:\n%s." % stdout)
+            print("status = %s" % status)
+            print("Results from service list:\n%s." % stdout)
 
         return status
 
