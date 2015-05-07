@@ -2,6 +2,7 @@ from abstract_service import AbstractService
 from fds.utils.volume_converter import VolumeConverter
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.services.snapshot_service import SnapshotService
+from fds.utils.preset_converter import PresetConverter
 
 
 class VolumeService( AbstractService ):
@@ -147,4 +148,36 @@ class VolumeService( AbstractService ):
         '''
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/policies/", snapshot_policy_id, "/volumes")
-        return self.rest_helper().get( self.session, url )    
+        return self.rest_helper().get( self.session, url )  
+    
+    def get_timeline_presets(self):
+        '''
+        Get a list of timeline preset policies
+        '''
+        
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes/presets/timeline")
+        response = self.rest_helper.get( self.session, url )
+        
+        presets = []
+        
+        for j_preset in response:
+            preset = PresetConverter.build_timeline_from_json( j_preset )
+            presets.append( preset )
+            
+        return presets
+    
+    def get_qos_presets(self):
+        '''
+        Get a list of QoS preset policies
+        '''
+        
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes/presets/qos" )
+        response = self.rest_helper.get( self.session, url )
+        
+        presets = []
+        
+        for j_preset in response:
+            preset = PresetConverter.build_qos_preset_from_json( j_preset )
+            presets.append( preset )
+            
+        return presets  

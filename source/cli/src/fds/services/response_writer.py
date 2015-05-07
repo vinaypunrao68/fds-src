@@ -24,8 +24,7 @@ class ResponseWriter():
             return
         else:
             print tabulate.tabulate( data, headers=headers )
-            
-        print "\n"
+
         
     @staticmethod
     def writeJson( data ):
@@ -144,7 +143,10 @@ class ResponseWriter():
             ov = OrderedDict()
             
             ov["ID"] = policy.id
-            ov["Name"] = policy.name
+            
+            if ( policy.name != None and policy.name != "" ):
+                ov["Name"] = policy.name
+                
             ov["Retention"] = retentionValue
             ov["Recurrence Rule"] = RecurrenceRuleConverter.to_json( policy.recurrence_rule )
             
@@ -230,3 +232,38 @@ class ResponseWriter():
         #end of nodes for loop
         
         return results
+        
+    @staticmethod
+    def prep_qos_presets( presets):
+        '''
+        Prep a list of qos presets for tabular printing
+        '''
+        
+        results = []
+        
+        for preset in presets:
+            
+            ov = OrderedDict()
+            
+            iops_guarantee = preset.iops_guarantee
+            
+            if iops_guarantee == 0:
+                iops_guarantee = "None"
+                
+            iops_limit = preset.iops_limit
+            
+            if iops_limit == 0:
+                iops_limit = "Forever"
+            
+            ov["ID"] = preset.id
+            ov["Name"] = preset.name
+            ov["Priority"] = preset.priority
+            ov["IOPs Guarantee"] = iops_guarantee
+            ov["IOPs Limit"] = iops_limit
+            
+            results.append( ov )
+            
+        return results
+            
+        
+        
