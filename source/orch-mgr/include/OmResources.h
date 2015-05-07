@@ -544,9 +544,9 @@ class OM_NodeContainer : public DomainContainer
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
 
     // broadcast "deactivate services" message to all PMs in the domain
-    virtual void om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
-                                                   fds_bool_t deactivate_dm,
-                                                   fds_bool_t deactivate_am);
+    virtual fds_uint32_t om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
+                                                           fds_bool_t deactivate_dm,
+                                                           fds_bool_t deactivate_am);
 
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
@@ -690,6 +690,18 @@ struct ShutAckEvt
     Error error;  // error that came with ack
 };
 
+struct DeactAckEvt
+{
+    explicit DeactAckEvt(const Error& err) {
+        error = err;
+    }
+    std::string logString() const {
+        return "DeactAckEvt";
+    }
+
+    Error error;  // error that came with ack
+};
+
 class OM_NodeDomainMod : public Module
 {
   public:
@@ -712,6 +724,13 @@ class OM_NodeDomainMod : public Module
      * node events are put on hold until local domain is up.
      */
     static fds_bool_t om_local_domain_up();
+    /**
+     * Returns true when domain shutdown process finishes.
+     * Domain can be re-activated only when domain is in down
+     * state; When domain us up, and shutdown process starts,
+     * domain is not 'up' anymore but also in not 'down' state.
+     */
+    static fds_bool_t om_local_domain_down();
 
     /**
      * Accessors methods to retreive the local node domain.  Retyping it here to avoid
@@ -904,6 +923,7 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(NoPersistEvt const &evt);
     void local_domain_event(ShutdownEvt const &evt);
     void local_domain_event(ShutAckEvt const &evt);
+    void local_domain_event(DeactAckEvt const &evt);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
