@@ -7,7 +7,7 @@ class SnapshotPolicy():
     @author: nate
     '''
 
-    def __init__(self, a_name="", timeline_time=0, retention=0, an_id=-1, recurrence_rule=RecurrenceRule()):
+    def __init__(self, a_name="", timeline_time=0, retention=0, an_id=None, recurrence_rule=RecurrenceRule()):
         self.__recurrence_rule = recurrence_rule
         self.__name = a_name
         self.__retention = retention

@@ -21,6 +21,7 @@ class PresetConverter(object):
         qos.name = jsonString.pop("name", "UNKNOWN")
         qos.iops_guarantee = jsonString.pop("sla", qos.iops_guarantee)
         qos.iops_limit = jsonString.pop("limit", qos.iops_limit)
+        qos.priority = jsonString.pop("priority", qos.priority)
         
         return qos
     
@@ -31,7 +32,7 @@ class PresetConverter(object):
         '''
         
         timeline = TimelinePreset()
-        timeline.id = jsonString.pop("id", timeline.id)
+        timeline.id = jsonString.pop("uuid", timeline.id)
         timeline.name = jsonString.pop("name", "UNKNOWN")
         timeline.continuous_protection = jsonString.pop("commitLogRetention", timeline.continuous_protection)
         

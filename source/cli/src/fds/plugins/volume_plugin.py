@@ -9,6 +9,8 @@ import json
 import time
 from fds.utils.volume_validator import VolumeValidator
 from fds.utils.snapshot_converter import SnapshotConverter
+from fds.services.snapshot_policy_service import SnapshotPolicyService
+from fds.utils.snapshot_policy_converter import SnapshotPolicyConverter
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -39,6 +41,7 @@ class VolumePlugin( AbstractPlugin):
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
         
         self.create_list_command( self.__subparser )
+        self.create_list_snapshot_policies_command( self.__subparser )
         self.create_create_command( self.__subparser )
         self.create_delete_command( self.__subparser )
         self.create_list_snapshots_command(self.__subparser)
@@ -75,23 +78,36 @@ class VolumePlugin( AbstractPlugin):
         __listParser.set_defaults( func=self.list_volumes, format="tabular" )
         
 
+    def create_list_snapshot_policies_command(self, subparser):
+        '''
+        List all of the snapshot policies for a specified volume
+        '''
+        
+        __listSp_parser = subparser.add_parser( "list_snapshot_policies", help="List the snapshot policies for a specific volume.")
+        self.add_format_arg(__listSp_parser)
+        __listSp_parser.add_argument( self.arg_str + AbstractPlugin.volume_id_str, help="The ID of the volume you'd like to list the policies for.", required=True)
+        
+        __listSp_parser.set_defaults( func=self.list_snapshot_policies, format="tabular")
+
     def create_create_command(self, subparser):
         '''
         Create the parser for the volume creation command
         '''
                  
         __createParser = subparser.add_parser( "create", help="Create a new volume" )
-        __createParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
-        __createParser.add_argument( "-" + AbstractPlugin.data_str, help="JSON string representing the volume parameters desired for the new volume.  This argument will take precedence over all individual arguments.", default=None)
-        __createParser.add_argument( "-" + AbstractPlugin.name_str, help="The name of the volume", default=None )
-        __createParser.add_argument( "-" + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.", type=VolumeValidator.iops_limit, default=0, metavar="" )
-        __createParser.add_argument( "-" + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=0, metavar="" )
-        __createParser.add_argument( "-" + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.  Default value is 7.", type=VolumeValidator.priority, default=7, metavar="")
-        __createParser.add_argument( "-" + AbstractPlugin.type_str, help="The type of volume connector to use for this volume.", choices=["object", "block"], default="object")
-        __createParser.add_argument( "-" + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID_ONLY", "SSD_ONLY", "HDD_ONLY"], default="HDD_ONLY")
-        __createParser.add_argument( "-" + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
-        __createParser.add_argument( "-" + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
-        __createParser.add_argument( "-" + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.data_str, help="JSON string representing the volume parameters desired for the new volume.  This argument will take precedence over all individual arguments.", default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.name_str, help="The name of the volume", default=None )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.qos_preset_str, help="The ID of the quality of service preset you would like applied.  Take precedence over individually set items.", default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the timeline preset you would like applied.  This will cause snapshot policies to be created and attached to this volume.", default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.", type=VolumeValidator.iops_limit, default=0, metavar="" )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=0, metavar="" )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.  Default value is 7.", type=VolumeValidator.priority, default=7, metavar="")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.type_str, help="The type of volume connector to use for this volume.", choices=["object", "block"], default="object")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID_ONLY", "SSD_ONLY", "HDD_ONLY"], default="HDD_ONLY")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
         
         __createParser.set_defaults( func=self.create_volume, format="tabular" )
 
@@ -101,16 +117,16 @@ class VolumePlugin( AbstractPlugin):
         '''
         
         __editParser = subparser.add_parser( "edit", help="Edit the quality of service settings on your volume")
-        __editParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
+        __editParser.add_argument( self.arg_str + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         __editGroup = __editParser.add_mutually_exclusive_group( required=True )
-        __editGroup.add_argument( "-" + AbstractPlugin.data_str, help="A JSON string representing the volume quality of service parameters.  This argument will take precedence over all individual arguments.", default=None)
-        __editGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="The name of the volume you would like to edit.", default=None)
-        __editGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume you would like to edit.", default=None)
-        __editParser.add_argument( "-" + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited.", type=VolumeValidator.iops_limit, default=None, metavar="" )
-        __editParser.add_argument( "-" + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee.", type=VolumeValidator.iops_guarantee, default=None, metavar="" )
-        __editParser.add_argument( "-" + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.", type=VolumeValidator.priority, default=None, metavar="")
+        __editGroup.add_argument( self.arg_str + AbstractPlugin.data_str, help="A JSON string representing the volume quality of service parameters.  This argument will take precedence over all individual arguments.", default=None)
+        __editGroup.add_argument( self.arg_str + AbstractPlugin.volume_name_str, help="The name of the volume you would like to edit.", default=None)
+        __editGroup.add_argument( self.arg_str + AbstractPlugin.volume_id_str, help="The UUID of the volume you would like to edit.", default=None)
+        __editParser.add_argument( self.arg_str + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited.", type=VolumeValidator.iops_limit, default=None, metavar="" )
+        __editParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee.", type=VolumeValidator.iops_guarantee, default=None, metavar="" )
+        __editParser.add_argument( self.arg_str + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.", type=VolumeValidator.priority, default=None, metavar="")
 #         __editParser.add_argument( "-media_policy", help="The policy that will determine where the data will live over time.", choices=["HYBRID_ONLY", "SSD_ONLY", "HDD_ONLY"], default=None)
-        __editParser.add_argument( "-" + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=None, metavar="" )
+        __editParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=None, metavar="" )
         
         __editParser.set_defaults( func=self.edit_volume, format="tabular")
         
@@ -211,12 +227,33 @@ class VolumePlugin( AbstractPlugin):
             response_writer.ResponseWriter.writeTabularData( response ) 
         
 
+    def list_snapshot_policies(self, args):
+        '''
+        List out the policies attached to this volume
+        '''
+        snapshot_policy_service = SnapshotPolicyService(self.session)
+        
+        j_list = snapshot_policy_service.list_snapshot_policies_by_volume( args[AbstractPlugin.volume_id_str])
+        
+        if ( args[AbstractPlugin.format_str] == "json" ):
+            j_policies = []
+            
+            for policy in j_list:
+                j_policy = SnapshotPolicyConverter.to_json(policy)
+                j_policy = json.loads( j_policy )
+                j_policies.append( j_policy )
+                
+            response_writer.ResponseWriter.writeJson( j_policies )
+        else:
+            cleaned = response_writer.ResponseWriter.prep_snapshot_policy_for_table( self.session, j_list )
+            response_writer.ResponseWriter.writeTabularData( cleaned )        
+
     def create_volume(self, args):
         '''
         Create a new volume.  The arguments are not all necessary (@see: Volume __init__) but the user
         must specify a name either in the -data construct or the -name argument
         '''        
-        volume = None
+        volume = Volume()
         
         if ( args[AbstractPlugin.data_str] is None and args[AbstractPlugin.name_str] is None ):
             print "Either -data or -name must be present"
@@ -228,20 +265,51 @@ class VolumePlugin( AbstractPlugin):
             volume = VolumeConverter.build_volume_from_json( jsonData )
         # build the volume object from the arguments
         else:
-            volume = Volume()
+       
             volume.name = args[AbstractPlugin.name_str]
-            volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]
-            volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
-            volume.iops_limit = args[AbstractPlugin.iops_limit_str]
-            volume.priority = args[AbstractPlugin.priority_str]
             volume.type = args[AbstractPlugin.type_str]
             volume.media_policy = args[AbstractPlugin.media_policy_str]
+            
+            # deal with the QOS preset selection if there was one
+            if args[AbstractPlugin.qos_preset_str] != None:
+                qos_preset = self.get_volume_service().get_qos_presets(preset_id=args[AbstractPlugin.qos_preset_str])
+                
+                if len(qos_preset) >= 1:
+                    qos_preset = qos_preset[0]
+                
+                    volume.iops_guarantee = qos_preset.iops_guarantee
+                    volume.iops_limit = qos_preset.iops_limit
+                    volume.priority = qos_preset.priority
+            else:                
+                volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
+                volume.iops_limit = args[AbstractPlugin.iops_limit_str]
+                volume.priority = args[AbstractPlugin.priority_str]
+                
+            # deal with the continuous protection arg in the timeline preset if specified
+            t_preset = None
+            if args[AbstractPlugin.timeline_preset_str] != None:
+                t_preset = self.get_volume_service().get_timeline_presets(preset_id=args[AbstractPlugin.timeline_preset_str])
+                
+                if len(t_preset) >= 1:
+                    t_preset = t_preset[0]
+                    volume.continuous_protection = t_preset.continuous_protection
+            else:
+                volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]
             
             if ( volume.type == "block" ):
                 volume.current_size = args[AbstractPlugin.size_str]
                 volume.current_units = args[AbstractPlugin.size_unit_str]
         
         volume = self.get_volume_service().create_volume( volume )
+        
+        #deal with the timeline preset now that we have the volume returned because we need the ID
+        if args[AbstractPlugin.timeline_preset_str] != None:
+            snap_service = SnapshotPolicyService(self.session)
+            
+            for policy in t_preset.policies:
+                policy.name = volume.id + "_TIMELINE_" + policy.recurrence_rule.frequency
+                policy = snap_service.create_snapshot_policy(policy)
+                snap_service.attach_snapshot_policy( policy.id, volume.id )
         
         if ( volume is not None ):
             self.list_volumes(args)

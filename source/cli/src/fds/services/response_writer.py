@@ -142,7 +142,8 @@ class ResponseWriter():
         
             ov = OrderedDict()
             
-            ov["ID"] = policy.id
+            if policy.id != None:
+                ov["ID"] = policy.id
             
             if ( policy.name != None and policy.name != "" ):
                 ov["Name"] = policy.name
