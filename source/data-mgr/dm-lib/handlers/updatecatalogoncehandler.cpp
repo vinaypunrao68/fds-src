@@ -149,9 +149,11 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
 
     // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
-    auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
-    updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
-    updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
+    if (dmRequest) {
+        auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+        updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
+        updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
+    }
 
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::UpdateCatalogOnceRspMsgTypeId, updcatRspMsg);
 
