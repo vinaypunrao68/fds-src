@@ -558,6 +558,13 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
             dlt->getNodes(amReq->obj_id)));
+
+    // For PUT object request to SMs, the quorum is 1 + half the
+    // number of replicas assigned for this object.
+    auto putQuorumCnt = dlt->getDepth()/2 + 1;
+    LOGDEBUG << "Dispatching PUT object request to " << putQuorumCnt
+             << " SMs";
+    asyncPutReq->setQuorumCnt(putQuorumCnt);
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
 
     asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
