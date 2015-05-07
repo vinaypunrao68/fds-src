@@ -39,6 +39,7 @@ namespace fds
                                          NodeAgent::pointer   *out,
                                          bool activate)
     {
+        Error err(ERR_OK);
         fds_bool_t            add;
         std::string           name;
         NodeAgent::pointer    agent;
@@ -51,9 +52,12 @@ namespace fds
         if (agent == NULL)
         {
             LOGDEBUG << "AgentContainer::agent_register: Agent not found for UUID: "
-                    << std::hex << uuid <<  ". Allocating as new.";
+                     << std::hex << uuid << std::dec << ". Allocating as new.";
             add   = activate;
             agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
+        } else {
+            LOGDEBUG << "Agent found for UUID: " << std::hex << uuid << std::dec << " OK.";
+            err = ERR_DUPLICATE;
         }
         agent->node_fill_inventory(msg);
         *out = agent;
@@ -64,7 +68,7 @@ namespace fds
                     << std::hex << uuid <<  ".";
             agent_activate(agent);
         }
-        return Error(ERR_OK);
+        return err;
     }
 
     // agent_register
