@@ -108,6 +108,11 @@ def shutdownDomain( domain_name ):
     response["status"] = "OK"
     return response 
 
+def startDomain( domain_name ):
+    response = dict()
+    response["status"] = "OK"
+    return response
+
 def listLocalDomains():
     
     domain = Domain()

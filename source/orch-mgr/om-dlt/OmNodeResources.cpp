@@ -1146,6 +1146,10 @@ OM_PmAgent::send_deactivate_services_resp(fds_bool_t deactivate_sm,
                  << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
                  << " not updating local state of PM agent .... " << error;
     }
+
+    // notify domain state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->local_domain_event(DeactAckEvt(error));
 }
 
 
@@ -1730,7 +1734,7 @@ OM_NodeContainer::om_cond_bcast_remove_services(fds_bool_t remove_sm,
  * if all deactivate_sm && deactivate_dm && deactivate_am are false, then
  * will deactivate all services on the specified Node
  */
-static void
+static Error
 om_deactivate_services(fds_bool_t deactivate_sm,
                        fds_bool_t deactivate_dm,
                        fds_bool_t deactivate_am,
@@ -1772,7 +1776,10 @@ om_deactivate_services(fds_bool_t deactivate_sm,
         }
     }
 
-    OM_PmAgent::agt_cast_ptr(node)->send_deactivate_services(deactivate_sm, deactivate_dm, deactivate_am);
+    Error err = OM_PmAgent::agt_cast_ptr(node)->send_deactivate_services(deactivate_sm,
+                                                                         deactivate_dm,
+                                                                         deactivate_am);
+    return err;
 }
 
 
@@ -1782,13 +1789,15 @@ om_deactivate_services(fds_bool_t deactivate_sm,
  * the service and remove it from cluster map, deactivate is just a message
  * to PM to kill the corresponding processes
  */
-void
+fds_uint32_t
 OM_NodeContainer::om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
                                                     fds_bool_t deactivate_dm,
                                                     fds_bool_t deactivate_am)
 {
     TRACEFUNC;
-    dc_pm_nodes->agent_foreach(deactivate_sm, deactivate_dm, deactivate_am, om_deactivate_services);
+    fds_uint32_t errok_count = dc_pm_nodes->agent_ret_foreach(deactivate_sm, deactivate_dm, deactivate_am,
+                                                              om_deactivate_services);
+    return errok_count;
 }
 
 // om_send_vol_info
@@ -1811,9 +1820,14 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
     fpi::FDSP_NotifyVolFlag vol_flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
+    // TODO(Anna) Since DM migration is disabled and we are going to re-implement it
+    // do not set "volume will sync" flag; otherwise it has unexpected effect of
+    // volume queues being not active in DMs
+    /*
     if (vp->hasCommittedDMT()) {
       vol_flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
     }
+    */
     LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name()
              << "; will sync flag " << vp->hasCommittedDMT();
     OM_NodeAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol,
@@ -1832,6 +1846,32 @@ OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
                               (node, &cnt, om_send_vol_info);
     LOGDEBUG << "Dmt bcast Volume list :" << cnt;
     return cnt;
+}
+
+static void
+om_bcast_volumes(VolumeContainer::pointer om_volumes, NodeAgent::pointer node) {
+    fds_uint32_t cnt = 0;
+    om_volumes->vol_foreach<NodeAgent::pointer, fds_uint32_t *>
+                              (node, &cnt, om_send_vol_info);
+}
+
+void
+OM_NodeContainer::om_bcast_vol_list_to_services(fpi::FDSP_MgrIdType svc_type) {
+    if (svc_type == fpi::FDSP_DATA_MGR) {
+        dc_dm_nodes->agent_foreach<VolumeContainer::pointer>(om_volumes, om_bcast_volumes);
+        LOGDEBUG << "Sent Volume List to DM services successfully";
+    } else if (svc_type == fpi::FDSP_STOR_MGR) {
+        dc_sm_nodes->agent_foreach<VolumeContainer::pointer>(om_volumes, om_bcast_volumes);
+        LOGDEBUG << "Sent Volume List to SM services successfully";
+    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
+        // this method must only be called for either DM, SM or AM!
+        fds_verify(svc_type == fpi::FDSP_ACCESS_MGR);
+        dc_am_nodes->agent_foreach<VolumeContainer::pointer>(om_volumes, om_bcast_volumes);
+        LOGDEBUG << "Sent Volume List to AM services successfully";
+    } else {
+        LOGERROR << "Received request to bcast Volume List to invalid svc type.";
+    }
+
 }
 
 void

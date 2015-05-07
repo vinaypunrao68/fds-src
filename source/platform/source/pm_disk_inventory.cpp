@@ -221,7 +221,7 @@ namespace fds
 
         try
         {
-            bool use_feature_control_disk_simulation = conf.get_abs<bool>("fds.feature_toggle.plat.control_disk_simulation_mode");   // NOLINT
+            bool use_feature_control_disk_simulation = conf.get_abs<bool>("fds.feature_toggle.pm.control_disk_simulation_mode");   // NOLINT
 
             if (use_feature_control_disk_simulation)
             {
