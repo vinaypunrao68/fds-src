@@ -11,6 +11,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>  // NOLINT
+#include <thread>
 
 #include <fds_uuid.h>
 #include <fdsp/svc_types_types.h>
@@ -84,6 +85,17 @@ namespace fds
             std::vector<std::string>    args;
             pid_t                       pid;
             std::string                 command;
+            std::string                 procName;
+
+            try
+            {
+                procName = m_idToAppNameMap.at(processID);
+            }
+            catch (const std::out_of_range &error)
+            {
+                LOGERROR << "startProcess is unable to identify a process name for index value " << processID << ", " << error.what();
+                return -1;
+            }
 
             if (JAVA_AM == processID)
             {
@@ -101,7 +113,7 @@ namespace fds
             }
             else
             {
-                command = m_idToAppNameMap.at(processID);
+                command = procName;
             }
 
             // Common command line options
@@ -114,24 +126,29 @@ namespace fds
 
             if (pid > 0)
             {
-                LOGDEBUG << m_idToAppNameMap.at(processID) << " started by platformd as pid " << pid;
-                // add to pid list
+                LOGDEBUG << procName << " started by platformd as pid " << pid;
             }
             else
             {
-                LOGERROR << "fds_spawn_service() for " << m_idToAppNameMap.at(processID) << " FAILED to start by platformd with errno=" << errno;
+                LOGERROR << "fds_spawn_service() for " << procName << " FAILED to start by platformd with errno=" << errno;
             }
 
             return pid;
         }
 
-        bool PlatformManager::waitPid (pid_t const pid, int waitTimeoutNanoSeconds)  // 1-%-9
+        bool PlatformManager::waitPid (pid_t const pid, uint64_t waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
         {
             int    status;
             pid_t  waitPidRC;
 
-            time_t timeNow = time(NULL);
-            int timeEnd = timeNow + 2;
+            timespec startTime;
+            timespec timeNow;
+            timespec endTime;
+
+            clock_gettime (CLOCK_REALTIME, &startTime);
+
+            endTime.tv_sec = startTime.tv_sec + (waitTimeoutNanoSeconds / NANO_SECONDS_IN_1_SECOND) + (startTime.tv_nsec + waitTimeoutNanoSeconds) / NANO_SECONDS_IN_1_SECOND;
+            endTime.tv_nsec = (startTime.tv_nsec + waitTimeoutNanoSeconds) % NANO_SECONDS_IN_1_SECOND;
 
             do
             {
@@ -145,59 +162,78 @@ namespace fds
                     }
                     else if (WIFSIGNALED (status))
                     {
-                        LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                        if (!monitoring)
+                        {
+                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                        }
+                        else
+                        {
+                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
+                        }
                     }
 
                     return true;
                 }
 
-                usleep (100000);
-                timeNow = time(NULL);
+                usleep (WAIT_PID_SLEEP_TIMER_MICROSECONDS);
+                clock_gettime (CLOCK_REALTIME, &timeNow);
             }
-            while (timeNow < timeEnd);
+            while (timeNow.tv_sec < endTime.tv_sec || (timeNow.tv_sec <= endTime.tv_sec && timeNow.tv_nsec < endTime.tv_nsec));
 
             return false;
         }
 
         void PlatformManager::stopProcess (int id, bool haveLock)
         {
-            LOGDEBUG << "Attempting to Stop " << m_idToAppNameMap.at(id) << " via kill(pid, SIGTERM)";
+            std::string    procName;
 
-            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (m_idToAppNameMap.at(id));
-
-            if (m_appPidMap.end() == mapIter)
+            try
             {
-                LOGERROR << "Unable to find pid for " << m_idToAppNameMap.at(id) << " in stopProcess()";
+                procName = m_idToAppNameMap.at(id);
+            }
+            catch (const std::out_of_range &error)
+            {
+                LOGERROR << "stopProcess is unable to identify a process name for index value " << id << ", " << error.what();
                 return;
             }
 
-            // TODO(DJN): check for pid < 2 here and error
+            std::map <std::string, pid_t>::iterator mapIter = m_appPidMap.find (procName);
+
+            if (m_appPidMap.end() == mapIter)
+            {
+                LOGERROR << "Unable to find pid for " << procName << " in stopProcess()";
+                return;
+            }
+
+            LOGDEBUG << "Preparing to stop " << procName << " via kill(pid, SIGTERM)";
 
             pid_t pid = mapIter->second;
+
+            // TODO(DJN): check for pid < 2 here and error
 
             int rc = kill (pid, SIGTERM);
 
             if (rc < 0)
             {
-                LOGWARN << "Error sending signal (SIGTERM) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
+                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
             }
 
             // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
-            if (false == waitPid (pid, 9))
+            if (rc < 0 || false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
             {
                 rc = kill (pid, SIGKILL);
 
                 if (rc < 0)
                 {
-                    LOGERROR << "Error sending signal (SIGKILL) to " << m_idToAppNameMap.at(id) << "(pid = " << pid << ") errno = " << rc << "";
+                    LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << rc << "";
                 }
 
-                waitPid (pid, 9);
-            }
+                waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS);
 
-            if (!haveLock)
-            {
-                std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+                if (rc < 0)
+                {
+                    LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << errno << "";
+                }
             }
 
             m_appPidMap.erase (mapIter);
@@ -214,13 +250,14 @@ namespace fds
 
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
+
             if (info.has_sm_service)
             {
                 pid = startProcess(STORAGE_MANAGER);
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(STORAGE_MANAGER);
+                    LOGCRITICAL << "Failed to start:  " << SM_NAME;
                 }
                 else
                 {
@@ -235,7 +272,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(DATA_MANAGER);
+                    LOGCRITICAL << "Failed to start:  " << DM_NAME;
                 }
                 else
                 {
@@ -251,7 +288,7 @@ namespace fds
 
                 if (pid < 2)
                 {
-                    LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(BARE_AM);
+                    LOGCRITICAL << "Failed to start:  " << BARE_AM_NAME;
                 }
                 else
                 {
@@ -261,7 +298,7 @@ namespace fds
 
                     if (pid < 2)
                     {
-                        LOGCRITICAL << "Failed to start:  " << m_idToAppNameMap.at(JAVA_AM);
+                        LOGCRITICAL << "Failed to start:  " << JAVA_AM_CLASS_NAME;
 
                         stopProcess (BARE_AM, true);
                     }
@@ -278,6 +315,8 @@ namespace fds
 
         void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
         {
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+
             if (deactivateMsg->deactivate_am_svc && nodeInfo.fHasAm)
             {
                 stopProcess(JAVA_AM);
@@ -364,24 +403,54 @@ namespace fds
             return uuid.uuid_get_val();
         }
 
-        int PlatformManager::run()
+        void PlatformManager::childProcessMonitor()
         {
-            std::ostringstream message;
+            LOGDEBUG << "Starting thread for PlatformManager::childProcessMonitor()";
 
-            for (auto &element : m_appPidMap)
+#ifdef DEBUG
+            uint32_t count = 0;
+            uint32_t lastCount = 0;
+#endif
+
+            while (true)
             {
-                message << element.first << ":" << element.second << ", ";
-            }
+                {   // Create a context for the lock_guard
+                    std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+#ifdef DEBUG
+                    count = m_appPidMap.size();
+                    if (count != lastCount)
+                    {
+                        LOGDEBUG << "Now monitoring " << count << " children (was " << lastCount << ")";
+                        lastCount = count;
+                    }
+#endif
+                    for (auto mapIter = m_appPidMap.begin(); m_appPidMap.end() != mapIter;)
+                    {
+                        if (waitPid (mapIter->second, 1000, true))
+                        {
+                            m_appPidMap.erase (mapIter++);
+                        }
+                        else
+                        {
+                            ++mapIter;
+                        }
+                    }
+                }  // lock_guard context
 
-            LOGDEBUG << message.str();
+                usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
+            }
+        }
+
+        void PlatformManager::run()
+        {
+            std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
+
+            childMonitorThread.detach();
 
             while (1)
             {
-LOGDEBUG << "NOT monitoring:  " << m_appPidMap.size() << " process(es)";
-                sleep(66);   /* we'll do hotplug uevent thread in here */
+                sleep(999);   /* we'll do hotplug uevent thread in here */
             }
-
-            return 0;
         }
     }  // namespace pm
 }  // namespace fds

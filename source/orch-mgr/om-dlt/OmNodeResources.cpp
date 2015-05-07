@@ -1146,6 +1146,10 @@ OM_PmAgent::send_deactivate_services_resp(fds_bool_t deactivate_sm,
                  << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
                  << " not updating local state of PM agent .... " << error;
     }
+
+    // notify domain state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->local_domain_event(DeactAckEvt(error));
 }
 
 
@@ -1730,7 +1734,7 @@ OM_NodeContainer::om_cond_bcast_remove_services(fds_bool_t remove_sm,
  * if all deactivate_sm && deactivate_dm && deactivate_am are false, then
  * will deactivate all services on the specified Node
  */
-static void
+static Error
 om_deactivate_services(fds_bool_t deactivate_sm,
                        fds_bool_t deactivate_dm,
                        fds_bool_t deactivate_am,
@@ -1772,7 +1776,10 @@ om_deactivate_services(fds_bool_t deactivate_sm,
         }
     }
 
-    OM_PmAgent::agt_cast_ptr(node)->send_deactivate_services(deactivate_sm, deactivate_dm, deactivate_am);
+    Error err = OM_PmAgent::agt_cast_ptr(node)->send_deactivate_services(deactivate_sm,
+                                                                         deactivate_dm,
+                                                                         deactivate_am);
+    return err;
 }
 
 
@@ -1782,13 +1789,15 @@ om_deactivate_services(fds_bool_t deactivate_sm,
  * the service and remove it from cluster map, deactivate is just a message
  * to PM to kill the corresponding processes
  */
-void
+fds_uint32_t
 OM_NodeContainer::om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
                                                     fds_bool_t deactivate_dm,
                                                     fds_bool_t deactivate_am)
 {
     TRACEFUNC;
-    dc_pm_nodes->agent_foreach(deactivate_sm, deactivate_dm, deactivate_am, om_deactivate_services);
+    fds_uint32_t errok_count = dc_pm_nodes->agent_ret_foreach(deactivate_sm, deactivate_dm, deactivate_am,
+                                                              om_deactivate_services);
+    return errok_count;
 }
 
 // om_send_vol_info
