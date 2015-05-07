@@ -102,6 +102,10 @@ public class FirebreakHelper extends QueryHelper {
         		Volume volume = volIt.next();
         		
         		String key = volume.getId();
+
+            if( key == null || key.length() == 0 ) {
+              continue;
+            }
         		
         		final Series seri = new Series();
         		seri.setContext( volume );

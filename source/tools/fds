@@ -170,8 +170,18 @@ function startApp() {
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
             pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
+                case $name in
+                    sm|dm|am)
+                        params="--foreground --fds.pm.platform_uuid=$(echo 'keys node* '| redis-cli | cut -d: -f2)"
+                        ;;
+                    *)
+                        params=""
+                        ;;
+                esac
+
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
-                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} > ${name}.out 2>&1 &)
+                echo $params
+                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
 
 		if ! (waitForApp $name) ; then
@@ -294,16 +304,21 @@ function statusApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid="$(getAppPid $name)"
+            pid="$(getAppPid $name zombie)"
             if [[ -z $pid ]] ; then
                 echo "$(boldblue ${name}) : $(yellow Not running)"
             else
                 local num=1
                 for procid in $pid ; do
-                    if [[ $num == 1 ]]; then
-                        echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                    if [[ "Z" == $(ps -o s= -p $procid) ]]; then
+                        echo "$(yellow ${name}) : $(boldred $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        num=$((num-1))
                     else
-                        echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        if [[ $num == 1 ]]; then
+                            echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        else
+                            echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        fi
                     fi
                     num=$((num+1))
                 done
@@ -341,7 +356,15 @@ function getAppPid() {
     else
         pid="$(pgrep ${apps[$name]})"
     fi
-    echo -n $pid
+    if [[ $2 == "zombie" ]]; then
+        echo -n $pid
+    else
+        for p in $pid; do
+            if [[ "Z" != $(ps -o s= -p $p) ]]; then 
+                echo -n "$p "
+            fi
+        done
+    fi
 }
 
 function waitForAll() {
