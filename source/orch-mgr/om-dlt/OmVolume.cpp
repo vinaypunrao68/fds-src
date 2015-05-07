@@ -13,6 +13,7 @@
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
 #include <util/type.h>
+#include <util/stringutils.h>
 #include <unistd.h>
 #define STATELOG(...) GLOGDEBUG << "[evt:" << fds::util::type(evt) \
     << " src:" << fds::util::type(src)                             \
@@ -1838,6 +1839,36 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     vol->vol_event(VolCrtOkEvt(false, vol.get()));
 
     return err;
+}
+
+bool VolumeContainer::createSystemVolume(int32_t tenantId) {
+    std::string name;
+    if (tenantId >= 0) {
+        name = util::strformat("SYSTEM_VOLUME_%d",tenantId);
+    } else {
+        name = "SYSTEM_VOLUME";
+        tenantId = 0;
+    }
+    fds_bool_t fReturn = true;
+    if (!gl_orch_mgr->getConfigDB()->volumeExists(name)) {
+        VolumeDesc volume(name, 1);
+        
+        volume.volUUID = gl_orch_mgr->getConfigDB()->getNewVolumeId();
+        volume.createTime = util::getTimeStampMillis();
+        volume.replicaCnt = 4;
+        volume.maxObjSizeInBytes = 2 * MB;
+        volume.contCommitlogRetention = 0;
+        volume.tennantId = tenantId;
+        volume.capacity  = 1*GB;
+        fReturn = addVolume(volume);
+        if (!fReturn) {
+            LOGERROR << "unable to add system volume "
+                     << "[" << volume.volUUID << ":" << volume.name << "]";
+        }
+    } else {
+        LOGDEBUG << "system volume already exists : " << name;
+    }
+    return fReturn;
 }
 
 }  // namespace fds

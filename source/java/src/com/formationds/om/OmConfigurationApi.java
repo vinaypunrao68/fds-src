@@ -458,9 +458,11 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public long createTenant(String identifier)
         throws TException {
         long tenantId = getConfig().createTenant(identifier);
+        /*
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
         // TODO: XDI implementation hardcodes tenant system volume domain to "FDS_S3" (via S3Endpoint.FDS_S3. Not sure if this is correct?
         getConfig().createVolume( "FDS_S3", systemFolderName( tenantId ), volumeSettings, tenantId );
+        */
         dropCache();
         EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
         return tenantId;
