@@ -439,7 +439,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
-        return configDB->createTenant(*identifier);
+        int64_t tenantId =  configDB->createTenant(*identifier);
+
+        // create the system volume associated to the client
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+
+        volContainer->createSystemVolume(tenantId);
+        return tenantId;
     }
 
     void listTenants(std::vector<Tenant> & _return, boost::shared_ptr<int32_t>& ignore) {

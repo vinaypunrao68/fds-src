@@ -155,10 +155,19 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
         if (vol_uuid != invalid_vol_id) {
             /** Registration is always a success, but the VolumeOpen may fail */
-            amProcessor->registerVolume(vdesc);
+            try {
+                amProcessor->registerVolume(vdesc);
+            } catch(Exception& e) {
+                err = e.getError();
+                GLOGWARN << err;
+            }
         } else {
+            err = ERR_VOL_NOT_FOUND;
+        }
+
+        if (!err.ok()) {
             /* complete all requests that are waiting on bucket to attach with error */
-            GLOGNOTIFY << "Requested volume " << vdesc.name << " does not exist";
+            GLOGNOTIFY << "Unable to register volume: " << vdesc.name << ":" << err;
             amProcessor->removeVolume(vdesc);
         }
     }

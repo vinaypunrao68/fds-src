@@ -50,9 +50,11 @@ do
     fi
 done
 
+[[ -e ${ETCDIR} && ! -L ${ETCDIR} ]] && mv ${ETCDIR} ${ETCDIR}.`date +%s`
+
 [[ -L ${ETCDIR} ]] && unlink ${ETCDIR}
 echo "linking ${ETCDIR}"
-ln -s ${PWD}/config/etc/ ${ETCDIR}
+ln -s ${PWD}/config/etc ${ETCDIR}
 
 [[ -L ${JAVADIR} ]] && unlink ${JAVADIR}
 echo "linking ${JAVADIR}"
