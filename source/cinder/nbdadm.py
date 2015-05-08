@@ -243,7 +243,7 @@ def main(argv = sys.argv):
                     print return_val[0]
         elif result.command == 'detach':
             with lock():
-                return_val detach(result)
+                return_val = detach(result)
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         tb = traceback.format_exc()
@@ -255,6 +255,4 @@ def main(argv = sys.argv):
 
 if __name__ == '__main__':
     sys.exit(main())
-
-
 
