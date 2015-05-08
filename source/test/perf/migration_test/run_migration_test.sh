@@ -61,6 +61,8 @@ bs=4096
 rm -fr /fds/dev/*/*
 ssh han 'rm -fr /fds/dev/*/*'
 
+cp $workspace//source/test/perf/migration_test/luke $workspace/ansible/inventory/
+
 # start system on luke
 pushd $workspace/ansible
 ./scripts/deploy_fds.sh luke local
@@ -86,16 +88,25 @@ sleep 5
 pushd /fds/sbin
 pm_uuid=`./fdsconsole.py service list| grep PM |grep '10.1.10.139'| awk '{print \$1}'`
 echo "pm uuid: $pm_uuid"
-
-sleep 5
-
-# launch monitoring script
-pushd $workspace/source/test/perf/migration_test
-mon_pids=`./monitor.sh $outdir/monitor`
 popd
 
 sleep 5
 
+# launch monitoring script on the local machine
+pushd $workspace/source/test/perf/migration_test
+mon_pids=`./monitor.sh $outdir/monitor`
+echo "mon_pids: $mon_pids"
+popd
+
+
+sleep 5
+
+#drop caches
+
+sync
+echo 3 > /proc/sys/vm/drop_caches
+
+pushd /fds/sbin
 # add node
 ./fdsconsole.py service addService $pm_uuid sm
 popd
@@ -103,6 +114,10 @@ popd
 date > $outdir/migration.start
 
 sleep 1
+
+# launch monitoring script on the remote machine
+rem_mon_pids=`ssh han './monitor.sh /tmp/monitor'`
+echo "rem_mon_pids: $rem_mon_pids"
 
 pushd $workspace/source/test/perf/counters
 ./counters.py --agent-filter=sm &
@@ -125,4 +140,8 @@ date > $outdir/migration.end
 
 kill -9 $mon_pids
 kill -9 $counters_pid
-
+ssh han "kill -9 $rem_mon_pids"
+scp han:/tmp/monitor.top $outdir/monitor.top.remote
+scp han:/tmp/monitor.iostat $outdir/monitor.iostat.remote
+ssh han 'rm -f /tmp/monitor.top'
+ssh han 'rm -f /tmp/monitor.iostat'
