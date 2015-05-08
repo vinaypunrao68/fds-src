@@ -42,6 +42,13 @@ ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
 }
 
 Error
+ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+                               const SmTokenSet& smToks,
+                               fds_bool_t pristineState) {
+    return persistData->openObjectDataFiles(diskMap, smToks, pristineState);
+}
+
+Error
 ObjectDataStore::closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost) {
     return persistData->closeAndDeleteObjectDataFiles(smTokensLost);
 }
