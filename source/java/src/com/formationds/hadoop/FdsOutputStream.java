@@ -84,7 +84,7 @@ public class FdsOutputStream extends OutputStream {
     @Override
     public void flush() throws IOException {
         if (isClosed) {
-            throw new IOException("Stream was closed");
+            return;
         }
 
         if (isDirty) {
@@ -117,11 +117,10 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        if (! (currentBuffer.position() < objectSize)) {
+        if (currentBuffer.position() >= objectSize) {
             flush();
         }
         currentBuffer.put((byte) b);
-        isDirty = true;
         currentOffset++;
         isDirty = true;
     }
@@ -136,8 +135,14 @@ public class FdsOutputStream extends OutputStream {
         if (isClosed) {
             return;
         }
-        flush();
-        super.close();
-        isClosed = true;
+        try {
+            try {
+                flush();
+            } finally {
+                super.close();
+            }
+        }finally {
+            isClosed = true;
+        }
     }
 }
