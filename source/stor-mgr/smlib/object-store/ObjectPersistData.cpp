@@ -36,21 +36,35 @@ ObjectPersistData::~ObjectPersistData() {
 Error
 ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
                                        fds_bool_t pristineState) {
+    SmTokenSet smToks = diskMap->getSmTokens();
+    return openObjectDataFiles(diskMap, smToks, pristineState);
+}
+
+Error
+ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+                                       const SmTokenSet& smToks,
+                                       fds_bool_t pristineState) {
     Error err(ERR_OK);
     smDiskMap = diskMap;
     DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
-    LOGDEBUG << "Will open token data files which are not opened yet.";
 
-    SmTokenSet smToks = diskMap->getSmTokens();
     diskio::DataTier tier = diskio::diskTier;
     for (fds_uint32_t tierNum = 0; tierNum < 2; ++tierNum) {
         for (SmTokenSet::const_iterator cit = smToks.cbegin();
              cit != smToks.cend();
              ++cit) {
+            LOGDEBUG << "Will open token data file for SM token " << *cit
+                     << ", on tier " << tierNum << ", if not opened yet.";
+
             // get write file IDs from SM superblock and open corresponding token files
             fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
             fds_uint16_t fileId = diskMap->superblock->getWriteFileId(*cit, tier);
-            fds_verify(fileId != SM_INVALID_FILE_ID);
+            if (fileId == SM_INVALID_FILE_ID) {
+                // It's important that openObjectDataFiles() method is called when
+                // there is no GC running; we are disabling GC during migration
+                // and enabling after data/metadata stores open.
+                fileId = SM_INIT_FILE_ID;
+            }
             write_synchronized(mapLock) {
                 if (writeFileIdMap.count(wkey) == 0) {
                     writeFileIdMap[wkey] = fileId;
