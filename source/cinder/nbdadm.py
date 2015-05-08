@@ -233,13 +233,13 @@ def main(argv = sys.argv):
 
     try:
         if result.command == 'list':
-            return list_conn(result)
+            return list_conn(result)[1]
         elif result.command == 'attach':
             with lock():
-                return attach(result)
+                return attach(result)[1]
         elif result.command == 'detach':
             with lock():
-                return detach(result)
+                return detach(result)[1]
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         tb = traceback.format_exc()
