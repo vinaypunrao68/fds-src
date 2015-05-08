@@ -29,7 +29,7 @@ if options.release_build_enable:
 else:
     cmd += ' CCACHE=1'
 if options.coverage:
-    cmd += ' COVERAGE=1'
+    cmd += ' COVERAGE=1 VERBOSE=1'
 
 can_build = False
 
