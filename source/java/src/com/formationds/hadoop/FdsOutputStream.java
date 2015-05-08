@@ -84,7 +84,7 @@ public class FdsOutputStream extends OutputStream {
     @Override
     public void flush() throws IOException {
         if (isClosed) {
- //           throw new IOException("Stream was closed");
+            throw new IOException("Stream was closed");
         }
 
         if (isDirty) {
