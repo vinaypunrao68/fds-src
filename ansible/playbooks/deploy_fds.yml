@@ -116,6 +116,7 @@
     -   ../vars_files/credentials/ssl_certs.yml
     -   ../vars_files/multi_om_setup.yml
     -   ../vars_files/deploy_fds/start_fds.yml
+    -   ../vars_files/deploy_fds/admin_credentials.yml
 
     tasks:
     -   include: ../tasks/deploy_fds/deploy_fds.yml

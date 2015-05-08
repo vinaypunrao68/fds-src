@@ -1,5 +1,4 @@
 ---
-om_host: "10.2.10.190"
 local_domain_name: "{{ fds_local_domain_name if fds_local_domain_name is defined else 'local' }}"
 
 activate_local_domain_post_body:
@@ -9,3 +8,11 @@ activate_local_domain_post_body:
     sm: "true"
 
 activate_local_domain_post_body_json: "{{ activate_local_domain_post_body | to_json }}"
+
+activate_node_services_post_body:
+    action: "activate"
+    am: "true"
+    dm: "true"
+    sm: "true"
+
+activate_node_services_post_body_json: "{{ activate_node_services_post_body | to_json }}"

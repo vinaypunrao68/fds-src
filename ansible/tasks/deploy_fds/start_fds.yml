@@ -60,7 +60,7 @@
       - startup
 
 -   name: get auth token
-    uri: url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ fds_admin_user }}&password={{ fds_admin_pass }}
+    uri: url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
         method=POST
         return_content=yes
         status_code=200
@@ -70,7 +70,7 @@
       - startup
 
 -   name: activate local domain
-    uri: url=http://{{ fds_om_host }}:7777/local_domains/{{fds_local_domain_name}}/services
+    uri: url=http://{{ fds_om_host }}:7777/local_domains/{{local_domain_name}}/services
         method=PUT
         body_format=json
         body="{{activate_local_domain_post_body_json}}"
