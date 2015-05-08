@@ -133,6 +133,7 @@ def editSnapshotPolicy( policy ):
 def listSnapshotPolicies( volume_id=None ):
     policies = []
     policy = SnapshotPolicy()
+    policy.id = 900
     policies.append( policy )
     return policies
 
@@ -154,7 +155,7 @@ def deleteSnapshotPolicy( policy_id ):
 def listTimelinePresets(preset_id=None):
     p = TimelinePreset()
     p.id = 1
-    p.polices = [SnapshotPolicy()]
+    p.policies = [SnapshotPolicy()]
     presets = [p]
     return presets
 

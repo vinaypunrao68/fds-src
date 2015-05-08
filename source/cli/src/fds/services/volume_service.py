@@ -91,7 +91,9 @@ class VolumeService( AbstractService ):
         
         url = "{}{}{}/{}".format( self.get_url_preamble(), "/api/config/snapshot/clone/", snapshot_id, volume.name )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        volume = self.rest_helper.post( self.session, url, data )
+        volume = VolumeConverter.build_volume_from_json( volume )
+        return volume
     
     def clone_from_timeline(self, a_time, volume ):
         '''
@@ -100,7 +102,9 @@ class VolumeService( AbstractService ):
         
         url = "{}{}{}/{}/{}".format( self.get_url_preamble(), "/api/config/volumes/clone/", volume.id, volume.name, a_time )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        volume = self.rest_helper.post( self.session, url, data )
+        volume = VolumeConverter.build_volume_from_json( volume )
+        return volume
     
     def edit_volume(self, volume):
         '''
