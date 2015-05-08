@@ -100,7 +100,7 @@ def activateNode( node_id, state ):
     response["status"] = "OK"
     return response
     
-def deactivateNode( node_id, state ):
+def deactivateNode( node_id ):
     response = dict()
     response["status"] = "OK"
     return response   

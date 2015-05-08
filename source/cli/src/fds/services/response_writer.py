@@ -12,7 +12,7 @@ from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
 class ResponseWriter():
     
     @staticmethod
-    def write_not_implemented():
+    def write_not_implemented(args=None):
         print "\nThis feature is not yet available, but the fine people at Formation Data System are working tirelessly to make this a reality in the near future.\n"
     
     @staticmethod
