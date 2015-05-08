@@ -216,7 +216,6 @@ SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << "Received Sync Object Set from SM " << std::hex
              << asyncHdr->msg_src_uuid.svc_uuid << std::dec;
     err = objStorMgr->migrationMgr->recvRebalanceDeltaSet(deltaObjSet);
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 
     // TODO(Anna) respond with error, are we responding on success?
     fds_verify(err.ok() || (err == ERR_SM_TOK_MIGRATION_ABORTED));
