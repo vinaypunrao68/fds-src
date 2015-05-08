@@ -128,11 +128,41 @@ template<typename Msg>
 QuorumSvcRequestPtr
 AmDispatcher::createQuorumRequest(fds_volid_t const vol_id,
                                   boost::shared_ptr<Msg> const& payload) const {
-    auto commited_group = dmtMgr->getCommittedNodeGroup(vol_id);
-    auto ep_provider = boost::make_shared<DmtVolumeIdEpProvider>(commited_group);
-    auto req = gSvcRequestPool->newQuorumSvcRequest(ep_provider);
+    auto req = gSvcRequestPool->newQuorumSvcRequest(
+                boost::make_shared<DmtVolumeIdEpProvider>(
+                                dmtMgr->getCommittedNodeGroup(vol_id)));
+    auto quorumCnt = dmtMgr->getDMT(DMT_COMMITTED)->getDepth()/2 + 1;
+    req->setQuorumCnt(quorumCnt);
     req->setPayload(message_type_id(*payload), payload);
     return req;
+}
+
+template<typename Msg>
+QuorumSvcRequestPtr
+AmDispatcher::createQuorumRequest(AmRequest *amReq,
+                                  boost::shared_ptr<Msg> const& payload) const {
+
+    QuorumSvcRequestPtr quorumReq;
+    /**
+     * If the request is to be sent to DM then look at the dmt
+     * to find possible destination DMs.
+     */
+    if (amReq->dest_io_module == FDS_IOType::DATA_MGR) {
+        quorumReq = createQuorumRequest(amReq->io_vol_id, payload);
+    } else {
+        /**
+         * If the request is to be sent to SMs then look at dlt
+         * to find possible destination SMs.
+         */
+        auto const dlt = dltMgr->getAndLockCurrentDLT();
+        quorumReq = gSvcRequestPool->newQuorumSvcRequest(
+                                boost::make_shared<DltObjectIdEpProvider>(
+                                             dlt->getNodes(amReq->obj_id)));
+        auto quorumCnt = dlt->getDepth()/2 + 1;
+        quorumReq->setQuorumCnt(quorumCnt);
+        quorumReq->setPayload(message_type_id(*payload), payload);
+    }
+    return quorumReq;
 }
 
 template<typename Msg>
@@ -238,7 +268,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
         volMetaMsg->metadataList.push_back(metaPair);
     }
 
-    auto asyncSetVolMetadataReq = createQuorumRequest(amReq->io_vol_id, volMetaMsg);
+    auto asyncSetVolMetadataReq = createQuorumRequest(amReq, volMetaMsg);
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setVolumeMetadataCb, amReq));
     asyncSetVolMetadataReq->onResponseCb(respCb);
@@ -308,7 +338,7 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
     stBlobTxMsg->txId           = static_cast<AbortBlobTxReq *>(amReq)->tx_desc->getValue();
     stBlobTxMsg->volume_id      = volId;
 
-    auto asyncAbortBlobTxReq = createQuorumRequest(volId, stBlobTxMsg);
+    auto asyncAbortBlobTxReq = createQuorumRequest(amReq, stBlobTxMsg);
 
     asyncAbortBlobTxReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, amReq));
 
@@ -346,7 +376,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     startBlobTxMsg->txId         = blobReq->tx_desc->getValue();
     startBlobTxMsg->dmt_version  = blobReq->dmt_version;
 
-    auto asyncStartBlobTxReq = createQuorumRequest(amReq->io_vol_id, startBlobTxMsg);
+    auto asyncStartBlobTxReq = createQuorumRequest(amReq, startBlobTxMsg);
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
     asyncStartBlobTxReq->onResponseCb(respCb);
@@ -379,7 +409,7 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
     message->blob_version = blob_version_invalid;
     message->txId = static_cast<DeleteBlobReq *>(amReq)->tx_desc->getValue();
 
-    auto asyncReq = createQuorumRequest(amReq->io_vol_id, message);
+    auto asyncReq = createQuorumRequest(amReq, message);
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, amReq));
@@ -430,7 +460,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
 
-    auto asyncUpdateCatReq = createQuorumRequest(amReq->io_vol_id, updCatMsg);
+    auto asyncUpdateCatReq = createQuorumRequest(amReq, updCatMsg);
 
     asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
     if (0 < message_timeout_io)
@@ -478,7 +508,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     }
 
     // Always use the current DMT version since we're updating in a single request
-    auto asyncUpdateCatReq = createQuorumRequest(amReq->io_vol_id, updCatMsg);
+    auto asyncUpdateCatReq = createQuorumRequest(amReq, updCatMsg);
 
     asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
     if (0 < message_timeout_io)
@@ -550,23 +580,17 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
         amReq->obj_id.GetLen());
 
+    // This AM request will be sent to SM, so make the
+    // destination io module type to SM.
+    amReq->dest_io_module = FDS_IOType::STOR_MGR;
+
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
+
+    auto asyncPutReq = createQuorumRequest(amReq, putObjMsg);
+
     auto const dlt = dltMgr->getAndLockCurrentDLT();
-
-    auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(
-            dlt->getNodes(amReq->obj_id)));
-
-    // For PUT object request to SMs, the quorum is 1 + half the
-    // number of replicas assigned for this object.
-    auto putQuorumCnt = dlt->getDepth()/2 + 1;
-    LOGDEBUG << "Dispatching PUT object request to " << putQuorumCnt
-             << " SMs";
-    asyncPutReq->setQuorumCnt(putQuorumCnt);
-    asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-
     asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
                                                    amReq, dlt->getVersion()));
     if (0 < message_timeout_io)
@@ -615,6 +639,10 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
 
     fds_volid_t volId = amReq->io_vol_id;
     ObjectID objId    = amReq->obj_id;
+
+    // This AM request will be sent to SM, so make the
+    // destination io module type to SM.
+    amReq->dest_io_module  = FDS_IOType::STOR_MGR;
 
     // TODO(Andrew): This is a hack to handle reading zero length blobs.
     // The DM or AM cache is going to return a invalid object Id (i.e., 0)
@@ -696,6 +724,9 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
     auto blobOffset = amReq->blob_offset;
     auto volId = amReq->io_vol_id;
+
+    // Make the AM request destination io module type to DM.
+    amReq->dest_io_module = FDS_IOType::DATA_MGR;
 
     LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: " << blobOffset << " volid: " << volId;
     /*
@@ -836,7 +867,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
 
-    auto asyncSetMDReq = createQuorumRequest(vol_id, setMDMsg);
+    auto asyncSetMDReq = createQuorumRequest(amReq, setMDMsg);
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, amReq));
@@ -896,7 +927,7 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     commitBlobTxMsg->txId         = static_cast<CommitBlobTxReq *>(amReq)->tx_desc->getValue();
     commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
-    auto asyncCommitBlobTxReq = createQuorumRequest(amReq->io_vol_id, commitBlobTxMsg);
+    auto asyncCommitBlobTxReq = createQuorumRequest(amReq, commitBlobTxMsg);
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));

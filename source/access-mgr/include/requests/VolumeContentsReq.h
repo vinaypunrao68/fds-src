@@ -27,7 +27,8 @@ struct VolumeContentsReq: public AmRequest {
                       fpi::BlobListOrder _orderBy,
                       bool _descending,
                       CallbackPtr cb)
-            :   AmRequest(FDS_VOLUME_CONTENTS, _volid, bucketName, "", cb),
+            :   AmRequest(FDS_VOLUME_CONTENTS, _volid, bucketName, "", cb,
+                          FDS_IOType::DATA_MGR),
                 count(_count), offset(_offset), pattern(_pattern), orderBy(_orderBy),
                 descending(_descending)
     {

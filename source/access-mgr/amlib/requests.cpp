@@ -24,7 +24,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        CallbackPtr cb,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len)
-    : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset, _data_len),
+    : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb,
+                FDS_IOType::DATA_MGR, _blob_offset, _data_len),
       get_metadata(false), oid_cached(false), metadata_cached(false) {
     stopwatch.start();
 
@@ -55,7 +56,8 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        boost::shared_ptr<std::string> _data,
                        BlobTxId::ptr _txDesc,
                        CallbackPtr _cb) :
-AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
+AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb,
+          FDS_IOType::DATA_MGR, _blob_offset, _data_len),
     AmTxReq(_txDesc),
     resp_acks(2),
     ret_status(ERR_OK),
@@ -88,7 +90,7 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                        CallbackPtr _cb) :
     AmRequest(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb,
-              _blob_offset, _data_len),
+              FDS_IOType::DATA_MGR, _blob_offset, _data_len),
     blob_mode(_blobMode),
     metadata(_metadata),
     resp_acks(2),

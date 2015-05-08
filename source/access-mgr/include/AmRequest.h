@@ -32,12 +32,14 @@ class AmRequest : public FDS_IOType {
 
     ProcessorCallback proc_cb;
     CallbackPtr cb;
+    typedef fds::FDS_IOType::destIoModule fds_destIoMod;
 
     AmRequest(fds_io_op_t         _op,
               fds_volid_t         _vol_id,
               const std::string&  _vol_name,
               const std::string&  _blob_name,
               CallbackPtr         _cb,
+              fds_destIoMod       _destIoMod,
               fds_uint64_t        _blob_offset = 0,
               fds_uint64_t        _data_len = 0)
         : volume_name(_vol_name),
@@ -48,6 +50,7 @@ class AmRequest : public FDS_IOType {
     {
         io_magic  = FDS_SH_IO_MAGIC_IN_USE;
         io_module = ACCESS_MGR_IO;
+        dest_io_module = _destIoMod;
         io_req_id = 0;
         io_type   = _op;
         io_vol_id = _vol_id;

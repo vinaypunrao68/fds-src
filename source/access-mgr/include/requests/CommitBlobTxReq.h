@@ -26,7 +26,8 @@ struct CommitBlobTxReq :
                    const std::string &_blob_name,
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
-            AmRequest(FDS_COMMIT_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
+            AmRequest(FDS_COMMIT_BLOB_TX, _volid, _vol_name, _blob_name, _cb,
+                      FDS_IOType::DATA_MGR),
             AmTxReq(_txDesc),
             final_blob_size(0ULL),
             final_meta_data()

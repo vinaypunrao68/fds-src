@@ -23,7 +23,8 @@ class StatBlobReq : public AmRequest {
                 const std::string   &_vol_name,
                 const std::string   &_blob_name,
                 CallbackPtr         cb) :
-            AmRequest(FDS_STAT_BLOB, _volid, _vol_name, _blob_name, cb) {
+            AmRequest(FDS_STAT_BLOB, _volid, _vol_name, _blob_name, cb,
+                      FDS_IOType::DATA_MGR) {
         e2e_req_perf_ctx.type = PerfEventType::AM_STAT_BLOB_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }

@@ -196,6 +196,9 @@ struct AmDispatcher
                                             boost::shared_ptr<Msg> const& payload) const;
 
     template<typename Msg>
+    QuorumSvcRequestPtr createQuorumRequest(AmRequest *amReq,
+                                            boost::shared_ptr<Msg> const& payload) const;
+    template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const vol_id,
                                                 boost::shared_ptr<Msg> const& payload) const;
 

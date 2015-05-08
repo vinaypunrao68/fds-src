@@ -63,6 +63,9 @@ template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::UpdateCatalogMsg co
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::UpdateCatalogOnceMsg const& msg)
 { return FDSP_MSG_TYPEID(UpdateCatalogOnceMsg); }
+
+template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::PutObjectMsg const& msg)
+{ return FDSP_MSG_TYPEID(PutObjectMsg); }
 // =============
 
 }  // namespace fds
