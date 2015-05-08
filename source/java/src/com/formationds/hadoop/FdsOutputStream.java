@@ -3,8 +3,8 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.xdi.AsyncAm;
 
 import java.io.IOException;
@@ -84,7 +84,7 @@ public class FdsOutputStream extends OutputStream {
     @Override
     public void flush() throws IOException {
         if (isClosed) {
-            throw new IOException("Stream was closed");
+ //           throw new IOException("Stream was closed");
         }
 
         if (isDirty) {
