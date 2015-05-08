@@ -834,20 +834,14 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
                << " qosLastSet=" << rebalReq->qosLastSet
                << " delta set size=" << rebalReq->deltaSet.size();
 
-    PerfContext tmp_pctx(PerfEventType::SM_APPLY_REBALANCE_DELTA_SET, 0);
-    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-
     for (fds_uint32_t i = 0; i < (rebalReq->deltaSet).size(); ++i) {
         const fpi::CtrlObjectMetaDataPropagate& objDataMeta = (rebalReq->deltaSet)[i];
         ObjectID objId(ObjectID(objDataMeta.objectID.digest));
 
         LOGMIGRATE << "Applying DeltaSet element: " << objId;
 
-        {
-            PerfContext tmp_pctx1(PerfEventType::SM_APPLY_OBJECT_METADATA, 0);
-            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx1);
-            err = objectStore->applyObjectMetadataData(objId, objDataMeta);
-        }
+        err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+
         if (!err.ok()) {
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
@@ -891,15 +885,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     // PerfTracer::incr(PerfEventType::SM_READ_OBJ_DELTA_SET_LOOP_SIZE, 0, (readDeltaSetReq->deltaSet).size(), 1);
 
-   { PerfContext tmp_pctx_loop(PerfEventType::SM_READ_OBJ_DELTA_SET_OUTSIDE_LOOP, 0);
-    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx_loop);
-
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
         fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
-        PerfContext tmp_pctx_inner(PerfEventType::SM_READ_OBJ_DELTA_SET_INNER, 0);
-        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx_inner);
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
@@ -910,11 +899,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* Read object data, if NO_RECONCILE or OVERWRITE */
         if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
-            PerfTracer::incr(PerfEventType::SM_READ_OBJ_DELTA_SET_RECONCILE_NUM, 0);
             
-            PerfContext tmp_pctx_reconcile(PerfEventType::SM_READ_OBJ_DELTA_SET_RECONCILE, 0);
-            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx_reconcile);
-
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
                     objectStore->getObjectData(invalid_vol_id,
@@ -926,12 +911,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
              */
             fds_verify(err.ok());
 
-            {
-                /* Copy the object data */
-                PerfContext tmp_pctx_propagate(PerfEventType::SM_READ_OBJ_DELTA_SET_PROPAGATE, 0);
-                SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx_propagate);
-                objMetaDataPropagate.objectData = *dataPtr;
-            }
+            /* Copy the object data */
+            objMetaDataPropagate.objectData = *dataPtr;
         }
 
         /* Add metadata and data to the delta set */
@@ -940,7 +921,6 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         LOGMIGRATE << "Adding DeltaSet element: " << objID
                    << " reconcileFlag=" << reconcileFlag;
     }
-   } // counter scope
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
     asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
