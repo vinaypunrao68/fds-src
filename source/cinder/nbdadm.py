@@ -219,7 +219,7 @@ def detach(args):
 
     if not attempted_detach:
         print 'nothing to detach'
-    return retval
+    return (None, retval)
 
 
 
@@ -248,7 +248,7 @@ def main(argv = sys.argv):
         sys.stderr.write(e.message + '\n')
         tb = traceback.format_exc()
         sys.stderr.write(tb + '\n')
-        return_val[1] = 255
+        return_val = (None, 255)
 
     return return_val[1]
 
