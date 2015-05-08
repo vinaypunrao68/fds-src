@@ -352,7 +352,9 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
 
 DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t const vol_id) const {
     ReadGuard guard(dmt_lock);
-    fds_verify(committed_version != DMT_VER_INVALID);
+    if (committed_version == DMT_VER_INVALID) {
+        throw Exception(ERR_INVALID_DMT, "DMT is not valid");
+    }
     auto const it = dmt_map.find(committed_version);
     fds_verify(dmt_map.cend() != it);
     return it->second->getNodeGroup(vol_id);

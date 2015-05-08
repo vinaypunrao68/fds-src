@@ -43,6 +43,7 @@ namespace msf = msm::front;
  * Flags -- allow info about a property of the current state
  */
 struct LocalDomainUp {};
+struct LocalDomainDown {};
 
 /**
  * OM Node Domain state machine structure
@@ -201,6 +202,8 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     };
     struct DST_DomainShutdown : public msm::front::state<>
     {
+        typedef mpl::vector1<LocalDomainDown> flag_list;
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -243,6 +246,22 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
 
         fds_uint32_t sm_acks_to_wait;
         fds_uint32_t dm_acks_to_wait;
+    };
+    struct DST_WaitDeact : public msm::front::state<>
+    {
+        DST_WaitDeact() : acks_to_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitDeact. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitDeact. Evt: " << e.logString();
+        }
+
+        fds_uint32_t acks_to_wait;
     };
 
 
@@ -320,6 +339,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_DeactSvc
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Guard conditions.
@@ -349,6 +373,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_DeactSvc
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Transition table for OM Node Domain
@@ -371,7 +400,8 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         msf::Row<DST_DomainUp, RegNodeEvt  ,DST_DomainUp,DACT_SendDltDmt,  msf::none   >,
         // +-----------------+-------------+------------+---------------+--------------+
         msf::Row<DST_WaitShutAm, ShutAckEvt, DST_WaitShutDmSm, DACT_ShutDmSm, GRD_AmShut >,
-        msf::Row<DST_WaitShutDmSm, ShutAckEvt, DST_DomainShutdown, DACT_Shutdown, GRD_DmSmShut >,
+        msf::Row<DST_WaitShutDmSm, ShutAckEvt, DST_WaitDeact, DACT_DeactSvc, GRD_DmSmShut >,
+        msf::Row<DST_WaitDeact, DeactAckEvt, DST_DomainShutdown, DACT_Shutdown, GRD_DeactSvc >,
         // +-----------------+-------------+------------+---------------+--------------+
         msf::Row<DST_DomainShutdown, WaitNdsEvt, DST_WaitActNds, DACT_WaitNds, msf::none>,
         msf::Row<DST_DomainShutdown, NoPersistEvt, DST_Wait,   DACT_Wait,   msf::none>,
@@ -996,13 +1026,58 @@ NodeDomainFSM::GRD_DmSmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 }
 
 /**
- * DACT_Shutdown
+ * GRD_DeactSvc
+ * ------------
+ * Checks if PMs acknowledged to "deactivate services" message
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    fds_bool_t b_ret = false;
+
+    // if timeout or couldn't send request over SL
+    // handle error for now by printing error msg to log
+    // TODO(Anna) will need to implement proper error handling
+    if ((evt.error == ERR_SVC_REQUEST_TIMEOUT) ||
+        (evt.error == ERR_SVC_REQUEST_INVOCATION)) {
+        LOGWARN << "Couldn't reach PM to deactivate services. "
+                << "Should be ok if the node is down, but cannot assume shutdown "
+                << " is graceful! For now treating as success";
+    } else if (evt.error != ERR_OK) {
+        // this is a more serious error, need to handle,
+        // but for now printing to log and ignoring
+        LOGERROR << "PM returned error to deactivate services: "
+                 << evt.error << ". We continue with shutting down anyway";
+    }
+
+    try {
+        if (src.acks_to_wait > 0) {
+            src.acks_to_wait--;
+        }
+
+        LOGDEBUG << "PM acks for deactivate services to wait: " << src.acks_to_wait;
+
+        if (src.acks_to_wait == 0) {
+            b_ret = true;
+        }
+    
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM GRD_DeactSvc :: " << e.what();
+    }
+
+    return b_ret;
+}
+
+/**
+ * DACT_DeactSvc
  * ------------
  * Send deactivate services msg to all PMs
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
-NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     // At this point we are ready to send msg to PMs to kill the services
     LOGDEBUG << "Will send deactivate services msg to all PMs";
@@ -1012,12 +1087,30 @@ NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 
         // broadcast deactivate services to all PMs
         // all "false" params mean deactive all services that are running on node
-        dom_ctrl->om_cond_bcast_deactivate_services(false, false, false);
+        fds_uint32_t count = dom_ctrl->om_cond_bcast_deactivate_services(false, false, false);
+        if (count < 1) {
+            // ok if we don't have any PMs, just finish shutdown process
+            dst.acks_to_wait = 1;
+            fsm.process_event(DeactAckEvt(ERR_OK));
+        } else {
+            dst.acks_to_wait = count;
+        }
+
     } catch(exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_Shutdown :: " << e.what();
     }
+}
 
+/**
+ * DACT_Shutdown
+ * ------------
+ * Finished domain shutdown process; log a message
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
     LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
 }
 
@@ -1049,10 +1142,6 @@ NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, 
 
         // broadcast DMT to DMs so they can start resync
         local->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT());
-
-        // now since AMs contact DMs on volume notification, we are broadcasting
-        // volume list here on domain restart, since we know that DMs in the DMTs are up
-        local->om_bcast_vol_list_to_services(fpi::FDSP_ACCESS_MGR);
 
     } catch(exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -1122,6 +1211,21 @@ OM_NodeDomainMod::om_local_domain_up()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainUp>();
 }
 
+// om_local_domain_down
+// ------------------
+//
+// Domain finished shutdown process and in down state. This is
+// not an opposite of "up" state; if shutdown domain process started,
+// domain is not in 'up' or 'down' state, when shutdown domain process
+// finishes, domain goes in 'down' state; from this state, domain can
+// be re-activated again
+fds_bool_t
+OM_NodeDomainMod::om_local_domain_down()
+{
+    fds_mutex::scoped_lock l(om_local_domain()->fsm_lock);
+    return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
+}
+
 // domain_event
 // ------------
 //
@@ -1150,6 +1254,10 @@ void OM_NodeDomainMod::local_domain_event(ShutdownEvt const &evt) {
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(ShutAckEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(DeactAckEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
@@ -1268,6 +1376,10 @@ OM_NodeDomainMod::om_startup_domain()
     if (om_local_domain_up()) {
         LOGWARN << "Domain is already active, not going to activate";
         return ERR_DUPLICATE;
+    } else if (!om_local_domain_down()) {
+        LOGWARN << "Domain is either in the process of coming up or down; "
+                << " Try again soon";
+        return ERR_NOT_READY;
     }
 
     LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
@@ -1663,6 +1775,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     }
 
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+    if (err == ERR_DUPLICATE) {
+        LOGNOTIFY << "Svc already exists; probably service is re-registering "
+                  << " after domain startup (re-activate after shutdown)";
+        err = ERR_OK;  // this is ok, still want to continue re-registration
+    }
 
     /**
      * Note this is a temporary hack to return the node registration call 
@@ -1784,9 +1901,8 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             // on domain re-activate, ok so send volume list right away
             // on restarting from persistent state, none of the volumes will
             // be loaded yet at this point, so broadcast will be noop
-            // we are going to broadcast volumes to AMs once DMTs and DLTs are
-            // broadcasted, because AM needs to be able to contact DM to get
-            // lease on a volume
+            // Do not broadcast volumes to AMs!!! An AM will get volume info when
+            // it receives an IO for that volume
             if (msg->node_type != fpi::FDSP_ACCESS_MGR) {
                 om_locDomain->om_bcast_vol_list(newNode);
             }

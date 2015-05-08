@@ -223,6 +223,10 @@ fds_volid_t VolumeDesc::getLookupVolumeId() const {
     return lookupVolumeId;
 }
 
+bool VolumeDesc::isSystemVolume() const {
+    return 0 == name.compare(0,13,"SYSTEM_VOLUME",0,13);
+}
+
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
     return os << "["
               << " uuid:" << vol.volUUID
