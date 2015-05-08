@@ -1,8 +1,3 @@
-##############################################################################
-# author: Philippe Ribeiro                                                   #
-# email: philippe@formationds                                                #
-# file: ec2.py                                                               #
-##############################################################################
 import sqlite3
 
 def get_aws_credentials():
