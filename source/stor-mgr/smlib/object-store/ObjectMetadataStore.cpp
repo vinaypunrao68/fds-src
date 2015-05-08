@@ -55,6 +55,12 @@ ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
 }
 
 Error
+ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap,
+                                       const SmTokenSet& smToks) {
+    return metaDb_->openMetadataDb(diskMap, smToks);
+}
+
+Error
 ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
 }
@@ -134,7 +140,7 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
     leveldb::ReadOptions options;
 
     err = metaDb_->snapshot(smTokId, db, options);
-    notifFn(err, snapReq, options, db);
+    notifFn(err, snapReq, options, db, snapReq->retryReq);
 }
 
 void

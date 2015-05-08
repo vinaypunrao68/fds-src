@@ -34,8 +34,11 @@ class VolStatsTimerTask : public FdsTimerTask {
 
 StatStreamTimerTask::StatStreamTimerTask(FdsTimer &timer,
                                          fpi::StatStreamRegistrationMsgPtr reg,
-                                         StatStreamAggregator & statStreamAggr)
-        : FdsTimerTask(timer), reg_(reg),
+                                         StatStreamAggregator & statStreamAggr,
+                                         DataMgr& dataManager)
+        : FdsTimerTask(timer),
+          dataManager_(dataManager),
+          reg_(reg),
           statStreamAggr_(statStreamAggr) {
     for (auto volId : reg_->volumes) {
         vol_last_ts_[volId] = 0;
@@ -265,8 +268,10 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
 
 
 StatStreamAggregator::StatStreamAggregator(char const *const name,
-                                           boost::shared_ptr<FdsConfig> fds_config)
+                                           boost::shared_ptr<FdsConfig> fds_config,
+                                           DataMgr& dataManager)
         : Module(name),
+          dataManager_(dataManager),
           process_tm_(new FdsTimer()),
           process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
@@ -421,7 +426,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
 
     SCOPEDWRITE(lockStatStreamRegsMap);
     statStreamRegistrations_[registration->id] = registration;
-    FdsTimerTaskPtr task(new StatStreamTimerTask(timer_, registration, *this));
+    FdsTimerTaskPtr task(new StatStreamTimerTask(timer_, registration, *this, dataManager_));
     statStreamTaskMap_[registration->id] = task;
     timer_.scheduleRepeated(task, std::chrono::seconds(registration->duration_seconds));
     return ERR_OK;
@@ -484,16 +489,18 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     std::vector<DataPointPair>::const_iterator pos;
 
     fprintf(pFile, "[");
-    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos)
-        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<fds_int64_t>(pos->value));
+    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos) {
+        // FIXME: Add range checking.
+        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<long long>(pos->value));
+    }
     fprintf(pFile, "]");
 
     fprintf(pFile, "\n");
     fclose(pFile);
 
     /* rsync the per volume stats */
-    if (dataMgr->amIPrimary(vol_id)) {
-        DmtColumnPtr nodes = dataMgr->omClient->getDMTNodesForVolume(vol_id);
+    if (dataManager_.amIPrimary(vol_id)) {
+        DmtColumnPtr nodes = dataManager_.omClient->getDMTNodesForVolume(vol_id);
         fds_verify(nodes->getLength() > 0);
 
         auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
@@ -695,7 +702,7 @@ void StatStreamTimerTask::runTimerTask() {
             GLOGWARN << "Cannot get stat volume history for id '" << volId << "'";
             continue;
         }
-        const std::string & volName = dataMgr->volumeName(volId);
+        const std::string & volName = dataManager_.volumeName(volId);
 
         VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;

@@ -48,8 +48,8 @@ proc["om"]="java"
 
 declare -A apps
 apps["om"]="orchMgr"
-apps["am"]="AMAgent"
-apps["xdi"]="AMAgent"
+apps["am"]="bare_am"
+apps["xdi"]="am.Main"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
@@ -122,6 +122,10 @@ function setupFdsDirs() {
     if [[ $(readlink ${FDSTEST_ROOT}/etc) != "${CONFIG_ETC}" ]] ; then
         cp -rf ${CONFIG_ETC} ${FDSTEST_ROOT}
     fi
+
+    cd ../
+    ./dev_make_install.sh
+    cd - > /dev/null
 }
 
 function activate() {
@@ -166,16 +170,26 @@ function startApp() {
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
             pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
+                case $name in
+                    sm|dm|am)
+                        params="--foreground --fds.pm.platform_uuid=$(echo 'keys node* '| redis-cli | cut -d: -f2)"
+                        ;;
+                    *)
+                        params=""
+                        ;;
+                esac
+
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
-                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} > ${name}.out 2>&1 &)
+                echo $params
+                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
-                sleep 2s
+
 		if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
                     loginfo "here is the log file: ${BINDIR}/${name}.out"
                     tail ${BINDIR}/${name}.out
                 fi
-                sleep 1s
+
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -254,7 +268,7 @@ function cleanInfluxDB() {
     ## if it is not running, start it.
     if [ $isRunning != 0 ]; then
         startInfluxDB
-        sleep 5
+        sleep 2
     fi
 
     loginfo "cleaning up InfluxDB databases"
@@ -290,16 +304,21 @@ function statusApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid="$(getAppPid $name)"
+            pid="$(getAppPid $name zombie)"
             if [[ -z $pid ]] ; then
                 echo "$(boldblue ${name}) : $(yellow Not running)"
             else
                 local num=1
                 for procid in $pid ; do
-                    if [[ $num == 1 ]]; then
-                        echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                    if [[ "Z" == $(ps -o s= -p $procid) ]]; then
+                        echo "$(yellow ${name}) : $(boldred $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        num=$((num-1))
                     else
-                        echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        if [[ $num == 1 ]]; then
+                            echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        else
+                            echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        fi
                     fi
                     num=$((num+1))
                 done
@@ -337,7 +356,15 @@ function getAppPid() {
     else
         pid="$(pgrep ${apps[$name]})"
     fi
-    echo -n $pid
+    if [[ $2 == "zombie" ]]; then
+        echo -n $pid
+    else
+        for p in $pid; do
+            if [[ "Z" != $(ps -o s= -p $p) ]]; then 
+                echo -n "$p "
+            fi
+        done
+    fi
 }
 
 function waitForAll() {

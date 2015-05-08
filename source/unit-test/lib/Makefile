@@ -44,7 +44,8 @@ user_cpp          :=  \
     histogram_gtest.cpp \
     qos_tokbucket_gtest.cpp \
     s3utils_gtest.cpp \
-    fds_panic.cpp
+    fds_panic.cpp \
+	bitset_gtest.cpp
 
 
 user_cc           :=
@@ -78,7 +79,8 @@ user_bin_exe      := \
     histogram_gtest \
     qos_tokbucket_gtest \
     s3utils_gtest \
-    fds_panic
+    fds_panic \
+	bitset_gtest
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -99,5 +101,6 @@ s3utils_gtest			:= s3utils_gtest.cpp
 histogram_gtest 			   := histogram_gtest.cpp
 qos_tokbucket_gtest            := qos_tokbucket_gtest.cpp
 fds_panic                      := fds_panic.cpp
+bitset_gtest				   := bitset_gtest.cpp
 
 include $(topdir)/Makefile.incl

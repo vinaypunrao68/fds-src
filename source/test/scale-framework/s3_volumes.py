@@ -28,8 +28,7 @@ class S3Volumes(object):
     am_ip_address: the IP address to where the AM node is located. If not
     specified, the AM node will be assumed to the the same as the OM node
     '''
-    def __init__(self, name, om_ip_address, am_ip_address=None):
-        self.name = name
+    def __init__(self, om_ip_address, am_ip_address=None):
         self.om_ip_address = om_ip_address
         # in the case the AM IP Address is not specified, then use the
         # OM IP address as the AM IP Address
@@ -41,7 +40,7 @@ class S3Volumes(object):
                                                  self.am_ip_address)
         self.buckets = []
 
-    def create_volumes(self, size):
+    def create_volumes(self, quantity, name):
         '''
         Given number specified by the user, create that many buckets specified.
 
@@ -49,12 +48,14 @@ class S3Volumes(object):
         -----------
         size: the number of buckets to be created
         '''
-        assert size > 0
+        assert quantity > 0
         # connect to the S3 instance
-        for i in xrange(0, size):
-            bucket_name = "%s_%s" % (self.name, i)
+        for i in xrange(0, quantity):
+            bucket_name = "%s_%s" % (name, i)
             bucket = self.__create_volume(self.s3conn, bucket_name)
             self.buckets.append(bucket)
+
+        return self.buckets
 
     def __create_volume(self, s3conn, bucket_name):
         '''
@@ -133,7 +134,7 @@ class S3Volumes(object):
         ----------
         buckets: a list of S3 buckets
         '''
-        for bucket in self.buckets:
+        for bucket in buckets:
             self.__delete_volume(self.s3conn, bucket)
         # After the clean up please delete the bucket
         self.s3conn.s3_disconnect()

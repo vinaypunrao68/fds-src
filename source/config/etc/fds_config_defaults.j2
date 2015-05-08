@@ -27,6 +27,7 @@
 {% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'false' %}
 {% set svc_plat_thrift_message_timeout = fds_svc_plat_timeout_thrift_message if fds_svc_plat_timeout_thrift_message is defined else '5000' %}
 {% set force_disk_simulation = fds_force_disk_simulation if fds_force_disk_simulation is defined else 'false' %}
+{% set use_new_superblock = fds_use_new_superblock if ft_platform_use_new_superblock is defined else 'false' %}
 {#
    fds.dm. specific entries
 #}
@@ -56,6 +57,7 @@
    fds.om. specific entries
 #}
 {% set om_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set om_influxdb_url = fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://' + om_ip + ':8086' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
 {#
@@ -82,6 +84,7 @@
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
 {% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}
+{% set ft_platform_use_new_superblock             = fds_ft_platform_use_new_superblock             if fds_ft_platform_use_new_superblock             is defined else 'false' %}
 
 {#
    Java fds-feature.conf deployment configurations
@@ -89,6 +92,6 @@
 {% set fds_feature_web_tool_kit = fds_web_tool_kit_feature if fds_web_tool_kit_feature is defined else 'true' %}
 {% set fds_snmp_feature = fds_snmp_feature if fds_snmp_feature is defined else 'true' %}
 {% set fds_persist_objectdb = fds_persist_objectdb if fds_persist_objectdb is defined else 'true' %}
-{% set fds_persist_influxdb = fds_persist_influxdb if fds_persist_influxdb is defined else 'false' %}
-{% set fds_query_influxdb = fds_query_influxdb if fds_query_influxdb is defined else 'false' %}
+{% set fds_persist_influxdb = fds_persist_influxdb if fds_persist_influxdb is defined else 'true' %}
+{% set fds_query_influxdb = fds_query_influxdb if fds_query_influxdb is defined else 'true' %}
 {% block content %}{% endblock %}

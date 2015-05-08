@@ -4,14 +4,22 @@
 
 package com.formationds.xdi;
 
-import com.formationds.apis.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.LocalDomain;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.SnapshotPolicy;
+import com.formationds.apis.StreamingRegistrationMsg;
+import com.formationds.apis.Tenant;
+import com.formationds.apis.User;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
-import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
-
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -423,6 +431,12 @@ public class XdiConfigurationApi implements ConfigurationApi {
         return;
     }
 
+    @Override
+    public void startupLocalDomain(String domainName)
+        throws TException {
+        config.startupLocalDomain(domainName);
+        return;
+    }
     @Override
     public void shutdownLocalDomain(String domainName)
             throws TException {

@@ -249,7 +249,7 @@ class NbdOperations
     // The two response types we do support
     void getBlobResp(const resp_api_type::error_type &error,
                      handle_type& requestId,
-                     resp_api_type::shared_buffer_type buf,
+                     const resp_api_type::shared_buffer_array_type& bufs,
                      resp_api_type::size_type& length) override;
 
     void updateBlobResp(const resp_api_type::error_type &error, handle_type& requestId) override;
@@ -285,7 +285,7 @@ class NbdOperations
     void abortBlobTxResp       (const resp_api_type::error_type &, handle_type&) override {}
     void commitBlobTxResp      (const resp_api_type::error_type &, handle_type&) override {}
     void deleteBlobResp        (const resp_api_type::error_type &, handle_type&) override {}
-    void getBlobWithMetaResp   (const resp_api_type::error_type &, handle_type&, resp_api_type::shared_buffer_type, resp_api_type::size_type&, resp_api_type::shared_descriptor_type&) override {}  // NOLINT
+    void getBlobWithMetaResp   (const resp_api_type::error_type &, handle_type&, const resp_api_type::shared_buffer_array_type&, resp_api_type::size_type&, resp_api_type::shared_descriptor_type&) override {}  // NOLINT
     void startBlobTxResp       (const resp_api_type::error_type &, handle_type&, resp_api_type::shared_tx_ctx_type&) override {}  // NOLINT
     void statBlobResp          (const resp_api_type::error_type &, handle_type&, shared_descriptor_type&) override {}  // NOLINT
     void updateBlobOnceResp    (const resp_api_type::error_type &, handle_type&) override {}

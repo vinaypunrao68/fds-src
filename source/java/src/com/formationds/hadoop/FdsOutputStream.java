@@ -3,10 +3,9 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.XdiService;
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
-import org.apache.thrift.TException;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.xdi.AsyncAm;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -15,29 +14,31 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
+
 public class FdsOutputStream extends OutputStream {
     private final int objectSize;
     private final String domain;
     private final String volume;
     private final String blobName;
-    private XdiService.Iface am;
+    private AsyncAm asyncAm;
     private long currentOffset;
     private ByteBuffer currentBuffer;
     private boolean isDirty;
     private boolean isClosed;
     private OwnerGroupInfo ownerGroupInfo;
 
-    FdsOutputStream(XdiService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo ownerGroupInfo) throws IOException {
+    FdsOutputStream(AsyncAm am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo ownerGroupInfo) throws IOException {
         this(objectSize, domain, volume, blobName, am, 0, ByteBuffer.allocate(objectSize), false, false, ownerGroupInfo);
     }
 
-    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, XdiService.Iface am,
+    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, AsyncAm asyncAm,
                             long currentOffset, ByteBuffer currentBuffer, boolean isDirty, boolean isClosed, OwnerGroupInfo ownerGroupInfo) {
         this.objectSize = objectSize;
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
-        this.am = am;
+        this.asyncAm = asyncAm;
         this.currentOffset = currentOffset;
         this.currentBuffer = currentBuffer;
         this.isDirty = isDirty;
@@ -45,28 +46,28 @@ public class FdsOutputStream extends OutputStream {
         this.ownerGroupInfo = ownerGroupInfo;
     }
 
-    public static FdsOutputStream openForAppend(XdiService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
+    public static FdsOutputStream openForAppend(AsyncAm asyncAm, String domain, String volume, String blobName, int objectSize) throws IOException {
         try {
-            BlobDescriptor bd = am.statBlob(domain, volume, blobName);
+            BlobDescriptor bd = asyncAm.statBlob(domain, volume, blobName).get();
             OwnerGroupInfo owner = new OwnerGroupInfo(bd);
             long byteCount = bd.getByteCount();
             ObjectOffset objectOffset = getObjectOffset(byteCount, objectSize);
             int length = (int) byteCount % objectSize;
-            ByteBuffer lastObject = am.getBlob(domain, volume, blobName, length, objectOffset);
+            ByteBuffer lastObject = asyncAm.getBlob(domain, volume, blobName, length, objectOffset).get();
             ByteBuffer currentBuffer = ByteBuffer.allocate(objectSize);
             currentBuffer.put(lastObject);
-            return new FdsOutputStream(objectSize, domain, volume, blobName, am, byteCount, currentBuffer, false, false, owner);
-        } catch (TException e) {
+            return new FdsOutputStream(objectSize, domain, volume, blobName, asyncAm, byteCount, currentBuffer, false, false, owner);
+        } catch (Exception e) {
             throw new IOException(e);
         }
     }
 
 
-    public static FdsOutputStream openNew(XdiService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo owner) throws IOException {
+    public static FdsOutputStream openNew(AsyncAm asyncAm, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo owner) throws IOException {
         try {
-            am.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(owner));
-            return new FdsOutputStream(am, domain, volume, blobName, objectSize, owner);
-        } catch (TException e) {
+            unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(owner)).get());
+            return new FdsOutputStream(asyncAm, domain, volume, blobName, objectSize, owner);
+        } catch (Exception e) {
             throw new IOException(e);
         }
     }
@@ -83,7 +84,7 @@ public class FdsOutputStream extends OutputStream {
     @Override
     public void flush() throws IOException {
         if (isClosed) {
-            throw new IOException("Stream was closed");
+            return;
         }
 
         if (isDirty) {
@@ -91,8 +92,8 @@ public class FdsOutputStream extends OutputStream {
             currentBuffer.flip();
 
             try {
-                am.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo));
-            } catch (TException e) {
+                asyncAm.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get();
+            } catch (Exception e) {
                 isClosed = true;
                 throw new IOException(e);
             }
@@ -116,11 +117,10 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        if (! (currentBuffer.position() < objectSize)) {
+        if (currentBuffer.position() >= objectSize) {
             flush();
         }
         currentBuffer.put((byte) b);
-        isDirty = true;
         currentOffset++;
         isDirty = true;
     }
@@ -135,8 +135,14 @@ public class FdsOutputStream extends OutputStream {
         if (isClosed) {
             return;
         }
-        flush();
-        super.close();
-        isClosed = true;
+        try {
+            try {
+                flush();
+            } finally {
+                super.close();
+            }
+        }finally {
+            isClosed = true;
+        }
     }
 }

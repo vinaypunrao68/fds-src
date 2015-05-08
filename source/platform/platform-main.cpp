@@ -10,6 +10,7 @@
 #include "net/SvcProcess.h"
 #include "net/SvcMgr.h"
 
+#include "disk_plat_module.h"
 #include "platform/platform_manager.h"
 #include "platform/svc_handler.h"
 
@@ -26,18 +27,15 @@ namespace fds
                 auto processor = boost::make_shared <fpi::PlatNetSvcProcessor> (handler);
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
-                util::Properties& props = platform->getProperties();
-
-                props.setData(&svcInfo_.props);
-
                 gl_DiskPlatMod.mod_startup();
-                platform->loadProperties();
+
+                platform->updateServiceInfoProperties(&svcInfo_.props);
             }
 
-            virtual void setupSvcInfo_()
+            void setupSvcInfo_()
             {
-                platform->mod_init (nullptr);
                 gl_DiskPlatMod.mod_init (nullptr);
+                platform->mod_init (nullptr);
                 SvcProcess::setupSvcInfo_();
 
                 const fpi::NodeInfo& nodeInfo = platform->getNodeInfo();
@@ -45,9 +43,11 @@ namespace fds
                 LOGNOTIFY << "Svc info overrriden to: " << fds::logString(svcInfo_);
             }
 
-            virtual int run()
+            int run()
             {
-                return platform->run();
+                platform->run();
+
+                return 0;
             }
 
         protected:

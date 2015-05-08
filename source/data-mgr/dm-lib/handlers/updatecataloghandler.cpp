@@ -8,15 +8,17 @@
 namespace fds {
 namespace dm {
 
-UpdateCatalogHandler::UpdateCatalogHandler() {
-    if (!dataMgr->features.isTestMode()) {
+UpdateCatalogHandler::UpdateCatalogHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogMsg, handleRequest);
     }
 }
 
 void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::UpdateCatalogMsg> & message) {
-    if ((dataMgr->testUturnAll == true) || (dataMgr->testUturnUpdateCat == true)) {
+    if (dataManager.testUturnAll || dataManager.testUturnUpdateCat) {
         GLOGDEBUG << "Uturn testing update catalog " << logString(*asyncHdr) <<
             logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, NULL);
@@ -24,7 +26,7 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -46,14 +48,15 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
 }
 
 void UpdateCatalogHandler::handleQueueItem(dmCatReq * dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoUpdateCat * request = static_cast<DmIoUpdateCat *>(dmRequest);
 
     LOGDEBUG << "Will update blob: '" << request->blob_name << "' of volume: '" <<
             std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataMgr->timeVolCat_->updateBlobTx(request->volId, request->ioBlobTxDesc,
-            request->obj_list);
+    helper.err = dataManager.timeVolCat_->updateBlobTx(request->volId,
+                                                       request->ioBlobTxDesc,
+                                                       request->obj_list);
 }
 
 void UpdateCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

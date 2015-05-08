@@ -175,7 +175,7 @@ void SvcProcess::setupSvcInfo_()
     svcInfo_.svc_type = svcType;
     svcInfo_.svc_id.svc_uuid = SvcMgr::mapToSvcUuid(platformUuid,
                                                     svcType);
-    svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
+    svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if", ""));
     svcInfo_.svc_port = SvcMgr::mapToSvcPort(platformPort, svcType);
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
 
@@ -193,11 +193,25 @@ void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
 {
     LOGNOTIFY << "setup service manager";
 
-    handler->mod_init(nullptr);
+    if (handler->mod_init(nullptr) != 0) {
+        LOGERROR << "Failed to initialize service handler.  Throwing an exception";
+        throw std::runtime_error("Failed to initialize service handler");
+    }
 
     svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo_));
+    svcMgr_->setSvcServerListener(this);
     /* This will start SvcServer instance */
-    svcMgr_->mod_init(nullptr);
+    if (svcMgr_->mod_init(nullptr) != 0) {
+        LOGERROR << "Failed to initialize service manager.  Throwing an exception";
+        throw std::runtime_error("Failed to initialize service manager");
+    }
+}
+
+void SvcProcess::notifyServerDown(const Error &e) {
+    LOGERROR << "Svc server down " << e << ".  Bringing the service down";
+    std::call_once(mod_shutdown_invoked_,
+                    &FdsProcess::shutdown_modules,
+                    this);
 }
 
 }  // namespace fds

@@ -38,9 +38,13 @@ private:
     std::vector<std::string> deferredDeletions_;
 
 public:
-    explicit CopyEnv(leveldb::Env* t) : leveldb::EnvWrapper(t), copying_(false),
-            logRotate_(false), logFilePrefix_("catalog.journal"),
-            archivePrefix_(DEFAULT_ARCHIVE_PREFIX) {}
+    explicit CopyEnv(leveldb::Env& t) : leveldb::EnvWrapper(&t),
+                                        copying_(false),
+                                        logRotate_(false),
+                                        logFilePrefix_("catalog.journal"),
+                                        archivePrefix_(DEFAULT_ARCHIVE_PREFIX),
+                                        maxLogFiles_(0)
+    {}
 
     Status NewWritableFile(const std::string& fname, WritableFile** result);
 

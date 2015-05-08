@@ -166,7 +166,7 @@ TimeStamp TimeTracker::totalNanos() {
 std::ostream& operator<<(std::ostream& oss, const fds::util::TimeTracker& tracker) {
     oss << "Times:\n";
     auto iter = tracker.vecTimes.begin();
-    fds::util::TimeStamp previous;
+    fds::util::TimeStamp previous {0};
 
     if (iter != tracker.vecTimes.end()) {
         oss << iter->first << ":" << iter->second << "\n";

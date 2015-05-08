@@ -25,8 +25,7 @@ const std::string DmPersistVolDB::CATALOG_CACHE_SIZE_STR("catalog_cache_size");
 const std::string DmPersistVolDB::CATALOG_MAX_LOG_FILES_STR("catalog_max_log_files");
 
 DmPersistVolDB::~DmPersistVolDB() {
-    delete catalog_;
-
+    catalog_.reset();
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
@@ -81,9 +80,13 @@ Error DmPersistVolDB::activate() {
 
     try
     {
-        if (catalog_) delete catalog_;
-        catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
-                    logFilePrefix, maxLogFiles, &cmp_);
+        catalog_.reset(new Catalog(catName,
+                                   writeBufferSize,
+                                   cacheSize,
+                                   logDirName,
+                                   logFilePrefix,
+                                   maxLogFiles,
+                                   &cmp_));
     }
     catch(const CatalogException& e)
     {
@@ -114,7 +117,8 @@ Error DmPersistVolDB::copyVolDir(const std::string & destName) {
 }
 
 Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
-    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+    const BlobObjKey key(VOL_META_ID, 0);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = catalog_->Query(keyRec, &value);
@@ -143,7 +147,7 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 
 Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) {
     Catalog::catalog_roptions_t opts;
-    Catalog::catalog_iterator_t * dbIt = getSnapshotIter(opts);
+    auto dbIt = getSnapshotIter(opts);
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record dbKey = dbIt->key();
@@ -154,7 +158,6 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
@@ -196,7 +199,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
@@ -212,7 +215,6 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         objList.push_back(std::move(blobInfo));
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
@@ -233,7 +235,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
@@ -247,13 +249,13 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         objList[static_cast<fds_uint64_t>(key->objIndex) * objSize_] = blobInfo;
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
 
 Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
-    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+    const BlobObjKey key(VOL_META_ID, 0);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = volDesc.getSerialized(value);

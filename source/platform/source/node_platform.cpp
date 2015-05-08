@@ -9,13 +9,11 @@
 #include <ep-map.h>
 #include <util/timeutils.h>
 #include <net/SvcRequestPool.h>
-#include "disk_plat_module.h"
 #include "pm_disk_inventory.h"
 #include "disk_common.h"
 #include "node_platform.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform_process.h"
-#include "disk_plat_module.h"
 #include "plat_agent_container.h"
 #include "plat_agent_plugin.h"
 #include "platform/pm_svc_ep.h"
@@ -63,7 +61,7 @@ namespace fds
         FdsConfigAccessor    conf(g_fdsprocess->get_conf_helper());
 
         disk_ctrl        = DiskPlatModule::dsk_plat_singleton();
-        plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
+        plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if", ""));
         plf_my_node_name = conf.get_abs<std::string>("fds.pm.id", "pm");
         return 0;
     }

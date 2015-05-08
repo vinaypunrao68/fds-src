@@ -7,6 +7,8 @@
 
 #include <net/PlatNetSvcHandler.h>
 
+#include <fdsp/pm_service_types.h>
+
 namespace fds
 {
     namespace pm
@@ -17,7 +19,9 @@ namespace fds
         {
             public:
                 SvcHandler(CommonModuleProviderIf *provider, PlatformManager *platform);
+
                 void activateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::ActivateServicesMsg> &activateMsg);
+                void deactivateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::DeactivateServicesMsg> &activateMsg);
 
             protected:
                 PlatformManager   *platform;

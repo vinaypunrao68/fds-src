@@ -11,6 +11,7 @@
 
 namespace fds
 {
+    class DiskCapability;
     class DiskLabel;
     class DiskCommon;
 
@@ -51,6 +52,11 @@ namespace fds
                 DiskLabel   *ret = dsk_label; dsk_label = NULL; return ret;
             }
 
+            inline DiskCapability *dsk_xfer_capability()
+            {
+                DiskCapability   *ret = dsk_capability; dsk_capability = NULL; return ret;
+            }
+
             inline fds_uint64_t dsk_capacity_gb()
             {
                 return dsk_cap_gb;
@@ -62,6 +68,11 @@ namespace fds
             void dsk_set_mount_point(const char *mnt);
 
             const std::string &dsk_get_mount_point();
+
+            /**
+             * Read in disk capabilities.
+             */
+            void dsk_read_capability();
 
             /**
              * Read in disk label.  Generate uuid for the disk if we don't have valid label.
@@ -113,6 +124,7 @@ namespace fds
             struct udev_device   *dsk_my_dev;
             DiskCommon           *dsk_common;
             DiskLabel            *dsk_label;
+            DiskCapability       *dsk_capability;
 
         private:
             void dsk_fixup_family_links(PmDiskObj::pointer ref);

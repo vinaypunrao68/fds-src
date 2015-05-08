@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "This script should no longer be used"
+echo "Platformd starts bare_am and the JAVA am independently."
+
+
+./bare_am $* &
+sleep 3
+
+CLASSPATH=$CLASSPATH:../lib/java/fds-1.0-bin/fds-1.0/\*:../lib/java/classes
+
+instance=$( echo `expr match "$*" '.*platform_port=*\([0-9]\)'` )
+port=$(($instance + 4000))
+java -classpath $CLASSPATH \
+     com.formationds.am.Main $*

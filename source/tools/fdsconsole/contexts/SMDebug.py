@@ -3,11 +3,17 @@ from svc_api.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
+import pdb
 
 
 class SMDebugContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+
+    def __del__(self):
+        pdb.set_trace()
+        serv = self.smClient()
+        serv.stop_serv()
 
     def smClient(self):
         return self.config.getPlatform()
@@ -42,13 +48,17 @@ class SMDebugContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
-    def startSmchk(self, sm):
+    @arg('--targetTokens', help="-List of tokens to check", type=str)
+    def startSmchk(self, sm, targetTokens=None):
         """
         Start the online smchk for the specified sm node
         """
         try:
-            startSmchk = FdspUtils.newStartSmchkMsg()
-            self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
+            if targetTokens is not None:
+                targetTokens = targetTokens.split(',')
+                targetTokens = map(int, targetTokens)
+
+            startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
         except Exception, e:
             log.exception(e)
             print e.message

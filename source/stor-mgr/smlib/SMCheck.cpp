@@ -418,7 +418,7 @@ SMCheckOnline::getStats(fpi::CtrlNotifySMCheckStatusRespPtr resp)
 // After snapshot callback is called, it will process then the call back will
 // enqueue snapshot request for the next token in the set...  and so on...
 Error
-SMCheckOnline::startIntegrityCheck()
+SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
 {
     Error err(ERR_OK);
 
@@ -452,9 +452,21 @@ SMCheckOnline::startIntegrityCheck()
              << " UUID=" << SMCheckUuid
              << " DLT=" << latestClosedDLT;
 
-    // get all the SM tokens in the system.  Now
-    allTokens = diskMap->getSmTokens();
-
+    targetDLTTokens = tgtDltTokens;
+    if (!targetDLTTokens.empty()) {
+        for (auto token : targetDLTTokens) {
+            fds_token_id smToken;
+            smToken = diskMap->smTokenId(token);
+            LOGDEBUG << "Token " << token << " found in sm token: " << smToken;
+            allTokens.insert(smToken);
+        }
+        LOGDEBUG << "Received target tokens list, verifying " << allTokens.size() << " SM tokens"
+                 << " and " << tgtDltTokens.size() << " dlt tokens.\n";
+    } else {
+        LOGDEBUG << "No target tokens found, verifying ALL SM tokens.\n";
+        // get all the SM tokens in the system.  Now
+        allTokens = diskMap->getSmTokens();
+    }
     // update stats on number of tokens to be checked
     totalNumTokens = allTokens.size();
     // assert in debug mode.
@@ -514,6 +526,13 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
     leveldb::Iterator* ldbIter = db->NewIterator(options);
     for (ldbIter->SeekToFirst(); ldbIter->Valid(); ldbIter->Next()) {
         ObjectID id(ldbIter->key().ToString());
+
+        if (!targetDLTTokens.empty()) {
+            // If this object isn't in the DLT token we're checking
+            if (targetDLTTokens.count(latestClosedDLT->getToken(id)) == 0) {
+                continue;
+            }
+        }
 
         ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
         objMetaDataPtr->deserializeFrom(ldbIter->value());

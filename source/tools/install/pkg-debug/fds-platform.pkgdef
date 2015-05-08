@@ -34,7 +34,6 @@ files:
       dest-is-dir: True
       src:
         - ../../../Build/linux-x86_64.debug/bin/libaccessmgr.so
-        - ../../../Build/linux-x86_64.debug/bin/AMAgent
         - ../../../Build/linux-x86_64.debug/bin/bare_am
 
     #########

@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-GetVolumeMetadataHandler::GetVolumeMetadataHandler() {
-    if (!dataMgr->features.isTestMode()) {
+GetVolumeMetadataHandler::GetVolumeMetadataHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetVolumeMetadataMsg, handleRequest);
     }
 }
@@ -26,7 +28,7 @@ void GetVolumeMetadataHandler::handleRequest(
     LOGTRACE << "Received a get volume metadata request for volume "
              << message->volumeId;
 
-    auto err = dataMgr->validateVolumeIsActive(message->volumeId);
+    auto err = dataManager.validateVolumeIsActive(message->volumeId);
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
@@ -43,11 +45,13 @@ void GetVolumeMetadataHandler::handleRequest(
 }
 
 void GetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoGetVolumeMetadata* typedRequest = static_cast<DmIoGetVolumeMetadata*>(dmRequest);
 
-    helper.err = dataMgr->timeVolCat_->queryIface()->getVolumeMetadata(typedRequest->getVolId(),
-                                                                       typedRequest->msg->metadataList);
+    helper.err = dataManager
+                .timeVolCat_
+               ->queryIface()
+               ->getVolumeMetadata(typedRequest->getVolId(), typedRequest->msg->metadataList);
 }
 
 void GetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

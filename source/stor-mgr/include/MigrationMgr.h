@@ -9,6 +9,7 @@
 #include <SmIo.h>
 #include <MigrationExecutor.h>
 #include <MigrationClient.h>
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -53,6 +54,8 @@ class SmTokenMigrationMgr {
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
+
+    typedef std::set<fds_token_id> RetrySmTokenSet;
 
     /**
      * Matches OM state, just for sanity checks that we are getting
@@ -174,6 +177,21 @@ class SmTokenMigrationMgr {
      */
     Error handleDltClose();
 
+    inline fds_bool_t isDltTokenReady(const ObjectID& objId) const {
+        if (dltTokenStates.size() > 0) {
+            fds_verify(numBitsPerDltToken > 0);
+            fds_token_id dltTokId = DLT::getToken(objId, numBitsPerDltToken);
+            return dltTokenStates[dltTokId];
+        }
+        return false;
+    }
+    /**
+     * If migration not in progress and DLT tokens active/not active
+     * states are not assigned, activate DLT tokens (this SM did not need
+     * to resync or get data from other SMs).
+     */
+    void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
+
   private:
     /**
      * Callback function from the metadata snapshot request for a particular SM token
@@ -181,15 +199,29 @@ class SmTokenMigrationMgr {
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db);
+                                   leveldb::DB *db, bool retry);
 
     /**
      * Callback for a migration executor that it finished migration
+     *
+     * @param[in] round is the round that is finished:
+     *            0 -- one DLT token finished during resync, but the whole
+     *            executor haven't finished yet
+     *            1 -- first round of migration finished for the executor
+     *            2 -- second round of migration finished for the executor
      */
     void migrationExecutorDoneCb(fds_uint64_t executorId,
                                  fds_token_id smToken,
-                                 fds_bool_t isFirstRound,
+                                 const std::set<fds_token_id>& dltTokens,
+                                 fds_uint32_t round,
                                  const Error& error);
+    /**
+     * This callback basically inserts the dlt token to the
+     * retry migration set.
+     */
+    void dltTokenMigrationFailedCb(fds_token_id &smToken);
+
+    void retryTokenMigrForFailedDltTokens();
 
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken);
@@ -236,6 +268,8 @@ class SmTokenMigrationMgr {
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
 
+    std::vector<fds_bool_t> dltTokenStates;
+
     /// next ID to assign to a migration executor
     /**
      * TODO(Anna) executor ID must be a more complex type that encodes
@@ -256,6 +290,9 @@ class SmTokenMigrationMgr {
     /// tokens at a time
     fds_token_id smTokenInProgress;
     fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
+
+    /// SM token for which retry token migration is going on.
+    fds_token_id retrySmTokenInProgress;
 
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
@@ -282,6 +319,22 @@ class SmTokenMigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+
+    /**
+     * SM tokens for which token migration of atleast 1 dlt token failed
+     * because the source SM was not ready.
+     */
+     RetrySmTokenSet retryMigrSmTokenSet;
+
+     // For synchronization between the timer thread and token migration thread.
+     fds_mutex migrSmTokenLock;
+
+    /**
+     * FDS timer. Currently used for resending the CtrlObjectRebalanceFilerSet
+     * requests to the source SM which failed the first time because source SM
+     * was not ready.
+     */
+     FdsTimer mTimer;
 };
 
 }  // namespace fds

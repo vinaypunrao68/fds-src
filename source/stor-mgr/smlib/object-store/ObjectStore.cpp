@@ -36,13 +36,36 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
                                     volTbl, diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
-                                         diskMap, data_store))
+                                         diskMap, data_store)),
+          isReadyAsMigrSrc(true)
 {
 }
 
 ObjectStore::~ObjectStore() {
     dataStore.reset();
     metaStore.reset();
+}
+
+/**
+ * Open metadata and data store for given SM tokens
+ * Ok if metadata and data stores are already open for any of
+ * given tokens.
+ */
+Error
+ObjectStore::openStore(const SmTokenSet& smTokens) {
+    Error err(ERR_OK);
+    // we may already have meta and data stores open for these
+    // SM tokens, but call open in case some of the stores not open
+    err = metaStore->openMetadataStore(diskMap, smTokens);
+    if (!err.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << err;
+        return err;
+    }
+    err = dataStore->openDataStore(diskMap, smTokens, false);
+    if (!err.ok()) {
+        LOGERROR << "Failed to open Data Store " << err;
+    }
+    return err;
 }
 
 Error
@@ -127,6 +150,7 @@ ObjectStore::putObject(fds_volid_t volId,
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
     PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
+
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -252,8 +276,17 @@ ObjectStore::putObject(fds_volid_t volId,
         // object not duplicate
         // select tier to put object
         StorMgrVolume *vol = volumeTbl->getVolume(volId);
-        fds_verify(vol);
-        useTier = tierEngine->selectTier(objId, *vol->voldesc);
+
+        // Depending on when the IO is available on this SM and when the volume
+        // information is propoated when the cluster restarts or SM service
+        // restarts after offline.
+        if (vol != NULL) {
+            useTier = tierEngine->selectTier(objId, *vol->voldesc);
+        } else {
+            useTier = diskio::diskTier;
+        }
+
+        // Adjust the tier depending on the system disk topology.
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
             LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
@@ -832,6 +865,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // We will update metadata with metadata sent to us from source SM
     ObjMetaData::ptr updatedMeta;
 
+    LOGMIGRATE << "Applyying Object: " << fds::logString(msg);
+
     // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
     //
     // If the metadata exists at this point, following matrix of operation is possible:
@@ -1078,8 +1113,10 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     }
 
     LOGDEBUG << "Applied object data/metadata to object store " << objId
-             << " delta from src SM " << fds::logString(msg)
-             << " updated meta " << *updatedMeta << " " << err;
+             << ": Delta from src SM " << fds::logString(msg)
+             << " >>> "
+             << " Updated meta " << *updatedMeta << " "
+             << " Error=" << err;
     return err;
 }
 
@@ -1113,8 +1150,11 @@ ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
         case SmTieringCmd::TIERING_DISABLE:
             tierEngine->disableTierMigration();
             break;
-        case SmTieringCmd::TIERING_START_HYBRIDCTRLR:
-            tierEngine->startHybridTierCtrlr();
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR_MANUAL:
+            tierEngine->startHybridTierCtrlr(true);
+            break;
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO:
+            tierEngine->startHybridTierCtrlr(false);
             break;
         default:
             fds_panic("Unknown tiering command");
@@ -1135,7 +1175,7 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
     LOGDEBUG << "Executing SM Check command " << checkCmd->command;
     switch (checkCmd->command) {
         case SmCheckCmd::SMCHECK_START:
-            err = SMCheckCtrl->startSMCheck();
+            err = SMCheckCtrl->startSMCheck(static_cast<SmCheckActionCmd*>(checkCmd)->tgtTokens);
             break;
         case SmCheckCmd::SMCHECK_STOP:
             err = SMCheckCtrl->stopSMCheck();

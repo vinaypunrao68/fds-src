@@ -34,7 +34,7 @@ def get_info(agent, n="localhost"):
 def get_pid(agent, n="localhost"): 
     if not is_agent_up(agent, n):
         return None
-    cmd = "ps aux | egrep %s | grep -v egrep  | grep -v defunct " % agents[agent]
+    cmd = "ps aux | egrep %s | grep -v egrep | grep -v defunct " % agents[agent]
     output = utils.ssh_exec(n, cmd).rstrip('\n')
     return int(output.split()[1])
 

@@ -358,8 +358,8 @@ void OrchMgr::defaultS3BucketPolicy()
     FDS_ProtocolInterface::FDSP_PolicyInfoType policy_info;
     policy_info.policy_name = std::string("FDS Default/Stock Policy");
     policy_info.policy_id = 50;
-    policy_info.iops_min = conf_helper_.get<int>("default_iops_min");;
-    policy_info.iops_max = conf_helper_.get<int>("default_iops_max");;
+    policy_info.iops_assured = conf_helper_.get<fds_int64_t>("default_iops_min");
+    policy_info.iops_throttle = conf_helper_.get<fds_int64_t>("default_iops_max");
     policy_info.rel_prio = 1;
 
     orchMgr->om_mutex->lock();
@@ -407,6 +407,12 @@ bool OrchMgr::loadFromConfigDB() {
                     << " -- not loading data.";
         return false;
     }
+
+    // load/create system volumes
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volContainer = local->om_vol_mgr();
+    volContainer->createSystemVolume();
+    volContainer->createSystemVolume(0);
 
     // keep the pointer in data placement module
     DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
