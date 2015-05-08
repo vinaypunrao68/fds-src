@@ -231,20 +231,26 @@ def main(argv = sys.argv):
     result = parser.parse_args(args)
     lock_file = result.lockfile
 
+    return_val = []
+
     try:
         if result.command == 'list':
-            return list_conn(result)[1]
+            return_val = list_conn(result)
         elif result.command == 'attach':
             with lock():
-                return attach(result)[1]
+                return_val = attach(result)
+                if return_val[1] == 0:
+                    print return_val[0]
         elif result.command == 'detach':
             with lock():
-                return detach(result)[1]
+                return_val detach(result)
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         tb = traceback.format_exc()
         sys.stderr.write(tb + '\n')
-        return 255
+        return_val[1] = 255
+
+    return return_val[1]
 
 
 if __name__ == '__main__':
