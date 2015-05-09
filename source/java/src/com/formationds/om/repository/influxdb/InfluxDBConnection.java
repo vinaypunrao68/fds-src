@@ -4,6 +4,7 @@
 
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.om.RetryHelper;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
@@ -14,7 +15,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -140,54 +140,18 @@ public class InfluxDBConnection {
         return influxDB;
     }
 
-    /**
-     * @return a future that will contain the connection once available
-     */
     protected CompletableFuture<InfluxDB> connectWithRetry() {
 
-        Random rng = new Random( System.currentTimeMillis() );
-        final int minDelay = 500;
-        final int maxDelay = 10000;
+        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl(), () -> {
+            InfluxDB conn = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
 
-        return CompletableFuture.supplyAsync( () -> {
-            int cnt = 0;
-            InfluxDB conn = null;
-            do {
-                try {
-
-                    conn = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
-
-                    // attempt to ping the server to make sure it is really there.
-                    conn.ping();
-
-                } catch ( Exception e ) {
-
-                    conn = null;
-                    try {
-
-                        final int delay = Math.max( minDelay, rng.nextInt( maxDelay ) );
-                        if ( cnt % 20 == 0 ) {
-                            logger.trace( "{} Connection attempts failed.  InfluxDB is not ready.  Waiting {} ms before retrying",
-                                          (cnt == 0 ? "" : cnt),
-                                          delay );
-                        }
-                        Thread.sleep( delay );
-
-                    } catch ( InterruptedException ie ) {
-
-                        // reset interrupt
-                        Thread.currentThread().interrupt();
-                        throw new IllegalStateException( "InfluxDB connection retry interrupted." );
-
-                    }
-                }
-                cnt++;
-            }
-            while ( conn == null );
+            // attempt to ping the server to make sure it is really there.
+            conn.ping();
 
             return conn;
         } );
     }
+
 
     public InfluxDBWriter getDBWriter() {
         if ( !database.isPresent() ) {
