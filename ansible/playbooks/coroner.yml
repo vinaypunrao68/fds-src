@@ -1,0 +1,54 @@
+---
+# This playbook allows the following variables
+#
+# coroner_fdsroot - set the directory to use as fdsroot, default: '/fds'
+# coroner_refid - set the value of --refid in coroner collect command, default: NOREF
+# coroner_dumpdir - set the directory on fre-dump to store files, default: ''
+# coroner_push - yes|no set whether to push dumpfiles to fre-dump directly, default: 'no'
+#   if coroner_push is set to 'no' then tarballs are copied back to the local host
+#   where ansible is being run into /tmp/coroner_collection
+#
+-   name: Run Coroner against remote nodes
+    hosts: all
+
+    tasks:
+
+    -   name: create_local_env
+        local_action: shell mkdir -p /tmp/coroner_collection
+        when: coroner_push is not defined or coroner_push == "no"
+
+    -   name: ensure sshpass installed
+        apt: name="sshpass" state="present"
+        when: coroner_push is defined and coroner_push == "yes"
+
+    -   name: run_coroner
+        shell: /fds/sbin/coroner.py collect --fdsroot {{ coroner_fdsroot|default('/fds') }} --refid {{ coroner_refid|default('NOREF') }}
+        register: coroner_output
+
+    -   name: set_coroner_filename
+        set_fact:
+            coroner_filename: "{{ coroner_output.stderr.split('\n')[-1]|regex_replace('.*Collection file. (/tmp/.*)$','\\\\1') }}"
+
+    -   name: copy files to fre-dump
+        command: "sshpass -p share /usr/bin/scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {{ coroner_filename }} share@fre-dump.formationds.com:{{ coroner_dumpdir|default('') }}"
+        when: coroner_push is defined and coroner_push == "yes"
+
+    -   name: fetch_coroner_file
+        fetch: src={{ coroner_filename }} dest="/tmp/coroner_collection" flat=yes validate_checksum=no
+        register: fetch_file
+        when: coroner_push is not defined or coroner_push == "no"
+
+    -   name: collect_local_files
+        local_action: shell ls -l /tmp/coroner_collection
+        register: local_file_list
+        when: coroner_push is not defined or coroner_push == "no"
+
+    -   name: We are done!
+        local_action: debug msg="Collection done - here are the files you have in /tmp/coroner_collection:"
+        run_once: true
+        when: coroner_push is not defined or coroner_push == "no"
+
+    -   local_action: debug var=local_file_list.stdout_lines
+        run_once: true
+        when: coroner_push is not defined or coroner_push == "no"
+
