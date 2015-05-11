@@ -20,7 +20,10 @@ class SnapshotPolicyConverter():
         snapshot_policy.retention = jsonString.pop( "retention", snapshot_policy.retention )
         snapshot_policy.timeline_time = jsonString.pop( "timelineTime", snapshot_policy.timeline_time )
         j_recur = jsonString.pop( "recurrenceRule", snapshot_policy.recurrence_rule )
-        snapshot_policy.recurrence_rule = RecurrenceRuleConverter.build_rule_from_json( j_recur )
+        
+        if isinstance( j_recur, dict ):
+            snapshot_policy.recurrence_rule = RecurrenceRuleConverter.build_rule_from_json( j_recur )
+            
         snapshot_policy.id = jsonString.pop( "id", snapshot_policy.id )
         
         return snapshot_policy

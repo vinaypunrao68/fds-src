@@ -2,6 +2,7 @@ from abstract_service import AbstractService
 from fds.utils.volume_converter import VolumeConverter
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.services.snapshot_service import SnapshotService
+from fds.utils.preset_converter import PresetConverter
 
 
 class VolumeService( AbstractService ):
@@ -78,7 +79,10 @@ class VolumeService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes" )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        j_volume = self.rest_helper.post( self.session, url, data )
+        
+        volume = VolumeConverter.build_volume_from_json( j_volume )
+        return volume
     
     def clone_from_snapshot_id(self, snapshot_id, volume):
         '''
@@ -87,7 +91,9 @@ class VolumeService( AbstractService ):
         
         url = "{}{}{}/{}".format( self.get_url_preamble(), "/api/config/snapshot/clone/", snapshot_id, volume.name )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        volume = self.rest_helper.post( self.session, url, data )
+        volume = VolumeConverter.build_volume_from_json( volume )
+        return volume
     
     def clone_from_timeline(self, a_time, volume ):
         '''
@@ -96,7 +102,9 @@ class VolumeService( AbstractService ):
         
         url = "{}{}{}/{}/{}".format( self.get_url_preamble(), "/api/config/volumes/clone/", volume.id, volume.name, a_time )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        volume = self.rest_helper.post( self.session, url, data )
+        volume = VolumeConverter.build_volume_from_json( volume )
+        return volume
     
     def edit_volume(self, volume):
         '''
@@ -147,4 +155,44 @@ class VolumeService( AbstractService ):
         '''
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/policies/", snapshot_policy_id, "/volumes")
-        return self.rest_helper().get( self.session, url )    
+        return self.rest_helper().get( self.session, url )  
+    
+    def get_timeline_presets(self, preset_id=None):
+        '''
+        Get a list of timeline preset policies
+        '''
+        
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes/presets/timeline")
+        response = self.rest_helper.get( self.session, url )
+        
+        presets = []
+        
+        for j_preset in response:
+            
+            if preset_id != None and int(j_preset["uuid"]) != int(preset_id):
+                continue
+            
+            preset = PresetConverter.build_timeline_from_json( j_preset )
+            presets.append( preset )
+            
+        return presets
+    
+    def get_qos_presets(self, preset_id=None):
+        '''
+        Get a list of QoS preset policies
+        '''
+        
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes/presets/qos" )
+        response = self.rest_helper.get( self.session, url )
+        
+        presets = []
+        
+        for j_preset in response:
+            
+            if preset_id != None and int(j_preset["uuid"]) != int(preset_id):
+                continue
+            
+            preset = PresetConverter.build_qos_preset_from_json( j_preset )
+            presets.append( preset )
+            
+        return presets  
