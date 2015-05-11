@@ -153,7 +153,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             try {
                 return new ConfigurationCache(configClientFactory.getClient());
             } catch (Exception e) {
-                LOG.error("Unable to load configuration", e);
                 throw new RuntimeException(e);
             }
         });
