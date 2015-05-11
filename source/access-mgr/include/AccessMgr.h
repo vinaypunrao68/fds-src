@@ -11,8 +11,6 @@
 #include <fds_module_provider.h>
 #include <fds_volume.h>
 #include <fds_module.h>
-#include <fdsp/svc_types_types.h>
-#include <AMSvcHandler.h>
 #include <fdsp/OMSvc.h>
 
 namespace fds {
