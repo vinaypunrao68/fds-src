@@ -36,7 +36,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
       testMode(false)
 {
 
-    migClientState = ATOMIC_VAR_INIT(MIG_CLIENT_INIT);
+    migClientState = ATOMIC_VAR_INIT(MC_INIT);
     seqNumDeltaSet = ATOMIC_VAR_INIT(0UL);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
@@ -54,8 +54,8 @@ MigrationClient::~MigrationClient()
 
 void
 MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
-    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET ||
-        (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET &&
+    if (getMigClientState() == MC_SECOND_PHASE_DELTA_SET ||
+        (getMigClientState() == MC_FIRST_PHASE_DELTA_SET &&
         forResync == true)) {
         fds_verify(smTok == SMTokenID);
         LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
@@ -178,7 +178,7 @@ MigrationClient::migClientSnapshotMetaData()
     Error err(ERR_OK);
 
     // if migration client in error state, don't do anything
-    if (getMigClientState() == MIG_CLIENT_ERROR) {
+    if (getMigClientState() == MC_ERROR) {
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -190,9 +190,9 @@ MigrationClient::migClientSnapshotMetaData()
     snapshotRequest.executorId = executorID;
     snapshotRequest.targetDltVersion = targetDltVersion;
 
-    fds_assert((getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) ||
-               (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET));
-    if (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) {
+    fds_assert((getMigClientState() == MC_FIRST_PHASE_DELTA_SET) ||
+               (getMigClientState() == MC_SECOND_PHASE_DELTA_SET));
+    if (getMigClientState() == MC_FIRST_PHASE_DELTA_SET) {
         snapshotRequest.snapNum = "1";
         snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
                                                       this,
@@ -291,7 +291,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     // on error, set error state (abort migration)
     if (!error.ok()) {
         handleMigrationError(error);
-    } else if (getMigClientState() == MIG_CLIENT_ERROR) {
+    } else if (getMigClientState() == MC_ERROR) {
         // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
         return;
@@ -452,7 +452,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     delete iterDB;
     delete dbFromFirstSnap;
 
-    setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE);
+    setMigClientState(MC_FIRST_PHASE_DELTA_SET_COMPLETE);
 }
 
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
@@ -466,7 +466,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     // on error, set error state (abort migration)
     if (!error.ok()) {
         handleMigrationError(error);
-    } else if (getMigClientState() == MIG_CLIENT_ERROR) {
+    } else if (getMigClientState() == MC_ERROR) {
         // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
         return;
@@ -481,7 +481,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      */
     std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
-    fds_verify(MIG_CLIENT_SECOND_PHASE_DELTA_SET == getMigClientState());
+    fds_verify(MC_SECOND_PHASE_DELTA_SET == getMigClientState());
 
     /* Second phase snapshot directory
      */
@@ -638,7 +638,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     delete dbFromSecondSnap;
 
     /* Set the migration client state to indicate the second delta set is sent. */
-    setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);
+    setMigClientState(MC_SECOND_PHASE_DELTA_SET_COMPLETE);
 }
 
 
@@ -703,14 +703,14 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
                << "executorId=" << std::hex << executorId << std::dec
                << ", accepted? " << srcAccepted;
 
-    if (getMigClientState() == MIG_CLIENT_ERROR) {
+    if (getMigClientState() == MC_ERROR) {
         LOGMIGRATE << "Migration Client in error state";
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
     /* Transition to the filter set state.
      */
-    setMigClientState(MIG_CLIENT_FILTER_SET);
+    setMigClientState(MC_FILTER_SET);
 
     // this method may be called if source did not accept to process this
     // filter set; we are calling the method in that case to ensure that
@@ -765,7 +765,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
 
         /* Transition to the first phase of delta set generation.
          */
-        setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET);
+        setMigClientState(MC_FIRST_PHASE_DELTA_SET);
 
         err = migClientSnapshotMetaData();
         if (!err.ok()) {
@@ -783,7 +783,7 @@ MigrationClient::migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceD
     Error err(ERR_OK);
 
     /* This can potentially be called repeatedly, but that's ok. */
-    setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET);
+    setMigClientState(MC_SECOND_PHASE_DELTA_SET);
 
     /* since we are starting second set of delta set migration,
      * reset the sequence number to start from 0.
@@ -824,7 +824,7 @@ MigrationClient::setMigClientState(MigrationClientState newState)
     prevState = std::atomic_load(&migClientState);
 
     // do not over-write error state
-    if (prevState == MIG_CLIENT_ERROR) {
+    if (prevState == MC_ERROR) {
         LOGMIGRATE << "Not changing error state to " << newState;
         return;
     }
@@ -837,9 +837,9 @@ MigrationClient::setMigClientState(MigrationClientState newState)
 
 void
 MigrationClient::handleMigrationError(const Error& error) {
-    if (getMigClientState() != MIG_CLIENT_ERROR) {
+    if (getMigClientState() != MC_ERROR) {
         // first time we see error, abort the whole migration
-        setMigClientState(MIG_CLIENT_ERROR);
+        setMigClientState(MC_ERROR);
         // report to OM directly, OM will abort the migration
         LOGMIGRATE << "Migration Client error " << error
                    << " reporting to OM to abort token migration";

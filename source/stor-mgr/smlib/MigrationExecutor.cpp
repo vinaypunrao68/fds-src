@@ -67,7 +67,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         if (!std::atomic_compare_exchange_strong(&state,
                                              &expectState,
                                              ME_FIRST_PHASE_APPLYING_DELTA)) {
-            LOGNOTIFY << "Non- ME_INIT state " << state;
+            LOGNOTIFY << "Non-ME_INIT state " << state;
             return ERR_NOT_READY;
         }
     } else {
@@ -337,7 +337,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
     // here we just check for errors
     if (!error.ok()) {
         switch (error.GetErrno()) {
-            case ERR_SM_RESYNC_SOURCE_DECLINE: 
+            case ERR_SM_RESYNC_SOURCE_DECLINE:
                 // SM declined to be a source for DLT token
                 LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
                            << " ; ok will stop resync for this dlt token, executor "

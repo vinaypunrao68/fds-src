@@ -83,7 +83,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      /// Manager of persistent object storage
      ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
-     SmTokenMigrationMgr::unique_ptr migrationMgr;
+     MigrationMgr::unique_ptr migrationMgr;
 
      /*
       * TODO: this one should be the singleton by itself.  Need to make it

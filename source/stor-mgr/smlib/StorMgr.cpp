@@ -124,7 +124,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 void ObjectStorMgr::mod_startup()
 {
     // Init token migration manager
-    migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
+    migrationMgr = MigrationMgr::unique_ptr(new MigrationMgr(this));
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(

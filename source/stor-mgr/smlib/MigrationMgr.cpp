@@ -10,7 +10,7 @@
 
 namespace fds {
 
-SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
+MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
@@ -20,7 +20,7 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.retryReq = false;
-    snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
+    snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
                                                   this,
                                                   std::placeholders::_1,
                                                   std::placeholders::_2,
@@ -31,7 +31,7 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 }
 
-SmTokenMigrationMgr::~SmTokenMigrationMgr() {
+MigrationMgr::~MigrationMgr() {
     mTimer.destroy();
 }
 
@@ -41,7 +41,7 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
  * which initiate token migration
  */
 Error
-SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                     OmStartMigrationCbType cb,
                                     const NodeUuid& mySvcUuid,
                                     fds_uint32_t bitsPerDltToken,
@@ -69,7 +69,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     FdsTimerTaskPtr retryTokenMigrationTask(
                         new FdsTimerFunctionTask(mTimer,
                                                  std::bind(
-                                                    &SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens,
+                                                    &MigrationMgr::retryTokenMigrForFailedDltTokens,
                                                     this)));
     int retryTimePeriod = 2;
     mTimer.scheduleRepeated(retryTokenMigrationTask, std::chrono::seconds(retryTimePeriod));
@@ -141,11 +141,11 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                           smTok, globalExecId, targetDltVersion,
                                           forResync,
                                           std::bind(
-                                              &SmTokenMigrationMgr::dltTokenMigrationFailedCb,
+                                              &MigrationMgr::dltTokenMigrationFailedCb,
                                               this,
                                               std::placeholders::_1),
                                           std::bind(
-                                              &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
+                                              &MigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
                                               std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)));
             }
@@ -164,7 +164,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 }
 
 void
-SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens() {
+MigrationMgr::retryTokenMigrForFailedDltTokens() {
 
     fds_mutex::scoped_lock l(migrSmTokenLock);
     if (!retryMigrSmTokenSet.empty()) {
@@ -188,7 +188,7 @@ SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens() {
  * new dlt version passed to it and starts the migration process.
  */
 Error
-SmTokenMigrationMgr::startResync(const fds::DLT *dlt,
+MigrationMgr::startResync(const fds::DLT *dlt,
                                  const NodeUuid& mySvcUuid,
                                  fds_uint32_t bitsPerDltToken) {
     fpi::CtrlNotifySMStartMigrationPtr resyncMsg(
@@ -204,12 +204,12 @@ SmTokenMigrationMgr::startResync(const fds::DLT *dlt,
         grp.tokens = ptr.second;
         resyncMsg->migrations.push_back(grp);
     }
-    
+
     return startMigration(resyncMsg, NULL, mySvcUuid, bitsPerDltToken, forResync);
 }
 
 void
-SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
+MigrationMgr::startSmTokenMigration(fds_token_id smToken) {
     smTokenInProgress = smToken;
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
@@ -228,7 +228,7 @@ SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
  * Callback whith SM token snapshot
  */
 void
-SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
+MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db,
@@ -304,7 +304,7 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
  * Handle start object rebalance from destination SM
  */
 Error
-SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                           const fpi::SvcUuid &executorSmUuid,
                                           const NodeUuid& mySvcUuid,
                                           fds_uint32_t bitsPerDltToken,
@@ -375,14 +375,14 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
  * objects.
  */
 Error
-SmTokenMigrationMgr::startObjectRebalanceResp() {
+MigrationMgr::startObjectRebalanceResp() {
     Error err(ERR_OK);
     LOGMIGRATE << "";
     return err;
 }
 
 fds_bool_t
-SmTokenMigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
+MigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
                                                 fds_bool_t resyncOnRestart,
                                                 const fpi::SvcUuid &executorSmUuid,
                                                 const NodeUuid& mySvcUuid,
@@ -435,7 +435,7 @@ SmTokenMigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
  * Handle msg from destination SM to send data/metadata changes since the first delta set
  */
 Error
-SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
+MigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
                                                 const fpi::SvcUuid &executorSmUuid) {
     Error err(ERR_OK);
     LOGMIGRATE << "Request to receive the rebalance diff since the first rebalance from "
@@ -460,7 +460,7 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
 }
 
 Error
-SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
+MigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
@@ -500,7 +500,7 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
  * Handle rebalance delta set at destination from the source
  */
 Error
-SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
+MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
     fds_uint64_t executorId = deltaSet->executorID;
 
@@ -531,14 +531,14 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
  * Ack from destination for rebalance delta set message
  */
 Error
-SmTokenMigrationMgr::rebalanceDeltaSetResp() {
+MigrationMgr::rebalanceDeltaSetResp() {
     Error err(ERR_OK);
     LOGMIGRATE << "";
     return err;
 }
 
 void
-SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
+MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
                                              const std::set<fds_token_id>& dltTokens,
                                              fds_uint32_t round,
@@ -645,7 +645,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
 }
 
 void
-SmTokenMigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
+MigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
     Error err(ERR_OK);
     smTokenInProgress = smToken;
     LOGNORMAL << "Starting second round of migration for SM token " << smToken;
@@ -670,13 +670,13 @@ SmTokenMigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
 }
 
 fds_uint64_t
-SmTokenMigrationMgr::getTargetDltVersion() const {
+MigrationMgr::getTargetDltVersion() const {
     // this will be invalid if migration not in progress
     return targetDltVersion;
 }
 
 void
-SmTokenMigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok) {
+MigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok) {
     // ignore invalid executor id
     if (executorId == SM_INVALID_EXECUTOR_ID) {
         LOGDEBUG << "Invalid executor ID, ok if called when there is no migration";
@@ -699,7 +699,7 @@ SmTokenMigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok
 // This request has a set of objects that's not grouped by DLT tokens.  We have to group
 // it based on the DLT token and forward it.
 fds_bool_t
-SmTokenMigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
+MigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
 {
     fds_bool_t forwarded = false;
     std::map<fds_token_id, fpi::AddObjectRefMsgPtr> addObjRefMap;
@@ -758,7 +758,7 @@ SmTokenMigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
 }
 
 fds_bool_t
-SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
+MigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
                                         fds_uint64_t reqDltVersion,
                                         FDS_IOType* req) {
     fds_bool_t forwarded = false;
@@ -802,7 +802,7 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
  * caller should check this
  */
 Error
-SmTokenMigrationMgr::handleDltClose() {
+MigrationMgr::handleDltClose() {
     Error err(ERR_OK);
 
     // TODO(Anna) FS-1760 OM should not send DLT close to SM on restart
@@ -834,7 +834,7 @@ SmTokenMigrationMgr::handleDltClose() {
 }
 
 void
-SmTokenMigrationMgr::notifyDltUpdate(fds_uint32_t bitsPerDltToken) {
+MigrationMgr::notifyDltUpdate(fds_uint32_t bitsPerDltToken) {
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);
         numBitsPerDltToken = bitsPerDltToken;
@@ -846,7 +846,7 @@ SmTokenMigrationMgr::notifyDltUpdate(fds_uint32_t bitsPerDltToken) {
 }
 
 void
-SmTokenMigrationMgr::checkResyncDoneAndCleanup() {
+MigrationMgr::checkResyncDoneAndCleanup() {
     if (!resyncOnRestart) {
         // not resync case
         return;
@@ -871,7 +871,7 @@ SmTokenMigrationMgr::checkResyncDoneAndCleanup() {
  * Handles message from OM to abort migration
  */
 Error
-SmTokenMigrationMgr::abortMigration() {
+MigrationMgr::abortMigration() {
     Error err(ERR_OK);
     LOGNOTIFY << "Will abort token migration per OM request";
     abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
@@ -880,7 +880,7 @@ SmTokenMigrationMgr::abortMigration() {
 
 /// local method that actually aborts migration
 void
-SmTokenMigrationMgr::abortMigration(const Error& error) {
+MigrationMgr::abortMigration(const Error& error) {
     LOGNOTIFY << "Aborting token migration " << error;
 
     // set migration state to aborted
@@ -909,13 +909,13 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
 }
 
 void
-SmTokenMigrationMgr::dltTokenMigrationFailedCb(fds_token_id &smToken) {
+MigrationMgr::dltTokenMigrationFailedCb(fds_token_id &smToken) {
     fds_mutex::scoped_lock l(migrSmTokenLock);
     retryMigrSmTokenSet.insert(smToken);
 }
 
 fds_uint64_t
-SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId,
+MigrationMgr::getExecutorId(fds_uint32_t localId,
                                    const NodeUuid& smSvcUuid) const {
     fds_uint64_t execId = smSvcUuid.uuid_get_val();
     // Keep most significant bits to read the uuid easier.

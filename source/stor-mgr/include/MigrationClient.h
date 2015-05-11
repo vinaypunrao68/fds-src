@@ -40,14 +40,14 @@ class MigrationClient {
     ~MigrationClient();
 
      enum MigrationClientState {
-            MIG_CLIENT_INIT,
-            MIG_CLIENT_FILTER_SET,
-            MIG_CLIENT_FIRST_PHASE_DELTA_SET,
-            MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE,
-            MIG_CLIENT_SECOND_PHASE_DELTA_SET,
-            MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE,
-            MIG_CLIENT_FINISH,
-            MIG_CLIENT_ERROR
+            MC_INIT,
+            MC_FILTER_SET,
+            MC_FIRST_PHASE_DELTA_SET,
+            MC_FIRST_PHASE_DELTA_SET_COMPLETE,
+            MC_SECOND_PHASE_DELTA_SET,
+            MC_SECOND_PHASE_DELTA_SET_COMPLETE,
+            MC_DONE,
+            MC_ERROR
      };
 
     typedef std::unique_ptr<MigrationClient> unique_ptr;
