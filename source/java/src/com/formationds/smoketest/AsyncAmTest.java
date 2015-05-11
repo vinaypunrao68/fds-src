@@ -32,6 +32,16 @@ import static org.junit.Assert.fail;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+    @Test
+    public void testVolumeMetadata() throws Exception {
+        Map<String, String> metadata = asyncAm.getVolumeMetadata(domainName, volumeName).get();
+        assertEquals(0, metadata.size());
+        metadata.put("hello", "world");
+        asyncAm.setVolumeMetadata(domainName, volumeName, metadata).get();
+        metadata = asyncAm.getVolumeMetadata(domainName, volumeName).get();
+        assertEquals(1, metadata.size());
+        assertEquals("world", metadata.get("hello"));
+    }
 
     @Test
     public void testAsyncStreamerWritesOneChunkOnly() throws Exception {

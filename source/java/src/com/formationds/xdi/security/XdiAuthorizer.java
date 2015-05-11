@@ -112,22 +112,10 @@ public class XdiAuthorizer {
         if (!hasVolumePermission(token, bucketName, Intent.changePermissions)) {
             throw new SecurityException();
         }
-        VolumeDescriptor volumeDescriptor = config.statVolume(S3Endpoint.FDS_S3, bucketName);
-        String systemVolume = XdiConfigurationApi.systemFolderName(volumeDescriptor.getTenantId());
-        createVolumeIfNeeded(systemVolume, volumeDescriptor.getTenantId());
-        Map<String, String> metadata = new HashMap<String, String>();
+        Map<String, String> metadata = asyncAm.getVolumeMetadata(S3Endpoint.FDS_S3, bucketName).get();
         metadata.put(XdiAcl.X_AMZ_ACL, newAcl.getCommonName());
-        String blobName = makeBucketAclBlobName(volumeDescriptor.getVolId());
-        asyncAm.updateBlobOnce(S3Endpoint.FDS_S3, systemVolume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), metadata).get();
+        asyncAm.setVolumeMetadata(S3Endpoint.FDS_S3, bucketName, metadata).get();
         cache.scheduleRefresh(false);
-    }
-
-    private void createVolumeIfNeeded(String volume, long tenantId) {
-        try {
-            config.createVolume(S3Endpoint.FDS_S3, volume, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), tenantId);
-        } catch (TException e) {
-
-        }
     }
 
     private String makeBucketAclBlobName(long volumeId) {
@@ -184,11 +172,10 @@ public class XdiAuthorizer {
                 config.listVolumes(S3Endpoint.FDS_S3)
                         .stream()
                         .forEach(vd -> {
-                            String systemVolume = XdiConfigurationApi.systemFolderName(vd.getTenantId());
-                            String blobName = makeBucketAclBlobName(vd.getVolId());
-                            CompletableFuture<BlobDescriptor> blobFuture = am.statBlob(S3Endpoint.FDS_S3, systemVolume, blobName)
-                                    .exceptionally(e -> new BlobDescriptor(vd.getName(), 0, new HashMap<String, String>()));
-                            CompletableFuture<Map<String, String>> cf = blobFuture.thenApply(bd -> bd.getMetadata());
+                            CompletableFuture<Map<String, String>> cf =
+                                    asyncAm.getVolumeMetadata(S3Endpoint.FDS_S3, vd.getName())
+                                            .exceptionally(t -> new HashMap<>());
+
                             cache.put(vd.getName(), cf);
 
                             if (!deferrable) {
