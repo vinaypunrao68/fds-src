@@ -51,6 +51,7 @@ AccessMgr::mod_shutdown() {
 void AccessMgr::mod_enable_service()
 {
     LOGNOTIFY << "Enabling services ";
+    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
 
     /**
      * Before being able to serve I/O requests, must first pull DMT
@@ -78,7 +79,6 @@ void AccessMgr::mod_enable_service()
     /**
      * Initialize the async server
      */
-    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
     asyncServer.reset(new AsyncDataServer(weakProcessor, pmPort));
     asyncServer->start();
 
@@ -114,28 +114,12 @@ AccessMgr::stop() {
 
 void
 AccessMgr::getDMT() {
-	std::shared_ptr<AmProcessor> amp = getProcessor();
-	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
-	int64_t nullarg = 0;
-	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
-	fds_verify(omSvcRpc);
-
-	omSvcRpc->getDMT(fdsp_dmt, nullarg);
-
-	amp->updateDmt(true, fdsp_dmt.dmt_data.dmt_data);
+	getProcessor()->getDMT();
 }
 
 void
 AccessMgr::getDLT() {
-	std::shared_ptr<AmProcessor> amp = getProcessor();
-	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
-	int64_t nullarg = 0;
-	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
-	fds_verify(omSvcRpc);
-
-	omSvcRpc->getDLT(fdsp_dlt, nullarg);
-
-	amp->updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+	getProcessor()->getDLT();
 }
 
 }  // namespace fds

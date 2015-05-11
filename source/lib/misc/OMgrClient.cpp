@@ -214,4 +214,26 @@ fds_bool_t OMgrClient::hasCommittedDMT() const {
     return dmtMgr->hasCommittedDMT();
 }
 
+Error OMgrClient::getDMT() {
+	Error err(ERR_OK);
+	auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
+	svcMgr->getDMTData(fdsp_dmt);
+
+	err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+
+	return err;
+}
+
+Error OMgrClient::getDLT() {
+	Error err(ERR_OK);
+	auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
+	svcMgr->getDLTData(fdsp_dlt);
+
+	err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+
+	return err;
+}
+
 }  //  namespace fds

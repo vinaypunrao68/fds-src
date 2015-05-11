@@ -14,6 +14,7 @@
 #include <concurrency/RwLock.h>
 #include <dlt.h>
 #include <fds_dmt.h>
+#include <fdsp/OMSvc.h>
 
 #include <string>
 using namespace FDS_ProtocolInterface; // NOLINT
@@ -105,6 +106,16 @@ class OMgrClient {
 
     DLTManagerPtr getDltManager() { return dltMgr; }
     DMTManagerPtr getDmtManager() { return dmtMgr; }
+
+    /**
+     * Retrieves the latest DMT from OM and updates the service's instance of DMT
+     */
+    Error getDMT();
+
+    /**
+     * Retrieves the latest DLT from OM and updates the service's instance of DMT
+     */
+    Error getDLT();
 
     /**
      * Returns nodes from currently committed DMT

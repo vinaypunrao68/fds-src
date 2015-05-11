@@ -46,6 +46,11 @@ struct AmDispatcher
      */
     Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
+    /**
+     * Uses the OM Client to fetch the DMT and DLT, and update the AM's own versions.
+     */
+    Error getDMT();
+    Error getDLT();
 
     /**
      * Dispatches a test volume request to OM.

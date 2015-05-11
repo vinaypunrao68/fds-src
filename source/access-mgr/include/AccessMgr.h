@@ -11,7 +11,6 @@
 #include <fds_module_provider.h>
 #include <fds_volume.h>
 #include <fds_module.h>
-#include <fdsp/OMSvc.h>
 
 namespace fds {
 
@@ -52,10 +51,10 @@ class AccessMgr : public Module, public boost::noncopyable {
     std::shared_ptr<AmProcessor> getProcessor()
     { return amProcessor; }
 
-    // Wrapper method to retrieve DMT
+    // Wrapper method to call omClient's getDMT
     void getDMT();
 
-    // Wrapper method to retrieve DLT
+    // Wrapper method to call omClient's getDLT
     void getDLT();
 
   private:
