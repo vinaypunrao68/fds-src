@@ -41,7 +41,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.addNodes = function( nodes ){
 
         nodes.forEach( function( node ){
-            $http_fds.post( '/api/config/services/' + node.uuid, {am: node.am, sm: node.sm, dm: node.dm} )
+            $http_fds.post( '/api/config/services/' + node.uuid + '/1', {am: node.am, sm: node.sm, dm: node.dm} )
                 .then( getNodes );
 //            console.log( '/api/config/services/' + node.uuid + ' BODY: {am: ' + node.am + ', sm:' + node.sm + ', dm: ' + node.dm + '}' );
         });
