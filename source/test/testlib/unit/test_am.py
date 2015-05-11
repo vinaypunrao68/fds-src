@@ -6,44 +6,25 @@ sys.path.append("..")
 import am
 
 class TestAM(unittest.TestCase):
-
-	logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.INFO,
 			format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
 			datefmt='%m-%d %H:%M')
-	log = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
+    am_obj = am.am_service()
 
-	def _test_start(self):
-		am_obj = am.am_service('10.3.64.96')
-		am_obj.start()
+    def test_start(self):
+		self.am_obj.start('10.3.16.213')
 
-	def _test_add(self):
-		#am_obj = am.am_service('10.3.64.96')
-		am_obj = am.am_service('127.0.0.1')
-		am_obj.add()
+    def test_stop(self):
+		#am_obj = am.am_service()
+        self.am_obj.stop('10.3.16.213')
+        pdb.set_trace()
+        self.am_obj.stop('10.3.16.214')
 
-	def _test_kill(self):
-		#am_obj = am.am_service('10.3.64.96')
-		pdb.set_trace()
-		am_obj = am.am_service('127.0.0.1')
-		am_obj.kill()
+    def test_kill(self):
+		#am_obj = am.am_service()
+		self.am_obj.kill('10.3.16.213')
 
-	def test_remove(self):
-		#am_obj = am.am_service('10.3.64.96')
-		#am_obj = am.am_service('10.3.115.157')
-		#am_obj.remove('10.3.115.157')
-		am_obj = am.am_service('127.0.0.1')
-		am_obj.remove()
-
-	def _test_stop(self):
-		#am_obj = am.am_service('10.3.64.96')
-		am_obj = am.am_service('10.2.30.137')
-		am_obj.stop()
-
-	def _test_all_service(self):
-		pdb.set_trace()
-		am_obj = am.am_service('10.3.64.96')
-		am_obj.all_service()
-	
 
 if __name__ == '__main__':
     unittest.main()

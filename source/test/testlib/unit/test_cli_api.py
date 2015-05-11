@@ -3,10 +3,10 @@ import logging
 import os
 import sys
 from fds.services.node_service import NodeService
-from fds.services.fds_auth import FdsAuth 
-from fds.services.users_service import UsersService 
+from fds.services.fds_auth import FdsAuth
+from fds.services.users_service import UsersService
 from fds.model.node_state import NodeState
-from fds.model.domain import Domain 
+from fds.model.domain import Domain
 import pdb
 
 
@@ -24,6 +24,7 @@ nodes_list = nservice.list_nodes()
 nodeS = NodeState()
 nodeS2 = NodeState()
 
+pdb.set_trace()
 for node in nodes_list:
 	print 'node = {}'.format(node)
 	print 'node name = {}'.format(node.name)

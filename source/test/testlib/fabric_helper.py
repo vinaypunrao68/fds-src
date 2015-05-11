@@ -12,26 +12,17 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-<<<<<<< HEAD
-class FdsFabricHelper():
-    def __init__(self, fds_service, fds_node):
-	#env.user='root'
-	#env.password='passwd'
-=======
+
 class FabricHelper():
     def __init__(self, fds_service, fds_node):
->>>>>>> c94887845d44258dc120ae1a966dfbbb7b09331e
 	env.user='root'
 	env.password='passwd'
 	env.host_string=fds_node
 	self.node_service=fds_service
 	self.fds_bin = '/fds/bin'
-<<<<<<< HEAD
 	#self.fds_sbin = '/fds/sbin'
 	self.fds_sbin = '/home/hlim/projects/fds-src/source/tools'
-=======
 	self.fds_sbin = '/fds/sbin'
->>>>>>> c94887845d44258dc120ae1a966dfbbb7b09331e
 	self.fdsconsole = '{}/fdsconsole.py'.format(self.fds_sbin)
 
 
@@ -48,8 +39,8 @@ class FabricHelper():
 	--------
 	Returns the PID of the service
 	'''
-	#env.user = 'hlim' 
-	#env.password = 'Testlab' 
+	#env.user = 'hlim'
+	#env.password = 'Testlab'
 	#env.host_string = node_ip_address
 
 	#with settings(hide('running','commands', 'stdout', 'stderr')):
@@ -61,10 +52,7 @@ class FabricHelper():
 
 		else:
 			log.warning("Unable to locate {} service PID".format(self.node_service))
-<<<<<<< HEAD
 			return None
-=======
->>>>>>> c94887845d44258dc120ae1a966dfbbb7b09331e
 
 
     def get_platform_uuid(self, service_pid):
@@ -105,7 +93,7 @@ class FabricHelper():
 
 	Returns:
 	--------
-	Returns node uuid 
+	Returns node uuid
 	'''
 
 	if exists('{}'.format(self.fdsconsole)):
@@ -113,11 +101,10 @@ class FabricHelper():
 			with cd('{}'.format(self.fds_sbin)):
 				sudo('./fdsconsole.py accesslevel admin')
 				#run('./fdsconsole.py domain listServices local', stdout=self.sio)
-<<<<<<< HEAD
 				cmd_output = sudo('./fdsconsole.py domain listServices local')
 				n_uuid = cmd_output.split()
-				
-				for i in range(len(n_uuid)): 
+
+				for i in range(len(n_uuid)):
 					if n_uuid[i] == '127.0.0.1' or n_uuid[i] == node_ip:
 						if n_uuid[i+2] == 'pm':
 							node_uuid = n_uuid[i-2]
@@ -126,19 +113,14 @@ class FabricHelper():
 
 	else:
 		log.warning("Unable to locate {}".format(self.fdsconsole))
-=======
-				cmd_output = run('./fdsconsole.py domain listServices local')
-				n_uuid = cmd_output.split()
-				
-				for i in range(len(n_uuid)): 
+                cmd_output = run('./fdsconsole.py domain listServices local')
+                n_uuid = cmd_output.split()
+
+                for i in range(len(n_uuid)):
 					print n_uuid[i]
 					if n_uuid[i] == node_ip:
 						if n_uuid[i+2] == 'pm':
 							node_uuid = n_uuid[i-2]
 							return node_uuid
 
-	else:
-		log.warning("Unable to locate fdsconsole.py")
->>>>>>> c94887845d44258dc120ae1a966dfbbb7b09331e
-	
 
