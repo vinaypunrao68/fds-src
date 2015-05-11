@@ -53,6 +53,14 @@ void AccessMgr::mod_enable_service()
     LOGNOTIFY << "Enabling services ";
 
     /**
+     * Before being able to serve I/O requests, must first pull DMT
+     * and DLT information. At this time, we've already done the registration
+     * with the OM so anything here is post-registration.
+     */
+    getDMT();
+    getDLT();
+
+    /**
      * Initialize the old synchronous Xdi interface
      */
     dataApi = boost::make_shared<AmDataApi>(amProcessor);
@@ -102,6 +110,32 @@ AccessMgr::stop() {
     std::unique_lock<std::mutex> lk {stop_lock};
     shutting_down = true;
     stop_signal.notify_one();
+}
+
+void
+AccessMgr::getDMT() {
+	std::shared_ptr<AmProcessor> amp = getProcessor();
+	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDMT(fdsp_dmt, nullarg);
+
+	amp->updateDmt(true, fdsp_dmt.dmt_data.dmt_data);
+}
+
+void
+AccessMgr::getDLT() {
+	std::shared_ptr<AmProcessor> amp = getProcessor();
+	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDLT(fdsp_dlt, nullarg);
+
+	amp->updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
 }
 
 }  // namespace fds

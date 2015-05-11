@@ -6,6 +6,7 @@ include "am_types.thrift"
 
 include "common.thrift"
 include "svc_api.thrift"
+include "om_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.am

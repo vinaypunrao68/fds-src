@@ -11,6 +11,9 @@
 #include <fds_module_provider.h>
 #include <fds_volume.h>
 #include <fds_module.h>
+#include <fdsp/svc_types_types.h>
+#include <AMSvcHandler.h>
+#include <fdsp/OMSvc.h>
 
 namespace fds {
 
@@ -50,6 +53,12 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     std::shared_ptr<AmProcessor> getProcessor()
     { return amProcessor; }
+
+    // Wrapper method to retrieve DMT
+    void getDMT();
+
+    // Wrapper method to retrieve DLT
+    void getDLT();
 
   private:
     /// Raw pointer to an external dependency manager
