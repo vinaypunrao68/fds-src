@@ -31,6 +31,7 @@
     with_fileglob:
         - "../../../omnibus/omnibus-fds-platform/pkg/fds-platform-{{build}}_*.deb"
     register: fds_platform_package_stat
+    sudo: no
     when: deploy_artifact == "local"
     tags: local_check
 
@@ -48,6 +49,7 @@
     with_fileglob:
         - "../../../omnibus/omnibus-fds-deps/pkg/fds-deps_*.deb"
     register: fds_deps_package_stat
+    sudo: no
     when: fds_deploy_local_deps is defined and fds_deploy_local_deps == true
     tags: local_check
 
