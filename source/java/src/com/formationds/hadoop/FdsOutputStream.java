@@ -3,8 +3,8 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ObjectOffset;
 import com.formationds.protocol.BlobDescriptor;
+import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.AsyncAm;
 
 import java.io.IOException;
@@ -84,7 +84,7 @@ public class FdsOutputStream extends OutputStream {
     @Override
     public void flush() throws IOException {
         if (isClosed) {
-            return;
+            throw new IOException("Stream was closed");
         }
 
         if (isDirty) {
@@ -117,10 +117,11 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        if (currentBuffer.position() >= objectSize) {
+        if (! (currentBuffer.position() < objectSize)) {
             flush();
         }
         currentBuffer.put((byte) b);
+        isDirty = true;
         currentOffset++;
         isDirty = true;
     }
@@ -135,14 +136,8 @@ public class FdsOutputStream extends OutputStream {
         if (isClosed) {
             return;
         }
-        try {
-            try {
-                flush();
-            } finally {
-                super.close();
-            }
-        }finally {
-            isClosed = true;
-        }
+        flush();
+        super.close();
+        isClosed = true;
     }
 }

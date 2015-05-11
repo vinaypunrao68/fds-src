@@ -294,10 +294,6 @@ public class FdsFileSystem extends FileSystem {
 
     @Override
     public FileStatus[] listStatus(Path path) throws FileNotFoundException, IOException {
-        Path absolutePath = getAbsolutePath(path);
-        if (!isDirectory(absolutePath)) {
-            return new FileStatus[] { getFileStatus(absolutePath) };
-        }
         return listAllSubPaths(path, false, false)
                 .stream()
                 .map(bd -> asFileStatus(bd))
