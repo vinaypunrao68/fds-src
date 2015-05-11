@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger( Main.class );
@@ -128,7 +129,10 @@ public class Main {
         ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
             ConfigServiceClientFactory.newConfigService(grabFirstOmIpAddress, omConfigPort);
 
-        final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
+        // TODO: this retries with a very long timeout.... probably not what we want in the long run
+        final OmConfigurationApi configCache = RetryHelper.retry( "OmConfigurationApi", 5, TimeUnit.MINUTES,
+                                                                  () -> new OmConfigurationApi( configApiFactory ) );
+
         configCache.startConfigurationUpdater( );
         SingletonConfigAPI.instance().api( configCache );
 
