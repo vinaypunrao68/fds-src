@@ -10,7 +10,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.omg.CORBA.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +19,6 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 
 import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
-import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
@@ -57,6 +55,8 @@ public class MutateService implements RequestHandler {
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 		
+		
+		
         Long nodeUuid = requiredLong(routeParameters, "node_uuid");        
         Long serviceId = requiredLong(routeParameters, "service_uuid");
 
@@ -69,6 +69,14 @@ public class MutateService implements RequestHandler {
         
         Node ourNode = nodes.get( nodeUuid.toString() );
         
+        int status = 0;
+        int httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        
+        if ( ourNode == null ){
+        	logger.warn( "Could not find a Node with ID: " + nodeUuid );
+        	return sendReturn( 0, HttpServletResponse.SC_BAD_REQUEST, nodeUuid );
+        } 
+        	
         Boolean startAm = true;
         Boolean startDm = true;
         Boolean startSm = true;
@@ -101,7 +109,7 @@ public class MutateService implements RequestHandler {
         		break;
         }
         
-        int status = 0;
+        status = 0;
 //        client.ActivateNode( new FDSP_MsgHdrType(),
 //                                 new FDSP_ActivateOneNodeType(
 //                                     1,
@@ -110,8 +118,14 @@ public class MutateService implements RequestHandler {
 //                                     startDm,
 //                                     startAm ) );
         
-        int httpCode = HttpServletResponse.SC_OK;
-        if( status != 0 ) {
+        httpCode = HttpServletResponse.SC_OK;
+	       
+        return sendReturn(status, httpCode, nodeUuid);
+	}
+	
+	private JsonResource sendReturn( int status, int httpCode, Long nodeUuid ){
+        
+		if( status != 0 ) {
 
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE_ERROR,
@@ -127,7 +141,7 @@ public class MutateService implements RequestHandler {
         }
 
         return new JsonResource( new JSONObject().put( "status", status ),
-                                 httpCode);        
+                                 httpCode); 		
 	}
 	
 	/**
