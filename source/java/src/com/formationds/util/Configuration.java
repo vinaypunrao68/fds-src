@@ -128,7 +128,7 @@ public class Configuration {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd ");
         Date date = new Date();
         String dateString = dateFormat.format(date);
-        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log"+dateString).toAbsolutePath();
+        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log-"+dateString).toAbsolutePath();
         properties.put("log4j.rootLogger", "FATAL, rolling");
         properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
@@ -137,7 +137,7 @@ public class Configuration {
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
         //        properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
         //        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %p %c - %m%n");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %p %c - %m%n");
         //        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{dd MMM yyyy HH:mm:ss.SSS z} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
