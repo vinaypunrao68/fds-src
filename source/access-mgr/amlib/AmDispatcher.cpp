@@ -109,12 +109,22 @@ AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
 
 Error
 AmDispatcher::getDMT() {
-	return (om_client->getDMT());
+	if (om_client->getNoNetwork()) {
+		// Standalone mode
+		return (ERR_OK);
+	} else {
+		return (om_client->getDMT());
+	}
 }
 
 Error
 AmDispatcher::getDLT() {
-	return (om_client->getDLT());
+	if (om_client->getNoNetwork()) {
+		// Standalone mode
+		return (ERR_OK);
+	} else {
+		return (om_client->getDLT());
+	}
 }
 
 Error

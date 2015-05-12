@@ -80,6 +80,9 @@ class OMgrClient {
     void setNoNetwork(bool fNoNetwork) {
         this->fNoNetwork = fNoNetwork;
     }
+    bool getNoNetwork() {
+    	return (this->fNoNetwork);
+    }
     ~OMgrClient();
 
     NodeUuid getUuid() const;
