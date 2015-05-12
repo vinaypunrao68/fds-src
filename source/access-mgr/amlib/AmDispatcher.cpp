@@ -9,9 +9,11 @@
 #include "fds_process.h"
 #include "fdsp/dm_api_types.h"
 #include "fdsp/sm_api_types.h"
+#include "fdsp/om_api_types.h"
 
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AsyncResponseHandlers.h"
@@ -43,7 +45,10 @@ extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 // ======
 
-AmDispatcher::AmDispatcher() = default;
+AmDispatcher::AmDispatcher(CommonModuleProviderIf *modProvider) 
+        : HasModuleProvider(modProvider)
+{
+}
 AmDispatcher::~AmDispatcher() = default;
 
 void
@@ -109,7 +114,22 @@ AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
 
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
-    return om_client->testBucket(volume_name, true, "", "");
+    // should we check the netwrok  readiness here??.  This code is moved  from OMgrClient  to AM. 
+    try {
+        auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+        fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
+        fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
+        test_buck_msg->bucket_name = volume_name;
+        test_buck_msg->attach_vol_reqd = true;
+        test_buck_msg->accessKeyId = "";
+        test_buck_msg->secretAccessKey = "";
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
+        req->invoke();
+        LOGNOTIFY << " sending test bucket request to OM " << volume_name;
+    } catch(...) {
+        LOGERROR << "OMClient unable to push test bucket to OM. Check if OM is up and restart.";
+    }
+    return 0;
 }
 
 /**

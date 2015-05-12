@@ -20,7 +20,7 @@ class OMgrClient;
  * does the work to send and receive AM network messages over
  * the service layer.
  */
-struct AmDispatcher
+struct AmDispatcher : HasModuleProvider
 {
     /**
      * The dispatcher takes a shared ptr to the DMT manager
@@ -29,7 +29,7 @@ struct AmDispatcher
      * TODO(Andrew): Make the dispatcher own this piece or
      * iterface with platform lib.
      */
-    AmDispatcher();
+    explicit AmDispatcher(CommonModuleProviderIf *modProvider);
     AmDispatcher(AmDispatcher const&)               = delete;
     AmDispatcher& operator=(AmDispatcher const&)    = delete;
     AmDispatcher(AmDispatcher &&)                   = delete;

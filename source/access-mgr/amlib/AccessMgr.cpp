@@ -23,7 +23,7 @@ AccessMgr::AccessMgr(const std::string &modName,
           modProvider_(modProvider),
           stop_signal(),
           shutting_down(false),
-          amProcessor(std::make_shared<fds::AmProcessor>()),
+          amProcessor(std::make_shared<fds::AmProcessor>(modProvider)),
           standalone_mode{false}
 {
 }
