@@ -1,0 +1,61 @@
+diff -ur gcovr-3.2/scripts/gcovr gcovr-3.2.new/scripts/gcovr
+--- gcovr-3.2/scripts/gcovr	2014-07-05 13:26:49.000000000 -0600
++++ gcovr-3.2.new/scripts/gcovr	2015-05-11 19:31:01.736000000 -0600
+@@ -418,7 +418,10 @@
+     if len(segments) != 4 or not segments[2].lower().strip().endswith('source'):
+         raise RuntimeError('Fatal error parsing gcov file, line 1: \n\t"%s"' % line.rstrip())
+     currdir = os.getcwd()
+-    os.chdir(starting_dir)
++    # The current directory should be the one that GCC was executed from. With relative objdirs,
++    # we're there already.
++    if not options.relative_objdir:
++        os.chdir(starting_dir)
+     if sys.version_info >= (2,6):
+         fname = os.path.abspath((segments[-1]).strip())
+     else:
+@@ -683,6 +686,17 @@
+     # no objdir was specified (or it was a parent dir); walk up the dir tree
+     if len(potential_wd) == 0:
+         wd = os.path.split(abs_filename)[0]
++        # Remove trailing references to objdir if we were specifically told to exclude it.
++        if options.exclude_objdir:
++            wd_components = wd.split(os.sep)
++            objdir_components = normpath(options.objdir).split(os.sep)
++            if len(wd_components) >= len(objdir_components):
++                for segment_num in xrange(-1, -1 * (len(objdir_components) + 1), -1):
++                    if wd_components[-1] == objdir_components[segment_num]:
++                        del wd_components[-1]
++                    else:
++                        break
++                wd = os.sep.join(wd_components)
+         while True:
+             potential_wd.append(wd)
+             wd = os.path.split(wd)[0]
+@@ -1881,6 +1895,16 @@
+         action="store_true",
+         dest="print_summary",
+         default=False)
++parser.add_option("--exclude-objdir",
++        help="Exclude objdir when searching for the GCC invocation directory.",
++        action="store_true",
++        dest="exclude_objdir",
++        default=False)
++parser.add_option("--relative-objdir",
++        help="objdir is relative to individual invocations of GCC.",
++        action="store_true",
++        dest="relative_objdir",
++        default=False)
+ parser.usage="gcovr [options]"
+ parser.description="A utility to run gcov and generate a simple report that summarizes the coverage"
+ #
+@@ -1905,7 +1929,9 @@
+             "(WARNING) relative referencing in --object-directory.\n"
+             "\tthis could cause strange errors when gcovr attempts to\n"
+             "\tidentify the original gcc working directory.\n")
+-    if not os.path.exists(normpath(options.objdir)):
++    # Don't check for the directory's existence if it's relative to individual invocations, whether
++    # it's there or not doesn't mean anything in that case.
++    if not options.relative_objdir and not os.path.exists(normpath(options.objdir)):
+         sys.stderr.write(
+             "(ERROR) Bad --object-directory option.\n"
+             "\tThe specified directory does not exist.\n")
