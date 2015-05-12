@@ -115,7 +115,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.priority = $scope.newQos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
         volume.timelinePolicies = $scope.timelinePolicies.policies;
-        volume.commit_log_retention = $scope.timelinePolicies.continuous;
+        volume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
         volume.mediaPolicy = $scope.mediaPolicy.value;
@@ -207,30 +207,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             
             $scope.snapshotPolicies = [];
             
-            // default timeline policies
-            $scope.timelinePolicies = {
-                continuous: 24*60*60,
-                policies: [
-                    // daily
-                    {
-                        retention: 7*24*60*60,
-                        recurrenceRule: {FREQ: 'DAILY'}
-                    },
-                    {
-                        retention: 30*24*60*60,
-                        recurrenceRule: {FREQ: 'WEEKLY'}
-                    },
-                    {
-                        retention: 180*24*60*60,
-                        recurrenceRule: {FREQ: 'MONTHLY'}
-                    },
-                    {
-                        retention: 5*366*24*60*60,
-                        recurrenceRule: {FREQ: 'YEARLY'}
-                    }
-                ]
-            };;
-            
+            $scope.$broadcast( 'fds::timeline_init' );
             $scope.$broadcast( 'fds::tiering-choice-refresh' );
             $scope.$broadcast('fds::fui-slider-refresh' );
             $scope.$broadcast( 'fds::qos-reinit' );

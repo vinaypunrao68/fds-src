@@ -2,12 +2,10 @@
 
 # This script links various artifacts in the build tree and creates a FDS tree in ${DESTDIR}
 
-BIN_LINK_FILE_LIST="bare_am DataMgr platformd StorMgr liborchmgr.so" 
+BIN_LINK_FILE_LIST="bare_am DataMgr platformd StorMgr liborchmgr.so"
 
 SBIN_LINK_FILE_LIST="redis.sh"
 
-LINK_DIRECTORY_LIST=""
- 
 [[ ${UID} -ne 0 ]] && { echo "This script must be executed with root privileges."; exit 1; }
 
 if [[ ${#1} -gt 0 ]]
@@ -32,15 +30,18 @@ done
 
 for f in ${BIN_LINK_FILE_LIST}
 do
-    echo "Checking ${f}"
-    [[ -L ${BINDIR}/${f} ]] || { echo "linking ${f}"; ln -s ${PWD}/Build/linux-x86_64.debug/bin/${f} ${BINDIR}/${f}; }
+    [[ -L ${BINDIR}/${f} ]] && unlink ${BINDIR}/${f}
+
+    echo "linking ${f}"
+    ln -s ${PWD}/Build/linux-x86_64.debug/bin/${f} ${BINDIR}/${f}
 done
 
 for f in ${SBIN_LINK_FILE_LIST}
 do
-    echo "Checking ${f}"
-    if [[ ! -f ${SBINDIR}/${f} ]] 
-    then 
+    [[ -L ${SBINDIR}/${f} ]] && unlink ${SBINDIR}/${f}
+
+    if [[ ! -f ${SBINDIR}/${f} ]]
+    then
         if [[ -e ${PWD}/tools/${f} ]]
         then
             echo "linking ${f}"
@@ -49,12 +50,12 @@ do
     fi
 done
 
-echo "checking ${ETCDIR}"
-[[ -L ${ETCDIR} ]] || { echo "linking ${ETCDIR}"; ln -s ${PWD}/config/etc/ ${ETCDIR}; }
+[[ -e ${ETCDIR} && ! -L ${ETCDIR} ]] && mv ${ETCDIR} ${ETCDIR}.`date +%s`
 
-echo "checking ${JAVADIR}"
-[[ -L ${JAVADIR} ]] || { echo "linking ${JAVADIR}"; ln -s ${PWD}/Build/linux-x86_64.debug/lib/java/ ${JAVADIR}; }
+[[ -L ${ETCDIR} ]] && unlink ${ETCDIR}
+echo "linking ${ETCDIR}"
+ln -s ${PWD}/config/etc ${ETCDIR}
 
-
-
-
+[[ -L ${JAVADIR} ]] && unlink ${JAVADIR}
+echo "linking ${JAVADIR}"
+ln -s ${PWD}/Build/linux-x86_64.debug/lib/java/ ${JAVADIR}

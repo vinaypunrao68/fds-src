@@ -16,7 +16,7 @@ def get_pid_table(nodes):
     pid_table = {}
     for n in nodes:
        for a in agents:
-            cmd = "ps aux | egrep %s | grep -v egrep " % agents[a]
+            cmd = "ps aux | egrep %s | grep -v egrep | grep -v defunct " % agents[a]
             output = utils.ssh_exec(n, cmd)
             tokens = output.split()
             if len(tokens) > 2:
@@ -27,14 +27,14 @@ def get_pid_table(nodes):
     return pid_table
 
 def get_info(agent, n="localhost"): 
-    cmd = "ps aux | egrep %s | grep -v egrep " % agents[agent]
+    cmd = "ps aux | egrep %s | grep -v egrep | grep -v defunct " % agents[agent]
     output = utils.ssh_exec(n, cmd)
     return output.rstrip('\n')
 
 def get_pid(agent, n="localhost"): 
     if not is_agent_up(agent, n):
         return None
-    cmd = "ps aux | egrep %s | grep -v egrep " % agents[agent]
+    cmd = "ps aux | egrep %s | grep -v egrep | grep -v defunct " % agents[agent]
     output = utils.ssh_exec(n, cmd).rstrip('\n')
     return int(output.split()[1])
 

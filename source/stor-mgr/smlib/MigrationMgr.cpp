@@ -7,6 +7,7 @@
 #include <MigrationMgr.h>
 #include <fds_process.h>
 #include <fdsp_utils.h>
+#include "PerfTrace.h"
 
 namespace fds {
 
@@ -77,8 +78,21 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        LOGMIGRATE << "startMigration called in non-idle state " << migrState;
-        return ERR_NOT_READY;
+        // already in "in progress" state, but ok if for the same target DLT (if this SM
+        // got request to be a source of the migration, before it started processing
+        // startMigration request
+        fds_uint32_t migrDltVersion = migrationMsg->DLT_version;
+        LOGMIGRATE << "startMigration called in non-idle state " << migrState
+                   << " for DLT version " << migrDltVersion
+                   << ", DLT version of on-going migration " << targetDltVersion;
+        if (migrDltVersion != targetDltVersion) {
+            LOGERROR << "startMigration called while migration for a different target DLT "
+                     << targetDltVersion << " is still in progress!";
+            if (cb) {
+                cb(ERR_NOT_READY);
+            }
+            return ERR_NOT_READY;
+        }
     }
     resyncOnRestart = forResync;
     targetDltVersion = migrationMsg->DLT_version;
@@ -606,6 +620,9 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // we are done migrating, reply to start migration msg from OM
             if (isFirstRound && !resyncOnRestart) {
                 // start with first executor to do the second round
+                // --> start of second round
+                // --> incrememnt counter / marker of second round
+                PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
                 startSecondRebalanceRound(migrExecutors.begin()->first);
             } else {
                 // done with second round -- all done

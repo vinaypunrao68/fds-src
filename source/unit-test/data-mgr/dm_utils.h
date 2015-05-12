@@ -199,8 +199,8 @@ void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
         vdesc->appWorkload = fpi::FDSP_APP_S3_OBJS;
         vdesc->backupVolume = invalid_vol_id;
 
-        vdesc->iops_min = 1000;
-        vdesc->iops_max = 5000;
+        vdesc->iops_assured = 1000;
+        vdesc->iops_throttle = 5000;
         vdesc->relativePrio = 1;
 
         vdesc->fSnapshot = false;

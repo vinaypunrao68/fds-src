@@ -7,10 +7,13 @@ import tabulate
 import json
 import time
 from collections import OrderedDict
-from fds.utils.volume_converter import VolumeConverter 
-from fds.utils.snapshot_converter import SnapshotConverter
+from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
+    
+    @staticmethod
+    def write_not_implemented(args=None):
+        print "\nThis feature is not yet available, but the fine people at Formation Data System are working tirelessly to make this a reality in the near future.\n"
     
     @staticmethod
     def writeTabularData( data, headers="keys" ):
@@ -21,8 +24,7 @@ class ResponseWriter():
             return
         else:
             print tabulate.tabulate( data, headers=headers )
-            
-        print "\n"
+
         
     @staticmethod
     def writeJson( data ):
@@ -31,8 +33,7 @@ class ResponseWriter():
     @staticmethod
     def prep_volume_for_table( session, response ):
         '''
-        Flatten the volume JSON object dictionary so it's more user friendly - mainly
-        for use with the tabular print option
+        making the structure table friendly
         '''        
         
         prepped_responses = []
@@ -41,8 +42,7 @@ class ResponseWriter():
         if ( isinstance( response, dict ) ):
             response = [response]
         
-        for jVolume in response:
-            volume = VolumeConverter.build_volume_from_json( jVolume )
+        for volume in response:
             
             #figure out what to show for last firebreak occurrence
             lastFirebreak = volume.last_capacity_firebreak
@@ -63,33 +63,32 @@ class ResponseWriter():
             iopsMin = volume.iops_guarantee
             
             if ( iopsMin == 0 ):
-                iopsMin = "Unlimited"
+                iopsMin = "None"
                 
             #sanitize the IOPs limit
             iopsLimit = volume.iops_limit
             
             if ( iopsLimit == 0 ):
-                iopsLimit = "None"
+                iopsLimit = "Unlimited"
+
+            ov = OrderedDict()
             
-            fields = [];
-            
-            fields.append(("ID", volume.id))
-            fields.append(("Name", volume.name))
+            ov["ID"] = volume.id
+            ov["Name"] = volume.name
             
             if ( session.is_allowed( "TENANT_MGMT" ) ):
-                fields.append(("Tenant ID", volume.tenant_id))
+                ov["Tenant ID"] = volume.tenant_id
+                
+            ov["State"] = volume.state
+            ov["Type"] = volume.type
+            ov["Usage"] = str(volume.current_size) + " " + volume.current_units
+            ov["Last Firebreak Type"] = lastFirebreakType
+            ov["Last Firebreak"] = lastFirebreak
+            ov["Priority"] = volume.priority
+            ov["IOPs Guarantee"] = iopsMin
+            ov["IOPs Limit"] = iopsLimit
+            ov["Media Policy"] = volume.media_policy
             
-            fields.append(("State", volume.state))
-            fields.append(("Type", volume.type))
-            fields.append(("Usage", str(volume.current_size) + " " + volume.current_units))
-            fields.append(("Last Firebreak Type", lastFirebreakType))
-            fields.append(("Last Firebreak", lastFirebreak))
-            fields.append(("Priority", volume.priority))
-            fields.append(("IOPs Guarantee", iopsMin))
-            fields.append(("IOPs Limit", iopsLimit))
-            fields.append(("Media Policy", volume.media_policy))
-            
-            ov = OrderedDict( fields )
             prepped_responses.append( ov )
         #end of for loop 
             
@@ -104,26 +103,168 @@ class ResponseWriter():
         #The tabular format is very poor for a volume object, so we need to remove some keys before display
         resultList = []
         
-        for snap in response:
-            fields = []
+        for snapshot in response:
             
-            snapshot = SnapshotConverter.build_snapshot_from_json( snap )
             created = time.localtime( snapshot.created )
             created = time.strftime( "%c", created )
-            
-            fields.append( ("ID", snapshot.id))
-            fields.append( ("Name", snapshot.name))
-            fields.append( ("Created", created))
             
             retentionValue = snapshot.retention
             
             if ( retentionValue == 0 ):
                 retentionValue = "Forever"
             
-            fields.append( ("Retention", retentionValue))
+            ov = OrderedDict()
             
-            ov = OrderedDict( fields )
+            ov["ID"] = snapshot.id
+            ov["Name"] = snapshot.name
+            ov["Created"] = created
+            ov["Retention"] = retentionValue
+            
             resultList.append( ov )   
         #end for loop
         
         return resultList
+    
+    @staticmethod
+    def prep_snapshot_policy_for_table( session, response ):
+        ''' 
+        Take a snapshot policy and format it for easy display in a table
+        '''
+        
+        results = []
+        
+        for policy in response:
+            
+            retentionValue = policy.retention
+            
+            if ( retentionValue == 0 ):
+                retentionValue = "Forever"
+        
+            ov = OrderedDict()
+            
+            if policy.id != None:
+                ov["ID"] = policy.id
+            
+            if ( policy.name != None and policy.name != "" ):
+                ov["Name"] = policy.name
+                
+            ov["Retention"] = retentionValue
+            ov["Recurrence Rule"] = RecurrenceRuleConverter.to_json( policy.recurrence_rule )
+            
+            results.append( ov )
+        # end of for loop
+        
+        return results
+            
+    
+    @staticmethod
+    def prep_domains_for_table( session, response ):
+        '''
+        Take the domain JSON and turn it into a table worthy presentation
+        '''
+        results = []
+        
+        for domain in response:
+            
+            ov = OrderedDict()
+            
+            ov["ID"] = domain.id
+            ov["Name"] = domain.name
+            ov["Site"] = domain.site
+            
+            results.append( ov )
+        #end of for loop
+        
+        return results
+    
+    
+    @staticmethod
+    def prep_node_for_table( session, response ):
+        '''
+        Take nodes and format them to be listed in a table
+        '''
+        
+        results = []
+        
+        for node in response:
+            
+            ov = OrderedDict()
+            
+            ov["ID"] = node.id
+            ov["Name"] = node.name
+            ov["State"] = node.state
+            ov["IP V4 Address"] = node.ip_v4_address
+            ov["IP V6 Address"] = node.ip_v6_address
+            
+            results.append( ov )
+        
+        return results
+    
+    @staticmethod
+    def prep_services_for_table( session, response ):
+        '''
+        The service model is not yet sensible so we need to do some munging to get anything
+        useful to the Screen.
+        '''
+        results = []
+        
+        for node in response:
+            
+            # we'll need this data for each service
+            
+            services = node.services
+            
+            for service_type in services:
+                
+                for service in services[service_type]:
+                    
+                    ov = OrderedDict()
+                    ov["Node ID"] = node.id
+                    ov["Node Name"] = node.name
+                    ov["Service Type"] = service.auto_name
+                    ov["Service ID"] = service.id
+                    ov["Status"] = service.status
+                    
+                    results.append( ov )
+                    
+                # end of individual service for loop
+            #end of service_typess for loop
+            
+        #end of nodes for loop
+        
+        return results
+        
+    @staticmethod
+    def prep_qos_presets( presets):
+        '''
+        Prep a list of qos presets for tabular printing
+        '''
+        
+        results = []
+        
+        for preset in presets:
+            
+            ov = OrderedDict()
+            
+            iops_guarantee = preset.iops_guarantee
+            
+            if iops_guarantee == 0:
+                iops_guarantee = "None"
+                
+            iops_limit = preset.iops_limit
+            
+            if iops_limit == 0:
+                iops_limit = "Forever"
+            
+            ov["ID"] = preset.id
+            ov["Name"] = preset.name
+            ov["Priority"] = preset.priority
+            ov["IOPs Guarantee"] = iops_guarantee
+            ov["IOPs Limit"] = iops_limit
+            
+            results.append( ov )
+            
+        return results
+            
+        
+        

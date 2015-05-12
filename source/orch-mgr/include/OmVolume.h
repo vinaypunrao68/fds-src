@@ -425,6 +425,7 @@ class VolumeContainer : public RsContainer
     virtual void om_cleanup_vol(const ResourceUUID& vol_uuid);
 
     bool addVolume(const VolumeDesc& volumeDesc);
+    bool createSystemVolume(int32_t tenantID = -1);
 
   protected:
     OmDiscoveryMod           *vol_disc_mgr;

@@ -83,7 +83,17 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
-   * Shutdown currently the named Local Domain.
+   * Startup named Local Domain
+   *
+   * Startup involves starting all processes associated with SM, DM, and AM services.
+   *
+   * @param domainName - A string representing the name of the Local Domain to be started.
+   */
+  void startupLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Shutdown named Local Domain.
    *
    * Shutdown involves stopping all processes associated with SM, DM, and AM services. However,
    * none of them are unregistered from the Domain as would be the case with "removing" services.

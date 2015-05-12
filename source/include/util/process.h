@@ -10,6 +10,7 @@ namespace fds {
 namespace util {
 
 void printBackTrace();
+void print_stacktrace(unsigned int max_frames = 63);
 
 } // namespace util
 } // namespace fds

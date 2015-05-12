@@ -16,8 +16,8 @@ disks=[
 "sdi",
 "sdj",
 "sdk",
-"sdl",
-"sdm",
+#"sdl",
+#"sdm",
 ]
 def plot_series(series, title = None, ylabel = None, xlabel = "Time [s]", legend_label = None):
     #plt.figure()
@@ -33,7 +33,8 @@ def plot_series(series, title = None, ylabel = None, xlabel = "Time [s]", legend
 
 
 #cols = {'iops' : 2, 'kbreads' : 3, 'kbwrites' : 4}
-cols = {'w_s' :5, 'wkb_s' : 7 ,'avgrqsz' : 8, 'avgqusz' : 9, 'await' : 10}
+cols = {'w_s' : 5, 'wkb_s' : 7 ,'avgrqsz' : 8, 'avgqusz' : 9, 'await' : 10, 
+        'r_s' : 4, 'rkb_s' : 6, 'await_r' : 10, 'await_w' : 11, 'util' : 13}
 
 iops = {}
 for d in disks:
@@ -45,12 +46,19 @@ for d in disks:
         iop = 0
     iops[d] = iop
 
+total = [0,]*len(iops["sda"])
+ndisks = [0,]*len(iops["sda"])
 for d in disks:
     print d,",",
     #for e in iops[d]:
     #    print e,",",
+    for i in range(len(iops[d])):
+        total[i] += iops[d][i]
+    for i in range(len(iops[d])):
+        if iops[d][i] > 0:
+            ndisks[i] += 1
     array = np.asarray(iops[d])
-    plot_series(array, sys.argv[2], legend_label = d)
+    #plot_series(array, sys.argv[2], legend_label = d)
     print np.mean(array),",",
     print np.min(array),",",
     print np.max(array),",",
@@ -58,6 +66,12 @@ for d in disks:
     print 100*float(np.count_nonzero(array))/array.size,",",
     print ""
 plt.legend() 
-plt.savefig('/tmp/%s-%s.png' % (sys.argv[3], sys.argv[2]))
+#plt.savefig('/tmp/%s-%s.png' % (sys.argv[3], sys.argv[2]))
 #plt.show()
 
+print total 
+plot_series(total, sys.argv[2])
+plt.savefig('/tmp/total-%s.png' % sys.argv[3])
+#print ndisks
+#plot_series(ndisks, sys.argv[2])
+#plt.savefig('/tmp/ndisks-%s.png' % sys.argv[3])

@@ -4,7 +4,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <OmResources.h>
 
 #include "./com_formationds_om_NativeOm.h"
 
@@ -13,7 +12,6 @@ JavaVM *javaVM;
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* aReserved)
 {
-    printf("JNI loaded OK\n");
     fflush(stdout);
 
     javaVM = vm;
@@ -35,6 +33,5 @@ JNIEXPORT void JNICALL Java_com_formationds_om_NativeOm_init
         args[i + 1] = s->c_str();
     }
 
-    printf("JNI init done\n");
     main(length + 1, args);
 }

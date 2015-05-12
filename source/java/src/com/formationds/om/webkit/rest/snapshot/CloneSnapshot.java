@@ -62,9 +62,9 @@ public class CloneSnapshot
       Thread.sleep( 200 );
       SetVolumeQosParams.setVolumeQos( config,
                                        name,
-                                       ( int ) volume.getSla(),
+                                       volume.getSla(),
                                        volume.getPriority(),
-                                       ( int ) volume.getLimit(),
+                                       volume.getLimit(),
                                        volume.getCommit_log_retention(),
                                        volume.getMediaPolicy());
     }

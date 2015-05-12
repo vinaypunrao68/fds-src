@@ -111,6 +111,8 @@
     vars_files:
     -   ../vars_files/multi_om_setup.yml
     -   ../vars_files/credentials/ssl_certs.yml
+    -   ../vars_files/deploy_fds/start_fds.yml
+    -   ../vars_files/deploy_fds/admin_credentials.yml
 
     handlers:
     -   name: restart ssh

@@ -4,6 +4,9 @@
     ignore_errors: True
     register: fds_installed
 
+-   stat: path=/etc/init.d/influxdb
+    register: influxdb_init_stat
+
 -   stat: path=/etc/init/{{item}}.conf
     register: init_stat
     with_items:
@@ -42,6 +45,10 @@
         - fdscli
     tags:
         - shutdown
+
+-   name: stop influxdb
+    service: name=influxdb state=stopped
+    when: influxdb_init_stat.stat.exists
 
 -   name: stop_redis
     shell: ./redis.sh stop chdir=/fds/sbin

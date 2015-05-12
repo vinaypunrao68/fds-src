@@ -101,6 +101,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void updateLocalDomainSite(const std::string& domainName, const std::string& newSiteName) {}
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
+    void startupLocalDomain(const std::string& domainName) {}
     void shutdownLocalDomain(const std::string& domainName) {}
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
@@ -266,6 +267,39 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         local->om_bcast_scavenger_cmd(cmd);
     }
 
+    void startupLocalDomain(boost::shared_ptr<std::string>& domainName)
+    {
+        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        if ( domainID <= 0 )
+        {
+            LOGERROR << "Local Domain not found: " << domainName;
+            
+            apiException( "Error starting Local Domain " + 
+                          *domainName + 
+                          ". Local Domain not found." );
+        }
+        
+        /*
+         * Currently (05/05/2015) we only have support for one Local Domain. 
+         * So the specified name is ignored. At some point we should be able 
+         * to look up the DomainContainer based on Domain ID (or name).
+         */
+        
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        try
+        {
+            domain->om_startup_domain();
+        }
+        catch(...) 
+        {
+            LOGERROR << "Orch Manager encountered exception while "
+                            << "processing startup local domain";
+            apiException( "Error starting up Local Domain " + 
+                          *domainName + 
+                          " Services. Broadcast startup failed." );        
+        }
+    }
+    
     /**
     * Shutdown the named Local Domain.
     *
@@ -276,12 +310,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         if (domainID <= 0) {
             LOGERROR << "Local Domain not found: " << domainName;
-            apiException("Error shutting down Local Domain " + *domainName + ". Local Domain not found.");
+            apiException( "Error shutting down Local Domain " + 
+                          *domainName + 
+                          ". Local Domain not found.");
         }
 
         /*
-         * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
-         * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+         * Currently (3/21/2015) we only have support for one Local Domain. 
+         * So the specified name is ignored. At some point we should be able 
+         * to look up the DomainContainer based on Domain ID (or name).
          */
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
@@ -518,7 +555,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
-        return configDB->createTenant(*identifier);
+        int64_t tenantId =  configDB->createTenant(*identifier);
+
+        // create the system volume associated to the client
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+
+        volContainer->createSystemVolume(tenantId);
+        return tenantId;
     }
 
     void listTenants(std::vector<Tenant> & _return, boost::shared_ptr<int32_t>& ignore) {
@@ -588,8 +632,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
 
-        // wait for the volume to be active upto 30 seconds
-        int count = 60;
+        // wait for the volume to be active upto 5 minutes
+        int count = 600;
 
         do {
             usleep(500000);  // 0.5s
@@ -598,7 +642,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         } while (count > 0 && vol && !vol->isStateActive());
 
         if (!vol || !vol->isStateActive()) {
-            LOGERROR << "some issue in volume creation";
+            LOGERROR << "Timeout on waiting for volume to become ACTIVE " << *volumeName;
             apiException("error creating volume");
         }
     }
@@ -859,8 +903,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
                 fdspQoSPolicy.policy_name = qosPolicy.volPolicyName;
                 fdspQoSPolicy.policy_id = qosPolicy.volPolicyId;
-                fdspQoSPolicy.iops_min = qosPolicy.iops_min;
-                fdspQoSPolicy.iops_max = qosPolicy.iops_max;
+                fdspQoSPolicy.iops_assured = qosPolicy.iops_assured;
+                fdspQoSPolicy.iops_throttle = qosPolicy.iops_throttle;
                 fdspQoSPolicy.rel_prio = qosPolicy.relativePrio;
 
                 _return.push_back(fdspQoSPolicy);
@@ -886,20 +930,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                          boost::shared_ptr<std::string>& currentPolicyName, boost::shared_ptr<std::string>& newPolicyName,
                          boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
                          boost::shared_ptr<int32_t>& relPrio ) {
+        fds_assert(*relPrio >= 0);
         FDS_VolumePolicy qosPolicy;
 
         qosPolicy.volPolicyId = configDB->getIdOfQoSPolicy(*currentPolicyName);
 
         if (qosPolicy.volPolicyId > 0) {
             qosPolicy.volPolicyName = *newPolicyName;
-            qosPolicy.iops_min = static_cast<fds_uint64_t>(*minIops);
-            qosPolicy.iops_max = static_cast<fds_uint64_t>(*maxIops);
+            qosPolicy.iops_assured = *minIops;
+            qosPolicy.iops_throttle = *maxIops;
             qosPolicy.relativePrio = static_cast<fds_uint32_t>(*relPrio);
             if (configDB->updatePolicy(qosPolicy)) {
                 _return.policy_id = qosPolicy.volPolicyId;
                 _return.policy_name = qosPolicy.volPolicyName;
-                _return.iops_min = qosPolicy.iops_min;
-                _return.iops_max = qosPolicy.iops_max;
+                _return.iops_assured = qosPolicy.iops_assured;
+                _return.iops_throttle = qosPolicy.iops_throttle;
                 _return.rel_prio = qosPolicy.relativePrio;
                 
                 LOGNOTIFY << "QoS Policy modification succeded. " << _return.policy_id << ": " << *currentPolicyName;

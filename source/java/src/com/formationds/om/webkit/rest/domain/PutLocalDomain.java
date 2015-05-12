@@ -11,16 +11,14 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.UsageException;
-
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
-
 import java.util.Map;
 
 public class PutLocalDomain
@@ -97,6 +95,9 @@ public class PutLocalDomain
 
               logger.debug( "Rename Local Domain {} site to {}.", domainName, newSiteName );
               configApi.updateLocalDomainSite(domainName, newSiteName);
+          } else if (action.equals("startup")) {
+              logger.debug( "Startup Local Domain {}.", domainName );
+              configApi.startupLocalDomain(domainName);
           } else if (action.equals("shutdown")) {
               logger.debug( "Shutdown Local Domain {}.", domainName );
               configApi.shutdownLocalDomain(domainName);

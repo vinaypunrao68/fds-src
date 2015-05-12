@@ -532,9 +532,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     bool needReg = false;
     if (!volmeta->dmVolQueue.get()) {
+        // FIXME: Why are we doubling the assured rate here?
         volmeta->dmVolQueue.reset(new FDS_VolumeQueue(4096,
-                                                      vdesc->iops_max,
-                                                      2*vdesc->iops_min,
+                                                      vdesc->iops_throttle,
+                                                      2*vdesc->iops_assured,
                                                       vdesc->relativePrio));
         volmeta->dmVolQueue->activate();
         needReg = true;
@@ -707,10 +708,13 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
         return err;
     }
     VolumeMeta *vm = vol_meta_map[vol_uuid];
-    vm->vol_desc->modifyPolicyInfo(2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+    // FIXME: Why are we doubling assured?
+    vm->vol_desc->modifyPolicyInfo(2 * voldesc.iops_assured,
+                                   voldesc.iops_throttle,
+                                   voldesc.relativePrio);
     err = qosCtrl->modifyVolumeQosParams(vol_uuid,
-                                         2*voldesc.iops_min,
-                                         voldesc.iops_max,
+                                         2 * voldesc.iops_assured,
+                                         voldesc.iops_throttle,
                                          voldesc.relativePrio);
     vol_map_mtx->unlock();
 
@@ -1095,6 +1099,12 @@ void DataMgr::mod_enable_service() {
     }
 }
 
+void DataMgr::shutdown()
+{
+    flushIO();
+    mod_shutdown();
+}
+
 //   Block new IO's  and flush queued IO's 
 void DataMgr::flushIO()
 {
@@ -1110,7 +1120,18 @@ void DataMgr::flushIO()
 
 void DataMgr::mod_shutdown()
 {
-    shuttingDown = true;
+    // Don't double-free.
+    {
+        // The expected goofiness is due to c_e_s() setting "expected" to the current value if it
+        // is not equal to expected. Which makes "expected" a misnomer as it's an in/out variable.
+        // We don't care (or rather, we already know) what the current value is if it's not equal
+        // to expected though, so we ignore it.
+        bool expected = false;
+        if (!shuttingDown.compare_exchange_strong(expected, true))
+        {
+            return;
+        }
+    }
 
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();

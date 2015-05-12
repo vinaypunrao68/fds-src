@@ -197,6 +197,12 @@ namespace fds {
 
         Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
 
+        /**
+         * Validate that commited DMT has all given DMs and no other DMs
+         * Called on domain re-activate. DMT is already loaded at this point.
+         */
+        Error validateDmtOnDomainActivate(const NodeUuidSet& dm_services);
+
   private:
         /**
          * Config db object

@@ -99,7 +99,14 @@ public class StubConfigurationApi implements ConfigurationApi {
         return;
     }
 
-    @Override
+  @Override
+  public void startupLocalDomain( final String domainName )
+          throws TException
+  {
+    return;
+  }
+
+  @Override
     public void shutdownLocalDomain(String domainName)
             throws TException {
         return;

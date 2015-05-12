@@ -489,8 +489,10 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     std::vector<DataPointPair>::const_iterator pos;
 
     fprintf(pFile, "[");
-    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos)
-        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<fds_int64_t>(pos->value));
+    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos) {
+        // FIXME: Add range checking.
+        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<long long>(pos->value));
+    }
     fprintf(pFile, "]");
 
     fprintf(pFile, "\n");

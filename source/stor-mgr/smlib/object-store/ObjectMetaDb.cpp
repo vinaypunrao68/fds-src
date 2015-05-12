@@ -47,6 +47,15 @@ ObjectMetadataDb::closeMetadataDb() {
 
 Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
+    // open object metadata DB for each token that this SM owns
+    // if metadata DB already open, no error
+    SmTokenSet smToks = diskMap->getSmTokens();
+    return openMetadataDb(diskMap, smToks);
+}
+
+Error
+ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
+                                 const SmTokenSet& smToks) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
     fds_uint32_t ssdCount = diskMap->getTotalDisks(diskio::flashTier);
@@ -78,9 +87,8 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     fds_bool_t syncW = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.syncMetaWrite");
     LOGDEBUG << "Will do sync? " << syncW << " (metadata) writes to object DB";
 
-    // open object metadata DB for each token that this SM owns
+    // open object metadata DB for each token in the set
     // if metadata DB already open, no error
-    SmTokenSet smToks = diskMap->getSmTokens();
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {

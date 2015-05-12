@@ -1,15 +1,25 @@
+
 /*
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
 package com.formationds.om;
 
-import com.formationds.protocol.*;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.StreamingRegistrationMsg;
-import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
-import com.formationds.commons.events.*;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.SnapshotPolicy;
+import com.formationds.apis.StreamingRegistrationMsg;
+import com.formationds.apis.Tenant;
+import com.formationds.apis.User;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
+import com.formationds.commons.events.EventCategory;
+import com.formationds.commons.events.EventDescriptor;
+import com.formationds.commons.events.EventSeverity;
+import com.formationds.commons.events.EventType;
 import com.formationds.om.events.EventManager;
+import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
@@ -17,14 +27,15 @@ import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class OmConfigurationApi implements com.formationds.util.thrift.ConfigurationApi {
@@ -46,8 +57,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         public ConfigurationCache(ConfigurationService.Iface config) throws Exception {
             version = config.configurationVersion(0);
             users = config.allUsers(0);
-            usersByName = users.stream().collect(Collectors.toMap(u -> u.getIdentifier(), u -> u));
-            usersById = users.stream().collect(Collectors.toMap(u -> u.getId(), u -> u));
+            usersByName = users.stream().collect(Collectors.toMap( ( Function<User, String> ) User::getIdentifier, u -> u));
+            usersById = users.stream().collect(Collectors.toMap( User::getId, u -> u));
             tenants = config.listTenants(0);
             usersByTenant = HashMultimap.create();
             tenantsById = new HashMap<>();
@@ -57,7 +68,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                 tenantsById.put(tenant.getId(), tenant);
                 List<User> tenantUsers = config.listUsersForTenant(tenant.getId());
                 usersByTenant
-                    .putAll(tenant.getId(), tenantUsers.stream().map(u -> u.getId()).collect(Collectors.toSet()));
+                    .putAll(tenant.getId(), tenantUsers.stream().map( User::getId ).collect(Collectors.toSet()));
                 for (User tenantUser : tenantUsers) {
                     tenantsByUser.put(tenantUser.getId(), tenant.getId());
                 }
@@ -69,7 +80,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             } catch (TException e) {
                 volumeDescriptors = Lists.newArrayList();
             }
-            volumesByName = volumeDescriptors.stream().collect(Collectors.toMap(v -> v.getName(), v -> v));
+            volumesByName = volumeDescriptors.stream().collect(Collectors.toMap( VolumeDescriptor::getName, v -> v));
         }
 
         public Collection<User> users() { return users; }
@@ -104,7 +115,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
         public List<User> listUsersForTenant(long tenantId) {
             return usersByTenant.get(tenantId).stream()
-                                .map(id -> usersById.get(id))
+                                .map( usersById::get )
                                 .collect(Collectors.toList());
         }
 
@@ -140,7 +151,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             try {
                 return new ConfigurationCache(configClientFactory.getClient());
             } catch (Exception e) {
-                LOG.error("Unable to load configuration", e);
                 throw new RuntimeException(e);
             }
         });
@@ -340,6 +350,13 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return;
     }
     
+    @Override
+    public void startupLocalDomain(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().startupLocalDomain(domainName);
+        return;
+    }
+    
     /**
      * Shutdown the given Local Domain.
      * 
@@ -481,9 +498,11 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public long createTenant(String identifier)
         throws TException {
         long tenantId = getConfig().createTenant(identifier);
+        /*
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
         // TODO: XDI implementation hardcodes tenant system volume domain to "FDS_S3" (via S3Endpoint.FDS_S3. Not sure if this is correct?
         getConfig().createVolume( "FDS_S3", systemFolderName( tenantId ), volumeSettings, tenantId );
+        */
         dropCache();
         EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
         return tenantId;

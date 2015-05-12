@@ -48,6 +48,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     var capacityQuery = {};
     var performanceQuery = {};
     var firebreakQuery = {};
+    var timelinePresets = [];
     
     $scope.timeRanges = [
         { displayName: '30 Days', value: 1000*60*60*24*30, labels: [translate( 'common.l_30_days' ), translate( 'common.l_15_days' ), translate( 'common.l_today' )] },
@@ -143,32 +144,6 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var theRest = $scope.dataConnector.type.substr( 1 ).toLowerCase();
         
         return firstLetter + theRest;
-    };
-    
-    $scope.deleteVolume = function(){
-        
-        var confirm = {
-            type: 'CONFIRM',
-            text: $filter( 'translate' )( 'volumes.desc_confirm_delete' ),
-            confirm: function( result ){
-                if ( result === false ){
-                    return;
-                }
-                
-                $volume_api.delete( $scope.volumeVars.selectedVolume,
-                    function(){ 
-                        var $event = {
-                            type: 'INFO',
-                            text: $filter( 'translate' )( 'volumes.desc_volume_deleted' )
-                        };
-
-                        $rootScope.$emit( 'fds::alert', $event );
-                        $scope.volumeVars.back();
-                });
-            }
-        };
-        
-        $rootScope.$emit( 'fds::confirm', confirm );
     };
 
     $scope.formatDate = function( ms ){
@@ -337,7 +312,23 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     */
     var initSnapshotDescriptions = function(){
         
-        $scope.timelinePreset = $timeline_policy_helper.convertRawToPreset( $scope.timelinePolicies.policies ).label;
+        $scope.timelinePreset = '';
+        
+        for ( var tp = 0; tp < timelinePresets.length; tp++ ){
+            var areTheyEqual = $timeline_policy_helper.arePoliciesEqual( timelinePresets[tp].policies, $scope.timelinePolicies.policies );
+            
+            if ( areTheyEqual === true ){
+                $scope.timelinePreset = timelinePresets[tp].name;
+                break;
+            }
+        }
+        
+        // must be custom
+        if ( $scope.timelinePreset === '' ){
+            $scope.timelinePreset = $filter( 'translate' )( 'common.l_custom' );
+        }
+        
+//        $scope.timelinePreset = $timeline_policy_helper.convertRawToPreset( $scope.timelinePolicies.policies ).label;
         
         // must be in this order:  continuous = 0, daily = 1, weekly = 2, monthly = 3, yearly = 4
         for ( var i = 0; i < $scope.timelinePolicies.policies.length; i++ ){
@@ -450,9 +441,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
         initQosSettings();
 
-        initSnapshotSettings().then( function(){
-            // must come after the snapshot settings initialization
-            initSnapshotDescriptions();
+        $volume_api.getSnapshotPolicyPresets( function( presets ){
+            
+            timelinePresets = presets;
+            
+            initSnapshotSettings().then( function(){
+                // must come after the snapshot settings initialization
+                initSnapshotDescriptions();
+            });
         });
 
         capacityIntervalId = $interval( pollCapacity, 60000 );

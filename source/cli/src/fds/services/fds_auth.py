@@ -37,28 +37,28 @@ class FdsAuth():
         
     def get_hostname(self):
         
-        if ( self.__hostname == None ):
+        if ( self.__hostname is None ):
             self.__hostname = raw_input( 'Hostname: ' )
            
         return self.__hostname
     
     def get_username(self):
         
-        if ( self.__username == None ):
+        if ( self.__username is None ):
             self.__username = raw_input( 'Login: ' )
             
         return self.__username
     
     def get_password(self):
         
-        if ( self.__password == None ):
+        if ( self.__password is None ):
             self.__password = getpass.getpass( 'Password: ' )
             
         return self.__password
 
     def get_port(self):
         
-        if ( self.__port == None ):
+        if ( self.__port is None ):
             self.__port = raw_input( 'Port: ' )
             
         return self.__port
@@ -77,7 +77,7 @@ class FdsAuth():
     
     def is_authenticated(self):
         
-        if ( self.__token != None ):
+        if ( self.__token is not None ):
             return True
         
         return False

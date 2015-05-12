@@ -25,12 +25,10 @@ user_build_dir :=                       \
     java
 
 # Using DEFER_TESTS=1 on the command line will build the Java directory
-# before building the checker and unit-tests.
+# before building the unit-tests.
 ifdef DEFER_TESTS
-    user_build_dir := $(filter-out checker, $(user_build_dir))
     user_build_dir := $(filter-out unit-test, $(user_build_dir))
     user_build_dir := $(user_build_dir) \
-                      checker           \
                       unit-test
 endif
 
