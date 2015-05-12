@@ -96,22 +96,6 @@
         - post-install
         - influxdb
 
--   name: render_init_scripts
-    template:
-        src=../templates/deploy_fds/{{item}}-init.conf.j2
-        dest=/etc/init/{{item}}.conf
-        owner=root
-        group=root
-        mode=0644
-    with_items:
-        - platformd
-        - orchmgr
-        - amagent
-        - fdsactivate
-    tags:
-        - post-install
-        - init
-
 -   name: copy new upstart configs
     copy:
         src=../files/deploy_fds/upstart/fds-{{item}}.conf
