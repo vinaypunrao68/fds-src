@@ -220,7 +220,11 @@ Error OMgrClient::getDMT() {
 	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
 	svcMgr->getDMTData(fdsp_dmt);
 
-	err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
+		err = ERR_NOT_FOUND;
+	} else {
+		err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+	}
 
 	return err;
 }
@@ -231,7 +235,11 @@ Error OMgrClient::getDLT() {
 	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
 	svcMgr->getDLTData(fdsp_dlt);
 
-	err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+	if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
+		err = ERR_NOT_FOUND;
+	} else {
+		err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+	}
 
 	return err;
 }

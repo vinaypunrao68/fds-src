@@ -217,8 +217,7 @@ void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, bo
     	LOGDEBUG << "Should have DMT to send";
     	(*dp).getSerialized(data_buffer);
 
-    	FDSP_DMT_Type fdt;
-    	fdt.__set_dmt_version(vp->getCommittedDMTVersion());
+    	FDSP_DMT_Data_Type fdt;
     	fdt.__set_dmt_data(data_buffer);
 
     	dmt.__set_dmt_version(vp->getCommittedDMTVersion());

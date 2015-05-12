@@ -440,7 +440,6 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
     auto dmt_msg = &msg->dmt_data;
-    dmt_msg->dmt_version = curDmt->getVersion();
     err = curDmt->getSerialized(dmt_msg->dmt_data);
     msg->dmt_version = curDmt->getVersion();
     if (!err.ok()) {
