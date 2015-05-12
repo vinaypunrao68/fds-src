@@ -28,9 +28,9 @@ class NodePlugin( AbstractPlugin ):
         self.create_list_parser( self.__subparser )
         self.create_list_services_parser( self.__subparser )
         self.create_shutdown_parser( self.__subparser )
+        self.create_start_parser( self.__subparser )
         self.create_remove_parser( self.__subparser )
-        self.create_activate_parser( self.__subparser )
-        self.create_deactivate_parser( self.__subparser )
+        self.create_add_parser( self.__subparser )
         self.create_start_service_parser( self.__subparser )
         self.create_stop_service_parser( self.__subparser )
         
@@ -66,7 +66,17 @@ class NodePlugin( AbstractPlugin ):
         __shutdown_parser = subparser.add_parser( "shutdown", help="Shutdown a specific node")
         __shutdown_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="The UUID of the node you wish to shutdown.", required=True)
         
-        __shutdown_parser.set_defaults( func=ResponseWriter.write_not_implemented )
+        __shutdown_parser.set_defaults( func=self.stop_node, format="tabular" )
+        
+    def create_start_parser(self, subparser):
+        '''
+        Create a parser for node start
+        '''
+        
+        __shutdown_parser = subparser.add_parser( "start", help="Start a specific node")
+        __shutdown_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="The UUID of the node you wish to start.", required=True)
+        
+        __shutdown_parser.set_defaults( func=self.start_node, format="tabular" )        
      
     def create_remove_parser(self, subparser):
         '''
@@ -76,29 +86,18 @@ class NodePlugin( AbstractPlugin ):
         __remove_parser = subparser.add_parser( "remove", help="Remove the specified node from the system")
         __remove_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="The UUID of the node you wish to remove.", required=True)
         
-        __remove_parser.set_defaults( func=ResponseWriter.write_not_implemented ) 
+        __remove_parser.set_defaults( func=self.remove_node, format="tabular" ) 
      
-    def create_activate_parser(self, subparser):
+    def create_add_parser(self, subparser):
         '''
         Create a parser to activate a node
         '''
         
-        __activate_parser = subparser.add_parser( "activate", help="Activate a node that is currently in the discovered state. If no arguments are supplied all the nodes will be activated." )
+        __activate_parser = subparser.add_parser( "add", help="Activate a node that is currently in the discovered state. If no arguments are supplied all the nodes will be activated." )
         __activate_parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         __activate_parser.add_argument( "-" + AbstractPlugin.node_ids_str, help="A list of UUIDs for the nodes you would like to activate.", nargs="+")
         
-        __activate_parser.set_defaults( func=self.activate_nodes, format="tabular") 
-     
-    def create_deactivate_parser(self, subparser):
-        '''
-        Create a parser to de-activate a node
-        '''
-        
-        __deactivate_parser = subparser.add_parser( "deactivate", help="De-activate a node that is currently included in the running system.")
-        __deactivate_parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )        
-        __deactivate_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="The UUID of the node you would like to de-activate.", required=True)
-        
-        __deactivate_parser.set_defaults( func=self.deactivate_node, format="tabular" )
+        __activate_parser.set_defaults( func=self.add_nodes, format="tabular") 
      
     def create_start_service_parser(self, subparser):
         '''
@@ -108,9 +107,9 @@ class NodePlugin( AbstractPlugin ):
         __start_parser = subparser.add_parser( "start_service", help="Start all, or specific services on a specified node.  If no services are specified it will try to start all services." )
         __start_parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )        
         __start_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="The UUID of the node on which you'd like to start services", required=True)
-        __start_parser.add_argument( "-" + AbstractPlugin.services_str, help="A list of services that you would like to start.", choices=["am","sm","dm"], nargs="+")
+        __start_parser.add_argument( "-" + AbstractPlugin.service_id_str, help="The UUID of the service that you would like to start.", required=True)
         
-        __start_parser.set_defaults( func=self.start_services, format="tabular")
+        __start_parser.set_defaults( func=self.start_service, format="tabular")
 
     def create_stop_service_parser(self, subparser):
         '''
@@ -120,9 +119,9 @@ class NodePlugin( AbstractPlugin ):
         __stop_parser = subparser.add_parser( "stop_service", help="Stop all, or specific services on a specified node.  If no services are specified it will try to stop all services." )
         __stop_parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )        
         __stop_parser.add_argument( "-" + AbstractPlugin.node_id_str, help="The UUID of the node on which you'd like to stop services", required=True)
-        __stop_parser.add_argument( "-" + AbstractPlugin.services_str, help="A list of services that you would like to stop.", choices=["am","sm","dm"], nargs="+")
+        __stop_parser.add_argument( "-" + AbstractPlugin.service_id_str, help="The UUID of the service that you would like to stop.", required=True)
      
-        __stop_parser.set_defaults( func=self.stop_services, format="tabular")
+        __stop_parser.set_defaults( func=self.stop_service, format="tabular")
      
     '''
     @see: AbstractPlugin
@@ -204,7 +203,7 @@ class NodePlugin( AbstractPlugin ):
             cleaned = ResponseWriter.prep_node_for_table( self.session, show_list )
             ResponseWriter.writeTabularData( cleaned )    
                   
-    def activate_nodes(self, args):
+    def add_nodes(self, args):
         '''
         Activate a set of discovered nodes
         '''
@@ -233,79 +232,52 @@ class NodePlugin( AbstractPlugin ):
             
         self.list_nodes(args)
         
-    def deactivate_node(self, args):
+    def remove_node(self, args):
         '''
-        De-activate a specific node
+        Remove a specific node
+        '''
+        response = self.get_node_service().remove_node(args[AbstractPlugin.node_id_str])
+        
+        if ( response["status"] == 200 ):
+            self.list_nodes(args)
+            
+    def start_node(self, args):
+        '''
+        Start all the services on a given node
         '''
         
-        state = NodeState()
-        state.am = False
-        state.dm = False
-        state.sm = False
+        response = self.get_node_service().start_node(args[AbstractPlugin.node_id_str])
         
-        response = self.get_node_service().deactivate_node( args[AbstractPlugin.node_id_str], state )
+        if ( response["status"] == 200 ):
+            self.list_nodes(args)            
+            
+    def stop_node(self, args):
+        '''
+        Stop all the services on a given node
+        '''
+        
+        response = self.get_node_service().stop_node(args[AbstractPlugin.node_id_str])
         
         if ( response["status"] == 200 ):
             self.list_nodes(args)
                    
-    def start_services(self, args):
+    def start_service(self, args):
         '''
         Start services on a specific node
         '''
-        
-        state = NodeState()
-        
-        state.am = None
-        state.dm = None
-        state.sm = None
-        
-        if ( not args[AbstractPlugin.services_str] is None ):
             
-            for service in args[AbstractPlugin.services_str]:
-                if service == "am":
-                    state.am = True
-                elif service == "dm":
-                    state.dm = True
-                elif service == "sm":
-                    state.sm = True
-            #end of for loop
-        else:
-            state.am = True
-            state.dm = True
-            state.sm = True
-            
-        response = self.get_node_service().activate_node( args[AbstractPlugin.node_id_str], state )
+        response = self.get_node_service().start_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
             
         if ( response["status"] == "ok" ):
             self.list_nodes(args)            
                         
-    def stop_services(self, args):
+    def stop_service(self, args):
         '''
         Stop services on a specific node
         '''
         
-        state = NodeState()
-        
-        state.am = None
-        state.dm = None
-        state.sm = None        
-        
-        if ( args[AbstractPlugin.services_str] is not None ):
-            for service in args[AbstractPlugin.services_str]:
-                if service == "am":
-                    state.am = False
-                elif service == "dm":
-                    state.dm = False
-                elif service == "sm":
-                    state.sm = False
-            #end of for loop
-        else:
-            state.am = False
-            state.dm = False
-            state.sm = False
-            
-        response = self.get_node_service().activate_node( args[AbstractPlugin.node_id_str], state )
-            
+        response = self.get_node_service().stop_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
+
         if ( response["status"] == "ok" ):
             self.list_nodes(args)                           
                         

@@ -58,7 +58,7 @@ public class MutateService implements RequestHandler {
         Long serviceId = requiredLong(routeParameters, "service_uuid");
 
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
-        Service service = ObjectModelHelper.toObject( reader, Volume.class );
+        Service service = ObjectModelHelper.toObject( reader, Service.class );
         service.setUuid( serviceId );
         
         List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( new FDSP_MsgHdrType() );
@@ -109,13 +109,14 @@ public class MutateService implements RequestHandler {
         		break;
         }
         
-        int status = client.ActivateNode( new FDSP_MsgHdrType(),
-                                 new FDSP_ActivateOneNodeType(
-                                     1,
-                                     new FDSP_Uuid( nodeUuid ),
-                                     startSm,
-                                     startDm,
-                                     startAm ) );
+        int status = 0;
+//        client.ActivateNode( new FDSP_MsgHdrType(),
+//                                 new FDSP_ActivateOneNodeType(
+//                                     1,
+//                                     new FDSP_Uuid( nodeUuid ),
+//                                     startSm,
+//                                     startDm,
+//                                     startAm ) );
         
         int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {

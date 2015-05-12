@@ -65,13 +65,14 @@ public class MutateNode implements RequestHandler {
         }
         
         //TODO:  Have a call that changes the node's state!
-        int status = client.ActivateNode( new FDSP_MsgHdrType(),
-                                     	  new FDSP_ActivateOneNodeType(
-                                          1,
-                                          new FDSP_Uuid( nodeUuid ),
-                                          activateSm,
-                                          activateDm,
-                                          activateAm ) );
+        int status = 0;
+//        		client.ActivateNode( new FDSP_MsgHdrType(),
+//                                     	  new FDSP_ActivateOneNodeType(
+//                                          1,
+//                                          new FDSP_Uuid( nodeUuid ),
+//                                          activateSm,
+//                                          activateDm,
+//                                          activateAm ) );
 
         int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {

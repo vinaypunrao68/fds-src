@@ -33,6 +33,7 @@ class AbstractPlugin( object ):
     added_str = "added"
     all_str = "all"
     services_str = "services"
+    service_id_str = "service_id"
     state_str = "state"
     domain_name_str = "domain_name"
     recurrence_rule_str = "recurrence_rule"

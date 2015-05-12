@@ -1,6 +1,9 @@
 from abstract_service import AbstractService
 from fds.utils.node_state_converter import NodeStateConverter
 from fds.utils.node_converter import NodeConverter
+from fds.model.node import Node
+from fds.model.service import Service
+from fds.utils.service_converter import ServiceConverter
 
 class NodeService( AbstractService ):
     '''
@@ -31,7 +34,7 @@ class NodeService( AbstractService ):
             
         return nodes
     
-    def activate_node(self, node_id, node_state):
+    def add_node(self, node_id, node_state):
         '''
         This method will activate a node and put the services in the desired state.
         
@@ -39,11 +42,31 @@ class NodeService( AbstractService ):
         node_state is a node state object defines which services will be started
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/services/", node_id)
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/1" )
         data = NodeStateConverter.to_json( node_state )
         return self.rest_helper.post( self.session, url, data )
     
-    def deactivate_node(self, node_id, node_state):
+    def start_node(self, node_id):
+        '''
+        This method will try to put a node into an "UP" state.  Under the covers
+        this will tell the system to turn on all of the known services on that node
+        '''
+        node = Node(an_id=node_id, state="UP")
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
+        data = NodeConverter.to_json(node)
+        return self.rest_helper.put( self.session, url, data )
+    
+    def stop_node(self, node_id):
+        '''
+        This method will try to put a node into an "DOWN" state.  Under the covers
+        this will tell the system to turn off all of the known services on that node
+        '''
+        node = Node(an_id=node_id, state="DOWN")
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
+        data = NodeConverter.to_json(node)
+        return self.rest_helper.put( self.session, url, data )    
+    
+    def remove_node(self, node_id, node_state):
         '''
         This method will deactivate the node and remember the state that is sent in
         
@@ -51,7 +74,25 @@ class NodeService( AbstractService ):
         node_state is a node state object defines which services will be stopped        
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/services/", node_id )
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
         data = NodeStateConverter.to_json( node_state )
         return self.rest_helper.put( self.session, url, data )
+    
+    def start_service(self, node_id, service_id):
+        '''
+        Start a specific service on a node.
+        '''
+        service = Service(an_id=service_id,status="ACTIVE")
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/services/", service_id)
+        data = ServiceConverter.to_json(service)
+        return self.rest_helper.put( self.session, url, data )
+    
+    def stop_service(self, node_id, service_id):
+        '''
+        Start a specific service on a node.
+        '''
+        service = Service(an_id=service_id,status="INACTIVE")
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/services/", service_id)
+        data = ServiceConverter.to_json(service)
+        return self.rest_helper.put( self.session, url, data )    
         

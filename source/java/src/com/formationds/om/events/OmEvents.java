@@ -61,7 +61,11 @@ public enum OmEvents implements EventDescriptor {
     CHANGE_SERVICE_STATE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
     		"Service: {0} state was changed successfully.", "serviceId" ),
     CHANGE_SERVICE_STATE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
-    	    "The attempt to change the service state for service: {0} failed.", "serviceId" );
+    	    "The attempt to change the service state for service: {0} failed.", "serviceId" ),
+    REMOVE_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0}:{1} was removed from the system.", "serviceId"),
+    REMOVE_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Removal of service {0}:{1} failed.", "serviceId");
 
     private final EventType     type;
     private final EventCategory category;
