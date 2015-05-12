@@ -151,6 +151,15 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     api.refresh = function( callback ){
         getVolumes( callback );
     };
+    
+    api.getQosPolicyPresets = function( callback, failure ){
+        return $http_fds.get( '/api/config/volumes/presets/qos', callback, failure );
+    };
+    
+    api.getSnapshotPolicyPresets = function( callback, failure ) {
+        
+        return $http_fds.get( '/api/config/volumes/presets/timeline', callback, failure );
+    };
 
     api.volumes = [];
 

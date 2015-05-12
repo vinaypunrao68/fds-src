@@ -463,8 +463,8 @@ void FDSP_ConfigPathReqHandler::GetVolInfo(
     if (vol) {
         vol->vol_fmt_desc_pkt(&_return);
         LOGNOTIFY << "Volume " << vol_info_req->vol_name
-                  << " -- min iops " << _return.iops_min << ",max iops "
-                  << _return.iops_max << ", prio " << _return.rel_prio
+                  << " -- assured iops " << _return.iops_assured << ",throttle iops "
+                  << _return.iops_throttle << ", prio " << _return.rel_prio
                   << " media policy " << _return.mediaPolicy;
     } else {
         LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
@@ -650,8 +650,8 @@ add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> &vec, 
     FDS_PLOG_SEV(g_fdslog, fds_log::notification)
             << "Volume in list: " << voldesc.vol_name << ":"
             << std::hex << voldesc.volUUID << std::dec
-            << "min iops " << voldesc.iops_min << ",max iops "
-            << voldesc.iops_max << ", prio " << voldesc.rel_prio;
+            << "assured iops " << voldesc.iops_assured << ",throttle iops "
+            << voldesc.iops_throttle << ", prio " << voldesc.rel_prio;
     vec.push_back(voldesc);
 }
 

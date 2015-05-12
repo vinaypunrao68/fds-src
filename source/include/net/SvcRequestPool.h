@@ -43,6 +43,7 @@ class SvcRequestPool : HasModuleProvider {
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
 
     void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
+    void postEmptyResponse(boost::shared_ptr<fpi::AsyncHdr> &header);
 
     fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
                                       const fpi::FDSPMsgTypeId &msgTypeId,

@@ -51,11 +51,26 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     typedef std::shared_ptr<ObjectDataStore> ptr;
 
     /**
-     * Opens object data store
+     * Opens object data store for all SM tokens that this SM owns
+     * Token ownership is specified in the disk map
      * @param[in] map of SM tokens to disks
      * @param[in] true if SM comes up for the first time
      */
     Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+                        fds_bool_t pristineState);
+
+    /**
+     * Opens object data store for given SM tokens; the tokens
+     * may not be in a disk map;
+     * This method is called when SM needs to open data store for
+     * SM tokens for which it is gaining ownership, but migration
+     * may fail, so disk map is updated only on successful migration
+     * @param[in] diskMap map of SM tokens to disks
+     * @param[in] smToks set of SM tokens to open data store for
+     * @param[in] true if SM comes up for the first time
+     */
+    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+                        const SmTokenSet& smToks,
                         fds_bool_t pristineState);
 
     /**

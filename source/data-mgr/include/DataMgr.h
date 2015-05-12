@@ -77,7 +77,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
     VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
-
     /**
     * Callback for DMT close
     */
@@ -423,6 +422,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     virtual std::string getSnapDirName(const fds_volid_t &volId,
                                        const int64_t snapId) const override;
 
+    ///
+    /// Cleanly shut down.
+    ///
+    /// run() will exit after this is called.
+    ///
+    void shutdown();
+
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
@@ -449,6 +455,16 @@ class CloseDMTTimerTask : public FdsTimerTask {
   private:
     cbType timeout_cb;
 };
+
+namespace dmutil {
+// location of volume
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = 0);
+
+// location of all snapshots for a volume
+std::string getSnapshotDir(fds_volid_t volId);
+
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = 0);
+}  // namespace dmutil
 
 }  // namespace fds
 

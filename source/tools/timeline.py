@@ -4,7 +4,7 @@ import sqlite3
 import os, sys
 import tabulate
 
-filename = "/fds/user-repo/dm-names/timeline.db"
+filename = "/fds/sys-repo/dm-names/timeline.db"
 
 if not os.path.exists(filename):
     print 'db does not exist :', filename

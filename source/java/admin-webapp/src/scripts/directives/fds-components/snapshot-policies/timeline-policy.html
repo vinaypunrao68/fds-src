@@ -1,6 +1,6 @@
 <div class="protection-policy" style="width: 700px;">
 
-    <button-bar ng-model="timelinePreset" buttons="presets" ng-class="{'add-bottom-space' : editing === true }"></button-bar>
+    <button-bar ng-model="timelinePreset" buttons="presets" label="name" ng-class="{'add-bottom-space' : editing === true }"></button-bar>
     
     <div class="volume-gray-container" ng-show="editing === true">
         <waterfall-slider sliders="sliders" range="range"></waterfall-slider>

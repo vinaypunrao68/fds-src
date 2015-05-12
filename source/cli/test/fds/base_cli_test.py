@@ -18,6 +18,7 @@ class BaseCliTest( unittest.TestCase ):
         
         auth = MockFdsAuth()
         auth.login()
+        self.__auth = auth
         self.__cli = fdscli.FDSShell( auth ) 
         print "Done with setup\n\n"
         
@@ -33,6 +34,10 @@ class BaseCliTest( unittest.TestCase ):
     @property
     def cli(self):
         return self.__cli
+    
+    @property
+    def auth(self):
+        return self.__auth
         
 if __name__ == '__main__':
     unittest.main()        

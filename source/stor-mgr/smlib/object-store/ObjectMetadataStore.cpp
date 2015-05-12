@@ -55,6 +55,12 @@ ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
 }
 
 Error
+ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap,
+                                       const SmTokenSet& smToks) {
+    return metaDb_->openMetadataDb(diskMap, smToks);
+}
+
+Error
 ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
 }

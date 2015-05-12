@@ -46,6 +46,28 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
+/**
+ * Open metadata and data store for given SM tokens
+ * Ok if metadata and data stores are already open for any of
+ * given tokens.
+ */
+Error
+ObjectStore::openStore(const SmTokenSet& smTokens) {
+    Error err(ERR_OK);
+    // we may already have meta and data stores open for these
+    // SM tokens, but call open in case some of the stores not open
+    err = metaStore->openMetadataStore(diskMap, smTokens);
+    if (!err.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << err;
+        return err;
+    }
+    err = dataStore->openDataStore(diskMap, smTokens, false);
+    if (!err.ok()) {
+        LOGERROR << "Failed to open Data Store " << err;
+    }
+    return err;
+}
+
 Error
 ObjectStore::handleNewDlt(const DLT* dlt) {
     fds_uint32_t nbits = dlt->getNumBitsForToken();
@@ -843,6 +865,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // We will update metadata with metadata sent to us from source SM
     ObjMetaData::ptr updatedMeta;
 
+    LOGMIGRATE << "Applyying Object: " << fds::logString(msg);
+
     // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
     //
     // If the metadata exists at this point, following matrix of operation is possible:
@@ -1089,8 +1113,10 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     }
 
     LOGDEBUG << "Applied object data/metadata to object store " << objId
-             << " delta from src SM " << fds::logString(msg)
-             << " updated meta " << *updatedMeta << " " << err;
+             << ": Delta from src SM " << fds::logString(msg)
+             << " >>> "
+             << " Updated meta " << *updatedMeta << " "
+             << " Error=" << err;
     return err;
 }
 

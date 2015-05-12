@@ -28,10 +28,11 @@ namespace fds
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
                 gl_DiskPlatMod.mod_startup();
+
                 platform->updateServiceInfoProperties(&svcInfo_.props);
             }
 
-            virtual void setupSvcInfo_()
+            void setupSvcInfo_()
             {
                 gl_DiskPlatMod.mod_init (nullptr);
                 platform->mod_init (nullptr);
@@ -42,9 +43,11 @@ namespace fds
                 LOGNOTIFY << "Svc info overrriden to: " << fds::logString(svcInfo_);
             }
 
-            virtual int run()
+            int run()
             {
-                return platform->run();
+                platform->run();
+
+                return 0;
             }
 
         protected:

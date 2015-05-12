@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$volume_api', '$snapshot_service', function( $scope, $volume_api, $snapshot_service ){
+angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$rootScope', '$filter', function( $scope, $volume_api, $snapshot_service, $rootScope, $filter ){
     
     $scope.disableName = true;
     $scope.disableTiering = true;
@@ -28,11 +28,38 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
 
             $scope.snapshotPolicies = notTimelinePolicies;
             $scope.timelinePolicies = {
-                continuous: $scope.thisVolume.commit_log_retention,
+                commitLogRetention: $scope.thisVolume.commit_log_retention,
                 policies: timelinePolicies
             };
         });
     };
+    
+    $scope.deleteVolume = function(){
+        
+        var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'volumes.desc_confirm_delete' ),
+            confirm: function( result ){
+                if ( result === false ){
+                    return;
+                }
+                
+                $volume_api.delete( $scope.volumeVars.selectedVolume,
+                    function(){ 
+                        var $event = {
+                            type: 'INFO',
+                            text: $filter( 'translate' )( 'volumes.desc_volume_deleted' )
+                        };
+
+                        $rootScope.$emit( 'fds::alert', $event );
+                        $scope.volumeVars.back();
+                        $scope.volumeVars.back();
+                });
+            }
+        };
+        
+        $rootScope.$emit( 'fds::confirm', confirm );
+    };    
     
     $scope.$watch( 'volumeVars.editing', function( newVal, oldVal ){
         
@@ -58,7 +85,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         $scope.thisVolume.priority = $scope.editQos.priority;
         $scope.thisVolume.limit = $scope.editQos.limit;
         
-        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
+        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
             $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );

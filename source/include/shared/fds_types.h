@@ -4,6 +4,8 @@
 #ifndef SOURCE_INCLUDE_SHARED_FDS_TYPES_H_
 #define SOURCE_INCLUDE_SHARED_FDS_TYPES_H_
 
+#include <stdint.h>
+
 /*
  * Define all basic fds types portable in all platforms and run time
  * environments.  Don't include any header files not under this directory.
@@ -24,7 +26,7 @@ c_decls_begin
 
 typedef unsigned long long   fds_blk_t;                     /* NOLINT */
 typedef unsigned long long   fds_uint64_t;                  /* NOLINT */
-typedef long long            fds_int64_t;                   /* NOLINT */
+typedef int64_t              fds_int64_t;                   /* NOLINT */
 typedef long                 fds_long_t;                    /* NOLINT */
 typedef unsigned int         fds_uint32_t;                  /* NOLINT */
 typedef int                  fds_int32_t;                   /* NOLINT */

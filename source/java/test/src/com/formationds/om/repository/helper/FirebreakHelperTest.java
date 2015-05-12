@@ -133,7 +133,7 @@ public class FirebreakHelperTest {
         // non-firebreak entries
         List<VolumeDatapoint> neg = Arrays.asList(rawdatal.get(0));
         List<VolumeDatapoint> missingSTC = neg.stream()
-                                              .filter((v) -> !Metrics.STC_SIGMA.equals(Metrics.byMetadataKey(v.getKey())))
+                                              .filter((v) -> !Metrics.STC_SIGMA.equals(Metrics.lookup( v.getKey() )))
                                               .collect(Collectors.toList());
 
         // currently the implementation will not return anything for unpaired sigmas.  It does not

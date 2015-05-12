@@ -16,3 +16,45 @@
         msg: "You've specified an invalid fds_om_host_count value for use with fds_ft_common_enable_multi_om_support=true. Value must be an odd integer >= 1"
     when: om_ip_count != empty_om_list and (om_ip_count|int < 1 or om_ip_count|int is divisibleby 2)
     tags: fdsconfig
+
+-   name: set variable build defined in inventory file (release or debug)
+    set_fact:
+        build: "{% if fds_build is defined and fds_build == 'debug' %}dbg{% else %}rel{% endif %}"
+    delegate_to: localhost
+    tags: local_check
+
+-   name: stat local fds-platform* deb to check for existence
+    local_action: stat
+        path={{item}}
+        get_checksum=False
+        get_md5=False
+    with_fileglob:
+        - "../../../omnibus/omnibus-fds-platform/pkg/fds-platform-{{build}}_*.deb"
+    register: fds_platform_package_stat
+    sudo: no
+    when: deploy_artifact == "local"
+    tags: local_check
+
+-   name: sanity check -> local fds-platform deb is present
+    fail:
+        msg: "You are trying to deploy a local build that is not present on your workstation! You specified 'fds_build={{fds_build}}' in your inventory, but I can't find a deb named 'fds-platform-{{build}}_*' in fds-src/omnibus/omnibus-fds-platform/pkg. Exiting."
+    when: deploy_artifact == "local" and fds_platform_package_stat.skipped is defined
+    tags: local_check
+
+-   name: stat local fds-deps* deb to check for existence
+    local_action: stat
+        path={{item}}
+        get_checksum=False
+        get_md5=False
+    with_fileglob:
+        - "../../../omnibus/omnibus-fds-deps/pkg/fds-deps_*.deb"
+    register: fds_deps_package_stat
+    sudo: no
+    when: fds_deploy_local_deps is defined and fds_deploy_local_deps == true
+    tags: local_check
+
+-   name: sanity check -> local fds-deps deb is present
+    fail:
+        msg: "You are trying to deploy a local fds-deps package that is not present on your workstation! You specified 'fds_deploy_local_deps=True' in your inventory, but I can't find a deb named 'fds-deps_*' in fds-src/omnibus/omnibus-fds-deps/pkg. Exiting."
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and fds_deps_package_stat.skipped is defined
+    tags: local_check
