@@ -23,7 +23,7 @@ class NodeService( AbstractService ):
         The nodes will also have all of their services and states within the returned object
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/config/services" )
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/nodes" )
         j_nodes = self.rest_helper.get( self.session, url )
         j_nodes = j_nodes.pop( "nodes", [] )
         nodes = []
@@ -51,7 +51,7 @@ class NodeService( AbstractService ):
         This method will try to put a node into an "UP" state.  Under the covers
         this will tell the system to turn on all of the known services on that node
         '''
-        node = Node(an_id=node_id, state="UP")
+        node = Node(an_id=node_id, state="UP",name=node_id)
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
         data = NodeConverter.to_json(node)
         return self.rest_helper.put( self.session, url, data )
@@ -61,7 +61,7 @@ class NodeService( AbstractService ):
         This method will try to put a node into an "DOWN" state.  Under the covers
         this will tell the system to turn off all of the known services on that node
         '''
-        node = Node(an_id=node_id, state="DOWN")
+        node = Node(an_id=node_id, state="DOWN",name=node_id)
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
         data = NodeConverter.to_json(node)
         return self.rest_helper.put( self.session, url, data )    

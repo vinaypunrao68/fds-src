@@ -44,7 +44,7 @@ public class MutateNode implements RequestHandler {
         Long nodeUuid = requiredLong(routeParameters, "node_uuid");
 		
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
-        Node node = ObjectModelHelper.toObject( reader, Volume.class );
+        Node node = ObjectModelHelper.toObject( reader, Node.class );
       
         Boolean activateAm = true;
         Boolean activateSm = true;

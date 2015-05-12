@@ -9,6 +9,7 @@ class Node(object):
         self.__ip_v4_address = ip_v4_address
         self.__ip_v6_address = None
         self.__id = an_id
+        self.__name = name
         self.__state = state
         self.__services = dict()
         self.__services["AM"] = []
