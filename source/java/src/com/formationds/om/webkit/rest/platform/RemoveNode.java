@@ -98,29 +98,4 @@ public class RemoveNode
         return new JsonResource( new JSONObject().put( "status", status ),
                                  httpCode );
     }
-
-    protected Node findNode( final String nodeUuid ) {
-
-        // refresh
-        // connect to local PM to get all node uuid to node name
-        try {
-
-            for( final List<Node> nodes : client.getDomainNodes().values() ) {
-
-                for( final Node node : nodes ) {
-
-                    if( node.getUuid().equalsIgnoreCase( nodeUuid ) ) {
-                        return Optional.of( node.getName() );
-                    }
-                }
-
-            }
-
-        } catch( SvcLayerException e ) {
-
-            logger.error( e.getMessage(), e );
-        }
-
-        return Optional.empty();
-    }
 }
