@@ -46,7 +46,7 @@ pkgs_to_deploy=(
 )
 
 
-fds_package_pattern='(fds-((platform-[a-z]+)|(deps))_[[:digit:]].[[:digit:]].[[:digit:]]-[[:alnum:]]+_amd64.deb)'
+fds_package_pattern='(fds-((platform-[a-z]+)|(deps))_[[:digit:]]+.[[:digit:]]+.[[:digit:]]+-[[:alnum:]]+_amd64.deb)'
 for dir in ${fds_platform_dir[@]}
 do
 	  echo "CD to $dir"
