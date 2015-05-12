@@ -1061,7 +1061,7 @@ NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             b_ret = true;
         }
     
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM GRD_DeactSvc :: " << e.what();
     }
@@ -1142,7 +1142,7 @@ NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, 
         // broadcast DMT to DMs so they can start resync
         local->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT());
 
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_SvcActive :: " << e.what();
     }

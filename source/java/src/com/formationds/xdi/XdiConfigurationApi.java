@@ -4,16 +4,7 @@
 
 package com.formationds.xdi;
 
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.LocalDomain;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.SnapshotPolicy;
-import com.formationds.apis.StreamingRegistrationMsg;
-import com.formationds.apis.Tenant;
-import com.formationds.apis.User;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;

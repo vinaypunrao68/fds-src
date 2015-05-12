@@ -188,7 +188,7 @@ void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, bo
 	DataPlacement *dp = om->om_dataplace_mod();
 	std::string data_buffer;
 	DLT const *dtp = NULL;
-	FDSP_DLT_Data_Type dlt_val;
+    FDS_ProtocolInterface::FDSP_DLT_Data_Type dlt_val;
 	if (!(dp->getCommitedDlt())){
 		LOGDEBUG << "Not sending DLT to new node, because no "
                 << " committed DLT yet";
@@ -218,7 +218,7 @@ void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, bo
     	LOGDEBUG << "Should have DMT to send";
     	(*dp).getSerialized(data_buffer);
 
-    	FDSP_DMT_Type fdt;
+        FDS_ProtocolInterface::FDSP_DMT_Type fdt;
     	fdt.__set_dmt_version(vp->getCommittedDMTVersion());
     	fdt.__set_dmt_data(data_buffer);
 
