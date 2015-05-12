@@ -346,6 +346,7 @@ class NodePlugin( AbstractPlugin ):
             
             for j_node in node_list:
                 j_node = NodeConverter.to_json(j_node)
+                j_node = json.loads( j_node )
                 j_nodes.append( j_node )
                 
             ResponseWriter.writeJson( j_nodes )

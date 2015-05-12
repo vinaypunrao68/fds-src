@@ -2,6 +2,7 @@ package com.formationds.om.webkit.rest.platform;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -9,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.omg.CORBA.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +22,7 @@ import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
@@ -58,28 +61,13 @@ public class MutateService implements RequestHandler {
         Long serviceId = requiredLong(routeParameters, "service_uuid");
 
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
-        Service service = ObjectModelHelper.toObject( reader, Service.class );
-        service.setUuid( serviceId );
-        
+       
         List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( new FDSP_MsgHdrType() );
         
         ListNodes listNodes = new ListNodes( client );
         Map<String, Node> nodes = listNodes.computeNodeMap( list );
         
         Node ourNode = nodes.get( nodeUuid );
-        
-        Boolean startService = true;
-        
-        switch( service.getStatus() ){
-        	case INACTIVE:
-        	case ERROR:
-        	case INVALID:
-        		startService = false;
-        		break;
-        	default:
-        		startService = true;
-        		break;
-        }
         
         Boolean startAm = true;
         Boolean startDm = true;
@@ -89,13 +77,17 @@ public class MutateService implements RequestHandler {
         List<Service> sms = ourNode.getServices().get( ServiceType.DM );
         List<Service> dms = ourNode.getServices().get( ServiceType.SM );
         
+        Service myService = findMyService( ourNode, serviceId );
+        Service argService = ObjectModelHelper.toObject( reader, myService.getClass() );
+        Boolean startService = (argService.getStatus().equals( ServiceStatus.ACTIVE ));
+        
         //TODO: Now, because of how the thrift call works, we only look at the first one in each list.
         startAm = shouldIStartService(  ams );
         startSm = shouldIStartService(  sms );
         startDm = shouldIStartService(  dms );
         
         // now... figure out what we were and overwrite that value with the passed in state.
-        switch( service.getType() ){
+        switch( myService.getType() ){
         	case FDSP_ACCESS_MGR:
         		startAm = startService;
         		break;
@@ -138,6 +130,38 @@ public class MutateService implements RequestHandler {
                                  httpCode);        
 	}
 	
+	/**
+	 * Go through the node and find the service we were looking for
+	 * @param node
+	 * @param serviceId
+	 * @return
+	 */
+	private Service findMyService( Node node, Long serviceId ){
+		
+		Iterator<List<Service>> serviceListIt = node.getServices().values().iterator();
+		
+		while ( serviceListIt.hasNext() ){
+			List<Service> serviceList = serviceListIt.next();
+			Iterator<Service> serviceIt = serviceList.iterator();
+			
+			while( serviceIt.hasNext() ){
+				Service service = serviceIt.next();
+				
+				if ( service.getUuid().equals( serviceId ) ){
+					return service;
+				}
+			}
+		}
+		
+		return null;
+	}
+	
+	/**
+	 * Find the current condition of the AM, SM and DM service
+	 * 
+	 * @param ams
+	 * @return
+	 */
 	private Boolean shouldIStartService( List<Service> ams ){
 		
 		if ( ams.isEmpty() ){
