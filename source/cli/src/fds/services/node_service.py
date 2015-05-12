@@ -66,7 +66,7 @@ class NodeService( AbstractService ):
         data = NodeConverter.to_json(node)
         return self.rest_helper.put( self.session, url, data )    
     
-    def remove_node(self, node_id, node_state):
+    def remove_node(self, node_id):
         '''
         This method will deactivate the node and remember the state that is sent in
         
@@ -75,8 +75,7 @@ class NodeService( AbstractService ):
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
-        data = NodeStateConverter.to_json( node_state )
-        return self.rest_helper.put( self.session, url, data )
+        return self.rest_helper.delete( self.session, url )
     
     def start_service(self, node_id, service_id):
         '''

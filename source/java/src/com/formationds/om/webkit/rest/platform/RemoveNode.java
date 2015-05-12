@@ -47,11 +47,14 @@ public class RemoveNode
     public Resource handle( Request request, Map<String, String> routeParameters )
         throws Exception {
 
-        final long nodeUuid = requiredLong( routeParameters, "node_uuid" );
-        final Optional<String> nodeName =
-            nodeName( String.valueOf( nodeUuid ) );
+        final Long nodeUuid = requiredLong( routeParameters, "node_uuid" );
+        
+        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( new FDSP_MsgHdrType() );
+        Map<String, Node> nodeMap = (new ListNodes( client )).computeNodeMap(list);
 
-        if( !nodeName.isPresent() ) {
+        Node node = nodeMap.get( nodeUuid.toString() );
+        
+        if( node == null ) {
 
             throw new Exception( "The specified node uuid " + nodeUuid +
                                  " has no matching node name." );
@@ -59,7 +62,7 @@ public class RemoveNode
         }
 
         logger.debug( "Deactivating {}:{}",
-                      nodeName.get(),
+                      node.getName(),
                       nodeUuid);
 
         //TODO: Have a method to actually remove a node instead of just messing with services
@@ -78,7 +81,7 @@ public class RemoveNode
 
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
-                                      nodeName.get(),
+                                      node.getName(),
                                       nodeUuid );
             
             logger.error("Node removal failed.");
@@ -86,7 +89,7 @@ public class RemoveNode
         } else {
 
             EventManager.notifyEvent( OmEvents.REMOVE_NODE,
-                                      nodeName.get(),
+                                      node.getName(),
                                       nodeUuid );
             logger.info( "Node successfully removed from the system.");
 
@@ -96,11 +99,10 @@ public class RemoveNode
                                  httpCode );
     }
 
-    protected Optional<String> nodeName( final String nodeUuid ) {
+    protected Node findNode( final String nodeUuid ) {
 
         // refresh
         // connect to local PM to get all node uuid to node name
-        final SvcLayerClient client = new SvcLayerClient( );
         try {
 
             for( final List<Node> nodes : client.getDomainNodes().values() ) {
