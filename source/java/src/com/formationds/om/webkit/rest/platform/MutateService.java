@@ -67,7 +67,7 @@ public class MutateService implements RequestHandler {
         ListNodes listNodes = new ListNodes( client );
         Map<String, Node> nodes = listNodes.computeNodeMap( list );
         
-        Node ourNode = nodes.get( nodeUuid );
+        Node ourNode = nodes.get( nodeUuid.toString() );
         
         Boolean startAm = true;
         Boolean startDm = true;
