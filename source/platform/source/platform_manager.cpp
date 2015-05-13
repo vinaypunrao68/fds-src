@@ -181,13 +181,13 @@ namespace fds
                     }
                     else if (WIFSIGNALED (status))
                     {
-                        if (!monitoring)
+                        if (monitoring)
                         {
-                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
                         }
                         else
                         {
-                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
+                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGTERM or SIGKILL during a shutdown sequence)";
                         }
                     }
 
@@ -469,13 +469,13 @@ namespace fds
                 std::unique_lock <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                 m_startQueueCondition.wait (lock, [this] { return !m_startQueue.empty(); });
 
-                auto index = m_startQueue.front();
-                m_startQueue.pop_front();
+                while (!m_startQueue.empty())
+                {
+                    auto index = m_startQueue.front();
+                    m_startQueue.pop_front();
 
-LOGDEBUG << "ready to start process at index " << index << " in PlatformManager::startQueueMonitor()";
-
-                startProcess(index);
-
+                    startProcess(index);
+                }
             }
         }
 
@@ -488,8 +488,12 @@ LOGDEBUG << "ready to start process at index " << index << " in PlatformManager:
             uint32_t lastCount = 0;
 #endif
 
+            bool deadProcessesFound;
+
             while (true)
             {
+                deadProcessesFound = false;
+
                 {   // Create a context for the lock_guard
                     std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 #ifdef DEBUG
@@ -504,10 +508,28 @@ LOGDEBUG << "ready to start process at index " << index << " in PlatformManager:
                     {
                         if (waitPid (mapIter->second, 1000, true))
                         {
-                            // Tell the OM here that something died, unless we are in shutdown mode.
-
+                            std::string procName = mapIter->first;
+                            int appIndex = -1;
 
                             m_appPidMap.erase (mapIter++);
+
+                            // need to tell the OM here, that something died, unless we are in shutdown mode.
+
+                            for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
+                            {
+                                if (iter->second == procName)
+                                {
+                                    appIndex = iter->first;
+                                    break;
+                                }
+                            }
+
+                            // Now add the process to the queue to start again
+                            {
+                                deadProcessesFound = true;
+                                std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                m_startQueue.push_back (appIndex);
+                            }
                         }
                         else
                         {
@@ -515,6 +537,11 @@ LOGDEBUG << "ready to start process at index " << index << " in PlatformManager:
                         }
                     }
                 }  // lock_guard context
+
+                if (deadProcessesFound)
+                {
+                    m_startQueueCondition.notify_one();
+                }
 
                 usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
             }
