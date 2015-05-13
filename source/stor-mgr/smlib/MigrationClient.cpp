@@ -32,8 +32,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
-      forResync(resync),
-      testMode(false)
+      forResync(resync)
 {
 
     migClientState = ATOMIC_VAR_INIT(MC_INIT);
@@ -45,7 +44,6 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     executorID = SM_INVALID_EXECUTOR_ID;
 
     maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set_size");
-    testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
 
 MigrationClient::~MigrationClient()
@@ -75,18 +73,16 @@ MigrationClient::forwardAddObjRefIfNeeded(fds_token_id dltToken,
         return false;
     }
 
-    if (!testMode) {
-        addObjRefReq->forwardedReq = true;
+    addObjRefReq->forwardedReq = true;
 
-        auto asyncAddObjRefReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
-        asyncAddObjRefReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg),
-                                      addObjRefReq);
-        // TODO(Sean):
-        // Should we wait for response?  Since this is do as much as possible, does it
-        // matter?  Will address it when this is re-written as part of DM work.
-        asyncAddObjRefReq->invoke();
+    auto asyncAddObjRefReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+    asyncAddObjRefReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg),
+                                  addObjRefReq);
+    // TODO(Sean):
+    // Should we wait for response?  Since this is do as much as possible, does it
+    // matter?  Will address it when this is re-written as part of DM work.
+    asyncAddObjRefReq->invoke();
 
-    }
 
     return forwarded;
 }
@@ -103,22 +99,23 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
     // forward to destination SM
     if (req->io_type == FDS_SM_PUT_OBJECT) {
         SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
+
         LOGMIGRATE << "Forwarding " << *putReq
                    << " to Uuid " << std::hex << destSMNodeID << std::dec;
-        if (!testMode) {
-            // Set the forwarded flag, so the destination can appropriately handle
-            // forwarded request.
-            putReq->putObjectNetReq->forwardedReq = true;
 
-            auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
-            asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
-                                    putReq->putObjectNetReq);
-            asyncPutReq->setTimeoutMs(1000);
-            asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdPutObjectCb, putReq));
-            asyncPutReq->invoke();
-        }
+        // Set the forwarded flag, so the destination can appropriately handle
+        // forwarded request.
+        putReq->putObjectNetReq->forwardedReq = true;
+
+        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+        asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
+                                putReq->putObjectNetReq);
+        asyncPutReq->setTimeoutMs(1000);
+        asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdPutObjectCb, putReq));
+        asyncPutReq->invoke();
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
+
         // we are currently not forwarding 'delete' during resync on restart
         if (forResync) {
             LOGMIGRATE << "Not forwarding delete during resync on restart " << *delReq;
@@ -127,18 +124,17 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
 
         LOGMIGRATE << "Forwarding " << *delReq
                    << " to Uuid " << std::hex << destSMNodeID << std::dec;
-        if (!testMode) {
-            // Set the forwarded flag, so the destination can appropriately handle
-            // forwarded request.
-            delReq->delObjectNetReq->forwardedReq = true;
 
-            auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
-            asyncDelReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg),
-                                    delReq->delObjectNetReq);
-            asyncDelReq->setTimeoutMs(1000);
-            asyncDelReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdDelObjectCb, delReq));
-            asyncDelReq->invoke();
-        }
+        // Set the forwarded flag, so the destination can appropriately handle
+        // forwarded request.
+        delReq->delObjectNetReq->forwardedReq = true;
+
+        auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+        asyncDelReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg),
+                                delReq->delObjectNetReq);
+        asyncDelReq->setTimeoutMs(1000);
+        asyncDelReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdDelObjectCb, delReq));
+        asyncDelReq->invoke();
     }
 
     return true;
@@ -182,6 +178,17 @@ MigrationClient::migClientSnapshotMetaData()
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
+    // Track IO request for snapshot.
+    // If the snapshot is successful, the IO request tracked will be finished in the
+    // callback routine.
+    // If the snapshot is unsuccessful, then IO request tracking will be finished in the
+    // error check.
+    if (!trackIOReqs.startTrackIOReqs()) {
+        handleMigrationError(ERR_SM_TOK_MIGRATION_ABORTED);
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
+
     /* Should already have a valid sm token
      */
     fds_verify(SMTokenID != SMTokenInvalidID);
@@ -213,6 +220,10 @@ MigrationClient::migClientSnapshotMetaData()
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
     if (!err.ok()) {
         LOGERROR << "Failed to snapshot. err=" << err;
+
+        // Since the IO request for snapshot failed, stop tracking the snapshot request.
+        trackIOReqs.finishTrackIOReqs();
+
         return err;
     }
 
@@ -290,10 +301,17 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
+        // This will set the ClientState to MC_ERROR
         handleMigrationError(error);
-    } else if (getMigClientState() == MC_ERROR) {
+    }
+
+    if (getMigClientState() == MC_ERROR) {
         // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
+
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+
         return;
     }
 
@@ -320,6 +338,8 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
 
@@ -453,6 +473,9 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     delete dbFromFirstSnap;
 
     setMigClientState(MC_FIRST_PHASE_DELTA_SET_COMPLETE);
+
+    // Finish tracking IO request.
+    trackIOReqs.finishTrackIOReqs();
 }
 
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
@@ -465,10 +488,17 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
+        // This will set the ClientState to MC_ERROR
         handleMigrationError(error);
-    } else if (getMigClientState() == MC_ERROR) {
+    }
+    // If the state is already set to error, then do nothing.
+    if (getMigClientState() == MC_ERROR) {
         // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
+
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+
         return;
     }
 
@@ -513,6 +543,8 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
 
@@ -522,6 +554,8 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for Second Phase snapshot."
                    << "status " << status.ToString();
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
 
@@ -639,6 +673,9 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
 
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MC_SECOND_PHASE_DELTA_SET_COMPLETE);
+
+    // Finish tracking IO request.
+    trackIOReqs.finishTrackIOReqs();
 }
 
 
@@ -849,6 +886,18 @@ MigrationClient::handleMigrationError(const Error& error) {
         req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTokenMigrationAbort), msg);
         req->invoke();
     }
+}
+
+// Wait for IO completion for the MigrationClient.  This interface blocks
+// until all outstanding IO requests are complete.
+void
+MigrationClient::waitForIOReqsCompletion(fds_uint64_t executorId)
+{
+    LOGMIGRATE << "Waiting for pending IO requests to complete: "
+               << "ExecutorID=" << std::hex << executorId << std::dec;
+    trackIOReqs.waitForTrackIOReqs();
+    LOGMIGRATE << "No more pending IO requests: "
+               << "ExecutorID=" << std::hex << executorId << std::dec;
 }
 
 }  // namespace fds

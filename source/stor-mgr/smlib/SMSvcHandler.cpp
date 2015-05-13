@@ -144,10 +144,11 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     const DLT* dlt = objStorMgr->getDLT();
     if (dlt != NULL) {
         err = objStorMgr->migrationMgr->startMigration(migrationMsg,
-                                                       std::bind(
-                                                           &SMSvcHandler::startMigrationCb, this,
-                                                           asyncHdr, migrationMsg->DLT_version,
-                                                           std::placeholders::_1),
+                                                       std::bind(&SMSvcHandler::startMigrationCb,
+                                                                 this,
+                                                                 asyncHdr,
+                                                                 migrationMsg->DLT_version,
+                                                                 std::placeholders::_1),
                                                        objStorMgr->getUuid(),
                                                        dlt->getNumBitsForToken(),
                                                        false); //false because it's not a resync case

@@ -34,7 +34,6 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           forResync(resync)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
-    testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -62,20 +61,37 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 {
     Error err(ERR_OK);
     ObjMetaData omd;
+
+    // Track IO request for startObjectRebalance.
+    // If we can successfully start tracking IO request, then proceed with tracking it.
+    // If we can't start trakcing IO request, then terminate this request.
+    if (!trackIOReqs.startTrackIOReqs()) {
+        // For now, just return an error that migration is aborted.
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     if (!forResync) {
         MigrationExecutorState expectState = ME_FIRST_PHASE_APPLYING_DELTA;
         if (!std::atomic_compare_exchange_strong(&state,
-                                             &expectState,
-                                             ME_FIRST_PHASE_APPLYING_DELTA)) {
+                                                 &expectState,
+                                                 ME_FIRST_PHASE_APPLYING_DELTA)) {
             LOGNOTIFY << "Non-ME_INIT state " << state;
+
+            // Since the state transition failed, stop tracking this IO.
+            trackIOReqs.finishTrackIOReqs();
+
             return ERR_NOT_READY;
         }
     } else {
         MigrationExecutorState expectState = ME_SECOND_PHASE_APPLYING_DELTA;
         if (!std::atomic_compare_exchange_strong(&state,
-                                             &expectState,
-                                             ME_SECOND_PHASE_APPLYING_DELTA)) {
+                                                 &expectState,
+                                                 ME_SECOND_PHASE_APPLYING_DELTA)) {
             LOGNOTIFY << "Non-ME_SECOND_PHASE_APPLYING_DELTA state " << state;
+
+            // Since the state transition failed, stop tracking this IO.
+            trackIOReqs.finishTrackIOReqs();
+
             return ERR_NOT_READY;
         }
     }
@@ -151,25 +167,23 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                    << perTokenMsgs[dltTok.first]->objectsToFilter.size()
                    << " to source SM "
                    << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        if (!testMode) {
-            try {
-                auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-                asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
-                                       perTokenMsgs[dltTok.first]);
-                asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                    MigrationExecutor::objectRebalanceFilterSetResp,
-                    dltTok.first,
-                    dltTok.second));
-                asyncRebalSetReq->setTimeoutMs(5000);
-                asyncRebalSetReq->invoke();
-            }
-            /* TODO(Gurpreet): We should handle the exception and propogate the error to
-             * Token Migration Manager.
-             */
-            catch (...) {
-                LOGMIGRATE << "Async rebalance request failed for token " << dltTok.first << "to source SM "
-                           << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-            }
+        try {
+            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
+                                   perTokenMsgs[dltTok.first]);
+            asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+                MigrationExecutor::objectRebalanceFilterSetResp,
+                dltTok.first,
+                dltTok.second));
+            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->invoke();
+        }
+        /* TODO(Gurpreet): We should handle the exception and propogate the error to
+         * Token Migration Manager.
+         */
+        catch (...) {
+            LOGMIGRATE << "Async rebalance request failed for token " << dltTok.first << "to source SM "
+                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         }
     }
 
@@ -178,6 +192,10 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sent rebalance initial set msgs to source SM"
                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+
+    // Completed this IO request.  Stop tracking this IO.
+    trackIOReqs.finishTrackIOReqs();
+
     return err;
 }
 
@@ -190,12 +208,24 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     Error err(ERR_OK);
     ObjMetaData omd;
 
+    // Track IO request for startObjectRebalance.
+    // If we can successfully start tracking IO request, then proceed with tracking it.
+    // If we can't start trakcing IO request, then terminate this request.
+    if (!trackIOReqs.startTrackIOReqs()) {
+        // For now, just return an error that migration is aborted.
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     MigrationExecutorState expectState = ME_INIT;
     MigrationExecutorState nextState = ME_INIT;
     if (!std::atomic_compare_exchange_strong(&state,
                                              &expectState,
                                              ME_FIRST_PHASE_REBALANCE_START)) {
         LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
+
+        // Since the state transition failed, stop tracking this IO.
+        trackIOReqs.finishTrackIOReqs();
+
         return ERR_NOT_READY;
     }
 
@@ -295,31 +325,32 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                    << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
                    << " to source SM "
                    << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        if (!testMode) {
-            try {
-                auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-                asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
-                                       perTokenMsgs[tok]);
-                asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                    MigrationExecutor::objectRebalanceFilterSetResp,
-                    tok,
-                    perTokenMsgs[tok]->seqNum));
-                asyncRebalSetReq->setTimeoutMs(5000);
-                asyncRebalSetReq->invoke();
-            }
-            /* TODO(Gurpreet): We should handle the exception and propogate the error to
-             * Token Migration Manager.
-             */
-            catch (...) {
-                LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
-                           << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-            }
+        try {
+            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
+                                         perTokenMsgs[tok]);
+            asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::objectRebalanceFilterSetResp,
+                                                                tok,
+                                                                perTokenMsgs[tok]->seqNum));
+            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->invoke();
+        }
+        /* TODO(Gurpreet): We should handle the exception and propogate the error to
+         * Token Migration Manager.
+         */
+        catch (...) {
+            LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
+                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         }
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sent rebalance initial set msgs to source SM"
                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+
+    // Completed this IO request.  Stop tracking this IO.
+    trackIOReqs.finishTrackIOReqs();
+
     return err;
 }
 
@@ -372,8 +403,15 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
 }
 
 Error
-MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
+MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
+{
     Error err(ERR_OK);
+
+    // Track apply delta set.  If we can't track IO, then this MigrationExecutor is
+    // being coalesced.
+    if (!trackIOReqs.startTrackIOReqs()) {
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     fds_verify((fds_uint64_t)deltaSet->executorID == executorId);
     MigrationExecutorState curState = atomic_load(&state);
@@ -400,6 +438,10 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                       << std::hex << executorId << std::dec;
             handleMigrationRoundDone(err);
         }
+
+        // Empty delta set, so no need to track this IO.
+        trackIOReqs.finishTrackIOReqs();
+
         // we will get more delta sets for this executor (out-of-order)
         return ERR_OK;
     }
@@ -428,15 +470,26 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
             itLast = deltaSet->objectToPropagate.end();
         }
         applyReq->deltaSet.assign(itFirst, itLast);
-        applyReq->smioObjdeltaRespCb = std::bind(
-            &MigrationExecutor::objDeltaAppliedCb, this,
-            std::placeholders::_1, std::placeholders::_2);
+        applyReq->smioObjdeltaRespCb = std::bind(&MigrationExecutor::objDeltaAppliedCb,
+                                                 this,
+                                                 std::placeholders::_1,
+                                                 std::placeholders::_2);
 
         LOGMIGRATE << "Enqueue QoS Delta Set: "
                    << " qosSeq=" << applyReq->qosSeqNum
                    << " qosLastSet=" << applyReq->qosLastSet
                    << " size of qos set=" << applyReq->deltaSet.size()
                    << " first rebalance round=" << (curState == ME_FIRST_PHASE_APPLYING_DELTA);
+
+        // Before enqueuing applyDelta, start tracking IO...  It will be untracked in
+        // objDeltaAppliedCb() function.
+        if (!trackIOReqs.startTrackIOReqs()) {
+            // If can't track, then no need to enqueue IO, since this MigrationExecutor is being
+            // coalesced.
+            //
+            // TODO(Sean):  Uhm...  Wonder if this will have side effects.
+            break;
+        }
 
         // enqueue to QoS queue
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);
@@ -446,6 +499,9 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         itFirst = itLast;
         ++qosSeqNum;
     }
+
+    // Completed with enqueueing delta set request to QoS.
+    trackIOReqs.finishTrackIOReqs();
 
     return err;
 }
@@ -460,6 +516,10 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     MigrationExecutorState curState = atomic_load(&state);
     if (curState == ME_ERROR) {
         LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
+
+        // Stop tracking this IO.
+        trackIOReqs.finishTrackIOReqs();
+
         return;
     }
 
@@ -467,6 +527,10 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     if (!error.ok()) {
         LOGERROR << "Failed to apply a set of objects " << error;
         handleMigrationRoundDone(error);
+
+        // Stop tracking this IO.
+        trackIOReqs.finishTrackIOReqs();
+
         return;
     }
 
@@ -484,8 +548,16 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
         LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                   << std::hex << req->executorId << std::dec;
         handleMigrationRoundDone(error);
+
+        // Stop tracking this IO.
+        trackIOReqs.finishTrackIOReqs();
+
         return;
     }
+
+    // Stop tracking this IO.
+    trackIOReqs.finishTrackIOReqs();
+
 }
 
 Error
@@ -514,18 +586,15 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                << " ME_SECOND_PHASE_REBALANCE_START --> ME_SECOND_PHASE_APPLYING_DELTA state";
 
     // send msg to the source SM to start second phase of the delta set.
-    if (!testMode) {
-        fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
-        msg->executorID = executorId;
+    fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
+    msg->executorID = executorId;
 
-        auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-        async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
-                                      msg);
-        async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-            MigrationExecutor::getSecondRebalanceDeltaResp));
-        async2RebalSetReq->setTimeoutMs(5000);
-        async2RebalSetReq->invoke();
-    }
+    auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+    async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
+                                  msg);
+    async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::getSecondRebalanceDeltaResp));
+    async2RebalSetReq->setTimeoutMs(5000);
+    async2RebalSetReq->invoke();
 
     return err;
 }
@@ -598,25 +667,20 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
 }
 
 void
-MigrationExecutor::sendFinishResyncToClient() {
+MigrationExecutor::sendFinishResyncToClient()
+{
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sending finish resync msg to Client";
 
     // send message to source SM to finish resync for this executor
-    if (!testMode) {
-        fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
-        msg->executorID = executorId;
+    fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
+    msg->executorID = executorId;
 
-        auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-        asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
-        asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(
-            MigrationExecutor::finishResyncResp));
-        asyncFinishClientReq->setTimeoutMs(5000);
-        asyncFinishClientReq->invoke();
-    } else {
-        LOGMIGRATE << "TESTMODE: pretending sent finish resync message to client, executor ID "
-                   << std::hex << executorId << std::dec;
-    }
+    auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+    asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
+    asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::finishResyncResp));
+    asyncFinishClientReq->setTimeoutMs(5000);
+    asyncFinishClientReq->invoke();
 }
 
 void
@@ -634,6 +698,27 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
         LOGWARN << "Received error for finish resync from client " << error
                 << ", not changing any state, source should be able to deal with it";
     }
+}
+
+
+/**
+ * We will wait for all pending IOs to complete before cleaning up executor.
+ * Once the ABORT state is set at the MigrationMgr, IOs are not directed to
+ * the MigrationExecutor.  However, there can be pending IOs in flight that we
+ * we need to track.  Here is the list of IO operations we track for MigrationExecutor.
+ */
+void
+MigrationExecutor::waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid)
+{
+    LOGMIGRATE << "Waiting for pending requests to complete: "
+               << " tok=" << tok
+               << " NodeUuid=" << std::hex << nodeUuid.uuid_get_val() << std::dec;
+
+    trackIOReqs.waitForTrackIOReqs();
+
+    LOGMIGRATE << "Completed all pending requests: "
+               << " tok=" << tok
+               << " NodeUuid=" << std::hex << nodeUuid.uuid_get_val() << std::dec;
 }
 
 }  // namespace fds

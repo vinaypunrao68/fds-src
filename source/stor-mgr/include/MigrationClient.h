@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <atomic>
+#include <condition_variable>
 
 #include <fds_types.h>
 
@@ -124,6 +125,10 @@ class MigrationClient {
     fds_bool_t forwardAddObjRefIfNeeded(fds_token_id dltToken,
                                         fpi::AddObjectRefMsgPtr addObjRefReq);
 
+    /**
+     * Wait for all pending Client requests to complete.
+     */
+    void waitForIOReqsCompletion(fds_uint64_t executorId);
 
   private:
     /* Verify that set of DLT tokens belong to the same SM token.
@@ -286,14 +291,13 @@ class MigrationClient {
     std::atomic<uint64_t> seqNumDeltaSet;
 
     /**
+     */
+    MigrationTrackIOReqs trackIOReqs;
+
+    /**
      * Is this migration for a SM resync
      */
     bool forResync;
-
-    /**
-     * Standalone test mode.
-     */
-    fds_bool_t testMode;
 };  // class MigrationClient
 
 }  // namespace fds

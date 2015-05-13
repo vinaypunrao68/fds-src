@@ -103,6 +103,11 @@ class MigrationExecutor {
      */
     Error applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
 
+    /**
+     * Wait for all pending Executor requests to complete.
+     */
+    void waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid);
+
   private:
     /**
      * Callback when apply delta set QoS message execution is completed
@@ -190,12 +195,25 @@ class MigrationExecutor {
     MigrationDoubleSeqNum seqNumDeltaSet;
 
     /**
+     * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from
+     * deleting the Executor.
+     *
+     * TODO(Sean):  This doesn't really eliminate the race condition between the abort
+     *              migration and the executor.  The effectiveness of the approach is
+     *              determined how how early we can increment the "reference count."
+     *              It is possible to call unordered map of excutors.clear() before
+     *              reference count is incremented.
+     *              Other way is to hold a mutex per executor, this causes bigger issues
+     *              with recursive locking and easiness of deadlocking.  This approach
+     *              was explored, but gave up due to "code litttering" all over the migration
+     *              path with mutex ops.
+     */
+    MigrationTrackIOReqs trackIOReqs;
+
+    /**
      * Is this migration for a SM resync
      */
-     bool forResync;
-
-    /// true if standalone (no rpc sent)
-    fds_bool_t testMode;
+    bool forResync;
 };
 
 }  // namespace fds

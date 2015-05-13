@@ -192,6 +192,17 @@ class MigrationMgr {
      */
     void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
 
+
+    /**
+     * Coalesce all migration executor.
+     */
+    void coalesceExecutors();
+
+    /**
+     * Coalesce all migration client.
+     */
+    void coalesceClients();
+
   private:
     /**
      * Callback function from the metadata snapshot request for a particular SM token
@@ -306,9 +317,10 @@ class MigrationMgr {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
+    //
+    /// so far we don't need a lock for the migrExecutors, because the actions
+    /// to update this map are serialized, and protected by migrState
     MigrExecutorMap migrExecutors;
-    /// so far we don't need a lock for the above map, because the actions
-    /// to update this map are serialized, and protected by mirgState
 
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
