@@ -53,7 +53,7 @@ public class RemoveService implements RequestHandler {
         
         Map<String, Node> nodeMap = (new ListNodes(client)).computeNodeMap(list);
 		
-		Node myNode = nodeMap.get( nodeId );
+		Node myNode = nodeMap.get( nodeId.toString() );
 		int status = 1;
 		int httpCode = HttpServletResponse.SC_NOT_FOUND;
 		

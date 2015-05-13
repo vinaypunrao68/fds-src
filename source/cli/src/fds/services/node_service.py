@@ -93,5 +93,22 @@ class NodeService( AbstractService ):
         service = Service(an_id=service_id,status="INACTIVE")
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
-        return self.rest_helper.put( self.session, url, data )    
+        return self.rest_helper.put( self.session, url, data )   
+    
+    def remove_service(self, node_id, service_id):
+        '''
+        Remove a given service from the node for good
+        '''
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/services/", service_id)
+        return self.rest_helper.delete( self.session, url ) 
+    
+    def add_service(self, node_id, service):
+        '''
+        Add the given service to the specified node.  
+        
+        service is a Service object that prescribes what type of service it would like to add.
+        '''
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/services" )
+        data = ServiceConverter.to_json(service)
+        return self.rest_helper.post( self.session, url, data ) 
         

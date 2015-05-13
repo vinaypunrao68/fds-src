@@ -58,6 +58,10 @@ class Node(object):
     
     @state.setter
     def state(self, a_state):
+        
+        if ( a_state not in ("UP", "DOWN", "UNKNOWN") ):
+            return
+        
         self.__state = a_state
         
     @property
