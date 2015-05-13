@@ -109,14 +109,14 @@ public class MutateService implements RequestHandler {
         		break;
         }
         
-        status = 0;
-//        client.ActivateNode( new FDSP_MsgHdrType(),
-//                                 new FDSP_ActivateOneNodeType(
-//                                     1,
-//                                     new FDSP_Uuid( nodeUuid ),
-//                                     startSm,
-//                                     startDm,
-//                                     startAm ) );
+        status = 
+        		client.ActivateNode( new FDSP_MsgHdrType(),
+                                 new FDSP_ActivateOneNodeType(
+                                     1,
+                                     new FDSP_Uuid( nodeUuid ),
+                                     startSm,
+                                     startDm,
+                                     startAm ) );
         
         httpCode = HttpServletResponse.SC_OK;
 	       

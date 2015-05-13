@@ -84,14 +84,14 @@ public class RemoveService implements RequestHandler {
 				
 				FDSP_Uuid uuid = new FDSP_Uuid( nodeId );
 				
-				status = 0; 
-//						client.RemoveServices( new FDSP_MsgHdrType(), 
-//						new FDSP_RemoveServicesType(
-//							myNode.getName(), 
-//							uuid, 
-//							sm, 
-//							dm, 
-//							am ));
+				status =  
+						client.RemoveServices( new FDSP_MsgHdrType(), 
+						new FDSP_RemoveServicesType(
+							myNode.getName(), 
+							uuid, 
+							sm, 
+							dm, 
+							am ));
 				
 				httpCode = HttpServletResponse.SC_OK;
 

@@ -183,18 +183,26 @@ class ServicePlugin( AbstractPlugin ):
         pm = False
 #             om = False
         
-        for service in args[AbstractPlugin.services_str]:
-            if ( service == "am" ):
-                am = True
-            elif ( service == "dm" ):
-                dm = True
-            elif ( service == "sm" ):
-                sm = True
-            elif ( service == "pm" ):
-                pm = True
-#                 elif ( service == "om" ):
-#                     om = True
-        #end of for loop
+        # in case we list services from somewhere else where this field is not required
+        if AbstractPlugin.services_str not in args:
+            am = True
+            sm = True
+            dm = True
+            pm = True
+#             om = True
+        else:  
+            for service in args[AbstractPlugin.services_str]:
+                if ( service == "am" ):
+                    am = True
+                elif ( service == "dm" ):
+                    dm = True
+                elif ( service == "sm" ):
+                    sm = True
+                elif ( service == "pm" ):
+                    pm = True
+    #                 elif ( service == "om" ):
+    #                     om = True
+            #end of for loop
         
         for node in node_list:
             

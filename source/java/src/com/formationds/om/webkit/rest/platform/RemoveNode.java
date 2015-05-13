@@ -12,8 +12,6 @@ import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.commons.model.Node;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
-import com.formationds.util.thrift.svc.SvcLayerClient;
-import com.formationds.util.thrift.svc.SvcLayerException;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -27,7 +25,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public class RemoveNode
     implements RequestHandler {
@@ -67,14 +64,14 @@ public class RemoveNode
 
         //TODO: Have a method to actually remove a node instead of just messing with services
         // since we are removing the node, for now we're removing all the services.
-        int status = 0;
-//            client.RemoveServices( new FDSP_MsgHdrType(),
-//                                   new FDSP_RemoveServicesType(
-//                                     nodeName.get(),
-//                                     new FDSP_Uuid( nodeUuid ),
-//                                     true,
-//                                     true,
-//                                     true ) );
+        int status = 
+            client.RemoveServices( new FDSP_MsgHdrType(),
+                                   new FDSP_RemoveServicesType(
+                                     node.getName(),
+                                     new FDSP_Uuid( nodeUuid ),
+                                     true,
+                                     true,
+                                     true ) );
 
         int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {
