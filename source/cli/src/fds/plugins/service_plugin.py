@@ -115,8 +115,8 @@ class ServicePlugin( AbstractPlugin ):
             
         response = self.get_node_service().start_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
             
-        if ( response["status"] == "ok" ):
-            self.list_nodes(args)            
+        if ( response["status"] == 200 ):
+            self.list_services(args)            
                         
     def stop_service(self, args):
         '''
@@ -125,8 +125,8 @@ class ServicePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
 
-        if ( response["status"] == "ok" ):
-            self.list_nodes(args)  
+        if ( response["status"] == 200 ):
+            self.list_services(args)  
 
     def add_service(self, args):
         ''' 

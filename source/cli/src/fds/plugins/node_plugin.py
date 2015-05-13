@@ -89,12 +89,12 @@ class NodePlugin( AbstractPlugin ):
      
     def create_add_parser(self, subparser):
         '''
-        Create a parser to activate a node
+        Create a parser to add a node
         '''
         
-        __activate_parser = subparser.add_parser( "add", help="Activate a node that is currently in the discovered state. If no arguments are supplied all the nodes will be activated." )
+        __activate_parser = subparser.add_parser( "add", help="Add a node that is currently in the discovered state. If no arguments are supplied all the nodes will be added." )
         self.add_format_arg( __activate_parser )
-        __activate_parser.add_argument( "-" + AbstractPlugin.node_ids_str, help="A list of UUIDs for the nodes you would like to activate.", nargs="+")
+        __activate_parser.add_argument( "-" + AbstractPlugin.node_ids_str, help="A list of UUIDs for the nodes you would like to add.", nargs="+")
         
         __activate_parser.set_defaults( func=self.add_nodes, format="tabular") 
     
@@ -198,12 +198,12 @@ class NodePlugin( AbstractPlugin ):
         failures = []
         
         for uuid in id_list:
-            result = self.get_node_service().activate_node( uuid, state )
+            result = self.get_node_service().add_node( uuid, state )
             if ( result["status"] != 200 ):
                 failures.append( uuid )
             
         if ( len( failures ) > 0 ):
-            print "The following IDs were not activated due to errors: {}\n".format( failures )
+            print "The following IDs were not added due to errors: {}\n".format( failures )
             
         self.list_nodes(args)
         

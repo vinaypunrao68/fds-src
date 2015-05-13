@@ -3,6 +3,7 @@ from fds.utils.node_state_converter import NodeStateConverter
 from fds.utils.node_converter import NodeConverter
 from fds.model.node import Node
 from fds.model.service import Service
+from fds.model.node_state import NodeState
 from fds.utils.service_converter import ServiceConverter
 
 class NodeService( AbstractService ):
@@ -15,8 +16,38 @@ class NodeService( AbstractService ):
     def __init__(self, session):
         AbstractService.__init__(self, session)
         
-    def list_nodes(self):
+        
+    def activate_node(self, node_id, node_state):
         '''
+        DEPRECATED - WILL BE REMOVED VERY SOON
+        
+        This method will activate a node and put the services in the desired state.
+        
+        node_id is the UUID of the node to activate
+        node_state is a node state object defines which services will be started
+        '''
+        
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/1")
+        data = NodeStateConverter.to_json( node_state )
+        return self.rest_helper.post( self.session, url, data )
+    
+    def deactivate_node(self, node_id):
+        '''
+        DEPRECATED - WILL BE REMOVED VERY SOON
+        
+        This method will deactivate the node and remember the state that is sent in
+        
+        node_id is the UUID of the node to de-activate
+        node_state is a node state object defines which services will be stopped        
+        '''
+        node_state = NodeState()
+        
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
+        data = NodeStateConverter.to_json( node_state )
+        return self.rest_helper.delete( self.session, url, data )        
+        
+    def list_nodes(self):
+        '''        
         Get a list of nodes known to the system.  This will include active attached nodes as well as nodes
         that are in the "DISCOVERED" State
         
@@ -70,7 +101,7 @@ class NodeService( AbstractService ):
         '''
         This method will deactivate the node and remember the state that is sent in
         
-        node_id is the UUID of the node to de-activate
+        node_id is the UUID of the node to remove
         node_state is a node state object defines which services will be stopped        
         '''
         
