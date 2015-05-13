@@ -291,6 +291,9 @@ class MigrationClient {
     std::atomic<uint64_t> seqNumDeltaSet;
 
     /**
+     * Keep track of oustanding IO request for the MigrationClient.  This is mainly used
+     * to prevent the MigrationMgr from aborting and deleteing the Client if there are 
+     * still outstanding IO requests pending.
      */
     MigrationTrackIOReqs trackIOReqs;
 
