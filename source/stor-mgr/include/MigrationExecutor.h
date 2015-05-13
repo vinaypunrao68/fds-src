@@ -198,7 +198,7 @@ class MigrationExecutor {
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from
      * deleting the Executor.
      *
-     * TODO(Sean):  This doesn't really eliminate the race condition between the abort
+     * TODO(Sean):  This doesn't eliminate 100% of the race condition that exist between the abort
      *              migration and the executor.  The effectiveness of the approach is
      *              determined how how early we can increment the "reference count."
      *              It is possible to call unordered map of excutors.clear() before
