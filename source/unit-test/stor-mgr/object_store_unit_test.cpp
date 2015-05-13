@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <fiu-control.h>
 #include <fdsp/sm_types_types.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
@@ -65,9 +66,11 @@ class SmObjectStoreTest: public ::testing::Test {
 
     virtual void TearDown() override;
     void task(TestVolume::StoreOpType opType,
-              TestVolume::ptr volume);
+              TestVolume::ptr volume,
+              const Error& expectedError);
     void runMultithreadedTest(TestVolume::StoreOpType opType,
-                              TestVolume::ptr volume);
+                              TestVolume::ptr volume,
+                              const Error& expectedError);
 
     std::vector<std::thread*> threads_;
     std::atomic<fds_uint32_t> op_count;
@@ -139,7 +142,8 @@ void setupTests(fds_uint32_t concurrency,
 }
 
 void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
-                             TestVolume::ptr volume) {
+                             TestVolume::ptr volume,
+                             const Error& expectedError) {
     Error err(ERR_OK);
     fds_uint64_t seed = RandNumGenerator::getRandSeed();
     RandNumGenerator rgen(seed);
@@ -161,7 +165,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
                     err = objectStore->putObject(volId, oid, data, false);
-                    EXPECT_TRUE(err.ok());
+                    EXPECT_EQ(err, expectedError);
                 }
                 break;
             case TestVolume::STORE_OP_GET:
@@ -169,13 +173,15 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                     boost::shared_ptr<const std::string> data;
                     diskio::DataTier usedTier = diskio::maxTier;
                     data = objectStore->getObject(volId, oid, usedTier, err);
-                    EXPECT_TRUE(err.ok());
-                    EXPECT_TRUE((volume->testdata_).dataset_map_[oid].isValid(data));
+                    EXPECT_EQ(err, expectedError);
+                    if (err.ok()) {
+                        EXPECT_TRUE((volume->testdata_).dataset_map_[oid].isValid(data));
+                    }
                 }
                 break;
             case TestVolume::STORE_OP_DELETE:
                 err = objectStore->deleteObject(volId, oid, false);
-                EXPECT_TRUE(err.ok());
+                EXPECT_EQ(err, expectedError);
                 break;
             default:
                 fds_verify(false);   // new type added?
@@ -186,7 +192,8 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
 
 void
 SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
-                                        TestVolume::ptr volume) {
+                                        TestVolume::ptr volume,
+                                        const Error& expectedError) {
     GLOGDEBUG << "Will do multi-threded op type " << opType
               << " volume " << (volume->voldesc_).name
               << " dataset size " << (volume->testdata_).dataset_.size()
@@ -199,7 +206,7 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
 
     for (unsigned i = 0; i < volume->concurrency_; ++i) {
         std::thread* new_thread = new std::thread(&SmObjectStoreTest::task, this,
-                                                  opType, volume);
+                                                  opType, volume, expectedError);
         threads_.push_back(new_thread);
     }
     // wait for all threads
@@ -451,18 +458,29 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     }
 }
 
+/// this test MUST be before concurrent_puts, otherwise put will be dup
+/// and will not go to the persistent layer
+TEST_F(SmObjectStoreTest, concurrent_puts_fail) {
+    // for puts, do num ops = dataset size
+    GLOGDEBUG << "Running concurrent_puts_fail test";
+    numOps = (largeCapVolume->testdata_).dataset_.size();
+    fiu_enable("sm.persist.writefail", 1, NULL, 0);
+    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeCapVolume, ERR_DISK_WRITE_FAILED);
+    fiu_disable("sm.persist.writefail");
+}
+
 TEST_F(SmObjectStoreTest, concurrent_puts) {
     // for puts, do num ops = dataset size
     GLOGDEBUG << "Running concurrent_puts test";
     numOps = (largeCapVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeCapVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeCapVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, concurrent_gets) {
     // for gets, do num ops = 2*dataset size
     GLOGDEBUG << "Running concurrent_gets test";
     numOps = 2 * (largeCapVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, increase_concurrency_gets) {
@@ -472,7 +490,7 @@ TEST_F(SmObjectStoreTest, increase_concurrency_gets) {
 
     for (fds_uint32_t i = 2; i < 70; i *= 2) {
         largeCapVolume->concurrency_ = i;
-        runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume);
+        runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume, ERR_OK);
     }
 }
 
@@ -483,7 +501,7 @@ TEST_F(SmObjectStoreTest, increase_concurrency_dup_puts) {
 
     for (fds_uint32_t i = 2; i < 70; i *= 2) {
         largeCapVolume->concurrency_ = i;
-        runMultithreadedTest(TestVolume::STORE_OP_DUPLICATE, largeCapVolume);
+        runMultithreadedTest(TestVolume::STORE_OP_DUPLICATE, largeCapVolume, ERR_OK);
     }
 }
 
@@ -491,14 +509,14 @@ TEST_F(SmObjectStoreTest, concurrent_puts_2mb) {
     // for puts, do num ops = dataset size
     GLOGDEBUG << "Running concurrent_puts_2mb test";
     numOps = (largeObjVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeObjVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeObjVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, concurrent_gets_2mb) {
     // for gets, do num ops = 2*dataset size
     GLOGDEBUG << "Running concurrent_gets_2mb test";
     numOps = 2 * (largeObjVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_GET, largeObjVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_GET, largeObjVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
