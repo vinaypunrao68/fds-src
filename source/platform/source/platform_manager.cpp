@@ -39,7 +39,7 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap()
+        PlatformManager::PlatformManager() : Module ("pm"), m_deactivateInProgress(false), m_appPidMap()
         {
 
         }
@@ -88,14 +88,14 @@ namespace fds
             }
             catch (const std::out_of_range &error)
             {
+                // consider making this an assert or some kind of fatal error, this should never happen in a release type build
                 LOGERROR << "PlatformManager::getProcName is unable to identify a textual process name for index value " << processID << ", " << error.what();
             }
 
-            return nullptr;
+            return "";
         }
 
-
-        pid_t PlatformManager::startProcess (int processID)
+        void PlatformManager::startProcess (int processID)
         {
             std::vector<std::string>    args;
             pid_t                       pid;
@@ -104,15 +104,17 @@ namespace fds
 
             if (procName.empty())
             {
-                return -1;
+                return;         // Note, error logged in getProcName()
             }
+
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
             auto mapIter = m_appPidMap.find (procName);
 
             if (m_appPidMap.end() != mapIter)
             {
                 LOGDEBUG << "Received a request to start " << procName << ", but it is already running.  Not doing anything.";
-                return 0;
+                return;
             }
 
             if (JAVA_AM == processID)
@@ -132,10 +134,10 @@ namespace fds
             else
             {
                 command = procName;
+                args.push_back ("--foreground");
             }
 
             // Common command line options
-            args.push_back ("--foreground");
             args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", getNodeUUID (fpi::FDSP_PLATFORM)));
             args.push_back (util::strformat ("--fds.common.om_ip_list=%s", conf->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
             args.push_back (util::strformat ("--fds.pm.platform_port=%d", conf->get <int> ("platform_port")));
@@ -145,13 +147,12 @@ namespace fds
             if (pid > 0)
             {
                 LOGDEBUG << procName << " started by platformd as pid " << pid;
+                m_appPidMap[procName] = pid;
             }
             else
             {
                 LOGERROR << "fds_spawn_service() for " << procName << " FAILED to start by platformd with errno=" << errno;
             }
-
-            return pid;
         }
 
         bool PlatformManager::waitPid (pid_t const pid, uint64_t waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
@@ -252,6 +253,47 @@ namespace fds
             m_appPidMap.erase (mapIter);
         }
 
+
+        // plf_start_node_services
+        // -----------------------
+        //
+        void PlatformManager::activateServices (const fpi::ActivateServicesMsgPtr &activateMsg)
+        {
+            auto &info = activateMsg->info;
+
+            if (info.has_sm_service)
+            {
+                {
+                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                    m_startQueue.push_back (STORAGE_MANAGER);
+                }
+
+                m_startQueueCondition.notify_one();
+            }
+
+            if (info.has_dm_service)
+            {
+                {
+                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                    m_startQueue.push_back (DATA_MANAGER);
+                }
+
+                m_startQueueCondition.notify_one();
+            }
+
+            if (info.has_am_service)
+            {
+                {
+                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                    m_startQueue.push_back (BARE_AM);
+                    m_startQueue.push_back (JAVA_AM);
+                }
+
+                m_startQueueCondition.notify_one();
+            }
+
+        }
+/*
         // plf_start_node_services
         // -----------------------
         //
@@ -326,7 +368,7 @@ namespace fds
 
             db->setNodeInfo(nodeInfo);
         }
-
+*/
         void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
         {
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
@@ -377,7 +419,8 @@ namespace fds
             DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             auto disk_counts = dpm->disk_counts();
 
-            if (0 == (disk_counts.first + disk_counts.second)) {
+            if (0 == (disk_counts.first + disk_counts.second))
+            {
                 // We don't have real disks
                 diskCapability.disk_capacity = 0x7ffff;
                 diskCapability.ssd_capacity = 0x10000;
@@ -417,6 +460,25 @@ namespace fds
             return uuid.uuid_get_val();
         }
 
+        void PlatformManager::startQueueMonitor()
+        {
+            LOGDEBUG << "Starting thread for PlatformManager::startQueueMonitor()";
+
+            while (true)
+            {
+                std::unique_lock <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                m_startQueueCondition.wait (lock, [this] { return !m_startQueue.empty(); });
+
+                auto index = m_startQueue.front();
+                m_startQueue.pop_front();
+
+LOGDEBUG << "ready to start process at index " << index << " in PlatformManager::startQueueMonitor()";
+
+                startProcess(index);
+
+            }
+        }
+
         void PlatformManager::childProcessMonitor()
         {
             LOGDEBUG << "Starting thread for PlatformManager::childProcessMonitor()";
@@ -442,6 +504,9 @@ namespace fds
                     {
                         if (waitPid (mapIter->second, 1000, true))
                         {
+                            // Tell the OM here that something died, unless we are in shutdown mode.
+
+
                             m_appPidMap.erase (mapIter++);
                         }
                         else
@@ -458,8 +523,10 @@ namespace fds
         void PlatformManager::run()
         {
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
+            std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
 
             childMonitorThread.detach();
+            startQueueMonitorThread.detach();
 
             while (1)
             {
