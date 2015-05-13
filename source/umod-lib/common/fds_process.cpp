@@ -517,9 +517,16 @@ util::Properties* FdsProcess::getProperties() {
 }
 
 fds_log* HasLogger::GetLog() const {
-    if (logptr != NULL) return logptr;
-    if (g_fdslog) return g_fdslog;
-    logptr = new fds_log("log");
+    // if neither the class logger nor the global logger are initialized,
+    // something is wrong with the init sequence.  Make sure logging is
+    // properly initialized before attempting to access the log
+    fds_verify(logptr != nullptr || g_fdslog != nullptr);
+
+    if (logptr == NULL && g_fdslog) return g_fdslog;
+
+    // Don't default the log initialization.  This could result in problems
+    // if not handled properly by callers, but I think that is preferable to
+    // returning a default that is wrong.
     return logptr;
 }
 

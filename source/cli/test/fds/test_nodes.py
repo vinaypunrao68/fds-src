@@ -106,7 +106,6 @@ class TestNodes( BaseCliTest ):
         first = mockRemove.call_args_list[0]
         
         assert first[0][0] == "1"
-          
     
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes) 
     @patch( "fds.services.response_writer.ResponseWriter.writeJson", side_effect=writeJson)

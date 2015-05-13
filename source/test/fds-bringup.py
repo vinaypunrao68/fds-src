@@ -83,12 +83,12 @@ if __name__ == '__main__':
     cfg.rt_fds_bootstrap()
 
     if options.manual:
-        print('You need to run fdscli --activate-nodes manually.')
+        print('You need to run [fdsconsole.py domain activateServices] manually.')
         sys.exit(0)
 
     time.sleep(5)
     cli = cfg.rt_get_obj('cfg_cli')
-    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+    cli.run_cli('domain activateServices local sm,dm')
 
     for am in ams:
         am.am_start_service()

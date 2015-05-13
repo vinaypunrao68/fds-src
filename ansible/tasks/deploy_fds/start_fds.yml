@@ -28,6 +28,7 @@
         state=started
     when: fds_om_host is defined and fds_om_host == inventory_hostname
     delegate_to: localhost
+    sudo: no
     tags:
       - startup
 
@@ -44,6 +45,7 @@
         timeout=180
         state=started
     delegate_to: localhost
+    sudo: no
     when: fds_om_host is defined and fds_om_host == inventory_hostname
     tags:
       - startup
@@ -56,6 +58,7 @@
         state=started
     when: fds_om_host is defined and fds_om_host != inventory_hostname
     delegate_to: localhost
+    sudo: no
     tags:
       - startup
 
@@ -66,6 +69,8 @@
         status_code=200
     delegate_to: localhost
     register: auth_results
+    run_once: true
+    sudo: no
     tags:
       - startup
 
@@ -79,6 +84,8 @@
         status_code=200
         return_content=yes
     delegate_to: localhost
+    run_once: true
+    sudo: no
     tags:
       - startup
 

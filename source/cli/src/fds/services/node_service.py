@@ -1,10 +1,10 @@
 from abstract_service import AbstractService
 from fds.utils.node_state_converter import NodeStateConverter
 from fds.utils.node_converter import NodeConverter
+from fds.utils.service_converter import ServiceConverter
 from fds.model.node import Node
 from fds.model.service import Service
 from fds.model.node_state import NodeState
-from fds.utils.service_converter import ServiceConverter
 
 class NodeService( AbstractService ):
     '''
@@ -104,7 +104,6 @@ class NodeService( AbstractService ):
         node_id is the UUID of the node to remove
         node_state is a node state object defines which services will be stopped        
         '''
-        
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
         return self.rest_helper.delete( self.session, url )
     

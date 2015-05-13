@@ -11,10 +11,8 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import FDS_ProtocolInterface.FDSP_ActivateOneNodeType;
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.commons.model.Node;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
@@ -29,9 +27,9 @@ public class MutateNode implements RequestHandler {
     private static final Logger logger =
             LoggerFactory.getLogger( AddNode.class );
 
-    private FDSP_ConfigPathReq.Iface client;
+    private ConfigurationService.Iface client;
 	
-	public MutateNode( final FDSP_ConfigPathReq.Iface client ){
+	public MutateNode( final ConfigurationService.Iface client ){
 		
 		this.client = client;
 	}
@@ -65,8 +63,7 @@ public class MutateNode implements RequestHandler {
         
         //TODO:  Have a call that changes the node's state!
         int status = 
-        		client.ActivateNode( new FDSP_MsgHdrType(),
-                                     	  new FDSP_ActivateOneNodeType(
+        		client.ActivateNode( new FDSP_ActivateOneNodeType(
                                           1,
                                           new FDSP_Uuid( nodeUuid ),
                                           activateSm,

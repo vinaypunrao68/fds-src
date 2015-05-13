@@ -4,11 +4,9 @@
 
 package com.formationds.om.webkit.rest.platform;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_RemoveServicesType;
-
 import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.commons.model.Node;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
@@ -32,9 +30,9 @@ public class RemoveNode
     private static final Logger logger =
         LoggerFactory.getLogger( RemoveNode.class );
 
-    private FDSP_ConfigPathReq.Iface client;
+    private ConfigurationService.Iface client;
 
-    public RemoveNode( FDSP_ConfigPathReq.Iface client ) {
+    public RemoveNode( ConfigurationService.Iface client ) {
 
         this.client = client;
 
@@ -46,7 +44,7 @@ public class RemoveNode
 
         final Long nodeUuid = requiredLong( routeParameters, "node_uuid" );
         
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( new FDSP_MsgHdrType() );
+        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
         Map<String, Node> nodeMap = (new ListNodes( client )).computeNodeMap(list);
 
         Node node = nodeMap.get( nodeUuid.toString() );
@@ -65,8 +63,7 @@ public class RemoveNode
         //TODO: Have a method to actually remove a node instead of just messing with services
         // since we are removing the node, for now we're removing all the services.
         int status = 
-            client.RemoveServices( new FDSP_MsgHdrType(),
-                                   new FDSP_RemoveServicesType(
+            client.RemoveServices( new FDSP_RemoveServicesType(
                                      node.getName(),
                                      new FDSP_Uuid( nodeUuid ),
                                      true,

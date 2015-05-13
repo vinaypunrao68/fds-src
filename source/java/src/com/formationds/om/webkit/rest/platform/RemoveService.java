@@ -11,10 +11,8 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_RemoveServicesType;
-
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
 import com.formationds.om.events.EventManager;
@@ -29,9 +27,9 @@ public class RemoveService implements RequestHandler {
     private static final Logger logger =
             LoggerFactory.getLogger( RemoveService.class );
 
-    private FDSP_ConfigPathReq.Iface client;
+    private ConfigurationService.Iface client;
 	
-	public RemoveService( final FDSP_ConfigPathReq.Iface client ){
+	public RemoveService( final ConfigurationService.Iface client ){
 		
 		this.client = client;
 	}
@@ -49,7 +47,7 @@ public class RemoveService implements RequestHandler {
 		//  Secondly, I shouldn't need the node name if I have the ID!  Now I need to loop through 
 		// nodes to find a name I shouldn't need.
         List<com.formationds.protocol.FDSP_Node_Info_Type> list =
-                client.ListServices( new FDSP_MsgHdrType() );
+                client.ListServices( 0 );
         
         Map<String, Node> nodeMap = (new ListNodes(client)).computeNodeMap(list);
 		
@@ -85,8 +83,7 @@ public class RemoveService implements RequestHandler {
 				FDSP_Uuid uuid = new FDSP_Uuid( nodeId );
 				
 				status =  
-						client.RemoveServices( new FDSP_MsgHdrType(), 
-						new FDSP_RemoveServicesType(
+						client.RemoveServices( new FDSP_RemoveServicesType(
 							myNode.getName(), 
 							uuid, 
 							sm, 

@@ -7,6 +7,7 @@
 #include <MigrationMgr.h>
 #include <fds_process.h>
 #include <fdsp_utils.h>
+#include "PerfTrace.h"
 
 namespace fds {
 
@@ -464,6 +465,7 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
+    fiu_do_on("sm.exit.before.client.erase", exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
@@ -619,6 +621,9 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // we are done migrating, reply to start migration msg from OM
             if (isFirstRound && !resyncOnRestart) {
                 // start with first executor to do the second round
+                // --> start of second round
+                // --> incrememnt counter / marker of second round
+                PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
                 startSecondRebalanceRound(migrExecutors.begin()->first);
             } else {
                 // done with second round -- all done

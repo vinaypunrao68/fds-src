@@ -4,12 +4,9 @@ package com.formationds.om.webkit.rest.platform;
  * 
  * This class is for adding a node into an FDS domain
  */
-
-import FDS_ProtocolInterface.FDSP_ActivateOneNodeType;
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-
 import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.web.toolkit.JsonResource;
@@ -23,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.util.Map;
 
 public class AddNode
@@ -31,9 +29,9 @@ public class AddNode
     private static final Logger logger =
         LoggerFactory.getLogger( AddNode.class );
 
-    private FDSP_ConfigPathReq.Iface client;
+    private final ConfigurationService.Iface client;
 
-    public AddNode( final FDSP_ConfigPathReq.Iface client ) {
+    public AddNode( final ConfigurationService.Iface client ) {
 
         this.client = client;
 
@@ -60,8 +58,7 @@ public class AddNode
                       nodeUuid, activateAm, activateDm, activateSm );
 
         int status =
-            client.ActivateNode( new FDSP_MsgHdrType(),
-                                 new FDSP_ActivateOneNodeType(
+            client.ActivateNode( new FDSP_ActivateOneNodeType(
                                      domainId.intValue(),
                                      new FDSP_Uuid( nodeUuid ),
                                      activateSm,

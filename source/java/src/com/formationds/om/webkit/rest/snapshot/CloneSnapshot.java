@@ -4,7 +4,6 @@
 
 package com.formationds.om.webkit.rest.snapshot;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.om.webkit.rest.SetVolumeQosParams;
@@ -30,12 +29,9 @@ public class CloneSnapshot
   private static final String REQ_PARAM_SNAPSHOT_ID = "snapshotId";
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
   private ConfigurationApi config;
-  private FDSP_ConfigPathReq.Iface                     legacyConfigPath;
 
-    public CloneSnapshot(final ConfigurationApi config,
-                         final FDSP_ConfigPathReq.Iface legacyConfigPath) {
+    public CloneSnapshot(final ConfigurationApi config) {
         this.config = config;
-        this.legacyConfigPath = legacyConfigPath;
     }
 
     @Override
@@ -64,7 +60,7 @@ public class CloneSnapshot
         name, 0L);
 
       Thread.sleep( 200 );
-      SetVolumeQosParams.setVolumeQos( legacyConfigPath,
+      SetVolumeQosParams.setVolumeQos( config,
                                        name,
                                        volume.getSla(),
                                        volume.getPriority(),

@@ -4,6 +4,8 @@ from fds.model.node import Node
 from fds.model.service import Service
 from fds.model.domain import Domain
 from fds.model.snapshot_policy import SnapshotPolicy
+from fds.model.timeline_preset import TimelinePreset
+from fds.model.qos_preset import QosPreset
 
 '''
 Created on Apr 22, 2015
@@ -140,6 +142,7 @@ def editSnapshotPolicy( policy ):
 def listSnapshotPolicies( volume_id=None ):
     policies = []
     policy = SnapshotPolicy()
+    policy.id = 900
     policies.append( policy )
     return policies
 
@@ -151,3 +154,20 @@ def detachPolicy( policy_id, volume_id ):
 
 def deleteSnapshotPolicy( policy_id ):
     return responseOk 
+
+
+def listTimelinePresets(preset_id=None):
+    p = TimelinePreset()
+    p.id = 1
+    p.policies = [SnapshotPolicy()]
+    presets = [p]
+    return presets
+
+def listQosPresets(preset_id=None):
+    p = QosPreset()
+    p.id = 1
+    p.priority = 1
+    p.iops_guarantee = 1
+    p.iops_limit = 1
+    presets = [p]
+    return presets

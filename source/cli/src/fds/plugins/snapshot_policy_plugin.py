@@ -54,7 +54,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         parser for the list command
         '''
         
-        __list_parser = subparser.add_parser( "list", help="List all of the snapshot policies in the system")
+        __list_parser = subparser.add_parser( "list", help="List all of the snapshot policies in the system, or for a single volume.")
         self.add_format_arg( __list_parser )
         
         __list_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="If a volume UUID is specified it will only list the policies attached to the specified volume", default=None)
