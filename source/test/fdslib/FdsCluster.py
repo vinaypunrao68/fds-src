@@ -199,7 +199,7 @@ class FdsCluster:
         elif service_id is 'am':
             base_port = plat_port + 30
         elif service_id is 'om':
-            base_port = 8903
+            base_port = 9090
         svc_info.control_port = base_port
         svc_info.data_port = base_port + 2
         svc_info.migration_port = base_port + 3

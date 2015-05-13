@@ -103,14 +103,14 @@ class PlatSvc(object):
         handler = self
         processor = PlatNetSvc.Processor(handler)
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
-        tfactory = TTransport.TFramedTransportFactory()
-        pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
+        #tfactory = TTransport.TBufferedTransportFactory()
+        #pfactory = TBinaryProtocol.TBinaryProtocolFactory()
+        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
-        self.serverThread.setDaemon(True)
+        # self.serverThread.setDaemon(True)
         log.info("Starting server on {}".format(self.basePort));
-        self.serverThread.start()
+        # self.serverThread.start()
 
     def serve(self):
         self.server.serve()
