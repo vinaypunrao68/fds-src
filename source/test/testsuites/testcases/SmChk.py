@@ -75,7 +75,7 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
             call = ' '.join(['./fdsconsole.py', 'smdebug', 'startSmchk', str(node_uuid), '--targetTokens', tokens_str])
             res = om_node.nd_agent.exec_wait(call, fds_tools=True)
             if res != 0:
-                print "start smchk failed..."
+                self.log.error("start smchk failed...")
                 return False
 
             # We'll want to search the SM log for this output:
@@ -89,13 +89,11 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
                 # Remember to subtract 1 from node_uuid because it's actually an SM svc uuid
                 if node.nd_uuid is not None and (int(node.nd_uuid, 0) == node_uuid - 1):
                     latest_log = self._get_latest_sm_log(node)
-                    print "LATEST LOG = {}".format(latest_log)
                     fh = open(latest_log, 'r')
                     # Just keep looking until we find the log message
                     result = []
                     timeout_cntr = 0 # 100 iterations of find/sleep will be ~30 minutes
                     while not result:
-                        print "TIMEOUT_CNTR = {}".format(timeout_cntr)
                         # Set the file's cursor back to 0
                         fh.seek(0)
                         result = smchk_re.findall(fh.read())
