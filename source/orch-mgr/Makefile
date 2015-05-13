@@ -5,7 +5,6 @@ user_std_libs     := true
 user_rtime_env    := user
 user_install_loc  := exe
 user_build_dir    := \
-	orch-cli \
 	include \
 	om-dlt \
 	om-common \

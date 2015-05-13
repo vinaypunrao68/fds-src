@@ -125,6 +125,12 @@ public class HdfsSmokeTest {
         assertEquals("a", rootObjects[0].getPath().getName());
         assertEquals("foo", rootObjects[1].getPath().getName());
         assertEquals("z", rootObjects[2].getPath().getName());
+
+        Path notDir = new Path("/notDirectory");
+        touch (notDir);
+        assertTrue(fileSystem.exists(notDir));
+        FileStatus[] status = fileSystem.listStatus(notDir);
+        assertEquals(1,status.length);
     }
 
     @Test

@@ -9,6 +9,8 @@ from fds.utils.snapshot_converter import SnapshotConverter
 from fds.utils.node_converter import NodeConverter
 from fds.utils.domain_converter import DomainConverter
 from fds.model.snapshot_policy import SnapshotPolicy
+from fds.model.timeline_preset import TimelinePreset
+from fds.model.qos_preset import QosPreset
 
 '''
 Created on Apr 22, 2015
@@ -98,7 +100,7 @@ def activateNode( node_id, state ):
     response["status"] = "OK"
     return response
     
-def deactivateNode( node_id, state ):
+def deactivateNode( node_id ):
     response = dict()
     response["status"] = "OK"
     return response   
@@ -131,6 +133,7 @@ def editSnapshotPolicy( policy ):
 def listSnapshotPolicies( volume_id=None ):
     policies = []
     policy = SnapshotPolicy()
+    policy.id = 900
     policies.append( policy )
     return policies
 
@@ -148,3 +151,19 @@ def deleteSnapshotPolicy( policy_id ):
     response = dict()
     response["status"] = "OK"
     return response 
+
+def listTimelinePresets(preset_id=None):
+    p = TimelinePreset()
+    p.id = 1
+    p.policies = [SnapshotPolicy()]
+    presets = [p]
+    return presets
+
+def listQosPresets(preset_id=None):
+    p = QosPreset()
+    p.id = 1
+    p.priority = 1
+    p.iops_guarantee = 1
+    p.iops_limit = 1
+    presets = [p]
+    return presets

@@ -108,9 +108,6 @@ class TestNodes( BaseCliTest ):
         
         assert first[0][0] == "1"
         
-        assert first[0][1].am is False
-        assert first[0][1].dm is False
-        assert first[0][1].sm is False
         
     @patch( "fds.services.node_service.NodeService.activate_node", side_effect=mock_functions.activateNode)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)        

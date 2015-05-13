@@ -19,6 +19,7 @@
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
 #include "lib/OMgrClient.h"
+#include "PerfTypes.h"
 
 using diskio::DataTier;
 
@@ -156,6 +157,8 @@ void ObjectStorMgr::mod_startup()
 //
 void ObjectStorMgr::mod_enable_service()
 {
+    fiu_do_on("sm.exit.on.bringup", exit(1));
+
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
@@ -856,6 +859,7 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
         LOGMIGRATE << "Applying DeltaSet element: " << objId;
 
         err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+
         if (!err.ok()) {
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
@@ -878,6 +882,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 {
     Error err(ERR_OK);
 
+    fiu_do_on("sm.exit.sending.delta.set", exit(1));
+
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     fds_verify(NULL != readDeltaSetReq);
 
@@ -887,12 +893,17 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
                << " seqNum=" << readDeltaSetReq->seqNum
                << " lastSet=" << readDeltaSetReq->lastSet
                << " delta set size=" << readDeltaSetReq->deltaSet.size();
+    
+    PerfContext tmp_pctx(PerfEventType::SM_READ_OBJ_DELTA_SET, 0);
+    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
 
     fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
     NodeUuid destSmId = readDeltaSetReq->destinationSmId;
     objDeltaSet->executorID = readDeltaSetReq->executorId;
     objDeltaSet->seqNum = readDeltaSetReq->seqNum;
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
+
+    // PerfTracer::incr(PerfEventType::SM_READ_OBJ_DELTA_SET_LOOP_SIZE, 0, (readDeltaSetReq->deltaSet).size(), 1);
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
@@ -908,7 +919,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* Read object data, if NO_RECONCILE or OVERWRITE */
         if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
-
+            
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
                     objectStore->getObjectData(invalid_vol_id,

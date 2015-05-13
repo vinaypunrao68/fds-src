@@ -238,12 +238,7 @@ class NodePlugin( AbstractPlugin ):
         De-activate a specific node
         '''
         
-        state = NodeState()
-        state.am = False
-        state.dm = False
-        state.sm = False
-        
-        response = self.get_node_service().deactivate_node( args[AbstractPlugin.node_id_str], state )
+        response = self.get_node_service().deactivate_node( args[AbstractPlugin.node_id_str] )
         
         if ( response["status"] == 200 ):
             self.list_nodes(args)

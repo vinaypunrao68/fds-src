@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 from fds.utils.node_state_converter import NodeStateConverter
 from fds.utils.node_converter import NodeConverter
+from fds.model.node_state import NodeState
 
 class NodeService( AbstractService ):
     '''
@@ -43,13 +44,14 @@ class NodeService( AbstractService ):
         data = NodeStateConverter.to_json( node_state )
         return self.rest_helper.post( self.session, url, data )
     
-    def deactivate_node(self, node_id, node_state):
+    def deactivate_node(self, node_id):
         '''
         This method will deactivate the node and remember the state that is sent in
         
         node_id is the UUID of the node to de-activate
         node_state is a node state object defines which services will be stopped        
         '''
+        node_state = NodeState()
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/services/", node_id )
         data = NodeStateConverter.to_json( node_state )
