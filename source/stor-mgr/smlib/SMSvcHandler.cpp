@@ -128,6 +128,18 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         return;
     }
 
+    // If SM is getting new DLT tokens that result in gaining new SM tokens
+    // we need to open data and metadata stores for them for writing.
+    SmTokenSet smTokens;
+    for (auto migrGroup : migrationMsg->migrations) {
+        // migrGroup is <source SM, set of DLT tokens> pair
+        for (auto dltTok : migrGroup.tokens) {
+            fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
+            smTokens.insert(smTok);
+        }
+    }
+    err = objStorMgr->objectStore->openStore(smTokens);
+
     // start migration
     const DLT* dlt = objStorMgr->getDLT();
     if (dlt != NULL) {

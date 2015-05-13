@@ -15,7 +15,7 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
     service.MS_PER_HOUR = service.MS_PER_MINUTE*60;
     service.MS_PER_DAY = service.MS_PER_HOUR*24;
     service.MS_PER_WEEK = service.MS_PER_DAY*7;
-    service.MS_PER_4_WEEKS = service.MS_PER_WEEK * 4;
+    service.MS_PER_MONTH = service.MS_PER_DAY * 30;
     service.MS_PER_YEAR = service.MS_PER_DAY*366;
     
     var secondsAgo = $filter( 'translate' )( 'common.l_seconds_ago' );
@@ -61,12 +61,12 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
             value = Math.round( ms / service.MS_PER_DAY );
             unit = service.DAYS;
         }
-        else if ( ms < service.MS_PER_4_WEEKS ){
+        else if ( ms < service.MS_PER_MONTH ){
             value = Math.round( ms / service.MS_PER_WEEK );
             unit = service.WEEKS;
         }
         else if ( ms < service.MS_PER_YEAR ){
-            value = 30*Math.round( ms / service.MS_PER_4_WEEKS );
+            value = 30*Math.round( ms / service.MS_PER_MONTH );
             unit = service.DAYS;
         }
         else {

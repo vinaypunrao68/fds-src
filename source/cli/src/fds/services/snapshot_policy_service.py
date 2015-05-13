@@ -19,7 +19,9 @@ class SnapshotPolicyService( AbstractService ):
         '''
         url = "{}{}".format( self.get_url_preamble(), "/api/config/snapshot/policies" )
         data = SnapshotPolicyConverter.to_json( policy )
-        return self.rest_helper.post( self.session, url, data )
+        j_policy =  self.rest_helper.post( self.session, url, data )
+        policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
+        return policy
 
     def delete_snapshot_policy(self, policy_id):
         '''

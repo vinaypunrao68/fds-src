@@ -40,4 +40,17 @@ class LocalDomainService( AbstractService ):
         data = json.dumps( data )
         
         return self.rest_helper.put( self.session, url, data )
+    
+    def start(self, domain_name):
+        '''
+        start up the specified domain
+        '''
+        
+        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain_name )
+        data = dict();
+        data["action"] = "startup"
+        
+        data = json.dumps( data )
+        
+        return self.rest_helper.put( self.session, url, data )
         
