@@ -37,26 +37,42 @@ class TestRESTAPI(unittest.TestCase):
     	lds = LocalDomainService(self.fdsauth)
     	domains_list = lds.get_local_domains()
 
-	for domain in domains_list:
-		self.log.info('domain.name= {}'.format(domain.name))
-		self.log.info('domain.id= {}'.format(domain.id))
-		self.log.info('domain.site= {}'.format(domain.site))
-		print '==============='
+    	for domain in domains_list:
+    		self.log.info('domain.name= {}'.format(domain.name))
+    		self.log.info('domain.id= {}'.format(domain.id))
+    		self.log.info('domain.site= {}'.format(domain.site))
+    		print '==============='
 
     def test_get_volume_list(self):
     	self.log.info(TestRESTAPI.test_get_volume_list.__name__)
     	volServ = VolumeService(self.fdsauth)
     	volumes_list = volServ.list_volumes()
 
-	for volume in volumes_list:
-		self.log.info('Volume.name= {}'.format(volume.name))
-		self.log.info('Volume.id= {}'.format(volume.id))
-		self.log.info('Volume.priority= {}'.format(volume.priority))
-		self.log.info('Volume.type= {}'.format(volume.type))
-		self.log.info('Volume.state= {}'.format(volume.state))
-		self.log.info('Volume.current_size= {}'.format(volume.current_size))
-        	print '==============='
+    	for volume in volumes_list:
+            self.log.info('Volume.name= {}'.format(volume.name))
+            self.log.info('Volume.id= {}'.format(volume.id))
+            self.log.info('Volume.priority= {}'.format(volume.priority))
+            self.log.info('Volume.type= {}'.format(volume.type))
+            self.log.info('Volume.state= {}'.format(volume.state))
+            self.log.info('Volume.current_size= {}'.format(volume.current_size))
+            self.log.info('Volume.current_unit= {}'.format(volume.current_units))            
+            self.log.info('===============')
 
+    def test_create_volume(self):
+        vservice = VolumeService(self.fdsauth)
+        volume = Volume()
+        new_volume = "testvolumecreation3"
+        new_type = "block"
+        volume.name = "{}".format(new_volume)
+        volume.type = "{}".format(new_type)
+        volume.current_size = 1024
+        vservice.create_volume(volume)
+        
+        volCheck = VolumeService(self.fdsauth)
+        volumes_list = volCheck.list_volumes()
+        for volume in volumes_list:
+            if volume.name == new_volume:
+                self.log.info("Volume {} has been created.".format(volume.name))
 
     def test_get_node_list(self):
     	self.log.info(TestRESTAPI.test_get_node_list.__name__)
@@ -64,19 +80,18 @@ class TestRESTAPI(unittest.TestCase):
     	nodes_list = nodeService.list_nodes()
     	
     	for node in nodes_list:
-    		self.log.info('node = {}'.format(node))
-    		self.log.info('node.name = {}'.format(node.name))
-    		self.log.info('node.ip_v4_address = {}'.format(node.ip_v4_address))
-    		self.log.info('node.id= {}'.format(node.id))
-    		self.log.info('node.state= {}'.format(node.state))
-    		self.log.info('node.service= {}'.format(node.services))
-    
-    		print '==============='
+            self.log.info('node = {}'.format(node))
+            self.log.info('node.name = {}'.format(node.name))
+            self.log.info('node.ip_v4_address = {}'.format(node.ip_v4_address))
+            self.log.info('node.id= {}'.format(node.id))
+            self.log.info('node.state= {}'.format(node.state))
+            self.log.info('node.service= {}'.format(node.services))
+            self.log.info('===============')    
+
 
     def test_deactivate_node(self):
     	self.log.info(TestRESTAPI.test_deactivate_node.__name__)
     	nservice = NodeService(self.fdsauth)
-    	nodeS = NodeState()
     	nodeS2 = NodeState()
     	
     	nodes_list = nservice.list_nodes()
@@ -89,11 +104,12 @@ class TestRESTAPI(unittest.TestCase):
     	#check node status after deactivating
     	for node in nodes_list:
 
-    		self.log.info('node.ip_v4_address = {}'.format(node.ip_v4_address))
-    		self.log.info(node.services["AM"][0].auto_name + " " + node.services["AM"][0].status)
-    		self.log.info(node.services["SM"][0].auto_name + " " + node.services["SM"][0].status)
-    		self.log.info(node.services["DM"][0].auto_name + " " + node.services["DM"][0].status)
-    		self.log.info(node.services["PM"][0].auto_name + " " + node.services["PM"][0].status)
+            self.log.info('node.ip_v4_address = {}'.format(node.ip_v4_address))
+            self.log.info(node.services["AM"][0].auto_name + " " + node.services["AM"][0].status)
+            self.log.info(node.services["SM"][0].auto_name + " " + node.services["SM"][0].status)
+            self.log.info(node.services["DM"][0].auto_name + " " + node.services["DM"][0].status)
+            self.log.info(node.services["PM"][0].auto_name + " " + node.services["PM"][0].status)
+            self.log.info('===============')
             
            
     		#self.log.info('node.state.am= {}'.format(node.am))
