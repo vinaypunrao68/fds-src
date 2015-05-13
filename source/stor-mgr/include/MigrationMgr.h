@@ -262,7 +262,8 @@ class SmTokenMigrationMgr {
     void checkResyncDoneAndCleanup();
 
     /// state of migration manager
-    std::atomic<MigrationState> migrState;
+    std::atomic<MigrationState> migrState; // assuming this is shared 
+                                           // across the whoel migration mgr
     /// target DLT version for which current migration is happening
     /// does not mean anything if mgr in IDLE state
     fds_uint64_t targetDltVersion;
@@ -286,9 +287,10 @@ class SmTokenMigrationMgr {
     OmStartMigrationCbType omStartMigrCb;
 
     /// SM token token that is currently in progress of migrating
-    /// TODO(Anna) make it more general if we want to migrate several
-    /// tokens at a time
-    fds_token_id smTokenInProgress;
+    std::unordered_set<fds_token_id> smTokenInProgress;
+    std::list<fds_token_id> remainingTokens;
+    /// SM token token that is currently in the second round
+    fds_token_id smTokenInProgressSecondRound;
     fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
 
     /// SM token for which retry token migration is going on.
@@ -303,8 +305,8 @@ class SmTokenMigrationMgr {
     /**
      * Qos request to snapshot index db
      */
-    SmIoSnapshotObjectDB snapshotRequest;
-
+    std::unordered_map<fds_token_id, SmIoSnapshotObjectDB> snapshotRequest;
+    
     /// SM token id -> [ source SM -> MigrationExecutor ]
     MigrExecutorMap migrExecutors;
     /// so far we don't need a lock for the above map, because the actions
