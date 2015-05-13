@@ -321,6 +321,7 @@ class SmTokenMigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+    int parallelMigration;
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed

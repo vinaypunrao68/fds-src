@@ -33,6 +33,7 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
     }
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
+    parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 2);
 }
 
 SmTokenMigrationMgr::~SmTokenMigrationMgr() {
@@ -153,7 +154,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     LOGMIGRATE << "Number of executors: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0)
-    for (int issued = 0; cit != migrExecutors.cend() && issued < 2; cit++, issued++) {
+    for (int issued = 0; cit != migrExecutors.cend() && issued < parallelMigration; cit++, issued++) {
         smTokenInProgress.insert(cit->first);
         remainingTokens.remove(cit->first);
         startSmTokenMigration(cit->first);
