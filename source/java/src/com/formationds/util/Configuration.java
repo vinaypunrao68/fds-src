@@ -18,10 +18,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -70,7 +67,6 @@ public class Configuration {
         }
 
         if (options.has("console")) {
-            //initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
             initConsoleLogging("DEBUG");
         } else {
             // only append instance name on the am (xdi)
@@ -120,27 +116,18 @@ public class Configuration {
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %-5p %c %x - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
-        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 
     private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
-        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd ");
-        Date date = new Date();
-        String dateString = dateFormat.format(date);
-        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log-"+dateString).toAbsolutePath();
+        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
         properties.put("log4j.rootLogger", "FATAL, rolling");
-        properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
+        properties.put("log4j.appender.rolling", "org.apache.log4j.DailyRollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
-        properties.put("log4j.appender.rolling.MaxFileSize", "50MB");
-        properties.put("log4j.appender.rolling.MaxBackupIndex", "10");
+        properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
-        //        properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
-        //        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
         properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %p %c - %m%n");
-        //        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{dd MMM yyyy HH:mm:ss.SSS z} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
-        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 
