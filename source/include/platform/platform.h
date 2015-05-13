@@ -179,7 +179,6 @@ namespace fds
              * Platform methods.
              */
             bool plf_is_om_node();
-            void plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr pkt);
             void plf_change_info(const plat_node_data_t *ndata);
 
             /**

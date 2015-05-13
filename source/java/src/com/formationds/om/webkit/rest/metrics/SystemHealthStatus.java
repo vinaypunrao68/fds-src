@@ -1,8 +1,5 @@
 package com.formationds.om.webkit.rest.metrics;
 
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
@@ -46,7 +43,6 @@ import java.util.stream.Collectors;
 
 public class SystemHealthStatus implements RequestHandler {
 
-    private final FDSP_ConfigPathReq.Iface legacyConfig;
     private final ConfigurationApi configApi;
     private final Authorizer authorizer;
     private final AuthenticationToken token;
@@ -65,10 +61,9 @@ public class SystemHealthStatus implements RequestHandler {
     private final String FIREBREAK_OKAY = "l_firebreak_not_good";
     private final String FIREBREAK_BAD = "l_firebreak_bad";
 
-    public SystemHealthStatus(final FDSP_ConfigPathReq.Iface legacyConfig, ConfigurationApi configApi,
+    public SystemHealthStatus(ConfigurationApi configApi,
                               Authorizer authorizer, AuthenticationToken token) {
 
-        this.legacyConfig = legacyConfig;
         this.configApi = configApi;
         this.authorizer = authorizer;
         this.token = token;
@@ -78,7 +73,7 @@ public class SystemHealthStatus implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
 
-        List<FDSP_Node_Info_Type> services = legacyConfig.ListServices(new FDSP_MsgHdrType());
+        List<FDSP_Node_Info_Type> services = configApi.ListServices(0);
 
         List<VolumeDescriptor> allVolumes = configApi.listVolumes("")
                 .stream()

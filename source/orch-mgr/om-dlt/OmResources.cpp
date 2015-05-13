@@ -9,7 +9,6 @@
 #include <boost/msm/front/functor_row.hpp>
 #include <fds_timer.h>
 #include <orch-mgr/om-service.h>
-#include <NetSession.h>
 #include <OmDeploy.h>
 #include <OmDmtDeploy.h>
 #include <OmResources.h>
@@ -505,7 +504,7 @@ NodeDomainFSM::DACT_SendDltDmt::operator()(Evt const &evt, Fsm &fsm, SrcST &src,
             LOGWARN << "Not sending DMT to new node, because no "
                     << " committed DMT yet";
         }
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_SendDltDmt :: " << e.what();
     }
@@ -571,7 +570,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         // since updateMap keeps those nodes as pending, we tell cluster map that
         // they are not pending, since these nodes are already in the DMT
         cm->resetPendServices(fpi::FDSP_DATA_MGR);
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_NodeUp :: " << e.what();
     }
@@ -595,7 +594,7 @@ NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         // also send all known stream registrations
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         local->om_bcast_stream_register_cmd(0, true);
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_LoadVols :: " << e.what();
     }
@@ -631,7 +630,7 @@ NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
                     << "services to come up";
             fsm.process_event(TimeoutEvt());
         }
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_WaitNds :: " << e.what();
     }
@@ -662,7 +661,7 @@ NodeDomainFSM::DACT_Wait::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
             fsm.process_event(TimeoutEvt());
         }
     
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_Wait :: " << e.what();
     }
@@ -687,7 +686,7 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         // so that we move to DLT that reflects actual nodes that came up
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         domain->om_dlt_update_cluster();
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_WaitDone :: " << e.what();
     }
@@ -744,7 +743,7 @@ NodeDomainFSM::GRD_EnoughNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             LOGWARN << "GRD_EnoughNds: Failed to start timer -- bring up ALL nodes or "
                     << "clean persistent state and restart OM";
         }
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_WaitDone :: " << e.what();
     }
@@ -815,7 +814,7 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         // start cluster update process that will recompute DLT /rebalance /etc
         // so that we move to DLT that reflects actual nodes that came up
         domain->om_dlt_update_cluster();
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_UpdDlt :: " << e.what();
     }
@@ -848,7 +847,7 @@ NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             b_ret = true;
         } 
     
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM GRD_DltDmtUp :: " << e.what();
     }
@@ -883,7 +882,7 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
             // do dummy ack event so we progress to next state
             fsm.process_event(ShutAckEvt(fpi::FDSP_ACCESS_MGR, ERR_OK));
         }
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_ShutAm :: " << e.what();
     }
@@ -931,7 +930,7 @@ NodeDomainFSM::GRD_AmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         
         LOGDEBUG << "AM acks to wait: " << src.am_acks_to_wait
                  << " GRD will return " << b_ret;
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM GRD_ShutAm :: " << e.what();
     }
@@ -962,7 +961,7 @@ NodeDomainFSM::DACT_ShutDmSm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             // do dummy acknowledge event so we progress to next state
             fsm.process_event(ShutAckEvt(fpi::FDSP_INVALID_SVC, ERR_OK));
         }
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_ShutDmSm :: " << e.what();
     }
@@ -1017,7 +1016,7 @@ NodeDomainFSM::GRD_DmSmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             b_ret = true;
         }
     
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM GRD_ShutDmSm :: " << e.what();
     }
@@ -1062,7 +1061,7 @@ NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             b_ret = true;
         }
     
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM GRD_DeactSvc :: " << e.what();
     }
@@ -1096,7 +1095,7 @@ NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             dst.acks_to_wait = count;
         }
 
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_Shutdown :: " << e.what();
     }
@@ -1143,7 +1142,7 @@ NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, 
         // broadcast DMT to DMs so they can start resync
         local->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT());
 
-    } catch(exception& e) {
+    } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_SvcActive :: " << e.what();
     }
@@ -1615,7 +1614,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 			else
 			{
         /* We updated the svcmap before, undo it by setting service status to invalid */
-        svcInfo->svc_status = SVC_STATUS_INVALID;
+        svcInfo->svc_status = fpi::SVC_STATUS_INVALID;
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
         configDB->updateSvcMap(*svcInfo);
 			}
@@ -1686,7 +1685,7 @@ bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
     bool bRetCode = false;
 
     int64_t registerUUID = svcInfo.svc_id.svc_uuid.svc_uuid;
-    std::vector<SvcInfo> configDBSvcs;
+    std::vector<fpi::SvcInfo> configDBSvcs;
 
     configDB->getSvcMap( configDBSvcs );
     if ( configDBSvcs.size() > 0 )
@@ -1759,7 +1758,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     LOGNORMAL << "OM received register node for platform uuid " << std::hex
         << msg->node_uuid.uuid << ", service uuid " << msg->service_uuid.uuid
         << std::dec << ", type " << msg->node_type << ", ip "
-        << netSession::ipAddr2String(msg->ip_lo_addr) << ", control port "
+        << net::ipAddr2String(msg->ip_lo_addr) << ", control port "
         << msg->control_port;
 
     if ((msg->node_type == fpi::FDSP_STOR_MGR) ||
@@ -2026,25 +2025,6 @@ OM_NodeDomainMod::om_shutdown_domain()
     local_domain_event(ShutdownEvt());
 
     return err;
-}
-
-// om_create_domain
-// ----------------
-//
-int
-OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
-{
-    TRACEFUNC;
-    return 0;
-}
-
-// om_delete_domain
-// ----------------
-//
-int
-OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
-{
-    return 0;
 }
 
 void

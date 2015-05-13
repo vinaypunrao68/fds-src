@@ -4,19 +4,11 @@
 
 package com.formationds.xdi;
 
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.LocalDomain;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.SnapshotPolicy;
-import com.formationds.apis.StreamingRegistrationMsg;
-import com.formationds.apis.Tenant;
-import com.formationds.apis.User;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
+import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
@@ -236,6 +228,18 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public FDSP_VolumeDescType GetVolInfo(FDSP_GetVolInfoReqType vol_info_req)
+            throws ApiException, org.apache.thrift.TException {
+        return config.GetVolInfo(vol_info_req);
+    }
+
+    @Override
+    public int ModifyVol(FDSP_ModifyVolType mod_vol_req)
+            throws ApiException, TException {
+        return config.ModifyVol(mod_vol_req);
+    }
+
+    @Override
     public void deleteVolume(String domainName, String volumeName)
             throws ApiException, TException {
         config.deleteVolume(domainName, volumeName);
@@ -259,6 +263,12 @@ public class XdiConfigurationApi implements ConfigurationApi {
     public List<VolumeDescriptor> listVolumes(String domainName)
             throws ApiException, TException {
         return fillCacheMaybe().getVolumes();
+    }
+
+    @Override
+    public List<FDSP_VolumeDescType> ListVolumes(int ignore)
+            throws ApiException, TException {
+        return config.ListVolumes(ignore);
     }
 
     @Override
@@ -459,9 +469,21 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public int ActivateNode(com.formationds.apis.FDSP_ActivateOneNodeType act_serv_req)
+            throws TException {
+        return config.ActivateNode(act_serv_req);
+    }
+
+    @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
             throws TException {
         return config.listLocalDomainServices(domainName);
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(int ignore)
+            throws TException {
+        return config.ListServices(ignore);
     }
 
     @Override
@@ -470,6 +492,13 @@ public class XdiConfigurationApi implements ConfigurationApi {
         config.removeLocalDomainServices(domainName, sm, dm, am);
         return;
     }
+
+    @Override
+    public int RemoveServices(FDSP_RemoveServicesType rm_node_req)
+            throws TException {
+        return config.RemoveServices(rm_node_req);
+    }
+
 
     public CachedConfiguration getCache() {
         return fillCacheMaybe();

@@ -9,14 +9,17 @@ namespace fds {
 using snapshot::DeleteTask;
 DeleteScheduler::DeleteScheduler(OrchMgr* om) {
     this->om = om;
-    runner = new std::thread(&DeleteScheduler::run, this);
-    LOGDEBUG << "scheduler instantiated";
 }
 
 DeleteScheduler::~DeleteScheduler() {
     shutdown();
     runner->join();
     delete runner;
+}
+
+void DeleteScheduler::start() {
+    this->runner = new std::thread(&DeleteScheduler::run, this);
+    LOGDEBUG << "scheduler instantiated";
 }
 
 // will also update / modify

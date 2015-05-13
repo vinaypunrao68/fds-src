@@ -436,7 +436,7 @@ fds: {
         om_port      = 8904
 
         /* TODO(Rao): Get this from platform */
-        om_config_port = 8903
+        om_config_port = 9090
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
@@ -553,14 +553,14 @@ fds: {
 
         /* Testing stanza */
         testing: {
-            /* Toggle stand alone mode */
-            standalone = false
+                /* Toggle stand alone mode */
+                standalone = false
         }
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"
         logfile="om"
-        config_port=8903
+        config_port=9090
 
         /* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904

@@ -4,7 +4,6 @@
 
 package com.formationds.om.webkit.rest;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -27,12 +26,9 @@ public class CloneVolume
   private static final String REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME = "timelineTime";
 
   private ConfigurationApi config;
-  private FDSP_ConfigPathReq.Iface                     legacyConfigPath;
 
-    public CloneVolume(final ConfigurationApi config,
-                       FDSP_ConfigPathReq.Iface legacyConfigPath) {
+    public CloneVolume(final ConfigurationApi config) {
         this.config = config;
-        this.legacyConfigPath = legacyConfigPath;
     }
 
     @Override
@@ -58,7 +54,7 @@ public class CloneVolume
         name, Long.parseLong( timelineTime ));
 
       Thread.sleep( 200 );
-      SetVolumeQosParams.setVolumeQos( legacyConfigPath,
+      SetVolumeQosParams.setVolumeQos( config,
                                        name,
                                        ( int ) volume.getSla(),
                                        volume.getPriority(),

@@ -3,9 +3,6 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 
 import java.util.ArrayList;
@@ -44,12 +41,5 @@ public class ConfigurationServiceTest {
         ConfigurationService.Iface config = new XdiClientFactory(9876).remoteOmService("localhost", 9090);
         config.listVolumes("")
                 .forEach(v -> System.out.println(v.getTenantId()));
-    }
-
-    //@Test
-    public void testLegacyClient() throws Exception {
-        FDSP_ConfigPathReq.Iface client = new XdiClientFactory(9876).legacyConfig("localhost", 8903);
-        List<FDSP_VolumeDescType> list = client.ListVolumes(new FDSP_MsgHdrType());
-        System.out.println(list.size());
     }
 }
