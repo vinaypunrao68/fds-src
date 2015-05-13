@@ -31,7 +31,7 @@ public class XdiAuthorizer {
     private final Cache<String, Map<String, String>> volumeMetadataCache;
     private AsyncAm asyncAm;
 
-    public XdiAuthorizer(Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, ConfigurationApi config) {
+    public XdiAuthorizer(Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
         this.authenticator = authenticator;
         this.authorizer = authorizer;
         this.asyncAm = asyncAm;
