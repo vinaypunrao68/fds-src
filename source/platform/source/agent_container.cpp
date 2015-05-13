@@ -4,7 +4,6 @@
 
 #include <string>
 
-#include <NetSession.h>
 #include "platform/node_data.h"
 #include "node_platform.h"
 
@@ -13,7 +12,6 @@ namespace fds
     AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
     {
         ac_id        = id;
-        ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
     }
 
     // agent_handshake
@@ -29,7 +27,6 @@ namespace fds
     // --------------------------------------------------------------------------------------
     AgentContainer::~AgentContainer()
     {
-        ac_cpSessTbl->endAllSessions();
     }
 
     // agent_register

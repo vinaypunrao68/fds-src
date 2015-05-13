@@ -134,7 +134,7 @@ class RestartTest(object):
             time.sleep(3)
         """
 
-        self.cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+        self.cli.run_cli('domain activateServices local sm,dm')
         print "Waiting for services to come up"
         time.sleep(8)
 
@@ -161,7 +161,7 @@ class RestartTest(object):
 
         # todo(Rao): Unregister the services here.  Once we implement name based
         # services this should be easy
-        #print("NOTE: Run fdscli --remove-services to remove services")
+        #print("NOTE: Run [fdsconsole.py domain removeServices] to remove services")
 
     def __connect(self):
         ''' connect to the fds server via s3 API '''

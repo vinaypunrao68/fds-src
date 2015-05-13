@@ -7,7 +7,6 @@
 #include <fds_volume.h>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_OMControlPathReq.h"
 #include <util/Log.h>
 
 #include <unordered_map>

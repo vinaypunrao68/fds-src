@@ -1,11 +1,8 @@
 package com.formationds.util;
 
 import com.formationds.apis.*;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ResourceState;
-import com.formationds.protocol.FDSP_PolicyInfoType;
+import com.formationds.protocol.*;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -127,7 +124,19 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public int ActivateNode(FDSP_ActivateOneNodeType act_serv_req)
+            throws TException {
+        return 0;
+    }
+
+    @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+            throws TException {
+        return null;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(int ignore)
             throws TException {
         return null;
     }
@@ -136,6 +145,12 @@ public class StubConfigurationApi implements ConfigurationApi {
     public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
             throws TException {
         return;
+    }
+
+    @Override
+    public int RemoveServices(FDSP_RemoveServicesType rm_node_req)
+            throws TException {
+        return 0;
     }
 
     @Override
@@ -280,6 +295,17 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public FDSP_VolumeDescType GetVolInfo(FDSP_GetVolInfoReqType vol_info_req)
+            throws TException {
+        return null;
+    }
+
+    @Override
+    public int ModifyVol(FDSP_ModifyVolType mod_vol_req) throws ApiException, TException {
+        return 0;
+    }
+
+    @Override
     public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {
         configurationVersion.incrementAndGet();
 
@@ -296,6 +322,11 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public List<VolumeDescriptor> listVolumes(String domainName) throws ApiException, TException {
         return Lists.newArrayList(volumes);
+    }
+
+    @Override
+    public List<FDSP_VolumeDescType> ListVolumes(int ignore) throws ApiException, TException {
+        return null;
     }
 
     @Override
