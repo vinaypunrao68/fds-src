@@ -39,33 +39,33 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module("pm"), m_appPidMap()
+        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap()
         {
 
         }
 
-        int PlatformManager::mod_init(SysParams const *const param)
+        int PlatformManager::mod_init (SysParams const *const param)
         {
-            conf = new FdsConfigAccessor(g_fdsprocess->get_conf_helper());
+            conf = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-            db = new kvstore::PlatformDB(rootDir, conf->get<std::string>("redis_host","localhost"), conf->get<int>("redis_port", 6379), 1);
+            db = new kvstore::PlatformDB (rootDir, conf->get<std::string> ("redis_host","localhost"), conf->get <int> ("redis_port", 6379), 1);
 
             if (!db->isConnected())
             {
-                LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string>("redis_host","localhost") << ":" << conf->get<int>("redis_port", 6379) << "]";
+                LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string> ("redis_host","localhost") << ":" << conf->get <int> ("redis_port", 6379) << "]";
             } else {
-                db->getNodeInfo(nodeInfo);
-                db->getNodeDiskCapability(diskCapability);
+                db->getNodeInfo (nodeInfo);
+                db->getNodeDiskCapability (diskCapability);
             }
 
             if (nodeInfo.uuid <= 0)
             {
-                NodeUuid    uuid(fds_get_uuid64(get_uuid()));
+                NodeUuid    uuid (fds_get_uuid64 (get_uuid()));
 
                 nodeInfo.uuid = uuid.uuid_get_val();
-                nodeInfo.uuid = getNodeUUID(fpi::FDSP_PLATFORM);
+                nodeInfo.uuid = getNodeUUID (fpi::FDSP_PLATFORM);
                 LOGNOTIFY << "generated a new uuid for this node : " << nodeInfo.uuid;
-                db->setNodeInfo(nodeInfo);
+                db->setNodeInfo (nodeInfo);
             } else {
                 LOGNOTIFY << "Using stored uuid for this node : " << nodeInfo.uuid;
             }
@@ -80,21 +80,39 @@ namespace fds
 
         }
 
+        std::string PlatformManager::getProcName (int const processID)
+        {
+            try
+            {
+                return (m_idToAppNameMap.at (processID));
+            }
+            catch (const std::out_of_range &error)
+            {
+                LOGERROR << "PlatformManager::getProcName is unable to identify a textual process name for index value " << processID << ", " << error.what();
+            }
+
+            return nullptr;
+        }
+
+
         pid_t PlatformManager::startProcess (int processID)
         {
             std::vector<std::string>    args;
             pid_t                       pid;
             std::string                 command;
-            std::string                 procName;
+            std::string                 procName = getProcName (processID);
 
-            try
+            if (procName.empty())
             {
-                procName = m_idToAppNameMap.at(processID);
-            }
-            catch (const std::out_of_range &error)
-            {
-                LOGERROR << "startProcess is unable to identify a process name for index value " << processID << ", " << error.what();
                 return -1;
+            }
+
+            auto mapIter = m_appPidMap.find (procName);
+
+            if (m_appPidMap.end() != mapIter)
+            {
+                LOGDEBUG << "Received a request to start " << procName << ", but it is already running.  Not doing anything.";
+                return 0;
             }
 
             if (JAVA_AM == processID)
@@ -105,7 +123,7 @@ namespace fds
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;
-                remoteDebugger << JAVA_DEBUGGER_OPTIONS << conf->get<int>("platform_port") + 7777;
+                remoteDebugger << JAVA_DEBUGGER_OPTIONS << conf->get <int> ("platform_port") + 7777;
                 args.push_back (remoteDebugger.str());
 #endif // DEBUG
 
@@ -117,12 +135,12 @@ namespace fds
             }
 
             // Common command line options
-            args.push_back("--foreground");
-            args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
-            args.push_back(util::strformat("--fds.common.om_ip_list=%s", conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
-            args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
+            args.push_back ("--foreground");
+            args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", getNodeUUID (fpi::FDSP_PLATFORM)));
+            args.push_back (util::strformat ("--fds.common.om_ip_list=%s", conf->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
+            args.push_back (util::strformat ("--fds.pm.platform_port=%d", conf->get <int> ("platform_port")));
 
-            pid = fds_spawn_service(command, rootDir, args, false);
+            pid = fds_spawn_service (command, rootDir, args, false);
 
             if (pid > 0)
             {
@@ -183,17 +201,12 @@ namespace fds
             return false;
         }
 
-        void PlatformManager::stopProcess (int id, bool haveLock)
+        void PlatformManager::stopProcess (int id)
         {
-            std::string    procName;
+            std::string    procName = getProcName (id);
 
-            try
+            if (procName.empty())
             {
-                procName = m_idToAppNameMap.at(id);
-            }
-            catch (const std::out_of_range &error)
-            {
-                LOGERROR << "stopProcess is unable to identify a process name for index value " << id << ", " << error.what();
                 return;
             }
 
@@ -250,16 +263,17 @@ namespace fds
 
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
+            // In all the cases below, if pid == 0 is returned from startProcess, the process is already running so, so we fall through to the next check
 
             if (info.has_sm_service)
             {
                 pid = startProcess(STORAGE_MANAGER);
 
-                if (pid < 2)
+                if (pid < 0)
                 {
                     LOGCRITICAL << "Failed to start:  " << SM_NAME;
                 }
-                else
+                else if (pid > 1)
                 {
                     m_appPidMap[SM_NAME] = pid;
                     nodeInfo.fHasSm = true;
@@ -270,11 +284,11 @@ namespace fds
             {
                 pid = startProcess(DATA_MANAGER);
 
-                if (pid < 2)
+                if (pid < 0)
                 {
                     LOGCRITICAL << "Failed to start:  " << DM_NAME;
                 }
-                else
+                else if (pid > 1)
                 {
                     m_appPidMap[DM_NAME] = pid;
                     nodeInfo.fHasDm = true;
@@ -283,26 +297,26 @@ namespace fds
 
             if (info.has_am_service)
             {
-
+                // For the AM, if bare_am is running, presume that the java_am is also running, the monitoring side will restart both if a failure is detected
                 pid = startProcess(BARE_AM);
 
-                if (pid < 2)
+                if (pid < 0)
                 {
                     LOGCRITICAL << "Failed to start:  " << BARE_AM_NAME;
                 }
-                else
+                else if (pid > 1)
                 {
                     m_appPidMap[BARE_AM_NAME] = pid;
 
                     pid = startProcess(JAVA_AM);
 
-                    if (pid < 2)
+                    if (pid < 0)
                     {
                         LOGCRITICAL << "Failed to start:  " << JAVA_AM_CLASS_NAME;
 
-                        stopProcess (BARE_AM, true);
+                        stopProcess (BARE_AM);
                     }
-                    else
+                    else if (pid > 1)
                     {
                         m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
                         nodeInfo.fHasAm = true;

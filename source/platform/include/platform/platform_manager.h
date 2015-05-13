@@ -50,7 +50,7 @@ namespace fds
                 PlatformManager();
 
                 /* Overrides from Module */
-                virtual int  mod_init(SysParams const *const param) override;
+                virtual int  mod_init (SysParams const *const param) override;
                 virtual void mod_startup()
                 {
                 }
@@ -59,9 +59,8 @@ namespace fds
 
                 void run();
 
-
-                void activateServices(const fpi::ActivateServicesMsgPtr &activateMsg);
-                void deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg);
+                void activateServices (const fpi::ActivateServicesMsgPtr &activateMsg);
+                void deactivateServices (const fpi::DeactivateServicesMsgPtr &deactivateMsg);
 
                 const fpi::NodeInfo& getNodeInfo()
                 {
@@ -72,17 +71,17 @@ namespace fds
                  * Update the service info properties with disk information,
                  * the node uuid, and fds_root.
                  */
-                void updateServiceInfoProperties(std::map<std::string, std::string> *data);
+                void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
             protected:
 
-                fds_int64_t getNodeUUID(fpi::FDSP_MgrIdType svcType);
+                fds_int64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();
 
                 bool waitPid (pid_t pid, uint64_t waitTimeoutNanoSeconds, bool monitoring = false);
                 pid_t startProcess (int id);
-                void stopProcess (int id, bool haveLock = false);
+                void stopProcess (int id);
 
             private:
                 FdsConfigAccessor                  *conf;
@@ -93,9 +92,10 @@ namespace fds
                 std::string                         rootDir;
 
                 std::mutex                          m_pidMapMutex;
-                std::map<std::string, pid_t>        m_appPidMap;
+                std::map <std::string, pid_t>       m_appPidMap;
 
                 void childProcessMonitor();
+                std::string getProcName (int const index);
         };
     }  // namespace pm
 }  // namespace fds

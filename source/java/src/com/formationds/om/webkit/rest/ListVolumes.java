@@ -4,9 +4,6 @@
 
 package com.formationds.om.webkit.rest;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import com.formationds.apis.*;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.om.repository.MetricRepository;
@@ -45,7 +42,6 @@ public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
     private ConfigurationApi config;
-    private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
     private Authorizer authorizer;
 
@@ -53,11 +49,9 @@ public class ListVolumes implements RequestHandler {
 
     public ListVolumes( Authorizer authorizer,
 						ConfigurationApi config,
-						FDSP_ConfigPathReq.Iface legacyConfig,
 						AuthenticationToken token ) {
 
         this.config = config;
-        this.legacyConfig = legacyConfig;
         this.token = token;
         this.authorizer = authorizer;
 
@@ -105,8 +99,7 @@ public class ListVolumes implements RequestHandler {
 		FDSP_VolumeDescType volInfo = null;
 		if (v != null && v.getName() != null) {
 			try {
-				volInfo = legacyConfig.GetVolInfo(new FDSP_MsgHdrType(),
-						new FDSP_GetVolInfoReqType(v.getName(), 0));
+				volInfo = config.GetVolInfo(new FDSP_GetVolInfoReqType(v.getName(), 0));
 			} catch (TException e) {
 				LOG.warn("Getting Volume Info Failed", e);
 			}

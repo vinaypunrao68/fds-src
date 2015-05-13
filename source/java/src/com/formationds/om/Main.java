@@ -3,7 +3,6 @@
  */
 package com.formationds.om;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.XdiService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
@@ -11,7 +10,6 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
-import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
@@ -145,17 +143,9 @@ public class Main {
          * TODO(Tinius) currently we only support a single OM
          */
 
-        int omLegacyConfigPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
         String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                                       "../lib/admin-webapp" );
 
-        FDSP_ConfigPathReq.Iface legacyConfigClient =
-            ConfigServiceClientFactory.newLegacyConfigService(grabFirstOmIpAddress,
-                                                              omLegacyConfigPort)
-                                      .getClient();
-
-        SingletonLegacyConfig.instance()
-                             .api( legacyConfigClient );
 
 
         char[] aesKey = platformConfig.defaultString( "fds.aes_key", "" ).toCharArray();
