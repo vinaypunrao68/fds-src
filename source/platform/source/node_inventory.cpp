@@ -8,10 +8,11 @@
 #include <platform/node_services.h>
 #include "platform/platform.h"
 #include <net/net-service-tmpl.hpp>
-#include <NetSession.h>
 #include "platform/node_data.h"
 #include "platform/node_shm_ctrl.h"
 #include <util/Log.h>
+#include <net/net_utils.h>
+
 namespace fds
 {
     std::ostream& operator<< (std::ostream &os, const NodeServices& node)
@@ -311,7 +312,7 @@ namespace fds
         nd_node_name = msg->node_name;
         node_root    = msg->node_root;
 
-        ip = netSession::ipAddr2String(msg->ip_lo_addr);
+        ip = net::ipAddr2String(msg->ip_lo_addr);
         strncpy(rs_name, ip.c_str(), RS_NAME_MAX - 1);
     }
 
@@ -364,7 +365,7 @@ namespace fds
         if (plat == NULL)
         {
             /* We'll get here if this is OM */
-            msgHdr->src_id        = FDSP_ORCH_MGR;
+            msgHdr->src_id        = fpi::FDSP_ORCH_MGR;
             msgHdr->src_node_name = "";
         }else {
             msgHdr->src_id        = plat->plf_get_node_type();

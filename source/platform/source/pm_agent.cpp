@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <NetSession.h>
 #include <net/net-service-tmpl.hpp>
 #include "platform/platform.h"
 #include "platform/node_data.h"
@@ -74,7 +73,7 @@ namespace fds
         data.svc_id.svc_name.assign(ninfo->nd_assign_name);
         data.svc_auto_name.assign(ninfo->nd_auto_name);
 
-        data.svc_status = SVC_STATUS_ACTIVE;
+        data.svc_status = fpi::SVC_STATUS_ACTIVE;
         data.svc_type   = type;
         data.svc_port   = Platform::plf_svc_port_from_node(ninfo->nd_base_port, type);
 

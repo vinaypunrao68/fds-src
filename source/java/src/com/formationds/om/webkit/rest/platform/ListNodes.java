@@ -3,8 +3,7 @@ package com.formationds.om.webkit.rest.platform;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
@@ -33,9 +32,9 @@ public class ListNodes
         LoggerFactory.getLogger( ListNodes.class );
 
 
-    private final FDSP_ConfigPathReq.Iface configPathClient;
+    private final ConfigurationService.Iface configPathClient;
 
-    public ListNodes( final FDSP_ConfigPathReq.Iface configPathClient ) {
+    public ListNodes( final ConfigurationService.Iface configPathClient ) {
 
         this.configPathClient = configPathClient;
 
@@ -46,7 +45,8 @@ public class ListNodes
         throws Exception {
 
         List<com.formationds.protocol.FDSP_Node_Info_Type> list =
-            configPathClient.ListServices( new FDSP_MsgHdrType() );
+            configPathClient.ListServices(0);
+        logger.debug("Size of service list: {}", list.size());
 
         /**
          * temporary work-a-round for the defective list nodes.

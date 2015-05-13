@@ -4,7 +4,6 @@
 
 package com.formationds.om.webkit.rest.domain;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
@@ -28,16 +27,13 @@ public class PutLocalDomain
     LoggerFactory.getLogger( PutLocalDomain.class );
 
   private final Authorizer authorizer;
-  private final FDSP_ConfigPathReq.Iface legacyConfigPath;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
   public PutLocalDomain( final Authorizer authorizer,
-                         final FDSP_ConfigPathReq.Iface legacyConfigPath,
                          final ConfigurationService.Iface configApi,
                          final AuthenticationToken token ) {
     this.authorizer = authorizer;
-    this.legacyConfigPath = legacyConfigPath;
     this.configApi = configApi;
     this.token = token;
   }
