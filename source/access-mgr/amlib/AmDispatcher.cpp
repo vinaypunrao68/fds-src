@@ -53,9 +53,6 @@ AmDispatcher::~AmDispatcher() = default;
 
 void
 AmDispatcher::start() {
-    /** Construct the Orch Client */
-    om_client.reset(new OMgrClient(FDSP_ACCESS_MGR, "localhost-sh", GetLog()));
-
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.testing.");
     if (conf.get<fds_bool_t>("uturn_dispatcher_all", false)) {
         fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
@@ -70,17 +67,14 @@ AmDispatcher::start() {
     if (conf.get<bool>("standalone", false)) {
         dmtMgr = boost::make_shared<DMTManager>(1);
         dltMgr = boost::make_shared<DLTManager>();
-        om_client->setNoNetwork(true);
+        //  om_client->setNoNetwork(true);
     } else {
         // Set the DLT manager in svc layer so that it knows to dispatch
         // requests on behalf of specific placement table versions.
-        dmtMgr = om_client->getDmtManager();
-        dltMgr = om_client->getDltManager();
+        dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
+        dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
         gSvcRequestPool->setDltManager(dltMgr);
 
-        // TODO(bszmyd): Thu 26 Mar 2015 02:39:33 PM PDT
-        // Shouldn't be using .get() on a unique_ptr, fix this
-	StatsCollector::singleton()->registerOmClient(om_client.get());
 	fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
 	fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
 	if (print_qos_stats) {
@@ -94,7 +88,7 @@ AmDispatcher::start() {
 
 Error
 AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
-    auto err = om_client->updateDlt(dlt_type, dlt_data, cb);
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt_type, dlt_data, cb);
     if (ERR_DUPLICATE == err) {
         LOGWARN << "Received duplicate DLT version, ignoring";
         err = ERR_OK;
@@ -104,7 +98,7 @@ AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbT
 
 Error
 AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
-    auto err = om_client->updateDmt(dmt_type, dmt_data);
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt_type, dmt_data);
     if (ERR_DUPLICATE == err) {
         LOGWARN << "Received duplicate DMT version, ignoring";
         err = ERR_OK;

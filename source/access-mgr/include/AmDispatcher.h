@@ -181,9 +181,6 @@ struct AmDispatcher : HasModuleProvider
     void dispatchVolumeContents(AmRequest *amReq);
 
   private:
-    /** OM Client to attach and manage the DLT/DMT */
-    std::unique_ptr<OMgrClient> om_client;
-
     /**
      * Shared ptrs to the DLT and DMT managers used
      * for deciding who to dispatch to.
