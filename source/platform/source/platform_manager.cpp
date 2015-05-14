@@ -386,13 +386,13 @@ namespace fds
             if (deactivateMsg->deactivate_dm_svc && nodeInfo.fHasDm)
             {
                 stopProcess(DATA_MANAGER);
-                nodeInfo.fHasDm = true;
+                nodeInfo.fHasDm = false;
             }
 
             if (deactivateMsg->deactivate_sm_svc && nodeInfo.fHasSm)
             {
                 stopProcess(STORAGE_MANAGER);
-                nodeInfo.fHasSm = true;
+                nodeInfo.fHasSm = false;
             }
         }
 
