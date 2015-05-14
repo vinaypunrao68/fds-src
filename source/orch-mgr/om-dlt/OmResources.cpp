@@ -1879,7 +1879,8 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             DataPlacement *dp = om->om_dataplace_mod();
             OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
         }
-        if (msg->node_type != fpi::FDSP_DATA_MGR) {
+        if ((msg->node_type != fpi::FDSP_DATA_MGR) ||
+        		(msg->node_type != fpi::FDSP_ACCESS_MGR)) {
             OM_Module *om = OM_Module::om_singleton();
             VolumePlacement* vp = om->om_volplace_mod();
             if (vp->hasCommittedDMT()) {
@@ -1898,16 +1899,13 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
          * the getDLT() and getDMT() methods, instead of waiting for the OM to
          * broadcast here.
          */
-        if (om_local_domain_up() && (msg->node_type != fpi::FDSP_ACCESS_MGR)) {
+        if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
                 om_dlt_update_cluster();
-            }
-            // Send the DMT to DMs.
-            if (msg->node_type == fpi::FDSP_DATA_MGR) {
-                om_dmt_update_cluster();
-            } else {
                 om_locDomain->om_bcast_vol_list(newNode);
-                // for new DMs, we send volume list as part of DMT deploy state machine
+            } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            	// Send the DMT to DMs.
+                om_dmt_update_cluster();
             }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
