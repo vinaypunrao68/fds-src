@@ -269,6 +269,7 @@ namespace fds
                 }
 
                 m_startQueueCondition.notify_one();
+                nodeInfo.fHasSm = true;
             }
 
             if (info.has_dm_service)
@@ -279,6 +280,7 @@ namespace fds
                 }
 
                 m_startQueueCondition.notify_one();
+                nodeInfo.fHasDm = true;
             }
 
             if (info.has_am_service)
@@ -290,6 +292,7 @@ namespace fds
                 }
 
                 m_startQueueCondition.notify_one();
+                nodeInfo.fHasAm = true;
             }
 
         }
@@ -377,16 +380,19 @@ namespace fds
             {
                 stopProcess(JAVA_AM);
                 stopProcess(BARE_AM);
+                nodeInfo.fHasAm = false;
             }
 
             if (deactivateMsg->deactivate_dm_svc && nodeInfo.fHasDm)
             {
                 stopProcess(DATA_MANAGER);
+                nodeInfo.fHasDm = true;
             }
 
             if (deactivateMsg->deactivate_sm_svc && nodeInfo.fHasSm)
             {
                 stopProcess(STORAGE_MANAGER);
+                nodeInfo.fHasSm = true;
             }
         }
 
