@@ -14,12 +14,15 @@ class TestDM(unittest.TestCase):
     om_node = '127.0.0.1'
 
     def _test_start(self):
+	self.log.info(TestDM.test_start.__name__)
         self.assertTrue(self.dm_obj.start('{}'.format(self.om_node)), True)
 
     def _test_stop(self):
+	self.log.info(TestDM.test_stop.__name__)
         self.assertTrue(self.dm_obj.stop('{}'.format(self.om_node)), True)
                 
     def test_kill(self):
+	self.log.info(TestDM.test_kill.__name__)
         self.assertTrue(self.dm_obj.kill('{}'.format(self.om_node)), True)
 
 
