@@ -516,13 +516,15 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
             LOGWARN << "Failed to cancel timer, volume with re-attach!";
         }
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
+
+        // Remove the volume from the caches
+        err = txMgr->removeVolume(volDesc);
     }
 
-    // Remove the volume from QoS/VolumeTable
-    err = volTable->removeVolume(volDesc);
-
-    // Remove the volume from the caches
-    auto err_2 = txMgr->removeVolume(volDesc);
+    // Remove the volume from QoS/VolumeTable, this is
+    // called to clear any waiting requests with an error and
+    // remove the QoS allocations
+    auto err_2 = volTable->removeVolume(volDesc);
 
     if (shut_down && volTable->drained())
     {

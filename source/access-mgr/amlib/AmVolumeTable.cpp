@@ -209,8 +209,8 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
                           delete amReq;
                       });
     if (0 == volume_map.erase(volDesc.volUUID)) {
-        LOGWARN << "Called for non-existing volume " << volDesc.volUUID;
-        return ERR_INVALID_ARG;
+        LOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
+        return ERR_OK;
     }
     LOGNOTIFY << "AmVolumeTable - Removed volume " << volDesc.volUUID;
     return qos_ctrl->deregisterVolume(volDesc.volUUID);

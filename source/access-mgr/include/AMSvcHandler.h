@@ -51,7 +51,7 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
               boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg);
 
     virtual void
-    DetachVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+    RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
               boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg);
 
     virtual void

@@ -23,7 +23,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyQoSControl, QoSControl);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, AddVol);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, DetachVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, RemoveVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownAM);
@@ -177,11 +177,11 @@ AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
 }
 
-// DetachVol
+// RemoveVol
 // ---------
 //
 void
-AMSvcHandler::DetachVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg)
 {
     Error err(ERR_OK);
