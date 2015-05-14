@@ -465,6 +465,7 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
+    fiu_do_on("sm.exit.before.client.erase", exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";

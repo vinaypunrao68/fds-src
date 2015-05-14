@@ -25,16 +25,16 @@ int om_gdb = 0;
 
 int main(int argc, char *argv[])
 {
-    omModule = new OM_Module("OM");
+    fds::omModule = new fds::OM_Module("OM");
 
     while (om_gdb == 1) { sleep(1); }
 
-    fds::orchMgr = new fds::OrchMgr(argc, argv, omModule);
+    fds::orchMgr = new fds::OrchMgr(argc, argv, fds::omModule);
 
     int ret = fds::orchMgr->main();
 
-    delete omModule;
-    omModule = nullptr;
+    delete fds::omModule;
+    fds::omModule = nullptr;
     delete fds::orchMgr;
     fds::orchMgr = nullptr;
 

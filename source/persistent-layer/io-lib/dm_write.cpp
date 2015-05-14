@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <fds_error.h>
+#include <fiu-local.h>
+#include <fiu-control.h>
 
 namespace diskio {
 
@@ -63,6 +65,7 @@ FilePersisDataIO::delete_file()
 fds::Error
 diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
 {
+    fds::Error err(fds::ERR_OK);
     ssize_t         len = 0;
     fds_blk_t       off_blk, blk, shft;
     meta_obj_map_t  *map;
@@ -92,20 +95,22 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     while (retry_cnt++ < 3 && len != buf->getSize()) {
         len = pwrite64(fi_fd, static_cast<const void *>((buf->data)->c_str()),
                        buf->getSize(), off_blk);
-       if (len < 0) {
-           perror("Error: ");
-           return fds::ERR_DISK_WRITE_FAILED;
-       }
-       if (len == buf->getSize()) {
-          break;
-       }
+        fiu_do_on("sm.persist.writefail", len = -1; );
+        if (len < 0) {
+            // perror("Error: ");
+            err = fds::ERR_DISK_WRITE_FAILED;
+            break;
+        }
+        if (len == buf->getSize()) {
+            break;
+        }
     }
     if (len != buf->getSize()) {
-       perror("Error: ");
-       return fds::ERR_DISK_WRITE_FAILED;
+        // perror("Error: ");
+        err = fds::ERR_DISK_WRITE_FAILED;
     }
     disk_write_done(req);
-    return fds::ERR_OK;
+    return err;
 }
 
 void
