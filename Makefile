@@ -11,4 +11,9 @@ user_build_dir := \
 
 include $(topdir)/Makefile.incl
 
+.PHONY: coverage
+
 all: generate-config-files
+
+coverage:
+	cd source && make coverage
