@@ -68,7 +68,7 @@ template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::PutObjectMsg const&
 { return FDSP_MSG_TYPEID(PutObjectMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::GetObjectMsg const& msg)
-{ return FDSP_MSG_TYPEID(PutObjectMsg); }
+{ return FDSP_MSG_TYPEID(GetObjectMsg); }
 // =============
 
 }  // namespace fds

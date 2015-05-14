@@ -155,7 +155,7 @@ AmDispatcher::createQuorumRequest(ObjectID const& objId,
                                   boost::shared_ptr<Msg> const& payload,
                                   QuorumSvcRequestRespCb cb,
                                   uint32_t timeout) const {
-    auto const dlt = dltMgr->getAndLockCurrentDLT();
+    auto const dlt = dltMgr->getDLT();
     auto quorumReq = gSvcRequestPool->newQuorumSvcRequest(
                             boost::make_shared<DltObjectIdEpProvider>(
                                                          dlt->getNodes(objId)));
@@ -188,7 +188,7 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
                                   boost::shared_ptr<Msg> const& payload,
                                   FailoverSvcRequestRespCb cb,
                                   uint32_t timeout) const {
-    auto const dlt = dltMgr->getAndLockCurrentDLT();
+    auto const dlt = dltMgr->getDLT();
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(
                             boost::make_shared<DltObjectIdEpProvider>(
                                                          dlt->getNodes(objId)));
@@ -590,7 +590,6 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-
     auto const dlt = dltMgr->getAndLockCurrentDLT();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
                                      amReq, dlt->getVersion()));
