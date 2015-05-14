@@ -38,4 +38,4 @@
     -   ../vars_files/deploy_fds/admin_credentials.yml
 
     tasks:
-    -   include: ../tasks/deploy_fds/deploy_fds.yml
+    -   include: ../tasks/deploy_fds/add_fds_node.yml
