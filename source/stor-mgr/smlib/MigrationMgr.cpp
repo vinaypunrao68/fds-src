@@ -20,7 +20,6 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
     for (int i = 0; i < 256; i++) { // assuming one for each sm tokens
         fds_token_id t = static_cast<fds_token_id>(i);
-        remainingTokens.push_front(t);
         snapshotRequest[t].io_type = FDS_SM_SNAPSHOT_TOKEN;
         snapshotRequest[t].retryReq = false;
         snapshotRequest[t].smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
@@ -116,6 +115,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         // iterate over DLT tokens for this source SM
         for (auto dltTok : migrGroup.tokens) {
             fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
+            fds_verify(smTok < 256)
             LOGNOTIFY << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                        << " DLT token " << dltTok << " SM token " << smTok;
             // if we don't know about this SM token and source SM, create migration executor
@@ -149,15 +149,22 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     // for now we will do one SM token at a time
     // take first SM token from the migrExecutors map and queue qos msg to create
     // a snapshot of SM token metadata
-    MigrExecutorMap::const_iterator cit = migrExecutors.cbegin();
     // TODO: limit this and make it configurable
     LOGMIGRATE << "Number of executors: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0)
-    for (int issued = 0; cit != migrExecutors.cend() && issued < parallelMigration; cit++, issued++) {
-        smTokenInProgress.insert(cit->first);
-        remainingTokens.remove(cit->first);
-        startSmTokenMigration(cit->first);
+    nextExecutor.set(migrExecutors.begin());
+    fds_verify(parallelMigration > 0);
+    for (int issued = 0; issued < parallelMigration; issued++) {
+        auto next = nextExecutor.get();
+        fds_verify(next != migrExecutors.cend())
+        fds_verify(next->first < 256);
+        {
+            SCOPEDWRITE(smTokenInProgressRWLock);
+            smTokenInProgress.insert(next->first);
+        }
+        startSmTokenMigration(next->first);
+        nextExecutor.inc();
     }
     return err;
 }
@@ -259,6 +266,7 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
 
     // pass this snapshot to all migration executors that are responsible for
     // migrating DLT tokens that belong to this SM token
+    fds_verify(curSmTokenInProgress < 256);
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[curSmTokenInProgress].cbegin();
          cit != migrExecutors[curSmTokenInProgress].cend();
          ++cit) {
@@ -391,6 +399,7 @@ SmTokenMigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
     // decline the request -- this is to prevent circular resync between two SMs
     // that are both source and destination for the same SM token
     fds_token_id smTok = SmDiskMap::smTokenId(dltToken);
+    fds_verify(smTok < 256);
     if (migrExecutors.count(smTok) > 0) {
         for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smTok].cbegin();
              cit != migrExecutors[smTok].cend();
@@ -511,7 +520,17 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
 
     // since we are doing one SM token at a time, search for executor in deltaSet
     fds_bool_t found = false;
-    for (auto token : smTokenInProgress) {
+    // called for second round as well?
+    LOGMIGRATE << "recvRebalanceDeltaSet: " << smTokenInProgress.size();
+    std::unordered_set<fds_token_id> curSmTokenInProgress;
+    {
+        SCOPEDREAD(smTokenInProgressRWLock);
+        curSmTokenInProgress = smTokenInProgress;
+    }
+
+    for (auto token : curSmTokenInProgress) {
+        LOGMIGRATE << "token: " << token;
+        fds_verify(token < 256); // FIXME(matteo): ??? race
         for (SrcSmExecutorMap::const_iterator cit = migrExecutors[token].cbegin();
              cit != migrExecutors[token].cend();
              ++cit) {
@@ -524,7 +543,6 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
             }
         }
     }
-    fds_verify(found);   // did we start doing more than one SM token at a time?
     return err;
 }
 
@@ -547,13 +565,17 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     fds_bool_t isFirstRound = (round == 1);
     
     LOGMIGRATE << "Migration executor " << std::hex << executorId << std::dec
+               << " smToken=" << smToken
                << " finished migration round " << round << " done? "
                << (round == 2) << error;
     
     bool found = false;
-    for (auto e : smTokenInProgress) {
-        if (smToken == e)
-            found = true;
+    {   
+        SCOPEDREAD(smTokenInProgressRWLock);
+        for (auto e : smTokenInProgress) {
+            if (smToken == e)
+                found = true;
+        }
     }
     fds_verify(found);
 
@@ -602,6 +624,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // if we are done migration for all executors migrating current SM token,
     // start executors for the next SM token (if any)
     fds_bool_t finished = true;
+    fds_verify(smToken < 256)
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
          cit != migrExecutors[smToken].cend();
          ++cit) {
@@ -614,30 +637,57 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // migrate next SM token or we are done
     if (finished) {
         // If I'm here I have migrated a token, need to find the next token to migrate
-        smTokenInProgress.erase(smToken);
-
-        if (remainingTokens.size() > 0) {
-            fds_token_id t = remainingTokens.back();
+        LOGMIGRATE << "erasing " << smToken;
+        {
+            SCOPEDWRITE(smTokenInProgressRWLock);
+            smTokenInProgress.erase(smToken);
+        }
+        auto next = nextExecutor.get();
+        if (next != migrExecutors.end()) {
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
-                smTokenInProgress.insert(t);
-                remainingTokens.pop_back();
-                LOGMIGRATE << "call startSmTokenMigration for " << t;
-                LOGMIGRATE << "remainingTokens.size()=" << remainingTokens.size();
-                startSmTokenMigration(t);
+                fds_verify(next->first < 256);
+                {
+                    SCOPEDWRITE(smTokenInProgressRWLock);
+                    smTokenInProgress.insert(next->first);
+                }
+                LOGMIGRATE << "call startSmTokenMigration for " << next->first;
+                startSmTokenMigration(next->first);
             } else {
-                // ???
-                fds_verify(false);
-                ++it;
-                startSecondRebalanceRound(it->first);
+                // coming in here during second phase when calling the ExecutorDone callback
+                // TODO(matteo): insert iterator into smTokenInProgress
+                {
+                    SCOPEDWRITE(smTokenInProgressRWLock);
+                    smTokenInProgress.insert(next->first);
+                }
+                startSecondRebalanceRound(next->first);
             }
+            LOGMIGRATE << "incrementing nextExecutor";
+            nextExecutor.inc();
         } else {
-            LOGMIGRATE << "done migrating - smTokenInProgress.size()=" << smTokenInProgress.size();
+            // this happens twice
+            LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
             // need to make sure all executors have terminated
-            if (isFirstRound && !resyncOnRestart && smTokenInProgress.size() == 0) {
+            {
+                SCOPEDREAD(smTokenInProgressRWLock);
+                if (smTokenInProgress.size() > 0) {
+                    LOGMIGRATE << "exiting done migrating";
+                    return;
+                }
+            }
+            if (isFirstRound && !resyncOnRestart) {
+                // here I start the second round for the first time
                 // start with first executor to do the second round
-                LOGMIGRATE << "starting second round for " << migrExecutors.begin()->first;
+                LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
+                LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
+                // TODO(matteo): insert iterator into smTokenInProgress
+                {
+                    SCOPEDWRITE(smTokenInProgressRWLock);
+                    smTokenInProgress.insert(migrExecutors.begin()->first);
+                }
                 startSecondRebalanceRound(migrExecutors.begin()->first);
+                nextExecutor.set(migrExecutors.begin());
+                nextExecutor.inc();
             } else {
                 // done with second round -- all done
                 if (omStartMigrCb) {
@@ -670,6 +720,7 @@ SmTokenMigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
 
     // notify all migration executors responsible for this SM token to start
     // second round of migration
+    fds_verify(smTokenInProgressSecondRound < 256)
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smTokenInProgressSecondRound].cbegin();
          cit != migrExecutors[smTokenInProgressSecondRound].cend();
          ++cit) {

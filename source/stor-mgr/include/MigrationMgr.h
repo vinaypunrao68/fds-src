@@ -288,7 +288,24 @@ class SmTokenMigrationMgr {
 
     /// SM token token that is currently in progress of migrating
     std::unordered_set<fds_token_id> smTokenInProgress;
-    std::list<fds_token_id> remainingTokens;
+    fds_rwlock smTokenInProgressRWLock;
+    struct NextExecutor {
+        MigrExecutorMap::const_iterator it;
+        fds_rwlock m;
+        void inc() {
+            SCOPEDWRITE(m);
+            it++;
+        }
+        MigrExecutorMap::const_iterator get() {
+            SCOPEDREAD(m);
+            return  it;
+        }
+        void set(MigrExecutorMap::iterator i) {
+            SCOPEDWRITE(m);
+            it = i;
+        }
+    } nextExecutor;
+
     /// SM token token that is currently in the second round
     fds_token_id smTokenInProgressSecondRound;
     fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
