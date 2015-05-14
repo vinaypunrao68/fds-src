@@ -17,6 +17,8 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcServer.h>
 #include <net/SvcMgr.h>
+#include <dlt.h>
+#include <fds_dmt.h>
 
 namespace fds {
 
@@ -110,6 +112,9 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), handler);
     gSvcRequestPool = svcRequestMgr_;
+
+    dltMgr_.reset(new DLTManager());
+    dmtMgr_.reset(new DMTManager());
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -437,6 +442,27 @@ bool SvcMgr::isSvcActionableError(const Error &e)
 void SvcMgr::handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e)
 {
     // TODO(Rao): Implement
+}
+
+DltTokenGroupPtr SvcMgr::getDLTNodesForDoidKey(const ObjectID &objId) {
+    return dltMgr_->getDLT()->getNodes(objId);
+}
+
+DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id) {
+    return dmtMgr_->getCommittedNodeGroup(vol_id);  // thread-safe, do not hold lock
+}
+
+DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id,
+                                          fds_uint64_t dmt_version) {
+    return dmtMgr_->getVersionNodeGroup(vol_id, dmt_version);  // thread-safe, do not hold lock
+}
+
+const DLT* SvcMgr::getCurrentDLT() {
+    return dltMgr_->getDLT();
+}
+
+bool SvcMgr::hasCommittedDMT() const {
+    return dmtMgr_->hasCommittedDMT();
 }
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
