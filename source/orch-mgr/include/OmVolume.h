@@ -174,7 +174,6 @@ class VolumeInfo : public Resource, public HasState
     void vol_fmt_message(om_vol_msg_t *out);
 
     void setDescription(const VolumeDesc &desc);
-    Error vol_detach_node(const NodeUuid &node_uuid);
     Error vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr);
 
     /**

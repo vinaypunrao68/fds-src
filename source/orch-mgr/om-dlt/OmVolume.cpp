@@ -404,8 +404,7 @@ bool VolumeFSM::GRD_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 {
     STATELOG();
     bool ret = false;
-    if ((evt.op_type == FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD) ||
-        (evt.op_type == FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL)) {
+    if (evt.op_type == FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL) {
         ret = true;
     }
     GLOGDEBUG << "VolumeFSM GRD_VolOp operation type " << evt.op_type
@@ -428,11 +427,6 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     Error err(ERR_OK);
     VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
-        case FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD:
-            GLOGDEBUG << "VACT_VolOp:: detach volume";
-            dst.wait_for_type = om_notify_vol_detach;
-            err = vol->vol_detach_node(evt.tgt_uuid);
-            break;
         case FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL:
             GLOGDEBUG << "VACT_VolOp:: modify volume";
             dst.wait_for_type = om_notify_vol_mod;
@@ -882,28 +876,6 @@ VolumeInfo::vol_am_agent(const NodeUuid &am_uuid)
     OM_NodeContainer  *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
     return local->om_am_agent(am_uuid);
-}
-
-// vol_detach_node
-// ---------------
-//
-Error
-VolumeInfo::vol_detach_node(const NodeUuid &node_uuid)
-{
-    Error err(ERR_OK);
-    OM_AmAgent::pointer  am_agent;
-
-    am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_uuid));
-    if (am_agent == NULL) {
-        // Detach vol before the AM is online.
-        //
-        LOGNORMAL << "Received Detach vol " << vol_name
-                  << ", am node " << std::hex << node_uuid << std::dec;
-        return Error(ERR_NOT_FOUND);
-    }
-    am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolRemoveTypeId);
-
-    return err;
 }
 
 Error
