@@ -1861,11 +1861,6 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
         om_locDomain->om_update_node_list(newNode, msg);
 
-        if (msg->node_type != fpi::FDSP_DATA_MGR) {
-            om_locDomain->om_bcast_vol_list(newNode);
-            // for new DMs, we send volume list as part of DMT deploy state machine
-        }
-
         // send qos related info to this node
         om_locDomain->om_send_me_qosinfo(newNode);
 
