@@ -137,7 +137,7 @@ class ServiceEndpoint:
 
     def __init__(self, rest):
         self.rest = rest
-        self.rest_path = self.rest.base_path + '/api/config/services'
+        self.rest_path = self.rest.base_path + '/api/config/nodes'
 
     def toggleServices(self, node_uuid, service_map):
         path = '{}/{}'.format(self.rest_path, str(node_uuid))
