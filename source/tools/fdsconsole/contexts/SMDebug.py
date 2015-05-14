@@ -10,11 +10,6 @@ class SMDebugContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
 
-    def __del__(self):
-        pdb.set_trace()
-        serv = self.smClient()
-        serv.stop_serv()
-
     def smClient(self):
         return self.config.getPlatform()
     #--------------------------------------------------------------------------------------
@@ -47,7 +42,7 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help="-Uuid of the SM to send the command to", type=long)
     @arg('--targetTokens', help="-List of tokens to check", type=str)
     def startSmchk(self, sm, targetTokens=None):
         """
@@ -59,7 +54,8 @@ class SMDebugContext(Context):
                 targetTokens = map(int, targetTokens)
 
             startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
-        except Exception, e:
+            self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
+        except Exception as e:
             log.exception(e)
             print e.message
             print "msg = {}".format(startSmchk)
