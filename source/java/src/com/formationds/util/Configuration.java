@@ -28,6 +28,7 @@ public class Configuration {
     public static final String KEYSTORE_PASSWORD = "fds.ssl.keystore_password";
     public static final String KEYMANAGER_PASSWORD = "fds.ssl.keymanager_password";
     private static final Map<String, String> LOGLEVELS = new HashMap<>();
+    public static final String TIME_STAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ";
 
     //trace/debug/normal/info/notify/notification/crit/critical,warn/warning/error
     static {
@@ -66,15 +67,14 @@ public class Configuration {
             amInstanceId = (int)options.valueOf("fds.am.instanceId");
         }
 
-        String timeStampFormat = new String("yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ");
         if (options.has("console")) {
-            initConsoleLogging("DEBUG",timeStampFormat);
+            initConsoleLogging("DEBUG");
         } else {
             // only append instance name on the am (xdi)
             String logName = (commandName.startsWith("om") ?
                               commandName :
                               commandName + Integer.toString( amInstanceId ));
-            initFileLogging(logName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"),timeStampFormat);
+            initFileLogging(logName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
 
         initDiagnostics(fdsRoot);
@@ -111,23 +111,23 @@ public class Configuration {
 
     }
 
-    private void initConsoleLogging(String loglevel, String timeStampFormat) {
+    private void initConsoleLogging(String loglevel) {
         properties.put("log4j.rootCategory", "INFO, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{"+timeStampFormat+"} - %-5p %c %x - %m%n");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %-5p %c %x - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         PropertyConfigurator.configure(properties);
     }
 
-    private void initFileLogging(String commandName, File fdsRoot, String loglevel, String timeStampFormat) {
+    private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
         Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
         properties.put("log4j.rootLogger", "FATAL, rolling");
         properties.put("log4j.appender.rolling", "org.apache.log4j.DailyRollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
         properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+timeStampFormat+"} - %p %c - %m%n");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         PropertyConfigurator.configure(properties);
     }
