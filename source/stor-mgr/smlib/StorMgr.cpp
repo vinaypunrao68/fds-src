@@ -10,6 +10,8 @@
 #include <thread>
 #include <functional>
 
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <PerfTrace.h>
 #include <ObjMeta.h>
 #include <StorMgr.h>
@@ -167,6 +169,36 @@ void ObjectStorMgr::mod_enable_service()
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
                 modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
+
+        /**
+         * This is post service registration. Check if object store passed the initial
+         * superblock validation.
+         */
+        if (objectStore->isUnavailable()) {
+            LOGCRITICAL << "First phase of object store initialization failed; "
+                        << "SM service is marked unavailable";
+            // TODO(Anna) we should at some point try to recover from this
+            // for now SM service will remain unavailable, until someone restarts it
+        } else {
+            LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
+                      << " starting the second phase";
+            // get DMT from OM if DMT already exist
+            // omClient->getDMT();
+            // get DLT from OM
+            Error err = ERR_NOT_FOUND;  // omClient->getDLT();
+            if (err.ok()) {
+                // got a DLT, ignore it if SM is not in it
+                const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
+                } else {
+                    // if second phase of start up failes, object store will set the state
+                    // during validating token ownership in the superblock
+                    handleDltUpdate();
+                }
+            }
+            // else ok if no DLT yet
+        }
     }
 
     /*
@@ -359,9 +391,9 @@ Error ObjectStorMgr::handleDltUpdate() {
         } else {
             // not doing resync, making all DLT tokens ready
             objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+            // pretend we successfully started resync, return success
+            err = ERR_OK;
         }
-        // for now pretend we successfully started resync, return success
-        err = ERR_OK;
     } else if (err.ok()) {
         objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
     }
@@ -938,11 +970,20 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
                    << " reconcileFlag=" << reconcileFlag;
     }
 
-    auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
-    asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
-                                 objDeltaSet);
-    asyncDeltaSetReq->setTimeoutMs(0);
-    asyncDeltaSetReq->invoke();
+    // Inject fault (if set) that source silently failed to send delta set msg
+    fds_bool_t failToSendDeltaSet = false;
+    fiu_do_on("sm.faults.senddeltaset", failToSendDeltaSet = true; );
+
+    if (!failToSendDeltaSet) {
+        auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
+        asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
+                                     objDeltaSet);
+        asyncDeltaSetReq->setTimeoutMs(0);
+        asyncDeltaSetReq->invoke();
+    } else {
+        LOGNOTIFY << "Injected fault: SM silently failed to send delta set to destination";
+        fiu_disable("sm.faults.senddeltaset");
+    }
 
     // mark request as complete
     qosCtrl->markIODone(*readDeltaSetReq, diskio::diskTier);

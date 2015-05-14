@@ -227,12 +227,18 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fds_verify(dlt != NULL);
 
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
-    if (fault_enabled || !(objStorMgr->objectStore->isReadyAsMigrationSrc())) {
+    if (objStorMgr->objectStore->isUnavailable()) {
+        // object store failed to validate superblock or pass initial
+        // integrity check
+        err = ERR_NODE_NOT_ACTIVE;
+        LOGMIGRATE << "SM service is unavailable " << std::hex
+                   << objStorMgr->getUuid() << std::dec;
+    } else if (fault_enabled || !(objStorMgr->objectStore->isReady())) {
         err = ERR_SM_NOT_READY_AS_MIGR_SRC;
         LOGDEBUG << "SM not ready as Migration source " << std::hex
-        << objStorMgr->getUuid() << std::dec
-        << " for dlt token: " << filterObjSet->tokenId << std::hex
-        << " executor: " << filterObjSet->executorID;
+                 << objStorMgr->getUuid() << std::dec
+                 << " for dlt token: " << filterObjSet->tokenId << std::hex
+                 << " executor: " << filterObjSet->executorID;
         fiu_disable("resend.dlt.token.filter.set");
     } else {
         err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
