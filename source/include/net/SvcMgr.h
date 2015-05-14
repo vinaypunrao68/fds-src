@@ -87,6 +87,7 @@ typedef TableColumn DltTokenGroup;
 typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
 typedef TableColumn DmtColumn;
 typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
+using OmDltUpdateRespCbType = std::function<void (const Error&)> ;
 
 /*--------------- Floating functions --------------*/
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
@@ -369,6 +370,9 @@ struct SvcMgr : HasModuleProvider, Module {
     * @return 
     */
     bool hasCommittedDMT() const;
+
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
 
     /**
     * @brief Return true if e is an error service layer should handle

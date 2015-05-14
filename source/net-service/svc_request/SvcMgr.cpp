@@ -465,6 +465,33 @@ bool SvcMgr::hasCommittedDMT() const {
     return dmtMgr_->hasCommittedDMT();
 }
 
+Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Received new DLT version  " << dlt_type;
+
+    // dltMgr is threadsafe
+    err = dltMgr_->addSerializedDLT(dlt_data, cb, dlt_type);
+    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+        dltMgr_->dump();
+    } else if (ERR_DUPLICATE != err) {
+        LOGERROR << "Failed to update DLT! check dlt_data was set " << err;
+    }
+
+    return err;
+}
+
+Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Received new DMT version  " << dmt_type;
+
+    err = dmtMgr_->addSerializedDMT(dmt_data, DMT_COMMITTED);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set";
+    }
+
+    return err;
+}
+
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
 : HasModuleProvider(moduleProvider)
