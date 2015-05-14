@@ -174,28 +174,63 @@ public class InfluxDBConnection {
             @Override
             public List<Serie> query( String query, TimeUnit precision )
             {
+                long start = System.currentTimeMillis();
+                long connTime = -1;
+                long queryTime = -1;
+                List<Serie> result = Collections.emptyList();
+                Throwable failed = null;
                 try {
+                    if (logger.isTraceEnabled()) {
+                        logger.trace( String.format( "QUERY_BEGIN [%d]: %s", start, query ) );
+                    }
 
-                    return connect().query( database.get(), query, precision );
+                    InfluxDB conn = connect();
+                    connTime = System.currentTimeMillis() - start;
 
-                } catch ( RuntimeException e ) {
+                    result = conn.query( database.get(), query, precision );
+                    queryTime = System.currentTimeMillis() - start - connTime;
+
+                    return result;
+
+                } catch ( Throwable e ) {
 
                     // This is expected if we haven't yet written any data to the database
                     // for the series in the query.
                     String msg = e.getMessage();
                     if ( msg != null && msg.startsWith("Couldn't find series:") ) {
 
-                        return Collections.emptyList();
+                        // empty list
+                        return result;
 
                     } else {
 
+                        failed = e;
+                        if (logger.isTraceEnabled()) {
+                            logger.trace( String.format( "QUERY_FAIL  [%d]: %s [ex=%s; conn=%s ms; query=%d ms]",
+                                                         start,
+                                                         query,
+                                                         e.getMessage(),
+                                                         connTime,
+                                                         queryTime ) );
+                        }
+
                         throw e;
-
                     }
-                } catch ( Throwable t ) {
-                    throw t;
-                }
 
+                } finally {
+
+                    if (logger.isTraceEnabled()) {
+                        logger.trace( String.format( "QUERY_END   [%d]: %s [result=%s; conn=%s ms; query=%d ms]",
+                                                     start,
+                                                     query,
+                                                     (failed != null ?
+                                                            "'" +  failed.getMessage() + "'" :
+                                                            Integer.toString( result.size() ) ),
+                                                     connTime,
+                                                     queryTime ) );
+                    }
+
+                }
             }
         };
     }
