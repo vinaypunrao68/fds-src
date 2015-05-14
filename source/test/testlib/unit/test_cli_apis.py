@@ -17,7 +17,9 @@ from fds.model.domain import Domain
 
 import pdb
 import sys
+
 sys.path.append("..")
+import am
 
 class TestRESTAPI(unittest.TestCase):
     logging.basicConfig(level=logging.INFO,
@@ -65,7 +67,6 @@ class TestRESTAPI(unittest.TestCase):
         new_type = "block"
         volume.name = "{}".format(new_volume)
         volume.type = "{}".format(new_type)
-        volume.current_size = 1024
         vservice.create_volume(volume)
         
         volCheck = VolumeService(self.fdsauth)
