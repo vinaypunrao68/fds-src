@@ -19,6 +19,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -99,6 +100,10 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
         }
     }
 
+    /**
+     *
+     * @return the list of volume ids currently in the repository
+     */
     protected List<Long> getVolumeIds() {
         EntityManager em = newEntityManager();
         try {
@@ -153,15 +158,28 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
     }
 
     /**
-     * @param volumeName the {@link String} representing the volume name
-     * @param metric     the {@link Metrics}
      *
-     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     * @param volumeId the volume to query
+     * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
+     *
+     * @return the list of the most recent stats
      */
-    @Override
-    public VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp( final String volumeName,
-                                                                 final Metrics metric ) {
+    public List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( Long volumeId, EnumSet<Metrics> metrics) {
+        List<? extends IVolumeDatapoint> results = mostRecentStats( volumeId );
+        return results.stream()
+                      .filter( (vdp) -> metrics.contains( Metrics.lookup( vdp.getKey() ) ) )
+                      .collect( Collectors.toList() );
+    }
 
+    /**
+     * Load the set of most recent stats for the volume id.  It is assumed that they all have the same
+     * timestamp.
+     *
+     * @param volumeId the volume
+     *
+     * @return the list of the latest datapoints for the specified volume
+     */
+    protected List<? extends IVolumeDatapoint> mostRecentStats( Long volumeId ) {
         EntityManager em = newEntityManager();
         try {
             final CriteriaBuilder cb = em.getCriteriaBuilder();
@@ -170,25 +188,28 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
             final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
             cq.select( from );
-            cq.where( cb.equal( from.get( "key" ), metric.key() ),
-                      cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
+            cq.where( cb.equal( from.get( "volumeId" ), volumeId.toString() ) );
             cq.orderBy( cb.desc( from.get( getTimestampColumnName() ) ) );
 
             final List<VolumeDatapoint> datapoints = em.createQuery( cq )
                                                        .getResultList();
-            final VolumeDatapoint[] previous = {null};
+
+            final List<VolumeDatapoint> results = new ArrayList<>( );
+
+            if (datapoints == null || datapoints.isEmpty())
+                return results;
+
+            Long ts = datapoints.get( 0 ).getTimestamp();
+
             datapoints.stream()
                       .forEach( ( dp ) -> {
-                          if ( previous[0] == null ) {
-                              previous[0] = dp;
-                          } else {
-                              if ( previous[0].getTimestamp() < dp.getTimestamp() ) {
-                                  previous[0] = dp;
-                              }
-                          }
+                          if (dp.getTimestamp() < ts)
+                              return;
+
+                          results.add( dp );
                       } );
 
-            return previous[0];
+            return results;
         } finally {
             em.close();
         }
@@ -200,7 +221,6 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
      *
      * @return Returns the {@link VolumeDatapoint} representing the most recent
      */
-    @Override
     public VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp( final Long volumeId,
                                                                  final Metrics metric ) {
 
