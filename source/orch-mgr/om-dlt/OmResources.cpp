@@ -1861,20 +1861,17 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
         om_locDomain->om_update_node_list(newNode, msg);
 
-        // send qos related info to this node
-        om_locDomain->om_send_me_qosinfo(newNode);
-
         // Let this new node know about existing dlt if this is not SM or AM node
         // DLT deploy state machine will take care of SMs
         // AMs would have done the getDLT() call after it finished registered.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
-        if ((msg->node_type != fpi::FDSP_STOR_MGR) ||
+        if ((msg->node_type != fpi::FDSP_STOR_MGR) &&
         		(msg->node_type != fpi::FDSP_ACCESS_MGR)) {
             OM_Module *om = OM_Module::om_singleton();
             DataPlacement *dp = om->om_dataplace_mod();
             OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
         }
-        if ((msg->node_type != fpi::FDSP_DATA_MGR) ||
+        if ((msg->node_type != fpi::FDSP_DATA_MGR) &&
         		(msg->node_type != fpi::FDSP_ACCESS_MGR)) {
             OM_Module *om = OM_Module::om_singleton();
             VolumePlacement* vp = om->om_volplace_mod();
