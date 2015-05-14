@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include <net/SvcMgr.h>
 #include "fds_volume.h"
 
 namespace fds {
@@ -22,7 +23,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
 {
     using shutdown_cb_type = std::function<void(void)>;
   public:
-    AmProcessor();
+    explicit AmProcessor(CommonModuleProviderIf *modProvider);
     AmProcessor(AmProcessor const&) = delete;
     AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();

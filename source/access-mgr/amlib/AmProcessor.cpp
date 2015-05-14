@@ -42,7 +42,7 @@ class AmProcessor_impl
     using shutdown_cb_type = std::function<void(void)>;
 
   public:
-    AmProcessor_impl() : amDispatcher(new AmDispatcher()),
+    explicit AmProcessor_impl(CommonModuleProviderIf *modProvider) : amDispatcher(new AmDispatcher(modProvider)),
                          txMgr(new AmTxManager()),
                          volTable(nullptr),
                          prepareForShutdownCb(nullptr)
@@ -970,9 +970,9 @@ AmProcessor_impl::commitBlobTxCb(AmRequest *amReq, const Error &error) {
 /**
  * Pimpl forwarding methods. Should just call the underlying implementaion
  */
-AmProcessor::AmProcessor()
+AmProcessor::AmProcessor(CommonModuleProviderIf *modProvider)
         : enable_shared_from_this<AmProcessor>(),
-          _impl(new AmProcessor_impl())
+          _impl(new AmProcessor_impl(modProvider))
 { }
 
 AmProcessor::~AmProcessor() = default;
