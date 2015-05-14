@@ -203,7 +203,6 @@ class FdsProcess : public boost::noncopyable,
     */
     static void closeAllFDs();
 
-
  protected:
     // static members/methods
     static void* sig_handler(void* param);
