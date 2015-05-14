@@ -29,8 +29,7 @@ import com.formationds.web.toolkit.Resource;
 
 public class MutateService implements RequestHandler {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger( MutateService.class );
+    private static final Logger logger = LoggerFactory.getLogger( MutateService.class );
 
     private ConfigurationService.Iface client;
 	
@@ -39,7 +38,6 @@ public class MutateService implements RequestHandler {
 		this.client = client;
 	}
 	
-	@Override
 	/**
 	 * TODO: FIX!
 	 * 
@@ -50,10 +48,9 @@ public class MutateService implements RequestHandler {
 	 * 
 	 * Awesome.
 	 */
+	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
-		
-		
 		
         Long nodeUuid = requiredLong(routeParameters, "node_uuid");        
         Long serviceId = requiredLong(routeParameters, "service_uuid");
@@ -145,7 +142,7 @@ public class MutateService implements RequestHandler {
 	 * Go through the node and find the service we were looking for
 	 * @param node
 	 * @param serviceId
-	 * @return
+	 * @return Service - The matching one
 	 */
 	private Service findMyService( Node node, Long serviceId ){
 		
