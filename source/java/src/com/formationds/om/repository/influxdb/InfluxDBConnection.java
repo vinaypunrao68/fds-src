@@ -35,19 +35,19 @@ public class InfluxDBConnection {
 
     /**
      *
-     * @param url
-     * @param user
-     * @param credentials
+     * @param url the influxdb url
+     * @param user the influx user
+     * @param credentials the influx user credentials
      */
     InfluxDBConnection( String url, String user, char[] credentials ) {
         this(url, user, credentials, null);
     }
 
     /**
-     * @param url
-     * @param user
-     * @param credentials
-     * @param database
+     * @param url the influxdb url
+     * @param user the influx user
+     * @param credentials the influx user credentials
+     * @param database the influx database
      */
     InfluxDBConnection( String url, String user, char[] credentials, String database ) {
         this.url = url;
@@ -152,17 +152,15 @@ public class InfluxDBConnection {
         } );
     }
 
-
+    /**
+     *
+     * @return the db writer
+     */
     public InfluxDBWriter getDBWriter() {
         if ( !database.isPresent() ) {
             throw new IllegalStateException( "Can't create writer for system database." );
         }
-        return new InfluxDBWriter() {
-            @Override
-            public void write( TimeUnit precision, Serie... series ) {
-                connect().write( database.get(), precision, series );
-            }
-        };
+        return ( precision, series ) -> connect().write( database.get(), precision, series );
     }
 
     public InfluxDBReader getDBReader()
@@ -180,9 +178,7 @@ public class InfluxDBConnection {
                 List<Serie> result = Collections.emptyList();
                 Throwable failed = null;
                 try {
-                    if (logger.isTraceEnabled()) {
-                        logger.trace( String.format( "QUERY_BEGIN [%d]: %s", start, query ) );
-                    }
+                    logger.trace( "QUERY_BEGIN [{}]: {}", start, query );
 
                     InfluxDB conn = connect();
                     connTime = System.currentTimeMillis() - start;
@@ -205,30 +201,26 @@ public class InfluxDBConnection {
                     } else {
 
                         failed = e;
-                        if (logger.isTraceEnabled()) {
-                            logger.trace( String.format( "QUERY_FAIL  [%d]: %s [ex=%s; conn=%s ms; query=%d ms]",
-                                                         start,
-                                                         query,
-                                                         e.getMessage(),
-                                                         connTime,
-                                                         queryTime ) );
-                        }
+                        logger.trace( "QUERY_FAIL  [{}]: {} [ex={}; conn={} ms; query={} ms]",
+                                      start,
+                                      query,
+                                      e.getMessage(),
+                                      connTime,
+                                      queryTime );
 
                         throw e;
                     }
 
                 } finally {
 
-                    if (logger.isTraceEnabled()) {
-                        logger.trace( String.format( "QUERY_END   [%d]: %s [result=%s; conn=%s ms; query=%d ms]",
-                                                     start,
-                                                     query,
-                                                     (failed != null ?
-                                                            "'" +  failed.getMessage() + "'" :
-                                                            Integer.toString( result.size() ) ),
-                                                     connTime,
-                                                     queryTime ) );
-                    }
+                    logger.trace( "QUERY_END   [{}]: {} [result={}; conn={} ms; query={} ms]",
+                                  start,
+                                  query,
+                                  (failed != null ?
+                                         "'" +  failed.getMessage() + "'" :
+                                         Integer.toString( result.size() ) ),
+                                  connTime,
+                                  queryTime );
 
                 }
             }
@@ -239,13 +231,10 @@ public class InfluxDBConnection {
         if ( !database.isPresent() ) {
             throw new IllegalStateException( "Can't create writer for system database." );
         }
-        return new InfluxDBWriter() {
-            @Override
-            public void write( TimeUnit precision, Serie... series ) {
-                getAsyncConnection().thenAccept( ( conn ) -> {
-                    conn.write( database.get(), precision, series );
-                } );
-            }
+        return ( precision, series ) -> {
+            getAsyncConnection().thenAccept( ( conn ) -> {
+                conn.write( database.get(), precision, series );
+            } );
         };
     }
 }

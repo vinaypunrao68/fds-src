@@ -100,6 +100,10 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
         }
     }
 
+    /**
+     *
+     * @return the list of volume ids currently in the repository
+     */
     protected List<Long> getVolumeIds() {
         EntityManager em = newEntityManager();
         try {
@@ -158,7 +162,7 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
      * @param volumeId the volume to query
      * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
      *
-     * @return
+     * @return the list of the most recent stats
      */
     public List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( Long volumeId, EnumSet<Metrics> metrics) {
         List<? extends IVolumeDatapoint> results = mostRecentStats( volumeId );
