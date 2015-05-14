@@ -39,6 +39,7 @@ class WaitQueue {
 
 template<typename Cb>
 void WaitQueue::drain(std::string const& vol_name, Cb&& cb) {
+    std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
         for (auto& req: wait_it->second) {
