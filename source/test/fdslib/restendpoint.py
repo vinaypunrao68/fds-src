@@ -179,7 +179,7 @@ class ServiceEndpoint:
             return []
 
     def startService(self, nodeUuid, svcs):
-        rest_path = '{}/{}'.format(self.rest_path, nodeUuid)
+        rest_path = '{}/{}/1'.format(self.rest_path, nodeUuid)
 
         res = self.rest.post(rest_path, data=json.dumps(svcs))
         if res is not None:
