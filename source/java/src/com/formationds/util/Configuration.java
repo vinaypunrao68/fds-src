@@ -127,7 +127,7 @@ public class Configuration {
         properties.put("log4j.appender.rolling.File", logPath.toString());
         properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %p %c - %m%n");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %5p %c %t - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         PropertyConfigurator.configure(properties);
     }
