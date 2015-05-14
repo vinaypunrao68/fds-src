@@ -88,6 +88,12 @@ class AmProcessor_impl
     Error updateDmt(bool dmt_type, std::string& dmt_data)
         { return amDispatcher->updateDmt(dmt_type, dmt_data); }
 
+    Error getDMT()
+    { return amDispatcher->getDMT(); }
+
+    Error getDLT()
+    { return amDispatcher->getDLT(); }
+
     bool isShuttingDown() const
     { return shut_down; }
 
@@ -1016,5 +1022,11 @@ Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
 
 Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
 { return _impl->updateQoS(rate, throttle); }
+
+Error AmProcessor::getDMT()
+{ return _impl->getDMT(); }
+
+Error AmProcessor::getDLT()
+{ return _impl->getDLT(); }
 
 }  // namespace fds

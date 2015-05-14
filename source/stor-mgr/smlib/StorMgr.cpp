@@ -159,6 +159,8 @@ void ObjectStorMgr::mod_startup()
 //
 void ObjectStorMgr::mod_enable_service()
 {
+    fiu_do_on("sm.exit.on.bringup", exit(1));
+
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
@@ -911,6 +913,8 @@ void
 ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 {
     Error err(ERR_OK);
+
+    fiu_do_on("sm.exit.sending.delta.set", exit(1));
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     fds_verify(NULL != readDeltaSetReq);
