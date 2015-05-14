@@ -28,8 +28,7 @@ struct DetachVolumeReq : public AmRequest {
     DetachVolumeReq(fds_volid_t        _volid,
                      const std::string& _vol_name,
                      CallbackPtr        cb) :
-        AmRequest(FDS_DETACH_VOL, _volid, _vol_name, "", cb,
-                  FDS_IOType::DATA_MGR)
+        AmRequest(FDS_DETACH_VOL, _volid, _vol_name, "", cb)
     {
         e2e_req_perf_ctx.type = PerfEventType::AM_VOLUME_DETACH_REQ,
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);

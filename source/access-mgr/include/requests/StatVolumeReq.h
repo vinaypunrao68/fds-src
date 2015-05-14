@@ -14,8 +14,7 @@ namespace fds
 
 struct StatVolumeReq : AmRequest {
     StatVolumeReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
-            AmRequest(FDS_STAT_VOLUME, volId, volumeName, "", cb,
-                      FDS_IOType::DATA_MGR) {
+            AmRequest(FDS_STAT_VOLUME, volId, volumeName, "", cb) {
         e2e_req_perf_ctx.type = PerfEventType::AM_STAT_VOLUME_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }

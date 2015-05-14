@@ -16,8 +16,7 @@ struct GetVolumeMetadataReq : public AmRequest {
     GetVolumeMetadataReq(fds_volid_t _volid,
                          const std::string   &_vol_name,
                          CallbackPtr cb) :
-            AmRequest(FDS_GET_VOLUME_METADATA, _volid, _vol_name, "", cb,
-                      FDS_IOType::DATA_MGR) {
+            AmRequest(FDS_GET_VOLUME_METADATA, _volid, _vol_name, "", cb) {
         e2e_req_perf_ctx.type = PerfEventType::AM_GET_VOLUME_METADATA_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }

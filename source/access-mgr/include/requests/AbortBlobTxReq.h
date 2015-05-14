@@ -26,8 +26,7 @@ struct AbortBlobTxReq :
                    const std::string&   _blob_name,
                    BlobTxId::ptr        _txDesc,
                    CallbackPtr          _cb) :
-        AmRequest(FDS_ABORT_BLOB_TX, _volid, _vol_name, _blob_name, _cb,
-                  FDS_IOType::DATA_MGR),
+        AmRequest(FDS_ABORT_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
         AmTxReq(_txDesc)
     {
         e2e_req_perf_ctx.type = PerfEventType::AM_ABORT_BLOB_OBJ_REQ;

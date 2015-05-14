@@ -18,8 +18,7 @@ struct DeleteBlobReq: AmRequest, AmTxReq {
                   const std::string& volumeName,
                   BlobTxId::ptr _txDesc,
                   CallbackPtr cb)
-            :   AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb,
-                          FDS_IOType::DATA_MGR),
+            :   AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb),
                 AmTxReq(_txDesc)
     {
         qos_perf_ctx.type = PerfEventType::AM_DELETE_QOS;

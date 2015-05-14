@@ -29,8 +29,7 @@ struct StartBlobTxReq :
                    const std::string &_blob_name,
                    const int32_t _blob_mode,
                    CallbackPtr        _cb) :
-            AmRequest(FDS_START_BLOB_TX, _volid, _vol_name, _blob_name, _cb,
-                      FDS_IOType::DATA_MGR),
+            AmRequest(FDS_START_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
             blob_mode(_blob_mode)
     {
         e2e_req_perf_ctx.type = PerfEventType::AM_START_BLOB_OBJ_REQ;

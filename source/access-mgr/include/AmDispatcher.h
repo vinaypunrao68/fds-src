@@ -192,16 +192,25 @@ struct AmDispatcher
     boost::shared_ptr<DMTManager> dmtMgr;
 
     template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(fds_volid_t const vol_id,
-                                            boost::shared_ptr<Msg> const& payload) const;
-
+    QuorumSvcRequestPtr createQuorumRequest(fds_volid_t const& volId,
+                                            boost::shared_ptr<Msg> const& payload,
+                                            QuorumSvcRequestRespCb quorumCb,
+                                            uint32_t timeout=0) const;
     template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(AmRequest *amReq,
-                                            boost::shared_ptr<Msg> const& payload) const;
+    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
+                                            boost::shared_ptr<Msg> const& payload,
+                                            QuorumSvcRequestRespCb quorumCb,
+                                            uint32_t timeout=0) const;
     template<typename Msg>
-    FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const vol_id,
-                                                boost::shared_ptr<Msg> const& payload) const;
-
+    FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
+                                                boost::shared_ptr<Msg> const& payload,
+                                                FailoverSvcRequestRespCb cb,
+                                                uint32_t timeout=0) const;
+    template<typename Msg>
+    FailoverSvcRequestPtr createFailoverRequest(ObjectID const& objId,
+                                                boost::shared_ptr<Msg> const& payload,
+                                                FailoverSvcRequestRespCb cb,
+                                                uint32_t timeout=0) const;
     /**
      * Callback for delete blob responses.
      */

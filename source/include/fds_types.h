@@ -276,11 +276,6 @@ class FDS_IOType {
         DATA_MGR_IO
     } ioModule;
 
-    typedef enum {
-        STOR_MGR,
-        DATA_MGR
-    } destIoModule;
-
     int         io_magic;
     fds_io_op_t io_type;
     fds_uint32_t io_req_id;
@@ -290,7 +285,6 @@ class FDS_IOType {
     fds_uint32_t io_wait_time;  // usecs
     fds_uint32_t io_total_time;  // usecs
     ioModule io_module;  // IO belongs to which module for Qos proc
-    destIoModule dest_io_module;  // IO req is sent to which module
     fds_uint64_t enqueue_ts;
     fds_uint64_t dispatch_ts;
     fds_uint64_t io_done_ts;
