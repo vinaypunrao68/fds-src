@@ -109,7 +109,7 @@ AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
 
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
-    return om_client->testBucket(volume_name, true, "", "");
+    return om_client->getVolumeDescriptor(volume_name);
 }
 
 /**

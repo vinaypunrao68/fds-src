@@ -19,11 +19,11 @@ namespace java com.formationds.protocol.om
    ------------------------------------------------------------*/
 
 /**
- * Test for Volume
+ * Request a Volume's Descriptor
  */
-struct CtrlTestBucket {
-  /** Test Volume Specification */
-  1: om_types.FDSP_TestBucket   tbmsg;
+struct GetVolumeDescriptor {
+  /** Volume name */
+  1: string volume_name;
 }
 
 /* ------------------------------------------------------------

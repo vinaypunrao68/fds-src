@@ -309,9 +309,6 @@ bool VolumeFSM::GRD_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
  * VACT_NotifCrt
  * -------------
  * Notify services about creation of this volume
-                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(),
-                                               om_notify_vol_attach,
-                                               Error(ERR_OK)));
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
@@ -400,15 +397,14 @@ void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 /**
  * GRD_VolOp
  * ------------
- * We only allow volume attach, detach, and modify operations to reach Waiting state
+ * We only allow volume detach, and modify operations to reach Waiting state
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
     bool ret = false;
-    if ((evt.op_type == FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD) ||
-        (evt.op_type == FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD) ||
+    if ((evt.op_type == FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD) ||
         (evt.op_type == FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL)) {
         ret = true;
     }
@@ -420,8 +416,8 @@ bool VolumeFSM::GRD_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 /**
  * VACT_VolOp
  * ------------
- * Operation on volume: attach, detach, modify
- * When we receive attach, detach, modify messages for a
+ * Operation on volume: detach, modify
+ * When we receive detach, modify messages for a
  * volume, we just queue them by using deferred events in state machine
  * We are handling each one of them in this method.
  */
@@ -432,17 +428,6 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     Error err(ERR_OK);
     VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
-        case FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD:
-            GLOGDEBUG << "VACT_VolOp: attach volume";
-            dst.wait_for_type = om_notify_vol_attach;
-            err = vol->vol_attach_node(evt.tgt_uuid);
-            if (err.GetErrno() == ERR_DUPLICATE) {
-                // that's ok, nothing else to do
-                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), vol,
-                                               om_notify_vol_attach,
-                                               Error(ERR_OK)));
-            }
-            break;
         case FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD:
             GLOGDEBUG << "VACT_VolOp:: detach volume";
             dst.wait_for_type = om_notify_vol_detach;
@@ -467,7 +452,7 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 /**
  * GRD_OpResp
  * ------------
- * We received a responses for a current operation (attach, detach, modify)
+ * We received a responses for a current operation (detach, modify)
  * Returns true if the quorum number of responses is received, otherwise
  * returns false
  */
@@ -488,7 +473,7 @@ bool VolumeFSM::GRD_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
  * VACT_OpResp
  * ------------
  * We received quorum number of responses for one of the following operations
- * on volume: attach, detach, modify. Send response for this operation back
+ * on volume: detach, modify. Send response for this operation back
  * to requesting source.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -791,7 +776,6 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
     vol->setName(snapshot.snapshotName);
     vol->vol_name = snapshot.snapshotName;
     vol->volUUID =  snapshot.snapshotId;
-    // vol->vol_am_nodes = vol_am_nodes;
     vol->vol_properties->name = snapshot.snapshotName;
     vol->vol_properties->srcVolumeId = snapshot.volumeId;
     vol->vol_properties->lookupVolumeId = snapshot.volumeId;
@@ -872,7 +856,6 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
             break;
             */
         }
-        case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
         case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
             /* TODO(Andrew): Remove usage of deleted struct fields.
                This code was dead (compiled, but unused) to begin with.
@@ -901,39 +884,6 @@ VolumeInfo::vol_am_agent(const NodeUuid &am_uuid)
     return local->om_am_agent(am_uuid);
 }
 
-// vol_attach_node
-// ---------------
-//
-Error
-VolumeInfo::vol_attach_node(const NodeUuid &node_uuid)
-{
-    Error err(ERR_OK);
-    OM_AmAgent::pointer  am_agent;
-    LOGNORMAL << "Received attach vol " << vol_name
-              << ", am node uuid " << std::hex << node_uuid << std::dec;
-
-    am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_uuid));
-    if (am_agent == NULL) {
-        // Provisioning vol before the AM is online.
-        //
-        LOGNORMAL << "AM agent not found for uuid " << std::hex << node_uuid << std::dec;
-        return Error(ERR_NOT_FOUND);
-    }
-    // TODO(Vy): not thread safe here...
-    //
-    for (uint i = 0; i < vol_am_nodes.size(); i++) {
-        if (vol_am_nodes[i] == node_uuid) {
-            LOGNORMAL << "Volume " << vol_name << " is already attached to node "
-                      << std::hex << node_uuid << std::dec;
-            am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolAddTypeId);
-            return Error(ERR_DUPLICATE);
-        }
-    }
-    vol_am_nodes.push_back(node_uuid);
-    am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolAddTypeId);
-    return err;
-}
-
 // vol_detach_node
 // ---------------
 //
@@ -951,18 +901,9 @@ VolumeInfo::vol_detach_node(const NodeUuid &node_uuid)
                   << ", am node " << std::hex << node_uuid << std::dec;
         return Error(ERR_NOT_FOUND);
     }
-    // TODO(Vy): not thread safe here...
-    //
-    for (uint i = 0; i < vol_am_nodes.size(); i++) {
-        if (vol_am_nodes[i] == node_uuid) {
-            vol_am_nodes.erase(vol_am_nodes.begin() + i);
-            am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolRemoveTypeId);
-            return err;
-        }
-    }
-    LOGNORMAL << "Detach vol " << vol_name
-              << " didn't attached to " << std::hex << node_uuid << std::dec;
-    return Error(ERR_DUPLICATE);
+    am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolRemoveTypeId);
+
+    return err;
 }
 
 Error
@@ -1074,8 +1015,7 @@ VolumeContainer::VolumeContainer() : RsContainer() {}
 //
 Error
 VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
-                               const FdspCrtVolPtr &creat_msg,
-                               const boost::shared_ptr<fpi::AsyncHdr> &hdrc)
+                               const FdspCrtVolPtr &creat_msg)
 {
     Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1162,16 +1102,6 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     // in case there was no one to notify, check if we can proceed to
     // active state right away (otherwise guard will stop us)
     vol->vol_event(VolCrtOkEvt(false, vol.get()));
-
-    // If this is create bucket request from AM, attach the volume to the requester.
-    // If we are still waiting for vol create acks or waiting for rebalance to finish,
-    // this event will be deferred until we received quorum of acks once notify vol
-    // create is broadcasted
-    if (hdrc) {
-        vol->vol_event(VolOpEvt(vol.get(),
-                                FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
-                                NodeUuid(hdrc->msg_src_uuid.svc_uuid)));
-    }
 
     return err;
 }
@@ -1380,28 +1310,27 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     return err;
 }
 
-// om_test_bucket
+// om_get_volume_descriptor
 // --------------
 //
 void
-VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
-                                const  fpi::FDSP_TestBucket *req)
+VolumeContainer::om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                          const std::string& vol_name)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    std::string         vname = req->bucket_name;
+    std::string         vname = vol_name;
     NodeUuid             n_uid(hdr->msg_src_uuid.svc_uuid);
     VolumeInfo::pointer  vol;
     OM_AmAgent::pointer  am;
 
-    LOGNOTIFY << "Received test bucket request " << vname
-              << " attach_vol_reqd " << req->attach_vol_reqd
+    LOGNOTIFY << "Received getVolumeDescriptor request " << vname
               << " from " << n_uid;
 
     am = local->om_am_agent(n_uid);
     if (am == NULL) {
         LOGNOTIFY << "OM does not know about node " << hdr->msg_src_uuid.svc_uuid;
     }
-    vol = get_volume(req->bucket_name);
+    vol = get_volume(vol_name);
     if (vol == NULL || vol->isDeletePending()) {
         if (vol) {
             LOGNORMAL << "delete pending on bucket " << vname;
@@ -1411,21 +1340,13 @@ VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
         if (am != NULL) {
             am->om_send_vol_cmd(NULL, &vname, fpi::CtrlNotifyVolAddTypeId);
         }
-    } else if (req->attach_vol_reqd == false) {
-        // Didn't request OM to attach this volume.
-        LOGNOTIFY << "Bucket " << vname << " exists, notify node "
-                  << hdr->msg_src_uuid.svc_uuid;
-
+    } else {
+        // TODO(bszmyd): Thu 14 May 2015 06:49:26 AM MDT
+        // Should make this a response a la SvcLayer and not an RPC message
+        // Respond
         if (am != NULL) {
             am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
         }
-    } else {
-        LOGDEBUG << " vol:" << vol->vol_get_name()
-                 << " uuid:" << vol->rs_get_uuid()
-                 << " state:" << vol->vol_current_state();
-        vol->vol_event(VolOpEvt(vol.get(),
-                                FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
-                                n_uid));
     }
 }
 
@@ -1462,7 +1383,6 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type, NodeUuid from_svc, Err
                 vol->vol_event(VolDeleteEvt(vol->rs_get_uuid(), vol.get()));
             }
             break;
-        case om_notify_vol_attach:
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:
@@ -1512,7 +1432,6 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
                 vol->vol_event(VolDeleteEvt(vol->rs_get_uuid(), vol.get()));
             }
             break;
-        case om_notify_vol_attach:
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:
@@ -1550,8 +1469,6 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
 
     if (from_svc.uuid_get_type() == fpi::FDSP_ACCESS_MGR) {
         switch (cmd_type) {
-            case fpi::CtrlNotifyVolAddTypeId:
-                type = om_notify_vol_attach; break;
             case fpi::CtrlNotifyVolModTypeId:
                 type = om_notify_vol_mod; break;
             case fpi::CtrlNotifyVolRemoveTypeId:
@@ -1604,7 +1521,6 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
                 vol->vol_event(VolDeleteEvt(vol_uuid, vol.get()));
             }
             break;
-        case om_notify_vol_attach:
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:

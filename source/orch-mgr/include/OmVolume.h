@@ -174,7 +174,6 @@ class VolumeInfo : public Resource, public HasState
     void vol_fmt_message(om_vol_msg_t *out);
 
     void setDescription(const VolumeDesc &desc);
-    Error vol_attach_node(const NodeUuid &node_uuid);
     Error vol_detach_node(const NodeUuid &node_uuid);
     Error vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr);
 
@@ -223,77 +222,10 @@ class VolumeInfo : public Resource, public HasState
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();
 
-    /**
-     * Iter plugin to apply the function through each NodeAgent in the vol.
-     * @param returns number of volumes for which we function returned successfully
-     */
-    template <typename T>
-    fds_uint32_t vol_foreach_am(T a,
-                                Error (*fn)(T, VolumeInfo::pointer, NodeAgent::pointer)) {
-        // TODO(Vy): not thread safe for now...
-        fds_uint32_t count = 0;
-        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
-            Error err(ERR_OK);
-            NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
-            if (am != NULL) {
-                err = (*fn)(a, this, am);
-                if (err.ok()) ++count;
-            }
-        }
-        return count;
-    }
-    template <typename T1, typename T2>
-    fds_uint32_t vol_foreach_am(T1 a1, T2 a2,
-                                Error (*fn)(T1, T2,
-                                           VolumeInfo::pointer, NodeAgent::pointer)) {
-        // TODO(Vy): not thread safe for now...
-        fds_uint32_t count = 0;
-        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
-            Error err(ERR_OK);
-            NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
-            if (am != NULL) {
-                err = (*fn)(a1, a2, this, am);
-                if (err.ok()) ++count;
-            }
-        }
-        return count;
-    }
-    template <typename T1, typename T2, typename T3>
-    fds_uint32_t vol_foreach_am(T1 a1, T2 a2, T3 a3,
-                                void (*fn)(T1, T2, T3,
-                                           VolumeInfo::pointer, NodeAgent::pointer)) {
-        // TODO(Vy): not thread safe for now...
-        fds_uint32_t count = 0;
-        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
-            NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
-            if (am != NULL) {
-                (*fn)(a1, a2, a3, this, am);
-                ++count;
-            }
-        }
-        return count;
-    }
-    template <typename T1, typename T2, typename T3, typename T4>
-    fds_uint32_t vol_foreach_am(T1 a1, T2 a2, T3 a3, T4 a4,
-                                void (*fn)(T1, T2, T3, T4,
-                                           VolumeInfo::pointer, NodeAgent::pointer)) {
-        // TODO(Vy): not thread safe for now...
-        fds_uint32_t count = 0;
-        for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
-            NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
-            if (am != NULL) {
-                (*fn)(a1, a2, a3, a4, this, am);
-                ++count;
-            }
-        }
-        return count;
-    }
-
   protected:
     std::string               vol_name;
     fds_volid_t               volUUID;
     VolumeDesc               *vol_properties;
-    std::vector<NodeUuid>     vol_am_nodes;
     FSM_Volume *volume_fsm;
     // to protect access to msm process_event
     fds_mutex  fsm_lock;
@@ -381,16 +313,15 @@ class VolumeContainer : public RsContainer
      */
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
     virtual Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                                const FdspCrtVolPtr           &creat_msg,
-                                const boost::shared_ptr<fpi::AsyncHdr> &hdrz);
+                                const FdspCrtVolPtr           &creat_msg);
     virtual Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                               const FdspCrtVolPtr           &snap_msg);
     virtual Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                 const FdspDelVolPtr           &del_msg);
     Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
-    virtual void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
-                                const fpi::FDSP_TestBucket * req);
+    virtual void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                          const std::string& vol_name);
     void om_vol_cmd_resp(VolumeInfo::pointer vol,
         fpi::FDSPMsgTypeId cmd_type, const Error & error, NodeUuid from_svc);
 

@@ -67,8 +67,8 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
                       boost::shared_ptr<fpi::NodeInfoMsg> &node);
 
     virtual void
-    TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlTestBucket> &msg);
+    getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::GetVolumeDescriptor> &msg);
 
     virtual void
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,

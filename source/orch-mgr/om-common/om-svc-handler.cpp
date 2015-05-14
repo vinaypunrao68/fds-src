@@ -47,7 +47,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     om_mod = OM_NodeDomainMod::om_local_domain();
 
     /* svc->om response message */
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeDescriptor, getVolumeDescriptor);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
@@ -137,12 +137,12 @@ OmSvcHandler::om_node_info(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void
-OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr<fpi::CtrlTestBucket> &msg)
+OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                 boost::shared_ptr<fpi::GetVolumeDescriptor> &msg)
 {
-    LOGNORMAL << " receive test bucket msg";
+    LOGNORMAL << " receive getVolumeDescriptor msg";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_test_bucket(hdr, &msg->tbmsg);
+    local->om_get_volume_descriptor(hdr, msg->volume_name);
 }
 
 void
@@ -152,7 +152,7 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // XXX(bszmyd): Thu 22 Jan 2015 12:42:27 PM PST
     // Ignore timeouts from Om. These happen due to one-way messages
-    // that cause Svc to timeout the request; e.g. TestBucket and SvcEvent
+    // that cause Svc to timeout the request; e.g. GetVolumeDescriptor and SvcEvent
     if (gl_OmUuid == msg->evt_src_svc_uuid.svc_uuid &&
         ERR_SVC_REQUEST_TIMEOUT == msg->evt_code) {
         return;

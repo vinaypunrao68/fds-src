@@ -115,10 +115,7 @@ class OMgrClient {
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
     fds_bool_t hasCommittedDMT() const;
-    int testBucket(const std::string& bucket_name,
-                   fds_bool_t attach_vol_reqd,
-                   const std::string& accessKeyId,
-                   const std::string& secretAccessKey);
+    int getVolumeDescriptor(const std::string& volume_name);
 
     int recvMigrationEvent(bool dlt_type);
 
