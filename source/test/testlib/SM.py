@@ -140,3 +140,62 @@ class sm_service(object):
 			         log.warn('Failed to kill StorMgr service on node {}'.format(node.ip_v4_address))
 			         return False 
 
+    def add(self, node_ip):
+        '''
+        Add SM service
+
+        Attributes:
+        -----------
+        node_ip:  str
+                The IP address of the node to add SM service.
+
+        Returns:
+        -----------
+        Boolean
+        '''
+        log.info(am_service.add.__name__)
+        log.info('Adding SM service')
+        env.host_string = node_ip
+
+        #TODO:  add code to add SM service here
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['SM'][0].status ==  'ACTIVE':
+                                 log.info('Added SM service to node {}'.format(node.ip_v4_address))
+                                 return True
+
+                else:
+                                 log.warn('Failed to add SM service to node {}'.format(node.ip_v4_address))
+                                 return False
+
+
+
+
+    def remove(self, node_ip):
+        '''
+        Remove SM service
+
+        Attributes:
+        -----------
+        node_ip:  str
+                The IP address of the node to remove SM service.
+
+        Returns:
+        -----------
+        Boolean
+        '''
+        log.info(am_service.add.__name__)
+        log.info('Removing SM service')
+        env.host_string = node_ip
+
+        #TODO:  add code to remove SM service here
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['SM'][0].status ==  'ACTIVE':
+                                 log.info('Removed SM service from node {}'.format(node.ip_v4_address))
+                                 return True
+
+                else:
+                                 log.warn('Failed to remove SM service from node {}'.format(node.ip_v4_address))
+                                 return False
+

@@ -61,8 +61,6 @@ class am_service(object):
         nodeNewState.am=True
 
         for node in self.node_list:
-	        #need to comment out the line below when done
-            #log.info('Node = {}, Status = {}'.format(node.ip_v4_address, node.services['AM'][0].status))
             if node.ip_v4_address == node_ip:
                 self.nservice.activate_node(node.id, nodeNewState)
                 if node.services['AM'][0].status ==  'ACTIVE':
@@ -93,8 +91,6 @@ class am_service(object):
         nodeNewState.am=False
 
         for node in self.node_list:
-	    #need to comment out the line below when done
-            #log.info('Node = {}, Status = {}'.format(node.ip_v4_address, node.services['AM'][0].status))
             if node.ip_v4_address == node_ip:
                 self.nservice.deactivate_node(node.id, nodeNewState)
 
@@ -126,14 +122,68 @@ class am_service(object):
         sudo('pkill -9 bare_am > {}/cli.out 2>&1'.format(self.fds_log))
 
         for node in self.node_list:
-            #need to comment out the line below when done
-            #log.info('Node = {}, Status = {}'.format(node.ip_v4_address, node.services['AM'][0].status))
             if node.ip_v4_address == node_ip:
                 if node.services['AM'][0].status !=  'ACTIVE':
-			         log.info('killed bare_am service on node {}'.format(node.ip_v4_address))
+		        log.warn('Failed to kill bare_am service on node {}'.format(node.ip_v4_address))
+		        return False 
+
+		else:
+			log.info('killed bare_am service on node {}'.format(node.ip_v4_address))
+		        return True
+
+    def add(self, node_ip):
+        '''
+        Add AM service
+
+    	Attributes:
+    	-----------
+    	node_ip:  str
+		The IP address of the node to add AM service.
+
+    	Returns:
+    	-----------
+    	Boolean
+        '''
+        log.info(am_service.add.__name__)
+        log.info('Adding AM service')
+        env.host_string = node_ip
+
+	#TODO:  add code to add AM service here
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['AM'][0].status ==  'ACTIVE':
+			         log.info('Added AM service to node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to kill bare_am service on node {}'.format(node.ip_v4_address))
+			         log.warn('Failed to add AM service to node {}'.format(node.ip_v4_address))
+			         return False 
+
+    def remove(self, node_ip):
+        '''
+        Remove AM service
+
+    	Attributes:
+    	-----------
+    	node_ip:  str
+		The IP address of the node to remove AM service.
+
+    	Returns:
+    	-----------
+    	Boolean
+        '''
+        log.info(am_service.add.__name__)
+        log.info('Removing AM service')
+        env.host_string = node_ip
+
+	#TODO:  add code to remove AM service here
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['AM'][0].status ==  'ACTIVE':
+			         log.info('Removed AM service from node {}'.format(node.ip_v4_address))
+			         return True
+
+                else:
+			         log.warn('Failed to remove AM service from node {}'.format(node.ip_v4_address))
 			         return False 
 

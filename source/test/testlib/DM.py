@@ -137,3 +137,62 @@ class dm_service(object):
 			         log.warn('Failed to kill DataMgr service on node {}'.format(node.ip_v4_address))
 			         return False 
 
+    def add(self, node_ip):
+        '''
+        Add DM service
+
+        Attributes:
+        -----------
+        node_ip:  str
+                The IP address of the node to add DM service.
+
+        Returns:
+        -----------
+        Boolean
+        '''
+        log.info(am_service.add.__name__)
+        log.info('Adding DM service')
+        env.host_string = node_ip
+
+        #TODO:  add code to add DM service here
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['DM'][0].status ==  'ACTIVE':
+                                 log.info('Added DM service to node {}'.format(node.ip_v4_address))
+                                 return True
+
+                else:
+                                 log.warn('Failed to add DM service to node {}'.format(node.ip_v4_address))
+                                 return False
+
+
+    def remove(self, node_ip):
+        '''
+        Remove DM service
+
+        Attributes:
+        -----------
+        node_ip:  str
+                The IP address of the node to remove DM service.
+
+        Returns:
+        -----------
+        Boolean
+        '''
+        log.info(am_service.add.__name__)
+        log.info('Removing DM service')
+        env.host_string = node_ip
+
+        #TODO:  add code to add DM service here
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['DM'][0].status ==  'ACTIVE':
+                                 log.info('Removed DM service from node {}'.format(node.ip_v4_address))
+                                 return True
+
+                else:
+                                 log.warn('Failed to remove DM service from node {}'.format(node.ip_v4_address))
+                                 return False
+
+
+

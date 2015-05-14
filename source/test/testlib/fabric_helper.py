@@ -14,11 +14,11 @@ log = logging.getLogger(__name__)
 
 
 class FabricHelper():
-    def __init__(self, fds_service, fds_node):
+    def __init__(self, fds_node):
 	env.user='root'
 	env.password='passwd'
 	env.host_string=fds_node
-	self.node_service=fds_service
+	#self.node_service=fds_service
 	self.fds_bin = '/fds/bin'
 	#self.fds_sbin = '/fds/sbin'
 	self.fds_sbin = '/home/hlim/projects/fds-src/source/tools'
@@ -26,7 +26,7 @@ class FabricHelper():
 	self.fdsconsole = '{}/fdsconsole.py'.format(self.fds_sbin)
 
 
-    def get_service_pid(self):
+    def get_service_pid(self, node_service):
 	'''
 	This function takes ip address and FDS service and returns its PID
 
@@ -46,12 +46,12 @@ class FabricHelper():
 	#with settings(hide('running','commands', 'stdout', 'stderr')):
 	with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
 
-		service_pid = run('pgrep {}'.format(self.node_service))
+		service_pid = run('pgrep {}'.format(node_service))
 		if service_pid.return_code == 0:
 			return service_pid
 
 		else:
-			log.warning("Unable to locate {} service PID".format(self.node_service))
+			log.warning("Unable to locate {} service PID".format(node_service))
 			return None
 
 
