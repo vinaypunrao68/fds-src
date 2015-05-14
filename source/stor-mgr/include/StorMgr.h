@@ -310,11 +310,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      NodeUuid getUuid() const;
      fds_bool_t amIPrimary(const ObjectID& objId);
 
-     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
-     void getTokensForNode(TokenList *tl,
-                           const NodeUuid &uuid,
-                           fds_uint32_t index);
-     fds_uint32_t getTotalNumTokens() const;
 
      virtual std::string log_string() {
          std::stringstream ret;

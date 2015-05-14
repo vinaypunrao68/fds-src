@@ -301,24 +301,6 @@ int ObjectStorMgr::run()
     return 0;
 }
 
-const TokenList&
-ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
-    return omClient->getTokensForNode(uuid);
-}
-
-void
-ObjectStorMgr::getTokensForNode(TokenList *tl,
-                                const NodeUuid &uuid,
-                                fds_uint32_t index) {
-    return omClient->getCurrentDLT()->getTokens(tl,
-                                                uuid,
-                                                index);
-}
-
-fds_uint32_t
-ObjectStorMgr::getTotalNumTokens() const {
-    return omClient->getCurrentDLT()->getNumTokens();
-}
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
