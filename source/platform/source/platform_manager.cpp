@@ -296,82 +296,7 @@ namespace fds
             }
 
         }
-/*
-        // plf_start_node_services
-        // -----------------------
-        //
-        void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
-        {
-            pid_t    pid;
 
-            auto     &info = activateMsg->info;
-
-            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
-
-            // In all the cases below, if pid == 0 is returned from startProcess, the process is already running so, so we fall through to the next check
-
-            if (info.has_sm_service)
-            {
-                pid = startProcess(STORAGE_MANAGER);
-
-                if (pid < 0)
-                {
-                    LOGCRITICAL << "Failed to start:  " << SM_NAME;
-                }
-                else if (pid > 1)
-                {
-                    m_appPidMap[SM_NAME] = pid;
-                    nodeInfo.fHasSm = true;
-                }
-            }
-
-            if (info.has_dm_service)
-            {
-                pid = startProcess(DATA_MANAGER);
-
-                if (pid < 0)
-                {
-                    LOGCRITICAL << "Failed to start:  " << DM_NAME;
-                }
-                else if (pid > 1)
-                {
-                    m_appPidMap[DM_NAME] = pid;
-                    nodeInfo.fHasDm = true;
-                }
-            }
-
-            if (info.has_am_service)
-            {
-                // For the AM, if bare_am is running, presume that the java_am is also running, the monitoring side will restart both if a failure is detected
-                pid = startProcess(BARE_AM);
-
-                if (pid < 0)
-                {
-                    LOGCRITICAL << "Failed to start:  " << BARE_AM_NAME;
-                }
-                else if (pid > 1)
-                {
-                    m_appPidMap[BARE_AM_NAME] = pid;
-
-                    pid = startProcess(JAVA_AM);
-
-                    if (pid < 0)
-                    {
-                        LOGCRITICAL << "Failed to start:  " << JAVA_AM_CLASS_NAME;
-
-                        stopProcess (BARE_AM);
-                    }
-                    else if (pid > 1)
-                    {
-                        m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
-                        nodeInfo.fHasAm = true;
-                    }
-                }
-            }
-
-            db->setNodeInfo(nodeInfo);
-        }
-*/
         void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
         {
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
@@ -519,8 +444,9 @@ namespace fds
 
                             m_appPidMap.erase (mapIter++);
 
-                            // need to tell the OM here, that something died, unless we are in shutdown mode.
+                            // need to tell the OM here, that something died, unless we are in shutdown mode, this work is the next card
 
+                            // Find the appIndex of the process that died.
                             for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
                             {
                                 if (iter->second == procName)
