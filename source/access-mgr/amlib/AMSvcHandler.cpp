@@ -22,7 +22,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyThrottle, SetThrottleLevel);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyQoSControl, QoSControl);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, AttachVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, AddVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, DetachVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
@@ -130,17 +130,17 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
 }
 
-// AttachVol
+// AddVol
 // ---------
 //
 void
-AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
 {
     Error err(ERR_OK);
 
     auto vol_uuid = vol_msg->vol_desc.volUUID;
-    GLOGNOTIFY << "Received volume attach event from OM"
+    GLOGNOTIFY << "Received volume add event from OM"
                        << " for volume \"" << vol_msg->vol_desc.vol_name << "\" ["
                        << std::hex << vol_uuid << std::dec << "]";
 
