@@ -6,6 +6,7 @@ user_build_dir := \
     jansson-2.5   \
     gmock-1.7.0   \
     cmdconsole    \
+	gcovr         \
     source
 
 include $(topdir)/Makefile.incl
