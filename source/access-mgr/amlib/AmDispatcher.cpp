@@ -108,6 +108,26 @@ AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
 }
 
 Error
+AmDispatcher::getDMT() {
+	if (om_client->getNoNetwork()) {
+		// Standalone mode
+		return (ERR_OK);
+	} else {
+		return (om_client->getDMT());
+	}
+}
+
+Error
+AmDispatcher::getDLT() {
+	if (om_client->getNoNetwork()) {
+		// Standalone mode
+		return (ERR_OK);
+	} else {
+		return (om_client->getDLT());
+	}
+}
+
+Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
     return om_client->testBucket(volume_name, true, "", "");
 }
