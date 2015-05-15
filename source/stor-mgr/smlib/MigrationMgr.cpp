@@ -33,7 +33,8 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
     }
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
-    parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 2);
+    parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 16);
+    LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
 }
 
 SmTokenMigrationMgr::~SmTokenMigrationMgr() {
