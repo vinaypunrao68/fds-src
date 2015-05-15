@@ -41,7 +41,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.addNodes = function( nodes ){
 
         nodes.forEach( function( node ){
-            $http_fds.post( '/api/config/services/' + node.uuid, {am: node.am, sm: node.sm, dm: node.dm} )
+            $http_fds.post( '/api/config/nodes/' + node.uuid + '/1', {am: node.am, sm: node.sm, dm: node.dm} )
                 .then( getNodes );
 //            console.log( '/api/config/services/' + node.uuid + ' BODY: {am: ' + node.am + ', sm:' + node.sm + ', dm: ' + node.dm + '}' );
         });
@@ -50,7 +50,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.removeNode = function( node, callback ){
         
         // right now we stop all services when we deactivate a node
-        $http_fds.put( '/api/config/services/' + node.uuid, { am: false, sm: false, dm: false } )
+        $http_fds.put( '/api/config/nodes/' + node.uuid, { am: false, sm: false, dm: false } )
             .then( function(){
                 if ( angular.isFunction( callback ) ){
                     callback();
@@ -65,7 +65,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
             poll();
         }
         
-        return $http_fds.get( '/api/config/services',
+        return $http_fds.get( '/api/config/nodes',
             function( data ){
 
                 service.nodes = [];

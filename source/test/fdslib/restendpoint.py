@@ -137,10 +137,10 @@ class ServiceEndpoint:
 
     def __init__(self, rest):
         self.rest = rest
-        self.rest_path = self.rest.base_path + '/api/config/services'
+        self.rest_path = self.rest.base_path + '/api/config/nodes'
 
     def toggleServices(self, node_uuid, service_map):
-        path = '{}/{}'.format(self.rest_path, str(node_uuid))
+        path = '{}/{}/1'.format(self.rest_path, str(node_uuid))
         res = self.rest.post(path, data=json.dumps(service_map))
         res = self.rest.parse_result(res)
 
@@ -179,7 +179,7 @@ class ServiceEndpoint:
             return []
 
     def startService(self, nodeUuid, svcs):
-        rest_path = '{}/{}'.format(self.rest_path, nodeUuid)
+        rest_path = '{}/{}/1'.format(self.rest_path, nodeUuid)
 
         res = self.rest.post(rest_path, data=json.dumps(svcs))
         if res is not None:
