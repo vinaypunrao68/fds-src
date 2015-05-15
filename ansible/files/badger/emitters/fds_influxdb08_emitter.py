@@ -58,7 +58,6 @@ class fds_influxdb08_emitter(object):
                 else:
                     volume_id = split_name.pop()
                 fds_series_name = ".".join(split_name)
-#                influxdb_payload.append(series_name)
                 influxdb_payload.append({
                     'name': fds_series_name,
                     'columns': self.columns + ['volume_id'],
@@ -70,10 +69,6 @@ class fds_influxdb08_emitter(object):
                     'columns': self.columns,
                     'points': [[series_data[series_name]['value'], series_data[series_name]['units'], timestamp, datacenter, region, zone, cluster, hostname, ipv4, ipv6]]
                 })
-
-#        print json.dumps(influxdb_payload, sort_keys=True, indent=4, separators=(',', ': '))
-#        for i in influxdb_payload:
-#            print i
 
         req = urllib2.Request(self.url, json.dumps(influxdb_payload), {'Content-Type': 'application/json'})
 
