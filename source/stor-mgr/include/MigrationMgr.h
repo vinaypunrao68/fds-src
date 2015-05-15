@@ -262,8 +262,7 @@ class SmTokenMigrationMgr {
     void checkResyncDoneAndCleanup();
 
     /// state of migration manager
-    std::atomic<MigrationState> migrState; // assuming this is shared 
-                                           // across the whoel migration mgr
+    std::atomic<MigrationState> migrState;
     /// target DLT version for which current migration is happening
     /// does not mean anything if mgr in IDLE state
     fds_uint64_t targetDltVersion;
@@ -286,15 +285,20 @@ class SmTokenMigrationMgr {
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
 
-    /// SM token token that is currently in progress of migrating
+    /// set of SM tokens that are currently in progress of migrating
     std::unordered_set<fds_token_id> smTokenInProgress;
+    /// mutex for smTokenInProgress
     fds_rwlock smTokenInProgressRWLock;
+
+    /// thread-safe iterator over MigrExecutorMap
+    /// provides - constructor
+    ///          - fetch_and_increment_saturating
+    ///          - set
     struct NextExecutor {
-        NextExecutor() = delete;
+        /// constructor
         explicit NextExecutor(const MigrExecutorMap& ex) : exMap(ex) {}
-        const MigrExecutorMap& exMap;
-        MigrExecutorMap::const_iterator it;
-        fds_mutex m;
+        /// return current iterator and increment atomically
+        /// if at the end of the vector don't increment
         MigrExecutorMap::const_iterator fetch_and_increment_saturating() {
             FDSGUARD(m);
             auto tmp = it;
@@ -302,11 +306,15 @@ class SmTokenMigrationMgr {
                 it++;
             return  tmp;
         }
-
+        /// atomic setter
         void set(MigrExecutorMap::iterator i) {
             FDSGUARD(m);
             it = i;
         }
+        const MigrExecutorMap& exMap;
+        MigrExecutorMap::const_iterator it;
+        fds_mutex m;
+        NextExecutor() = delete;
     } nextExecutor;
 
     /// SM token token that is currently in the second round
@@ -323,7 +331,9 @@ class SmTokenMigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
-     * Qos request to snapshot index db
+     * Map of the Qos request to snapshot index db
+     * This is not protected. Assuming no aditions/removals to the 
+     * map after initialization
      */
     std::unordered_map<fds_token_id, SmIoSnapshotObjectDB> snapshotRequest;
     
@@ -341,6 +351,7 @@ class SmTokenMigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+    /// number of parallel thread -- from platform.conf
     int parallelMigration;
 
     /**

@@ -597,7 +597,6 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
-        LOGMIGRATE << "call to migrDoneHandler";
         migrDoneHandler(executorId, smTokenId, dltTokens, roundNum, error);
     }
 }
