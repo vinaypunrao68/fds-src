@@ -290,18 +290,21 @@ class SmTokenMigrationMgr {
     std::unordered_set<fds_token_id> smTokenInProgress;
     fds_rwlock smTokenInProgressRWLock;
     struct NextExecutor {
+        NextExecutor() = delete;
+        explicit NextExecutor(const MigrExecutorMap& ex) : exMap(ex) {}
+        const MigrExecutorMap& exMap;
         MigrExecutorMap::const_iterator it;
-        fds_rwlock m;
-        void inc() {
-            SCOPEDWRITE(m);
-            it++;
+        fds_mutex m;
+        MigrExecutorMap::const_iterator fetch_and_increment_saturating() {
+            FDSGUARD(m);
+            auto tmp = it;
+            if (it != exMap.cend())
+                it++;
+            return  tmp;
         }
-        MigrExecutorMap::const_iterator get() {
-            SCOPEDREAD(m);
-            return  it;
-        }
+
         void set(MigrExecutorMap::iterator i) {
-            SCOPEDWRITE(m);
+            FDSGUARD(m);
             it = i;
         }
     } nextExecutor;
