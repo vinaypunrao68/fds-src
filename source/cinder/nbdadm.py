@@ -26,8 +26,8 @@ class nbdlib:
 
     @contextmanager
     def lock(self):
-        if lock_file is not None:
-            lockfd = os.open(lock_file, os.O_CREAT)
+        if self.lock_file is not None:
+            lockfd = os.open(self.lock_file, os.O_CREAT)
             fcntl.flock(lockfd, fcntl.LOCK_EX)
             yield None
             fcntl.flock(lockfd, fcntl.LOCK_UN)
