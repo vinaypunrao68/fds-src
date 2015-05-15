@@ -160,7 +160,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
 
                 firePrePersist( entities );
 
-                doPersist( entities );
+                persisted = doPersist( entities );
 
                 firePostPersist( persisted );
             }
