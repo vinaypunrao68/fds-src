@@ -42,7 +42,7 @@ class nbdlib:
     def __insmod_nbd():
         return os.system("modprobe nbd -q") == 0
 
-    def __consume_arg(args, arg, hasValue = False):
+    def __consume_arg(self, args, arg, hasValue = False):
         if arg in args:
             val = args.index(arg)
             args.pop(val)
