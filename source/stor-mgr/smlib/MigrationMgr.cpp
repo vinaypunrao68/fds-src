@@ -480,8 +480,8 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
         SCOPEDREAD(clientLock);
         // ok if migration client does not exist
         if (migrClients.count(executorId) > 0) {
-            LOGDEBUG << "Remove migration client for executor " << executorId
-                     << " which means that forwarding from this client will stop too";
+            LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
+                     << std::dec << " which means that forwarding from this client will stop too";
             // the destination SM told us it does not need this client anymore
             // just remove it, which will also stop forwarding IO from this client
             migrClients.erase(executorId);
