@@ -187,7 +187,7 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     if (abortMsg->DLT_version > 0) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
-        objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
+        MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMsg->DLT_version);
     }
 
     // send response
@@ -223,7 +223,7 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
     // tell migration mgr to start object rebalance
-    const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
+    const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
     fds_verify(dlt != NULL);
 
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
@@ -980,7 +980,8 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
-    err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data, nullptr);
+    err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt->dlt_data.dlt_type,
+                                                   dlt->dlt_data.dlt_data, nullptr);
     if (err.ok()) {
         err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
@@ -1005,7 +1006,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // Set closed flag for the DLT. We use it for garbage collecting
     // DLT tokens that are no longer belong to this SM. We want to make
     // sure we garbage collect only when DLT is closed
-    err = objStorMgr->omClient->getDltManager()->setCurrentDltClosed();
+    err = MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrentDltClosed();
     if (err == ERR_NOT_FOUND) {
         LOGERROR << "SM received DLT close without receiving DLT, ok for now, but fix OM!!!";
         // returning OK to OM
@@ -1058,9 +1059,10 @@ SMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
 {
     Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new DMT commit version  "
+    LOGNOTIFY << "Received new DMT commit version  "
                 << dmt->dmt_data.dmt_type;
-    err = objStorMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt->dmt_data.dmt_type,
+                                                   dmt->dmt_data.dmt_data);
     if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DMT, ignoring";
         err = ERR_OK;

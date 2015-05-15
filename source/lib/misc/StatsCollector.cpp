@@ -6,8 +6,9 @@
 #include <vector>
 #include <fds_process.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
+#include <fdsp/dm_api_types.h>
 #include <StatsCollector.h>
-#include <lib/OMgrClient.h>
 
 namespace fds {
 
@@ -69,7 +70,7 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
     fds_verify(slotsec_stat_ > 0);
     slots_stat_ = static_cast<double>(push_interval_) / slotsec_stat_ + 2;
 
-    om_client_ = NULL;
+    svcMgr_ = nullptr;
     record_stats_cb_ = NULL;
     stream_stats_cb_ = NULL;
 }
@@ -121,8 +122,8 @@ StatsCollector* StatsCollector::singleton() {
     return &glStatsCollector;
 }
 
-void StatsCollector::registerOmClient(OMgrClient* omclient) {
-    om_client_ = omclient;
+void StatsCollector::setSvcMgr(SvcMgr* svcMgr) {
+    svcMgr_ = svcMgr;
 }
 
 void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb,
@@ -372,10 +373,10 @@ void StatsCollector::sendStatStream() {
     std::unordered_map<NodeUuid, fpi::StatStreamMsgPtr, UuidHash> msg_map;
     std::unordered_map<NodeUuid, fpi::StatStreamMsgPtr, UuidHash>::const_iterator msg_cit;
     for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
-        DmtColumnPtr nodes = om_client_->getDMTNodesForVolume(cit->first);
+        DmtColumnPtr nodes = svcMgr_->getDMTNodesForVolume(cit->first);
         NodeUuid dm_uuid = nodes->get(0);
         if (msg_map.count(dm_uuid) == 0) {
-            fpi::StatStreamMsgPtr msg(new StatStreamMsg());
+            fpi::StatStreamMsgPtr msg(new fpi::StatStreamMsg());
             msg->start_timestamp = start_time_;
             msg_map[dm_uuid] = msg;
         }

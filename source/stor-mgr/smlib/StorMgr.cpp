@@ -18,7 +18,6 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
-#include "lib/OMgrClient.h"
 #include "PerfTypes.h"
 
 using diskio::DataTier;
@@ -47,7 +46,6 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosOutNum(10),
       volTbl(nullptr),
       qosCtrl(nullptr),
-      omClient(nullptr),
       shuttingDown(false)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
@@ -83,14 +81,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    fds_verify(omClient == nullptr);
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog());
-    }
-
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -192,7 +183,7 @@ void ObjectStorMgr::mod_enable_service()
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         // Enable stats collection in SM for stats streaming
-        StatsCollector::singleton()->registerOmClient(omClient);
+        StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
         StatsCollector::singleton()->startStreaming(
             std::bind(&ObjectStorMgr::sampleSMStats, this, std::placeholders::_1), NULL);
     }
@@ -241,7 +232,7 @@ void ObjectStorMgr::mod_enable_service()
     }
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
     Module::mod_enable_service();
@@ -312,15 +303,14 @@ const DLT* ObjectStorMgr::getDLT() {
     if (testStandalone == true) {
         return standaloneTestDlt;
     }
-    if (!omClient) { return nullptr; }
-    return omClient->getCurrentDLT();
+    return MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 }
 
 fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     if (testStandalone == true) {
         return true;  // TODO(Anna) add test DLT and use my svc uuid = 1
     }
-    DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
+    DltTokenGroupPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
     return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
@@ -329,7 +319,7 @@ Error ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
-    const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
         LOGNORMAL << "SM received first DLT after restart, which matched "
@@ -987,7 +977,7 @@ ObjectStorMgr::storeCurrentDLT()
     // verify dlt ownership.
     //
     // TODO(Sean):  cleanup when going moving to online smcheck
-    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    DLT *currentDLT = const_cast<DLT *>(MODULEPROVIDER()->getSvcMgr()->getCurrentDLT());
     std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
 
     // Must remove pre-existing file.  Otherwise, it will append a new version to the
