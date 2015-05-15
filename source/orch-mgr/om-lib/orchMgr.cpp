@@ -120,10 +120,6 @@ void OrchMgr::proc_pre_startup()
     
     LOGNOTIFY << "Orchestration Manager using config port " << config_portnum
               << " control port " << control_portnum;
-    configDB = new kvstore::ConfigDB(
-        conf_helper_.get<std::string>("configdb.host", "localhost"),
-        conf_helper_.get<int>("configdb.port", 0),
-        conf_helper_.get<int>("configdb.poolsize", 10));
 
     policy_mgr = new VolPolicyMgr(getConfigDB(), GetLog());
 
@@ -146,6 +142,18 @@ void OrchMgr::proc_pre_service()
     local_domain->om_load_state(config_db_up ? getConfigDB() : NULL);
 }
 
+void OrchMgr::setupConfigDb_()
+{
+    SvcProcess::setupConfigDb_();
+    
+    configDB = new kvstore::ConfigDB(
+    conf_helper_.get<std::string>("configdb.host", "localhost"),
+    conf_helper_.get<int>("configdb.port", 0),
+    conf_helper_.get<int>("configdb.poolsize", 10));
+        
+    LOGNOTIFY << "ConfigDB ( After overriding )";
+}
+
 void OrchMgr::setupSvcInfo_()
 {
     SvcProcess::setupSvcInfo_();
@@ -156,7 +164,7 @@ void OrchMgr::setupSvcInfo_()
     svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
         config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
 
-    LOGNOTIFY << "Service info(After overriding): " << fds::logString(svcInfo_);
+    LOGNOTIFY << "Service info ( After overriding ): " << fds::logString(svcInfo_);
 }
 
 void OrchMgr::registerSvcProcess()
