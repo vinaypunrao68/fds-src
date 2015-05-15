@@ -4,11 +4,13 @@
 
 package com.formationds.om.webkit.rest;
 
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.commons.Fds;
 import com.formationds.commons.model.ConnectorAttributes;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -16,10 +18,12 @@ import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
+import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -27,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Map;
@@ -159,6 +164,19 @@ public class CreateVolume
           throw se;
       }
 
+      Long iopsLimit = 0L;
+      
+      if ( volume.getLimit() > 0 ) {
+    	  
+	      // get the iops setting from the platform.conf file
+	      SingletonConfiguration config = SingletonConfiguration.instance();
+	      ParsedConfig pConfig = config.getConfig().getPlatformConfig();
+	      int maxIops = pConfig.defaultInt( Fds.Config.DISK_IOPS_MAX_CONFIG, 60000 );
+	      
+	      // calculate the literal IOPs limit from the passed in percentage
+	      iopsLimit = Math.round( ((double)volume.getLimit() / 100.0 ) * (double)maxIops );
+      }
+      
       volumeId = configApi.getVolumeId( volume.getName() );
       if( volumeId > 0 ) {
           volume.setId( String.valueOf( volumeId ) );
@@ -168,7 +186,7 @@ public class CreateVolume
                                            volume.getName(),
                                            volume.getSla(),
                                            volume.getPriority(),
-                                           volume.getLimit(),
+                                           iopsLimit,
                                            volume.getCommit_log_retention(),
                                            volume.getMediaPolicy() );
 
