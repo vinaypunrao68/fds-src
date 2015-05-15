@@ -62,8 +62,6 @@ class TestRunScavenger(TestCase.FDSTestCase):
             self.nodes = current_dlt.keys()
 
         for node_uuid in self.nodes:
-            # Subtract 1 to get node UUID because we actually have SM UUIDs
-            node_uuid -= 1
 
             call = ' '.join(['./fdsconsole.py', 'scavenger', 'enable', str(node_uuid)])
             res = om_node.nd_agent.exec_wait(call, fds_tools=True)
