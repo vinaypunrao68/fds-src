@@ -1007,7 +1007,21 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
 {
     Error err(ERR_OK);
-    LOGNOTIFY << "Receiving DLT Close";
+    LOGNOTIFY << "Receiving DLT Close for DLT version " << (dlt->dlt_close).DLT_version;
+
+    // OM should not be sending DLT close for DLT version to which this SM
+    // did not get DLT update, but just make sure SM ignores DLT close
+    // for DLT this SM does not know about
+    const DLT *curDlt = objStorMgr->getDLT();
+    if (curDlt->getVersion() != (fds_uint64_t)((dlt->dlt_close).DLT_version)) {
+        LOGNOTIFY << "SM received DLT close for the version " << (dlt->dlt_close).DLT_version
+                  << ", but the current DLT version is " << curDlt->getVersion()
+                  << ". SM will ignore this DLT close";
+        // OK to OM
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        return;
+    }
+
     // Set closed flag for the DLT. We use it for garbage collecting
     // DLT tokens that are no longer belong to this SM. We want to make
     // sure we garbage collect only when DLT is closed
@@ -1024,8 +1038,13 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     objStorMgr->storeCurrentDLT();
 
     // tell superblock that DLT is closed, so that it will invalidate
-    // appropriate SM tokens
-    err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
+    // appropriate SM tokens -- however, it is possible that this SM
+    // got DLT update and close for the DLT version this SM does not belong
+    // to, that should only happen on initial start; but for not notifying
+    // superblock about DLT this SM does not belong to
+    if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+        err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
+    }
 
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance
