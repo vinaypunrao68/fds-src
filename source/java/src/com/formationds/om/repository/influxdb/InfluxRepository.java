@@ -4,7 +4,6 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.crud.AbstractRepository;
-
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.om.repository.query.QueryCriteria;
@@ -125,7 +124,10 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
 
         StringBuilder sb = new StringBuilder();
 
-        String prefix = SELECT + "*" + FROM + getEntityName();
+        // * if no columns, otherwise comma-separated list of column names
+        String projection = queryCriteria.getColumnString();
+
+        String prefix = SELECT + projection + FROM + getEntityName();
         sb.append( prefix );
 
         if ( queryCriteria.getRange() != null ||

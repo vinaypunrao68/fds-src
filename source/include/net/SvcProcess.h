@@ -86,12 +86,21 @@ struct SvcProcess : FdsProcess, SvcServerListener {
                 handler, processor);
     }
 
+    /**
+     * @brief The entry point of where all the modules listed in the mod_vectors
+     * get started.
+     * It does the following:
+     * 1. (Pre-register) - Tells each module to initialize.
+     * 2. (Register) - Registers with the OM (using registerSvcProcess() below)
+     * 3. (Post-register) - Tells each module to start services that can now start
+     * 	  after having registered with the OM.
+     */
     virtual void start_modules() override;
 
     /**
     * @brief Registers the service.  Default implementation will register the service
     * with OM.
-    * Override this behavior depedning on the service type.
+    * Override this behavior depending on the service type.
     */
     virtual void registerSvcProcess();
 
