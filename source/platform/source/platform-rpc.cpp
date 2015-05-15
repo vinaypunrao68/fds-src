@@ -124,19 +124,6 @@ namespace fds
     }
 
     void
-    PlatRpcResp::RegisterNodeResp(const FDSP_MsgHdrType         &fdsp_msg,
-                                  const FDSP_RegisterNodeType   &reg_node_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
-                                  fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcResp::MigrationDoneResp(const FDSP_MsgHdrType            &fdsp_msg,
                                    const FDSP_MigrationStatusType   &status_resp)
     {

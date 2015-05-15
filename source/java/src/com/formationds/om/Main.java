@@ -3,7 +3,6 @@
  */
 package com.formationds.om;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.XdiService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
@@ -11,7 +10,6 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
-import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
@@ -34,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger( Main.class );
@@ -128,7 +127,10 @@ public class Main {
         ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
             ConfigServiceClientFactory.newConfigService(grabFirstOmIpAddress, omConfigPort);
 
-        final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
+        // TODO: this retries with a very long timeout.... probably not what we want in the long run
+        final OmConfigurationApi configCache = RetryHelper.retry( "OmConfigurationApi", 5, TimeUnit.MINUTES,
+                                                                  () -> new OmConfigurationApi( configApiFactory ) );
+
         configCache.startConfigurationUpdater( );
         SingletonConfigAPI.instance().api( configCache );
 
@@ -141,17 +143,9 @@ public class Main {
          * TODO(Tinius) currently we only support a single OM
          */
 
-        int omLegacyConfigPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
         String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                                       "../lib/admin-webapp" );
 
-        FDSP_ConfigPathReq.Iface legacyConfigClient =
-            ConfigServiceClientFactory.newLegacyConfigService(grabFirstOmIpAddress,
-                                                              omLegacyConfigPort)
-                                      .getClient();
-
-        SingletonLegacyConfig.instance()
-                             .api( legacyConfigClient );
 
 
         char[] aesKey = platformConfig.defaultString( "fds.aes_key", "" ).toCharArray();

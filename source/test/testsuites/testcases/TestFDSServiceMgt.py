@@ -18,6 +18,8 @@ import logging
 import shlex
 import random
 import re
+import fdslib.platformservice as plat_svc
+
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -2048,16 +2050,19 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 
         return True
 
-#This class sets fault injection on source SM node before SM token migration is started
-class TestTokenMigrationRetry(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+#This class injects fault in Storage Manager running on a given node.
+#It randomly chooses a fault to inject from a given set of faults passed
+#as parameter to the testcase in the system test.
+class TestServiceInjectFault(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, faultNames=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_TokenMigrationRetry,
+                                             self.test_ServiceInjectFault,
                                              "Setting fault injection for SM token migration retry")
         self.passedNode = node
+        self.passedFaultNames = faultNames.split(' ')
 
-    def test_TokenMigrationRetry(self):
+    def test_ServiceInjectFault(self):
         """
         Test Case:
         This testcase sets the fault injection parameter on the source SM before starting of a
@@ -2071,29 +2076,26 @@ class TestTokenMigrationRetry(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        nodes = fdscfg.rt_obj.cfg_nodes
-        nodeObj = findNodeFromInv(nodes, self.passedNode) 
-    
-        svc_re = re.compile(r'([0-9]+)(\s+)SM')
-        status, stdout = nodeObj.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service list) \"',
-                                                    return_stdin=True,
-                                                    fds_tools=True)
 
-        if status == 0:
-            for line in stdout.split('\n'):
-                res = svc_re.match(line)
-                if res is not None:
-                    smSvcId = res.group(1)
- 
-                    status, stdout = nodeObj.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service setfault {} \"enable name=resend.dlt.token.filter.set\") \"' 
-                                                                .format(smSvcId),
-                                                                fds_tools=True, return_stdin=True)
-                    print stdout
-                    if (stdout == 'Ok'):
-                        return True
-                    else:
-                        return False
+        svc_map = plat_svc.SvcMap(fdscfg.rt_om_node.nd_conf_dict['ip'],
+                                  fdscfg.rt_om_node.nd_conf_dict['fds_port'])
+        svcs = svc_map.list()
 
+        # Svc map will be a list of lists in the form:
+        # [ [uuid, svc_name, ???, ip, port, is_active?] ]
+        sm_uuid = filter(lambda x: 'sm' in x, svcs)[0][0]
+
+        '''
+        Randomly choose a fault to inject
+        '''
+        chosenFault = random.choice(self.passedFaultNames)
+        self.log.info("Selected {} as random fault to inject for SM on node {} ".format(chosenFault, self.passedNode))
+
+        res = svc_map.client(sm_uuid).setFault('enable name=' + chosenFault)
+        if res:
+            return True
+
+        return False
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

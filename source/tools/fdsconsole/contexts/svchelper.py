@@ -13,7 +13,10 @@ import pyfdsp
 from operator import attrgetter
 from operator import itemgetter
 
-log = process.setup_logger('cli.log')
+# Only do this next step if we're running from fdsconsole.py otherwise we'll suppress output for anything
+# importing some of these files
+if '__main__' in sys.modules and str(sys.modules['__main__']) == '<module \'__main__\' from \'./fdsconsole.py\'>':
+    log = process.setup_logger('cli.log')
 
 class ServiceMap:
     __serviceMap = None

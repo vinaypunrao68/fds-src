@@ -193,7 +193,7 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
      auto asyncReq = reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
      if (!asyncReq)
      {
-         GLOGWARN << logString(*header) << " Request doesn't exist (timed out?)";
+         GLOGWARN << logString(*header) << " Request doesn't exist (timed out/fire and forget)?";
          return;
      }
 

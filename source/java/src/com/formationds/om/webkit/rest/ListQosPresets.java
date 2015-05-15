@@ -29,18 +29,21 @@ public class ListQosPresets implements RequestHandler {
 		least.setPriority( 10 );
 		least.setLimit( 0L );
 		least.setSla( 0L );
+		least.setUuid( 1L );
 		
 		QosPreset standard = new QosPreset();
 		standard.setName( "Standard" );
 		standard.setPriority( 7 );
 		standard.setLimit( 0L );
 		standard.setSla( 0L );
+		standard.setUuid( 2L );
 		
 		QosPreset most = new QosPreset();
 		most.setName( "Most Important" );
 		most.setPriority( 1 );
 		most.setLimit( 0L );
 		most.setSla( 0L );
+		most.setUuid( 3L );
 		
 		qosPresets.add( least );
 		qosPresets.add( standard );

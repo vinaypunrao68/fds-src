@@ -72,6 +72,16 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::shared_ptr<ObjectStore> ptr;
 
     /**
+     * Open store for a given set of SM tokens. One or more
+     * SM tokens may be already opened, which is ok.
+     * Called when SM starts migrating new tokens for which it gained
+     * ownership, so the metadata and data stores must be opened
+     * This method does not update disk map; disk map is updated on
+     * DLT update.
+     */
+    Error openStore(const SmTokenSet& smTokens);
+
+    /**
      * Notification about DLT change
      * @return ERR_OK on success;
      *         ERR_SM_NOERR_NEED_RESYNC if StorMgr should start full token resync

@@ -22,8 +22,6 @@ template <class A, class B, class C> class netClientSessionEx;
 typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient, fpi::FDSP_OMControlPathRespProcessor,
                            fpi::FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 
-class netSessionTbl;
-
 namespace fds
 {
     namespace apis
@@ -55,14 +53,6 @@ namespace fds
              */
             void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
             void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
-            void om_register_node(fpi::FDSP_RegisterNodeTypePtr);
-
-            /**
-             * TODO(Vy): remove this API and use the net service one.
-             */
-            virtual void
-            om_handshake(boost::shared_ptr<netSessionTbl> net, std::string om_ip,
-                         fds_uint32_t om_port);
 
             boost::shared_ptr<apis::ConfigurationServiceClient> get_om_config_svc();
 

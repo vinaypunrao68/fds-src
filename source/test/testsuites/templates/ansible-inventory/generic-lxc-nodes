@@ -18,3 +18,4 @@ fds_om_host=<om_node>
 #fds_ft_common_enable_multi_om_support=true
 #fds_om_host_count=3
 no_password_change=yes
+fds_build=debug

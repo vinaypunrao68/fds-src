@@ -4,7 +4,6 @@
 
 package com.formationds.om.webkit.rest;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ConfigurationService;
@@ -14,7 +13,6 @@ import com.formationds.commons.model.ConnectorAttributes;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ConnectorType;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
@@ -31,8 +29,6 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -51,16 +47,13 @@ public class CreateVolume
   private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
 
   private final Authorizer authorizer;
-  private final FDSP_ConfigPathReq.Iface legacyConfigPath;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
   public CreateVolume( final Authorizer authorizer,
-                       final FDSP_ConfigPathReq.Iface legacyConfigPath,
                        final ConfigurationService.Iface configApi,
                        final AuthenticationToken token ) {
     this.authorizer = authorizer;
-    this.legacyConfigPath = legacyConfigPath;
     this.configApi = configApi;
     this.token = token;
   }
@@ -171,7 +164,7 @@ public class CreateVolume
           volume.setId( String.valueOf( volumeId ) );
 
           Thread.sleep( 200 );
-          SetVolumeQosParams.setVolumeQos( legacyConfigPath,
+          SetVolumeQosParams.setVolumeQos( configApi,
                                            volume.getName(),
                                            volume.getSla(),
                                            volume.getPriority(),

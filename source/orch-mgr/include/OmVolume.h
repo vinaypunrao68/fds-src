@@ -151,7 +151,6 @@ typedef struct om_vol_msg_s
         // though useful, is not a ball of yarn I want to unwind
         // right now...
         // FdspNotVolPtr               *vol_notif;
-        // FdspAttVolPtr               *vol_attach;
     } u;
 } om_vol_msg_t;
 
@@ -390,10 +389,6 @@ class VolumeContainer : public RsContainer
                                 const FdspDelVolPtr           &del_msg);
     Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
-    virtual Error om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                                const FdspAttVolCmdPtr        &attach);
-    virtual Error om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                                const FdspAttVolCmdPtr        &detach);
     virtual void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
                                 const fpi::FDSP_TestBucket * req);
     void om_vol_cmd_resp(VolumeInfo::pointer vol,
@@ -430,6 +425,7 @@ class VolumeContainer : public RsContainer
     virtual void om_cleanup_vol(const ResourceUUID& vol_uuid);
 
     bool addVolume(const VolumeDesc& volumeDesc);
+    bool createSystemVolume(int32_t tenantID = -1);
 
   protected:
     OmDiscoveryMod           *vol_disc_mgr;

@@ -88,7 +88,7 @@ void OmSvcHandler::init_svc_event_handlers() {
                LOGERROR << std::hex << svc << " saw too many " << std::dec << error
                         << " events [" << events << "]";
 
-               agent->set_node_state(FDS_Node_Down);
+               agent->set_node_state(fpi::FDS_Node_Down);
                domain->om_service_down(error, svc, agent->om_agent_type());
 
            } else {
@@ -188,7 +188,7 @@ void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, bo
 	DataPlacement *dp = om->om_dataplace_mod();
 	std::string data_buffer;
 	DLT const *dtp = NULL;
-	FDSP_DLT_Data_Type dlt_val;
+    FDS_ProtocolInterface::FDSP_DLT_Data_Type dlt_val;
 	if (!(dp->getCommitedDlt())){
 		LOGDEBUG << "Not sending DLT to new node, because no "
                 << " committed DLT yet";
@@ -212,14 +212,12 @@ void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, bo
 	OM_Module *om = OM_Module::om_singleton();
 	VolumePlacement* vp = om->om_volplace_mod();
 	std::string data_buffer;
-	DMTPtr dp = NULL;
     if (vp->hasCommittedDMT()) {
     	DMTPtr dp = vp->getCommittedDMT();
     	LOGDEBUG << "Should have DMT to send";
     	(*dp).getSerialized(data_buffer);
 
-    	FDSP_DMT_Type fdt;
-    	fdt.__set_dmt_version(vp->getCommittedDMTVersion());
+    	::FDS_ProtocolInterface::FDSP_DMT_Data_Type fdt;
     	fdt.__set_dmt_data(data_buffer);
 
     	dmt.__set_dmt_version(vp->getCommittedDMTVersion());

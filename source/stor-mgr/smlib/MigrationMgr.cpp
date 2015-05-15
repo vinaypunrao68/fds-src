@@ -7,6 +7,7 @@
 #include <MigrationMgr.h>
 #include <fds_process.h>
 #include <fdsp_utils.h>
+#include "PerfTrace.h"
 
 namespace fds {
 
@@ -83,8 +84,21 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        LOGMIGRATE << "startMigration called in non-idle state " << migrState;
-        return ERR_NOT_READY;
+        // already in "in progress" state, but ok if for the same target DLT (if this SM
+        // got request to be a source of the migration, before it started processing
+        // startMigration request
+        fds_uint32_t migrDltVersion = migrationMsg->DLT_version;
+        LOGMIGRATE << "startMigration called in non-idle state " << migrState
+                   << " for DLT version " << migrDltVersion
+                   << ", DLT version of on-going migration " << targetDltVersion;
+        if (migrDltVersion != targetDltVersion) {
+            LOGERROR << "startMigration called while migration for a different target DLT "
+                     << targetDltVersion << " is still in progress!";
+            if (cb) {
+                cb(ERR_NOT_READY);
+            }
+            return ERR_NOT_READY;
+        }
     }
     resyncOnRestart = forResync;
     targetDltVersion = migrationMsg->DLT_version;
@@ -474,6 +488,7 @@ SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
+    fiu_do_on("sm.exit.before.client.erase", exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
@@ -667,8 +682,9 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 }
             }
             if (isFirstRound && !resyncOnRestart) {
-                // here I start the second round for the first time
-                // start with first executor to do the second round
+                // --> start of second round
+                // --> incrememnt counter / marker of second round
+                PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
                 LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
                 LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
                 nextExecutor.set(migrExecutors.begin());

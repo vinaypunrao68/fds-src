@@ -116,12 +116,12 @@ namespace fds
 
         if (disk->dsk_parent == disk)
         {
-            if (disk->dsk_capacity_gb() >= DISK_ALPHA_CAPACITY_GB)
+            if (disk->dsk_capacity_gb() >= DISK_MINIMUM_CAPACITY_GB)
             {
                 dsk_qualify_cnt++;
                 DiskInventory::dsk_add_to_inventory_mtx(disk, &dsk_hdd);
             }else {
-                LOGNORMAL << " disk rejected due to capacity under sized ..." << disk;
+                LOGNORMAL << "Undersize disk (under " << DISK_MINIMUM_CAPACITY_GB << "GB) removed from usage consideration (device = " << disk << ")";
             }
         }else {
             DiskInventory::dsk_add_to_inventory_mtx(disk, NULL);

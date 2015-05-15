@@ -79,7 +79,7 @@ void SvcProcess::start_modules()
      * This is very complicated and needs to be simplified.
      * Overall in my observation mod_init(), mod_startup(), registerSvcProcess(),
      * mod_start_services() seems to be common sequence.  However even this can
-     * be further simplfied to mod_init() (pregister), registerSvcProcess(), 
+     * be further simplfied to mod_init() (pre-register), registerSvcProcess(),
      * mod_startup() (post register).  It'd be nice to change names as well
      * I guess it will stay this way until we find time to refactor this code.
      */
@@ -102,7 +102,7 @@ void SvcProcess::start_modules()
 
     /* Register with OM */
     LOGNOTIFY << "Registering the service with om";
-    /* Default implementation registers with OM.  Until registration complets
+    /* Default implementation registers with OM.  Until registration completes
      * this will not return
      */
     auto config = get_conf_helper();
@@ -111,7 +111,7 @@ void SvcProcess::start_modules()
         registerSvcProcess();
     }
 
-    /*  Star to run the main process. */
+    /*  Start to run the main process. */
     proc_pre_service();
     mod_vectors_->mod_start_services();
     mod_vectors_->mod_start_services(false);
@@ -142,6 +142,7 @@ void SvcProcess::registerSvcProcess()
 
             omSvcRpc->getSvcMap(svcMap, 0);
             LOGNOTIFY << "got service map.  size: " << svcMap.size();
+
             break;
         } catch (Exception &e) {
             LOGWARN << "Failed to register: " << e.what() << ".  Retrying...";

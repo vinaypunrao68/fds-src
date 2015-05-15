@@ -5,7 +5,6 @@ user_cpp         :=      \
     config.cpp           \
     dlt.cpp              \
     FdsRandom.cpp        \
-    NetSession.cpp       \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
     fds_timer.cpp        \

@@ -21,6 +21,8 @@ ETCDIR=${DESTDIR}/etc
 
 JAVADIR=${DESTDIR}/lib/java
 
+DATE_STAMP=`date +%s`
+
 echo "Symlinking FDS into ${DESTDIR}"
 
 for d in ${BINDIR} ${DESTDIR}/lib ${SBINDIR}
@@ -30,6 +32,7 @@ done
 
 for f in ${BIN_LINK_FILE_LIST}
 do
+    [[ -e ${BINDIR}/${f} && ! -L  ${BINDIR}/${f} ]] &&  mv ${BINDIR}/${f} ${BINDIR}/${f}.${DATE_STAMP}
     [[ -L ${BINDIR}/${f} ]] && unlink ${BINDIR}/${f}
 
     echo "linking ${f}"
@@ -38,6 +41,7 @@ done
 
 for f in ${SBIN_LINK_FILE_LIST}
 do
+    [[ -e ${SBINDIR}/${f} && ! -L  ${SBINDIR}/${f} ]] &&  mv ${SBINDIR}/${f} ${SBINDIR}/${f}.${DATE_STAMP}
     [[ -L ${SBINDIR}/${f} ]] && unlink ${SBINDIR}/${f}
 
     if [[ ! -f ${SBINDIR}/${f} ]]
@@ -50,12 +54,12 @@ do
     fi
 done
 
-[[ -e ${ETCDIR} && ! -L ${ETCDIR} ]] && mv ${ETCDIR} ${ETCDIR}.`date +%s`
-
+[[ -e ${ETCDIR} && ! -L ${ETCDIR} ]] && mv ${ETCDIR} ${ETCDIR}.${DATE_STAMP}
 [[ -L ${ETCDIR} ]] && unlink ${ETCDIR}
 echo "linking ${ETCDIR}"
 ln -s ${PWD}/config/etc ${ETCDIR}
 
+[[ -e ${JAVADIR} && ! -L ${JAVADIR} ]] && mv ${JAVADIR} ${JAVADIR}.${DATE_STAMP}
 [[ -L ${JAVADIR} ]] && unlink ${JAVADIR}
 echo "linking ${JAVADIR}"
 ln -s ${PWD}/Build/linux-x86_64.debug/lib/java/ ${JAVADIR}

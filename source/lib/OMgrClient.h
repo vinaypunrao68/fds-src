@@ -7,13 +7,13 @@
 #include <fds_volume.h>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_OMControlPathReq.h"
 #include <util/Log.h>
 
 #include <unordered_map>
 #include <concurrency/RwLock.h>
 #include <dlt.h>
 #include <fds_dmt.h>
+#include <fdsp/OMSvc.h>
 
 #include <string>
 using namespace FDS_ProtocolInterface; // NOLINT
@@ -79,6 +79,9 @@ class OMgrClient {
     void setNoNetwork(bool fNoNetwork) {
         this->fNoNetwork = fNoNetwork;
     }
+    bool getNoNetwork() {
+    	return (this->fNoNetwork);
+    }
     ~OMgrClient();
 
     NodeUuid getUuid() const;
@@ -105,6 +108,16 @@ class OMgrClient {
 
     DLTManagerPtr getDltManager() { return dltMgr; }
     DMTManagerPtr getDmtManager() { return dmtMgr; }
+
+    /**
+     * Retrieves the latest DMT from OM and updates the service's instance of DMT
+     */
+    Error getDMT();
+
+    /**
+     * Retrieves the latest DLT from OM and updates the service's instance of DMT
+     */
+    Error getDLT();
 
     /**
      * Returns nodes from currently committed DMT
