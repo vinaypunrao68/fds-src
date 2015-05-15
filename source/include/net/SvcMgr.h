@@ -320,6 +320,10 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     SynchronizedTaskExecutor<uint64_t>* getTaskExecutor();
     
+    /**
+    * @brief Return current dlt
+    */
+    fds_uint64_t getDMTVersion();
 
     /**
     * @brief Return current dlt

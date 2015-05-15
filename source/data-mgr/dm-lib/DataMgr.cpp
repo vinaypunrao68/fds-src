@@ -498,7 +498,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
         // all actions were successful now rsync it to other DMs
-        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(vdesc->srcVolumeId);
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
@@ -1095,7 +1095,7 @@ void DataMgr::mod_enable_service() {
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
     if (!features.isTestMode()) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 }
 
@@ -1222,8 +1222,8 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    if (omClient->hasCommittedDMT()) {
-        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+    if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
         fds_verify(nodes->getLength() > 0);
 
         return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
@@ -1358,7 +1358,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
-    DLTManagerPtr dltMgr = omClient->getDltManager();
+    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
     const DLT* dlt = dltMgr->getAndLockCurrentDLT();
@@ -1382,7 +1382,7 @@ DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-    DLTManagerPtr dltMgr = omClient->getDltManager();
+    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
 }
 

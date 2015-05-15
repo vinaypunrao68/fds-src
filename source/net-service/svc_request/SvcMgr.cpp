@@ -465,6 +465,10 @@ bool SvcMgr::hasCommittedDMT() const {
     return dmtMgr_->hasCommittedDMT();
 }
 
+fds_uint64_t SvcMgr::getDMTVersion() {
+    return dmtMgr_->getCommittedVersion();
+}
+
 Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DLT version  " << dlt_type;
@@ -491,6 +495,7 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data) {
 
     return err;
 }
+
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
