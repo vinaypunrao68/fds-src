@@ -16,7 +16,7 @@
         - startup
 
 -   name: start platformd
-    service: name=platformd state=started
+    service: name=fds-pm state=started
     tags:
       - startup
 
@@ -33,7 +33,7 @@
       - startup
 
 -   name: start_om
-    service: name=orchmgr state=started
+    service: name=fds-om state=started
     when: fds_om_host is defined and fds_om_host == inventory_hostname
     tags:
       - startup

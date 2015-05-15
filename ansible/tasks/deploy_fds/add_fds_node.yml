@@ -1,0 +1,24 @@
+---
+- include: config_sanity_check.yml
+
+- include: stop_fds.yml
+
+- include: clean_shared_mem.yml
+
+- include: clean_data.yml
+  when: clean_fds is defined and clean_fds == "yes"
+
+- include: uninstall_fds.yml
+  when: skip_uninstall is not defined or (skip_uninstall is defined and skip_uninstall == False)
+
+- include: install_deps.yml
+
+- include: install_fds.yml
+
+- include: post_install_setup.yml
+
+- include: stat_badger.yml
+  when: fds_system_stats_enabled is defined and fds_system_stats_enabled == true
+  tags: stat-badger
+
+- include: start_new_fds_node.yml

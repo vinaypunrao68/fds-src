@@ -73,8 +73,9 @@ class PlatSvc(object):
     def __del__(self):
         # This should stop the Thrift server when the main thread is destructed so that the daemon
         # process doesn't throw errors before it's killed.
-        serv = self.smClient()
-        serv.stop_serv()
+        if hasattr(self, 'smClient'):
+            serv = self.smClient()
+            serv.stop_serv()
 
     def stop(self):
         if self.serverSock:

@@ -1,7 +1,7 @@
-[cody-lxc-nodes]
-10.2.10.19[0:3]
+[add-node]
+10.2.10.19[4:5]
 
-[cody-lxc-nodes:vars]
+[add-node:vars]
 clean_fds=yes
 ansible_ssh_user=ubuntu
 ansible_ssh_pass=ubuntu

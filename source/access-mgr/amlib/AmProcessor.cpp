@@ -829,6 +829,7 @@ AmProcessor_impl::getObject(AmRequest *amReq) {
         // We couldn't find the data in the cache even though the id was
         // obtained there. Fallback to retrieving the data from the SM.
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+        // AmRequest will now be sent to SM.
         amDispatcher->dispatchGetObject(amReq);
     }
 }
