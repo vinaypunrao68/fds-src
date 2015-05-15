@@ -3,5 +3,5 @@
     "blacklist": [],
     "fds_root": "/fds",
     "node_ip": "{{ hostvars[inventory_hostname]['ansible_'+fds_default_nic]['ipv4']['address'] }}",
-    "om_ip": "{{ hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] }}"
+    "om_ip": "{{ fds_om_host }}"
 }
