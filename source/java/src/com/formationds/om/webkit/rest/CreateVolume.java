@@ -164,18 +164,6 @@ public class CreateVolume
           throw se;
       }
 
-      Long iopsLimit = 0L;
-      
-      if ( volume.getLimit() > 0 ) {
-    	  
-	      // get the iops setting from the platform.conf file
-	      SingletonConfiguration config = SingletonConfiguration.instance();
-	      ParsedConfig pConfig = config.getConfig().getPlatformConfig();
-	      int maxIops = pConfig.defaultInt( Fds.Config.DISK_IOPS_MAX_CONFIG, 60000 );
-	      
-	      // calculate the literal IOPs limit from the passed in percentage
-	      iopsLimit = Math.round( ((double)volume.getLimit() / 100.0 ) * (double)maxIops );
-      }
       
       volumeId = configApi.getVolumeId( volume.getName() );
       if( volumeId > 0 ) {
@@ -186,7 +174,7 @@ public class CreateVolume
                                            volume.getName(),
                                            volume.getSla(),
                                            volume.getPriority(),
-                                           iopsLimit,
+                                           volume.getLimit(),
                                            volume.getCommit_log_retention(),
                                            volume.getMediaPolicy() );
 
