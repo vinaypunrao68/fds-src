@@ -474,6 +474,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
+    fiu_do_on("sm.exit.before.client.erase", exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
@@ -488,8 +489,8 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         SCOPEDREAD(clientLock);
         // ok if migration client does not exist
         if (migrClients.count(executorId) > 0) {
-            LOGDEBUG << "Remove migration client for executor " << executorId
-                     << " which means that forwarding from this client will stop too";
+            LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
+                     << std::dec << " which means that forwarding from this client will stop too";
             // the destination SM told us it does not need this client anymore
             // just remove it, which will also stop forwarding IO from this client
             migrClients.erase(executorId);

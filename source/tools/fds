@@ -123,8 +123,12 @@ function setupFdsDirs() {
         cp -rf ${CONFIG_ETC} ${FDSTEST_ROOT}
     fi
 
-    cd ../
-    ./dev_make_install.sh
+    cd ${SOURCEDIR}
+    if [ ${UID} -ne 0 ]; then
+        sudo ./dev_make_install.sh
+    else
+        ./dev_make_install.sh
+    fi
     cd - > /dev/null
 }
 
@@ -212,7 +216,9 @@ function stopApp() {
 
     case "$appname" in 
         om|all|influx*)
-            stopInfluxDB
+            if [ "$CMD" != "clean" ]; then
+                stopInfluxDB
+            fi
             ;;
     esac
 
@@ -267,8 +273,9 @@ function cleanInfluxDB() {
 
     ## if it is not running, start it.
     if [ $isRunning != 0 ]; then
+        loginfo "Starting InfluxDB for clean"
         startInfluxDB
-        sleep 2
+        sleep 5
     fi
 
     loginfo "cleaning up InfluxDB databases"
@@ -288,6 +295,7 @@ function cleanInfluxDB() {
 
     ## if influx was NOT running originally, stop it again.
     if [ $isRunning != 0 ]; then
+        loginfo "Stopping InfluxDB"
         stopInfluxDB
     fi
 }
