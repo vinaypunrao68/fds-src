@@ -224,11 +224,19 @@ struct AsyncHdr {
   14:i64                        rspRcvdTs;
 }
 
+
 struct FDSP_DLT_Data_Type {
   /**  */
   1: bool   dlt_type;
   /**  */
   2: binary dlt_data;
+}
+
+struct FDSP_DMT_Data_Type {
+  /**  */
+  1: bool   dmt_type;
+  /**  */
+  2: binary dmt_data;
 }
 
 /**

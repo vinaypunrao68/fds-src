@@ -14,6 +14,8 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -62,7 +64,6 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         public void prePersist( List<VolumeDatapoint> dps ) {
             com.formationds.util.thrift.ConfigurationApi config = SingletonConfigAPI.instance().api();
-            long timestamp = 0L;
             try {
                 if ( dps.isEmpty() ) { return; }
 
@@ -78,15 +79,66 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
         }
     }
 
+    /**
+     *
+     * @return the total number of logical bytes used by all volumes
+     */
     Double sumLogicalBytes();
 
+    /**
+     *
+     * @return the total number of physical (de-duped) bytes used by all volumes.
+     */
     Double sumPhysicalBytes();
 
-    <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( String volumeName,
-                                                          Metrics metric );
+    /**
+     *
+     * @param volumeName the volume to query
+     * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
+     *
+     * @return the list of datapoints matching the metrics for the specified volume.  If the metrics are null or empty
+     *  all available metrics are returned.
+     */
+    default List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( String volumeName, Metrics... metrics) {
+        try {
 
-    <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( Long volumeId,
-                                                          Metrics metric );
+            // expect this to be cached.
+            long volumeId = SingletonConfigAPI.instance().api().getVolumeId( volumeName );
+
+            return mostRecentOccurrenceBasedOnTimestamp( volumeId, metrics );
+
+        } catch (TException te ) {
+
+            throw new IllegalStateException( "Failed to access configuration service.", te );
+
+        }
+    }
+
+    /**
+     *
+     * @param volumeId the volume to query
+     * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
+     *
+     * @return the list of datapoints matching the metrics for the specified volume.  If the metrics are null or empty
+     *  all available metrics are returned.
+     */
+    default List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics... metrics) {
+
+        EnumSet<Metrics> metricsSet = EnumSet.noneOf( Metrics.class );
+        metricsSet.addAll( Arrays.asList( metrics ) );
+
+        return mostRecentOccurrenceBasedOnTimestamp( volumeId, metricsSet );
+    }
+
+    /**
+     *
+     * @param volumeId the volume to query
+     * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
+     *
+     * @return the list of datapoints matching the metrics for the specified volume.  If the metrics are null or empty
+     *  all available metrics are returned.
+     */
+    List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( Long volumeId, EnumSet<Metrics> metrics);
 
     /**
      * @param volumeId the volume id
@@ -94,10 +146,19 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
      */
     default Optional<VolumeStatus> getLatestVolumeStatus( final Long volumeId ) {
 
-        final VolumeDatapoint blobs =
-            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.BLOBS );
-        final VolumeDatapoint usage =
-            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.PBYTES );
+        List<IVolumeDatapoint> datapoints = mostRecentOccurrenceBasedOnTimestamp( volumeId,
+                                                                                 Metrics.BLOBS,
+                                                                                 Metrics.PBYTES );
+
+        IVolumeDatapoint blobs = null;
+        IVolumeDatapoint usage = null;
+        for (IVolumeDatapoint vdp : datapoints) {
+            if (Metrics.BLOBS.matches(vdp.getKey()) ) {
+                blobs = vdp;
+            } else if (Metrics.PBYTES.matches( vdp.getKey() )) {
+                usage = vdp;
+            }
+        }
 
         return volumeStatus( blobs, usage );
     }
@@ -109,15 +170,21 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
      */
     default Optional<VolumeStatus> getLatestVolumeStatus( final String volumeName ) {
 
-        final VolumeDatapoint blobs =
-            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.BLOBS );
-        final VolumeDatapoint usage =
-            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.PBYTES );
+        try {
 
-        return volumeStatus( blobs, usage );
+            // expect this to be cached.
+            long volumeId = SingletonConfigAPI.instance().api().getVolumeId( volumeName );
+
+            return getLatestVolumeStatus( volumeId );
+
+        } catch (TException te ) {
+
+            throw new IllegalStateException( "Failed to access configuration service.", te );
+
+        }
     }
 
-    static Optional<VolumeStatus> volumeStatus( final VolumeDatapoint blobs, final VolumeDatapoint usage ) {
+    static Optional<VolumeStatus> volumeStatus( final IVolumeDatapoint blobs, final IVolumeDatapoint usage ) {
         if ( (blobs != null) && (usage != null) ) {
 
             return Optional.of( new VolumeStatus( blobs.getValue().longValue(),

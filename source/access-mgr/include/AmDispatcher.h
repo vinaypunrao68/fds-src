@@ -46,6 +46,11 @@ struct AmDispatcher
      */
     Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
+    /**
+     * Uses the OM Client to fetch the DMT and DLT, and update the AM's own versions.
+     */
+    Error getDMT();
+    Error getDLT();
 
     /**
      * Dispatches a test volume request to OM.
@@ -192,13 +197,25 @@ struct AmDispatcher
     boost::shared_ptr<DMTManager> dmtMgr;
 
     template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(fds_volid_t const vol_id,
-                                            boost::shared_ptr<Msg> const& payload) const;
-
+    QuorumSvcRequestPtr createQuorumRequest(fds_volid_t const& volId,
+                                            boost::shared_ptr<Msg> const& payload,
+                                            QuorumSvcRequestRespCb quorumCb,
+                                            uint32_t timeout=0) const;
     template<typename Msg>
-    FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const vol_id,
-                                                boost::shared_ptr<Msg> const& payload) const;
-
+    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
+                                            boost::shared_ptr<Msg> const& payload,
+                                            QuorumSvcRequestRespCb quorumCb,
+                                            uint32_t timeout=0) const;
+    template<typename Msg>
+    FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
+                                                boost::shared_ptr<Msg> const& payload,
+                                                FailoverSvcRequestRespCb cb,
+                                                uint32_t timeout=0) const;
+    template<typename Msg>
+    FailoverSvcRequestPtr createFailoverRequest(ObjectID const& objId,
+                                                boost::shared_ptr<Msg> const& payload,
+                                                FailoverSvcRequestRespCb cb,
+                                                uint32_t timeout=0) const;
     /**
      * Callback for delete blob responses.
      */

@@ -3,10 +3,8 @@
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
-include "dm_types.thrift"
 include "om_types.thrift"
 
-include "dm_api.thrift"
 include "common.thrift"
 include "svc_types.thrift"
 include "svc_api.thrift"
@@ -20,6 +18,8 @@ namespace java com.formationds.protocol.om
 
 /**
  * Request a Volume's Descriptor
+ * FIXME: Right now this response comes back as a NotifyVolAdd
+ * message. In the future, this should get it's own response.
  */
 struct GetVolumeDescriptor {
   /** Volume name */
@@ -79,12 +79,12 @@ service OMSvc extends svc_api.PlatNetSvc {
   *
   * @param NULL
   */
-  dm_api.CtrlNotifyDMTUpdate getDMT(1: i64 nullarg);
+  svc_api.CtrlNotifyDMTUpdate getDMT(1: i64 nullarg) throws (1: common.ApiException e);
 
   /**
   * @brief Called by other managers to pull the DLT
   *
   * @param NULL
   */
-  svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg);
+  svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
 }

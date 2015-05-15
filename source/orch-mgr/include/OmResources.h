@@ -51,7 +51,7 @@ typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
  *
- * It's normal that the node agent is there but the transport may not be availble.
+ * It's normal that the node agent is there but the transport may not be available.
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
  */

@@ -3,31 +3,11 @@
     shell: dpkg -l | grep fds-platform
     ignore_errors: True
     register: fds_installed
+    tags:
+        - shutdown
 
 -   stat: path=/etc/init.d/influxdb
     register: influxdb_init_stat
-
--   stat: path=/etc/init/{{item}}.conf
-    register: init_stat
-    with_items:
-        - platformd
-        - orchmgr
-        - amagent
-        - fdsactivate
-
--   name: init script presence check
-    fail: msg="{{item.invocation.module_args}} does not exist! This is most likely due to a prior failed deployment attempt. Please manually uninstall fds-platform on your target hosts and try again."
-    when: not item.stat.exists and fds_installed|success
-    with_items: init_stat.results
-
--   name: stop_platformd
-    service: name={{ item }} state=stopped
-    when: fds_installed|success
-    with_items:
-        - platformd
-        - orchmgr
-        - amagent
-        - fdsactivate
     tags:
         - shutdown
 
@@ -49,6 +29,8 @@
 -   name: stop influxdb
     service: name=influxdb state=stopped
     when: influxdb_init_stat.stat.exists
+    tags:
+        - shutdown
 
 -   name: stop_redis
     shell: ./redis.sh stop chdir=/fds/sbin
