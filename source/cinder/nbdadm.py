@@ -266,7 +266,7 @@ def main(argv = sys.argv):
                 port = None
                 if result.nbd_host is not None:
                     (host, port) = split_host(result.nbd_host)
-                if not detach(result.volume_name, host):
+                if not nbdlib_inst.detach(result.volume_name, host):
                     print 'nothing to detach'
 
     except nbdError as e:
