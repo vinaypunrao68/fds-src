@@ -13,8 +13,8 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
             $scope.qos = {};
             $scope.editing = false;           
             
-            $scope.limitChoices = [100,200,300,400,500,750,1000,2000,3000,5000,0];
-            $scope.guaranteeChoices = [0,100,200,300,400,500,750,1000,2000,3000,5000];
+            $scope.limitChoices = [100,200,300,500,1000,2000,3000,5000,7500, 10000,0];
+            $scope.guaranteeChoices = [0,100,200,300,500,1000,2000,3000,5000, 7500, 10000];
 
             var rationalizeWithPresets = function(){
                 
