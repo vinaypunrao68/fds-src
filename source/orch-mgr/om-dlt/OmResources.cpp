@@ -1871,17 +1871,9 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             DataPlacement *dp = om->om_dataplace_mod();
             OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
         }
-        if ((msg->node_type != fpi::FDSP_DATA_MGR) &&
-        		(msg->node_type != fpi::FDSP_ACCESS_MGR)) {
-            OM_Module *om = OM_Module::om_singleton();
-            VolumePlacement* vp = om->om_volplace_mod();
-            if (vp->hasCommittedDMT()) {
-                OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
-            } else {
-                LOGWARN << "Not sending DMT to new node, because no "
-                        << " committed DMT yet";
-            }
-        }
+
+        // AM & SM services quiry for a DMT on statup, and DM node will get DMT
+        // as part of a state machine; so not broadcastign DMT to any service!
 
         // send qos related info to this node
         om_locDomain->om_send_me_qosinfo(newNode);

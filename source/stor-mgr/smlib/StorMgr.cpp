@@ -171,36 +171,6 @@ void ObjectStorMgr::mod_enable_service()
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
                 modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
-
-        /**
-         * This is post service registration. Check if object store passed the initial
-         * superblock validation.
-         */
-        if (objectStore->isUnavailable()) {
-            LOGCRITICAL << "First phase of object store initialization failed; "
-                        << "SM service is marked unavailable";
-            // TODO(Anna) we should at some point try to recover from this
-            // for now SM service will remain unavailable, until someone restarts it
-        } else {
-            LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
-                      << " starting the second phase";
-            // get DMT from OM if DMT already exist
-            // omClient->getDMT();
-            // get DLT from OM
-            Error err = ERR_NOT_FOUND;  // omClient->getDLT();
-            if (err.ok()) {
-                // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
-                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
-                } else {
-                    // if second phase of start up failes, object store will set the state
-                    // during validating token ownership in the superblock
-                    handleDltUpdate();
-                }
-            }
-            // else ok if no DLT yet
-        }
     }
 
     /*
@@ -223,6 +193,38 @@ void ObjectStorMgr::mod_enable_service()
                             sysTaskQueue);
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+
+        /**
+         * This is post service registration. Check if object store passed the initial
+         * superblock validation.
+         */
+        if (objectStore->isUnavailable()) {
+            LOGCRITICAL << "First phase of object store initialization failed; "
+                        << "SM service is marked unavailable";
+            // TODO(Anna) we should at some point try to recover from this
+            // for now SM service will remain unavailable, until someone restarts it
+        } else {
+            LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
+                      << " starting the second phase";
+            // get DMT from OM if DMT already exist
+            omClient->getDMT();
+            // get DLT from OM
+            Error err = omClient->getDLT();
+            if (err.ok()) {
+                // got a DLT, ignore it if SM is not in it
+                const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
+                } else {
+                    // if second phase of start up failes, object store will set the state
+                    // during validating token ownership in the superblock
+                    handleDltUpdate();
+                }
+            }
+            // else ok if no DLT yet
+        }
+
         // Enable stats collection in SM for stats streaming
         StatsCollector::singleton()->registerOmClient(omClient);
         StatsCollector::singleton()->startStreaming(
@@ -270,10 +272,6 @@ void ObjectStorMgr::mod_enable_service()
 
             delete testVdb;
         }
-    }
-
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
     }
 
     Module::mod_enable_service();
