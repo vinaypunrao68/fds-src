@@ -231,8 +231,8 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         // object store failed to validate superblock or pass initial
         // integrity check
         err = ERR_NODE_NOT_ACTIVE;
-        LOGMIGRATE << "SM service is unavailable " << std::hex
-                   << objStorMgr->getUuid() << std::dec;
+        LOGCRITICAL << "SM service is unavailable " << std::hex
+                    << objStorMgr->getUuid() << std::dec;
     } else if (fault_enabled || !(objStorMgr->objectStore->isReady())) {
         err = ERR_SM_NOT_READY_AS_MIGR_SRC;
         LOGDEBUG << "SM not ready as Migration source " << std::hex
@@ -1017,7 +1017,8 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         LOGNOTIFY << "SM received DLT close for the version " << (dlt->dlt_close).DLT_version
                   << ", but the current DLT version is " << curDlt->getVersion()
                   << ". SM will ignore this DLT close";
-        // OK to OM
+        fds_verify((fds_uint64_t)((dlt->dlt_close).DLT_version) < curDlt->getVersion());
+        // otherwise OK to OM
         sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         return;
     }

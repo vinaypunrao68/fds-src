@@ -344,16 +344,15 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
-            migrClient.reset(new MigrationClient(smReqHandler,
-                                                 executorNodeUuid,
-                                                 targetDltVersion,
-                                                 bitsPerDltToken,
-                                                 rebalSetMsg->forResync));
-            migrClients[executorId] = migrClient;
-        } else {
-            migrClient = migrClients[executorId];
+	    migrClients[executorId] = std::make_shared<MigrationClient>(smReqHandler,
+                                                                        executorNodeUuid,
+                                                                        targetDltVersion,
+                                                                        bitsPerDltToken,
+                                                                        rebalSetMsg->forResync);
         }
+        migrClient = migrClients[executorId];
     }
+
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
     err = migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg, srcAccepted);
     if (err == ERR_SM_RESYNC_SOURCE_DECLINE) {
