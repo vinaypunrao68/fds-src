@@ -57,12 +57,12 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     /*
      * Testing code for loading test info from disk.
      */
-    LOGNORMAL << "Constructing the Orchestration  Manager";
+    LOGDEBUG << "Constructing the Orchestration  Manager";
 }
 
 OrchMgr::~OrchMgr()
 {
-    LOGNORMAL << "Destructing the Orchestration  Manager";
+    LOGDEBUG << "Destructing the Orchestration  Manager";
 
     cfgserver_thread->join();
 
@@ -118,8 +118,8 @@ void OrchMgr::proc_pre_startup()
     // properly
     // But we still need to instantiate as the object might be used .
     
-    LOGNOTIFY << "Orchestration Manager using config port " << config_portnum
-              << " control port " << control_portnum;
+    LOGDEBUG << "Orchestration Manager using config port " << config_portnum
+             << " control port " << control_portnum;
 
     policy_mgr = new VolPolicyMgr(getConfigDB(), GetLog());
 
@@ -151,25 +151,23 @@ void OrchMgr::setupConfigDb_()
     conf_helper_.get<int>("configdb.port", 0),
     conf_helper_.get<int>("configdb.poolsize", 10));
         
-    LOGNOTIFY << "ConfigDB ( After overriding )";
+    LOGDEBUG << "ConfigDB Initialized";
 }
 
 void OrchMgr::setupSvcInfo_()
 {
-    SvcProcess::setupSvcInfo_();
-
     auto config = MODULEPROVIDER()->get_conf_helper();
     svcInfo_.ip = config.get_abs<std::string>("fds.common.om_ip_list");
     svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port");
     svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
         config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
 
-    LOGNOTIFY << "Service info ( After overriding ): " << fds::logString(svcInfo_);
+    LOGDEBUG << "Service info ( After overriding ): " << fds::logString(svcInfo_);
 }
 
 void OrchMgr::registerSvcProcess()
 {
-    LOGNOTIFY << "register service process";
+    LOGDEBUG << "register service process";
 
     /* Add om information to service map */
     svcMgr_->updateSvcMap({svcInfo_});
@@ -192,7 +190,7 @@ void OrchMgr::start_cfgpath_server()
 
 void OrchMgr::interrupt_cb(int signum)
 {
-    LOGNORMAL << "OrchMgr: Shutting down communicator";
+    LOGDEBUG << "OrchMgr: Shutting down communicator";
 
     omcp_session_tbl.reset();
     exit(0);
@@ -229,7 +227,7 @@ void OrchMgr::defaultS3BucketPolicy()
 }
 
 bool OrchMgr::loadFromConfigDB() {
-    LOGNORMAL << "loading data from configdb...";
+    LOGDEBUG << "loading data from configdb...";
 
     // check connection
     if (!configDB->isConnected()) {
