@@ -249,7 +249,10 @@ def main(argv = sys.argv):
 
         elif result.command == 'attach':
             with nbdlib_inst.lock():
-                (host, port) = split_host(result.nbd_host)
+                host = None
+                port = None
+                if result.nbd_host != None:
+                    (host, port) = split_host(result.nbd_host)
                 dev = nbdlib_inst.attach(host, port, result.volume_name, result.should_use_c)
                 if dev is None:
                     sys.stderr.write('no eligible nbd devices found\n')
