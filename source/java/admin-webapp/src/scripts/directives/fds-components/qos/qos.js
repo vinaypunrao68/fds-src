@@ -13,7 +13,8 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
             $scope.qos = {};
             $scope.editing = false;           
             
-            $scope.limitChoices = [100,200,300,400,500,750,1000,2000,3000,0];
+            $scope.limitChoices = [100,200,300,400,500,750,1000,2000,3000,5000,0];
+            $scope.guaranteeChoices = [0,100,200,300,400,500,750,1000,2000,3000,5000];
 
             var rationalizeWithPresets = function(){
                 
@@ -58,6 +59,15 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                     return '\u221E';
                 }
 
+                return value;
+            };
+            
+            $scope.guaranteeSliderLabel = function( value ){
+                
+                if ( value === 0 ){
+                    return $filter( 'translate' )( 'common.l_none' );
+                }
+                
                 return value;
             };
 
