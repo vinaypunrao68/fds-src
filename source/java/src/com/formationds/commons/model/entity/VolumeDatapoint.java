@@ -102,7 +102,7 @@ public class VolumeDatapoint
   }
 
   /**
-   * @return Returns the {@code Long} representing the timestamp
+   * @return Returns the {@code Long} representing the timestamp in seconds since the epoch
    */
   @Override
   public Long getTimestamp() {
@@ -110,7 +110,7 @@ public class VolumeDatapoint
   }
 
   /**
-   * @param timestamp the {@code long} representing the timestamp
+   * @param timestamp the {@code long} representing the timestamp in seconds since the epoch
    */
   public void setTimestamp( final long timestamp ) {
     this.timestamp = timestamp;

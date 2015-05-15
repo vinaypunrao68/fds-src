@@ -14,7 +14,6 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
 /**
@@ -36,25 +34,23 @@ public class SeriesHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( SeriesHelper.class );
 
-    private static final Long SECONDS_IN_HOUR = TimeUnit.HOURS.toSeconds( 1 );
-    private static final Long SECONDS_IN_DAY = TimeUnit.HOURS.toSeconds( 24 );
-    private static final Long SECONDS_IN_WEEK = TimeUnit.DAYS.toSeconds( 7 );
+    private static final Long SECONDS_IN_HOUR    = TimeUnit.HOURS.toSeconds( 1 );
+    private static final Long SECONDS_IN_DAY     = TimeUnit.HOURS.toSeconds( 24 );
+    private static final Long SECONDS_IN_WEEK    = TimeUnit.DAYS.toSeconds( 7 );
     private static final Long SECONDS_IN_30_DAYS = TimeUnit.DAYS.toSeconds( 30 );
 
     private final DatapointHelper dpHelper;
-    private final VolumeDatapointHelper vdpHelper;
 
     /**
      * default constructor
      */
     public SeriesHelper() {
         this.dpHelper = new DatapointHelper();
-        this.vdpHelper = new VolumeDatapointHelper();
     }
 
     public final List<Series> getRollupSeries( final List<IVolumeDatapoint> datapoints,
-    	                                       final MetricQueryCriteria query,
-    	                                       final StatOperation operation ) {
+                                               final MetricQueryCriteria query,
+                                               final StatOperation operation ) {
     	
     	/*
          * So the idea is that we need to sum up all the volume datapoints
@@ -251,7 +247,7 @@ public class SeriesHelper {
         final StatOperation operation ) {
     	
         Map<Long, Set<? extends IVolumeDatapoint>> groupByTimestamp =
-            vdpHelper.groupByTimestamp( volumeDatapoints );
+            VolumeDatapointHelper.groupByTimestamp( volumeDatapoints );
 
         final List<Datapoint> datapoints = new ArrayList<>( );
         groupByTimestamp.forEach( ( bytesTimestamp, bytesValues ) -> {
