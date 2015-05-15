@@ -141,7 +141,7 @@ class nbdlib:
         if port != None:
             self.port = port
 
-        devs = list(__device_paths())
+        devs = list(self.__device_paths())
         if len(devs) == 0:
             if not self.__insmod_nbd():
                 raise nbdError({"message":"no nbd devices found and modprobe nbd failed", "code":5})
