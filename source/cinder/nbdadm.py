@@ -170,9 +170,9 @@ class nbdlib:
 
 
                 if port == 10809:
-                    nbd_args = ['nbd-client', '-N', args.volume_name, host, dev, '-b', '4096', '-t', '5']
+                    nbd_args = ['nbd-client', '-N', vol_name, host, dev, '-b', '4096', '-t', '5']
                 else:
-                    nbd_args = ['nbd-client', '-N', args.volume_name, host, str(port), dev, '-b', '4096', '-t', '5']
+                    nbd_args = ['nbd-client', '-N', vol_name, host, str(port), dev, '-b', '4096', '-t', '5']
 
                 nbd_client = subprocess.Popen(nbd_args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
                 # add timeout?
