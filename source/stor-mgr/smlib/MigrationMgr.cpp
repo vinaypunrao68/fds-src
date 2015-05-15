@@ -571,16 +571,6 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                << " finished migration round " << round << " done? "
                << (round == 2) << error;
     
-    bool found = false;
-    {   
-        SCOPEDREAD(smTokenInProgressRWLock);
-        for (auto e : smTokenInProgress) {
-            if (smToken == e)
-                found = true;
-        }
-    }
-    fds_verify(found);
-
     MigrationState curState = atomic_load(&migrState);
     if (curState == MIGR_ABORTED) {
         // migration already stopped, don't do anything..
