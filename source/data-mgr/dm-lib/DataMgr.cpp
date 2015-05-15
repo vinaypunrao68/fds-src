@@ -942,22 +942,6 @@ int DataMgr::mod_init(SysParams const *const param)
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
-    /*
-     * Comm with OM will be setup during run()
-     */
-    omClient = NULL;
-    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
-    if (!standalone) {
-        LOGDEBUG << " Initialising the OM client ";
-        /*
-         * Setup communication with OM.
-         */
-        omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog());
-        omClient->setNoNetwork(false);
-    }
-
     return 0;
 }
 
@@ -1068,7 +1052,7 @@ void DataMgr::mod_enable_service() {
                                                                *this));
 
     // enable collection of local stats in DM
-    StatsCollector::singleton()->registerOmClient(omClient);
+    // StatsCollector::singleton()->registerOmClient(MODULEPROVIDER()->getSvcMgr());
     if (!features.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
         // local aggregator, we just directly stream to aggregator (not over network)
@@ -1157,7 +1141,6 @@ void DataMgr::mod_shutdown()
 
     qosCtrl->deregisterVolume(FdsDmSysTaskId);
     delete sysTaskQueue;
-    delete omClient;
     delete vol_map_mtx;
     delete qosCtrl;
 

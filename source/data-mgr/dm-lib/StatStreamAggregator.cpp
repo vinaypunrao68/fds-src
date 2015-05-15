@@ -500,7 +500,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 
     /* rsync the per volume stats */
     if (dataManager_.amIPrimary(vol_id)) {
-        DmtColumnPtr nodes = dataManager_.omClient->getDMTNodesForVolume(vol_id);
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(vol_id);
         fds_verify(nodes->getLength() > 0);
 
         auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
