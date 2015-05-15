@@ -251,7 +251,7 @@ def main(argv = sys.argv):
             with nbdlib_inst.lock():
                 host = None
                 port = None
-                if result.nbd_host != None:
+                if result.nbd_host is not None:
                     (host, port) = split_host(result.nbd_host)
                 dev = nbdlib_inst.attach(host, port, result.volume_name, result.should_use_c)
                 if dev is None:
@@ -262,7 +262,10 @@ def main(argv = sys.argv):
 
         elif result.command == 'detach':
             with nbdlib_inst.lock():
-                (host, port) = split_host(result.nbd_host)
+                host = None
+                port = None
+                if result.nbd_host is not None:
+                    (host, port) = split_host(result.nbd_host)
                 if not detach(result.volume_name, host):
                     print 'nothing to detach'
 
