@@ -83,7 +83,7 @@ namespace fds
                 void stopProcess (int id);
 
             private:
-                FdsConfigAccessor                  *conf;
+                FdsConfigAccessor                  *fdsConfig;
                 fpi::FDSP_AnnounceDiskCapability    diskCapability;
 
                 kvstore::PlatformDB                *db;
@@ -98,6 +98,8 @@ namespace fds
                 std::mutex                          m_startQueueMutex;
                 std::condition_variable             m_startQueueCondition;
                 std::list <int>                     m_startQueue;
+
+                bool                                m_autoRestartFailedProcesses;
 
                 void childProcessMonitor();
                 void startQueueMonitor();

@@ -39,20 +39,20 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_deactivateInProgress(false), m_appPidMap()
+        PlatformManager::PlatformManager() : Module ("pm"), m_deactivateInProgress(false), m_appPidMap(), m_autoRestartFailedProcesses (false)
         {
 
         }
 
         int PlatformManager::mod_init (SysParams const *const param)
         {
-            conf = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
+            fdsConfig = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-            db = new kvstore::PlatformDB (rootDir, conf->get<std::string> ("redis_host","localhost"), conf->get <int> ("redis_port", 6379), 1);
+            db = new kvstore::PlatformDB (rootDir, fdsConfig->get<std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
 
             if (!db->isConnected())
             {
-                LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string> ("redis_host","localhost") << ":" << conf->get <int> ("redis_port", 6379) << "]";
+                LOGCRITICAL << "unable to talk to platformdb @ [" << fdsConfig->get<std::string> ("redis_host","localhost") << ":" << fdsConfig->get <int> ("redis_port", 6379) << "]";
             } else {
                 db->getNodeInfo (nodeInfo);
                 db->getNodeDiskCapability (diskCapability);
@@ -70,6 +70,7 @@ namespace fds
                 LOGNOTIFY << "Using stored uuid for this node : " << nodeInfo.uuid;
             }
 
+            m_autoRestartFailedProcesses = fdsConfig->get_abs <bool> ("fds.feature_toggle.pm.restart_failed_children_processes");
             determineDiskCapability();
 
             return 0;
@@ -125,7 +126,7 @@ namespace fds
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;
-                remoteDebugger << JAVA_DEBUGGER_OPTIONS << conf->get <int> ("platform_port") + 7777;
+                remoteDebugger << JAVA_DEBUGGER_OPTIONS << fdsConfig->get <int> ("platform_port") + 7777;
                 args.push_back (remoteDebugger.str());
 #endif // DEBUG
 
@@ -139,8 +140,8 @@ namespace fds
 
             // Common command line options
             args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", getNodeUUID (fpi::FDSP_PLATFORM)));
-            args.push_back (util::strformat ("--fds.common.om_ip_list=%s", conf->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
-            args.push_back (util::strformat ("--fds.pm.platform_port=%d", conf->get <int> ("platform_port")));
+            args.push_back (util::strformat ("--fds.common.om_ip_list=%s", fdsConfig->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
+            args.push_back (util::strformat ("--fds.pm.platform_port=%d", fdsConfig->get <int> ("platform_port")));
 
             pid = fds_spawn_service (command, rootDir, args, false);
 
@@ -341,11 +342,11 @@ namespace fds
         // and calculate all the data.
         void PlatformManager::determineDiskCapability()
         {
-            auto ssd_iops_max = conf->get<uint32_t>("capabilities.disk.ssd.iops_max");
-            auto ssd_iops_min = conf->get<uint32_t>("capabilities.disk.ssd.iops_min");
-            auto hdd_iops_max = conf->get<uint32_t>("capabilities.disk.hdd.iops_max");
-            auto hdd_iops_min = conf->get<uint32_t>("capabilities.disk.hdd.iops_min");
-            auto space_reserve = conf->get<float>("capabilities.disk.reserved_space");
+            auto ssd_iops_max = fdsConfig->get<uint32_t>("capabilities.disk.ssd.iops_max");
+            auto ssd_iops_min = fdsConfig->get<uint32_t>("capabilities.disk.ssd.iops_min");
+            auto hdd_iops_max = fdsConfig->get<uint32_t>("capabilities.disk.hdd.iops_max");
+            auto hdd_iops_min = fdsConfig->get<uint32_t>("capabilities.disk.hdd.iops_min");
+            auto space_reserve = fdsConfig->get<float>("capabilities.disk.reserved_space");
 
             DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             auto disk_counts = dpm->disk_counts();
@@ -372,10 +373,10 @@ namespace fds
                 diskCapability.ssd_capacity = (1.0 - space_reserve) * disk_capacities.second;
             }
 
-            if (conf->get<bool>("testing.manual_nodecap",false))
+            if (fdsConfig->get<bool>("testing.manual_nodecap",false))
             {
-                diskCapability.node_iops_max    = conf->get<int>("testing.node_iops_max", 100000);
-                diskCapability.node_iops_min    = conf->get<int>("testing.node_iops_min", 6000);
+                diskCapability.node_iops_max    = fdsConfig->get<int>("testing.node_iops_max", 100000);
+                diskCapability.node_iops_min    = fdsConfig->get<int>("testing.node_iops_min", 6000);
             }
             LOGDEBUG << "Set node iops max to: " << diskCapability.node_iops_max;
             LOGDEBUG << "Set node iops min to: " << diskCapability.node_iops_min;
@@ -446,21 +447,23 @@ namespace fds
 
                             // need to tell the OM here, that something died, unless we are in shutdown mode, this work is the next card
 
-                            // Find the appIndex of the process that died.
-                            for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
+                            if (m_autoRestartFailedProcesses)
                             {
-                                if (iter->second == procName)
+                                // Find the appIndex of the process that died.
+                                for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
                                 {
-                                    appIndex = iter->first;
-                                    break;
+                                    if (iter->second == procName)
+                                    {
+                                        appIndex = iter->first;
+                                        break;
+                                    }
                                 }
-                            }
 
-                            // Now add the process to the queue to start again
-                            {
-                                deadProcessesFound = true;
-                                std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                                m_startQueue.push_back (appIndex);
+                                {
+                                    deadProcessesFound = true;
+                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                    m_startQueue.push_back (appIndex);
+                                }
                             }
                         }
                         else
