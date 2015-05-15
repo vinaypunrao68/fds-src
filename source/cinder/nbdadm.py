@@ -96,7 +96,7 @@ class nbdlib:
         except psutil.NoSuchProcess as e:
             pass
 
-    def disconnect(dev, process):
+    def __disconnect(dev, process):
         dproc = None
         try:
             dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -116,7 +116,7 @@ class nbdlib:
 
             time.sleep(0.05)
 
-    def detach(self, volume, host = None, args):
+    def detach(self, volume, host = None):
         if os.geteuid() != 0:
             raise nbdError({"message":"you must be root to detach", "code":1})
 
@@ -125,7 +125,7 @@ class nbdlib:
             (process, dev, c_host, port, c_volume) = c
             if volume == c_volume and (host is None or host == c_host):
                 attempted_detach = True
-                disconnect(dev, process)
+                self.__disconnect(dev, process)
                 if process.is_running():
                     error_str = "could not stop nbd-client[%d] on %s" % (process.pid, dev)
                     raise nbdError({"message":error_str, "code":2})
