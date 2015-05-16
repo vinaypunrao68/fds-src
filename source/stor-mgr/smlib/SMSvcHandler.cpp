@@ -224,7 +224,6 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // tell migration mgr to start object rebalance
     const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
-    fds_verify(dlt != NULL);
 
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
     if (objStorMgr->objectStore->isUnavailable()) {
@@ -241,6 +240,7 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                  << " executor: " << filterObjSet->executorID;
         fiu_disable("resend.dlt.token.filter.set");
     } else {
+        fds_verify(dlt != NULL);
         err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
                                                              asyncHdr->msg_src_uuid,
                                                              objStorMgr->getUuid(),
