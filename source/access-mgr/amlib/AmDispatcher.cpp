@@ -9,7 +9,6 @@
 #include "fds_process.h"
 #include "fdsp/dm_api_types.h"
 #include "fdsp/sm_api_types.h"
-#include "fdsp/om_api_types.h"
 
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
@@ -127,21 +126,20 @@ AmDispatcher::getDLT() {
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
     // should we check the netwrok  readiness here??.  This code is moved  from OMgrClient  to AM. 
+
+    if (noNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-        fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
-        fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
-        test_buck_msg->bucket_name = volume_name;
-        test_buck_msg->attach_vol_reqd = true;
-        test_buck_msg->accessKeyId = "";
-        test_buck_msg->secretAccessKey = "";
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
+        fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
+        msg->volume_name = volume_name;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
         req->invoke();
-        LOGNOTIFY << " sending test bucket request to OM " << volume_name;
+        LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
     } catch(...) {
-        LOGERROR << "OMClient unable to push test bucket to OM. Check if OM is up and restart.";
+        LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
     }
     return 0;
+
 }
 
 /**
