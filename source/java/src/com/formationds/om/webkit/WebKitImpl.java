@@ -16,9 +16,13 @@ import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
 import com.formationds.om.webkit.rest.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.metrics.QueryMetrics;
 import com.formationds.om.webkit.rest.metrics.SystemHealthStatus;
-import com.formationds.om.webkit.rest.platform.ActivateNode;
-import com.formationds.om.webkit.rest.platform.DeactivateNode;
+import com.formationds.om.webkit.rest.platform.AddNode;
+import com.formationds.om.webkit.rest.platform.AddService;
+import com.formationds.om.webkit.rest.platform.MutateNode;
+import com.formationds.om.webkit.rest.platform.MutateService;
+import com.formationds.om.webkit.rest.platform.RemoveNode;
 import com.formationds.om.webkit.rest.platform.ListNodes;
+import com.formationds.om.webkit.rest.platform.RemoveService;
 import com.formationds.om.webkit.rest.snapshot.*;
 import com.formationds.om.webkit.rest.policy.PostQoSPolicy;
 import com.formationds.om.webkit.rest.policy.GetQoSPolicies;
@@ -261,15 +265,33 @@ public class WebKitImpl {
         final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
         logger.trace( "registering platform endpoints" );
-        fdsAdminOnly( HttpMethod.GET, "/api/config/services",
+
+        fdsAdminOnly( HttpMethod.GET, "/api/config/nodes",
                       ( t ) -> new ListNodes( configAPI ),
                       authorizer );
-        fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
-                      ( t ) -> new ActivateNode( configAPI ),
+        fdsAdminOnly( HttpMethod.POST, "/api/config/nodes/:node_uuid/:domain_id",
+                      ( t ) -> new AddNode( configAPI ),
                       authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/api/config/services/:node_uuid",
-                      ( t ) -> new DeactivateNode( configAPI ),
+        fdsAdminOnly( HttpMethod.DELETE, "/api/config/nodes/:node_uuid",
+                      ( t ) -> new RemoveNode( configAPI ),
                       authorizer );
+
+        fdsAdminOnly( HttpMethod.PUT, "/api/config/nodes/:node_uuid",
+        			  ( t ) -> new MutateNode( configAPI ),
+        			  authorizer );
+        
+        fdsAdminOnly( HttpMethod.POST, "/api/config/nodes/:node_uuid/services",
+        			  ( t ) -> new AddService( configAPI ),
+        			  authorizer );
+        
+        fdsAdminOnly( HttpMethod.DELETE, "/api/config/nodes/:node_uuid/services/:service_uuid", 
+        			  ( t ) -> new RemoveService( configAPI ),
+        			  authorizer );
+        
+        fdsAdminOnly( HttpMethod.PUT, "/api/config/nodes/:node_uuid/services/:service_uuid",
+        			  ( t ) -> new MutateService( configAPI ),
+        			  authorizer );
+        
         logger.trace( "registered platform endpoints" );
 
     }

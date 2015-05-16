@@ -169,7 +169,7 @@ class VolumeTest1( BaseCliTest ):
         
         print "Testing bad block size"
         args[8] = "-type=block"
-        args[9] = "-size=1025"
+        args[9] = "-size=-1"
         
         self.cli.run( args )
         assert volumeCreate.call_count == 0

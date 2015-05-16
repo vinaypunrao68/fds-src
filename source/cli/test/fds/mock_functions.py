@@ -1,13 +1,8 @@
-from fds.utils.volume_converter import VolumeConverter
 from fds.model.volume import Volume
 from fds.model.snapshot import Snapshot
 from fds.model.node import Node
 from fds.model.service import Service
 from fds.model.domain import Domain
-import json
-from fds.utils.snapshot_converter import SnapshotConverter
-from fds.utils.node_converter import NodeConverter
-from fds.utils.domain_converter import DomainConverter
 from fds.model.snapshot_policy import SnapshotPolicy
 from fds.model.timeline_preset import TimelinePreset
 from fds.model.qos_preset import QosPreset
@@ -17,6 +12,15 @@ Created on Apr 22, 2015
 
 @author: nate
 '''
+
+responseOk = dict()
+responseOk["status"] = "OK"
+
+response200 = dict()
+response200["status"] = 200
+
+def writeJson( data ):
+    return
 
 def listVolumes():
     volume = Volume()
@@ -43,10 +47,7 @@ def cloneFromSnapshotId( snapshot_id, volume):
     return volume
 
 def deleteVolume(name):
-    
-    response = dict()
-    response["status"] = "OK"
-    return response
+    return responseOk
 
 def findVolumeById( an_id ):
     volume = Volume()
@@ -70,9 +71,7 @@ def findVolumeBySnapId( an_id ):
     return volume
 
 def createSnapshot( snapshot ):
-    response = dict()
-    response["status"] = "OK"
-    return response
+    return responseOk
 
 def listSnapshots( volumeName ):
     snapshot = Snapshot()
@@ -95,25 +94,35 @@ def listNodes():
     nodes = [node]
     return nodes
 
-def activateNode( node_id, state ):
-    response = dict()
-    response["status"] = "OK"
-    return response
+def addNode( node_id, state ):
+    return response200
     
-def deactivateNode( node_id ):
-    response = dict()
-    response["status"] = "OK"
-    return response   
+def removeNode( node_id ):
+    return response200
+
+def stopNode( node_id ):
+    return response200
+
+def startNode( node_id ):
+    return response200
+
+def startService(node_id, service_id):
+    return response200
+
+def stopService(node_id, service_id):
+    return response200
+
+def removeService(node_id, service_id):
+    return response200
+
+def addService(node_id, service):
+    return response200
 
 def shutdownDomain( domain_name ):
-    response = dict()
-    response["status"] = "OK"
-    return response 
+    return responseOk
 
 def startDomain( domain_name ):
-    response = dict()
-    response["status"] = "OK"
-    return response
+    return responseOk
 
 def listLocalDomains():
     
@@ -138,19 +147,14 @@ def listSnapshotPolicies( volume_id=None ):
     return policies
 
 def attachPolicy( policy_id, volume_id ):
-    response = dict()
-    response["status"] = "OK"
-    return response 
+    return responseOk
 
 def detachPolicy( policy_id, volume_id ):
-    response = dict()
-    response["status"] = "OK"
-    return response 
+    return responseOk
 
 def deleteSnapshotPolicy( policy_id ):
-    response = dict()
-    response["status"] = "OK"
-    return response 
+    return responseOk 
+
 
 def listTimelinePresets(preset_id=None):
     p = TimelinePreset()
