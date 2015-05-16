@@ -49,7 +49,6 @@
 using namespace FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
-struct OMgrClient;
 
 extern ObjectStorMgr *objStorMgr;
 
@@ -60,12 +59,6 @@ const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
 
 class ObjectStorMgr : public Module, public SmIoReqHandler {
-    public:
-     /*
-      * OM/boostrap related members
-      */
-     OMgrClient         *omClient;
-
     protected:
      typedef enum {
          NORMAL_MODE = 0,
