@@ -28,7 +28,6 @@
 namespace fds {
 
 // Some logging routines have external linkage
-// ======
 extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
 extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
@@ -43,7 +42,6 @@ extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
 extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
-// ======
 
 AmDispatcher::AmDispatcher(CommonModuleProviderIf *modProvider) 
         : HasModuleProvider(modProvider)

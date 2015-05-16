@@ -1,7 +1,6 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
-from __builtin__ import True
 from fds.utils.node_converter import NodeConverter
 
 def filter_for_discovered(nodes):
@@ -52,29 +51,29 @@ class TestNodes( BaseCliTest ):
         assert mockDisc.call_count == 1
         assert mockAdd.call_count == 1
         
-    @patch( "fds.services.node_service.NodeService.activate_node", side_effect=mock_functions.activateNode)
+    @patch( "fds.services.node_service.NodeService.add_node", side_effect=mock_functions.addNode)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
-    def test_activate_node(self, mockList, mockActivate):
+    def test_add_node(self, mockList, mockAdd):
         '''
         Test that activate is called with all three services set to true
         '''
         
         #failure call first
-        args = ["node", "activate"]
+        args = ["node", "add"]
         self.callMessageFormatter(args)
         self.cli.run(args)
          
-        assert mockActivate.call_count == 0
+        assert mockAdd.call_count == 0
         
-        args = ["node", "activate", "-node_ids", "1", "2", "3"]
+        args = ["node", "add", "-node_ids", "1", "2", "3"]
         self.callMessageFormatter(args)
         self.cli.run(args)
         
-        assert mockActivate.call_count == 3
+        assert mockAdd.call_count == 3
         
-        first = mockActivate.call_args_list[0]
-        second = mockActivate.call_args_list[1]
-        third = mockActivate.call_args_list[2]
+        first = mockAdd.call_args_list[0]
+        second = mockAdd.call_args_list[1]
+        third = mockAdd.call_args_list[2]
         
         assert first[0][0] == "1"
         assert second[0][0] == "2"
@@ -84,142 +83,29 @@ class TestNodes( BaseCliTest ):
         assert first[0][1].dm == second[0][1].dm == third[0][1].dm
         assert first[0][1].sm == second[0][1].sm == third[0][1].sm
         
-    @patch( "fds.services.node_service.NodeService.deactivate_node", side_effect=mock_functions.deactivateNode)
+    @patch( "fds.services.node_service.NodeService.remove_node", side_effect=mock_functions.removeNode)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
-    def test_deactivate_node(self, mockList, mockDeactivate):
+    def test_remove_node(self, mockList, mockRemove):
         '''
         Test that activate is called with all three services set to true
         '''
         
         #failure call first
-        args = ["node", "activate"]
+        args = ["node", "add"]
         self.callMessageFormatter(args)
         self.cli.run(args)
          
-        assert mockDeactivate.call_count == 0
+        assert mockRemove.call_count == 0
         
-        args = ["node", "deactivate", "-node_id=1"]
+        args = ["node", "remove", "-node_id=1"]
         self.callMessageFormatter(args)
         self.cli.run(args)
         
-        assert mockDeactivate.call_count == 1
+        assert mockRemove.call_count == 1
         
-        first = mockDeactivate.call_args_list[0]
+        first = mockRemove.call_args_list[0]
         
         assert first[0][0] == "1"
-        
-        
-    @patch( "fds.services.node_service.NodeService.activate_node", side_effect=mock_functions.activateNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)        
-    def test_start_service(self, mockList, mockActivate):
-        '''
-        Test the start service call in a bunch of permutations
-        '''
-        
-        # No node ID failure case first
-        args = ["node", "start_service"]
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockActivate.call_count == 0    
-        
-        #test the default start all services
-        args = ["node", "start_service", "-node_id=4"]    
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-    
-        assert mockActivate.call_count == 1
-        
-        node_id = mockActivate.call_args[0][0]
-        state = mockActivate.call_args[0][1]
-        
-        assert node_id == "4"
-        assert state.am is True
-        assert state.dm is True
-        assert state.sm is True
-    
-        #test only certain services
-        args = ["node", "start_service", "-node_id=4", "-services", "am", "dm"]
-        
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockActivate.call_count == 2
-        
-        state = mockActivate.call_args[0][1]
-        
-        assert state.am is True
-        assert state.dm is True
-        assert state.sm is None
-        
-        args = ["node", "start_service", "-node_id=4", "-services", "sm"]
-        
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockActivate.call_count == 3
-        
-        state = mockActivate.call_args[0][1]
-        
-        assert state.am is None
-        assert state.dm is None
-        assert state.sm is True
-    
-    @patch( "fds.services.node_service.NodeService.activate_node", side_effect=mock_functions.activateNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)        
-    def test_stop_service(self, mockList, mockActivate):
-        '''
-        Test the stop service call in a bunch of permutations
-        '''
-        
-        # No node ID failure case first
-        args = ["node", "stop_service"]
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockActivate.call_count == 0    
-        
-        #test the default start all services
-        args = ["node", "stop_service", "-node_id=4"]    
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-    
-        assert mockActivate.call_count == 1
-        
-        node_id = mockActivate.call_args[0][0]
-        state = mockActivate.call_args[0][1]
-        
-        assert node_id == "4"
-        assert state.am is False
-        assert state.dm is False
-        assert state.sm is False
-    
-        #test only certain services
-        args = ["node", "stop_service", "-node_id=4", "-services", "am", "dm"]
-        
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockActivate.call_count == 2
-        
-        state = mockActivate.call_args[0][1]
-        
-        assert state.am is False
-        assert state.dm is False
-        assert state.sm is None
-        
-        args = ["node", "stop_service", "-node_id=4", "-services", "sm"]
-        
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockActivate.call_count == 3
-        
-        state = mockActivate.call_args[0][1]
-        
-        assert state.am is None
-        assert state.dm is None
-        assert state.sm is False    
     
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes) 
     @patch( "fds.services.response_writer.ResponseWriter.writeJson", side_effect=writeJson)
@@ -233,7 +119,7 @@ class TestNodes( BaseCliTest ):
         '''
         
         #all services
-        args = ["node", "list_services", "-format=json"]
+        args = ["node", "list_services", "-format=json", "-node_id=21ABC"]
     
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -247,40 +133,55 @@ class TestNodes( BaseCliTest ):
         assert len( node.services["PM"] ) == 1
         assert len( node.services["SM"] ) == 1
         assert len( node.services["DM"] ) == 1
-        
-        # just sm and dm
-        args = ["node", "list_services", "-services", "sm", "dm", "-format=json"]
     
+    @patch( "fds.services.node_service.NodeService.stop_node", side_effect=mock_functions.stopNode)
+    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    def test_stop_node(self, mockList, mockStop):
+        '''
+        Test to see that the stop node functionality makes the right call
+        '''
+        
+        #no node ID
+        args = ["node", "shutdown"]
+        
         self.callMessageFormatter(args)
-        self.cli.run(args)
+        self.cli.run( args )
         
-        assert mockWriteJson.call_count == 2
+        assert mockStop.call_count == 0
         
-        j_node = mockWriteJson.call_args[0][0]
-        node = NodeConverter.build_node_from_json( j_node[0] )
-        
-        assert len( node.services["AM"] ) == 0
-        assert len( node.services["PM"] ) == 0
-        assert len( node.services["SM"] ) == 1
-        assert len( node.services["DM"] ) == 1
-        
-        # just am and pm        
-        args = ["node", "list_services", "-services", "am", "pm", "-format=json"]
-    
+        args.append( "-node_id=21ABC" )
         self.callMessageFormatter(args)
-        self.cli.run(args)
+        self.cli.run( args )
         
-        assert mockWriteJson.call_count == 3
+        assert mockStop.call_count == 1
         
-        j_node = mockWriteJson.call_args[0][0]
-        node = NodeConverter.build_node_from_json( j_node[0] )
+        node_id = mockStop.call_args[0][0]
         
-        assert len( node.services["AM"] ) == 1
-        assert len( node.services["PM"] ) == 1
-        assert len( node.services["SM"] ) == 0
-        assert len( node.services["DM"] ) == 0    
-    
-    
-    
+        assert node_id == "21ABC"
+        assert mockList.call_count == 1
         
+    @patch( "fds.services.node_service.NodeService.start_node", side_effect=mock_functions.startNode)
+    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    def test_start_node(self, mockList, mockStart):
+        '''
+        Test to see that the stop node functionality makes the right call
+        '''
         
+        #no node ID
+        args = ["node", "start"]
+        
+        self.callMessageFormatter(args)
+        self.cli.run( args )
+        
+        assert mockStart.call_count == 0
+        
+        args.append( "-node_id=21ABC" )
+        self.callMessageFormatter(args)
+        self.cli.run( args )
+        
+        assert mockStart.call_count == 1
+        
+        node_id = mockStart.call_args[0][0]
+        
+        assert node_id == "21ABC"
+        assert mockList.call_count == 1        

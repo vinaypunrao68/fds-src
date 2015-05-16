@@ -89,6 +89,7 @@ class OrchMgr: public SvcProcess {
 
   protected:
     virtual void setupSvcInfo_() override;
+    virtual void setupConfigDb_() override;
 
   public:
     OrchMgr(int argc, char *argv[], OM_Module *omModule);
