@@ -7,23 +7,17 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricRepository;
+import com.formationds.om.repository.helper.VolumeDatapointHelper;
 import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
 import org.apache.thrift.TException;
 import org.influxdb.dto.Serie;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -67,13 +61,33 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                                          .collect( Collectors.toList() );
 
         List<String> volMetricNames = new ArrayList<>();
-        volMetricNames.add( VOL_ID_COLUMN_NAME );
-        volMetricNames.add( VOL_DOMAIN_COLUMN_NAME );
-        volMetricNames.add( VOL_NAME_COLUMN_NAME );
+
+        // time column necessary for writes where we want to force a timestamp
+        // based on what we receive from the server side.  For queries it is automatically returned
+        // and does not need to be included.
+        volMetricNames.add( InfluxRepository.TIMESTAMP_COLUMN_NAME );
+
+        // add the volume metadata columns
+        addVolumeMetadataColumns( volMetricNames );
+
+        // now add all of the metric names
         volMetricNames.addAll( metricNames );
 
         return volMetricNames;
     }
+
+    /**
+     * Add the volume metadata columns to the base list of columns.
+     *
+     * @param base the list to add the volume metadata columns to.  They are added to the end of the list.
+     */
+    protected static void addVolumeMetadataColumns( List<String> base ) {
+        base.add( VOL_ID_COLUMN_NAME );
+        base.add( VOL_DOMAIN_COLUMN_NAME );
+        base.add( VOL_NAME_COLUMN_NAME );
+    }
+
+    private final VolumeMetricCache metricCache;
 
     /**
      * @param url the url
@@ -82,6 +96,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     public InfluxMetricRepository( String url, String adminUser, char[] adminCredentials ) {
         super( url, adminUser, adminCredentials );
+        metricCache = new VolumeMetricCache( this );
     }
 
     /**
@@ -129,8 +144,20 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      *                                       Influx Metric Repository
      */
     @Override
-    protected VolumeDatapoint doPersist( IVolumeDatapoint entity ) {
+    protected <R extends IVolumeDatapoint> R doPersist( R entity ) {
         throw new UnsupportedOperationException( "Persisting individual metrics is not supported for the Influx Metric repository" );
+    }
+
+    /**
+     * @param metricKey the metric key or enum name
+     * @return the index of the specified metric key in the Volume metrics array.  -1 if not found
+     */
+    protected int indexOf( String metricKey ) {
+        try {
+            return VOL_METRIC_NAMES.indexOf( Metrics.lookup( metricKey ).name() );
+        } catch (UnsupportedMetricException ume) {
+            return -1;
+        }
     }
 
     @Override
@@ -140,13 +167,10 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // TODO: currently the collection of VolumeDatapoint objects is a list of individual data points
         // and may contain any number of volumes and timestamps.  Ironically, the AM receives the datapoints
         // exactly as we need  them here, but it then splits them in JsonStatisticsFormatter
-        List<R> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
+        List<IVolumeDatapoint> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
-        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs;
-        orderedVDPs = vdps.stream()
-                          .collect( Collectors.groupingBy( IVolumeDatapoint::getTimestamp,
-                                                           Collectors.groupingBy( IVolumeDatapoint::getVolumeId ) ) );
+        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs = VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
             Long ts = e.getKey();
@@ -159,15 +183,21 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 // volName is in the list of volume datapoints
                 String volName = null;
 
-                metricValues[0] = volid;
-                metricValues[1] = volDomain;
+                metricValues[0] = ts;
+                metricValues[1] = volid;
+                metricValues[2] = volDomain;
 
-                int v = 3;
-                for ( IVolumeDatapoint vdp : e2.getValue() ) {
-                    // TODO: figure out what metric it maps to, then figure out its position in
-                    // the values array.
-                    metricValues[2] = vdp.getVolumeName();
-                    metricValues[v++] = vdp.getValue();
+                List<IVolumeDatapoint> voldps = e2.getValue();
+                for ( IVolumeDatapoint vdp : voldps ) {
+                    metricValues[3] = vdp.getVolumeName();
+
+                    // find the metric position
+                    int midx = indexOf( vdp.getKey() );
+                    if (midx == -1) {
+                        logger.warn( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
+                        continue;
+                    }
+                    metricValues[midx] = vdp.getValue();
                 }
 
                 Serie serie = new Serie.Builder( VOL_SERIES_NAME )
@@ -175,10 +205,15 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                                   .values(metricValues)
                                   .build();
 
-                getConnection().getAsyncDBWriter().write( TimeUnit.MILLISECONDS, serie );
+                // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
+                // in seconds since the epoch, specify a SECONDS precision on the series
+                getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, serie );
+
+                // update the metric cache
+                metricCache.updateLatestVolumeStats( Long.valueOf( volid ),  voldps );
             }
         }
-        return vdps;
+        return (List<R>)vdps;
     }
 
     @Override
@@ -322,62 +357,79 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     protected Double sumMetric( Metrics metrics ) {
-        final List<VolumeDatapoint> datapoints = new ArrayList<>();
+        final List<IVolumeDatapoint> datapoints = new ArrayList<>();
         final List<Long> volumeIds = getVolumeIds();
         volumeIds.stream().forEach( ( vId ) -> {
-            final VolumeDatapoint vdp = mostRecentOccurrenceBasedOnTimestamp( vId, metrics );
-            if ( vdp != null ) {
-                datapoints.add( vdp );
+            final List<IVolumeDatapoint> vdps = mostRecentOccurrenceBasedOnTimestamp( vId, metrics );
+            if ( !vdps.isEmpty() ) {
+                final IVolumeDatapoint vdp = vdps.get( 0 );
+                if ( vdp != null ) {
+                    datapoints.add( vdp );
+                }
             }
         } );
 
         return datapoints.stream()
-                         .mapToDouble( VolumeDatapoint::getValue )
+                         .mapToDouble( IVolumeDatapoint::getValue )
                          .summaryStatistics()
                          .getSum();
     }
 
+    /**
+     *
+     * @param volumeId the volume to query
+     * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
+     *
+     * @return the list of datapoints matching the metrics for the specified volume.  If the metrics are null or empty
+     *  all available metrics are returned.
+     */
     @Override
-    public <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( String volumeName,
-                                                                                    Metrics metric ) {
-        try {
+    public List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( Long volumeId, EnumSet<Metrics> metrics) {
+        EnumMap<Metrics,IVolumeDatapoint> m = metricCache.getLatestVolumeStats( volumeId, metrics );
 
-            // expect this to be cached.
-            long volumeId = SingletonConfigAPI.instance().api().getVolumeId( volumeName );
-
-            return mostRecentOccurrenceBasedOnTimestamp( volumeId, metric );
-
-        } catch (TException te ) {
-
-            throw new IllegalStateException( "Failed to access configuration service.", te );
-
-        }
+        return VolumeMetricCache.toVolumeDatapoints( m );
     }
 
-    @Override
-    public <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
+    /**
+     * Load the most recent stats for the specified volume from the influx repository.  This does not access the
+     * cache (but is used to initialize the cache)
+     * 
+     * @param volumeId the volume id
+     *
+     * @return the most recent stats for the volume
+     */
+    List<IVolumeDatapoint> loadMostRecentVolumeStats( Long volumeId ) {
 
         QueryCriteria queryCriteria = new QueryCriteria( );
 
+// This could be used to select only volume metadata columns and specific metrics.  For now I think we
+// just want all of the latest....
+//        if ( metrics != null && metrics.length > 0) {
+//            List<String> metricNames = Arrays.stream( metrics )
+//                                             .map( Enum::name )
+//                                             .collect( Collectors.toList() );
+//            addVolumeMetadataColumns( metricNames );
+//            queryCriteria.addColumns(metricNames);
+//        }
+
         // this only works because we know that formulateQueryString uses the volume id in the query.
-        queryCriteria.setContexts( Arrays.asList( new Volume( 0, volumeId.toString(), "", "" ) ) );
+        queryCriteria.setContexts( Collections.singletonList( new Volume( 0, volumeId.toString(), "", "" ) ) );
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
 
         // get the query string
         String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
 
-        StringBuilder sb = new StringBuilder( queryString ).append( " limit 1" );
-
-        // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
+        // execute the query limiting it to the most recent row for the volume
+        List<Serie> series = getConnection().getDBReader().query( queryString + " limit 1", TimeUnit.SECONDS );
 
         if (series.isEmpty()) {
-            return null;
+            return Collections.emptyList();
         }
 
         // convert from influxdb format to FDS model format
         List<IVolumeDatapoint> datapoints = convertSeriesToPoints( series );
 
-        return (VDP)datapoints.get( 0 );
+        return datapoints;
+
     }
 }

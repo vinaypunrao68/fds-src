@@ -77,8 +77,6 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
-    SvcProcess::proc_pre_startup();
-
     argv = mod_vectors_->mod_argv(&argc);
 
     /*
@@ -113,26 +111,28 @@ void OrchMgr::proc_pre_startup()
     }
     ip_address = conf_helper_.get<std::string>("ip_address");
 
-    LOGNOTIFY << "Orchestration Manager using config port " << config_portnum
-              << " control port " << control_portnum;
-
     // check the config db port (default is 0 for now)
     // if the port is NOT set explicitly , do not use it .
     // reason : mutiple folks might use the same instance.
     // whoever decides to use it will have to set the port
     // properly
     // But we still need to instantiate as the object might be used .
-
+    
+    LOGNOTIFY << "Orchestration Manager using config port " << config_portnum
+              << " control port " << control_portnum;
     configDB = new kvstore::ConfigDB(
         conf_helper_.get<std::string>("configdb.host", "localhost"),
         conf_helper_.get<int>("configdb.port", 0),
         conf_helper_.get<int>("configdb.poolsize", 10));
 
-    policy_mgr = new VolPolicyMgr(configDB, GetLog());
+    policy_mgr = new VolPolicyMgr(getConfigDB(), GetLog());
 
     defaultS3BucketPolicy();
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
+    
+    LOGDEBUG << "Orchestration Manager is starting service layer";
+    SvcProcess::proc_pre_startup();
 }
 
 void OrchMgr::proc_pre_service()
@@ -143,7 +143,7 @@ void OrchMgr::proc_pre_service()
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
-    local_domain->om_load_state(config_db_up ? configDB : NULL);
+    local_domain->om_load_state(config_db_up ? getConfigDB() : NULL);
 }
 
 void OrchMgr::setupSvcInfo_()

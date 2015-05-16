@@ -88,6 +88,12 @@ class AmProcessor_impl
     Error updateDmt(bool dmt_type, std::string& dmt_data)
         { return amDispatcher->updateDmt(dmt_type, dmt_data); }
 
+    Error getDMT()
+    { return amDispatcher->getDMT(); }
+
+    Error getDLT()
+    { return amDispatcher->getDLT(); }
+
     bool isShuttingDown() const
     { return shut_down; }
 
@@ -823,6 +829,7 @@ AmProcessor_impl::getObject(AmRequest *amReq) {
         // We couldn't find the data in the cache even though the id was
         // obtained there. Fallback to retrieving the data from the SM.
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+        // AmRequest will now be sent to SM.
         amDispatcher->dispatchGetObject(amReq);
     }
 }
@@ -1016,5 +1023,11 @@ Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
 
 Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
 { return _impl->updateQoS(rate, throttle); }
+
+Error AmProcessor::getDMT()
+{ return _impl->getDMT(); }
+
+Error AmProcessor::getDLT()
+{ return _impl->getDLT(); }
 
 }  // namespace fds

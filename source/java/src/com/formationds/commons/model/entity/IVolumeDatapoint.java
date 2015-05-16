@@ -10,17 +10,48 @@ package com.formationds.commons.model.entity;
  * in repository query results.
  */
 public interface IVolumeDatapoint {
+
+    /**
+     *
+     * @return the value for the volume datapoint
+     */
     Double getValue();
 
+    /**
+     *
+     * @return the timestamp in seconds since the epoch
+     */
     Long getTimestamp();
 
+    /**
+     *
+     * @param timestamp in seconds since the epoch
+     */
     void setTimestamp(long timestamp);
 
+    /**
+     *
+     * @return the volume name
+     */
     String getVolumeName();
 
+    /**
+     *
+     * @return the volume id
+     */
     String getVolumeId();
-    
+
+    /**
+     * Set the volume id
+     *
+     * @param anId the volume id
+     */
     void setVolumeId( String anId );
 
+    /**
+     *
+     * @return the metric lookup key
+     */
+    // TODO: convert to a Metrics enum value?
     String getKey();
 }

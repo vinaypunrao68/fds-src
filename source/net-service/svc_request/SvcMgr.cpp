@@ -457,6 +457,32 @@ DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id,
     return dmtMgr_->getVersionNodeGroup(vol_id, dmt_version);  // thread-safe, do not hold lock
 }
 
+Error SvcMgr::getDLT() {
+	Error err(ERR_OK);
+	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
+	getDLTData(fdsp_dlt);
+
+	if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
+		err = ERR_NOT_FOUND;
+	} else {
+		err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+	}
+	return err;
+}
+
+Error SvcMgr::getDMT() {
+	Error err(ERR_OK);
+	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
+	getDMTData(fdsp_dmt);
+
+	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
+		err = ERR_NOT_FOUND;
+	} else {
+		err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+	}
+	return err;
+}
+
 const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }
@@ -496,6 +522,24 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data) {
     return err;
 }
 
+
+void SvcMgr::getDMTData(::FDS_ProtocolInterface::CtrlNotifyDMTUpdate &fdsp_dmt)
+{
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDMT(fdsp_dmt, nullarg);
+}
+
+void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
+{
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDLT(fdsp_dlt, nullarg);
+}
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)

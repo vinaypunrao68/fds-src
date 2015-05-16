@@ -11,6 +11,7 @@
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <net/PlatNetSvcHandler.h>
 #include <boost/shared_ptr.hpp>
+#include <fdsp/OMSvc.h>
 
 #define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                         \
             fds_panic("not supported...use svcmgr api");
@@ -377,6 +378,8 @@ struct SvcMgr : HasModuleProvider, Module {
 
     Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error getDLT();
+    Error getDMT();
 
     /**
     * @brief Return true if e is an error service layer should handle
@@ -451,6 +454,23 @@ struct SvcMgr : HasModuleProvider, Module {
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
 
+    /**
+     * @brief Method to retrieve the DMT for the service.
+     * Caller will provide a Thrift interface object and the method will
+     * figure out a connection and populate the data.
+     * It should block until the data is retrieved.
+     * TODO(Neil): should throw an exception for timeout?
+     */
+    void getDMTData(::FDS_ProtocolInterface::CtrlNotifyDMTUpdate &fdsp_dmt);
+
+    /**
+     * @brief Method to retrieve the DLT for the service.
+     * Caller will provide a Thrift interface object and the method will
+     * figure out a connection and populate the data.
+     * It should block until the data is retrieved.
+     * TODO(Neil): should throw an exception for timeout?
+     */
+    void getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt);
 
     /**
     * @brief Minimum connection retries
