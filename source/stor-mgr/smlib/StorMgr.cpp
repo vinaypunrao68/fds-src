@@ -184,7 +184,7 @@ void ObjectStorMgr::mod_enable_service()
                             sysTaskQueue);
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
 
         /**
          * This is post service registration. Check if object store passed the initial
@@ -199,12 +199,12 @@ void ObjectStorMgr::mod_enable_service()
             LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
                       << " starting the second phase";
             // get DMT from OM if DMT already exist
-            omClient->getDMT();
+            MODULEPROVIDER()->getSvcMgr()->getDMT();
             // get DLT from OM
-            Error err = omClient->getDLT();
+            Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
                 // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
                 if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
                     LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
                 } else {
