@@ -38,7 +38,8 @@ class dm_service(object):
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
 	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
-        om_ip = "127.0.0.1"
+        om_ip = "10.2.10.20"
+	pdb.set_trace()
         for node in self.node_list:
             if node.ip_v4_address == om_ip:
                 env.host_string = node.ip_v4_address
