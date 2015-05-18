@@ -293,6 +293,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
      void readObjDeltaSet(SmIoReq* ioReq);
+     void abortMigration(SmIoReq* ioReq);
+     void notifyDLTClose(SmIoReq* ioReq);
 
      Error handleDltUpdate();
 

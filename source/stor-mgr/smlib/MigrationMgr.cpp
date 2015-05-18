@@ -848,10 +848,13 @@ MigrationMgr::handleDltClose()
         return ERR_OK;  // this is ok
     }
     LOGMIGRATE << "Will cleanup executors and migr clients";
+    // Wait for all pending IOs to complete on Executors.
     coalesceExecutors();
     migrExecutors.clear();
+
     {
         SCOPEDWRITE(clientLock);
+        // Wait for all pending IOs to complete on Clieng.
         coalesceClients();
         migrClients.clear();
     }
