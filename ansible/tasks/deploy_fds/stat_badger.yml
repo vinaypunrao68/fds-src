@@ -55,21 +55,38 @@
         group=stat-badger
         mode=0755
 
--   name: write stat-badger influxdb emitter config
+-   name: copy FDS-written stat-badger modules
     template:
-        src=../../templates/badger/conf.d/influxdb08_emitter.conf.j2
-        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/conf.d/influxdb08_emitter.conf
+        src=../../files/badger/modules/{{item}}.py
+        dest=/opt/fds-deps/embedded/stat-badger/badger_modules/{{item}}.py
+        owner=stat-badger
+    with_items:
+        - fds_counters
+
+-   name: copy FDS-written stat-badger emitters
+    template:
+        src=../../files/badger/emitters/{{item}}.py
+        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/{{item}}.py
+        owner=stat-badger
+    with_items:
+        - fds_influxdb08_emitter
+
+-   name: write stat-badger fds_influxdb08_emitter config
+    template:
+        src=../../templates/badger/conf.d/fds_influxdb08_emitter.conf.j2
+        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/conf.d/fds_influxdb08_emitter.conf
         owner=stat-badger
         group=stat-badger
         mode=0644
 
--   name: write stat-badger disk module config
+-   name: write stat-badger module configs
     template:
         src=../../templates/badger/conf.d/{{item}}.conf.j2
         dest=/opt/fds-deps/embedded/stat-badger/badger_modules/conf.d/{{item}}.conf
         owner=stat-badger
     with_items:
         - disk
+        - fds_counters
         - process_stats
 
 -   name: ensure stat-badger is running
