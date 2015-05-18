@@ -26,7 +26,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     for (int i = 0; i < parallelMigration; i++) {
         snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
         snapshotRequests[i].retryReq = false;
-        snapshotRequests[i].smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
+        snapshotRequests[i].smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
