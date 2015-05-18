@@ -63,6 +63,11 @@ public class ListVolumes implements RequestHandler {
         JSONArray jsonArray = config.listVolumes(domain)
                                     .stream()
 				.filter(v -> authorizer.ownsVolume(token, v.getName()))
+/*
+ * HACK
+ * .filter( v -> isSystemVolume() != true )
+ */
+        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
 				.map(v -> {
 					try {
 						JSONObject volResponse = toJsonObject(v);

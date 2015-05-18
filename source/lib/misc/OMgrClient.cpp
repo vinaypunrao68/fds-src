@@ -88,25 +88,18 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     msg_hdr->result = FDSP_ERR_OK;
 }
 
-int OMgrClient::testBucket(const std::string& bucket_name,
-                           fds_bool_t attach_vol_reqd,
-                           const std::string& accessKeyId,
-                           const std::string& secretAccessKey)
+int OMgrClient::getVolumeDescriptor(const std::string& volume_name)
 {
     if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-        fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
-        fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
-        test_buck_msg->bucket_name = bucket_name;
-        test_buck_msg->attach_vol_reqd = attach_vol_reqd;
-        test_buck_msg->accessKeyId = accessKeyId;
-        test_buck_msg->secretAccessKey;
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
+        fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
+        msg->volume_name = volume_name;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
         req->invoke();
-        LOGNOTIFY << " sending test bucket request to OM " << bucket_name;
+        LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
     } catch(...) {
-        LOGERROR << "OMClient unable to push test bucket to OM. Check if OM is up and restart.";
+        LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
     }
     return 0;
 }

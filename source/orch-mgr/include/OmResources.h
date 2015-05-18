@@ -466,9 +466,9 @@ class OM_NodeContainer : public DomainContainer
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                               const fpi::FDSP_TestBucket *req) {
-        return om_volumes->om_test_bucket(hdr, req);
+    inline void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                                         const std::string& vol_name) {
+        return om_volumes->om_get_volume_descriptor(hdr, vol_name);
     }
 
     inline bool addVolume(const VolumeDesc& desc) {

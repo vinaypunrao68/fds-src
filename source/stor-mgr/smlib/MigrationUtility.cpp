@@ -233,4 +233,78 @@ boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
     return out;
 }
 
+MigrationTrackIOReqs::MigrationTrackIOReqs()
+    : numTrackIOReqs(0),
+      waitingTrackIOReqsCompletion(false),
+      denyTrackIOReqs(false)
+{
+
+}
+
+MigrationTrackIOReqs::~MigrationTrackIOReqs()
+{
+    fds_verify(0 == numTrackIOReqs);
+    fds_verify(false == waitingTrackIOReqsCompletion);
+    fds_verify(true == denyTrackIOReqs);
+}
+
+// Start tracking outstanding IO requests for SM token migration.
+// If successfully start tracking, then must finish tracking
+// outstanding IO.  If not properly paired the operation of
+// starting and finishing,
+//
+// Example:
+// bool result = startTrackIOReqs().
+// if (!result) {
+//      return;
+//  }
+//  ...
+//  finishTrackIOReqs().
+//
+bool
+MigrationTrackIOReqs::startTrackIOReqs()
+{
+    std::lock_guard<std::mutex> lock(trackReqsMutex);
+
+    // If the deny reqs
+    if (denyTrackIOReqs) {
+        LOGMIGRATE << "Migration IO Track Failed";
+        return false;
+    }
+    ++numTrackIOReqs;
+
+    LOGMIGRATE << "Migration IO Start Track Cnt=" << numTrackIOReqs;
+
+    return true;
+}
+
+// Finish tracking oustanding IO.  Should be called only
+// if IO is successfully tracked by successful call to startTrackIOReqs().
+void
+MigrationTrackIOReqs::finishTrackIOReqs()
+{
+    std::lock_guard<std::mutex> lock(trackReqsMutex);
+
+    if (numTrackIOReqs > 0) {
+        --numTrackIOReqs;
+        LOGMIGRATE << "Migration IO Finish Track Cnt=" << numTrackIOReqs;
+    }
+
+    if ((numTrackIOReqs == 0) && (waitingTrackIOReqsCompletion == true)) {
+        LOGMIGRATE << "Migration IO Finish Notify";
+        trackReqsCondVar.notify_all();
+    }
+}
+
+void
+MigrationTrackIOReqs::waitForTrackIOReqs()
+{
+    std::unique_lock<std::mutex> lock(trackReqsMutex);
+    denyTrackIOReqs = true;
+    waitingTrackIOReqsCompletion = true;
+    trackReqsCondVar.wait(lock, [this]{return numTrackIOReqs == 0;});
+    waitingTrackIOReqsCompletion = false;
+
+}
+
 }  // namespace fds
