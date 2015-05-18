@@ -73,6 +73,14 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     fds_uint32_t nbits = dlt->getNumBitsForToken();
     metaStore->setNumBitsPerToken(nbits);
 
+    // if Object store failed to initialize, will fail
+    // validating token ownership
+    ObjectStoreState curState = currentState.load();
+    if (curState == OBJECT_STORE_UNAVAILABLE) {
+        LOGCRITICAL << "Object Store unavailable, not updating token ownership";
+        return ERR_NODE_NOT_ACTIVE;
+    }
+
     Error err = diskMap->handleNewDlt(dlt);
     if (err == ERR_SM_NOERR_GAINED_SM_TOKENS) {
         // we gained new SM tokens -- open metadata store for these SM tokens
@@ -1273,6 +1281,12 @@ ObjectStore::mod_init(SysParams const *const p) {
     taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
+    // check if there is at least one device
+    if (diskMap->getTotalDisks() == 0) {
+        LOGCRITICAL << "Object Store is unavailable, until at least one device is added";
+        currentState = OBJECT_STORE_UNAVAILABLE;
+        return 0;
+    }
 
     // do initial validation of SM persistent state
     Error err = diskMap->loadPersistentState();
@@ -1285,14 +1299,16 @@ ObjectStore::mod_init(SysParams const *const p) {
             return -1;
         } else {
             // open data store for tokens owned by this SM
-            err = dataStore->openDataStore(diskMap,
-                                           (err == ERR_SM_NOERR_PRISTINE_STATE));
+            openErr = dataStore->openDataStore(diskMap,
+                                               (err == ERR_SM_NOERR_PRISTINE_STATE));
         }
         LOGDEBUG << "First phase of object store init done";
 
         // if object store comes up in pristine state, then we are done
         // initializing it -- set state to ready
-        currentState = OBJECT_STORE_READY;
+        if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+            currentState = OBJECT_STORE_READY;
+        }
     } else {
         LOGCRITICAL << "Object Store failed to initialize! " << err;
         currentState = OBJECT_STORE_UNAVAILABLE;
