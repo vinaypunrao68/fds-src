@@ -742,7 +742,7 @@ AmProcessor_impl::putBlobCb(AmRequest *amReq, const Error& error) {
         }
 
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
-            fds_verify(txMgr->commitTx(*tx_desc, blobReq->final_blob_size) == ERR_OK);
+            txMgr->commitTx(*tx_desc, blobReq->final_blob_size);
         }
     }
 
@@ -969,8 +969,8 @@ AmProcessor_impl::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     // the actual cached descriptor for block will not be correct).
     if (ERR_OK == error) {
         CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
-        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data));
-        fds_verify(txMgr->commitTx(*(blobReq->tx_desc), blobReq->final_blob_size) == ERR_OK);
+        txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
+        txMgr->commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
     }
 
     respond_and_delete(amReq, error);

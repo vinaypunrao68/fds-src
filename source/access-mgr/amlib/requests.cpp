@@ -29,13 +29,9 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     stopwatch.start();
 
     qos_perf_ctx.type = PerfEventType::AM_GET_QOS;
-    qos_perf_ctx.reset_volid(io_vol_id);
     hash_perf_ctx.type = PerfEventType::AM_GET_HASH;
-    hash_perf_ctx.reset_volid(io_vol_id);
     dm_perf_ctx.type = PerfEventType::AM_GET_DM;
-    dm_perf_ctx.reset_volid(io_vol_id);
     sm_perf_ctx.type = PerfEventType::AM_GET_SM;
-    sm_perf_ctx.reset_volid(io_vol_id);
 
     e2e_req_perf_ctx.type = PerfEventType::AM_GET_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
@@ -66,13 +62,9 @@ AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_l
     stopwatch.start();
 
     qos_perf_ctx.type = PerfEventType::AM_PUT_QOS;
-    qos_perf_ctx.reset_volid(io_vol_id);
     hash_perf_ctx.type = PerfEventType::AM_PUT_HASH;
-    hash_perf_ctx.reset_volid(io_vol_id);
     dm_perf_ctx.type = PerfEventType::AM_PUT_DM;
-    dm_perf_ctx.reset_volid(io_vol_id);
     sm_perf_ctx.type = PerfEventType::AM_PUT_SM;
-    sm_perf_ctx.reset_volid(io_vol_id);
 
     e2e_req_perf_ctx.type = PerfEventType::AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
@@ -99,13 +91,9 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     stopwatch.start();
 
     qos_perf_ctx.type = PerfEventType::AM_PUT_QOS;
-    qos_perf_ctx.reset_volid(io_vol_id);
     hash_perf_ctx.type = PerfEventType::AM_PUT_HASH;
-    hash_perf_ctx.reset_volid(io_vol_id);
     dm_perf_ctx.type = PerfEventType::AM_PUT_DM;
-    dm_perf_ctx.reset_volid(io_vol_id);
     sm_perf_ctx.type = PerfEventType::AM_PUT_SM;
-    sm_perf_ctx.reset_volid(io_vol_id);
 
     e2e_req_perf_ctx.type = PerfEventType::AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
