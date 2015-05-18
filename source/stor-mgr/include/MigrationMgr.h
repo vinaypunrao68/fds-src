@@ -22,7 +22,7 @@ typedef std::function<void (const Error&)> OmStartMigrationCbType;
  * Class responsible for migrating tokens between SMs
  * For each migration process, it creates migrationExecutors
  * and migrationSource objects that actually handle migration
- * on source and destination; SmTokenMigrationMgr mainly forwards
+ * on source and destination; MigrationMgr mainly forwards
  * service layer messages to appropriate migrationExecutor or
  * migrationSource objects.
  *
@@ -32,22 +32,22 @@ typedef std::function<void (const Error&)> OmStartMigrationCbType;
  *    1) create a set of per-<SM token, source SM> migration executor objects
  *    2) Picks the first SM token (for now we are doing one SM token at a time),
  *       and submits qos request to create snapshot of SM token metadata
- *    3) SmTokenMigrationMgr receives a callback when SM token metadata snapshot
+ *    3) MigrationMgr receives a callback when SM token metadata snapshot
  *       is done with actual snapshot.
  *    4) For each source SM that will migrate this SM token (one SM token may
  *       contain multiple DLT tokens, for which different SMs are resposible to
- *       migrate data to this SM), SmTokenMigrationMgr calls appropriate migration
+ *       migrate data to this SM), MigrationMgr calls appropriate migration
  *       executor's startObjectRebalance()
  *    5) TBD
  *    6) When set of migration executors responsible for current SM token finish
  *       migration, SmTokenMigration picks another SM token and repeats steps 2-5
  */
-class SmTokenMigrationMgr {
+class MigrationMgr {
   public:
-    explicit SmTokenMigrationMgr(SmIoReqHandler *dataStore);
-    ~SmTokenMigrationMgr();
+    explicit MigrationMgr(SmIoReqHandler *dataStore);
+    ~MigrationMgr();
 
-    typedef std::unique_ptr<SmTokenMigrationMgr> unique_ptr;
+    typedef std::unique_ptr<MigrationMgr> unique_ptr;
     /// source SM -> MigrationExecutor object map
     typedef std::unordered_map<NodeUuid, MigrationExecutor::unique_ptr, UuidHash> SrcSmExecutorMap;
     /// SM token id -> [ source SM -> MigrationExecutor ]
@@ -192,6 +192,17 @@ class SmTokenMigrationMgr {
      */
     void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
 
+
+    /**
+     * Coalesce all migration executor.
+     */
+    void coalesceExecutors();
+
+    /**
+     * Coalesce all migration client.
+     */
+    void coalesceClients();
+
   private:
     /**
      * Callback function from the metadata snapshot request for a particular SM token
@@ -306,9 +317,10 @@ class SmTokenMigrationMgr {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
+    //
+    /// so far we don't need a lock for the migrExecutors, because the actions
+    /// to update this map are serialized, and protected by migrState
     MigrExecutorMap migrExecutors;
-    /// so far we don't need a lock for the above map, because the actions
-    /// to update this map are serialized, and protected by mirgState
 
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
