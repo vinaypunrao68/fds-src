@@ -61,8 +61,6 @@ class DMSvcHandler;
 struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
-    OMgrClient     *omClient;
-
     /* Common module provider */
     CommonModuleProviderIf *modProvider_;
     /*

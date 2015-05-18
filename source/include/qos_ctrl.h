@@ -14,8 +14,6 @@
 
 namespace fds { 
 
-struct OMgrClient;
-
 /* **********************************************
  *  FDS_QoSDispatcher: Pluggable Dispatcher with dispatchIOs - main routine
  *

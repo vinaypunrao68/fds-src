@@ -13,7 +13,6 @@ namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
-class OMgrClient;
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
