@@ -4,11 +4,13 @@
 
 package com.formationds.om.webkit.rest;
 
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.commons.Fds;
 import com.formationds.commons.model.ConnectorAttributes;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -16,10 +18,12 @@ import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
+import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -27,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Map;
@@ -159,6 +164,7 @@ public class CreateVolume
           throw se;
       }
 
+      
       volumeId = configApi.getVolumeId( volume.getName() );
       if( volumeId > 0 ) {
           volume.setId( String.valueOf( volumeId ) );
