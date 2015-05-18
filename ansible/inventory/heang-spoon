@@ -1,7 +1,7 @@
 [heang-spoon]
 10.2.10.20
 
-[heang-lxc-nodes:vars]
+[heang-spoon:vars]
 clean_fds=yes
 force=true
 fds_log_severity=io
