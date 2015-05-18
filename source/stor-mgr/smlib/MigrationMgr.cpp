@@ -367,6 +367,7 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
         LOGMIGRATE << "This SM declined all DLT tokens for executor " << std::hex
                    << executorId << std::dec;
         SCOPEDWRITE(clientLock);
+        migrClients[executorId]->waitForIOReqsCompletion(executorId);
         migrClients.erase(executorId);
     }
     if (!srcAccepted) {
@@ -492,6 +493,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
                      << std::dec << " which means that forwarding from this client will stop too";
             // the destination SM told us it does not need this client anymore
             // just remove it, which will also stop forwarding IO from this client
+            migrClients[executorId]->waitForIOReqsCompletion(executorId);
             migrClients.erase(executorId);
             doneWithClients = (migrClients.size() == 0);
         }
