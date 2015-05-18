@@ -273,7 +273,7 @@ describe( 'Testing volume creation permutations', function(){
         
         var qos = {
             priority: 3,
-            capacity: 60,
+            capacity: 500,
             limit: 1000
         };
         
@@ -312,7 +312,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Flash Only',
-            { preset: CUSTOM, priority: '3', sla: '60', limit: '1000'},
+            { preset: CUSTOM, priority: '3', sla: '500', limit: '1000'},
             { 
                 preset: CUSTOM, 
                 settings: [
