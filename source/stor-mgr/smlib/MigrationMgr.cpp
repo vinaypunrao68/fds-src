@@ -20,11 +20,13 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
-    for (int i = 0; i < 256; i++) { // assuming one for each sm tokens
-        fds_token_id t = static_cast<fds_token_id>(i);
-        snapshotRequest[t].io_type = FDS_SM_SNAPSHOT_TOKEN;
-        snapshotRequest[t].retryReq = false;
-        snapshotRequest[t].smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
+    
+    nextSnapshotRequest = 0;
+    snapshotRequests.resize(parallelMigration);
+    for (int i = 0; i < parallelMigration; i++) {
+        snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
+        snapshotRequests[i].retryReq = false;
+        snapshotRequests[i].smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
@@ -194,9 +196,10 @@ SmTokenMigrationMgr::retryTokenMigrForFailedDltTokens() {
         LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
-        snapshotRequest[retrySmTokenInProgress].token_id = retrySmTokenInProgress;
-        snapshotRequest[retrySmTokenInProgress].retryReq = true;
-        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest[retrySmTokenInProgress]);
+        auto snapshotRequest = getSnapshotRequest();
+        snapshotRequest->token_id = retrySmTokenInProgress;
+        snapshotRequest->retryReq = true;
+        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequest);
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
             // for now, we are failing the whole migration on any error
@@ -235,9 +238,10 @@ SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
-    snapshotRequest[smToken].token_id = smToken;
-    snapshotRequest[smToken].retryReq = false;
-    Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest[smToken]);
+    auto snapshotRequest = getSnapshotRequest();
+    snapshotRequest->token_id = smToken;
+    snapshotRequest->retryReq = false;
+    Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequest);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
         // for now, we are failing the whole migration on any error

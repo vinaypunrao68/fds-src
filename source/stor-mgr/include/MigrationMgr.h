@@ -335,7 +335,13 @@ class SmTokenMigrationMgr {
      * This is not protected. Assuming no aditions/removals to the 
      * map after initialization
      */
-    std::unordered_map<fds_token_id, SmIoSnapshotObjectDB> snapshotRequest;
+
+    // std::unordered_map<fds_token_id, SmIoSnapshotObjectDB> snapshotRequest;
+    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
+    std::atomic<int> nextSnapshotRequest;
+    SmIoSnapshotObjectDB* getSnapshotRequest() {
+        return &snapshotRequests[nextSnapshotRequest++ % parallelMigration];    
+    }
     
     /// SM token id -> [ source SM -> MigrationExecutor ]
     MigrExecutorMap migrExecutors;
