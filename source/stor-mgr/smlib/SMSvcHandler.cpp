@@ -1069,7 +1069,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
                   << ". SM will ignore this DLT close";
         fds_verify((fds_uint64_t)((dlt->dlt_close).DLT_version) < curDlt->getVersion());
         // otherwise OK to OM
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         return;
     }
 
