@@ -20,6 +20,10 @@ class Service(object):
     
     @auto_name.setter
     def auto_name(self, a_name):
+        
+        if ( a_name not in ("AM", "DM", "SM", "PM", "OM") ):
+            return
+        
         self.__auto_name = a_name
         
     @property
@@ -36,6 +40,10 @@ class Service(object):
     
     @status.setter
     def status(self, status):
+        
+        if ( status not in ("ACTIVE", "INACTIVE", "INVALID", "ERROR")):
+            return
+        
         self.__status = status
       
     @property  
@@ -44,6 +52,10 @@ class Service(object):
     
     @type.setter
     def type(self, a_type):
+        
+        if ( a_type not in ("FDSP_ACCESS_MGR", "FDSP_STOR_MGR", "FDSP_ORCH_MGR", "FDSP_PLATFORM", "FDSP_DATA_MGR")):
+            return
+        
         self.__type = a_type
         
     @property

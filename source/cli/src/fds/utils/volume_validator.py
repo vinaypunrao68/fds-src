@@ -58,7 +58,7 @@ class VolumeValidator():
         
         size = int(size)
         
-        if ( size < 1 or size > 1024):
-            raise ArgumentTypeError( "Size must be between 1 and 1024.  For bigger volumes please make use of the -size_unit argument.")
+        if ( size < 0 ):
+            raise ArgumentTypeError( "Must be greater than zero.")
         
         return size

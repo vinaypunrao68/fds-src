@@ -129,7 +129,7 @@ AmDispatcher::getDLT() {
 
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
-    return om_client->testBucket(volume_name, true, "", "");
+    return om_client->getVolumeDescriptor(volume_name);
 }
 
 /**

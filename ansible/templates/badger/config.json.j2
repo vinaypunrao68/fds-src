@@ -29,13 +29,13 @@
         {
             "dir": "badger_modules",
             "config": "badger_modules/conf.d",
-            "included_modules": []
+            "included_modules": ["fds_counters"]
         },
     "emitters":
         {
             "dir": "badger_emitters",
             "config": "badger_emitters/conf.d",
             "workers": 3,
-            "included_emitters": ["influxdb08_emitter"]
+            "included_emitters": ["fds_influxdb08_emitter"]
         }
 }
