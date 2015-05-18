@@ -47,7 +47,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     om_mod = OM_NodeDomainMod::om_local_domain();
 
     /* svc->om response message */
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeDescriptor, getVolumeDescriptor);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
@@ -88,7 +88,7 @@ void OmSvcHandler::init_svc_event_handlers() {
                LOGERROR << std::hex << svc << " saw too many " << std::dec << error
                         << " events [" << events << "]";
 
-               agent->set_node_state(FDS_Node_Down);
+               agent->set_node_state(fpi::FDS_Node_Down);
                domain->om_service_down(error, svc, agent->om_agent_type());
 
            } else {
@@ -137,12 +137,12 @@ OmSvcHandler::om_node_info(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void
-OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr<fpi::CtrlTestBucket> &msg)
+OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                 boost::shared_ptr<fpi::GetVolumeDescriptor> &msg)
 {
-    LOGNORMAL << " receive test bucket msg";
+    LOGNORMAL << " receive getVolumeDescriptor msg";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_test_bucket(hdr, &msg->tbmsg);
+    local->om_get_volume_descriptor(hdr, msg->volume_name);
 }
 
 void
@@ -152,7 +152,7 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // XXX(bszmyd): Thu 22 Jan 2015 12:42:27 PM PST
     // Ignore timeouts from Om. These happen due to one-way messages
-    // that cause Svc to timeout the request; e.g. TestBucket and SvcEvent
+    // that cause Svc to timeout the request; e.g. GetVolumeDescriptor and SvcEvent
     if (gl_OmUuid == msg->evt_src_svc_uuid.svc_uuid &&
         ERR_SVC_REQUEST_TIMEOUT == msg->evt_code) {
         return;
@@ -176,6 +176,56 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     if (!err.ok()) {
         LOGERROR << logString(*svcInfo) << err;
         throw fpi::OmRegisterException();
+    }
+}
+
+/**
+ * Allows the pulling of the DLT. Returns DLT_VER_INVALID if there's no committed DLT yet.
+ */
+
+void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, boost::shared_ptr<int64_t>& nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	DataPlacement *dp = om->om_dataplace_mod();
+	std::string data_buffer;
+	DLT const *dtp = NULL;
+    FDS_ProtocolInterface::FDSP_DLT_Data_Type dlt_val;
+	if (!(dp->getCommitedDlt())){
+		LOGDEBUG << "Not sending DLT to new node, because no "
+                << " committed DLT yet";
+        dlt.__set_dlt_version(DLT_VER_INVALID);
+
+	} else {
+		LOGDEBUG << "Should have DLT to send";
+		dtp = dp->getCommitedDlt();
+		dtp->getSerialized(data_buffer);
+		dlt.__set_dlt_version(dp->getCommitedDltVersion());
+		dlt_val.__set_dlt_data(data_buffer);
+		dlt.__set_dlt_data(dlt_val);
+	}
+}
+
+/**
+ * Allows the pulling of the DMT. Returns DMT_VER_INVALID if there's no committed DMT yet.
+ */
+
+void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, boost::shared_ptr<int64_t>& nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	VolumePlacement* vp = om->om_volplace_mod();
+	std::string data_buffer;
+    if (vp->hasCommittedDMT()) {
+    	DMTPtr dp = vp->getCommittedDMT();
+    	LOGDEBUG << "Should have DMT to send";
+    	(*dp).getSerialized(data_buffer);
+
+    	::FDS_ProtocolInterface::FDSP_DMT_Data_Type fdt;
+    	fdt.__set_dmt_data(data_buffer);
+
+    	dmt.__set_dmt_version(vp->getCommittedDMTVersion());
+    	dmt.__set_dmt_data(fdt);
+    } else {
+        LOGDEBUG << "Not sending DMT to new node, because no "
+                << " committed DMT yet";
+        dmt.__set_dmt_version(DMT_VER_INVALID);
     }
 }
 

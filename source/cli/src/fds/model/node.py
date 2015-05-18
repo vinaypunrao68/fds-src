@@ -5,9 +5,12 @@ class Node(object):
     @author: nate
     '''
 
-    def __init__(self):
-        self.__ip_v4_address = None
+    def __init__(self, an_id=-1, name="", state="UP", ip_v4_address=None):
+        self.__ip_v4_address = ip_v4_address
         self.__ip_v6_address = None
+        self.__id = an_id
+        self.__name = name
+        self.__state = state
         self.__services = dict()
         self.__services["AM"] = []
         self.__services["DM"] = []
@@ -55,6 +58,10 @@ class Node(object):
     
     @state.setter
     def state(self, a_state):
+        
+        if ( a_state not in ("UP", "DOWN", "UNKNOWN") ):
+            return
+        
         self.__state = a_state
         
     @property

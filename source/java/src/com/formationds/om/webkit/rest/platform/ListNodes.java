@@ -3,8 +3,7 @@ package com.formationds.om.webkit.rest.platform;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
@@ -33,9 +32,9 @@ public class ListNodes
         LoggerFactory.getLogger( ListNodes.class );
 
 
-    private final FDSP_ConfigPathReq.Iface configPathClient;
+    private final ConfigurationService.Iface configPathClient;
 
-    public ListNodes( final FDSP_ConfigPathReq.Iface configPathClient ) {
+    public ListNodes( final ConfigurationService.Iface configPathClient ) {
 
         this.configPathClient = configPathClient;
 
@@ -46,64 +45,10 @@ public class ListNodes
         throws Exception {
 
         List<com.formationds.protocol.FDSP_Node_Info_Type> list =
-            configPathClient.ListServices( new FDSP_MsgHdrType() );
+            configPathClient.ListServices(0);
+        logger.debug("Size of service list: {}", list.size());
 
-        /**
-         * temporary work-a-round for the defective list nodes.
-         *
-         * Most if not all of this code will be thrown away once platformd/om
-         * service issues are resolved. This fix is just to get us to beta 2.
-         */
-
-        final Map<String,Node> clusterMap = new HashMap<>( );
-        if( list != null && !list.isEmpty() ) {
-
-            for( final FDSP_Node_Info_Type info : list ) {
-
-                final Optional<Service> service = ServiceType.find( info );
-                if( service.isPresent() ) {
-
-                    final String ipv6Addr =
-                        ipAddr2String( info.getIp_hi_addr() )
-                            .orElse( String.valueOf( info.getIp_hi_addr() ) );
-                    final String ipv4Addr =
-                        ipAddr2String( info.getIp_lo_addr() )
-                            .orElse( String.valueOf( info.getIp_lo_addr() ) );
-
-                    final String nodeUUID = String.valueOf(
-                        info.getNode_uuid() );
-                    NodeState nodeState = NodeState.UP;
-                    final Optional<NodeState> optional =
-                        NodeState.byFdsDefined( info.getNode_state().name() );
-                    if( optional.isPresent() ) {
-
-                         nodeState = optional.get();
-
-                    }
-
-                    if( !clusterMap.containsKey( nodeUUID ) ) {
-
-                        clusterMap.put( nodeUUID,
-                                        Node.uuid( nodeUUID )
-                                            .ipV6address( ipv6Addr )
-                                            .ipV4address( ipv4Addr )
-                                            .state( nodeState )
-                                            .name( nodeName( ipv4Addr ) )
-                                            .build() );
-                    }
-
-                    Service serviceInstance = service.get();
-                    Node thisNode = clusterMap.get( nodeUUID );
-                    
-                    thisNode.addService( serviceInstance );
-
-                } else {
-
-                    logger.warn( "Unexpected service found -- {}",
-                                 info.toString() );
-                }
-            }
-        }
+        Map<String, Node> clusterMap = computeNodeMap( list );
 
         /*
          * TODO (Tinius) Domain ( Global and Local ) finish implementation
@@ -116,6 +61,74 @@ public class ListNodes
         domain.getNodes().addAll( clusterMap.values() );
 
         return new TextResource( ObjectModelHelper.toJSON( domain ) );
+    }
+    
+    /**
+     * temporary work-a-round for the defective list nodes.
+     * 
+     * In essence the "list" command just returns a list of service which need to be
+     * grouped together in a node hierarchy (in this case) so that can be done here.
+     *
+     * Most if not all of this code will be thrown away once platformd/om
+     * service issues are resolved. This fix is just to get us to beta 2.
+     * @return
+     */
+    public Map<String, Node> computeNodeMap( List<com.formationds.protocol.FDSP_Node_Info_Type> list ){
+    	
+    	final Map<String,Node> clusterMap = new HashMap<>( );
+        
+    	if ( list == null || list.isEmpty() ){
+    		return clusterMap;
+    	}
+    	
+
+        for( final FDSP_Node_Info_Type info : list ) {
+
+            final Optional<Service> service = ServiceType.find( info );
+            if( service.isPresent() ) {
+
+                final String ipv6Addr =
+                    ipAddr2String( info.getIp_hi_addr() )
+                        .orElse( String.valueOf( info.getIp_hi_addr() ) );
+                final String ipv4Addr =
+                    ipAddr2String( info.getIp_lo_addr() )
+                        .orElse( String.valueOf( info.getIp_lo_addr() ) );
+
+                final String nodeUUID = String.valueOf(
+                    info.getNode_uuid() );
+                NodeState nodeState = NodeState.UP;
+                final Optional<NodeState> optional =
+                    NodeState.byFdsDefined( info.getNode_state().name() );
+                if( optional.isPresent() ) {
+
+                     nodeState = optional.get();
+
+                }
+
+                if( !clusterMap.containsKey( nodeUUID ) ) {
+
+                    clusterMap.put( nodeUUID,
+                                    Node.uuid( nodeUUID )
+                                        .ipV6address( ipv6Addr )
+                                        .ipV4address( ipv4Addr )
+                                        .state( nodeState )
+                                        .name( nodeName( ipv4Addr ) )
+                                        .build() );
+                }
+
+                Service serviceInstance = service.get();
+                Node thisNode = clusterMap.get( nodeUUID );
+                
+                thisNode.addService( serviceInstance );
+
+            } else {
+
+                logger.warn( "Unexpected service found -- {}",
+                             info.toString() );
+            }
+        }    	
+        
+        return clusterMap;
     }
 
     protected Optional<String> ipAddr2String( final Long ipAddr ) {

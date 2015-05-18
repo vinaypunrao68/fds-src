@@ -7,11 +7,11 @@ package com.formationds.om.repository.helper;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.firebreak.FirebreakCount;
@@ -25,7 +25,6 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * @author ptinius
@@ -102,6 +100,10 @@ public class FirebreakHelper extends QueryHelper {
         		Volume volume = volIt.next();
         		
         		String key = volume.getId();
+
+            if( key == null || key.length() == 0 ) {
+              continue;
+            }
         		
         		final Series seri = new Series();
         		seri.setContext( volume );
@@ -412,8 +414,7 @@ public class FirebreakHelper extends QueryHelper {
             final Optional<VolumeStatus> optionalStatus =
                 SingletonRepositoryManager.instance()
                                           .getMetricsRepository()
-                                          .getLatestVolumeStatus(
-                                                                    vd.getName() );
+                                          .getLatestVolumeStatus( vd.getName() );
             if ( optionalStatus.isPresent() ) {
                 vols.put( vd.getName(),
                           optionalStatus.get() );
@@ -436,10 +437,8 @@ public class FirebreakHelper extends QueryHelper {
         final List<VolumeDatapointPair> paired = new ArrayList<>( );
         final List<IVolumeDatapoint> firebreakDP = extractFirebreakDatapoints(datapoints);
 
-        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedFBDPs;
-        orderedFBDPs = firebreakDP.stream()
-                                  .collect(Collectors.groupingBy(IVolumeDatapoint::getTimestamp,
-                                                                 Collectors.groupingBy(IVolumeDatapoint::getVolumeName)));
+        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedFBDPs =
+            VolumeDatapointHelper.groupByTimestampAndVolumeId( firebreakDP );
 
         // TODO: we may be able to parallelize this with a Spliterator by splitting first on timestamp and second on volume.
         // (similar to the StreamHelper.consecutiveStream used previously)

@@ -70,6 +70,13 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      */
     Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
+    /**
+     * Wrapper methods to call omClient's getDMT and getDLT, which does the
+     * actual work of fetching DMT and DLT from OM, and then updating
+     * the actual AM's DLT and DMT information.
+     */
+    Error getDMT();
+    Error getDLT();
 
     /**
      * Update QoS' rate and throttle

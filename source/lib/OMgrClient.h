@@ -7,13 +7,13 @@
 #include <fds_volume.h>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_OMControlPathReq.h"
 #include <util/Log.h>
 
 #include <unordered_map>
 #include <concurrency/RwLock.h>
 #include <dlt.h>
 #include <fds_dmt.h>
+#include <fdsp/OMSvc.h>
 
 #include <string>
 using namespace FDS_ProtocolInterface; // NOLINT
@@ -79,6 +79,9 @@ class OMgrClient {
     void setNoNetwork(bool fNoNetwork) {
         this->fNoNetwork = fNoNetwork;
     }
+    bool getNoNetwork() {
+    	return (this->fNoNetwork);
+    }
     ~OMgrClient();
 
     NodeUuid getUuid() const;
@@ -107,6 +110,16 @@ class OMgrClient {
     DMTManagerPtr getDmtManager() { return dmtMgr; }
 
     /**
+     * Retrieves the latest DMT from OM and updates the service's instance of DMT
+     */
+    Error getDMT();
+
+    /**
+     * Retrieves the latest DLT from OM and updates the service's instance of DMT
+     */
+    Error getDLT();
+
+    /**
      * Returns nodes from currently committed DMT
      */
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id);
@@ -116,10 +129,7 @@ class OMgrClient {
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
     fds_bool_t hasCommittedDMT() const;
-    int testBucket(const std::string& bucket_name,
-                   fds_bool_t attach_vol_reqd,
-                   const std::string& accessKeyId,
-                   const std::string& secretAccessKey);
+    int getVolumeDescriptor(const std::string& volume_name);
 
     int recvMigrationEvent(bool dlt_type);
 

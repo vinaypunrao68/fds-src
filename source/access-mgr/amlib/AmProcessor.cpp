@@ -88,6 +88,12 @@ class AmProcessor_impl
     Error updateDmt(bool dmt_type, std::string& dmt_data)
         { return amDispatcher->updateDmt(dmt_type, dmt_data); }
 
+    Error getDMT()
+    { return amDispatcher->getDMT(); }
+
+    Error getDLT()
+    { return amDispatcher->getDLT(); }
+
     bool isShuttingDown() const
     { return shut_down; }
 
@@ -516,13 +522,15 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
             LOGWARN << "Failed to cancel timer, volume with re-attach!";
         }
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
+
+        // Remove the volume from the caches
+        err = txMgr->removeVolume(volDesc);
     }
 
-    // Remove the volume from QoS/VolumeTable
-    err = volTable->removeVolume(volDesc);
-
-    // Remove the volume from the caches
-    auto err_2 = txMgr->removeVolume(volDesc);
+    // Remove the volume from QoS/VolumeTable, this is
+    // called to clear any waiting requests with an error and
+    // remove the QoS allocations
+    auto err_2 = volTable->removeVolume(volDesc);
 
     if (shut_down && volTable->drained())
     {
@@ -823,6 +831,7 @@ AmProcessor_impl::getObject(AmRequest *amReq) {
         // We couldn't find the data in the cache even though the id was
         // obtained there. Fallback to retrieving the data from the SM.
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+        // AmRequest will now be sent to SM.
         amDispatcher->dispatchGetObject(amReq);
     }
 }
@@ -1016,5 +1025,11 @@ Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
 
 Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
 { return _impl->updateQoS(rate, throttle); }
+
+Error AmProcessor::getDMT()
+{ return _impl->getDMT(); }
+
+Error AmProcessor::getDLT()
+{ return _impl->getDLT(); }
 
 }  // namespace fds

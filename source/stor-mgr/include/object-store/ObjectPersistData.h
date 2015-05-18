@@ -129,6 +129,19 @@ class ObjectPersistData : public Module,
                               fds_bool_t pristineState);
 
     /**
+     * Opens object data files (token files) for given SM tokens
+     * If any token file already open, keeps open and does not do anything
+     * on that file. If method called more than once for the same token set,
+     * all subsequent calls are noop.
+     * @param[in] diskMap map of SM tokens to disks
+     * @param[in] smToks set of SM tokens for which to open data files
+     * @param[in] true if SM comes up for the first time
+     */
+    Error openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+                              const SmTokenSet& smToks,
+                              fds_bool_t pristineState);
+
+    /**
      * Closes object data files on both tiers for all given SM tokens
      * and deletes these files.
      * @param[in] smTokensLost a list of SM tokens for which this SM

@@ -59,6 +59,9 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (SM_OBJ_DATA_SSD_WRITE)       /* persistent layer write object data to SSD (SSD hits) */
     (SM_OBJ_DATA_SSD_READ)        /* persistent layer read object data from SSD (SSD hits) */
     (SM_OBJ_MARK_DELETED)         /* mark object deleted in obj metadata */
+    (SM_APPLY_OBJECT_METADATA)    /* Time applyObjectMetaData on the migration path*/
+    (SM_READ_OBJ_DELTA_SET)
+    (SM_MIGRATION_SECOND_PHASE)
 
     // Access Manager
     (AM_PUT_OBJ_REQ)

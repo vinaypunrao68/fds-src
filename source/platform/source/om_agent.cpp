@@ -4,7 +4,6 @@
 
 #include <string>
 
-#include <NetSession.h>
 #include <net/net-service-tmpl.hpp>
 #include <fdsp/ConfigurationService.h>
 #include "fds_module_provider.h"
@@ -63,8 +62,8 @@ namespace fds
     void OmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr hdr) const
     {
         NodeInventory::init_msg_hdr(hdr);
-        hdr->msg_code     = FDSP_MSG_PUT_OBJ_REQ;  // TODO(Vy): cleanup these codes.
-        hdr->dst_id       = FDSP_ORCH_MGR;
+        hdr->msg_code     = fpi::FDSP_MSG_PUT_OBJ_REQ;  // TODO(Vy): cleanup these codes.
+        hdr->dst_id       = fpi::FDSP_ORCH_MGR;
         hdr->session_uuid = om_sess_id;
     }
 
@@ -86,36 +85,6 @@ namespace fds
         pkt->data_port         = plat->plf_get_my_data_port();
         pkt->migration_port    = plat->plf_get_my_migration_port();
         pkt->metasync_port     = plat->plf_get_my_metasync_port();
-    }
-
-    // om_register_node
-    // ----------------
-    //
-    void OmAgent::om_register_node(fpi::FDSP_RegisterNodeTypePtr reg)
-    {
-        fpi::FDSP_MsgHdrTypePtr    hdr(new fpi::FDSP_MsgHdrType);
-
-        fds_verify(om_reqt != NULL);
-        init_msg_hdr(hdr);
-        om_reqt->RegisterNode(hdr, reg);
-    }
-
-    // om_handshake
-    // ------------
-    //
-    /* virtual */ void OmAgent::om_handshake(boost::shared_ptr<netSessionTbl> net,
-                                             std::string om_ip, fds_uint32_t om_port)
-    {
-        fds_panic(DEPRECATED_CODEPATH);
-#if 0
-        boost::shared_ptr<fpi::FDSP_OMControlPathRespIf>    resp;
-
-        om_sess =
-            net->startSession<netOMControlPathClientSession>(om_ip, om_port, fpi::FDSP_ORCH_MGR,
-                                                             1 /* just 1 channel for now */, resp);
-        om_reqt    = om_sess->getClient();
-        om_sess_id = om_sess->getSessionId();
-#endif
     }
 
     // get_om_config_svc

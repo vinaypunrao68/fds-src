@@ -118,7 +118,7 @@ class VolumeCloneTest( BaseCliTest):
         
         args = ["volume", "clone", "-volume_name=FirstVol", "-name=ClonedVol", "-priority=9", "-iops_guarantee=5000", "-iops_limit=3000", "-continuous_protection=86500"]
         
-        now = time.time()
+        now = int(time.time())
         
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -134,7 +134,7 @@ class VolumeCloneTest( BaseCliTest):
         assert volume.iops_guarantee == 5000
         assert volume.iops_limit == 3000
         assert volume.continuous_protection == 86500
-        assert a_time > now
+        assert a_time >= now
         
         print "Cloning volume with new QoS settings from args was successful.\n\n"
         
@@ -148,7 +148,7 @@ class VolumeCloneTest( BaseCliTest):
         
         print "Trying to clone a volume with different QoS settings from JSON string"
         
-        now = time.time()
+        now = int(time.time())
         
         volume = Volume()
         volume.iops_guarantee = 30000
@@ -169,7 +169,7 @@ class VolumeCloneTest( BaseCliTest):
         a_time = mockClone.call_args[0][0]
         volume = mockClone.call_args[0][1]
         
-        assert a_time > now
+        assert a_time >= now
         assert volume.iops_guarantee == 30000
         assert volume.iops_limit == 100500
         assert volume.priority == 1
