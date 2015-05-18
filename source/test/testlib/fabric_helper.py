@@ -12,21 +12,21 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class FdsFabricHelper():
-    def __init__(self, fds_service, fds_node):
-	#env.user='root'
-	#env.password='passwd'
+
+class FabricHelper():
+    def __init__(self, fds_node):
 	env.user='root'
 	env.password='passwd'
 	env.host_string=fds_node
-	self.node_service=fds_service
+	#self.node_service=fds_service
 	self.fds_bin = '/fds/bin'
 	#self.fds_sbin = '/fds/sbin'
 	self.fds_sbin = '/home/hlim/projects/fds-src/source/tools'
+	self.fds_sbin = '/fds/sbin'
 	self.fdsconsole = '{}/fdsconsole.py'.format(self.fds_sbin)
 
 
-    def get_service_pid(self):
+    def get_service_pid(self, node_service):
 	'''
 	This function takes ip address and FDS service and returns its PID
 
@@ -39,19 +39,19 @@ class FdsFabricHelper():
 	--------
 	Returns the PID of the service
 	'''
-	#env.user = 'hlim' 
-	#env.password = 'Testlab' 
+	#env.user = 'hlim'
+	#env.password = 'Testlab'
 	#env.host_string = node_ip_address
 
 	#with settings(hide('running','commands', 'stdout', 'stderr')):
 	with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
 
-		service_pid = run('pgrep {}'.format(self.node_service))
+		service_pid = run('pgrep {}'.format(node_service))
 		if service_pid.return_code == 0:
 			return service_pid
 
 		else:
-			log.warning("Unable to locate {} service PID".format(self.node_service))
+			log.warning("Unable to locate {} service PID".format(node_service))
 			return None
 
 
@@ -93,7 +93,7 @@ class FdsFabricHelper():
 
 	Returns:
 	--------
-	Returns node uuid 
+	Returns node uuid
 	'''
 
 	if exists('{}'.format(self.fdsconsole)):
@@ -103,8 +103,8 @@ class FdsFabricHelper():
 				#run('./fdsconsole.py domain listServices local', stdout=self.sio)
 				cmd_output = sudo('./fdsconsole.py domain listServices local')
 				n_uuid = cmd_output.split()
-				
-				for i in range(len(n_uuid)): 
+
+				for i in range(len(n_uuid)):
 					if n_uuid[i] == '127.0.0.1' or n_uuid[i] == node_ip:
 						if n_uuid[i+2] == 'pm':
 							node_uuid = n_uuid[i-2]
@@ -113,5 +113,14 @@ class FdsFabricHelper():
 
 	else:
 		log.warning("Unable to locate {}".format(self.fdsconsole))
-	
+                cmd_output = run('./fdsconsole.py domain listServices local')
+                n_uuid = cmd_output.split()
+
+                for i in range(len(n_uuid)):
+					print n_uuid[i]
+					if n_uuid[i] == node_ip:
+						if n_uuid[i+2] == 'pm':
+							node_uuid = n_uuid[i-2]
+							return node_uuid
+
 
