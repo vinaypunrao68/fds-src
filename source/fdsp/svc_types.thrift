@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "FDSP.thrift"
@@ -104,7 +105,7 @@ enum  FDSPMsgTypeId {
   CtrlNotifyQoSControlTypeId                = 2102;
 
   /** AM-> OM */
-  CtrlTestBucketTypeId                      = 3000;
+  GetVolumeDescriptorTypeId                 = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
 
   /** Svc -> OM */

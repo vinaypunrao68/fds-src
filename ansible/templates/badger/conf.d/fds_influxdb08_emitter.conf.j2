@@ -1,0 +1,9 @@
+{
+    "interval": 5,
+    "blacklist": [],
+    "host": "{{badger_influxdb08_host if badger_influxdb08_host is defined else '127.0.0.1'}}",
+    "port": {{badger_influxdb08_port if badger_influxdb08_port is defined else '8086'}},
+    "database": "{{badger_influxdb08_database if badger_influxdb08_database is defined else 'system_stats'}}",
+    "user": "{{badger_influxdb08_user if badger_influxdb08_user is defined else 'root'}}",
+    "pass": "{{badger_influxdb08_pass if badger_influxdb08_pass is defined else 'root'}}"
+}
