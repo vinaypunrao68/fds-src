@@ -19,7 +19,7 @@ import pdb
 import sys
 
 sys.path.append("..")
-import am
+import AM
 
 class TestRESTAPI(unittest.TestCase):
     logging.basicConfig(level=logging.INFO,
@@ -90,8 +90,8 @@ class TestRESTAPI(unittest.TestCase):
             self.log.info('===============')    
 
 
-    def test_deactivate_node(self):
-    	self.log.info(TestRESTAPI.test_deactivate_node.__name__)
+    def test_stop_am(self):
+    	self.log.info(TestRESTAPI.test_stop_am.__name__)
     	nservice = NodeService(self.fdsauth)
     	nodeS2 = NodeState()
     	
@@ -116,6 +116,13 @@ class TestRESTAPI(unittest.TestCase):
     		#self.log.info('node.state.am= {}'.format(node.am))
     		#self.log.info('node.state.sm= {}'.format(node.sm))
     		#self.log.info('node.state.dm= {}'.format(node.dm))
+
+    def test_start_am(self):
+        self.log.info(TestRESTAPI.test_start_am.__name__)
+	pdb.set_trace()	
+	AM.start('10.3.38.2')	
+
+#################
 
 if __name__ == '__main__':
 	    unittest.main()

@@ -34,11 +34,12 @@ class am_service(object):
         self.fds_log = '/tmp'
         fdsauth = FdsAuth()
         fdsauth.login()
+	pdb.set_trace()
         self.nservice = NodeService(fdsauth)
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
 	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
-        om_ip = "127.0.0.1"
+        om_ip = "10.3.38.2"
         for node in self.node_list:
             if node.ip_v4_address == om_ip:
                 env.host_string = node.ip_v4_address
@@ -62,7 +63,8 @@ class am_service(object):
 
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
-                self.nservice.activate_node(node.id, nodeNewState)
+		pdb.set_trace()
+                self.nservice.start_service(node.id, node.services['AM'][0].id)
                 if node.services['AM'][0].status ==  'ACTIVE':
 			         log.info('AM service has started on node {}'.format(node.ip_v4_address))
 			         return True
