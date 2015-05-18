@@ -11,7 +11,7 @@ class TestDM(unittest.TestCase):
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
     dm_obj = DM.dm_service()
-    node_ip = '10.2.10.20'
+    node_ip = '10.3.79.115'
 
     def _test_start(self):
 	self.log.info(TestDM.test_start.__name__)

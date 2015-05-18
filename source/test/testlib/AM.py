@@ -19,6 +19,7 @@ from fds.services.node_service import NodeService
 from fds.services.fds_auth import FdsAuth
 from fds.services.users_service import UsersService
 from fds.model.node_state import NodeState
+from fds.model.service import Service 
 from fds.model.domain import Domain
 
 #Need to get this from config.py file
@@ -34,12 +35,11 @@ class am_service(object):
         self.fds_log = '/tmp'
         fdsauth = FdsAuth()
         fdsauth.login()
-	pdb.set_trace()
         self.nservice = NodeService(fdsauth)
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
 	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
-        om_ip = "10.3.38.2"
+        om_ip = "10.3.79.114"
         for node in self.node_list:
             if node.ip_v4_address == om_ip:
                 env.host_string = node.ip_v4_address
@@ -63,7 +63,6 @@ class am_service(object):
 
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
-		pdb.set_trace()
                 self.nservice.start_service(node.id, node.services['AM'][0].id)
                 if node.services['AM'][0].status ==  'ACTIVE':
 			         log.info('AM service has started on node {}'.format(node.ip_v4_address))
@@ -94,7 +93,7 @@ class am_service(object):
 
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
-                self.nservice.deactivate_node(node.id, nodeNewState)
+                self.nservice.stop_service(node.id, node.services['AM'][0].id)
 
                 if node.services['AM'][0].status !=  'ACTIVE':
 			         log.info('AM service is no longer running on node {}'.format(node.ip_v4_address))
@@ -148,11 +147,18 @@ class am_service(object):
         '''
         log.info(am_service.add.__name__)
         log.info('Adding AM service')
-        env.host_string = node_ip
+	fdsauth2 = FdsAuth()
+	fdsauth2.login()
+        newNodeService = Service()
+	newNodeService.auto_name="AM"
+	newNodeService.type="FDSP_ACCESS_MGR"
+	newNodeService.status="ACTIVE"
 
 	#TODO:  add code to add AM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
+                self.nservice.add_service(node.id, newNodeService)
+
                 if node.services['AM'][0].status ==  'ACTIVE':
 			         log.info('Added AM service to node {}'.format(node.ip_v4_address))
 			         return True
@@ -174,14 +180,16 @@ class am_service(object):
     	-----------
     	Boolean
         '''
-        log.info(am_service.add.__name__)
+        log.info(am_service.remove.__name__)
         log.info('Removing AM service')
-        env.host_string = node_ip
+        nodeNewState = NodeState()
+        nodeNewState.am=False
 
 	#TODO:  add code to remove AM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
-                if node.services['AM'][0].status ==  'ACTIVE':
+                self.nservice.remove_service(node.id, node.services['AM'][0].id)
+                if node.services['AM'][0].status ==  'INACTIVE':
 			         log.info('Removed AM service from node {}'.format(node.ip_v4_address))
 			         return True
 

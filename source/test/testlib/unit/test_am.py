@@ -11,7 +11,7 @@ class TestAM(unittest.TestCase):
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
     am_obj = AM.am_service()
-    node_ip = '127.0.0.1'
+    node_ip = '10.3.79.115'
 
     def test_start(self):
 	self.log.info(TestAM.test_start.__name__)
@@ -25,6 +25,13 @@ class TestAM(unittest.TestCase):
 	self.log.info(TestAM.test_kill.__name__)
         self.assertTrue(self.am_obj.kill('{}'.format(self.node_ip)), True)
 
+    def test_add(self):
+        self.log.info(TestAM.test_add.__name__)
+        self.assertTrue(self.am_obj.add('{}'.format(self.node_ip)), True)
+
+    def test_remove(self):
+        self.log.info(TestAM.test_remove.__name__)
+        self.assertTrue(self.am_obj.remove('{}'.format(self.node_ip)), True)
 
 if __name__ == '__main__':
     unittest.main()

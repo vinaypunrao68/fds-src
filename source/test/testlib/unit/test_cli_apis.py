@@ -30,11 +30,11 @@ class TestRESTAPI(unittest.TestCase):
     fdsauth = FdsAuth()
     fdsauth.login()
 
-    def test_get_hostname(self):
+    def _test_get_hostname(self):
     	self.log.info(TestRESTAPI.test_get_hostname.__name__)
     	self.log.info('get_hostname= {}'.format(self.fdsauth.get_hostname()))
 
-    def test_get_domains(self):
+    def _test_get_domains(self):
     	self.log.info(TestRESTAPI.test_get_domains.__name__)
     	lds = LocalDomainService(self.fdsauth)
     	domains_list = lds.get_local_domains()
@@ -45,7 +45,7 @@ class TestRESTAPI(unittest.TestCase):
     		self.log.info('domain.site= {}'.format(domain.site))
     		print '==============='
 
-    def test_get_volume_list(self):
+    def _test_get_volume_list(self):
     	self.log.info(TestRESTAPI.test_get_volume_list.__name__)
     	volServ = VolumeService(self.fdsauth)
     	volumes_list = volServ.list_volumes()
@@ -60,7 +60,7 @@ class TestRESTAPI(unittest.TestCase):
             self.log.info('Volume.current_unit= {}'.format(volume.current_units))            
             self.log.info('===============')
 
-    def test_create_volume(self):
+    def _test_create_volume(self):
         vservice = VolumeService(self.fdsauth)
         volume = Volume()
         new_volume = "testvolumecreation3"
@@ -75,7 +75,7 @@ class TestRESTAPI(unittest.TestCase):
             if volume.name == new_volume:
                 self.log.info("Volume {} has been created.".format(volume.name))
 
-    def test_get_node_list(self):
+    def _test_get_node_list(self):
     	self.log.info(TestRESTAPI.test_get_node_list.__name__)
     	nodeService = NodeService(self.fdsauth)
     	nodes_list = nodeService.list_nodes()
@@ -90,7 +90,7 @@ class TestRESTAPI(unittest.TestCase):
             self.log.info('===============')    
 
 
-    def test_stop_am(self):
+    def _test_stop_am(self):
     	self.log.info(TestRESTAPI.test_stop_am.__name__)
     	nservice = NodeService(self.fdsauth)
     	nodeS2 = NodeState()
@@ -119,9 +119,23 @@ class TestRESTAPI(unittest.TestCase):
 
     def test_start_am(self):
         self.log.info(TestRESTAPI.test_start_am.__name__)
-	pdb.set_trace()	
-	AM.start('10.3.38.2')	
+	amobj = AM.am_service()
+	amobj.start('10.3.79.115')	
 
+    def test_stop_am(self):
+        self.log.info(TestRESTAPI.test_stop_am.__name__)
+	amobj = AM.am_service()
+	amobj.stop('10.3.79.115')	
+
+    def test_add_am_service(self):
+        self.log.info(TestRESTAPI.test_add_am_service.__name__)
+	amobj = AM.am_service()
+	amobj.add('10.3.79.115')	
+
+    def test_remove_am_service(self):
+        self.log.info(TestRESTAPI.test_remove_am_service.__name__)
+	amobj = AM.am_service()
+	amobj.remove('10.3.79.115')	
 #################
 
 if __name__ == '__main__':

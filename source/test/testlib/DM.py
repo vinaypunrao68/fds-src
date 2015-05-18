@@ -19,6 +19,7 @@ from fds.services.node_service import NodeService
 from fds.services.fds_auth import FdsAuth
 from fds.services.users_service import UsersService
 from fds.model.node_state import NodeState
+from fds.model.service import Service 
 from fds.model.domain import Domain
 
 #Need to get this from config.py file
@@ -38,8 +39,7 @@ class dm_service(object):
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
 	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
-        om_ip = "10.2.10.20"
-	pdb.set_trace()
+        om_ip = "10.3.79.114"
         for node in self.node_list:
             if node.ip_v4_address == om_ip:
                 env.host_string = node.ip_v4_address
@@ -59,13 +59,11 @@ class dm_service(object):
         '''
         log.info(dm_service.start.__name__)
         nodeNewState = NodeState()
-        nodeNewState.dm=True
+        nodeNewState.am=True
 
         for node in self.node_list:
-	        #need to comment out the line below when done
-            #log.info('Node = {}, Status = {}'.format(node.ip_v4_address, node.services['DM'][0].status))
             if node.ip_v4_address == node_ip:
-                self.nservice.activate_node(node.id, nodeNewState)
+                self.nservice.start_service(node.id, node.services['DM'][0].id)
                 if node.services['DM'][0].status ==  'ACTIVE':
 			         log.info('DM service has started on node {}'.format(node.ip_v4_address))
 			         return True
@@ -91,13 +89,11 @@ class dm_service(object):
         '''
         log.info(dm_service.stop.__name__)
         nodeNewState = NodeState()
-        nodeNewState.dm=False
+        nodeNewState.am=False
 
         for node in self.node_list:
-	    #need to comment out the line below when done
-            #log.info('Node = {}, Status = {}'.format(node.ip_v4_address, node.services['DM'][0].status))
             if node.ip_v4_address == node_ip:
-                self.nservice.deactivate_node(node.id, nodeNewState)
+                self.nservice.stop_service(node.id, node.services['DM'][0].id)
 
                 if node.services['DM'][0].status !=  'ACTIVE':
 			         log.info('DM service is no longer running on node {}'.format(node.ip_v4_address))
@@ -122,78 +118,82 @@ class dm_service(object):
     	Boolean
         '''
         log.info(dm_service.kill.__name__)
-        log.info('Killing DataMgr service')
+        log.info('Killing bare_am service')
         env.host_string = node_ip
-        sudo('pkill -9 DataMgr > {}/cli.out 2>&1'.format(self.fds_log))
+        sudo('pkill -9 bare_am > {}/cli.out 2>&1'.format(self.fds_log))
 
         for node in self.node_list:
-            #need to comment out the line below when done
-            #log.info('Node = {}, Status = {}'.format(node.ip_v4_address, node.services['DM'][0].status))
             if node.ip_v4_address == node_ip:
                 if node.services['DM'][0].status !=  'ACTIVE':
-			         log.info('killed DataMgr service on node {}'.format(node.ip_v4_address))
-			         return True
+		        log.warn('Failed to kill bare_am service on node {}'.format(node.ip_v4_address))
+		        return False 
 
-                else:
-			         log.warn('Failed to kill DataMgr service on node {}'.format(node.ip_v4_address))
-			         return False 
+		else:
+			log.info('killed bare_am service on node {}'.format(node.ip_v4_address))
+		        return True
 
     def add(self, node_ip):
         '''
         Add DM service
 
-        Attributes:
-        -----------
-        node_ip:  str
-                The IP address of the node to add DM service.
+    	Attributes:
+    	-----------
+    	node_ip:  str
+		The IP address of the node to add DM service.
 
-        Returns:
-        -----------
-        Boolean
+    	Returns:
+    	-----------
+    	Boolean
         '''
-        log.info(am_service.add.__name__)
+        log.info(dm_service.add.__name__)
         log.info('Adding DM service')
-        env.host_string = node_ip
+	fdsauth2 = FdsAuth()
+	fdsauth2.login()
+        newNodeService = Service()
+	newNodeService.auto_name="DM"
+	newNodeService.type="FDSP_ACCESS_MGR"
+	newNodeService.status="ACTIVE"
 
-        #TODO:  add code to add DM service here
+	#TODO:  add code to add DM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
+                self.nservice.add_service(node.id, newNodeService)
+
                 if node.services['DM'][0].status ==  'ACTIVE':
-                                 log.info('Added DM service to node {}'.format(node.ip_v4_address))
-                                 return True
+			         log.info('Added DM service to node {}'.format(node.ip_v4_address))
+			         return True
 
                 else:
-                                 log.warn('Failed to add DM service to node {}'.format(node.ip_v4_address))
-                                 return False
-
+			         log.warn('Failed to add DM service to node {}'.format(node.ip_v4_address))
+			         return False 
 
     def remove(self, node_ip):
         '''
         Remove DM service
 
-        Attributes:
-        -----------
-        node_ip:  str
-                The IP address of the node to remove DM service.
+    	Attributes:
+    	-----------
+    	node_ip:  str
+		The IP address of the node to remove DM service.
 
-        Returns:
-        -----------
-        Boolean
+    	Returns:
+    	-----------
+    	Boolean
         '''
-        log.info(am_service.add.__name__)
+        log.info(dm_service.remove.__name__)
         log.info('Removing DM service')
-        env.host_string = node_ip
+        nodeNewState = NodeState()
+        nodeNewState.am=False
 
-        #TODO:  add code to add DM service here
+	#TODO:  add code to remove DM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
-                if node.services['DM'][0].status ==  'ACTIVE':
-                                 log.info('Removed DM service from node {}'.format(node.ip_v4_address))
-                                 return True
+                self.nservice.remove_service(node.id, node.services['DM'][0].id)
+                if node.services['DM'][0].status ==  'INACTIVE':
+			         log.info('Removed DM service from node {}'.format(node.ip_v4_address))
+			         return True
 
                 else:
-                                 log.warn('Failed to remove DM service from node {}'.format(node.ip_v4_address))
-                                 return False
-
-
+			         log.warn('Failed to remove DM service from node {}'.format(node.ip_v4_address))
+			         return False 
 
