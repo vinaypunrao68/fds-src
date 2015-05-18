@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "fds_volume.h"
 #include "PerfTrace.h"
 #include "responsehandler.h"
 
@@ -50,9 +51,16 @@ class AmRequest : public FDS_IOType {
         io_module = ACCESS_MGR_IO;
         io_req_id = 0;
         io_type   = _op;
-        io_vol_id = _vol_id;
+        setVolId(_vol_id);
+    }
 
-        e2e_req_perf_ctx.reset_volid(_vol_id);
+    void setVolId(fds_volid_t const vol_id) {
+        io_vol_id = vol_id;
+        e2e_req_perf_ctx.reset_volid(io_vol_id);
+        qos_perf_ctx.reset_volid(io_vol_id);
+        hash_perf_ctx.reset_volid(io_vol_id);
+        dm_perf_ctx.reset_volid(io_vol_id);
+        sm_perf_ctx.reset_volid(io_vol_id);
     }
 
     virtual ~AmRequest()
