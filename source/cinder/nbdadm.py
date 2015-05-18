@@ -96,7 +96,7 @@ class nbdlib:
         except psutil.NoSuchProcess as e:
             pass
 
-    def __disconnect(dev, process):
+    def __disconnect(self, dev, process):
         dproc = None
         try:
             dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
