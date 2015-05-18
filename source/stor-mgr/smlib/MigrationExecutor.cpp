@@ -187,7 +187,7 @@ Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                         leveldb::DB *db)
 {
-    LOGNOTIFY << "startObjectRebalance - Executor " << std::hex << executorId << std::dec;
+    LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec;
     Error err(ERR_OK);
     ObjMetaData omd;
 
