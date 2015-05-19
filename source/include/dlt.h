@@ -110,9 +110,10 @@ namespace fds {
         /**
          * Get source SM(s) for a given <current source SM - dlt tokens>
          */
-        NodeTokenMap getNewSourceSMs(NodeUuid& curSrcSM,
+        NodeTokenMap getNewSourceSMs(const NodeUuid& curSrcSM,
                                      std::vector<fds_token_id>& dlt_tokens,
-                                     uint8_t& retryCount);
+                                     const uint8_t& retryCount,
+                                     std::map<NodeUuid, bool>& failedSMs);
 
         /**
          * set the node for given token at a given index

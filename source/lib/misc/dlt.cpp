@@ -326,9 +326,10 @@ void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
  * not retrying more than N-1 times for token stored with replica
  * count as N.
  */
-NodeTokenMap DLT::getNewSourceSMs(NodeUuid& curSrcSM,
-                            std::vector<fds_token_id>& dltTokens,
-                            uint8_t& retryCount) {
+NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
+                                  std::vector<fds_token_id>& dltTokens,
+                                  const uint8_t& retryCount,
+                                  std::map<NodeUuid, bool>& failedSMs) {
     NodeTokenMap newTokenGroups;
     /**
      * Go over the table column for the token in DLT table and figure
@@ -337,17 +338,28 @@ NodeTokenMap DLT::getNewSourceSMs(NodeUuid& curSrcSM,
      */
     for (std::vector<fds_token_id>::iterator tokenIter = dltTokens.begin();
          tokenIter != dltTokens.end(); tokenIter++) {
-        uint8_t newSrcIdx;
+        bool foundSrcSM = false;
         uint8_t curSrcIdx = getIndex(*tokenIter, curSrcSM);
+        uint8_t newSrcIdx = (curSrcIdx + retryCount) % getDepth();
 
-        if (curSrcIdx + retryCount > getDepth()) {
-            newSrcIdx = curSrcIdx + retryCount - getDepth();
-        } else {
-            newSrcIdx = curSrcIdx + retryCount;
+        while (!foundSrcSM && newSrcIdx != curSrcIdx) {
+            NodeUuid newSrcSmId = getNode(*tokenIter, newSrcIdx);
+            if (failedSMs.find(newSrcSmId) == failedSMs.end()) {
+                // Found a healthy source for migration of this dlt token.
+                newTokenGroups[newSrcSmId].push_back(*tokenIter);
+                foundSrcSM = true;
+            } else {
+                ++newSrcIdx %= getDepth();
+            }
         }
-
-        NodeUuid newSrcSmId = getNode(*tokenIter, newSrcIdx);
-        newTokenGroups[newSrcSmId].push_back(*tokenIter);
+        /**
+         * Cannot find a healthy source SM for migration of this dlt token
+         * since all replicas holding data for this dlt token are reported
+         * as failed.
+         */
+        if (!foundSrcSM) {
+            newTokenGroups[INVALID_RESOURCE_UUID].push_back(*tokenIter);
+        }
     }
 
     return newTokenGroups;
