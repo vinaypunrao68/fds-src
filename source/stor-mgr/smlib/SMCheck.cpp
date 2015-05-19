@@ -453,6 +453,8 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
              << " DLT=" << latestClosedDLT;
 
     targetDLTTokens = tgtDltTokens;
+    // Clear any tokens that were stored from previous runs
+    allTokens.clear();
     if (!targetDLTTokens.empty()) {
         for (auto token : targetDLTTokens) {
             fds_token_id smToken;

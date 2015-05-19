@@ -1833,7 +1833,7 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
 
         // since we already checked above that we could add service, verify error ok
-        // Vy: we could get duplicate if the agent already reigstered by platform lib.
+        // Vy: we could get duplicate if the agent already registered by platform lib.
         // fds_verify(err.ok());
 
         om_locDomain->om_bcast_new_node(newNode, msg);
@@ -1842,7 +1842,7 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             return err;
         }
 
-        // Let this new node know about exisiting node list.
+        // Let this new node know about existing node list.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
@@ -1861,38 +1861,35 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
         om_locDomain->om_update_node_list(newNode, msg);
 
-        // Let this new node know about existing dlt if this is not SM node
+        // Let this new node know about existing dlt if this is not SM or AM node
         // DLT deploy state machine will take care of SMs
+        // AMs would have done the getDLT() call after it finished registered.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
-        if (msg->node_type != fpi::FDSP_STOR_MGR) {
+        if ((msg->node_type != fpi::FDSP_STOR_MGR) &&
+        		(msg->node_type != fpi::FDSP_ACCESS_MGR)) {
             OM_Module *om = OM_Module::om_singleton();
             DataPlacement *dp = om->om_dataplace_mod();
             OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
         }
-        if (msg->node_type != fpi::FDSP_DATA_MGR) {
-            OM_Module *om = OM_Module::om_singleton();
-            VolumePlacement* vp = om->om_volplace_mod();
-            if (vp->hasCommittedDMT()) {
-                OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
-            } else {
-                LOGWARN << "Not sending DMT to new node, because no "
-                        << " committed DMT yet";
-            }
-        }
+
+        // AM & SM services quiry for a DMT on statup, and DM node will get DMT
+        // as part of a state machine; so not broadcastign DMT to any service!
 
         // send qos related info to this node
         om_locDomain->om_send_me_qosinfo(newNode);
 
+        /**
+         * Starting with AM, we're going to move into a pull model by utilizing
+         * the getDLT() and getDMT() methods, instead of waiting for the OM to
+         * broadcast here.
+         */
         if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
                 om_dlt_update_cluster();
-            }
-            // Send the DMT to DMs.
-            if (msg->node_type == fpi::FDSP_DATA_MGR) {
-                om_dmt_update_cluster();
-            } else {
                 om_locDomain->om_bcast_vol_list(newNode);
-                // for new DMs, we send volume list as part of DMT deploy state machine
+            } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            	// Send the DMT to DMs.
+                om_dmt_update_cluster();
             }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));

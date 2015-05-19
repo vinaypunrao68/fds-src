@@ -74,6 +74,14 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
             break;
         }
     }
+
+    /* Check if config file exists */
+    struct stat buf;
+    if (stat(config_file.c_str(), &buf) == -1) {
+        std::cout << "Configuration file " << config_file << " not found. Exiting."
+        			<< std::endl;
+        exit(ERR_DISK_READ_FAILED);
+    }
     config_.readFile(config_file.c_str());
 
     /* Override config read from with command line params */

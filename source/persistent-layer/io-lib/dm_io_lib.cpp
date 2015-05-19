@@ -352,7 +352,7 @@ DataDiscoveryModule::disk_open_map()
         pd_uuids[idx] = uuid;
     }
     if ((pd_hdd_found + pd_ssd_found) == 0) {
-        fds_panic("Can't find any devices\n");
+        LOGCRITICAL << "Can't find any devices!!!";
     }
 }
 

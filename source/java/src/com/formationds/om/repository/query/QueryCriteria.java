@@ -10,6 +10,9 @@ import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.ModelBase;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 @SuppressWarnings( "UnusedDeclaration" )
@@ -22,7 +25,16 @@ public class QueryCriteria
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
-    
+
+    /**
+     * The projection or ordered list of columns to include in the results
+     * <p/>
+     * An empty list is assumed to mean "select *"
+     */
+    // TODO: we might at some point want this to be a typed object that can
+    // optionally include additional common column projection information like "as xxx" clauses
+    private List<String> columns = new ArrayList<>();
+
     //TODO: This is a hack!  When JSON comes into the server it has no way to know which Context
     // object type to turn the JSON into so it's always null due to Context having no public constructor.
     //
@@ -31,11 +43,12 @@ public class QueryCriteria
     //
     // For now the only time Context is used is with a Volume type so in favor of speed we are
     // changing the query to only take volumes
-    private List<Volume> contexts;    // the context
+    private List<Volume>  contexts;    // the context
     private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
 
     public QueryCriteria() {}
-    public QueryCriteria(DateRange dateRange) { this.range = dateRange; }
+
+    public QueryCriteria( DateRange dateRange ) { this.range = dateRange; }
 
     /**
      * @return Returns the {@link com.formationds.commons.model.DateRange}
@@ -52,10 +65,61 @@ public class QueryCriteria
     }
 
     /**
+     * @param columns the columns to add to the select list
+     */
+    public QueryCriteria addColumns( Collection<String> columns ) {
+        if ( columns == null )
+            return this;
+
+        this.columns.addAll( columns );
+
+        return this;
+    }
+
+    /**
+     * @param columns the columns to add to the select list
+     */
+    public QueryCriteria addColumns( String... columns ) {
+        if (columns == null)
+            return this;
+
+        this.columns.addAll( Arrays.asList( columns ) );
+
+        return this;
+    }
+
+    /**
+     *
+     * @return the list of columns.  An empty list is interpreted to mean "select *"
+     */
+    public List<String> getColumns() {
+        return columns;
+    }
+
+    /**
+     *
+     * @return a string representing the column projection list based on the configured columms.  If the columns
+     * list is empty, returns a "*".
+     */
+    public String getColumnString() {
+        if ( columns.isEmpty() ) {
+            return "*";
+        }
+        StringBuilder sb = new StringBuilder( );
+        Iterator<String> iter = columns.iterator();
+        while (iter.hasNext()) {
+            sb.append( iter.next() );
+            if (iter.hasNext())
+                sb.append( "," );
+        }
+        return sb.toString();
+    }
+
+    /**
      * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.abs.Context}
      */
     public List<Volume> getContexts() {
-        if( contexts == null ) {
+        if ( contexts == null ) {
             this.contexts = new ArrayList<>();
         }
         return contexts;
@@ -104,9 +168,9 @@ public class QueryCriteria
      */
     public List<OrderBy> getOrderBy(){
     	if ( this.orderBys == null ){
-    		this.orderBys = new ArrayList<OrderBy>();
+    		this.orderBys = new ArrayList<>();
     	}
-    	
+
     	return this.orderBys;
     }
     
@@ -121,10 +185,10 @@ public class QueryCriteria
     /**
      * Convenience method to add a single orderby at a time
      * 
-     * @param anOrderBy
+     * @param anOrderBy the order by clause to add
      */
     public void addOrderBy( OrderBy anOrderBy ){
-    	
+
     	if ( !getOrderBy().contains( anOrderBy ) ){
     		getOrderBy().add( anOrderBy );
     	}

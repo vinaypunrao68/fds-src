@@ -416,7 +416,6 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
     auto dmt_msg = &msg->dmt_data;
-    dmt_msg->dmt_version = curDmt->getVersion();
     err = curDmt->getSerialized(dmt_msg->dmt_data);
     msg->dmt_version = curDmt->getVersion();
     if (!err.ok()) {
@@ -1934,8 +1933,11 @@ OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
                                                     fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                     vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSPMsgTypeId, fpi::FDSP_NotifyVolFlag>
-            (fpi::CtrlNotifyVolModTypeId, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
+    dc_am_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
+                                   fpi::FDSP_NotifyVolFlag,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolModTypeId,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
 }
 
 // om_bcast_vol_snap
@@ -1960,10 +1962,11 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
 {
-    return vol->vol_foreach_am<fpi::FDSPMsgTypeId,
-                               fpi::FDSP_NotifyVolFlag>(fpi::CtrlNotifyVolRemoveTypeId,
-                                                        fpi::FDSP_NOTIFY_VOL_NO_FLAG,
-                                                        om_send_vol_command);
+    return dc_am_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
+                                          fpi::FDSP_NotifyVolFlag,
+                                          VolumeInfo::pointer>(fpi::CtrlNotifyVolRemoveTypeId,
+                                                            fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                            vol, om_send_vol_command);
 }
 
 

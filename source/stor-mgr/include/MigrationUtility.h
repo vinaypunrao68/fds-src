@@ -6,6 +6,7 @@
 #define SOURCE_STOR_MGR_INCLUDE_MIGRATIONUTILITY_H_
 
 #include <mutex>
+#include <condition_variable>
 #include <set>
 #include <iostream>
 
@@ -102,6 +103,27 @@ class MigrationDoubleSeqNum {
 
     // std::map<uint64_t, std::set<uint64_t>> seqNumMap;
 };  // MigrationSeqNumChoppped
+
+
+class MigrationTrackIOReqs {
+  public:
+    MigrationTrackIOReqs();
+    ~MigrationTrackIOReqs();
+
+
+    bool startTrackIOReqs();
+    void finishTrackIOReqs();
+
+    void waitForTrackIOReqs();
+
+  private:
+    std::mutex  trackReqsMutex;
+    std::condition_variable trackReqsCondVar;
+    uint64_t numTrackIOReqs;
+    bool waitingTrackIOReqsCompletion;
+    bool denyTrackIOReqs;
+
+};  // MigrationTrackIOReqs
 
 }  // namespace fds
 

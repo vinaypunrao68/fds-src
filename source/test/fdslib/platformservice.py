@@ -73,8 +73,9 @@ class PlatSvc(object):
     def __del__(self):
         # This should stop the Thrift server when the main thread is destructed so that the daemon
         # process doesn't throw errors before it's killed.
-        serv = self.smClient()
-        serv.stop_serv()
+        if hasattr(self, 'smClient'):
+            serv = self.smClient()
+            serv.stop_serv()
 
     def stop(self):
         if self.serverSock:
@@ -103,14 +104,14 @@ class PlatSvc(object):
         handler = self
         processor = PlatNetSvc.Processor(handler)
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
-        tfactory = TTransport.TFramedTransportFactory()
-        pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
+        #tfactory = TTransport.TBufferedTransportFactory()
+        #pfactory = TBinaryProtocol.TBinaryProtocolFactory()
+        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
-        self.serverThread.setDaemon(True)
+        # self.serverThread.setDaemon(True)
         log.info("Starting server on {}".format(self.basePort));
-        self.serverThread.start()
+        # self.serverThread.start()
 
     def serve(self):
         self.server.serve()

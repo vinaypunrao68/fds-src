@@ -39,6 +39,7 @@ class WaitQueue {
 
 template<typename Cb>
 void WaitQueue::drain(std::string const& vol_name, Cb&& cb) {
+    std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
         for (auto& req: wait_it->second) {
@@ -140,7 +141,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
                 /** Drain wait queue into QoS */
                 wait_queue->drain(vdesc.name,
                                   [this, vol_uuid] (AmRequest* amReq) mutable -> void {
-                                      amReq->io_vol_id = vol_uuid;
+                                      amReq->setVolId(vol_uuid);
                                       this->enqueueRequest(amReq);
                                   });
                 volume_map[vol_uuid] = std::move(new_vol);
@@ -164,9 +165,10 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
 }
 
 Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
-                                            const VolumeDesc& vdesc)
+                                        const VolumeDesc& vdesc)
 {
     Error err(ERR_OK);
+
     auto vol = getVolume(vol_uuid);
     if (vol && vol->volQueue)
     {
@@ -180,17 +182,18 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
                                               vdesc.iops_assured,
                                               vdesc.iops_throttle,
                                               vdesc.relativePrio);
-    } else {
-        err = Error(ERR_NOT_FOUND);
+        LOGNOTIFY << "AmVolumeTable - modify policy info for volume "
+            << vdesc.name
+            << " (iops_assured=" << vdesc.iops_assured
+            << ", iops_throttle=" << vdesc.iops_throttle
+            << ", prio=" << vdesc.relativePrio << ")"
+            << " RESULT " << err.GetErrstr();
     }
 
-    LOGNOTIFY << "AmVolumeTable - modify policy info for volume "
-        << vdesc.name
-        << " (iops_assured=" << vdesc.iops_assured
-        << ", iops_throttle=" << vdesc.iops_throttle
-        << ", prio=" << vdesc.relativePrio << ")"
-        << " RESULT " << err.GetErrstr();
-
+    // NOTE(bszmyd): Thu 14 May 2015 06:53:13 AM MDT
+    // Return ERR_OK even if we weren't using the volume. We may
+    // want to re-investigate all AMs getting Mod messages for all
+    // volumes, though I think that event will be relatively rare.
     return err;
 }
 
@@ -207,8 +210,8 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
                           delete amReq;
                       });
     if (0 == volume_map.erase(volDesc.volUUID)) {
-        LOGWARN << "Called for non-existing volume " << volDesc.volUUID;
-        return ERR_INVALID_ARG;
+        LOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
+        return ERR_OK;
     }
     LOGNOTIFY << "AmVolumeTable - Removed volume " << volDesc.volUUID;
     return qos_ctrl->deregisterVolume(volDesc.volUUID);
@@ -274,25 +277,21 @@ AmVolumeTable::getVolumeUUID(const std::string& vol_name) const {
 
 Error
 AmVolumeTable::enqueueRequest(AmRequest* amReq) {
-    /**
-     * If the volume id is invalid, we haven't attached to it yet just queue
-     * the request, hopefully we'll get an attach.
-     * TODO(bszmyd):
-     * Time these out if we don't get the attach
-     */
-    amReq->io_vol_id = (invalid_vol_id == amReq->io_vol_id) ?
-        getVolumeUUID(amReq->volume_name) : amReq->io_vol_id;
-
     if (invalid_vol_id == amReq->io_vol_id) {
-        ReadGuard rg(map_rwlock);
-        auto it = volume_map.find(amReq->io_vol_id);
-        if (volume_map.end() != it) {
-            amReq->io_vol_id = it->first;
-        } else {
+        auto vol_id = getVolumeUUID(amReq->volume_name);
+        /**
+         * If the volume id is invalid, we haven't attached to it yet just queue
+         * the request, hopefully we'll get an attach.
+         * TODO(bszmyd):
+         * Time these out if we don't get the attach
+         */
+        if (invalid_vol_id == vol_id) {
             GLOGDEBUG << "Delaying request: " << amReq;
             return wait_queue->delay(amReq);
         }
+        amReq->setVolId(vol_id);
     }
+
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
     return qos_ctrl->enqueueIO(amReq->io_vol_id, amReq);
 }
