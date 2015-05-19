@@ -39,7 +39,7 @@ class sm_service(object):
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
 	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
-        om_ip = "10.3.79.114"
+        om_ip = "10.3.100.7"
         for node in self.node_list:
             if node.ip_v4_address == om_ip:
                 env.host_string = node.ip_v4_address
@@ -152,7 +152,7 @@ class sm_service(object):
 	fdsauth2.login()
         newNodeService = Service()
 	newNodeService.auto_name="SM"
-	newNodeService.type="FDSP_DATA_MGR"
+	newNodeService.type="FDSP_STOR_MGR"
 	newNodeService.status="ACTIVE"
 
 	#TODO:  add code to add SM service here

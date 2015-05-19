@@ -32,10 +32,10 @@ for node in nodes_list:
 	print 'node state = {}'.format(node.state)
 	print 'node services = {}'.format(node.services)
 	#print node.services["OM"][0].auto_name + " " + node.services["OM"][0].status
-	print node.services["AM"][0].auto_name + " " + node.services["AM"][0].status + " node.id={}".format(node.services["AM"][0].id)
-	print node.services["SM"][0].auto_name + " " + node.services["SM"][0].status + " node.id={}".format(node.services["SM"][0].id) 
-	print node.services["DM"][0].auto_name + " " + node.services["DM"][0].status + " node.id={}".format(node.services["DM"][0].id)
-	print node.services["PM"][0].auto_name + " " + node.services["PM"][0].status + " node.id={}".format(node.services["PM"][0].id)
+	print node.services["AM"][0].auto_name + " " + node.services["AM"][0].status + " node.id={}".format(node.id) + " service.id={}".format(node.services["AM"][0].id)
+	print node.services["SM"][0].auto_name + " " + node.services["SM"][0].status + " node.id={}".format(node.id) + " service.id={}".format(node.services["SM"][0].id) 
+	print node.services["DM"][0].auto_name + " " + node.services["DM"][0].status + " node.id={}".format(node.id) + " service.id={}".format(node.services["DM"][0].id)
+	print node.services["PM"][0].auto_name + " " + node.services["PM"][0].status + " node.id={}".format(node.id) + " service.id={}".format(node.services["PM"][0].id)
 
 	print "============================"
 	#`print "node.id={}".format(node.services["AM"][0].id)

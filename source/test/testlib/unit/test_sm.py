@@ -12,7 +12,7 @@ class TestSM(unittest.TestCase):
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
     sm_obj = SM.sm_service()
-    node_ip = '10.3.79.115'
+    node_ip = '10.3.100.8'
 
     def _test_start(self):
 	self.log.info(TestSM.test_start.__name__)
@@ -32,7 +32,8 @@ class TestSM(unittest.TestCase):
 
     def test_remove(self):
 	self.log.info(TestSM.test_remove.__name__)
-        self.assertTrue(self.sm_obj.remove('{}'.format(self.node_ip)), True)
+        #self.assertTrue(self.sm_obj.remove('{}'.format(self.node_ip)), True)
+        self.assertFalse(self.sm_obj.remove('{}'.format(self.node_ip)), False)
 
 
 
