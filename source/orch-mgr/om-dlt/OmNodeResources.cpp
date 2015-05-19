@@ -870,8 +870,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << (activeSmAgent->get_uuid()).uuid_get_val() << std::dec;
                 activeSmAgent = nullptr;
             } else {
-                LOGDEBUG << "SM service already not active on platform " << std::hex
-                         << get_uuid().uuid_get_val() << std::dec;
+                LOGDEBUG << "SM service already not active on platform " 
+                         << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
@@ -880,8 +880,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << (activeDmAgent->get_uuid()).uuid_get_val() << std::dec;
                 activeDmAgent = nullptr;
             } else {
-                LOGDEBUG << "DM service already not active on platform " << std::hex
-                         << get_uuid().uuid_get_val() << std::dec;
+                LOGDEBUG << "DM service already not active on platform " 
+                         << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
@@ -890,14 +890,34 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << (activeAmAgent->get_uuid()).uuid_get_val() << std::dec;
                 activeAmAgent = nullptr;
             } else {
-                LOGDEBUG << "AM service already not active on platform " << std::hex
-                         << get_uuid().uuid_get_val() << std::dec;
+                LOGDEBUG << "AM service already not active on platform " 
+                         << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         default:
             LOGWARN << "Unknown service type " << svc_type << ". Did we add a new"
                     << " service type? If so, update this method";
     };
+}
+
+void
+OM_PmAgent::change_service_state( const int64_t svc_uuid, 
+                                  const fpi::ServiceStatus svc_status )
+{
+        // update configDB with which services this platform has
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
+    {
+        LOGDEBUG << "Successfully changed service ID ( " 
+                 << std::hex << svc_uuid << std::dec << " ) "
+                 << "state to ( " << svc_status << " )";
+    }
+    else
+    {
+        LOGWARN << "Failed to changed service ID ( " 
+                << std::hex << svc_uuid << std::dec << " ) "
+                << "state to ( " << svc_status << " )";
+    }
 }
 
 // send_activate_services

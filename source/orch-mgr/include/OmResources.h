@@ -205,6 +205,9 @@ class OM_PmAgent : public OM_NodeAgent
                                        EPSvcRequest* req,
                                        const Error& error,
                                        boost::shared_ptr<std::string> payload);
+    
+    void change_service_state( const int64_t svc_uuid, 
+                               const fpi::ServiceStatus svc_status );
 
     /**
      * Tell platform Agent about new active service
