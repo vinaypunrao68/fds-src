@@ -409,7 +409,6 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
                     m_startQueue.pop_front();
 
                     startProcess(index);
-sleep (1);
                 }
             }
         }
@@ -462,7 +461,7 @@ sleep (1);
                                     }
                                 }
 
-                                {
+                                {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                                     m_startQueue.push_back (appIndex);

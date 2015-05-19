@@ -66,7 +66,7 @@ namespace fds
                 commandBuffer << argv[j] << " ";
             }
 
-            LOGDEBUG << "fds_spawn execvp = " << commandBuffer.str();
+            LOGDEBUG << "Preparing to fork and exec:  " << commandBuffer.str();
 
             child_pid = fork();
 
