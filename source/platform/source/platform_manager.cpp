@@ -409,6 +409,7 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
                     m_startQueue.pop_front();
 
                     startProcess(index);
+sleep (1);
                 }
             }
         }
@@ -486,7 +487,6 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
 
         void PlatformManager::run()
         {
-sleep (5);
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
             std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
 
