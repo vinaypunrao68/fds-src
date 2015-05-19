@@ -1,4 +1,9 @@
 ---
+-   name: set sane fds_om_host value if missing
+    set_fact:
+        fds_om_host: '127.0.0.1'
+    when: fds_om_host is not defined
+
 -   name: "sanity check -> fds_om_host_count is defined when fds_ft_common_enable_multi_om_support==true"
     fail: 
         msg: "You must specify a value for fds_om_host_count (odd integer >= 1) when fds_ft_common_enable_multi_om_support == true"
