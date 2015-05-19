@@ -1587,7 +1587,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                          << " ), telling the platformd which services to start";
 
                  /*
-                  * delay the start of the scheduled thread to be one seconds.
+                  * delay the start of the scheduled thread.
                   */
                 NodeUuid pmUuid;
                 pmUuid.uuid_set_type( (svcInfo->svc_id).svc_uuid.svc_uuid, fpi::FDSP_PLATFORM );
