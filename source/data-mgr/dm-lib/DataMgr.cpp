@@ -1052,7 +1052,7 @@ void DataMgr::mod_enable_service() {
                                                                *this));
 
     // enable collection of local stats in DM
-    // StatsCollector::singleton()->registerOmClient(MODULEPROVIDER()->getSvcMgr());
+    StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
     if (!features.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
         // local aggregator, we just directly stream to aggregator (not over network)

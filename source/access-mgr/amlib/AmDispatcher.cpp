@@ -78,6 +78,7 @@ AmDispatcher::start() {
 	    StatsCollector::singleton()->enableQosStats("AM");
 	}
 	if (!disableStreamingStats) {
+        StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
