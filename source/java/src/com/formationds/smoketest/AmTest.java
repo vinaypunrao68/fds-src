@@ -85,7 +85,7 @@ public class AmTest {
     @BeforeClass
     public static void setUpOnce() throws Exception {
         int pmPort = 7000;
-        xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
+        xdiCf = new XdiClientFactory();
         amService = xdiCf.remoteAmService("localhost", pmPort + 2988);
         configService = xdiCf.remoteOmService("localhost", 9090);
         asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", pmPort + 1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);

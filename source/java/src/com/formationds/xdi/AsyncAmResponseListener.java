@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -29,7 +30,8 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
                     if (notification.getCause().equals(RemovalCause.EXPIRED)) {
                         CompletableFuture cf = (CompletableFuture) notification.getValue();
                         if (!cf.isDone()) {
-                            cf.completeExceptionally(new ApiException("Request timed out", ErrorCode.INTERNAL_SERVER_ERROR));
+                            ForkJoinPool.commonPool().execute(
+                                    () -> cf.completeExceptionally(new ApiException("Request timed out", ErrorCode.INTERNAL_SERVER_ERROR)));
                         }
                     }
                 })
@@ -63,8 +65,8 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
             LOG.error("RequestId " + requestId.getId() + " had no pending requests");
             return;
         }
-        cf.complete(tee);
         pending.invalidate(requestId.getId());
+        ForkJoinPool.commonPool().execute(() -> cf.complete(tee));
     }
 
     @Override
@@ -154,8 +156,8 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
             LOG.error("RequestId " + requestId.getId() + " had no pending requests");
             return;
         }
-        cf.completeExceptionally(new ApiException(s, errorCode));
         pending.invalidate(requestId.getId());
+        ForkJoinPool.commonPool().execute(() -> cf.completeExceptionally(new ApiException(s, errorCode)));
     }
 
     public void expireOldEntries() {

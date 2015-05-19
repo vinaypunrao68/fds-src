@@ -360,7 +360,7 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory(0);
+        XdiClientFactory xdiCf = new XdiClientFactory();
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 
