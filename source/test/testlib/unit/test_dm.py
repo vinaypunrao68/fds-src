@@ -22,9 +22,16 @@ class TestDM(unittest.TestCase):
         self.assertTrue(self.dm_obj.stop('{}'.format(self.node_ip)), True)
                 
     def test_kill(self):
-	pdb.set_trace()
 	self.log.info(TestDM.test_kill.__name__)
         self.assertTrue(self.dm_obj.kill('{}'.format(self.node_ip)), True)
+
+    def test_add(self):
+	self.log.info(TestDM.test_add.__name__)
+        self.assertTrue(self.dm_obj.add('{}'.format(self.node_ip)), True)
+
+    def test_remove(self):
+	self.log.info(TestDM.test_remove.__name__)
+        self.assertTrue(self.dm_obj.remove('{}'.format(self.node_ip)), True)
 
 
 if __name__ == '__main__':

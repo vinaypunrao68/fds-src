@@ -120,7 +120,8 @@ class am_service(object):
         log.info(am_service.kill.__name__)
         log.info('Killing bare_am service')
         env.host_string = node_ip
-        sudo('pkill -9 bare_am > {}/cli.out 2>&1'.format(self.fds_log))
+        #sudo('pkill -9 bare_am > {}/cli.out 2>&1'.format(self.fds_log))
+        sudo('pkill -9 bare_am')
 
         for node in self.node_list:
             if node.ip_v4_address == node_ip:

@@ -118,18 +118,19 @@ class dm_service(object):
     	Boolean
         '''
         log.info(dm_service.kill.__name__)
-        log.info('Killing bare_am service')
+        log.info('Killing DataMgr service')
         env.host_string = node_ip
-        sudo('pkill -9 bare_am > {}/cli.out 2>&1'.format(self.fds_log))
+        #sudo('pkill -9 DataMgr > {}/cli.out 2>&1'.format(self.fds_log))
+        sudo('pkill -9 DataMgr')
 
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 if node.services['DM'][0].status !=  'ACTIVE':
-		        log.warn('Failed to kill bare_am service on node {}'.format(node.ip_v4_address))
+		        log.warn('Failed to kill DataMgr service on node {}'.format(node.ip_v4_address))
 		        return False 
 
 		else:
-			log.info('killed bare_am service on node {}'.format(node.ip_v4_address))
+			log.info('killed DataMgr service on node {}'.format(node.ip_v4_address))
 		        return True
 
     def add(self, node_ip):
@@ -151,7 +152,7 @@ class dm_service(object):
 	fdsauth2.login()
         newNodeService = Service()
 	newNodeService.auto_name="DM"
-	newNodeService.type="FDSP_ACCESS_MGR"
+	newNodeService.type="FDSP_DATA_MGR"
 	newNodeService.status="ACTIVE"
 
 	#TODO:  add code to add DM service here
