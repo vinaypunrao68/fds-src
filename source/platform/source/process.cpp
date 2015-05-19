@@ -57,7 +57,9 @@ namespace fds
             pid_t    child_pid;
             pid_t    res_pid;
 
+LOGDEBUG << "fds_spawn instrumentation point 1";
             child_pid = fork();
+LOGDEBUG << "fds_spawn instrumentation point 2, child_pid = " << child_pid;
 
             if (child_pid != 0)
             {
@@ -67,9 +69,11 @@ namespace fds
                     // TODO(bao): check for 0 and -1
                     fds_assert(res_pid == child_pid);
                 }
+LOGDEBUG << "fds_spawn instrumentation point 3, child_pid = " << child_pid;
                 return child_pid;
             }
 
+LOGDEBUG << "fds_spawn instrumentation point 4";
             int    j = 0;
 
             printf("\n");
@@ -115,6 +119,7 @@ namespace fds
             /* actual child process */
 
             execvp(argv[0], argv);
+LOGDEBUG << "fds_spawn instrumentation point 5 errno = " << errno;
             abort();
         }
 

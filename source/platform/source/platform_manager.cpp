@@ -145,6 +145,8 @@ namespace fds
 
             pid = fds_spawn_service (command, rootDir, args, false);
 
+LOGDEBUG << "After fds_spawn_service with pid = " << pid;
+
             if (pid > 0)
             {
                 LOGDEBUG << procName << " started by platformd as pid " << pid;
