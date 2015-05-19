@@ -61,7 +61,7 @@ LOGDEBUG << "fds_spawn instrumentation point 1:  getpid() = " << getpid();
             child_pid = fork();
 LOGDEBUG << "fds_spawn instrumentation point 2:  getpid() = " << getpid() << "  child_pid = " << child_pid;
 
-            if (child_pid != 0)
+            if (child_pid > 0)
             {
                 if (daemonize)
                 {
@@ -72,6 +72,10 @@ LOGDEBUG << " ==================================================================
                 }
 LOGDEBUG << "fds_spawn instrumentation point 3: getpid() = " << getpid() << "  child_pid = " << child_pid;
                 return child_pid;
+            }
+            else if (child_pid < 0)
+            {
+LOGDEBUG << "fds_spawn instrumentation point 7: getpid() = " << getpid() << "  child_pid = " << child_pid;
             }
 
 LOGDEBUG << "fds_spawn instrumentation point 4: getpid() = " << getpid() << "  ";
@@ -121,6 +125,7 @@ LOGDEBUG << " ==================================================================
 
             /* actual child process */
 
+LOGDEBUG << "fds_spawn instrumentation point 6 errno = " << errno << "  argv[0] = " << argv[0];
             execvp(argv[0], argv);
 LOGDEBUG << "fds_spawn instrumentation point 5 errno = " << errno;
             abort();
