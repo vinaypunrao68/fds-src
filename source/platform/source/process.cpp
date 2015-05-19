@@ -70,15 +70,15 @@ LOGDEBUG << " ==================================================================
                     // TODO(bao): check for 0 and -1
                     fds_assert(res_pid == child_pid);
                 }
-LOGDEBUG << "fds_spawn instrumentation point 3: getpid() = " << getpid() << "  child_pid = " << child_pid;
+LOGDEBUG << "In Parent:  fds_spawn instrumentation point 3: getpid() = " << getpid() << "  child_pid = " << child_pid;
                 return child_pid;
             }
             else if (child_pid < 0)
             {
-LOGDEBUG << "fds_spawn instrumentation point 7: getpid() = " << getpid() << "  child_pid = " << child_pid;
+LOGDEBUG << "In Parent:  fds_spawn instrumentation point 7: getpid() = " << getpid() << "  child_pid = " << child_pid;
             }
 
-LOGDEBUG << "fds_spawn instrumentation point 4: getpid() = " << getpid() << "  ";
+LOGDEBUG << "In child:  fds_spawn instrumentation point 4: getpid() = " << getpid() << "  ";
             int    j = 0;
 
             printf("\n");
@@ -88,13 +88,14 @@ LOGDEBUG << "fds_spawn instrumentation point 4: getpid() = " << getpid() << "  "
             for (j = 0; argv[j]!= NULL; j++)
             {
                 commandBuffer << argv[j] << " ";
+LOGDEBUG << "in child with:  " << commandBuffer.str();
             }
 
             LOGDEBUG << "fds_spawn execvp = " << commandBuffer.str();
 
             /* Child process, close all file descriptors. */
             flim = fds_get_fd_limit();
-            printf("Close fd up to %d\n", flim);
+LOGDEBUG << "in child:  Close fd up to " << flim;
 
             for (fd = 0; fd < flim; fd++)
             {
