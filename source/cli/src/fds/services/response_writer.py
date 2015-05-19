@@ -266,5 +266,22 @@ class ResponseWriter():
             
         return results
             
+    @staticmethod
+    def prep_users_for_table(users):
+        '''
+        Put the list of users in a nice readable tabular format
+        '''
+        
+        d_users = []
+        
+        for user in users:
+            ov = OrderedDict()
+            
+            ov["ID"] = user.id
+            ov["Username"] = user.username
+            
+            d_users.append( ov )
+            
+        return d_users
         
         

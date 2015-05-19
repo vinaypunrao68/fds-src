@@ -49,6 +49,8 @@ class AbstractPlugin( object ):
     policy_id_str = "policy_id"    
     timeline_preset_str = "timeline_preset_id"
     qos_preset_str = "qos_preset_id"
+    user_name_str = "username"
+    user_id_str = "user_id"
 
     def __init__(self, session):
         self.__session = session
