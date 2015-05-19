@@ -119,23 +119,23 @@ class TestRESTAPI(unittest.TestCase):
 
     def test_start_am(self):
         self.log.info(TestRESTAPI.test_start_am.__name__)
-	amobj = AM.am_service()
-	amobj.start('10.3.79.115')	
+        amobj = AM.am_service()
+        amobj.start('10.3.79.115')	
 
     def test_stop_am(self):
         self.log.info(TestRESTAPI.test_stop_am.__name__)
-	amobj = AM.am_service()
-	amobj.stop('10.3.79.115')	
+        amobj = AM.am_service()
+        amobj.stop('10.3.79.115')	
 
     def test_add_am_service(self):
         self.log.info(TestRESTAPI.test_add_am_service.__name__)
-	amobj = AM.am_service()
-	amobj.add('10.3.79.115')	
+        amobj = AM.am_service()
+        amobj.add('10.3.79.115')	
 
     def test_remove_am_service(self):
         self.log.info(TestRESTAPI.test_remove_am_service.__name__)
-	amobj = AM.am_service()
-	amobj.remove('10.3.79.115')	
+        amobj = AM.am_service()
+        amobj.remove('10.3.79.115')	
 #################
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@ import pdb
 import sys
 sys.path.append("..")
 import PM 
+import config
 
 class TestPM(unittest.TestCase):
     logging.basicConfig(level=logging.INFO,
@@ -11,16 +12,14 @@ class TestPM(unittest.TestCase):
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
     pm_obj = PM.pm_service()
-    node_ip = '10.3.100.7'
+    node_ip = '10.3.100.8'
 
     def test_start(self):
-	pdb.set_trace()
-	self.log.info(TestPM.test_start.__name__)
+        self.log.info(TestPM.test_start.__name__)
         self.assertTrue(self.pm_obj.start('{}'.format(self.node_ip)), True)
 
     def test_stop(self):
-	pdb.set_trace()
-	self.log.info(TestPM.test_stop.__name__)
+        self.log.info(TestPM.test_stop.__name__)
         self.assertTrue(self.pm_obj.stop('{}'.format(self.node_ip)), True)
                 
 

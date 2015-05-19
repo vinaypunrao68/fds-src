@@ -14,6 +14,7 @@ import logging
 import random
 import time
 import string
+import sys
 
 from fds.services.node_service import NodeService
 from fds.services.fds_auth import FdsAuth
@@ -22,9 +23,12 @@ from fds.model.node_state import NodeState
 from fds.model.service import Service 
 from fds.model.domain import Domain
 
+sys.path.insert(0, '../../scale-framework')
+import config
+
 #Need to get this from config.py file
-env.user='root'
-env.password='passwd'
+env.user=config.SSH_USER
+env.password=config.SSH_PASSWORD
 
 random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +43,8 @@ class dm_service(object):
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
 	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
-        om_ip = "10.3.79.114"
+        om_ip = config.FDS_DEFAULT_HOST
+ 
         for node in self.node_list:
             if node.ip_v4_address == om_ip:
                 env.host_string = node.ip_v4_address

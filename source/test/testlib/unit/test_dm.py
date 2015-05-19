@@ -11,26 +11,26 @@ class TestDM(unittest.TestCase):
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
     dm_obj = DM.dm_service()
-    node_ip = '10.3.79.115'
+    node_ip = '10.3.100.8'
 
     def _test_start(self):
-	self.log.info(TestDM.test_start.__name__)
+        self.log.info(TestDM.test_start.__name__)
         self.assertTrue(self.dm_obj.start('{}'.format(self.node_ip)), True)
 
     def _test_stop(self):
-	self.log.info(TestDM.test_stop.__name__)
+        self.log.info(TestDM.test_stop.__name__)
         self.assertTrue(self.dm_obj.stop('{}'.format(self.node_ip)), True)
                 
     def test_kill(self):
-	self.log.info(TestDM.test_kill.__name__)
+        self.log.info(TestDM.test_kill.__name__)
         self.assertTrue(self.dm_obj.kill('{}'.format(self.node_ip)), True)
 
     def test_add(self):
-	self.log.info(TestDM.test_add.__name__)
+        self.log.info(TestDM.test_add.__name__)
         self.assertTrue(self.dm_obj.add('{}'.format(self.node_ip)), True)
 
     def test_remove(self):
-	self.log.info(TestDM.test_remove.__name__)
+        self.log.info(TestDM.test_remove.__name__)
         self.assertTrue(self.dm_obj.remove('{}'.format(self.node_ip)), True)
 
 
