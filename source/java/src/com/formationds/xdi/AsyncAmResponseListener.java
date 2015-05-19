@@ -65,8 +65,8 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
             LOG.error("RequestId " + requestId.getId() + " had no pending requests");
             return;
         }
-        pending.invalidate(requestId.getId());
         ForkJoinPool.commonPool().execute(() -> cf.complete(tee));
+        pending.invalidate(requestId.getId());
     }
 
     @Override
