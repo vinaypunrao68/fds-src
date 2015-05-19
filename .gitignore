@@ -35,6 +35,7 @@ build.*
 chef/nodes
 chef/vagrant/*/.vagrant/*
 core
+coverage
 cscope.*
 gmock-1.7.0/gmock_test
 linux-*
