@@ -127,6 +127,15 @@ void FdsProcess::init(int argc, char *argv[],
 
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
+        /* Check if config file exists */
+        struct stat buf;
+        if (stat(cfgfile.c_str(), &buf) == -1) {
+        	// LOGGER isn't ready at this point yet.
+        	std::cerr << "Configuration file " << cfgfile << " not found. Exiting."
+        			<< std::endl;
+        	exit(ERR_DISK_READ_FAILED);
+        }
+
         setup_config(argc, argv, cfgfile, base_path);
         /*
          * Create a global logger.  Logger is created here because we need the file
