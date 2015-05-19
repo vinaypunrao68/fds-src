@@ -57,45 +57,38 @@ namespace fds
             pid_t    child_pid;
             pid_t    res_pid;
 
-LOGDEBUG << "fds_spawn instrumentation point 1:  getpid() = " << getpid();
-            child_pid = fork();
-LOGDEBUG << "fds_spawn instrumentation point 2:  getpid() = " << getpid() << "  child_pid = " << child_pid;
-
-            if (child_pid > 0)
-            {
-                if (daemonize)
-                {
-LOGDEBUG << " ============================================================================================================================================================ inside";
-                    res_pid = waitpid(child_pid, NULL, 0);
-                    // TODO(bao): check for 0 and -1
-                    fds_assert(res_pid == child_pid);
-                }
-LOGDEBUG << "In Parent:  fds_spawn instrumentation point 3: getpid() = " << getpid() << "  child_pid = " << child_pid;
-                return child_pid;
-            }
-            else if (child_pid < 0)
-            {
-LOGDEBUG << "In Parent:  fds_spawn instrumentation point 7: getpid() = " << getpid() << "  child_pid = " << child_pid;
-            }
-
-LOGDEBUG << "In child:  fds_spawn instrumentation point 4: getpid() = " << getpid() << "  ";
             int    j = 0;
-
-            printf("\n");
 
             std::ostringstream commandBuffer;
 
             for (j = 0; argv[j]!= NULL; j++)
             {
                 commandBuffer << argv[j] << " ";
-LOGDEBUG << "in child with:  " << commandBuffer.str();
             }
 
             LOGDEBUG << "fds_spawn execvp = " << commandBuffer.str();
 
-            /* Child process, close all file descriptors. */
+            child_pid = fork();
+
+            if (child_pid > 0)
+            {
+                if (daemonize)
+                {
+                    res_pid = waitpid(child_pid, NULL, 0);
+                    // TODO(bao): check for 0 and -1
+                    fds_assert(res_pid == child_pid);
+                }
+                return child_pid;
+            }
+            else if (child_pid < 0)
+            {
+                LOGDEBUG << "fds_spawn fork failure:  errno = " << errno;
+            }
+
+            // In the child process, No logging between fork and exec
+
+            /* Close all file descriptors. */
             flim = fds_get_fd_limit();
-LOGDEBUG << "in child:  Close fd up to " << flim;
 
             for (fd = 0; fd < flim; fd++)
             {
@@ -105,30 +98,23 @@ LOGDEBUG << "in child:  Close fd up to " << flim;
             // There is probably a better way, but for now, create a dummy variable to capture the
             // return value from dup().  This prevents a compiler warning when compiling with -O2
             fd = open("/dev/null", O_RDWR);  // will be file descriptor 0
-            int unused_discard = dup(fd);  // will be file descriptor 1
-            unused_discard = dup(fd);      // will be file descriptor 2
-
-            // No sense logging after this point
+            int unused_discard = dup(fd);    // will be file descriptor 1
+            unused_discard = dup(fd);        // will be file descriptor 2
 
             if (daemonize)
             {
                 res = daemon(1, 1);
 
-LOGDEBUG << " ============================================================================================================================================================ inside:  res = " << res;
-
                 if (res != 0)
                 {
-                    printf("Fatal error, can't daemonize %s\n", argv[0]);
                     abort();
                 }
             }
 
-
             /* actual child process */
 
-LOGDEBUG << "fds_spawn instrumentation point 6 errno = " << errno << "  argv[0] = " << argv[0];
             execvp(argv[0], argv);
-LOGDEBUG << "fds_spawn instrumentation point 5 errno = " << errno;
+            LOGDEBUG << "fds_spawn execvp failure:  errno = " << errno;
             abort();
         }
 
