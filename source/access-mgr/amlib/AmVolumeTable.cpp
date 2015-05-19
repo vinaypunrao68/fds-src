@@ -141,7 +141,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
                 /** Drain wait queue into QoS */
                 wait_queue->drain(vdesc.name,
                                   [this, vol_uuid] (AmRequest* amReq) mutable -> void {
-                                      amReq->io_vol_id = vol_uuid;
+                                      amReq->setVolId(vol_uuid);
                                       this->enqueueRequest(amReq);
                                   });
                 volume_map[vol_uuid] = std::move(new_vol);
@@ -277,25 +277,21 @@ AmVolumeTable::getVolumeUUID(const std::string& vol_name) const {
 
 Error
 AmVolumeTable::enqueueRequest(AmRequest* amReq) {
-    /**
-     * If the volume id is invalid, we haven't attached to it yet just queue
-     * the request, hopefully we'll get an attach.
-     * TODO(bszmyd):
-     * Time these out if we don't get the attach
-     */
-    amReq->io_vol_id = (invalid_vol_id == amReq->io_vol_id) ?
-        getVolumeUUID(amReq->volume_name) : amReq->io_vol_id;
-
     if (invalid_vol_id == amReq->io_vol_id) {
-        ReadGuard rg(map_rwlock);
-        auto it = volume_map.find(amReq->io_vol_id);
-        if (volume_map.end() != it) {
-            amReq->io_vol_id = it->first;
-        } else {
+        auto vol_id = getVolumeUUID(amReq->volume_name);
+        /**
+         * If the volume id is invalid, we haven't attached to it yet just queue
+         * the request, hopefully we'll get an attach.
+         * TODO(bszmyd):
+         * Time these out if we don't get the attach
+         */
+        if (invalid_vol_id == vol_id) {
             GLOGDEBUG << "Delaying request: " << amReq;
             return wait_queue->delay(amReq);
         }
+        amReq->setVolId(vol_id);
     }
+
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
     return qos_ctrl->enqueueIO(amReq->io_vol_id, amReq);
 }
