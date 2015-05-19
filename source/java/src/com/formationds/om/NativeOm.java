@@ -15,11 +15,14 @@ public class NativeOm {
         System.load(gluePath);
         new Thread(() -> init(args), "native-om").start();
         
+        /*
+         * Total hack to allow all the native side interfaces to become ready before hitting them from the java side.
+         */
         try {
             Thread.sleep( 5000 );
         } catch (InterruptedException ex) {
             LoggerFactory.getLogger( NativeOm.class.getName( ) )
-                         .trace( "sleep interruptted!", ex) ;
+                         .trace( "sleep interrupted!", ex) ;
         }
     }
 }
