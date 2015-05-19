@@ -76,7 +76,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      /// Manager of persistent object storage
      ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
-     SmTokenMigrationMgr::unique_ptr migrationMgr;
+     MigrationMgr::unique_ptr migrationMgr;
 
      /*
       * TODO: this one should be the singleton by itself.  Need to make it
@@ -286,6 +286,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
      void readObjDeltaSet(SmIoReq* ioReq);
+     void abortMigration(SmIoReq* ioReq);
+     void notifyDLTClose(SmIoReq* ioReq);
 
      Error handleDltUpdate();
 

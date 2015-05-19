@@ -118,7 +118,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 void ObjectStorMgr::mod_startup()
 {
     // Init token migration manager
-    migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
+    migrationMgr = MigrationMgr::unique_ptr(new MigrationMgr(this));
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
@@ -702,6 +702,8 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_APPLY_DELTA_SET:
         case FDS_SM_READ_DELTA_SET:
         case FDS_SM_SNAPSHOT_TOKEN:
+        case FDS_SM_MIGRATION_ABORT:
+        case FDS_SM_NOTIFY_DLT_CLOSE:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
@@ -899,7 +901,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
                << " seqNum=" << readDeltaSetReq->seqNum
                << " lastSet=" << readDeltaSetReq->lastSet
                << " delta set size=" << readDeltaSetReq->deltaSet.size();
-    
+
     PerfContext tmp_pctx(PerfEventType::SM_READ_OBJ_DELTA_SET, 0);
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
 
@@ -925,7 +927,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* Read object data, if NO_RECONCILE or OVERWRITE */
         if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
-            
+
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
                     objectStore->getObjectData(invalid_vol_id,
@@ -973,8 +975,96 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     delete readDeltaSetReq;
 }
 
+
 void
-ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
+ObjectStorMgr::abortMigration(SmIoReq *ioReq)
+{
+    Error err(ERR_OK);
+
+    SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
+    fds_verify(abortMigrationReq != NULL);
+
+    LOGDEBUG << "XXX: migrationAbort";
+
+    // tell migration mgr to abort migration
+    err = objStorMgr->migrationMgr->abortMigration();
+
+    // revert to DLT version provided in abort message
+    if (abortMigrationReq->abortMigrationDLTVersion > 0) {
+        // will ignore error from setCurrent -- if this SM does not know
+        // about DLT with given version, then it did not have a DLT previously..
+        objStorMgr->omClient->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+    }
+
+    qosCtrl->markIODone(*abortMigrationReq);
+
+    if (abortMigrationReq->abortMigrationCb) {
+        abortMigrationReq->abortMigrationCb(err, abortMigrationReq);
+    }
+
+    delete abortMigrationReq;
+}
+
+void
+ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
+{
+    Error err(ERR_OK);
+
+    SmIoNotifyDLTClose *closeDLTReq = static_cast<SmIoNotifyDLTClose *>(ioReq);
+    fds_verify(closeDLTReq != NULL);
+
+    LOGDEBUG << "XXX: executing dlt close";
+
+
+    // Store the current DLT to the presistent storage to be used
+    // by offline smcheck.
+    objStorMgr->storeCurrentDLT();
+
+    // tell superblock that DLT is closed, so that it will invalidate
+    // appropriate SM tokens -- however, it is possible that this SM
+    // got DLT update and close for the DLT version this SM does not belong
+    // to, that should only happen on initial start; but for not notifying
+    // superblock about DLT this SM does not belong to
+    const DLT *curDlt = objStorMgr->getDLT();
+    if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+        err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
+    }
+
+    // re-enable GC and Tier Migration
+    // If this SM did not receive start migration or rebalance
+    // message and GC and TierMigration were not disabled, this operation
+    // will be a noop
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+
+    // Update the DLT information for the SM checker when migration
+    // is complete.
+    // Strangely, compilation has some issues when trying to acquire the latest
+    // DLT in the SMCheckOnline class.  So, decided to update the DLT
+    // here.
+    // TODO(Sean):  This is a bit of a hack.  Access to DLT from SMCheck is
+    //              causing compilation issues, so make couple layers of
+    //              indirect call to update the
+    objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
+
+    // notify token migration manager
+    err = objStorMgr->migrationMgr->handleDltClose();
+
+    qosCtrl->markIODone(*closeDLTReq);
+
+    if (closeDLTReq->closeDLTCb) {
+        closeDLTReq->closeDLTCb(err, closeDLTReq);
+    }
+
+    delete closeDLTReq;
+}
+
+void
+ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
+{
     Error err(ERR_OK);
     SmIoMoveObjsToTier *moveReq = static_cast<SmIoMoveObjsToTier*>(ioReq);
     fds_verify(moveReq != NULL);
@@ -1047,26 +1137,34 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     switch (io->io_type) {
         case FDS_IO_READ:
         case FDS_IO_WRITE:
+        {
             fds_panic("must not get here!");
             break;
+        }
         case FDS_SM_DELETE_OBJECT:
+        {
             LOGDEBUG << "Processing a Delete request";
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
             break;
+        }
         case FDS_SM_GET_OBJECT:
+        {
             LOGDEBUG << "Processing a get request";
             threadPool->schedule(&ObjectStorMgr::getObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoGetObjectReq *>(io));
             break;
+        }
         case FDS_SM_PUT_OBJECT:
+        {
             LOGDEBUG << "Processing a put request";
             threadPool->schedule(&ObjectStorMgr::putObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoPutObjectReq *>(io));
             break;
+        }
         case FDS_SM_ADD_OBJECT_REF:
         {
             LOGDEBUG << "Processing and add object reference request";
@@ -1088,14 +1186,32 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
+        {
             threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
             break;
+        }
         case FDS_SM_APPLY_DELTA_SET:
+        {
             threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
             break;
+        }
         case FDS_SM_READ_DELTA_SET:
+        {
             threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
             break;
+        }
+        case FDS_SM_MIGRATION_ABORT:
+        {
+            LOGDEBUG << "XXX: MIGRATION ABORT";
+            threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_NOTIFY_DLT_CLOSE:
+        {
+            LOGDEBUG << "XXX: NOTIFY DLT CLOSE";
+            threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
+            break;
+        }
         default:
             fds_assert(!"Unknown message");
             break;

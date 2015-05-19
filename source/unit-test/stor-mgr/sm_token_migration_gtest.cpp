@@ -141,8 +141,8 @@ class SmTokenMigrationTest : public ::testing::Test {
         dataStore = new(std::nothrow) TestReqHandler(std::bind(
             &SmTokenMigrationTest::snapshotDoneCb, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-        tokenMigrationMgr = SmTokenMigrationMgr::unique_ptr(
-            new(std::nothrow) SmTokenMigrationMgr(dataStore));
+        tokenMigrationMgr = MigrationMgr::unique_ptr(
+            new(std::nothrow) MigrationMgr(dataStore));
         migration_done = ATOMIC_VAR_INIT(false);
         EXPECT_TRUE(dataStore != NULL);
     }
@@ -157,7 +157,7 @@ class SmTokenMigrationTest : public ::testing::Test {
                         const Error& error);
 
     TestReqHandler* dataStore;
-    SmTokenMigrationMgr::unique_ptr tokenMigrationMgr;
+    MigrationMgr::unique_ptr tokenMigrationMgr;
 
     // dataset for the test
     TestDataset testdata_;
