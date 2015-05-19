@@ -49,7 +49,7 @@ class MigrationMgr {
 
     typedef std::unique_ptr<MigrationMgr> unique_ptr;
     /// source SM -> MigrationExecutor object map
-    typedef std::unordered_map<NodeUuid, MigrationExecutor::unique_ptr, UuidHash> SrcSmExecutorMap;
+    typedef std::unordered_map<NodeUuid, MigrationExecutor::shared_ptr, UuidHash> SrcSmExecutorMap;
     /// SM token id -> [ source SM -> MigrationExecutor ]
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
     /// executorId -> migrationClient
@@ -260,6 +260,22 @@ class MigrationMgr {
                                           const fpi::SvcUuid &executorSmUuid,
                                           const NodeUuid& mySvcUuid,
                                           const DLT* dlt);
+
+
+    /**
+     * This method is called when executor failed to sync tokens on the
+     * first or second round of migration/resync. For some set of errors,
+     * new sources will be selected for a given set of dltTokens and token
+     * sync/migration will restart with a new set of source SMs for this tokens.
+     * On some errors (e.g., if failure happened on the destination side) or
+     * if we tried with all source SMs, the sync will fail for the given set
+     * of DLT tokens.
+     */
+    void retryWithNewSMsOrAbort(fds_uint64_t executorId,
+                                fds_token_id smToken,
+                                const std::set<fds_token_id>& dltTokens,
+                                fds_uint32_t round,
+                                const Error& error);
 
     /**
      * Stops migration and sends ack with error to OM

@@ -553,6 +553,130 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     delete dlt;
 }
 
+TEST_F(SmObjectStoreTest, findNewSrcSMRetryTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::vector<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.push_back(i);
+    }
+    unsigned curSrcSm = 1;
+    unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
+    unsigned retryCount = 1;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
+    }
+    ASSERT_EQ(nodeGroups[NodeUuid(newSrcSm)].size(), numOfTokens);
+    delete dlt;
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMRetryTwoTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::vector<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.push_back(i);
+    }
+
+    unsigned curSrcSm = 3;
+    unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
+    unsigned retryCount = 3;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
+    }
+    ASSERT_EQ(nodeGroups[NodeUuid(newSrcSm)].size(), numOfTokens);
+    delete dlt;
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMRetryFailedSrcTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::vector<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.push_back(i);
+    }
+    failedSMs[NodeUuid(4)] = true;
+    failedSMs[NodeUuid(1)] = true;
+
+    unsigned curSrcSm = 3;
+    unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
+    unsigned retryCount = 1;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
+    }
+    ASSERT_EQ(nodeGroups[NodeUuid(newSrcSm)].size(), numOfTokens);
+    delete dlt;
+
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMAllInvalidTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::vector<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.push_back(i);
+    }
+    failedSMs[NodeUuid(4)] = true;
+    failedSMs[NodeUuid(3)] = true;
+    failedSMs[NodeUuid(1)] = true;
+
+    unsigned curSrcSm = 2;
+    unsigned retryCount = 1;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, INVALID_RESOURCE_UUID);
+    }
+    ASSERT_EQ(nodeGroups[INVALID_RESOURCE_UUID].size(), numOfTokens);
+    delete dlt;
+}
+
 }  // namespace fds
 
 int
