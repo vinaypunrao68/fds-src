@@ -109,6 +109,8 @@ namespace fds {
 
         /**
          * Get source SM(s) for a given <current source SM - dlt tokens>
+         * NodeTokenMap[INVALID_RESOURCE_UUID] holds all dlt tokens for
+         * whom no source SM could be assigned.
          */
         NodeTokenMap getNewSourceSMs(const NodeUuid& curSrcSM,
                                      std::vector<fds_token_id>& dlt_tokens,
