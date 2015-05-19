@@ -984,7 +984,49 @@ MigrationMgr::coalesceClients()
     for (auto citClient = migrClients.cbegin(); citClient != migrClients.cend(); ++citClient) {
         citClient->second->waitForIOReqsCompletion(citClient->first);
     }
+}
 
+void MigrationMgr::retryWithNewSMsOrAbort(fds_uint64_t executorId,
+                                          fds_token_id smToken,
+                                          const std::set<fds_token_id>& dltTokens,
+                                          fds_uint32_t round,
+                                          const Error& error) {
+    NodeUuid sourceSmUuid;   // source SM for executor with id executorId
+    MigrationExecutor::shared_ptr migrExecutor;   // executor that failed to sync
+    for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
+         cit != migrExecutors[smToken].cend();
+         ++cit) {
+        if (cit->second->getId() == executorId) {
+            // found executor
+            sourceSmUuid = cit->first;
+            migrExecutor = cit->second;
+            break;
+        }
+    }
+    // on error, executor sends stop resync msg to client, so that if client is
+    // still alive, it will stop sending any sync related msgs to this SM
+
+    // it only makes sense to retry if error happened on source SM side
+    // or we could't reach SM
+    // TODO(Anna) add timeout in destination waiting for progress on delta sets
+    if ((error == ERR_SVC_REQUEST_TIMEOUT) ||
+        (error == ERR_SVC_REQUEST_INVOCATION) ||
+        /// we get this error from source SM which failed to start
+        (error == ERR_NODE_NOT_ACTIVE)) {
+        LOGMIGRATE << "Executor " << std::hex << executorId
+                   << " failed to sync DLT tokens from source SM "
+                   << sourceSmUuid.uuid_get_val() << std::dec << " " << error
+                   << " will find new source SM(s) to sync from";
+
+        // TODO(Anna) find new SMs to sync from
+
+        // TODO(Anna) For DLT tokens for which SMs are found, restart token resync
+    }
+
+    // DLT tokens that we failed to retry will remain unavailable
+    // set "done with error" state for the failed executor, we will clean it
+    // when the whole resync/migration is finished
+    migrExecutor->setDoneWithError();
 }
 
 }  // namespace fds
