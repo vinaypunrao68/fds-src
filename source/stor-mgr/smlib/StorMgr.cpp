@@ -993,7 +993,7 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     if (abortMigrationReq->abortMigrationDLTVersion > 0) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
-        objStorMgr->omClient->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+        MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
     }
 
     qosCtrl->markIODone(*abortMigrationReq);
