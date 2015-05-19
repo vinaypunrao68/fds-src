@@ -57,23 +57,24 @@ namespace fds
             pid_t    child_pid;
             pid_t    res_pid;
 
-LOGDEBUG << "fds_spawn instrumentation point 1";
+LOGDEBUG << "fds_spawn instrumentation point 1:  getpid() = " << getpid();
             child_pid = fork();
-LOGDEBUG << "fds_spawn instrumentation point 2, child_pid = " << child_pid;
+LOGDEBUG << "fds_spawn instrumentation point 2:  getpid() = " << getpid() << "  child_pid = " << child_pid;
 
             if (child_pid != 0)
             {
                 if (daemonize)
                 {
+LOGDEBUG << " ============================================================================================================================================================ inside";
                     res_pid = waitpid(child_pid, NULL, 0);
                     // TODO(bao): check for 0 and -1
                     fds_assert(res_pid == child_pid);
                 }
-LOGDEBUG << "fds_spawn instrumentation point 3, child_pid = " << child_pid;
+LOGDEBUG << "fds_spawn instrumentation point 3: getpid() = " << getpid() << "  child_pid = " << child_pid;
                 return child_pid;
             }
 
-LOGDEBUG << "fds_spawn instrumentation point 4";
+LOGDEBUG << "fds_spawn instrumentation point 4: getpid() = " << getpid() << "  ";
             int    j = 0;
 
             printf("\n");
@@ -107,6 +108,8 @@ LOGDEBUG << "fds_spawn instrumentation point 4";
             if (daemonize)
             {
                 res = daemon(1, 1);
+
+LOGDEBUG << " ============================================================================================================================================================ inside:  res = " << res;
 
                 if (res != 0)
                 {
