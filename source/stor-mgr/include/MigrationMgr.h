@@ -350,8 +350,9 @@ class MigrationMgr {
     // std::unordered_map<fds_token_id, SmIoSnapshotObjectDB> snapshotRequest;
     std::vector<SmIoSnapshotObjectDB> snapshotRequests;
     std::atomic<int> nextSnapshotRequest;
-    SmIoSnapshotObjectDB* getSnapshotRequest() {
-        return &snapshotRequests[nextSnapshotRequest++ % parallelMigration];    
+    inline SmIoSnapshotObjectDB* getSnapshotRequest() {
+        return &(snapshotRequests[nextSnapshotRequest.fetch_add(1) % parallelMigration]);
+
     }
     
     /// SM token id -> [ source SM -> MigrationExecutor ]

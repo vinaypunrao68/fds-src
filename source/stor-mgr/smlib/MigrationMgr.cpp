@@ -22,6 +22,8 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
     
     nextSnapshotRequest = 0;
+    parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 16);
+    LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     snapshotRequests.resize(parallelMigration);
     for (int i = 0; i < parallelMigration; i++) {
         snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
@@ -36,8 +38,6 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     }
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
-    parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 16);
-    LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
 }
 
 MigrationMgr::~MigrationMgr() {
