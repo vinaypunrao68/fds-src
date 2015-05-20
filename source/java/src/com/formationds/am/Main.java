@@ -5,7 +5,6 @@ package com.formationds.am;
 
 import com.formationds.apis.AsyncXdiServiceRequest;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.XdiService;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -97,7 +96,7 @@ public class Main {
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);
 
-        XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
+        XdiClientFactory clientFactory = new XdiClientFactory();
 
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
         boolean useFakeAm = platformConfig.defaultBoolean("fds.am.memory_backend", false);
