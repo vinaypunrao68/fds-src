@@ -34,7 +34,7 @@ class EventObj : public fdsio::Request
 
     virtual ~EventObj() {}
     explicit EventObj(int val)
-        : st_refcnt(0), Request(false), st_evt(val), st_owner(NULL) {}
+        : Request(false), st_evt(val), st_owner(nullptr), st_refcnt(0) {}
 
     inline  int  evt_current() const { return st_evt; }
     inline  void evt_change_code(int evt) { st_evt = evt; }

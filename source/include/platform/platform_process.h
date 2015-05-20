@@ -25,6 +25,7 @@ namespace fds
             PlatformProcess();
             PlatformProcess(int argc, char *argv[], const std::string &cfg_path,
                             const std::string &log_file, Platform *platform, Module **vec);
+            using FdsProcess::init;
             void init(int argc, char **argv, const std::string  &cfg, const std::string  &log,
                       Platform *platform, Module **vec);
 

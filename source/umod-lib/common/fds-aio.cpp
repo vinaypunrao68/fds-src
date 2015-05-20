@@ -9,7 +9,7 @@
 namespace fds {
 
 FdsAIO::~FdsAIO() {}
-FdsAIO::FdsAIO(int iovcnt, int fd) : io_link(this), io_cnt(iovcnt), io_fd(fd)
+FdsAIO::FdsAIO(int iovcnt, int fd) : io_link(this), io_fd(fd), io_cnt(iovcnt)
 {
     memset(io_vec, 0, sizeof(io_vec));
     io_wait    = true;

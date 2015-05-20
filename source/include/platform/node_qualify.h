@@ -16,7 +16,7 @@ namespace fds
             {
                 return 2;
             }
-            virtual char const *const st_name() const
+            virtual char const *const st_name() const override
             {
                 return "NodeQualify";
             }

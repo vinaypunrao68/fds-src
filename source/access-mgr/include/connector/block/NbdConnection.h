@@ -80,7 +80,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     size_t resp_needed;
 
     message<attach_header, std::array<char, 1024>> attach;
-    message<handshake_header, nullptr_t> handshake;
+    message<handshake_header, std::nullptr_t> handshake;
     message<request_header, boost::shared_ptr<std::string>> request;
 
     resp_vector_type response;

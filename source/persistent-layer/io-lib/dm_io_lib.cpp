@@ -466,7 +466,7 @@ DataDiscoveryModule::mod_shutdown()
 // \PersisDataIO::PersisDataIO
 // ----------------------------------------------------------------------------
 PersisDataIO::PersisDataIO()
-    : pd_queue(2, 1000), pd_counters_("PM", nullptr){}
+    : pd_queue(2), pd_counters_("PM", nullptr){}
 
 // \sersisDataIO::~PersisDataIO
 // ----------------------------

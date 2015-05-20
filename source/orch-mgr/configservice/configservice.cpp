@@ -256,6 +256,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGNOTIFY << "Received scavenger stop command";
         } else {
             apiException("Unrecognized scavenger action: " + *scavengerAction);
+            return;
         };
 
         /*

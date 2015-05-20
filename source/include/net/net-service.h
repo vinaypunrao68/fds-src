@@ -227,16 +227,16 @@ class EpSvc
     /**
      * Acessor functions.
      */
-    inline EpAttr::pointer      ep_get_attr() { return ep_attr; }
-    inline EpEvtPlugin::pointer ep_evt_plugin() { return ep_evt; }
+    EpAttr::pointer      ep_get_attr() { return ep_attr; }
+    EpEvtPlugin::pointer ep_evt_plugin() { return ep_evt; }
 
-    inline fds_uint32_t ep_version(fds_uint32_t *minor) {
+    fds_uint32_t ep_version(fds_uint32_t *minor) {
         *minor = svc_ver.ver_minor;
         return svc_ver.ver_major;
     }
 
-    inline void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
-    inline fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
+    void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
+    fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
 
     virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
     virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
@@ -245,13 +245,13 @@ class EpSvc
      * Cast to the correct EndPoint type.  Return NULL if this is pure service object.
      */
     template <class SendIf, class RecvIf>
-    inline bo::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast() {
+    bo::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast() {
         if (ep_is_connection()) {
             return static_cast<EndPoint<SendIf, RecvIf> *>(this);
         }
         return NULL;
     }
-    inline bo::intrusive_ptr<EpSvcHandle> ep_send_handle()  { return ep_peer; }
+    bo::intrusive_ptr<EpSvcHandle> ep_send_handle()  { return ep_peer; }
 
   protected:
     fpi::SvcID                       svc_id;
@@ -316,7 +316,19 @@ class EpSvcHandle : public net::SocketEventHandler
         : EpSvcHandle(NULL, evt, maj, min) { ep_peer_id = peer; }
 
     ep_state_e ep_reconnect();
-    ep_state_e ep_get_status()  { return static_cast<ep_state_e>(ep_state); }
+    ep_state_e ep_get_status() const            { return static_cast<ep_state_e>(ep_state); }
+    void ep_set_status(int const state)         { ep_state = state; }
+
+    bo::shared_ptr<tt::TTransport> ep_get_trans() const
+                                                { return ep_trans; }
+    void ep_set_trans(bo::shared_ptr<tt::TTransport> const& trans)
+                                                { ep_trans = trans; }
+
+    bo::shared_ptr<void> ep_get_rpc() const     { return ep_rpc; }
+    void ep_set_rpc(bo::shared_ptr<void> const& rpc)  { ep_rpc = rpc; }
+
+    bo::shared_ptr<tt::TSocket> ep_get_sock() const     { return ep_sock; }
+    void ep_set_sock(bo::shared_ptr<tt::TSocket> const& sock) { ep_sock = sock; }
 
     std::string logString()
     {
@@ -347,11 +359,11 @@ class EpSvcHandle : public net::SocketEventHandler
     /**
      * @return the major and minor version of this handle.
      */
-    inline fds_uint32_t ep_version(fds_uint32_t *minor) const {
+    fds_uint32_t ep_version(fds_uint32_t *minor) const {
         *minor = ep_minor;
         return ep_major;
     }
-    inline const bo::shared_ptr<tt::TSocket> ep_debug_sock() const {
+    const bo::shared_ptr<tt::TSocket> ep_debug_sock() const {
         return ep_sock;
     }
 
@@ -366,11 +378,6 @@ class EpSvcHandle : public net::SocketEventHandler
     friend class SvcRequestIf;
   protected:
     friend class NetMgr;
-    template <class SendIf> friend void
-    endpoint_connect_server(int, const std::string &,
-                            bo::intrusive_ptr<EpSvcHandle> *,
-                            bo::intrusive_ptr<EpSvc>, fpi::SvcUuid,
-                            EpEvtPlugin::pointer, fds_uint32_t, fds_uint32_t);
 
     int                            ep_state;
     fds_uint32_t                   ep_major;
@@ -529,7 +536,7 @@ class NetMgr : public Module
     /**
      * Return mutex hashed by a pointer object.
      */
-    inline fds_mutex *ep_obj_mutex(void *ptr) {
+    fds_mutex *ep_obj_mutex(void *ptr) {
         return &ep_obj_mtx[(reinterpret_cast<fds_uint64_t>(ptr) >> 4) % ep_mtx_arr];
     }
 
@@ -579,7 +586,7 @@ class NetPlatform : public Module
     explicit NetPlatform(const char *name);
     virtual ~NetPlatform() {}
 
-    inline static NetPlatform   *nplat_singleton() { return gl_NetPlatSvc; }
+    static NetPlatform   *nplat_singleton() { return gl_NetPlatSvc; }
     virtual void                 nplat_register_node(const fpi::NodeInfoMsg *msg) = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 

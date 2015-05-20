@@ -1630,7 +1630,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     return err;
 }
 
-Error OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
+void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
                                                     fds_uint32_t delayTime )
 {
     if ( delayTime )
@@ -1638,7 +1638,6 @@ Error OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
         usleep( delayTime * 1000 );
     }
 
-    Error err(ERR_OK);
 
     NodeServices services;
     if ( configDB->getNodeServices( node_uuid, services ) )
@@ -1665,14 +1664,12 @@ Error OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
       if ( activateAM || activateDM || activateSM )
       {
           OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-          err = local->om_activate_node_services( node_uuid,
-                                                  activateSM,
-                                                  activateDM,
-                                                  activateAM );
+          local->om_activate_node_services( node_uuid,
+                                           activateSM,
+                                           activateDM,
+                                           activateAM );
       }
     }
-
-    return err;
 }
    
 bool OM_NodeDomainMod::isPlatformSvc(fpi::SvcInfo svcInfo)
@@ -1795,11 +1792,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     return err;
 }
 
-Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
-                                     const FdspNodeRegPtr msg,
-                                     NodeAgent::pointer   newNode,
-                                     fds_uint32_t delayTime
-                                     ) {
+void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
+                                    const FdspNodeRegPtr msg,
+                                    NodeAgent::pointer   newNode,
+                                    fds_uint32_t delayTime) {
 
     if (delayTime) {
         usleep(delayTime * 1000);
@@ -1839,7 +1835,7 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         om_locDomain->om_bcast_new_node(newNode, msg);
 
         if (fpi::FDSP_CONSOLE == msg->node_type || fpi::FDSP_TEST_APP == msg->node_type) {
-            return err;
+            return;
         }
 
         // Let this new node know about existing node list.
@@ -1903,8 +1899,6 @@ Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                 om_locDomain->om_bcast_vol_list(newNode);
             }
         }
-
-    return err;
 }
 
 // om_del_services

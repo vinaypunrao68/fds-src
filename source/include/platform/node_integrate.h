@@ -16,7 +16,7 @@ namespace fds
             {
                 return 5;
             }
-            virtual char const *const st_name() const
+            virtual char const *const st_name() const override
             {
                 return "NodeIntegrate";
             }

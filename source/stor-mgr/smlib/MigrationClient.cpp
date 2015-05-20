@@ -243,7 +243,7 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                << " seqNum=" << req->seqNum
                << " executorID=" << std::hex << req->executorId << std::dec
                << " DeltSetSize=" << req->deltaSet.size()
-               << " lastSet=" << req->lastSet ? "TRUE" : "FALSE";
+               << " lastSet=" << (req->lastSet ? "TRUE" : "FALSE");
 
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -284,7 +284,7 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                << " seqNum=" << readDeltaSetReq->seqNum
                << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
                << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
-               << " lastSet=" << lastSet ? "TRUE" : "FALSE";
+               << " lastSet=" << (lastSet ? "TRUE" : "FALSE");
 
     /* enqueue to QoS queue */
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, readDeltaSetReq);
