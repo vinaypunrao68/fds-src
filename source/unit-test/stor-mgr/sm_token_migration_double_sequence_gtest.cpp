@@ -146,7 +146,6 @@ class testTimeout {
   private:
     uint32_t id;
     uint32_t timedOut;
-    Error error;
 };
 
 bool stopTestThread = false;

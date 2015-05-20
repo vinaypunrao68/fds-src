@@ -101,6 +101,11 @@ class MigrationMgr {
     Error abortMigration();
 
     /**
+     * Handle a timeout error from executor or client.
+     */
+    void timeoutAbortMigration();
+
+    /**
      * Handle start object rebalance from destination SM
      */
     Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
@@ -335,7 +340,12 @@ class MigrationMgr {
     /**
      * Timer to detect if there is no activities on the Executors.
      */
-    FdsTimerPtr migrationTimer;
+    FdsTimerPtr migrationTimeoutTimer;
+
+    /**
+     * abort migration after this duration of inactivities.
+     */
+    uint32_t migrationTimeoutSec;
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
     //

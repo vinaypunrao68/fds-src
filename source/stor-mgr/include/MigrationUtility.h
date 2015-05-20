@@ -130,6 +130,8 @@ class MigrationSeqNum {
 
 class MigrationDoubleSeqNum {
   public:
+    typedef std::shared_ptr<MigrationDoubleSeqNum> ptr;
+
     MigrationDoubleSeqNum();
     MigrationDoubleSeqNum(FdsTimerPtr& timer,
                           uint32_t interval,  // in sec

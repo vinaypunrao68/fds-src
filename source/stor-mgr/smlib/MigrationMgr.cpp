@@ -16,7 +16,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
           numBitsPerDltToken(0),
-          migrationTimer(new FdsTimer())
+          migrationTimeoutTimer(new FdsTimer())
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
@@ -31,11 +31,14 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
                                                   std::placeholders::_5);
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
+
+    migrationTimeoutSec =
+            g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.migration_timeout", 300);
 }
 
 MigrationMgr::~MigrationMgr() {
     mTimer.destroy();
-    migrationTimer->destroy();
+    migrationTimeoutTimer->destroy();
 }
 
 /**
@@ -144,14 +147,18 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                           srcSmUuid,
                                           smTok, globalExecId, targetDltVersion,
                                           forResync,
-                                          std::bind(
-                                              &MigrationMgr::dltTokenMigrationFailedCb,
-                                              this,
-                                              std::placeholders::_1),
-                                          std::bind(
-                                              &MigrationMgr::migrationExecutorDoneCb, this,
-                                              std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)));
+                                          std::bind(&MigrationMgr::dltTokenMigrationFailedCb,
+                                                    this,
+                                                    std::placeholders::_1),
+                                          std::bind(&MigrationMgr::migrationExecutorDoneCb,
+                                                    this,
+                                                    std::placeholders::_1,
+                                                    std::placeholders::_2,
+                                                    std::placeholders::_3,
+                                                    std::placeholders::_4,
+                                                    std::placeholders::_5),
+                                          std::bind(&MigrationMgr::timeoutAbortMigration,
+                                                    this)));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -900,6 +907,17 @@ MigrationMgr::checkResyncDoneAndCleanup()
                       << targetDltVersion;
         }
     }
+}
+
+/**
+ * Handle timeout error message from either Executor or Client's
+ * message sequence number tracker.
+ */
+void
+MigrationMgr::timeoutAbortMigration()
+{
+    LOGNOTIFY << "Will abort tokenmigration due to timeout";
+    abortMigration(ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
 /**
