@@ -24,3 +24,4 @@ fds_am_testing_am_testing_toggleDisableStreamingStats=true
 fds_sm_data_verify=false
 fds_sm_data_verify_background=false
 clean_fds=yes
+force=yes
