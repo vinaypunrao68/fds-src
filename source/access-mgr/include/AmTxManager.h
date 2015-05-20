@@ -84,6 +84,11 @@ struct AmTxManager {
     Error registerVolume(const VolumeDesc& volDesc);
 
     /**
+     * Remove all metadata caches
+     */
+    void invalidateMetaCache(const VolumeDesc& volDesc);
+
+    /**
      * Notify that we have detached a volume, and remove any available
      * data structures.
      */
