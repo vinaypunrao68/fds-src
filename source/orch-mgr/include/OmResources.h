@@ -51,7 +51,7 @@ typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
  *
- * It's normal that the node agent is there but the transport may not be availble.
+ * It's normal that the node agent is there but the transport may not be available.
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
  */
@@ -205,6 +205,9 @@ class OM_PmAgent : public OM_NodeAgent
                                        EPSvcRequest* req,
                                        const Error& error,
                                        boost::shared_ptr<std::string> payload);
+    
+    void change_service_state( const int64_t svc_uuid, 
+                               const fpi::ServiceStatus svc_status );
 
     /**
      * Tell platform Agent about new active service
@@ -466,9 +469,9 @@ class OM_NodeContainer : public DomainContainer
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                               const fpi::FDSP_TestBucket *req) {
-        return om_volumes->om_test_bucket(hdr, req);
+    inline void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                                         const std::string& vol_name) {
+        return om_volumes->om_get_volume_descriptor(hdr, vol_name);
     }
 
     inline bool addVolume(const VolumeDesc& desc) {

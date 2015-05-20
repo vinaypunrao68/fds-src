@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <atomic>
+#include <condition_variable>
 
 #include <fds_types.h>
 
@@ -40,14 +41,14 @@ class MigrationClient {
     ~MigrationClient();
 
      enum MigrationClientState {
-            MIG_CLIENT_INIT,
-            MIG_CLIENT_FILTER_SET,
-            MIG_CLIENT_FIRST_PHASE_DELTA_SET,
-            MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE,
-            MIG_CLIENT_SECOND_PHASE_DELTA_SET,
-            MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE,
-            MIG_CLIENT_FINISH,
-            MIG_CLIENT_ERROR
+            MC_INIT,
+            MC_FILTER_SET,
+            MC_FIRST_PHASE_DELTA_SET,
+            MC_FIRST_PHASE_DELTA_SET_COMPLETE,
+            MC_SECOND_PHASE_DELTA_SET,
+            MC_SECOND_PHASE_DELTA_SET_COMPLETE,
+            MC_DONE,
+            MC_ERROR
      };
 
     typedef std::unique_ptr<MigrationClient> unique_ptr;
@@ -124,6 +125,10 @@ class MigrationClient {
     fds_bool_t forwardAddObjRefIfNeeded(fds_token_id dltToken,
                                         fpi::AddObjectRefMsgPtr addObjRefReq);
 
+    /**
+     * Wait for all pending Client requests to complete.
+     */
+    void waitForIOReqsCompletion(fds_uint64_t executorId);
 
   private:
     /* Verify that set of DLT tokens belong to the same SM token.
@@ -286,14 +291,16 @@ class MigrationClient {
     std::atomic<uint64_t> seqNumDeltaSet;
 
     /**
+     * Keep track of oustanding IO request for the MigrationClient.  This is mainly used
+     * to prevent the MigrationMgr from aborting and deleteing the Client if there are 
+     * still outstanding IO requests pending.
+     */
+    MigrationTrackIOReqs trackIOReqs;
+
+    /**
      * Is this migration for a SM resync
      */
     bool forResync;
-
-    /**
-     * Standalone test mode.
-     */
-    fds_bool_t testMode;
 };  // class MigrationClient
 
 }  // namespace fds

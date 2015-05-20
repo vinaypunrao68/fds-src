@@ -23,6 +23,15 @@ struct CtrlNotifyDLTUpdate {
 }
 
 /**
+ * Notifies that about a new, but not yet active DMT.
+ * TODO(Andrew): This needs a response structure.
+ */
+struct CtrlNotifyDMTUpdate {
+     1: svc_types.FDSP_DMT_Data_Type    dmt_data;
+     2: i32                             dmt_version;
+}
+
+/**
  * Notify addition of volume.
  */
 struct CtrlNotifyVolAdd {

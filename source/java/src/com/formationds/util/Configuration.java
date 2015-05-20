@@ -28,6 +28,7 @@ public class Configuration {
     public static final String KEYSTORE_PASSWORD = "fds.ssl.keystore_password";
     public static final String KEYMANAGER_PASSWORD = "fds.ssl.keymanager_password";
     private static final Map<String, String> LOGLEVELS = new HashMap<>();
+    public static final String TIME_STAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ";
 
     //trace/debug/normal/info/notify/notification/crit/critical,warn/warning/error
     static {
@@ -67,7 +68,6 @@ public class Configuration {
         }
 
         if (options.has("console")) {
-            //initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
             initConsoleLogging("DEBUG");
         } else {
             // only append instance name on the am (xdi)
@@ -115,25 +115,20 @@ public class Configuration {
         properties.put("log4j.rootCategory", "INFO, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %-5p %c %x - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
-        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 
     private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
         Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
         properties.put("log4j.rootLogger", "FATAL, rolling");
-        properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
+        properties.put("log4j.appender.rolling", "org.apache.log4j.DailyRollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
-        properties.put("log4j.appender.rolling.MaxFileSize", "50MB");
-        properties.put("log4j.appender.rolling.MaxBackupIndex", "10");
+        properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
-//        properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
-//        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
-        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{dd MMM yyyy HH:mm:ss.SSS z} - %p %c - %m%n");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %5p %c %t - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
-        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 

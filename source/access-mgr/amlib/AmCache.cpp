@@ -99,6 +99,41 @@ AmCache::getBlobObject(fds_volid_t volId,
 }
 
 Error
+AmCache::putBlobDescriptor(fds_volid_t const volId,
+                           typename descriptor_cache_type::key_type const& blobName,
+                           typename descriptor_cache_type::value_type const blobDesc)
+{
+    bool success;
+    BlobDescriptor::ptr evictedDesc;
+    std::tie(success, evictedDesc) = descriptor_cache.add(volId, blobName, blobDesc);
+    if (evictedDesc) {
+        GLOGTRACE << "Evicted cached descriptor " << *evictedDesc;
+    }
+    return success ? ERR_OK : ERR_VOL_NOT_FOUND;
+}
+
+Error
+AmCache::putOffset(fds_volid_t const volId,
+                   typename offset_cache_type::key_type const& blobOff,
+                   typename offset_cache_type::value_type const objId)
+{
+    auto result = offset_cache.add(volId, blobOff, objId);
+    return result.first ? ERR_OK : ERR_VOL_NOT_FOUND;
+}
+
+/**
+ * Inserts new object into the object cache.
+ */
+Error
+AmCache::putObject(fds_volid_t const volId,
+                   typename object_cache_type::key_type const& objId,
+                   typename object_cache_type::value_type const obj)
+{
+    auto result = object_cache.add(volId, objId, obj);
+    return result.first ? ERR_OK : ERR_VOL_NOT_FOUND;
+}
+
+Error
 AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
@@ -126,15 +161,14 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
         // Set the blob size to the one returned by DM
         cacheDesc->setBlobSize(blobSize);
 
-        BlobDescriptor::ptr evictedDesc =
-                descriptor_cache.add(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
-        if (evictedDesc != NULL) {
-            LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
-        }
+        // Insert descriptor into the cache
+        err = putBlobDescriptor(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
 
-        // Add blob objects from tx to object cache
-        for (const auto &object : txDesc->stagedBlobObjects) {
-            putObject(txDesc->volId, object.first, object.second);
+        if (ERR_OK == err) {
+            // Add blob objects from tx to object cache
+            for (const auto &object : txDesc->stagedBlobObjects) {
+                putObject(txDesc->volId, object.first, object.second);
+            }
         }
     }
     return err;

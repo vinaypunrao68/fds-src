@@ -20,7 +20,15 @@ class RESTHelper():
     
     def defaultErrorHandler(self, error):
         errorText = json.loads( error.text )
-        print str(error.status_code) + ": " + errorText["message"]
+        err_message = str(error.status_code) + ": "
+        
+        if "message" in errorText:
+            err_message += errorText["message"]
+        else:
+            err_message += error.reason
+        
+        print err_message
+        
         return
             
     def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
@@ -28,7 +36,6 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
         
         rj = response.json()
         return rj
@@ -38,7 +45,6 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
         
         rj = response.json()
         return rj    
@@ -49,7 +55,6 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
         
         rj = response.json()
         return rj
@@ -60,7 +65,6 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
         
         rj = response.json()
         return rj

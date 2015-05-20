@@ -416,7 +416,6 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
     auto dmt_msg = &msg->dmt_data;
-    dmt_msg->dmt_version = curDmt->getVersion();
     err = curDmt->getSerialized(dmt_msg->dmt_data);
     msg->dmt_version = curDmt->getVersion();
     if (!err.ok()) {
@@ -871,8 +870,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << (activeSmAgent->get_uuid()).uuid_get_val() << std::dec;
                 activeSmAgent = nullptr;
             } else {
-                LOGDEBUG << "SM service already not active on platform " << std::hex
-                         << get_uuid().uuid_get_val() << std::dec;
+                LOGDEBUG << "SM service already not active on platform " 
+                         << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
@@ -881,8 +880,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << (activeDmAgent->get_uuid()).uuid_get_val() << std::dec;
                 activeDmAgent = nullptr;
             } else {
-                LOGDEBUG << "DM service already not active on platform " << std::hex
-                         << get_uuid().uuid_get_val() << std::dec;
+                LOGDEBUG << "DM service already not active on platform " 
+                         << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
@@ -891,14 +890,34 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << (activeAmAgent->get_uuid()).uuid_get_val() << std::dec;
                 activeAmAgent = nullptr;
             } else {
-                LOGDEBUG << "AM service already not active on platform " << std::hex
-                         << get_uuid().uuid_get_val() << std::dec;
+                LOGDEBUG << "AM service already not active on platform " 
+                         << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         default:
             LOGWARN << "Unknown service type " << svc_type << ". Did we add a new"
                     << " service type? If so, update this method";
     };
+}
+
+void
+OM_PmAgent::change_service_state( const int64_t svc_uuid, 
+                                  const fpi::ServiceStatus svc_status )
+{
+        // update configDB with which services this platform has
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
+    {
+        LOGDEBUG << "Successfully changed service ID ( " 
+                 << std::hex << svc_uuid << std::dec << " ) "
+                 << "state to ( " << svc_status << " )";
+    }
+    else
+    {
+        LOGWARN << "Failed to changed service ID ( " 
+                << std::hex << svc_uuid << std::dec << " ) "
+                << "state to ( " << svc_status << " )";
+    }
 }
 
 // send_activate_services
@@ -1934,8 +1953,11 @@ OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
                                                     fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                     vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSPMsgTypeId, fpi::FDSP_NotifyVolFlag>
-            (fpi::CtrlNotifyVolModTypeId, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
+    dc_am_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
+                                   fpi::FDSP_NotifyVolFlag,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolModTypeId,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
 }
 
 // om_bcast_vol_snap
@@ -1960,10 +1982,11 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
 {
-    return vol->vol_foreach_am<fpi::FDSPMsgTypeId,
-                               fpi::FDSP_NotifyVolFlag>(fpi::CtrlNotifyVolRemoveTypeId,
-                                                        fpi::FDSP_NOTIFY_VOL_NO_FLAG,
-                                                        om_send_vol_command);
+    return dc_am_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
+                                          fpi::FDSP_NotifyVolFlag,
+                                          VolumeInfo::pointer>(fpi::CtrlNotifyVolRemoveTypeId,
+                                                            fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                            vol, om_send_vol_command);
 }
 
 
