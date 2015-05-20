@@ -573,7 +573,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     }
     fds_verify(curState == MIGR_IN_PROGRESS);
 
-    // Currently DTL tokens may become active in the following cases:
+    // Currently DLT tokens may become active in the following cases:
     // 1) If this is NOT resync on restart, DLT tokens are active right away
     // 2) If this is resync on restart, DLT token becomes available when source
     // SM declines to be a source (because this SM has higher responsibility for
