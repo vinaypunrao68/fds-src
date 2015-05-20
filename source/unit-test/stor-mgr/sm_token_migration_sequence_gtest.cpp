@@ -236,7 +236,7 @@ thrSeqIncrementForever(MigrationSeqNum &seqNum)
 {
     uint64_t num = 0;
     while (!stopTestThread) {
-        std::cout << "num=" << num << std::endl;
+        // std::cout << "num=" << num << std::endl;
         seqNum.setSeqNum(num, false);
         // Sleep a bit before the next iteration.
         sleep(1);
@@ -251,12 +251,12 @@ thrSeqIncrementMax(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
     while (maxLoop > 0) {
         --maxLoop;
         if ((0 == maxLoop) && setLastSeq) {
-            std::cout << "num=" << num << std::endl;
+            // std::cout << "num=" << num << std::endl;
             seqNum.setSeqNum(num, true);
             seqNum.stopProgressCheck();
             break;
         } else {
-            std::cout << "num=" << num << std::endl;
+            // std::cout << "num=" << num << std::endl;
             seqNum.setSeqNum(num, false);
         }
         // Sleep a bit before the next iteration.
