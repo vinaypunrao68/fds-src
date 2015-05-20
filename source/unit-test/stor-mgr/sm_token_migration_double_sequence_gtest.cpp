@@ -158,7 +158,7 @@ thrSeqIncrementForever(MigrationDoubleSeqNum &doubleSeqNum)
     uint64_t num2max = 3;
 
     while (!stopTestThread) {
-        std::cout << "num1=" << num1 << ", num2=" << num2 << std::endl;
+//        std::cout << "num1=" << num1 << ", num2=" << num2 << std::endl;
         doubleSeqNum.setDoubleSeqNum(num1, false, num2, false);
         // Sleep a bit before the next iteration.
         if (num2 >= num2max) {
@@ -183,9 +183,9 @@ thrSeqIncrementMax(MigrationDoubleSeqNum &doubleSeqNum,
 
     while (maxNum1 > 0) {
         while (maxNum2 > 0) {
-            std::cout << "num1=" << num1 << ", num2=" << num2
-                      << "max1=" << maxNum1 << ", max2=" << maxNum2
-                      << std::endl;
+//            std::cout << "num1=" << num1 << ", num2=" << num2
+//                      << "max1=" << maxNum1 << ", max2=" << maxNum2
+//                      << std::endl;
 
             if ((maxNum1 == 1) && (maxNum2 == 1)) {
                 doubleSeqNum.setDoubleSeqNum(num1, true, num2, true);
