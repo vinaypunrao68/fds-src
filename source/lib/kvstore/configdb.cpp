@@ -1733,16 +1733,51 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
         
-        LOGDEBUG << "CONFIGDB::UPDATE::SVC::MAP " 
-                 << svcinfo.name << " "
-                 << uuid.str();
-        
-        std::string key = "svcmap";
+        LOGDEBUG << "ConfigDB updating Service Map:"
+                 << " type: " << svcinfo.name 
+                 << " uuid: " << std::hex << svcinfo.svc_id.svc_uuid.svc_uuid << std::dec
+                 << " ip: " << svcinfo.ip 
+        		 << " port: " << svcinfo.svc_port
+                 << " incarnation: " << svcinfo.incarnationNo
+                 << " status: " << svcinfo.svc_status;
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
-        bRetCode = r.hset( key, uuid.str().c_str(), *serialized );
+        bRetCode = r.hset( "svcmap", uuid.str().c_str(), *serialized );
                        
     } catch(const RedisException& e) {
+        
+        LOGCRITICAL << "error with redis " << e.what();
+        
+    }
+    
+    return bRetCode;
+}
+
+bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid, 
+                                  const fpi::ServiceStatus svc_status )
+{
+    bool bRetCode = false;
+    
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+        
+        Reply reply = r.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+        if (reply.isOk()) 
+        {
+            fpi::SvcInfo svcInfo;
+            fds::deserializeFdspMsg( reply.getString(), svcInfo );
+            
+            svcInfo.svc_status = svc_status;
+            
+            bRetCode = updateSvcMap( svcInfo );
+            
+            // TODO add node stuff here!
+        }
+    }
+    catch( const RedisException& e ) 
+    {
         
         LOGCRITICAL << "error with redis " << e.what();
         

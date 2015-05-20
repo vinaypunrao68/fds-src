@@ -57,12 +57,12 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     /*
      * Testing code for loading test info from disk.
      */
-    LOGDEBUG << "Constructing the Orchestration  Manager";
+    LOGDEBUG << "Constructor of Orchestration Manager ( called )";
 }
 
 OrchMgr::~OrchMgr()
 {
-    LOGDEBUG << "Destructing the Orchestration  Manager";
+    LOGDEBUG << "Destructor for Orchestration Manager ( called )";
 
     cfgserver_thread->join();
 
@@ -78,7 +78,7 @@ void OrchMgr::proc_pre_startup()
     char **argv;
 
     argv = mod_vectors_->mod_argv(&argc);
-
+    
     /*
      * Process the cmdline args.
      */
@@ -110,13 +110,6 @@ void OrchMgr::proc_pre_startup()
         control_portnum = conf_helper_.get<int>("control_port");
     }
     ip_address = conf_helper_.get<std::string>("ip_address");
-
-    // check the config db port (default is 0 for now)
-    // if the port is NOT set explicitly , do not use it .
-    // reason : mutiple folks might use the same instance.
-    // whoever decides to use it will have to set the port
-    // properly
-    // But we still need to instantiate as the object might be used .
     
     LOGDEBUG << "Orchestration Manager using config port " << config_portnum
              << " control port " << control_portnum;
@@ -162,12 +155,12 @@ void OrchMgr::setupSvcInfo_()
     svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
         config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
 
-    LOGDEBUG << "Service info ( After overriding ): " << fds::logString(svcInfo_);
+    LOGDEBUG << "OM SvcInfo Initialized: " << fds::logString(svcInfo_);
 }
 
 void OrchMgr::registerSvcProcess()
 {
-    LOGDEBUG << "register service process";
+    LOGDEBUG << "Registering OM service: " << fds::logString(svcInfo_);
 
     /* Add om information to service map */
     svcMgr_->updateSvcMap({svcInfo_});
@@ -227,40 +220,40 @@ void OrchMgr::defaultS3BucketPolicy()
 }
 
 bool OrchMgr::loadFromConfigDB() {
-    LOGDEBUG << "loading data from configdb...";
+    LOGDEBUG << "loading data from ConfigDB ...";
 
     // check connection
-    if (!configDB->isConnected()) {
-        LOGCRITICAL << "unable to talk to config db ";
+    if (!getConfigDB()->isConnected()) {
+        LOGCRITICAL << "unable to talk to ConfigDB ";
         return false;
     }
 
     // get global domain info
-    std::string globalDomain = configDB->getGlobalDomain();
+    std::string globalDomain = getConfigDB()->getGlobalDomain();
     if (globalDomain.empty()) {
         LOGWARN << "global.domain not configured.. setting a default [fds]";
-        configDB->setGlobalDomain("fds");
+        getConfigDB()->setGlobalDomain("fds");
     }
 
     // get local domains
     std::vector<fds::apis::LocalDomain> localDomains;
-    configDB->listLocalDomains(localDomains);
+    getConfigDB()->listLocalDomains(localDomains);
 
     if (localDomains.empty())  {
         LOGWARN << "No Local Domains stored in the system. "
                 << "Setting a default Local Domain.";
-        int64_t id = configDB->createLocalDomain();
+        int64_t id = getConfigDB()->createLocalDomain();
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation. ";
             return false;
         } else {
-            LOGNOTIFY << "Default Local Domain creation succeded. ID: " << id;
+            LOGNOTIFY << "Default Local Domain creation succeeded. ID: " << id;
         }
-        configDB->listLocalDomains(localDomains);
+        getConfigDB()->listLocalDomains(localDomains);
     }
 
     if (localDomains.empty()) {
-        LOGCRITICAL << "Something wrong with the configdb. "
+        LOGCRITICAL << "Something wrong with the ConfigDB. "
                     << " -- not loading data.";
         return false;
     }
@@ -273,9 +266,9 @@ bool OrchMgr::loadFromConfigDB() {
 
     // keep the pointer in data placement module
     DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
-    dp->setConfigDB(configDB);
+    dp->setConfigDB(getConfigDB());
 
-    OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
+    OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
     if (enableSnapshotSchedule) {
