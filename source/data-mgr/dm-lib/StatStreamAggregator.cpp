@@ -4,6 +4,7 @@
 #include <string>
 #include <limits>
 #include <vector>
+#include <fdsp/fds_stream_types.h>
 #include <fds_process.h>
 #include <net/SvcMgr.h>
 #include <util/math-util.h>
@@ -486,7 +487,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     *(strchr(buf, '\n')) = '\0';  // Get rid of the \n at the end
     fprintf(pFile, "%s,", buf);
 
-    std::vector<DataPointPair>::const_iterator pos;
+    std::vector<fpi::DataPointPair>::const_iterator pos;
 
     fprintf(pFile, "[");
     for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos) {

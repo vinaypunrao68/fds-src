@@ -245,7 +245,7 @@ DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::StatStreamDeregistrationRspMsg resp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamDeregistrationRspMsg), resp);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::StatStreamDeregistrationRspMsg), resp);
 }
 
 void

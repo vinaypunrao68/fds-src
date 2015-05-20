@@ -16,7 +16,6 @@
 #include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
-#include <OMgrClient.h>
 
 namespace fds {
 
@@ -262,7 +261,6 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // tell migration mgr to start object rebalance
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
-    fds_verify(dlt != NULL);
 
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
     if (objStorMgr->objectStore->isUnavailable()) {

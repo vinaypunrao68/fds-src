@@ -20,7 +20,6 @@
 #include "requests/requests.h"
 #include <net/MockSvcHandler.h>
 #include <AmDispatcherMocks.hpp>
-#include "lib/OMgrClient.h"
 #include "lib/StatsCollector.h"
 #include "TypeIdMap.h"
 

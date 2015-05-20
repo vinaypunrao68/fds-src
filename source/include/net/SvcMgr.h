@@ -89,6 +89,8 @@ typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
 typedef TableColumn DmtColumn;
 typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
 using OmDltUpdateRespCbType = std::function<void (const Error&)> ;
+// Callback for DMT close
+typedef std::function<void(Error &err)> DmtCloseCb;
 
 /*--------------- Floating functions --------------*/
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info);

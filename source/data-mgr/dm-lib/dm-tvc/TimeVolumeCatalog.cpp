@@ -251,7 +251,7 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     // 3. whether to do it in background/ foreground thread
 
     // Create message
-    fpi::AddObjectRefMsgPtr addObjReq(new AddObjectRefMsg());
+    fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
     addObjReq->srcVolId = srcVolId;
     addObjReq->destVolId = destVolId;
     addObjReq->objIds = *objIds;
