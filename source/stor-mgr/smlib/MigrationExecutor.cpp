@@ -342,6 +342,12 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
             LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
                        << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         }
+
+        // TODO(Gurpreet): Add proper error code during integration of
+        // failure handling for migration.
+        if (fiu_do_on("fail.sm.migration.sending.filter.set")) {
+            return ERR_SM_TOK_MIGRATION_ABORTED;
+        }
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -607,6 +613,13 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     async2RebalSetReq->setTimeoutMs(5000);
     async2RebalSetReq->invoke();
 
+
+    // TODO(Gurpreet): Add proper error code during integration of
+    // failure handling for migration.
+    if (fiu_do_on("fail.sm.migration.second.rebalance.req")) {
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     return err;
 }
 
@@ -623,6 +636,12 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                  << std::hex << executorId << std::dec << " " << error
                  << " since Migration Executor is in " << getState() << " state";
         return;
+    }
+
+    // TODO(Gurpreet): Add proper error code during integration of
+    // failure handling for migration.
+    if (fiu_do_on("fail.sm.migration.second.rebalance.resp")) {
+        return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
     // here we just check for errors
