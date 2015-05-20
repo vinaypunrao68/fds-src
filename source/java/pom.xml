@@ -28,11 +28,14 @@
             <name>ObjectDB Repository</name>
             <url>http://m2.objectdb.com</url>
         </repository>
-        <repository>
+        <!-- repository>
             <id>SNMP4j</id>
             <name>SNMP4j Repository</name>
             <url>https://oosnmp.net/dist/release</url>
-        </repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository -->
     </repositories>
     <dependencies>
         <!-- JPA providers -->
@@ -51,10 +54,15 @@
             <artifactId>jedis</artifactId>
             <version>2.6.0</version>
         </dependency>
-        <dependency>
+        <!-- dependency>
             <groupId>org.snmp4j</groupId>
             <artifactId>snmp4j</artifactId>
             <version>${snmp4j.version}</version>
+        </dependency -->
+        <dependency>
+            <groupId>org.apache.servicemix.bundles</groupId>
+            <artifactId>org.apache.servicemix.bundles.snmp4j</artifactId>
+            <version>2.3.3_1</version>
         </dependency>
         <dependency>
             <groupId>fds</groupId>
