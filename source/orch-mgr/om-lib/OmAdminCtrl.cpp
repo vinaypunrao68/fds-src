@@ -12,8 +12,8 @@
 
 namespace fds {
 
-FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log)
-        : parent_log(om_log), num_nodes(0) {
+FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix)
+        : num_nodes(0) {
     /* init the disk  resource  variable */
     initDiskCapabilities();
 }

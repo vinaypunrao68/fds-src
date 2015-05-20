@@ -97,7 +97,6 @@ namespace fds {
   public:
 
     FdsObjectCache(fds_uint64_t cache_size, // Max size of the cache, across all volumes
-		   int slab_allocator_type, // Should pick one of our predefined slab allocators.
 		   int eviction_policy, // LRU etc .. Default policy for now will be LRU
 		   fds_log *parent_log);
     ~FdsObjectCache();
@@ -156,7 +155,6 @@ namespace fds {
 
    private:
 
-    int slab_allocator_type;
     int cache_eviction_policy;
     fds_uint64_t max_cache_size;
     fds_log *oc_log;
@@ -168,7 +166,6 @@ namespace fds {
     fds_rwlock volmap_rwlock; // protects the volume map
                               // against volume create/delete events.
 
-    void *lru_data; // TBD, a calendar queue probably. Priority queues are very space-intensive for large number of objects.
     ObjCacheBufPtrType object_remove(fds_volid_t vol_id, ObjectID objId, bool ignore_in_progress);
 
   };

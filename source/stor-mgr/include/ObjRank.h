@@ -253,8 +253,6 @@ class ObjectRankEngine {
 
      /* True if ranking process is enabled */
      std::atomic<fds_bool_t> rankingEnabled;
-     /* for now one thread doing ranking process */
-     boost::thread *rank_thread;
      fds_notification* rank_notify;
 
      /* does not own, passed to the constructor */

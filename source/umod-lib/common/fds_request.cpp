@@ -9,8 +9,8 @@ namespace fdsio {
 // \RequestQueue
 // -------------
 //
-RequestQueue::RequestQueue(int nr_queue, int max_depth)
-    : rq_nr_queue(nr_queue), rq_max_depth(max_depth), rq_mutex("req queue")
+RequestQueue::RequestQueue(int const nr_queue)
+    : rq_nr_queue(nr_queue), rq_mutex("req queue")
 {
     rq_lists = new fds::ChainList [nr_queue];
 }

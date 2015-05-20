@@ -225,7 +225,7 @@ namespace fds {
 
   private:
    void setQueueThrottleLevel(TBQueueState* qstate, float throttle_level);
-   void setQueueThrottleLevel(TBQueueState* qstate, fds_uint32_t tlevel_x, double tlevel_frac);
+   void setQueueThrottleLevel(TBQueueState* qstate, fds_int32_t tlevel_x, double tlevel_frac);
 
   private:
     /****** configurable parameters *****/

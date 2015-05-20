@@ -262,9 +262,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     /// to count number of ops completed
     std::atomic<fds_uint32_t> opsDone;
 
-    /// total latency observed by each thread
-    std::atomic<fds_uint64_t> avgLatencyTotal;
-
     /// Latency for async ops
     fds_uint64_t asyncStartNano;
     fds_uint64_t asyncStopNano;

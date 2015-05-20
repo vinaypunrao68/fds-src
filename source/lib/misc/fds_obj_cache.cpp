@@ -24,12 +24,10 @@ namespace fds{
   }
 
   FdsObjectCache::FdsObjectCache(fds_uint64_t cache_size, // Max size of the cache, across all volumes
-				 int slab_allocator_type, // Should pick one of our predefined slab allocators.
 				 int eviction_policy, // LRU etc .. Default policy for now will be LRU
 				 fds_log *parent_log)
   : vol_cache_map(),
       max_cache_size(cache_size),
-      slab_allocator_type(slab_allocator_type),
       cache_eviction_policy(eviction_policy),
       oc_log(parent_log),
       volmap_rwlock()
@@ -38,7 +36,6 @@ namespace fds{
     slab_allocator = new simple_object_allocator();
     plcy_mgr = new lru_policy_mgr(this);
     FDS_PLOG(oc_log) << "Cache initialized with a maximum size of " << max_cache_size
-		     << ", slab allocator - " << slab_allocator_type
 		     << ", and eviction policy - " << cache_eviction_policy;
   }
 
