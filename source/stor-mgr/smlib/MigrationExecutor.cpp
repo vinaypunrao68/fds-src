@@ -365,6 +365,14 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
              << std::hex << executorId << std::dec << " DLT token " << dltToken
              << " " << error;
 
+    if (inErrorState()) {
+        LOGDEBUG << "Ignoring CtrlObjectRebalanceFilterSet response for executor "
+                 << std::hex << executorId << std::dec << " DLT token " << dltToken
+                 << " " << error << " since Migration Executor is in " << getState()
+                 << " state";
+        return;
+    }
+
     // here we just check for errors
     if (!error.ok()) {
         switch (error.GetErrno()) {
@@ -514,12 +522,11 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
     // if we are in error state, do not do anything anymore...
     MigrationExecutorState curState = atomic_load(&state);
-    if (curState == ME_ERROR) {
+    if (inErrorState()) {
         LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
-
         return;
     }
 
@@ -530,7 +537,6 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
-
         return;
     }
 
@@ -551,7 +557,6 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
-
         return;
     }
 
@@ -606,6 +611,14 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 {
     LOGDEBUG << "Received second rebalance delta response for executor "
              << std::hex << executorId << std::dec << " " << error;
+
+    if (inErrorState()) {
+        LOGDEBUG << "Ignoring CtrlGetSecondRebalanceDeltaSet response for executor "
+                 << std::hex << executorId << std::dec << " " << error
+                 << " since Migration Executor is in " << getState() << " state";
+        return;
+    }
+
     // here we just check for errors
     if (!error.ok()) {
         handleMigrationRoundDone(error);
