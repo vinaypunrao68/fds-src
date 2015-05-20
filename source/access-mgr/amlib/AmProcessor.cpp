@@ -1008,7 +1008,7 @@ AmProcessor_impl::statBlobCb(AmRequest *amReq, const Error& error) {
     respond(amReq, error);
 
     // Insert metadata into cache.
-    if (ERR_OK == error) {
+    if (ERR_OK == error && haveCacheToken(getVolume(amReq, true))) {
         txMgr->putBlobDescriptor(amReq->io_vol_id,
                                    amReq->getBlobName(),
                                    SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
