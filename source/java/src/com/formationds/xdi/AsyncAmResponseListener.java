@@ -13,9 +13,7 @@ import org.apache.thrift.TException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -23,14 +21,16 @@ import java.util.concurrent.TimeUnit;
 public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     private static final Logger LOG = Logger.getLogger(AsyncAmResponseListener.class);
     private Cache<String, CompletableFuture> pending;
-
+    private ExecutorService executor;
+    
     public AsyncAmResponseListener(long timeout, TimeUnit timeUnit) {
+        executor = Executors.newCachedThreadPool();
         this.pending = CacheBuilder.newBuilder()
                 .removalListener(notification -> {
                     if (notification.getCause().equals(RemovalCause.EXPIRED)) {
                         CompletableFuture cf = (CompletableFuture) notification.getValue();
                         if (!cf.isDone()) {
-                            ForkJoinPool.commonPool().execute(
+                            executor.execute(
                                     () -> cf.completeExceptionally(new ApiException("Request timed out", ErrorCode.INTERNAL_SERVER_ERROR)));
                         }
                     }
@@ -57,16 +57,6 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
         CompletableFuture<T> cf = new CompletableFuture<T>();
         pending.put(requestId.getId(), cf);
         return cf;
-    }
-
-    private <T> void complete(RequestId requestId, T tee) {
-        CompletableFuture cf = pending.getIfPresent(requestId.getId());
-        if (cf == null) {
-            LOG.error("RequestId " + requestId.getId() + " had no pending requests");
-            return;
-        }
-        ForkJoinPool.commonPool().execute(() -> cf.complete(tee));
-        pending.invalidate(requestId.getId());
     }
 
     @Override
@@ -157,7 +147,17 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
             return;
         }
         pending.invalidate(requestId.getId());
-        ForkJoinPool.commonPool().execute(() -> cf.completeExceptionally(new ApiException(s, errorCode)));
+        executor.execute(() -> cf.completeExceptionally(new ApiException(s, errorCode)));
+    }
+
+    private <T> void complete(RequestId requestId, T tee) {
+        CompletableFuture cf = pending.getIfPresent(requestId.getId());
+        if (cf == null) {
+            LOG.error("RequestId " + requestId.getId() + " had no pending requests");
+            return;
+        }
+        executor.execute(() -> cf.complete(tee));
+        pending.invalidate(requestId.getId());
     }
 
     public void expireOldEntries() {
