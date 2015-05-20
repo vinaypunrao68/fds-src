@@ -276,10 +276,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      always_call
      getTokenLock(fds_token_id const& id, bool exclusive = false);
 
-     Error getObjectInternal(SmIoGetObjectReq *getReq);
-     Error putObjectInternal(SmIoPutObjectReq* putReq);
-     Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
-     Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
+     void getObjectInternal(SmIoGetObjectReq *getReq);
+     void putObjectInternal(SmIoPutObjectReq* putReq);
+     void deleteObjectInternal(SmIoDeleteObjectReq* delReq);
+     void addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
      void snapshotTokenInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
@@ -293,7 +293,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void storeCurrentDLT();
 
-     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
+     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq) override;
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();

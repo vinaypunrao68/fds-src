@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
@@ -360,7 +362,7 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory(0);
+        XdiClientFactory xdiCf = new XdiClientFactory();
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 

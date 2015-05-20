@@ -97,4 +97,14 @@ public class FakeAsyncAm implements AsyncAm {
     public CompletableFuture<VolumeStatus> volumeStatus(String domainName, String volumeName) {
         return CompletableFuture.completedFuture(new VolumeStatus(0, 0));
     }
+
+    @Override
+    public CompletableFuture<Void> setVolumeMetadata(String domainName, String volumeName, Map<String, String> metadata) {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Map<String, String>> getVolumeMetadata(String domainName, String volumeName) {
+        return CompletableFuture.completedFuture(new HashMap<>());
+    }
 }

@@ -33,7 +33,7 @@ DataIndexModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
 
-    sgt_oidProxy = new DataIndexProxy(1000);
+    sgt_oidProxy = new DataIndexProxy();
     return 0;
 }
 
@@ -51,8 +51,8 @@ DataIndexModule::mod_shutdown()
 // \DataIndexProxy
 // ---------------
 //
-DataIndexProxy::DataIndexProxy(int max_depth)
-    : idx_queue(1, max_depth)
+DataIndexProxy::DataIndexProxy()
+    : idx_queue(1)
 {
 }
 
@@ -190,7 +190,7 @@ DataIndexProxy::disk_index_dec_ref(IndexRequest *req)
 // \DataIndexLDb
 // -------------
 //
-DataIndexLDb::DataIndexLDb(const char *base) : idx_queue(2, 1000)
+DataIndexLDb::DataIndexLDb(const char *base) : idx_queue(2)
 {
 }
 

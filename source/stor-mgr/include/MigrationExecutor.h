@@ -84,6 +84,15 @@ class MigrationExecutor {
         std::atomic_store(&state, newState);
     }
 
+    inline bool inErrorState() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (curState == ME_ERROR || curState == ME_DONE_WITH_ERROR) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     /**
      * Adds DLT token to the list of DLT tokens for which this
      * MigrationExecutor is responsible for

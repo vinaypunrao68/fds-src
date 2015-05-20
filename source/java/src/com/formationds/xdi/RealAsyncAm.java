@@ -189,4 +189,18 @@ public class RealAsyncAm implements AsyncAm {
             oneWayAm.volumeStatus(rid, domainName, volumeName);
         });
     }
+
+    @Override
+    public CompletableFuture<Map<String, String>> getVolumeMetadata(String domainName, String volumeName) {
+        return scheduleAsync(rid -> {
+            oneWayAm.getVolumeMetadata(rid, domainName, volumeName);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> setVolumeMetadata(String domainName, String volumeName, Map<String, String> metadata) {
+        return scheduleAsync(rid -> {
+            oneWayAm.setVolumeMetadata(rid, domainName, volumeName, metadata);
+        });
+    }
 }

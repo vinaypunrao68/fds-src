@@ -11,7 +11,7 @@ activate_local_domain_post_body_json: "{{ activate_local_domain_post_body | to_j
 
 activate_node_services_post_body:
     am: "true"
-    dm: "true"
+    dm: "false"
     sm: "true"
 
 activate_node_services_post_body_json: "{{ activate_node_services_post_body | to_json }}"

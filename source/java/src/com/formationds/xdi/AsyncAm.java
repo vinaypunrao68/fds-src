@@ -44,4 +44,8 @@ public interface AsyncAm {
     CompletableFuture<Void> deleteBlob(String domainName, String volumeName, String blobName);
 
     CompletableFuture<VolumeStatus> volumeStatus(String domainName, String volumeName);
+
+    CompletableFuture<Void> setVolumeMetadata(String domainName, String volumeName, Map<String, String> metadata);
+
+    CompletableFuture<Map<String, String>> getVolumeMetadata(String domainName, String volumeName);
 }
