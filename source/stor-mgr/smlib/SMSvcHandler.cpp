@@ -184,23 +184,6 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << "Received Abort Migration, will revert to previously "
              << " commited DLT version " << abortMsg->DLT_version;
 
-#if 0
-    // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration();
-
-    // revert to DLT version provided in abort message
-    if (abortMsg->DLT_version > 0) {
-        // will ignore error from setCurrent -- if this SM does not know
-        // about DLT with given version, then it did not have a DLT previously..
-        objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
-    }
-
-    // send response
-    fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
-    msg->DLT_version = abortMsg->DLT_version;
-    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), *msg);
-#endif
     auto abortMigrationReq = new SmIoAbortMigration(abortMsg);
     abortMigrationReq->io_type = FDS_SM_MIGRATION_ABORT;
     abortMigrationReq->abortMigrationDLTVersion = abortMsg->DLT_version;
@@ -1083,48 +1066,6 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
         sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         return;
     }
-#if 0
-
-    // Store the current DLT to the presistent storage to be used
-    // by offline smcheck.
-    objStorMgr->storeCurrentDLT();
-
-    // tell superblock that DLT is closed, so that it will invalidate
-    // appropriate SM tokens -- however, it is possible that this SM
-    // got DLT update and close for the DLT version this SM does not belong
-    // to, that should only happen on initial start; but for not notifying
-    // superblock about DLT this SM does not belong to
-    if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
-    }
-
-    // re-enable GC and Tier Migration
-    // If this SM did not receive start migration or rebalance
-    // message and GC and TierMigration were not disabled, this operation
-    // will be a noop
-    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
-                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
-    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
-    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
-
-    // Update the DLT information for the SM checker when migration
-    // is complete.
-    // Strangely, compilation has some issues when trying to acquire the latest
-    // DLT in the SMCheckOnline class.  So, decided to update the DLT
-    // here.
-    // TODO(Sean):  This is a bit of a hack.  Access to DLT from SMCheck is
-    //              causing compilation issues, so make couple layers of
-    //              indirect call to update the
-    objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
-
-    // notify token migration manager
-    err = objStorMgr->migrationMgr->handleDltClose();
-
-    // send response
-    asyncHdr->msg_code = err.GetErrno();
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-#endif
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
@@ -1148,7 +1089,7 @@ SMSvcHandler::NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                SmIoNotifyDLTClose *DLTCloseReq)
 
 {
-    LOGDEBUG << "XXX: NotifyDLTCloseCB called with DLTversion="
+    LOGDEBUG << "NotifyDLTCloseCB called with DLTversion="
              << DLTCloseReq->closeDLTVersion;
 
     // send response

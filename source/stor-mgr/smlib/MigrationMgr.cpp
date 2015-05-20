@@ -15,7 +15,8 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
-          numBitsPerDltToken(0)
+          numBitsPerDltToken(0),
+          migrationTimer(new FdsTimer())
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
@@ -34,6 +35,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
 
 MigrationMgr::~MigrationMgr() {
     mTimer.destroy();
+    migrationTimer->destroy();
 }
 
 /**

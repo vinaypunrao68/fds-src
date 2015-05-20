@@ -12,7 +12,6 @@
 #include <fds_process.h>
 #include <MigrationUtility.h>
 
-
 namespace fds {
 
 static const std::string logname = "sm_seqnum";
@@ -163,9 +162,8 @@ TEST(MigrationSeqNum, Sequence8)
 }
 
 void
-randomSequenceTest()
+randomSequenceTest(MigrationSeqNum& seqTest)
 {
-    MigrationSeqNum seqTest;
     bool completed = false;
     const int maxSeq = 50;
     std::array<int, maxSeq + 1> seqArr;
@@ -203,156 +201,194 @@ randomSequenceTest()
 TEST(MigrationSeqNum, RandomSequence9)
 {
     for (int testIter = 0; testIter < 99; testIter++) {
-        randomSequenceTest();
+        MigrationSeqNum seqTest;
+        randomSequenceTest(seqTest);
+        seqTest.resetSeqNum();
+        randomSequenceTest(seqTest);
     }
 }
 
-TEST(MigrationDoubleSeqNum, Sequence101)
-{
-    MigrationDoubleSeqNum seqTest;
-    bool completed = false;
-    uint64_t maxSize1 = 5;
-    uint64_t maxSize2 = 2;
+class testTimeout {
+  public:
+    explicit testTimeout(int id_) {
+        id = id_;
+        count = 0;
+    };
+    ~testTimeout() {};
+    void timeoutHandler()
+    {
+        ++count;
+    };
+    uint32_t getCount() {
+        return count;
+    };
 
-    for (uint64_t seqNum1 = 0; seqNum1 <= maxSize1; ++seqNum1) {
-        for (uint64_t seqNum2 = 0; seqNum2  <= maxSize2; ++seqNum2) {
-            completed = seqTest.setDoubleSeqNum(seqNum1,
-                                                (maxSize1 == seqNum1) ? true : false,
-                                                seqNum2,
-                                                (maxSize2 == seqNum2) ? true : false);
+  private:
+    uint32_t id;
+    uint32_t count;
+    Error error;
+};
 
-            if ((seqNum1 == maxSize1) && (seqNum2 == maxSize2)) {
-                EXPECT_TRUE(completed);
-            } else {
-                EXPECT_FALSE(completed);
-            }
-        }
-    }
-}
-
-TEST(MigrationDoubleSeqNum, Sequence102)
-{
-    MigrationDoubleSeqNum seqTest;
-    bool completed = false;
-    uint64_t maxSize1 = 5;
-    uint64_t maxSize2 = 2;
-    uint64_t seqNum1 = maxSize1;
-    uint64_t seqNum2 = maxSize2;
-
-    for (uint64_t i = 0; i <= maxSize1; ++i, --seqNum1) {
-        for (uint64_t j = 0; j <= maxSize2; ++j, --seqNum2) {
-            completed = seqTest.setDoubleSeqNum(seqNum1,
-                                                (maxSize1 == seqNum1) ? true : false,
-                                                seqNum2,
-                                                (maxSize2 == seqNum2) ? true : false);
-
-            if ((seqNum1 == 0) && (seqNum2 == 0)) {
-                EXPECT_TRUE(completed);
-                break;
-            } else {
-                EXPECT_FALSE(completed);
-            }
-        }
-        seqNum2 = maxSize2;
-    }
-}
-
+bool stopTestThread = false;
 
 void
-randomDoubleSequenceTest()
+thrSeqIncrementForever(MigrationSeqNum &seqNum)
 {
-    MigrationDoubleSeqNum seqTest;
-    bool completed = false;
-    const int maxSeq = 50;
-    int totalSeqNums = 0;
-    std::array<int, maxSeq + 1> seqArr1;
-    std::array<int, maxSeq + 1> seqArr2;
-    for (int i = 0; i <= maxSeq; ++i) {
-        seqArr1[i] = i;
-        seqArr2[i] = i;
-    }
-
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    shuffle(seqArr1.begin(), seqArr1.end(), std::default_random_engine(seed));
-    /* use different seed to shuffle second sequence */
-    shuffle(seqArr2.begin(), seqArr2.end(), std::default_random_engine(seed ^ 0xffffffff));
-
-#ifdef VERBOSE_OUTPUT
-    std::cout << "Sequence Arr1: ";
-    for (int& x : seqArr1) {
-        std::cout << ' ' << x;
-    }
-    std::cout << '\n';
-
-    std::cout << "Sequence Arr2: ";
-    for (int& x : seqArr2) {
-        std::cout << ' ' << x;
-    }
-    std::cout << '\n';
-#endif  // VERBOSE_OUTPUT
-
-    for (int& seqNum1 : seqArr1) {
-        for (int& seqNum2 : seqArr2) {
-            completed = seqTest.setDoubleSeqNum(seqNum1,
-                                                (maxSeq == seqNum1) ? true : false,
-                                                seqNum2,
-                                                (maxSeq == seqNum2) ? true : false);
-            // std::cout << "completed=" << completed << std::endl;
-            if (++totalSeqNums < (maxSeq + 1) * (maxSeq + 1)) {
-                EXPECT_FALSE(completed);
-            } else {
-                EXPECT_TRUE(completed);
-            }
-        }
-    }
-    EXPECT_TRUE(completed);
-
-}
-
-TEST(MigrationDoubleSeqNum, RandomDoubleSequence)
-{
-    for (int testIter = 0; testIter < 99; testIter++) {
-        randomDoubleSequenceTest();
+    uint64_t num = 0;
+    while (!stopTestThread) {
+        std::cout << "num=" << num << std::endl;
+        seqNum.setSeqNum(num, false);
+        // Sleep a bit before the next iteration.
+        sleep(1);
+        ++num;
     }
 }
 
 void
-thrStartReqs(MigrationTrackIOReqs& migTrackReqs, uint32_t numReqs)
+thrSeqIncrementMax(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
 {
-    for (uint32_t i = 0; i < numReqs; ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        bool ret = migTrackReqs.startTrackIOReqs();
-        if (ret) {
-            migTrackReqs.finishTrackIOReqs();
+    uint64_t num = 0;
+    while (maxLoop > 0) {
+        --maxLoop;
+        if ((0 == maxLoop) && setLastSeq) {
+            std::cout << "num=" << num << std::endl;
+            seqNum.setSeqNum(num, true);
+            seqNum.stopProgressCheck();
+            break;
+        } else {
+            std::cout << "num=" << num << std::endl;
+            seqNum.setSeqNum(num, false);
         }
+        // Sleep a bit before the next iteration.
+        sleep(1);
+        ++num;
     }
 }
 
-
-void
-thrWaitCompleteReqs(MigrationTrackIOReqs& migTrackReqs)
+//
+// Setup two sequence number with common timer.
+// Two thread updating respective sequence number object.
+// At the end of the test, when the progress check is stopped with the
+// sequence number progressing, the timeout count should be 0.
+//
+TEST(MigrationSeqNum, seqNumTimeout1)
 {
-    int duration = (rand() % 2) + 1;  // 1 or 2 secs
-    sleep(duration);
-    migTrackReqs.waitForTrackIOReqs();
+    stopTestThread = false;
+
+    FdsTimerPtr timer(new FdsTimer());
+
+    testTimeout to1(111);
+    MigrationSeqNum seqTest1(timer, 2, std::bind(&testTimeout::timeoutHandler, &to1));
+    seqTest1.startProgressCheck();
+
+    testTimeout to2(999);
+    MigrationSeqNum seqTest2(timer, 3, std::bind(&testTimeout::timeoutHandler, &to2));
+    seqTest2.startProgressCheck();
+
+    std::thread thr1(thrSeqIncrementForever, std::ref(seqTest1));
+    std::thread thr2(thrSeqIncrementForever, std::ref(seqTest2));
+
+    // Do not remove.
+    // Let it run for 10 seconds.
+    sleep(10);
+
+    // Stop progress check for all sequences.
+    seqTest1.stopProgressCheck();
+    seqTest2.stopProgressCheck();
+
+    stopTestThread = true;
+
+    thr1.join();
+    thr2.join();
+
+    ASSERT_EQ(0, to1.getCount());
+    ASSERT_EQ(0, to2.getCount());
+
+    timer.reset();
+    stopTestThread = false;
+}
+
+//
+// This test sets up a timer to monitor the progress of the sequence number.
+// And another thread increments the sequence number for a while and terminates.
+// The progress monitor should catch that the increment haven't moved for a while
+// and increment timeout count to exactly 1.
+TEST(MigrationSeqNum, seqNumTimeout2)
+{
+    stopTestThread = false;
+
+    FdsTimerPtr timer(new FdsTimer());
+
+    testTimeout to(111);
+    MigrationSeqNum seqTest(timer, 3, std::bind(&testTimeout::timeoutHandler, &to));
+    seqTest.startProgressCheck();
+
+    std::thread thr(thrSeqIncrementForever, std::ref(seqTest));
+
+    // Do not remove.
+    // Let it run for 10 seconds.
+    sleep(10);
+
+    stopTestThread = true;
+    thr.join();
+
+    // Sleep for a while, so the checker will trigger timeout
+    sleep(10);
+    seqTest.stopProgressCheck();
+
+    // Since the sequence progress checker is still running, and the thread
+    // that's incrementing the sequence is already terminated, the
+    // timeout routine should've fired once.
+    ASSERT_EQ(1, to.getCount());
+
+    timer.reset();
+    stopTestThread = false;
 }
 
 
-TEST(MigrationTrackIOReqs, trackIOReqs1)
+TEST(MigrationSeqNum, seqNumTimeout3)
 {
-    const uint32_t numReqs = 100;
-    MigrationTrackIOReqs pendReqs;
+    stopTestThread = false;
+    uint64_t maxSeq = 20;
+    FdsTimerPtr timer(new FdsTimer());
 
-    pendReqs.startTrackIOReqs();
+    testTimeout to(111);
+    MigrationSeqNum seqTest(timer, 3, std::bind(&testTimeout::timeoutHandler, &to));
+    seqTest.startProgressCheck();
 
-    std::thread t1(thrStartReqs, std::ref(pendReqs), numReqs);
-    std::thread t3(thrWaitCompleteReqs, std::ref(pendReqs));
+    std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxSeq, true);
 
-    t1.join();
+    thr.join();
 
-    pendReqs.finishTrackIOReqs();
-    t3.join();
+    ASSERT_EQ(0, to.getCount());
+
+    stopTestThread = false;
 }
+
+TEST(MigrationSeqNum, seqNumTimeout4)
+{
+    stopTestThread = false;
+    uint64_t maxSeq = 20;
+    FdsTimerPtr timer(new FdsTimer());
+
+    testTimeout to(111);
+    MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
+    seqTest.startProgressCheck();
+
+    std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxSeq, false);
+
+    thr.join();
+
+    // Do not remove.
+    // Sleep is necessary in this test.  This tests timeout after certain time.
+    sleep(5);
+
+    ASSERT_EQ(1, to.getCount());
+
+    stopTestThread = false;
+}
+
+
 
 }  // namespace fds
 

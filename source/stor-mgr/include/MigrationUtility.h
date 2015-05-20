@@ -6,9 +6,12 @@
 #define SOURCE_STOR_MGR_INCLUDE_MIGRATIONUTILITY_H_
 
 #include <mutex>
+#include <chrono>
 #include <condition_variable>
 #include <set>
 #include <iostream>
+
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -17,17 +20,38 @@ class MigrationSeqNum {
     typedef std::shared_ptr<MigrationSeqNum> ptr;
 
     MigrationSeqNum();
+
+    /* Constructor with progress checker (timeout interval)
+     */
+    MigrationSeqNum(FdsTimerPtr& timer,
+                    uint32_t interval,  // in sec
+                    const std::function<void()> &func);
+
     ~MigrationSeqNum();
 
     /* interface to set the sequence number.
      */
     bool setSeqNum(uint64_t _seqNum, bool _lastSeqNum);
 
+    /* interface to get current sequence number.
+     */
+    uint64_t getSeqNum();
+
     /* Simple boolean to determine if the sequence is complete or not.
      */
     bool isSeqNumComplete();
 
+    /* Reset the sequence number to start from 0.
+     */
     void resetSeqNum();
+
+    /* Start the progress check on the sequence
+     */
+    bool startProgressCheck();
+
+    /* Stop the progress check on the sequence.
+     */
+    bool stopProgressCheck();
 
     /* ostream */
     friend
@@ -65,12 +89,51 @@ class MigrationSeqNum {
      * list of sequence numbers so far has been received in out of order.
      */
     std::set<uint64_t> seqNumList;
+
+    /**
+     * Frequency to check if the sequence number is progressing forward.
+     * If the sequence number has not moved during this interval, then
+     * call the timeout handler registered with this sequence checker.
+     */
+    uint32_t seqNumTimerInterval;  // in secs
+
+    /**
+     * Timer object used to schedule progress checker.  Passed in
+     * as an arg to constructor.
+     */
+    FdsTimerPtr seqNumTimer;
+
+    /**
+     * Task object for the progress checker.  Allocated when the
+     * start progress check is requested.
+     */
+    FdsTimerTaskPtr seqNumTimerTask;
+
+    /**
+     * monotonic time to record last time the sequence number of set/updated
+     */
+    std::chrono::steady_clock::time_point lastSetTime;
+
+    /**
+     * If the progress is halted, then invoke the timeout handler.
+     */
+    std::function<void()> seqNumTimeoutHandler;
+
+    /**
+     * Internal routine to check the progress.  If the progress is not made
+     * during the interval, then the seqNumTimeoutHandler is called.
+     */
+    void checkProgress();
+
 };  // class MigrationSeqNum
 
 
 class MigrationDoubleSeqNum {
   public:
     MigrationDoubleSeqNum();
+    MigrationDoubleSeqNum(FdsTimerPtr& timer,
+                          uint32_t interval,  // in sec
+                          const std::function<void()> &func);
     ~MigrationDoubleSeqNum();
 
     /* interface to set the sequence number.
@@ -82,7 +145,17 @@ class MigrationDoubleSeqNum {
      */
     bool isDoubleSeqNumComplete();
 
+    /* Reset the double sequence.
+     */
     void resetDoubleSeqNum();
+
+    /* Start the progress check on the sequence
+     */
+    bool startProgressCheck();
+
+    /* Stop the progress check on the sequence.
+     */
+    bool stopProgressCheck();
 
     /* ostream */
     friend
@@ -101,7 +174,26 @@ class MigrationDoubleSeqNum {
     bool completeSeqNum1;
     std::map<uint64_t, MigrationSeqNum::ptr> mapSeqNum2;
 
-    // std::map<uint64_t, std::set<uint64_t>> seqNumMap;
+    /** Progress check.
+     */
+    // Interval frequency to check for progress.
+    uint32_t seqNumTimerInterval;  // in secs
+
+    // Timer object.  Passed into the constructor.
+    FdsTimerPtr seqNumTimer;
+
+    // TimeTask.  Created when the progress is tracked.
+    FdsTimerTaskPtr seqNumTimerTask;
+
+    // monotonic time to record last time the sequence number of set/updated
+    std::chrono::steady_clock::time_point lastSetTime;
+
+    // timeout routine, if the progress is not made during the specified interval.
+    std::function<void()> seqNumTimeoutHandler;
+
+    // internal routine to check the progress.  invoked at specified interval.
+    void checkProgress();
+
 };  // MigrationSeqNumChoppped
 
 

@@ -1008,7 +1008,7 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "XXX: migrationAbort";
+    LOGDEBUG << "Abort Migration request";
 
     // tell migration mgr to abort migration
     err = objStorMgr->migrationMgr->abortMigration();
@@ -1037,7 +1037,7 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
     SmIoNotifyDLTClose *closeDLTReq = static_cast<SmIoNotifyDLTClose *>(ioReq);
     fds_verify(closeDLTReq != NULL);
 
-    LOGDEBUG << "XXX: executing dlt close";
+    LOGDEBUG << "Executing DLT close request";
 
 
     // Store the current DLT to the presistent storage to be used
@@ -1226,13 +1226,11 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_MIGRATION_ABORT:
         {
-            LOGDEBUG << "XXX: MIGRATION ABORT";
             threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
             break;
         }
         case FDS_SM_NOTIFY_DLT_CLOSE:
         {
-            LOGDEBUG << "XXX: NOTIFY DLT CLOSE";
             threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
             break;
         }

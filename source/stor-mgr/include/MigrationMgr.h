@@ -332,6 +332,11 @@ class MigrationMgr {
      */
     SmIoSnapshotObjectDB snapshotRequest;
 
+    /**
+     * Timer to detect if there is no activities on the Executors.
+     */
+    FdsTimerPtr migrationTimer;
+
     /// SM token id -> [ source SM -> MigrationExecutor ]
     //
     /// so far we don't need a lock for the migrExecutors, because the actions
@@ -364,6 +369,7 @@ class MigrationMgr {
      */
      FdsTimer mTimer;
 };
+
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
