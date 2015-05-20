@@ -291,7 +291,7 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
     }
 }
 
-//get source node for a given token id assigned to destination node
+//get source node for a given dlt token assigned to destination node
 NodeUuid DLT::getSourceNodeForToken(const NodeUuid &nodeUuid,
                                     const fds_token_id &tokenId) const {
     DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
@@ -317,6 +317,52 @@ void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
          tokenIter++) {
         srcNodeTokenMap[getSourceNodeForToken(nodeUuid, *tokenIter)].push_back(*tokenIter);
     }
+}
+
+/**
+ * Returns a map of new source SMs for a given set of dlt tokens.
+ * For every retry, this method will return a different
+ * source SM per token. Caller should make sure that it is
+ * not retrying more than N-1 times for token stored with replica
+ * count as N.
+ */
+NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
+                                  std::vector<fds_token_id>& dltTokens,
+                                  const uint8_t& retryCount,
+                                  std::map<NodeUuid, bool>& failedSMs) {
+    NodeTokenMap newTokenGroups;
+    /**
+     * Go over the table column for the token in DLT table and figure
+     * out the next replica SM which will act as source for migration of
+     * this token.
+     */
+    for (std::vector<fds_token_id>::iterator tokenIter = dltTokens.begin();
+         tokenIter != dltTokens.end(); tokenIter++) {
+        bool foundSrcSM = false;
+        uint8_t curSrcIdx = getIndex(*tokenIter, curSrcSM);
+        uint8_t newSrcIdx = (curSrcIdx + retryCount) % getDepth();
+
+        while (!foundSrcSM && newSrcIdx != curSrcIdx) {
+            NodeUuid newSrcSmId = getNode(*tokenIter, newSrcIdx);
+            if (failedSMs.find(newSrcSmId) == failedSMs.end()) {
+                // Found a healthy source for migration of this dlt token.
+                newTokenGroups[newSrcSmId].push_back(*tokenIter);
+                foundSrcSM = true;
+            } else {
+                ++newSrcIdx %= getDepth();
+            }
+        }
+        /**
+         * Cannot find a healthy source SM for migration of this dlt token
+         * since all replicas holding data for this dlt token are reported
+         * as failed.
+         */
+        if (!foundSrcSM) {
+            newTokenGroups[INVALID_RESOURCE_UUID].push_back(*tokenIter);
+        }
+    }
+
+    return newTokenGroups;
 }
 
 void DLT::dump() const {
