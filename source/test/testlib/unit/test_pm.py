@@ -11,8 +11,8 @@ class TestPM(unittest.TestCase):
 	format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
-    pm_obj = PM.pm_service()
-    node_ip = '10.3.100.8'
+    pm_obj = PM.PMService()
+    node_ip = '10.3.54.56'
 
     def test_start(self):
         self.log.info(TestPM.test_start.__name__)
@@ -21,6 +21,10 @@ class TestPM(unittest.TestCase):
     def test_stop(self):
         self.log.info(TestPM.test_stop.__name__)
         self.assertTrue(self.pm_obj.stop('{}'.format(self.node_ip)), True)
+                
+    def test_kill(self):
+        self.log.info(TestPM.test_kill.__name__)
+        self.assertTrue(self.pm_obj.kill('{}'.format(self.node_ip)), True)
                 
 
 if __name__ == '__main__':

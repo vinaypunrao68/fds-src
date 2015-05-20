@@ -26,7 +26,6 @@ from fds.model.domain import Domain
 sys.path.insert(0, '../../scale-framework')
 import config
 
-#Need to get this from config.py file
 env.user=config.SSH_USER
 env.password=config.SSH_PASSWORD
 
@@ -34,16 +33,14 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class pm_service(object):
+class PMService(object):
 
     def __init__(self):
-        self.fds_log = '/tmp'
         fdsauth = FdsAuth()
         fdsauth.login()
         self.nservice = NodeService(fdsauth)
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
-	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
         om_ip = config.FDS_DEFAULT_HOST
 
         for node in self.node_list:
@@ -63,7 +60,7 @@ class pm_service(object):
 	    -----------
 	    Boolean
         '''
-        log.info(pm_service.start.__name__)
+        log.info(PMService.start.__name__)
         nodeNewState = NodeState()
         nodeNewState.pm=True
 
@@ -93,7 +90,7 @@ class pm_service(object):
     	Boolean
 
         '''
-        log.info(pm_service.stop.__name__)
+        log.info(PMService.stop.__name__)
         nodeNewState = NodeState()
         nodeNewState.pm=False
 
@@ -109,4 +106,33 @@ class pm_service(object):
 			         log.warn('PM service is STILL running on node {}'.format(node.ip_v4_address))
 			         return False
 
+
+    def kill(self, node_ip):
+        '''
+        Kill PM service
+
+    	Attributes:
+    	-----------
+    	node_ip:  str
+		The IP address of the node to stop PM service.
+
+    	Returns:
+    	-----------
+    	Boolean
+
+        '''
+        log.info(PMService.kill.__name__)
+        log.info('Killing platformd service....')
+        env.host_string = node_ip
+        sudo('pkill -9 platformd')
+
+        for node in self.node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['PM'][0].status !=  'ACTIVE':
+			         log.info('PM service is no longer running on node {}'.format(node.ip_v4_address))
+			         return True
+
+                else:
+			         log.warn('PM service is STILL running on node {}'.format(node.ip_v4_address))
+			         return False
 

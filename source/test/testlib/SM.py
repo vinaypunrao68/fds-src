@@ -26,7 +26,6 @@ from fds.model.domain import Domain
 sys.path.insert(0, '../../scale-framework')
 import config
 
-#Need to get this from config.py file
 env.user=config.SSH_USER
 env.password=config.SSH_PASSWORD
 
@@ -34,7 +33,7 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class sm_service(object):
+class SMService(object):
     def __init__(self):
         self.fds_log = '/tmp'
         fdsauth = FdsAuth()
@@ -42,7 +41,6 @@ class sm_service(object):
         self.nservice = NodeService(fdsauth)
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
-	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
         om_ip = config.FDS_DEFAULT_HOST
 
         for node in self.node_list:
@@ -62,7 +60,7 @@ class sm_service(object):
 	    -----------
 	    Boolean
         '''
-        log.info(sm_service.start.__name__)
+        log.info(SMService.start.__name__)
         nodeNewState = NodeState()
         nodeNewState.am=True
 
@@ -92,7 +90,7 @@ class sm_service(object):
     	Boolean
 
         '''
-        log.info(sm_service.stop.__name__)
+        log.info(SMService.stop.__name__)
         nodeNewState = NodeState()
         nodeNewState.am=False
 
@@ -122,10 +120,9 @@ class sm_service(object):
     	-----------
     	Boolean
         '''
-        log.info(sm_service.kill.__name__)
+        log.info(SMService.kill.__name__)
         log.info('Killing StorMgr service')
         env.host_string = node_ip
-        #sudo('pkill -9 StorMgr > {}/cli.out 2>&1'.format(self.fds_log))
         sudo('pkill -9 StorMgr')
 
         for node in self.node_list:
@@ -151,7 +148,7 @@ class sm_service(object):
     	-----------
     	Boolean
         '''
-        log.info(sm_service.add.__name__)
+        log.info(SMService.add.__name__)
         log.info('Adding SM service')
 	fdsauth2 = FdsAuth()
 	fdsauth2.login()
@@ -160,7 +157,6 @@ class sm_service(object):
 	newNodeService.type="FDSP_STOR_MGR"
 	newNodeService.status="ACTIVE"
 
-	#TODO:  add code to add SM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.add_service(node.id, newNodeService)
@@ -186,12 +182,11 @@ class sm_service(object):
     	-----------
     	Boolean
         '''
-        log.info(sm_service.remove.__name__)
+        log.info(SMService.remove.__name__)
         log.info('Removing SM service')
         nodeNewState = NodeState()
         nodeNewState.am=False
 
-	#TODO:  add code to remove SM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.remove_service(node.id, node.services['SM'][0].id)

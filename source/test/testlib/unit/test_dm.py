@@ -10,7 +10,7 @@ class TestDM(unittest.TestCase):
 	format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
-    dm_obj = DM.dm_service()
+    dm_obj = DM.DMService()
     node_ip = '10.3.100.8'
 
     def _test_start(self):

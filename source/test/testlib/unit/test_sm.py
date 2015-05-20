@@ -11,7 +11,7 @@ class TestSM(unittest.TestCase):
 	format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
-    sm_obj = SM.sm_service()
+    sm_obj = SM.SMService()
     node_ip = '10.3.100.9'
 
     def test_start(self):

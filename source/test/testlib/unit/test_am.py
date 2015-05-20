@@ -10,7 +10,7 @@ class TestAM(unittest.TestCase):
 	format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
-    am_obj = AM.am_service()
+    am_obj = AM.AMService()
     node_ip = '10.3.100.8'
 
     def test_start(self):

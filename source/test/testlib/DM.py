@@ -26,7 +26,6 @@ from fds.model.domain import Domain
 sys.path.insert(0, '../../scale-framework')
 import config
 
-#Need to get this from config.py file
 env.user=config.SSH_USER
 env.password=config.SSH_PASSWORD
 
@@ -34,7 +33,7 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class dm_service(object):
+class DMService(object):
     def __init__(self):
         self.fds_log = '/tmp'
         fdsauth = FdsAuth()
@@ -42,7 +41,6 @@ class dm_service(object):
         self.nservice = NodeService(fdsauth)
         self.node_list = self.nservice.list_nodes()
         self.node_state = NodeState()
-	    #TODO:  Get OM IP address from ./fdscli.conf/config.py file
         om_ip = config.FDS_DEFAULT_HOST
  
         for node in self.node_list:
@@ -62,7 +60,7 @@ class dm_service(object):
 	    -----------
 	    Boolean
         '''
-        log.info(dm_service.start.__name__)
+        log.info(DMService.start.__name__)
         nodeNewState = NodeState()
         nodeNewState.am=True
 
@@ -92,7 +90,7 @@ class dm_service(object):
     	Boolean
 
         '''
-        log.info(dm_service.stop.__name__)
+        log.info(DMService.stop.__name__)
         nodeNewState = NodeState()
         nodeNewState.am=False
 
@@ -122,10 +120,9 @@ class dm_service(object):
     	-----------
     	Boolean
         '''
-        log.info(dm_service.kill.__name__)
+        log.info(DMService.kill.__name__)
         log.info('Killing DataMgr service')
         env.host_string = node_ip
-        #sudo('pkill -9 DataMgr > {}/cli.out 2>&1'.format(self.fds_log))
         sudo('pkill -9 DataMgr')
 
         for node in self.node_list:
@@ -151,7 +148,7 @@ class dm_service(object):
     	-----------
     	Boolean
         '''
-        log.info(dm_service.add.__name__)
+        log.info(DMService.add.__name__)
         log.info('Adding DM service')
 	fdsauth2 = FdsAuth()
 	fdsauth2.login()
@@ -160,7 +157,6 @@ class dm_service(object):
 	newNodeService.type="FDSP_DATA_MGR"
 	newNodeService.status="ACTIVE"
 
-	#TODO:  add code to add DM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.add_service(node.id, newNodeService)
@@ -186,12 +182,11 @@ class dm_service(object):
     	-----------
     	Boolean
         '''
-        log.info(dm_service.remove.__name__)
+        log.info(DMService.remove.__name__)
         log.info('Removing DM service')
         nodeNewState = NodeState()
         nodeNewState.am=False
 
-	#TODO:  add code to remove DM service here
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.remove_service(node.id, node.services['DM'][0].id)
