@@ -44,6 +44,8 @@ class MigrationExecutor {
                       bool forResync,
                       MigrationDltFailedCb failedRetryHandler,
                       MigrationExecutorDoneHandler doneHandler,
+                      FdsTimerPtr &timeoutTimer,
+                      uint32_t timoutDuration,
                       const std::function<void()> &timeoutHandler);
     ~MigrationExecutor();
 
@@ -204,11 +206,6 @@ class MigrationExecutor {
      * from source SM has a unique sequence number.
      */
     MigrationDoubleSeqNum seqNumDeltaSet;
-
-    /**
-     * timeout handler for double sequence number.
-     */
-    std::function<void()> migrTimeoutHandler;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from

@@ -264,6 +264,27 @@ thrSeqIncrementMax(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
     }
 }
 
+void
+thrSeqIncrementMax2(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
+{
+    uint64_t num = 0;
+    while (maxLoop > 0) {
+        --maxLoop;
+        if ((0 == maxLoop) && setLastSeq) {
+            // std::cout << "num=" << num << std::endl;
+            seqNum.setSeqNum(num, true);
+            break;
+        } else {
+            // std::cout << "num=" << num << std::endl;
+            seqNum.setSeqNum(num, false);
+        }
+        // Sleep a bit before the next iteration.
+        sleep(1);
+        ++num;
+    }
+}
+
+
 //
 // Setup two sequence number with common timer.
 // Two thread updating respective sequence number object.
@@ -387,6 +408,27 @@ TEST(MigrationSeqNum, seqNumTimeout4)
     stopTestThread = false;
 }
 
+TEST(MigrationSeqNum, seqNumTimeout5)
+{
+    stopTestThread = false;
+    uint64_t maxSeq = 20;
+    FdsTimerPtr timer(new FdsTimer());
+
+    testTimeout to(111);
+    MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
+
+    std::thread thr(thrSeqIncrementMax2, std::ref(seqTest), maxSeq, true);
+
+    thr.join();
+
+    // Do not remove.
+    // Sleep is necessary in this test.  This tests timeout after certain time.
+    sleep(5);
+
+    ASSERT_EQ(0, to.getCount());
+
+    stopTestThread = false;
+}
 
 
 }  // namespace fds

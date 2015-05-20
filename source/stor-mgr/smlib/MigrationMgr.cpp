@@ -32,6 +32,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 
+    // get migration timeout duration from the platform.conf file.
     migrationTimeoutSec =
             g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.migration_timeout", 300);
 }
@@ -157,6 +158,8 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                                     std::placeholders::_3,
                                                     std::placeholders::_4,
                                                     std::placeholders::_5),
+                                          migrationTimeoutTimer,
+                                          migrationTimeoutSec,
                                           std::bind(&MigrationMgr::timeoutAbortMigration,
                                                     this)));
             }

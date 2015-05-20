@@ -323,6 +323,25 @@ TEST(MigrationDoubleSeqNum, seqNumTimeout4)
     stopTestThread = false;
 }
 
+TEST(MigrationDoubleSeqNum, seqNumTimeout5)
+{
+    stopTestThread = false;
+    uint64_t maxNum1 = 5;
+    uint64_t maxNum2 = 5;
+    FdsTimerPtr timer(new FdsTimer());
+
+    testTimeout to(111);
+    MigrationDoubleSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
+
+    std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxNum1, maxNum2, true);
+
+    thr.join();
+
+    ASSERT_FALSE(to.isTimedOut());
+
+    stopTestThread = false;
+}
+
 
 }  // namespace fds
 

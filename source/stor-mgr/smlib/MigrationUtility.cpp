@@ -18,7 +18,8 @@ MigrationSeqNum::MigrationSeqNum()
     : seqNumTimerInterval(0),
       seqNumTimer(nullptr),
       seqNumTimerTask(nullptr),
-      seqNumTimeoutHandler(NULL)
+      seqNumTimeoutHandler(NULL),
+      seqNumTimerEnabled(false)
 {
     curSeqNum = 0;
     lastSeqNum = std::numeric_limits<uint64_t>::max();
@@ -31,7 +32,8 @@ MigrationSeqNum::MigrationSeqNum(FdsTimerPtr& timer,
                                  const std::function<void()> &timeoutHandler)
     : seqNumTimerInterval(intervalTimer),
       seqNumTimer(timer),
-      seqNumTimeoutHandler(timeoutHandler)
+      seqNumTimeoutHandler(timeoutHandler),
+      seqNumTimerEnabled(true)
 {
     curSeqNum = 0;
     lastSeqNum = std::numeric_limits<uint64_t>::max();
@@ -47,11 +49,12 @@ MigrationSeqNum::~MigrationSeqNum()
 
     seqNumList.clear();
 
-    if (nullptr != seqNumTimer) {
-        fds_verify(nullptr != seqNumTimerTask);
-        bool timerCancelled = stopProgressCheck();
-
-        seqNumTimerTask.reset();
+    if (seqNumTimerEnabled) {
+        fds_verify(nullptr != seqNumTimer);
+        if (nullptr != seqNumTimerTask) {
+            bool timerCancelled = stopProgressCheck();
+            seqNumTimerTask.reset();
+        }
     }
 }
 
@@ -69,10 +72,12 @@ MigrationSeqNum::resetSeqNum()
     seqComplete = false;
     seqNumList.clear();
 
-    if (nullptr != seqNumTimer) {
-        fds_verify(nullptr != seqNumTimerTask);
-        bool timerCancelled = stopProgressCheck();
-        seqNumTimerTask.reset();
+    if (seqNumTimerEnabled) {
+        fds_verify(nullptr != seqNumTimer);
+        if (nullptr != seqNumTimerTask) {
+            bool timerCancelled = stopProgressCheck();
+            seqNumTimerTask.reset();
+        }
     }
 }
 
@@ -119,7 +124,7 @@ bool
 MigrationSeqNum::startProgressCheck()
 {
 
-    if (nullptr != seqNumTimer) {
+    if (seqNumTimerEnabled) {
         seqNumTimerTask = FdsTimerTaskPtr(new FdsTimerFunctionTask(*seqNumTimer,
                                                                    std::bind(&MigrationSeqNum::checkProgress,
                                                                    this)));
@@ -137,7 +142,7 @@ MigrationSeqNum::startProgressCheck()
 bool
 MigrationSeqNum::stopProgressCheck()
 {
-    if (nullptr != seqNumTimer) {
+    if (seqNumTimerEnabled) {
         return seqNumTimer->cancel(seqNumTimerTask);
     } else {
         return false;
@@ -201,7 +206,8 @@ MigrationDoubleSeqNum::MigrationDoubleSeqNum()
     : seqNumTimerInterval(0),
       seqNumTimer(nullptr),
       seqNumTimerTask(nullptr),
-      seqNumTimeoutHandler(NULL)
+      seqNumTimeoutHandler(NULL),
+      seqNumTimerEnabled(false)
 {
     curSeqNum1 = 0;
     lastSeqNum1 = std::numeric_limits<uint64_t>::max();
@@ -213,7 +219,8 @@ MigrationDoubleSeqNum::MigrationDoubleSeqNum(FdsTimerPtr& timer,
                                              const std::function<void()> &timeoutHandler)
     : seqNumTimer(timer),
       seqNumTimerInterval(intervalTimer),
-      seqNumTimeoutHandler(timeoutHandler)
+      seqNumTimeoutHandler(timeoutHandler),
+      seqNumTimerEnabled(true)
 {
     curSeqNum1 = 0;
     lastSeqNum1 = std::numeric_limits<uint64_t>::max();
@@ -229,10 +236,12 @@ MigrationDoubleSeqNum::~MigrationDoubleSeqNum()
 
     mapSeqNum2.clear();
 
-    if (nullptr != seqNumTimer) {
-        fds_verify(nullptr != seqNumTimerTask);
-        bool timerCancelled = stopProgressCheck();
-        seqNumTimerTask.reset();
+    if (seqNumTimerEnabled) {
+        fds_verify(nullptr != seqNumTimer);
+        if (nullptr != seqNumTimerTask) {
+            bool timerCancelled = stopProgressCheck();
+            seqNumTimerTask.reset();
+        }
     }
 
 }
@@ -250,10 +259,12 @@ MigrationDoubleSeqNum::resetDoubleSeqNum()
     completeSeqNum1 = false;
     mapSeqNum2.clear();
 
-    if (nullptr != seqNumTimer) {
-        fds_verify(nullptr != seqNumTimerTask);
-        bool timerCancelled = stopProgressCheck();
-        seqNumTimerTask.reset();
+    if (seqNumTimerEnabled) {
+        fds_verify(nullptr != seqNumTimer);
+        if (nullptr != seqNumTimerTask) {
+            bool timerCancelled = stopProgressCheck();
+            seqNumTimerTask.reset();
+        }
     }
 
 }
@@ -321,7 +332,7 @@ MigrationDoubleSeqNum::setDoubleSeqNum(uint64_t seqNum1, bool isLastSeqNum1,
 bool
 MigrationDoubleSeqNum::startProgressCheck()
 {
-    if (nullptr != seqNumTimer) {
+    if (seqNumTimerEnabled) {
         seqNumTimerTask = FdsTimerTaskPtr(new FdsTimerFunctionTask(*seqNumTimer,
                                                                    std::bind(&MigrationDoubleSeqNum::checkProgress,
                                                                    this)));
@@ -339,7 +350,7 @@ MigrationDoubleSeqNum::startProgressCheck()
 bool
 MigrationDoubleSeqNum::stopProgressCheck()
 {
-    if (nullptr != seqNumTimer) {
+    if (seqNumTimerEnabled) {
         return seqNumTimer->cancel(seqNumTimerTask);
     } else {
         return false;

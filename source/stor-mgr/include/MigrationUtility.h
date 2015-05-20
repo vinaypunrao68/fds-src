@@ -98,6 +98,11 @@ class MigrationSeqNum {
     uint32_t seqNumTimerInterval;  // in secs
 
     /**
+     * Determine if the timer has started or not.
+     */
+    bool seqNumTimerEnabled;
+
+    /**
      * Timer object used to schedule progress checker.  Passed in
      * as an arg to constructor.
      */
@@ -180,6 +185,9 @@ class MigrationDoubleSeqNum {
      */
     // Interval frequency to check for progress.
     uint32_t seqNumTimerInterval;  // in secs
+
+    // Determine if the timer has started or not.
+    bool seqNumTimerEnabled;
 
     // Timer object.  Passed into the constructor.
     FdsTimerPtr seqNumTimer;
