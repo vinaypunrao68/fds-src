@@ -46,8 +46,8 @@ class nbdlib:
         self.lock_file = lockfile
 
     @contextmanager
-    def __lock(self):
-        if self.lock_file is not None:
+    def __lock(self, use_lock = False):
+        if self.lock_file is not None and use_lock:
             lockfd = os.open(self.lock_file, os.O_CREAT)
             fcntl.flock(lockfd, fcntl.LOCK_EX)
             yield None
@@ -181,20 +181,19 @@ class nbdlib:
             raise nbd_user_error("you must be root to detach")
 
         attempted_detach = False
-        for c in self.__nbd_connections():
-            (process, dev, c_host, port, c_volume) = c
-            if volume == c_volume and (host is None or host == c_host):
-                attempted_detach = True
-                if use_lock:
-                    with self.__lock():
-                        self.__disconnect(dev, process)
-                else:
-                    self.__disconnect(dev, process)
-                if process.is_running():
-                    error_str = "could not stop nbd-client[%d] on %s" % (process.pid, dev)
-                    raise nbd_client_error(error_str)
+        with self.__lock(use_lock):
+            for c in self.__nbd_connections():
+                (process, dev, c_host, port, c_volume) = c
+                if volume == c_volume and (host is None or host == c_host):
+                    attempted_detach = True
 
-        return attempted_detach
+                    self.__disconnect(dev, process)
+
+                    if process.is_running():
+                        error_str = "could not stop nbd-client[%d] on %s" % (process.pid, dev)
+                        raise nbd_client_error(error_str)
+
+            return attempted_detach
 
     def attach(self, host, port, vol_name, use_lock = False, use_c = False):
         # Check that user is root
@@ -204,40 +203,37 @@ class nbdlib:
         if port == None:
             port = 10809
 
-        devs = list(self.__device_paths())
-        if len(devs) == 0:
-            if not self.__insmod_nbd():
-                raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
-
-            devs = list(self.__device_paths())
-
         ret_dev = None
-        for conn in self.__nbd_connections():
-            (p, c_dev, c_host, c_port, volume) = conn
-            if vol_name == volume and (c_host, c_port) == (host, port):
-                ret_dev = c_dev
 
-        if ret_dev is None:
-            conns = set([d for (_, d, _, _, _) in self.__nbd_connections()])
-            ret_dev = None
-            for dev in devs:
-                if dev not in conns:
-                    if use_c:
-                        if not self.__check_c(dev):
-                            continue
+        with self.__lock(use_lock):
+            devs = list(self.__device_paths())
+            if len(devs) == 0:
+                if not self.__insmod_nbd():
+                    raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
 
-                    dev_is_attached = False
-                    if use_lock:
-                        with self.__lock():
-                            dev_is_attached = self.__attach_dev(host, port, vol_name, dev)
-                    else:
+                devs = list(self.__device_paths())
+
+            for conn in self.__nbd_connections():
+                (p, c_dev, c_host, c_port, volume) = conn
+                if vol_name == volume and (c_host, c_port) == (host, port):
+                    ret_dev = c_dev
+
+            if ret_dev is None:
+                conns = set([d for (_, d, _, _, _) in self.__nbd_connections()])
+                ret_dev = None
+                for dev in devs:
+                    if dev not in conns:
+                        if use_c:
+                            if not self.__check_c(dev):
+                                continue
+
                         dev_is_attached = self.__attach_dev(host, port, vol_name, dev)
 
-                    if dev_is_attached:
-                        ret_dev = dev
-                        break
-                    else:
-                        continue
+                        if dev_is_attached:
+                            ret_dev = dev
+                            break
+                        else:
+                            continue
 
         return ret_dev
 
