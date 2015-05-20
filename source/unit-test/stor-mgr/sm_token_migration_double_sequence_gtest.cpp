@@ -173,35 +173,40 @@ thrSeqIncrementForever(MigrationDoubleSeqNum &doubleSeqNum)
 
 void
 thrSeqIncrementMax(MigrationDoubleSeqNum &doubleSeqNum,
-                   uint64_t Num1,
-                   uint64_t Num2,
+                   uint64_t maxNum1,
+                   uint64_t maxNum2,
                    bool setLastSeq)
 {
     uint64_t num1 = 0, num2 = 0;
-    uint64_t maxNum1 = Num1;
-    uint64_t maxNum2 = Num2;
+    uint64_t iter1 = maxNum1;
+    uint64_t iter2 = maxNum2;
 
-    while (maxNum1 > 0) {
-        while (maxNum2 > 0) {
-//            std::cout << "num1=" << num1 << ", num2=" << num2
-//                      << "max1=" << maxNum1 << ", max2=" << maxNum2
-//                      << std::endl;
+    while (iter1-- > 0) {
+        while (iter2-- > 0) {
+            // std::cout << "num1=" << num1 << ", num2=" << num2
+            //           << ", max1=" << maxNum1 << ", max2=" << maxNum2;
 
-            if ((maxNum1 == 1) && (maxNum2 == 1)) {
-                doubleSeqNum.setDoubleSeqNum(num1, true, num2, true);
-            } else {
-                doubleSeqNum.setDoubleSeqNum(num1, false, num2, false);
+            bool num1Last = false;
+            bool num2Last = false;
+            if (num1 == (maxNum1 - 1)) {
+                num1Last = true;
+            }
+            if (num2 == (maxNum2 - 1)) {
+                num2Last = true;
             }
 
-            --maxNum2;
+            // std::cout << ", num1Last=" << num1Last
+            //           << ", num2Last=" << num2Last
+            //           << std::endl;
+
+            doubleSeqNum.setDoubleSeqNum(num1, num1Last, num2, num2Last);
+
             ++num2;
             sleep(1);
         }
-
-        --maxNum1;
+        iter2 = maxNum2;
         ++num1;
         num2 = 0;
-        maxNum2 = Num2;
     }
 }
 

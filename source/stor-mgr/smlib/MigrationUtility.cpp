@@ -179,7 +179,7 @@ std::ostream& operator<< (std::ostream& out,
 }
 
 /**
- * prints out histogram data to log.
+ * prints out double sequence data to log.
  */
 boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
                                             const MigrationSeqNum& seqNumRecv)
@@ -368,9 +368,9 @@ MigrationDoubleSeqNum::checkProgress()
 std::ostream& operator<< (std::ostream& out,
                           const MigrationDoubleSeqNum& doubleSeqNum)
 {
-    out << "curSeqNum: " << doubleSeqNum.curSeqNum1 << std::endl;
-    out << "lastSeqNum: " << doubleSeqNum.lastSeqNum1 << std::endl;
-    out << "complete: " << doubleSeqNum.completeSeqNum1 << std::endl;
+    out << "curSeqNum1: " << doubleSeqNum.curSeqNum1 << std::endl;
+    out << "lastSeqNum1: " << doubleSeqNum.lastSeqNum1 << std::endl;
+    out << "completeSeqNum1: " << doubleSeqNum.completeSeqNum1 << std::endl;
 
     for (auto cit = doubleSeqNum.mapSeqNum2.begin();
          cit != doubleSeqNum.mapSeqNum2.end();
