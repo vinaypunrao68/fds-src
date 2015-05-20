@@ -415,6 +415,12 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
 {
     Error err(ERR_OK);
 
+    if (inErrorState()) {
+        LOGDEBUG << "Ignoring delta set for executor " << std::hex << executorId
+                 << " since Migration Executor is in " << getState() << " state";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     // Track apply delta set.  If we can't track IO, then this MigrationExecutor is
     // being coalesced.
     if (!trackIOReqs.startTrackIOReqs()) {
