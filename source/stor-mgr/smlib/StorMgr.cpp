@@ -386,16 +386,23 @@ Error ObjectStorMgr::handleDltUpdate() {
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        objStorMgr->getUuid(),
+                                                        getUuid(),
                                                         curDlt->getNumBitsForToken());
         } else {
             // not doing resync, making all DLT tokens ready
-            objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
             // pretend we successfully started resync, return success
             err = ERR_OK;
         }
     } else if (err.ok()) {
-        objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+        if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+            // we only care about DLT which contains this SM
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
+        }
     }
 
     return err;
@@ -1070,7 +1077,7 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
     objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
 
     // notify token migration manager
-    err = objStorMgr->migrationMgr->handleDltClose();
+    err = migrationMgr->handleDltClose(getDLT(), getUuid());
 
     qosCtrl->markIODone(*closeDLTReq);
 

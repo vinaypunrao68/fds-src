@@ -39,6 +39,11 @@ class AmCache {
     Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs);
 
     /**
+     * Removes metadata cache for the volume.
+     */
+    void invalidateMetaCache(fds_volid_t const volId);
+
+    /**
      * Removes volume cache for the volume.
      * Any dirty entries must be flushed back to persistent
      * storage prior to removal, otherwise they will be lost.

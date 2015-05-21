@@ -3,6 +3,8 @@ default_version "master"
 
 source git: "git://github.com/cboggs/stat-badger"
 
+dependency "python-thrift"
+
 # whitelist is required since we're not building influxdb from source, 
 #  causing Omnibus to complain since it's linked against system versions
 #  of libz.so and libbz2.so. Instead we'll force Influx to use 
