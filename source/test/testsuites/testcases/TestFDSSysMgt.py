@@ -97,7 +97,16 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             self.log.info("Kill node %s." % n.nd_conf_dict['node-name'])
 
-            # First kill AM if on this node.
+            # First kill PM to prevent respawn of other services
+            killPM = TestPMKill(node=n)
+            killSuccess = killPM.test_PMKill()
+
+            if not killSuccess:
+                self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
+                return False
+
+
+            # Then kill AM if on this node.
             if (n.nd_services.count("am") > 0) or ansibleBoot:
                 killAM = TestAMKill(node=n)
                 killSuccess = killAM.test_AMKill()
@@ -123,7 +132,7 @@ class TestNodeKill(TestCase.FDSTestCase):
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
 
-            # Next, kill OM if on this node.
+            # Lastly, kill OM if on this node.
             if (fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']) or ansibleBoot:
                 killOM = TestOMKill(node=n)
                 killSuccess = killOM.test_OMKill()
@@ -131,14 +140,6 @@ class TestNodeKill(TestCase.FDSTestCase):
                 if not killSuccess and not ansibleBoot:
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
-
-            # Finally PM.
-            killPM = TestPMKill(node=n)
-            killSuccess = killPM.test_PMKill()
-
-            if not killSuccess:
-                self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
-                return False
 
             if self.passedNode is not None:
                 # We took care of the specified node. Now get out.
