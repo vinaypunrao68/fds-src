@@ -294,11 +294,6 @@ namespace fds {
         DataMgr& dataManager_;
 
         fds_bool_t sync_in_progress;
-        /**
-         * max number of volume sync jobs we can have in progress
-         * at the same time.
-         */
-        fds_uint32_t max_sync_inprogress;
 
         /**
          * Pointer to DmIoReqHandler so we can queue work/IO to

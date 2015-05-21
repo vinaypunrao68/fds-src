@@ -33,27 +33,10 @@ public class XdiClientFactory {
     private final ThriftClientFactory<AsyncXdiServiceRequest.Iface> onewayAmService;
     private final ThriftClientFactory<Iface>                       configService;
 
-    private int amResponsePort;
 
-    public XdiClientFactory(int amResponsePort) {
-        this.amResponsePort = amResponsePort;
-
+    public XdiClientFactory() {
         configService = ConfigServiceClientFactory.newConfigService();
-
         amService = AmServiceClientFactory.newAmService();
-
-        ThriftClientConnectionFactory<AsyncXdiServiceRequest.Iface> onewayAmFactory =
-            new ThriftClientConnectionFactory<>(proto -> {
-                AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(proto);
-                try {
-                    client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
-                } catch (TException e) {
-                    LOG.error("Could not handshake remote AM!", e);
-                    throw new RuntimeException(e);
-                }
-                return client;
-            });
-
         onewayAmService = AmServiceClientFactory.newOneWayAsyncAmService();
     }
 

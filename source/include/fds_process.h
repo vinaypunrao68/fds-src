@@ -183,7 +183,7 @@ class FdsProcess : public boost::noncopyable,
         return proc_thrp;
     }
 
-    virtual util::Properties* getProperties();
+    virtual util::Properties* getProperties() override;
 
     /**
     * @brief Deamonize the process if '--foreground' arg isn't specified

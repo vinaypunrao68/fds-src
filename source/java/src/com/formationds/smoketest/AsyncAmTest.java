@@ -1,6 +1,7 @@
 package com.formationds.smoketest;
 
 import com.formationds.apis.*;
+import com.formationds.commons.Fds;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -32,6 +33,16 @@ import static org.junit.Assert.fail;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+    @Test
+    public void testVolumeMetadata() throws Exception {
+        Map<String, String> metadata = asyncAm.getVolumeMetadata(domainName, volumeName).get();
+        assertEquals(0, metadata.size());
+        metadata.put("hello", "world");
+        asyncAm.setVolumeMetadata(domainName, volumeName, metadata).get();
+        metadata = asyncAm.getVolumeMetadata(domainName, volumeName).get();
+        assertEquals(1, metadata.size());
+        assertEquals("world", metadata.get("hello"));
+    }
 
     @Test
     public void testAsyncStreamerWritesOneChunkOnly() throws Exception {
@@ -168,9 +179,9 @@ public class AsyncAmTest extends BaseAmTest {
     @BeforeClass
     public static void setUpOnce() throws Exception {
         int pmPort = 7000;
-        xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
-        configService = xdiCf.remoteOmService("localhost", 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
+        xdiCf = new XdiClientFactory();
+        configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
+        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 

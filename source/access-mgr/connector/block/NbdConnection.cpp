@@ -86,14 +86,15 @@ NbdConnection::NbdConnection(int clientsd,
           nbd_state(NbdProtoState::PREINIT),
           resp_needed(0u),
           handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
-          attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
-          request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           response(nullptr),
           total_blocks(0ull),
           write_offset(-1ll),
           readyResponses(4000),
           current_response(nullptr)
 {
+    memset(&attach, '\0', sizeof(attach));
+    memset(&request, '\0', sizeof(request));
+
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
 

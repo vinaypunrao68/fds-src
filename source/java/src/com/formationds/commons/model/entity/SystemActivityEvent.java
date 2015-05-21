@@ -9,11 +9,9 @@ import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
 
-import javax.persistence.Entity;
 import javax.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
-@Entity
 public class SystemActivityEvent extends Event {
 
     protected SystemActivityEvent() {

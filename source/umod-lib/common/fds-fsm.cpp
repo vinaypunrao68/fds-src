@@ -86,7 +86,7 @@ StateEntry::st_handle(EventObj::pointer evt, StateObj::pointer cur) const
     return StateEntry::st_no_change;
 }
 
-StateObj::StateObj(int v, FsmTable::pointer tab) : st_refcnt(0), st_idx(v), st_tab(tab)
+StateObj::StateObj(int v, FsmTable::pointer tab) : st_tab(tab), st_idx(v), st_refcnt(0)
 {
     st_status   = 0;
     st_db_idx   = 0;
@@ -97,7 +97,7 @@ StateObj::StateObj(int v, FsmTable::pointer tab) : st_refcnt(0), st_idx(v), st_t
 }
 
 StateObj::StateObj(int v, FsmTable::pointer tab, int ref)
-    : st_refcnt(ref), st_idx(v), st_tab(tab)
+    : st_tab(tab), st_idx(v), st_refcnt(ref)
 {
     st_status   = 0;
     st_db_idx   = 0;
@@ -172,9 +172,9 @@ FsmTable::~FsmTable()
 }
 
 FsmTable::FsmTable(int cnt, StateEntry const *const *const e)
-    : st_refcnt(0), st_cnt(cnt), st_entries(e), st_switch_cnt(0), st_switch(NULL)
+    : st_cnt(cnt), st_entries(e), st_switch_cnt(0), st_switch(NULL), st_refcnt(0)
 {
-    st_queues = new fdsio::RequestQueue(cnt + 1, -1);
+    st_queues = new fdsio::RequestQueue(cnt + 1);
 }
 
 // st_input

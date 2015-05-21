@@ -49,6 +49,12 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     virtual ~SvcProcess();
 
     /**
+     * Make the base class init() visible, otherwise the overload
+     * below hides it making it unreachable.
+     */
+    using FdsProcess::init;
+
+    /**
     * @brief Initializes the necessary services.
     * Init process is
     * 1. Set up configdb

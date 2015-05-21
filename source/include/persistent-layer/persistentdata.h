@@ -87,8 +87,6 @@ class DataDiscoveryModule : public fds::Module
   private:
     void disk_open_map();
 
-    int                      pd_hdd_cap_mb;
-    int                      pd_ssd_cap_mb;
     int                      pd_hdd_found;
     int                      pd_ssd_found;
     DiskLocMap               pd_hdd_map;

@@ -10,7 +10,6 @@ import com.formationds.commons.events.EventType;
 import com.formationds.commons.model.abs.ModelBase;
 import com.google.gson.annotations.SerializedName;
 
-import javax.persistence.*;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.text.MessageFormat;
 import java.time.Instant;
@@ -29,37 +28,39 @@ import java.time.Instant;
  * or audit event will include a user id or name.
  */
 @XmlRootElement
-@Entity
 abstract public class Event extends ModelBase {
 
-    @Enumerated(EnumType.ORDINAL) private EventType type;
+    private EventType type;
     @SerializedName("category")
-    @Enumerated(EnumType.ORDINAL) private EventCategory category;
-    @Enumerated(EnumType.ORDINAL) private EventSeverity severity;
+    private EventCategory category;
+    private EventSeverity severity;
 
     // TODO: do we need to represent Success/Failure events?  For example in configuration activity?
     // TODO: should a change in event state be treated as a new event?  If so, we will need a mechanism to
     // track the original event?
-    @Enumerated(EnumType.ORDINAL) private EventState state;
+    private EventState state;
 
-    @Temporal(TemporalType.TIMESTAMP) private Long initialTimestamp;
-    @Temporal(TemporalType.TIMESTAMP)  private Long modifiedTimestamp;
+    private Long initialTimestamp;
+    private Long modifiedTimestamp;
 
     /**
      * ResourceBundle message lookup key for the event.  Enables event message localization.
      */
-    @Column(nullable = false)
     private String messageKey;
 
     /**
      * ResourceBundle message arguments for the event.
      */
-    @Column(nullable = true)
     private Object[] messageArgs;
 
-    @Column(nullable = false)
+    /**
+     * The default message format specification
+     */
     private String messageFormat;
 
+    /**
+     * The default message formatted based on the default message format and message arguments.
+     */
     private String defaultMessage;
 
     /**
@@ -77,9 +78,9 @@ abstract public class Event extends ModelBase {
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
-    public Event(EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
-                 String messageKey, Object... messageArgs) {
-        this(Instant.now().toEpochMilli(), type, category, severity, defaultMessageFmt, messageKey, messageArgs);
+    public Event( EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
+                  String messageKey, Object... messageArgs ) {
+        this( Instant.now().toEpochMilli(), type, category, severity, defaultMessageFmt, messageKey, messageArgs );
     }
 
     /**
@@ -93,8 +94,8 @@ abstract public class Event extends ModelBase {
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
-    protected Event(Long ts, EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
-                 String messageKey, Object... messageArgs) {
+    protected Event( Long ts, EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
+                     String messageKey, Object... messageArgs ) {
         this.type = type;
         this.category = category;
         this.severity = severity;
@@ -105,7 +106,7 @@ abstract public class Event extends ModelBase {
         this.messageArgs = (messageArgs != null ? messageArgs.clone() : new Object[0]);
         state = EventState.SOFT;
 
-        this.defaultMessage = MessageFormat.format(messageFormat, messageArgs);
+        this.defaultMessage = MessageFormat.format( messageFormat, messageArgs );
     }
 
     /**
@@ -117,7 +118,7 @@ abstract public class Event extends ModelBase {
      *
      * @param d
      */
-    protected void setDefaultMessage(String d) { defaultMessage = d; }
+    protected void setDefaultMessage( String d ) { defaultMessage = d; }
 
     /**
      * Update the event state to the specified state.
