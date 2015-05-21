@@ -251,7 +251,9 @@ TEST_F(SmTokenMigrationTest, destination) {
         dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i));
         msg->migrations.push_back(grp);
     }
-    err = tokenMigrationMgr->startMigration(msg, NULL, myNodeUuid, bitsPerDltToken, false);
+    MigrationMgr::MigrationType mtype = MigrationMgr::MigrationType::MIGR_SM_ADD_NODE;
+    err = tokenMigrationMgr->startMigration(msg, NULL, myNodeUuid, bitsPerDltToken,
+                                            mtype, false);
 
     // pretend we got a message from some other SM to request become a source for DLT token
     // for which this SM is a destination -- this is an error if we started migration
@@ -262,7 +264,7 @@ TEST_F(SmTokenMigrationTest, destination) {
     dstMsg->executorID = 0x1234;
     dstMsg->seqNum = 0;
     dstMsg->lastFilterSet = true;
-    dstMsg->forResync = false;
+    dstMsg->onePhaseMigration = false;
     fpi::SvcUuid remoteSvcUuid;
     remoteSvcUuid.svc_uuid = 2;
     err = tokenMigrationMgr->startObjectRebalance(dstMsg, remoteSvcUuid, myNodeUuid, 8, dlt);

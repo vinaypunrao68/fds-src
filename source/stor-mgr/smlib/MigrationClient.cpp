@@ -32,7 +32,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
-      forResync(resync)
+      onePhaseMigration(resync)
 {
 
     migClientState = ATOMIC_VAR_INIT(MC_INIT);
@@ -54,7 +54,7 @@ void
 MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
     if (getMigClientState() == MC_SECOND_PHASE_DELTA_SET ||
         (getMigClientState() == MC_FIRST_PHASE_DELTA_SET &&
-        forResync == true)) {
+        onePhaseMigration == true)) {
         fds_verify(smTok == SMTokenID);
         LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
                    << " executorId " << std::hex << executorID << std::dec;
@@ -117,7 +117,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
 
         // we are currently not forwarding 'delete' during resync on restart
-        if (forResync) {
+        if (onePhaseMigration) {
             LOGMIGRATE << "Not forwarding delete during resync on restart " << *delReq;
             return false;
         }

@@ -46,7 +46,8 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                              OmStartMigrationCbType cb,
                              const NodeUuid& mySvcUuid,
                              fds_uint32_t bitsPerDltToken,
-                             bool forResync)
+                             MigrationType migrationType,
+                             bool onePhaseMigration)
 {
     Error err(ERR_OK);
 
@@ -69,10 +70,11 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     }
 
     FdsTimerTaskPtr retryTokenMigrationTask(
-                        new FdsTimerFunctionTask(mTimer,
-                                                 std::bind(
-                                                    &MigrationMgr::retryTokenMigrForFailedDltTokens,
-                                                    this)));
+                        new FdsTimerFunctionTask(
+                                    mTimer,
+                                    std::bind(
+                                        &MigrationMgr::retryTokenMigrForFailedDltTokens,
+                                        this)));
     int retryTimePeriod = 2;
     mTimer.scheduleRepeated(retryTokenMigrationTask, std::chrono::seconds(retryTimePeriod));
 
@@ -95,7 +97,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
             return ERR_NOT_READY;
         }
     }
-    resyncOnRestart = forResync;
+    resyncOnRestart = onePhaseMigration;
     targetDltVersion = migrationMsg->DLT_version;
     numBitsPerDltToken = bitsPerDltToken;
     omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
@@ -141,7 +143,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                           bitsPerDltToken,
                                           srcSmUuid,
                                           smTok, globalExecId, targetDltVersion,
-                                          forResync,
+                                          migrationType, onePhaseMigration,
                                           std::bind(
                                               &MigrationMgr::dltTokenMigrationFailedCb,
                                               this,
@@ -185,6 +187,19 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
         }
     }
 }
+
+/**
+ * Remove the sm tokens from the retry migration set. Retry here was for case
+ * where source SM was not ready.
+ */
+void MigrationMgr::removeTokensFromRetrySet(std::vector<fds_token_id>& tokens)
+{
+    fds_mutex::scoped_lock l(migrSmTokenLock);
+    for (auto token: tokens) {
+        retryMigrSmTokenSet.erase(token);
+    }
+}
+
 /**
  * Starts token resync for all DLT tokens assigned to this SM.
  * It identifies the source SMs for assigned tokens from the
@@ -199,7 +214,7 @@ MigrationMgr::startResync(const fds::DLT *dlt,
                        new fpi::CtrlNotifySMStartMigration());
     resyncMsg->DLT_version = dlt->getVersion();
     DLT::SourceNodeMap srcSmTokensMap;
-    bool forResync = true;
+    bool onePhaseMigration = true;
 
     dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
     for (auto &ptr: srcSmTokensMap) {
@@ -209,7 +224,11 @@ MigrationMgr::startResync(const fds::DLT *dlt,
         resyncMsg->migrations.push_back(grp);
     }
 
-    return startMigration(resyncMsg, NULL, mySvcUuid, bitsPerDltToken, forResync);
+    // set migration type to resync.
+    MigrationMgr::MigrationType migrType = MIGR_SM_RESYNC;
+
+    return startMigration(resyncMsg, NULL, mySvcUuid,
+                          bitsPerDltToken, migrType, onePhaseMigration);
 }
 
 void
@@ -323,7 +342,7 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
                << " last " << rebalSetMsg->lastFilterSet;
 
     // check if this SM accept this SM to be a source for given DLT token
-    srcAccepted = acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->forResync,
+    srcAccepted = acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->onePhaseMigration,
                                              executorSmUuid, mySvcUuid, dlt);
 
     // If this SM is just a source and does not get Start Migration from OM
@@ -340,7 +359,7 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
     }
     numBitsPerDltToken = bitsPerDltToken;
     targetDltVersion = rebalSetMsg->targetDltVersion;
-    resyncOnRestart = rebalSetMsg->forResync;
+    resyncOnRestart = rebalSetMsg->onePhaseMigration;
 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
@@ -350,10 +369,10 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
 	    migrClients[executorId] = std::make_shared<MigrationClient>(smReqHandler,
-                                                                        executorNodeUuid,
-                                                                        targetDltVersion,
-                                                                        bitsPerDltToken,
-                                                                        rebalSetMsg->forResync);
+                                                                    executorNodeUuid,
+                                                                    targetDltVersion,
+                                                                    bitsPerDltToken,
+                                                                    rebalSetMsg->onePhaseMigration);
         }
         migrClient = migrClients[executorId];
     }
@@ -1021,6 +1040,10 @@ void MigrationMgr::retryWithNewSMsOrAbort(fds_uint64_t executorId,
         // TODO(Anna) find new SMs to sync from
 
         // TODO(Anna) For DLT tokens for which SMs are found, restart token resync
+
+        // TODO(Gurpreet) Set the phase of migration for migration executor as
+        // onePhaseMigration and migrationType to whatever the current executor
+        // has.
     }
 
     // DLT tokens that we failed to retry will remain unavailable
