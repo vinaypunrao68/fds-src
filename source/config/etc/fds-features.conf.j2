@@ -10,14 +10,4 @@ WEB_KIT = {{fds_feature_web_tool_kit}}
 # The feature 'SNMP' is enabled.
 SNMP = {{fds_snmp_feature}}
 
-# InfluxDB feature toggles.  Idea here is we will continue to
-# persist to ObjectDB until we have fully implemented InfluxDB
-# query support at which point we will enable the influxdb query
-# toggle.  We can at any point disable persistence to ObjectDB.
-# Once fully implemented and validated, we will remove
-# ObjectDB support and these toggles.
-PERSIST_OBJECTDB = {{fds_persist_objectdb}}
-PERSIST_INFLUXDB = {{fds_persist_influxdb}}
-QUERY_INFLUXDB = {{fds_query_influxdb}}
-
 {% endblock %}
