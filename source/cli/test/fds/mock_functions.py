@@ -6,6 +6,8 @@ from fds.model.domain import Domain
 from fds.model.snapshot_policy import SnapshotPolicy
 from fds.model.timeline_preset import TimelinePreset
 from fds.model.qos_preset import QosPreset
+from fds.model.user import User
+from fds.model.tenant import Tenant
 
 '''
 Created on Apr 22, 2015
@@ -18,6 +20,9 @@ responseOk["status"] = "OK"
 
 response200 = dict()
 response200["status"] = 200
+
+def passwordGetter(prompt):
+    return "password"
 
 def writeJson( data ):
     return
@@ -171,3 +176,48 @@ def listQosPresets(preset_id=None):
     p.iops_limit = 1
     presets = [p]
     return presets
+
+def listUsers():
+    user = User()
+    user.username = "jdoe"
+    user.id = 23
+    
+    return [user]
+
+def createUser(username, password):
+    return listUsers()
+
+def listTenants():
+    tenant = Tenant()
+    tenant.name = "coolness"
+    tenant.id = 1
+    return [tenant]
+
+def createTenant(name):
+    tenant = Tenant()
+    tenant.name = name
+    tenant.id = 2
+    return [tenant]
+
+def assignUser(tenant_id, user_id):
+    return responseOk
+
+def removeUser(tenant_id, user_id):
+    return responseOk
+
+def changePassword(user_id, password):
+    return responseOk
+
+def reissueToken(user_id):
+    return responseOk
+
+def get_token(user_id):
+    d = dict()
+    d["token"] = "totallyfaketoken"
+    return d
+
+def whoami():
+    user = User()
+    user.username = "me"
+    user.id = 100
+    return user

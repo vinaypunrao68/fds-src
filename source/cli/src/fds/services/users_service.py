@@ -67,12 +67,3 @@ class UsersService( AbstractService ):
         
         real_me = UserConverter.build_user_from_json(me)
         return real_me
-        
-        
-        
-        
-        
-        
-        
-        
-        return self.rest_helper.get( self.session, url )
