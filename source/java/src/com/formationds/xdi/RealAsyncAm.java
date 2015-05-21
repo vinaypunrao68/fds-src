@@ -53,7 +53,7 @@ public class RealAsyncAm implements AsyncAm {
                                 .processor(processor));
 
                 new Thread(() -> server.serve(), "AM async listener thread").start();
-                LOG.info("Started async AM listener on port " + port);
+                LOG.debug("Started async AM listener on port " + port);
             }
 
             responseListener.start();
@@ -63,7 +63,7 @@ public class RealAsyncAm implements AsyncAm {
                         handshake(port).get(),
                         120, Duration.standardSeconds(1), "async handshake with bare_am")
                         .apply(null);
-                LOG.info("Async AM handshake done");
+                LOG.debug("Async AM handshake done");
             }
 
         } catch (Exception e) {

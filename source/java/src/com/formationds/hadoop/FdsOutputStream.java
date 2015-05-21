@@ -92,10 +92,10 @@ public class FdsOutputStream extends OutputStream {
             currentBuffer.flip();
 
             try {
-                asyncAm.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get();
+                unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get());
             } catch (Exception e) {
                 isClosed = true;
-                throw new IOException(e);
+                throw new IOException();
             }
 
             isDirty = false;
@@ -117,7 +117,7 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        if (currentBuffer.position() >= objectSize) {
+        if (!(currentBuffer.position() < objectSize)) {
             flush();
         }
         currentBuffer.put((byte) b);

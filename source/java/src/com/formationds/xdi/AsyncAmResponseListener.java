@@ -50,7 +50,7 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
                 pending.cleanUp();
             }
         }, "Async AM response listener clean-up").start();
-        LOG.info("Started async AM stale request scavenger");
+        LOG.debug("Started async AM stale request scavenger");
     }
 
     public <T> CompletableFuture<T> expect(RequestId requestId) {
