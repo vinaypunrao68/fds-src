@@ -191,6 +191,7 @@ def listTenants():
     tenant = Tenant()
     tenant.name = "coolness"
     tenant.id = 1
+    tenant.users = listUsers()
     return [tenant]
 
 def createTenant(name):

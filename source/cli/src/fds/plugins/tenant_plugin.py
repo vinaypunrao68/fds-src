@@ -141,7 +141,7 @@ class TenantPlugin( AbstractPlugin):
         my_tenant = None
         
         for tenant in tenants:
-            if tenant.id == args[AbstractPlugin.tenant_id_str]:
+            if tenant.id == int(args[AbstractPlugin.tenant_id_str]):
                 my_tenant = tenant
                 break
         
