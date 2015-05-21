@@ -7,19 +7,18 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
-import com.formationds.web.Dom4jResource;
+import com.formationds.web.W3cXmlResource;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.base.Joiner;
-import org.dom4j.Document;
-import org.dom4j.DocumentHelper;
-import org.dom4j.Element;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,9 +34,9 @@ public class ListContainers implements SwiftRequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String accountName = requiredString(routeParameters, "account");
+        String accountName = requiredString( routeParameters, "account" );
 
-        ResponseFormat format = obtainFormat(request);
+        ResponseFormat format = obtainFormat( request );
         // TODO: get xdi call for a subset of this info
         // TODO: implement limit, marker, end_marker, format, prefix, delimiter query string variables
         List<VolumeDescriptor> volumes = xdi.listVolumes(token, accountName);
@@ -66,47 +65,69 @@ public class ListContainers implements SwiftRequestHandler {
     }
 
     private Resource plainView(List<VolumeDescriptor> volumes) {
-        List<String> volumeNames = volumes.stream().map(v -> v.getName()).collect(Collectors.toList());
-        String joined = Joiner.on("\n").join(volumeNames);
+        List<String> volumeNames = volumes.stream().map(v -> v.getName()).collect( Collectors.toList() );
+        String joined = Joiner.on( "\n" ).join( volumeNames );
         return new TextResource(joined);
     }
 
-    private Resource jsonView(List<VolumeDescriptor> volumes, String accountName) {
+    protected Resource jsonView(List<VolumeDescriptor> volumes, String accountName) {
         JSONArray array = volumes.stream()
-                .map(v -> {
+                .map( v -> {
                     VolumeStatus status = null;
                     try {
-                        status = xdi.statVolume(token, accountName, v.getName()).get();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        status = xdi.statVolume( token, accountName, v.getName() ).get();
+                    } catch ( Exception e ) {
+                        throw new RuntimeException( e );
                     }
                     return new JSONObject()
-                            .put("name", v.getName())
-                            .put("count", status.getBlobCount())
-                            .put("bytes", status.getCurrentUsageInBytes());
-                })
-                .collect(new JsonArrayCollector());
+                               .put( "name", v.getName() )
+                               .put( "count", status.getBlobCount() )
+                               .put( "bytes", status.getCurrentUsageInBytes() );
+                } )
+                .collect( new JsonArrayCollector() );
         return new JsonResource(array);
     }
 
-    private Resource xmlView(List<VolumeDescriptor> volumes, String accountName) {
-        Document document = DocumentHelper.createDocument();
-        Element root = document.addElement("account").addAttribute("name", accountName);
+    protected Resource xmlView(List<VolumeDescriptor> volumes, String accountName) {
 
-        volumes.stream()
-                .forEach(v -> {
-                    VolumeStatus status = null;
-                    try {
-                        status = xdi.statVolume(token, accountName, v.getName()).get();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                    Element object = root.addElement("container");
-                    object.addElement("name").addText(v.getName());
-                    object.addElement("count").addText(Long.toString(status.getBlobCount()));
-                    object.addElement("bytes").addText(Long.toString(status.getCurrentUsageInBytes()));
-                });
+        try {
+            DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            org.w3c.dom.Document document = builder.newDocument();
 
-        return new Dom4jResource(document);
+            org.w3c.dom.Element root = document.createElement( "account" );
+            root.setAttribute( "name", accountName );
+
+            volumes.stream()
+                   .forEach( v -> {
+                       VolumeStatus status = null;
+                       try {
+                           status = xdi.statVolume( token, accountName, v.getName() ).get();
+                       } catch ( Exception e ) {
+                           throw new RuntimeException( e );
+                       }
+                       org.w3c.dom.Element object = document.createElement( "container" );
+                       root.appendChild( object );
+
+                       org.w3c.dom.Element name = document.createElement( "name" );
+                       name.setTextContent( v.getName() );
+                       object.appendChild( name );
+
+                       org.w3c.dom.Element count = document.createElement( "count" );
+                       count.setTextContent( Long.toString( status.getBlobCount() ) );
+                       object.appendChild( count );
+
+                       org.w3c.dom.Element bytes = document.createElement( "bytes" );
+                       bytes.setTextContent( Long.toString( status.getCurrentUsageInBytes() ) );
+                       object.appendChild( bytes );
+                   } );
+
+            document.appendChild( root );
+
+            return new W3cXmlResource( document );
+        } catch (Exception e) {
+            // documentBuilderFactory failed
+            throw new IllegalStateException( "Failed to initialize document builder", e );
+        }
+
     }
 }

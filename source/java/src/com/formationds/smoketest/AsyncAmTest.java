@@ -1,6 +1,7 @@
 package com.formationds.smoketest;
 
 import com.formationds.apis.*;
+import com.formationds.commons.Fds;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -179,8 +180,8 @@ public class AsyncAmTest extends BaseAmTest {
     public static void setUpOnce() throws Exception {
         int pmPort = 7000;
         xdiCf = new XdiClientFactory();
-        configService = xdiCf.remoteOmService("localhost", 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
+        configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
+        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 

@@ -14,8 +14,6 @@ import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
-import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.om.repository.JDOMetricsRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticatedRequestContext;

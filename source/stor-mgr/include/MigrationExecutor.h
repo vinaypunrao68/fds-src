@@ -43,7 +43,10 @@ class MigrationExecutor {
                       fds_uint64_t targetDltVer,
                       bool forResync,
                       MigrationDltFailedCb failedRetryHandler,
-                      MigrationExecutorDoneHandler doneHandler);
+                      MigrationExecutorDoneHandler doneHandler,
+                      FdsTimerPtr &timeoutTimer,
+                      uint32_t timoutDuration,
+                      const std::function<void()> &timeoutHandler);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;

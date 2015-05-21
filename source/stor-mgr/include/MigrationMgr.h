@@ -101,6 +101,11 @@ class MigrationMgr {
     Error abortMigration();
 
     /**
+     * Handle a timeout error from executor or client.
+     */
+    void timeoutAbortMigration();
+
+    /**
      * Handle start object rebalance from destination SM
      */
     Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
@@ -350,6 +355,16 @@ class MigrationMgr {
      */
     SmIoSnapshotObjectDB snapshotRequest;
 
+    /**
+     * Timer to detect if there is no activities on the Executors.
+     */
+    FdsTimerPtr migrationTimeoutTimer;
+
+    /**
+     * abort migration after this duration of inactivities.
+     */
+    uint32_t migrationTimeoutSec;
+
     /// SM token id -> [ source SM -> MigrationExecutor ]
     //
     /// so far we don't need a lock for the migrExecutors, because the actions
@@ -379,6 +394,7 @@ class MigrationMgr {
      */
      FdsTimer mTimer;
 };
+
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
