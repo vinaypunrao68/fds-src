@@ -356,6 +356,7 @@ class MigrationMgr {
                                                       std::placeholders::_3,
                                                       std::placeholders::_4,
                                                       std::placeholders::_5);
+        return p;
     }
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
