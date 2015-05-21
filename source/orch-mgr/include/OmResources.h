@@ -186,6 +186,7 @@ class OM_PmAgent : public OM_NodeAgent
      * Allowing only one type of service per Platform
      */
     fds_bool_t service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const;
+    fds_bool_t hasRegistered(const FdspNodeRegPtr  msg);
     /**
      * Send 'activate services' message to Platform
      */
@@ -329,6 +330,8 @@ class OM_PmContainer : public OM_AgentContainer
      */
     fds_bool_t check_new_service(const NodeUuid& pm_uuid,
                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
+
+    fds_bool_t hasRegistered(const FdspNodeRegPtr  msg);
     /**
      * Tell platform agent with uuid 'pm_uuid' about new service registered
      */

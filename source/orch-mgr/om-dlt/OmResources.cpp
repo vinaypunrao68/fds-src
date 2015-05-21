@@ -1766,13 +1766,17 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // we must have a node (platform) that runs any service
         // registered with OM and node must be in active state
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
-            LOGERROR << "Error: cannot register service " << msg->node_name
-                    << " on platform with uuid " << std::hex << (msg->node_uuid).uuid
-                    << std::dec << "; Check if Platform daemon is running";
-            return Error(ERR_NODE_NOT_ACTIVE);
+            if (pmNodes->hasRegistered(msg)) {
+                LOGDEBUG << "re registraion : " << msg->service_uuid.uuid;
+            } else {
+                LOGERROR << "Error: cannot register service " << msg->node_name
+                         << " on platform with uuid " 
+                         << std::hex << (msg->node_uuid).uuid << std::dec;
+                return Error(ERR_NODE_NOT_ACTIVE);
+            }
         }
     }
-
+        
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err == ERR_DUPLICATE) {
         LOGNOTIFY << "Svc already exists; probably service is re-registering "
