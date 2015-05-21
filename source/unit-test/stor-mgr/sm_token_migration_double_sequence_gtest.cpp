@@ -170,6 +170,7 @@ thrSeqIncrementForever(MigrationDoubleSeqNum &doubleSeqNum)
     }
 }
 
+
 void
 thrSeqIncrementMax(MigrationDoubleSeqNum &doubleSeqNum,
                    uint64_t maxNum1,
@@ -209,6 +210,12 @@ thrSeqIncrementMax(MigrationDoubleSeqNum &doubleSeqNum,
     }
 }
 
+/**
+ * setup: Two threads forever increasing sequence number.  And kill it without
+ *        completing the sequence.  wait for a while, and check if the timeout
+ *        routine fired or not.
+ * result: should time out.
+ */
 TEST(MigrationDoubleSeqNum, doubleSeqNumTimeout1)
 {
     stopTestThread = false;
@@ -217,35 +224,40 @@ TEST(MigrationDoubleSeqNum, doubleSeqNumTimeout1)
 
     testTimeout to1(111);
     MigrationDoubleSeqNum seqTest1(timer, 2, std::bind(&testTimeout::timeoutHandler, &to1));
-    seqTest1.startProgressCheck();
 
     testTimeout to2(999);
     MigrationDoubleSeqNum seqTest2(timer, 3, std::bind(&testTimeout::timeoutHandler, &to2));
-    seqTest2.startProgressCheck();
 
     std::thread thr1(thrSeqIncrementForever, std::ref(seqTest1));
     std::thread thr2(thrSeqIncrementForever, std::ref(seqTest2));
 
     // Do not remove.
-    // Let it run for 10 seconds.
-    sleep(10);
+    // Let it run for 20 seconds.
+    sleep(20);
 
-    // Stop progress check for all sequences.
-    seqTest1.stopProgressCheck();
-    seqTest2.stopProgressCheck();
-
+    // kill thread and join on them.
     stopTestThread = true;
 
     thr1.join();
     thr2.join();
 
-    ASSERT_FALSE(to1.isTimedOut());
-    ASSERT_FALSE(to2.isTimedOut());
+    // Do not remove.
+    // Let it sleep for 10 seconds.  The timeout mechanism sh
+    sleep(10);
+
+    ASSERT_TRUE(to1.isTimedOut());
+    ASSERT_TRUE(to2.isTimedOut());
 
     timer.reset();
     stopTestThread = false;
 }
 
+
+/**
+ * Setup:  single thread forever increase sequence number.  And kill it without
+ *         completion.
+ * result: timeout should trigger.
+ */
 TEST(MigrationDoubleSeqNum, seqNumTimeout2)
 {
     stopTestThread = false;
@@ -253,8 +265,7 @@ TEST(MigrationDoubleSeqNum, seqNumTimeout2)
     FdsTimerPtr timer(new FdsTimer());
 
     testTimeout to(111);
-    MigrationDoubleSeqNum seqTest(timer, 3, std::bind(&testTimeout::timeoutHandler, &to));
-    seqTest.startProgressCheck();
+    MigrationDoubleSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
 
     std::thread thr(thrSeqIncrementForever, std::ref(seqTest));
 
@@ -267,17 +278,17 @@ TEST(MigrationDoubleSeqNum, seqNumTimeout2)
 
     // Sleep for a while, so the checker will trigger timeout
     sleep(10);
-    seqTest.stopProgressCheck();
 
-    // Since the sequence progress checker is still running, and the thread
-    // that's incrementing the sequence is already terminated, the
-    // timeout routine should've fired once.
     ASSERT_TRUE(to.isTimedOut());
 
     timer.reset();
     stopTestThread = false;
 }
 
+/**
+ * setup: thread increments sequence to completion.
+ * result: timeout should not fire.
+ */
 TEST(MigrationDoubleSeqNum, seqNumTimeout3)
 {
     stopTestThread = false;
@@ -288,7 +299,6 @@ TEST(MigrationDoubleSeqNum, seqNumTimeout3)
 
     testTimeout to(111);
     MigrationDoubleSeqNum seqTest(timer, 3, std::bind(&testTimeout::timeoutHandler, &to));
-    seqTest.startProgressCheck();
 
     std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxNum1, maxNum2, true);
 
@@ -299,35 +309,15 @@ TEST(MigrationDoubleSeqNum, seqNumTimeout3)
     stopTestThread = false;
 }
 
+/**
+ * setup: thread sets that has only one sequence number (i.e first == last.
+ * result: should not timeout.
+ */
 TEST(MigrationDoubleSeqNum, seqNumTimeout4)
 {
     stopTestThread = false;
-    uint64_t maxNum1 = 5;
-    uint64_t maxNum2 = 5;
-    FdsTimerPtr timer(new FdsTimer());
-
-    testTimeout to(111);
-    MigrationDoubleSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
-    seqTest.startProgressCheck();
-
-    std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxNum1, maxNum2, true);
-
-    thr.join();
-
-    // Do not remove.
-    // Sleep is necessary in this test.  This tests timeout after certain time.
-    sleep(5);
-
-    ASSERT_TRUE(to.isTimedOut());
-
-    stopTestThread = false;
-}
-
-TEST(MigrationDoubleSeqNum, seqNumTimeout5)
-{
-    stopTestThread = false;
-    uint64_t maxNum1 = 5;
-    uint64_t maxNum2 = 5;
+    uint64_t maxNum1 = 1;
+    uint64_t maxNum2 = 1;
     FdsTimerPtr timer(new FdsTimer());
 
     testTimeout to(111);
@@ -339,6 +329,50 @@ TEST(MigrationDoubleSeqNum, seqNumTimeout5)
 
     ASSERT_FALSE(to.isTimedOut());
 
+    stopTestThread = false;
+}
+
+/**
+ * setup: Two threads: 1) forever increasing sequence number
+ *                     2) complete sequence.
+ * result: 1) should time out.
+ *         2) should not timeout.
+ */
+TEST(MigrationDoubleSeqNum, doubleSeqNumTimeout5)
+{
+    stopTestThread = false;
+
+    FdsTimerPtr timer(new FdsTimer());
+    uint64_t maxNum1 = 3;
+    uint64_t maxNum2 = 3;
+
+    testTimeout to1(111);
+    MigrationDoubleSeqNum seqTest1(timer, 2, std::bind(&testTimeout::timeoutHandler, &to1));
+
+    testTimeout to2(999);
+    MigrationDoubleSeqNum seqTest2(timer, 2, std::bind(&testTimeout::timeoutHandler, &to2));
+
+    std::thread thr1(thrSeqIncrementForever, std::ref(seqTest1));
+    std::thread thr2(thrSeqIncrementMax, std::ref(seqTest2), maxNum1, maxNum2, true);
+
+    // Do not remove.
+    // Let it run for 20 seconds.
+    sleep(20);
+
+    // kill thread and join on them.
+    stopTestThread = true;
+
+    thr1.join();
+    thr2.join();
+
+    // Do not remove.
+    // Let it sleep for 10 seconds.
+    sleep(10);
+
+    ASSERT_TRUE(to1.isTimedOut());
+    ASSERT_FALSE(to2.isTimedOut());
+
+    timer.reset();
     stopTestThread = false;
 }
 

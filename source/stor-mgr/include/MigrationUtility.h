@@ -45,14 +45,6 @@ class MigrationSeqNum {
      */
     void resetSeqNum();
 
-    /* Start the progress check on the sequence
-     */
-    bool startProgressCheck();
-
-    /* Stop the progress check on the sequence.
-     */
-    bool stopProgressCheck();
-
     /* ostream */
     friend
     std::ostream& operator<< (std::ostream& out,
@@ -98,9 +90,14 @@ class MigrationSeqNum {
     uint32_t seqNumTimerInterval;  // in secs
 
     /**
-     * Determine if the timer has started or not.
+     * Determine if the timer is enabled or not.
      */
     bool seqNumTimerEnabled;
+
+    /**
+     * Determine if the timer has started or not.
+     */
+    bool seqNumTimerStarted;
 
     /**
      * Timer object used to schedule progress checker.  Passed in
@@ -130,6 +127,14 @@ class MigrationSeqNum {
      */
     void checkProgress();
 
+    /* Start the progress check on the sequence
+     */
+    bool startProgressCheck(bool isLastNum);
+
+    /* Stop the progress check on the sequence.
+     */
+    bool stopProgressCheck(bool isLastNum);
+
 };  // class MigrationSeqNum
 
 
@@ -156,14 +161,6 @@ class MigrationDoubleSeqNum {
      */
     void resetDoubleSeqNum();
 
-    /* Start the progress check on the sequence
-     */
-    bool startProgressCheck();
-
-    /* Stop the progress check on the sequence.
-     */
-    bool stopProgressCheck();
-
     /* ostream */
     friend
     std::ostream& operator<< (std::ostream& out,
@@ -189,6 +186,9 @@ class MigrationDoubleSeqNum {
     // Determine if the timer has started or not.
     bool seqNumTimerEnabled;
 
+    // Determine if the timer has started or not.
+    bool seqNumTimerStarted;
+
     // Timer object.  Passed into the constructor.
     FdsTimerPtr seqNumTimer;
 
@@ -203,6 +203,12 @@ class MigrationDoubleSeqNum {
 
     // internal routine to check the progress.  invoked at specified interval.
     void checkProgress();
+
+    // Start the progress check on the sequence
+    bool startProgressCheck(bool isNum1Last, bool isNum2Last);
+
+    // Stop the progress check on the sequence.
+    bool stopProgressCheck(bool isNum1Last, bool isNum2Last);
 
 };  // MigrationSeqNumChoppped
 

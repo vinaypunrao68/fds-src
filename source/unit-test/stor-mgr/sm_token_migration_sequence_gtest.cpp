@@ -212,20 +212,20 @@ class testTimeout {
   public:
     explicit testTimeout(int id_) {
         id = id_;
-        count = 0;
+        timedOut = false;
     };
     ~testTimeout() {};
     void timeoutHandler()
     {
-        ++count;
+        timedOut = true;
     };
-    uint32_t getCount() {
-        return count;
+    uint32_t isTimedOut() {
+        return timedOut;
     };
 
   private:
     uint32_t id;
-    uint32_t count;
+    bool timedOut;
 };
 
 bool stopTestThread = false;
@@ -252,27 +252,6 @@ thrSeqIncrementMax(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
         if ((0 == maxLoop) && setLastSeq) {
             // std::cout << "num=" << num << std::endl;
             seqNum.setSeqNum(num, true);
-            seqNum.stopProgressCheck();
-            break;
-        } else {
-            // std::cout << "num=" << num << std::endl;
-            seqNum.setSeqNum(num, false);
-        }
-        // Sleep a bit before the next iteration.
-        sleep(1);
-        ++num;
-    }
-}
-
-void
-thrSeqIncrementMax2(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
-{
-    uint64_t num = 0;
-    while (maxLoop > 0) {
-        --maxLoop;
-        if ((0 == maxLoop) && setLastSeq) {
-            // std::cout << "num=" << num << std::endl;
-            seqNum.setSeqNum(num, true);
             break;
         } else {
             // std::cout << "num=" << num << std::endl;
@@ -286,10 +265,9 @@ thrSeqIncrementMax2(MigrationSeqNum &seqNum, uint64_t maxLoop, bool setLastSeq)
 
 
 //
-// Setup two sequence number with common timer.
-// Two thread updating respective sequence number object.
-// At the end of the test, when the progress check is stopped with the
-// sequence number progressing, the timeout count should be 0.
+// setup: two thread forever increasing sequence number and kill it.
+//        wait for a while, and timeout should have fired.
+// sresult: timeouts
 //
 TEST(MigrationSeqNum, seqNumTimeout1)
 {
@@ -299,40 +277,37 @@ TEST(MigrationSeqNum, seqNumTimeout1)
 
     testTimeout to1(111);
     MigrationSeqNum seqTest1(timer, 2, std::bind(&testTimeout::timeoutHandler, &to1));
-    seqTest1.startProgressCheck();
 
     testTimeout to2(999);
-    MigrationSeqNum seqTest2(timer, 3, std::bind(&testTimeout::timeoutHandler, &to2));
-    seqTest2.startProgressCheck();
+    MigrationSeqNum seqTest2(timer, 2, std::bind(&testTimeout::timeoutHandler, &to2));
 
     std::thread thr1(thrSeqIncrementForever, std::ref(seqTest1));
     std::thread thr2(thrSeqIncrementForever, std::ref(seqTest2));
 
     // Do not remove.
-    // Let it run for 10 seconds.
+    // Let it run for 20 seconds.
     sleep(10);
-
-    // Stop progress check for all sequences.
-    seqTest1.stopProgressCheck();
-    seqTest2.stopProgressCheck();
 
     stopTestThread = true;
 
     thr1.join();
     thr2.join();
 
-    ASSERT_EQ(0, to1.getCount());
-    ASSERT_EQ(0, to2.getCount());
+    // Do not remove
+    // Give time for the timeout handler to fire.
+    sleep(5);
+
+    ASSERT_TRUE(to1.isTimedOut());
+    ASSERT_TRUE(to2.isTimedOut());
 
     timer.reset();
     stopTestThread = false;
 }
 
 //
-// This test sets up a timer to monitor the progress of the sequence number.
-// And another thread increments the sequence number for a while and terminates.
-// The progress monitor should catch that the increment haven't moved for a while
-// and increment timeout count to exactly 1.
+// setup: single thread forever increment.  kill thread and wait.
+//        timeout routine should fire.
+// result:  timeout should trigger.
 TEST(MigrationSeqNum, seqNumTimeout2)
 {
     stopTestThread = false;
@@ -340,8 +315,7 @@ TEST(MigrationSeqNum, seqNumTimeout2)
     FdsTimerPtr timer(new FdsTimer());
 
     testTimeout to(111);
-    MigrationSeqNum seqTest(timer, 3, std::bind(&testTimeout::timeoutHandler, &to));
-    seqTest.startProgressCheck();
+    MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
 
     std::thread thr(thrSeqIncrementForever, std::ref(seqTest));
 
@@ -354,18 +328,15 @@ TEST(MigrationSeqNum, seqNumTimeout2)
 
     // Sleep for a while, so the checker will trigger timeout
     sleep(10);
-    seqTest.stopProgressCheck();
 
-    // Since the sequence progress checker is still running, and the thread
-    // that's incrementing the sequence is already terminated, the
-    // timeout routine should've fired once.
-    ASSERT_EQ(1, to.getCount());
+    ASSERT_TRUE(to.isTimedOut());
 
     timer.reset();
     stopTestThread = false;
 }
 
-
+// setup: single thread complete sequence and terminate
+// result:  timeout should not have fired.
 TEST(MigrationSeqNum, seqNumTimeout3)
 {
     stopTestThread = false;
@@ -373,59 +344,94 @@ TEST(MigrationSeqNum, seqNumTimeout3)
     FdsTimerPtr timer(new FdsTimer());
 
     testTimeout to(111);
-    MigrationSeqNum seqTest(timer, 3, std::bind(&testTimeout::timeoutHandler, &to));
-    seqTest.startProgressCheck();
+    MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
 
     std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxSeq, true);
 
     thr.join();
 
-    ASSERT_EQ(0, to.getCount());
+    ASSERT_FALSE(to.isTimedOut());
 
     stopTestThread = false;
 }
 
+// setup: single thread complete exactly one time
+// result:  timeout should not have fired.
 TEST(MigrationSeqNum, seqNumTimeout4)
 {
     stopTestThread = false;
-    uint64_t maxSeq = 20;
+    uint64_t maxSeq = 1;
     FdsTimerPtr timer(new FdsTimer());
 
     testTimeout to(111);
     MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
-    seqTest.startProgressCheck();
+
+    std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxSeq, true);
+
+    thr.join();
+
+    // Do not remove.
+    // Sleep is necessary in this test.  T
+    sleep(5);
+
+    ASSERT_FALSE(to.isTimedOut());
+
+    stopTestThread = false;
+}
+
+// setup: single thread does not complete sequence.
+// result:  timeout should have fired.
+TEST(MigrationSeqNum, seqNumTimeout5)
+{
+    stopTestThread = false;
+    uint64_t maxSeq = 1;
+    FdsTimerPtr timer(new FdsTimer());
+
+    testTimeout to(111);
+    MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
 
     std::thread thr(thrSeqIncrementMax, std::ref(seqTest), maxSeq, false);
 
     thr.join();
 
     // Do not remove.
-    // Sleep is necessary in this test.  This tests timeout after certain time.
+    // Sleep is necessary in this test.  T
     sleep(5);
 
-    ASSERT_EQ(1, to.getCount());
+    ASSERT_TRUE(to.isTimedOut());
 
     stopTestThread = false;
 }
 
-TEST(MigrationSeqNum, seqNumTimeout5)
+// setup:: two threads: 1) thread loop and never complete sequence.
+//                      2) thread complete secuence.
+// result: thread 1) should timeout
+//         thread 2) should not timeout.
+TEST(MigrationSeqNum, seqNumTimeout6)
 {
     stopTestThread = false;
     uint64_t maxSeq = 20;
     FdsTimerPtr timer(new FdsTimer());
 
-    testTimeout to(111);
-    MigrationSeqNum seqTest(timer, 2, std::bind(&testTimeout::timeoutHandler, &to));
+    testTimeout to1(111);
+    MigrationSeqNum seqTest1(timer, 2, std::bind(&testTimeout::timeoutHandler, &to1));
 
-    std::thread thr(thrSeqIncrementMax2, std::ref(seqTest), maxSeq, true);
+    testTimeout to2(222);
+    MigrationSeqNum seqTest2(timer, 2, std::bind(&testTimeout::timeoutHandler, &to1));
 
-    thr.join();
+    std::thread thr1(thrSeqIncrementForever, std::ref(seqTest1));
+    std::thread thr2(thrSeqIncrementMax, std::ref(seqTest2), maxSeq, true);
+
+    thr2.join();
+    stopTestThread = true;
+    thr1.join();
 
     // Do not remove.
     // Sleep is necessary in this test.  This tests timeout after certain time.
     sleep(5);
 
-    ASSERT_EQ(0, to.getCount());
+    ASSERT_TRUE(to1.isTimedOut());
+    ASSERT_FALSE(to2.isTimedOut());
 
     stopTestThread = false;
 }
