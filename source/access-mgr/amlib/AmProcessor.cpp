@@ -522,10 +522,8 @@ AmProcessor_impl::renewTokenCb(fds_volid_t const vol_id,
     if ((ERR_OK != error) || (new_token != shVol->getToken())) {
         // Remove the volume from the caches (if there is one)
         txMgr->invalidateMetaCache(*shVol->voldesc);
-        if (invalid_vol_token != new_token) {
-            txMgr->removeVolume(*shVol->voldesc);
-        } else {
-            LOGERROR << "Failed to renew token: " << error;
+        if (invalid_vol_token == new_token) {
+            LOGERROR << "Failed to renew token, going R/O: " << error;
         }
         shVol->setToken(new_token);
         LOGDEBUG << "Received new token: " << new_token;
