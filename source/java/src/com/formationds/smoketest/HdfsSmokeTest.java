@@ -4,6 +4,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.xdi.XdiClientFactory;
@@ -363,9 +364,7 @@ public class HdfsSmokeTest {
     @Before
     public void setUpIntegration() throws Exception {
         XdiClientFactory xdiCf = new XdiClientFactory();
-        String host = (String) System.getProperties()
-                .getOrDefault("fds.host", "localhost");
-
+        String host = Fds.getFdsHost();
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
@@ -378,8 +377,8 @@ public class HdfsSmokeTest {
 
         cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), userId);
         Configuration hadoopConf = new Configuration();
-        hadoopConf.set("fds.am.endpoint", "localhost");
-        hadoopConf.set("fds.cs.endpoint", "localhost");
+        hadoopConf.set("fds.am.endpoint", Fds.getFdsHost());
+        hadoopConf.set("fds.cs.endpoint", Fds.getFdsHost());
         URI uri = new URI("fds://" + volumeName + "/");
         fileSystem = new FdsFileSystem(uri, hadoopConf);
     }

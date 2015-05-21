@@ -144,7 +144,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
             status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
                                                         (cinder_dir, cmd), return_stdin=True)
-            if status != 0 and not self.expect_to_fail:
+            if (status != 0) or self.expect_to_fail:
                 self.log.error("Attach volume %s on %s returned status %d." %
                                (volName, am_node, status))
                 return False

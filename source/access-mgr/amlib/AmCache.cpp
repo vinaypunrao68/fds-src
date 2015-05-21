@@ -38,6 +38,12 @@ AmCache::registerVolume(fds_volid_t const vol_uuid, size_t const num_objs) {
     return err;
 }
 
+void
+AmCache::invalidateMetaCache(fds_volid_t const volId) {
+    offset_cache.clear(volId);
+    descriptor_cache.clear(volId);
+}
+
 Error
 AmCache::removeVolume(fds_volid_t const volId) {
     Error err = descriptor_cache.removeVolume(volId);

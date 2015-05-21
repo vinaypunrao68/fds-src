@@ -9,21 +9,21 @@ import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
-import com.formationds.web.Dom4jResource;
+import com.formationds.web.W3cXmlResource;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.base.Joiner;
 import org.apache.thrift.TException;
-import org.dom4j.Document;
-import org.dom4j.DocumentHelper;
-import org.dom4j.Element;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.w3c.dom.Element;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -80,13 +80,13 @@ public class GetContainer  implements SwiftRequestHandler {
 
     private Resource jsonView(List<BlobDescriptor> descriptors) {
         JSONArray array = descriptors.stream()
-                .map(d -> new JSONObject()
-                        .put("hash", digest(d))
-                        .put("last_modified", lastModified(d))
-                        .put("bytes", d.getByteCount())
-                        .put("name", d.getName())
-                        .put("content_type", contentType(d)))
-                .collect(new JsonArrayCollector());
+                .map( d -> new JSONObject()
+                               .put( "hash", digest( d ) )
+                               .put( "last_modified", lastModified( d ) )
+                               .put( "bytes", d.getByteCount() )
+                               .put( "name", d.getName() )
+                               .put( "content_type", contentType( d ) ) )
+                .collect( new JsonArrayCollector() );
         return new JsonResource(array);
     }
 
@@ -107,20 +107,43 @@ public class GetContainer  implements SwiftRequestHandler {
         }
     }
 
-    private Resource xmlView(String containerName, List<BlobDescriptor> descriptors) throws Exception {
-        Document document = DocumentHelper.createDocument();
-        Element root = document.addElement("container").addAttribute("name", containerName);
+    protected Resource xmlView(String containerName, List<BlobDescriptor> descriptors) throws Exception {
+        DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        org.w3c.dom.Document document = builder.newDocument();
+
+        Element root = document.createElement( "container" );
+        root.setAttribute( "name", containerName );
 
         descriptors.stream()
-                .forEach(d -> {
-                    Element object = root.addElement("object");
-                    object.addElement("name").addText(d.getName());
-                    object.addElement("hash").addText(digest(d));
-                    object.addElement("bytes").addText(Long.toString(d.getByteCount()));
-                    object.addElement("content_type").addText(contentType(d));
-                    object.addElement("last_modified").addText(lastModified(d));
-                });
+                   .forEach( d -> {
 
-        return new Dom4jResource(document);
+                       Element object = document.createElement( "object" );
+                       root.appendChild( object );
+
+                       Element name = document.createElement( "name" );
+                       name.setTextContent( d.getName() );
+                       object.appendChild( name );
+
+                       Element hash = document.createElement( "hash" );
+                       hash.setTextContent( digest( d ) );
+                       object.appendChild( hash );
+
+                       Element bytes = document.createElement( "bytes" );
+                       bytes.setTextContent( Long.toString( d.getByteCount() ) );
+                       object.appendChild( bytes );
+
+                       Element ct = document.createElement( "content_type" );
+                       ct.setTextContent( contentType( d ) );
+                       object.appendChild( ct );
+
+                       Element lastModified = document.createElement( "last_modified" );
+                       lastModified.setTextContent( lastModified( d ) );
+                       object.appendChild( lastModified );
+                   } );
+
+        document.appendChild( root );
+
+        return new W3cXmlResource(document);
+
     }
 }
