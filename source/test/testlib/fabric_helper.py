@@ -7,6 +7,10 @@ import shlex
 import os
 import pdb
 from StringIO import StringIO
+import sys
+
+sys.path.insert(0, '../scale-framework')
+import config
 
 random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
@@ -14,16 +18,10 @@ log = logging.getLogger(__name__)
 
 
 class FabricHelper():
-    def __init__(self, fds_node):
-	env.user='root'
-	env.password='passwd'
-	env.host_string=fds_node
-	#self.node_service=fds_service
-	self.fds_bin = '/fds/bin'
-	#self.fds_sbin = '/fds/sbin'
-	self.fds_sbin = '/home/hlim/projects/fds-src/source/tools'
-	self.fds_sbin = '/fds/sbin'
-	self.fdsconsole = '{}/fdsconsole.py'.format(self.fds_sbin)
+    def __init__(self, node_ip):
+	env.user=config.SSH_USER
+	env.password=config.SSH_PASSWORD
+	env.host_string=node_ip
 
 
     def get_service_pid(self, node_service):
@@ -39,24 +37,28 @@ class FabricHelper():
 	--------
 	Returns the PID of the service
 	'''
-	#env.user = 'hlim'
-	#env.password = 'Testlab'
-	#env.host_string = node_ip_address
 
-	#with settings(hide('running','commands', 'stdout', 'stderr')):
-	with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
+        #with settings(hide('running','commands', 'stdout', 'stderr')):
+        with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
+            om_url = 'com.formationds.om.Main'
+            if om_url.find(node_service) or node_service == om_url:
+                #service_pid = run("ps auxw | grep {} | grep -v grep | awk '{print $2}'".format(node_service))
+                service_pid = run("ps auxw | grep 'com.formationds.om.Main' | grep -v grep | awk '{print $2}'")
 
-		service_pid = run('pgrep {}'.format(node_service))
-		if service_pid.return_code == 0:
-			return service_pid
+            else:
+                service_pid = run('pgrep {}'.format(node_service))
 
-		else:
-			log.warning("Unable to locate {} service PID".format(node_service))
-			return None
+            if service_pid.return_code == 0:
+                return service_pid
+
+            else:
+                log.warning("Unable to locate {} service PID".format(node_service))
+                return None
 
 
     def get_platform_uuid(self, service_pid):
 	'''
+    DEPRECATED - DO NOT USE
 	This function takes FDS service pid and returns its platform uuid
 
 	ATTRIBUTES:
@@ -85,6 +87,7 @@ class FabricHelper():
 
     def get_node_uuid(self, node_ip):
 	'''
+    DEPRECATED - DO NOT USE
 	This function queries and returns node_uuid
 
 	ATTRIBUTES:
