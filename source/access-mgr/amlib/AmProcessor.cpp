@@ -541,20 +541,17 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
 
     // If we had a token for a volume, give it back to DM
     auto shVol = volTable->getVolume(volDesc.volUUID);
-    if (!shVol) {
-        LOGWARN << "Unknown volume: " << volDesc.volUUID;
-        return ERR_VOL_NOT_FOUND;
-    }
-
-    // If we had a cache token for this volume, close it
-    fds_int64_t token = shVol->getToken();
-    if (invalid_vol_token != token) {
-        if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(shVol->access_token))) {
-            LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
-        } else {
-            LOGWARN << "Failed to cancel timer, volume with re-attach!";
+    if (shVol) {
+        // If we had a cache token for this volume, close it
+        fds_int64_t token = shVol->getToken();
+        if (invalid_vol_token != token) {
+            if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(shVol->access_token))) {
+                LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
+            } else {
+                LOGWARN << "Failed to cancel timer, volume with re-attach!";
+            }
+            amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
         }
-        amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
 
     // Remove the volume from the caches (if there is one)
