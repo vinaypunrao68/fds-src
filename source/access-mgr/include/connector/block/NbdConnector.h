@@ -5,13 +5,9 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
 
 #include <memory>
+#include <thread>
 
 #include "connector/block/common.h"
-
-namespace std
-{
-struct thread;
-}  // namespace std
 
 namespace fds {
 

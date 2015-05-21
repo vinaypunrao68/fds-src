@@ -185,7 +185,7 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat)
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
 {
     std::ostringstream oss;
-    oss < " UpdateCatalogRspMsg";
+    oss << " UpdateCatalogRspMsg";
     return oss.str();
 }
 
@@ -199,35 +199,35 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat)
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat)
 {
     std::ostringstream oss;
-    oss < " UpdateCatalogOnceRspMsg";
+    oss << " UpdateCatalogOnceRspMsg";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
 {
     std::ostringstream oss;
-    oss < " StartBlobTxMs";
+    oss << " StartBlobTxMs";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
-    oss < " CommitBlobTxMs";
+    oss << " CommitBlobTxMs";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& setMDMsg)
 {
     std::ostringstream oss;
-    oss < " SetBlobMetaDataMsg";
+    oss << " SetBlobMetaDataMsg";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDRspMsg)
 {
     std::ostringstream oss;
-    oss < " SetBlobMetaDataRspMsg";
+    oss << " SetBlobMetaDataRspMsg";
     return oss.str();
 }
 
@@ -242,7 +242,7 @@ std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
 std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& delRspMsg)
 {
     std::ostringstream oss;
-    oss < " DeleteObjectRspMsg";
+    oss << " DeleteObjectRspMsg";
     return oss.str();
 }
 
@@ -264,7 +264,7 @@ std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
 {
     std::ostringstream oss;
     // FIXME(DAC): This does nothing.
-    oss < " AbortBlobTxMs";
+    oss << " AbortBlobTxMs";
     return oss.str();
 }
 

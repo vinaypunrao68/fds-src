@@ -43,13 +43,13 @@ typedef std::function<void()> LockFreeTask;
 
 struct LockfreeWorker {
     LockfreeWorker(int id, bool steal, std::vector<LockfreeWorker*> &peers)
-    : id_(id),
+    :  queueCnt(0),
+    id_(id),
     steal_(steal),
     peers_(peers),
     tasks(1500),
     workLoopTerminate(false),
-    completedCntr(0),
-    queueCnt(0)
+    completedCntr(0)
     {
     }
 
@@ -74,16 +74,18 @@ struct LockfreeWorker {
         // 3) signal a waiter.
         bool ret = tasks.push(t);
 
-        // increment the queue count.
-        __sync_fetch_and_add(&queueCnt, 1);
+        if (ret) {
+            // increment the queue count.
+            __sync_fetch_and_add(&queueCnt, 1);
 
-        // Wake up one.
-        //
-        // TODO(Sean)
-        // This is doing a supurious wakeup.  Will need a way to prevent sending
-        // signal if possible.  Will need some state/hand shake between
-        // enqueue and workLoop.  Not sure how to do it yet.
-        my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+            // Wake up one.
+            //
+            // TODO(Sean)
+            // This is doing a supurious wakeup.  Will need a way to prevent sending
+            // signal if possible.  Will need some state/hand shake between
+            // enqueue and workLoop.  Not sure how to do it yet.
+            my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+        }
     }
 
     void workLoop() {
@@ -248,8 +250,8 @@ struct LFMQThreadpool {
     void schedule(F&& f, Args&&... args)
     {
         int i = idx++ % workers.size();
-        workers[i]->enqueue(
-                new LockFreeTask(std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
+        auto b = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+        workers[i]->enqueue(new LockFreeTask(b));
     }
     template <class F, class... Args>
     void scheduleWithAffinity(uint64_t affin, F&& f, Args&&... args)

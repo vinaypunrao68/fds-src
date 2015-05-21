@@ -505,7 +505,7 @@ ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
  * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
 
-Error
+void
 ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 {
     Error err(ERR_OK);
@@ -549,10 +549,9 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     }
 
     putReq->response_cb(err, putReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 {
     Error err(ERR_OK);
@@ -596,10 +595,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     }
 
     delReq->response_cb(err, delReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 {
     fds_assert(0 != addObjRefReq);
@@ -609,7 +607,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     Error rc = ERR_OK;
 
     if (addObjRefReq->objIds().empty()) {
-        return rc;
+        return;
     }
 
     uint64_t origNumObjIds = addObjRefReq->objIds().size();
@@ -670,11 +668,9 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     }
 
     addObjRefReq->response_cb(rc, addObjRefReq);
-
-    return rc;
 }
 
-Error
+void
 ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 {
     Error err(ERR_OK);
@@ -709,7 +705,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
 
     getReq->response_cb(err, getReq);
-    return err;
 }
 
 /**

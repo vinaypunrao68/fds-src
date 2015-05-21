@@ -290,15 +290,16 @@ QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, float throttle_lev
 }
 
 void
-QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, fds_uint32_t tlevel_x, double tlevel_frac)
+QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, fds_int32_t tlevel_x, double tlevel_frac)
 {
     if (tlevel_x >= 0) {
-        if (qstate->priority > tlevel_x) {
+        auto tlevel_x_u = static_cast<fds_uint32_t>(tlevel_x);
+        if (qstate->priority > tlevel_x_u) {
             /* throttle to assured rate */
             qstate->setEffectiveMinMaxRates(qstate->assured_rate,
                                             qstate->assured_rate,
                                             wait_time_microsec);
-        } else if (qstate->priority < tlevel_x) {
+        } else if (qstate->priority < tlevel_x_u) {
             /* ok to go up to throttle limit */
             qstate->setEffectiveMinMaxRates(qstate->assured_rate, qstate->throttle_rate, wait_time_microsec);
         } else {

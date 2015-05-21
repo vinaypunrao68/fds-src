@@ -1250,7 +1250,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     /* Cache the node information */
     agent->setNodeInfo(msg);
 
-    if ((known == true)) {
+    if (known == true) {
 
         // start services that were running on that node
         NodeServices services;
@@ -1485,7 +1485,7 @@ void
 OM_NodeContainer::om_init_domain()
 {
     TRACEFUNC;
-    om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
+    om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix());
 
     // TODO(Anna) PerfStats class is replaced, not sure yet if we
     // are also pushing stats to OM, so commenting this out for now

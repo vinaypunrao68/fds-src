@@ -46,9 +46,9 @@ public:
                                         maxLogFiles_(0)
     {}
 
-    Status NewWritableFile(const std::string& fname, WritableFile** result);
+    Status NewWritableFile(const std::string& fname, WritableFile** result) override;
 
-    Status DeleteFile(const std::string & f);
+    Status DeleteFile(const std::string & f) override;
 
     Status DeleteDir(const std::string & dir) override;
 

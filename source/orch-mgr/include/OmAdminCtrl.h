@@ -27,7 +27,7 @@ namespace fds {
 
 class FdsAdminCtrl {
   public:
-    FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log);
+    explicit FdsAdminCtrl(const std::string& om_prefix);
     ~FdsAdminCtrl();
 
     // Defines minimum object size in a volume in bytes
@@ -75,9 +75,6 @@ class FdsAdminCtrl {
 
     /* number of nodes reported disk capacity */
     fds_uint32_t num_nodes;
-
-    /* parent log */
-    fds_log* parent_log;
 };
 
 }  // namespace fds

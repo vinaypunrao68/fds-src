@@ -28,8 +28,7 @@ fds_uint64_t
 RandNumGenerator::getRandSeed() {
     // This seed implementation returns the current
     // time since epoch
-    std::chrono::system_clock::duration dur =
-            std::chrono::high_resolution_clock::now().time_since_epoch();
+    auto dur = std::chrono::high_resolution_clock::now().time_since_epoch();
     return dur.count();
 }
 

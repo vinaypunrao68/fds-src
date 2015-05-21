@@ -67,7 +67,7 @@ int
 ShmObjRO::shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) const
 {
     TRACEFUNC; util::printBackTrace();
-    const char *cur, *k;
+    const char *cur;
 
     fds_verify((0 <= idx) && (idx < shm_obj_cnt));
     cur = shm_area + (idx * shm_obj_siz);
@@ -286,7 +286,7 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
 // -----------
 //
 ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data)
-        : fdsio::RequestQueue(1, -1), smq_sync(sync), smq_data(data),
+        : fdsio::RequestQueue(1), smq_sync(sync), smq_data(data),
           smq_size(NodeShmCtrl::shm_q_item_count),
           smq_itm_size(NodeShmCtrl::shm_q_item_size)
 {
