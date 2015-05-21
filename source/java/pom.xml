@@ -33,7 +33,6 @@
         </repository -->
     </repositories>
     <dependencies>
-        <!-- JPA providers -->
         <dependency>
             <groupId>org.influxdb</groupId>
             <artifactId>influxdb-java</artifactId>
