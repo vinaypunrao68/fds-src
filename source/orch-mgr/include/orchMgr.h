@@ -67,7 +67,6 @@ class OrchMgr: public SvcProcess {
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
     std::string my_node_name;
 
-    netConfigPathServerSession *cfg_server_session;
     /* config path server is run on this thread */
     boost::shared_ptr<std::thread> cfgserver_thread;
 

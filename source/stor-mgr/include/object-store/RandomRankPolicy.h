@@ -9,6 +9,7 @@
 #include <set>
 #include <mutex>
 #include <condition_variable>
+#include <random>
 
 #include <persistent-layer/dm_io.h>
 

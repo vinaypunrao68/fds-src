@@ -7,7 +7,7 @@ import sys
 
 artifacts_to_keep = 14
 deb_dict = {}
-deb_names = [ "fds-platform" ]
+deb_names = [ "fds-platform-dbg", "fds-platform-rel", "fds-deps" ]
 
 conn = Http()
 conn.add_credentials('jenkins','UP93STXWFy5c')
@@ -22,15 +22,15 @@ for deb_name in deb_names:
 
 for record in content_json['children']:
     for deb_name in deb_names:
-        if re.compile(".*" + deb_name + "_.*-(debug|release)-.*").match(record['uri']):
+        if re.compile(".*" + deb_name + "_.*").match(record['uri']):
             deb_dict[deb_name].append(record['uri'])
 
-        deb_dict[deb_name].sort(key=lambda deb: int(deb.split('-')[3].split('.')[0]))
-
 for deb_name in deb_dict.keys():
+    deb_dict[deb_name].sort()
     if len(deb_dict[deb_name]) > artifacts_to_keep:
         for artifact in deb_dict[deb_name][:-artifacts_to_keep]:
             print "Deleting: " + artifact
+
             try:
                 resp, content = conn.request("http://artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly" + artifact, "DELETE")
 

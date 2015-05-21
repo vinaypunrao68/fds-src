@@ -44,7 +44,10 @@ class MigrationExecutor {
                       fds_uint32_t migrationType,
                       bool onePhaseMigration,
                       MigrationDltFailedCb failedRetryHandler,
-                      MigrationExecutorDoneHandler doneHandler);
+                      MigrationExecutorDoneHandler doneHandler,
+                      FdsTimerPtr &timeoutTimer,
+                      uint32_t timoutDuration,
+                      const std::function<void()> &timeoutHandler);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -88,6 +91,15 @@ class MigrationExecutor {
     inline void setDoneWithError() {
         MigrationExecutorState newState = ME_DONE_WITH_ERROR;
         std::atomic_store(&state, newState);
+    }
+
+    inline bool inErrorState() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (curState == ME_ERROR || curState == ME_DONE_WITH_ERROR) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**

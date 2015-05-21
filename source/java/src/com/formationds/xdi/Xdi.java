@@ -7,7 +7,6 @@ package com.formationds.xdi;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -40,7 +39,7 @@ public class Xdi {
         this.config = config;
         this.asyncAm = asyncAm;
         this.factory = factory;
-        this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm, config);
+        this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm);
     }
 
     private void attemptVolumeAccess(AuthenticationToken token, String volumeName, Intent intent) throws SecurityException {

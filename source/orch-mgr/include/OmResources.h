@@ -773,7 +773,7 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
-    Error setupNewNode(const NodeUuid&      uuid,
+    void setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
                        NodeAgent::pointer   newNode,
                        fds_uint32_t delayTime );
@@ -781,7 +781,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    Error om_activate_known_services( const NodeUuid& node_uuid,
+    void om_activate_known_services( const NodeUuid& node_uuid,
                                       fds_uint32_t delayTime );
 
     /**

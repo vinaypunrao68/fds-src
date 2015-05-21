@@ -181,7 +181,7 @@ class DataIndexProxy
 
   private:
     friend class DataIndexModule;
-    explicit DataIndexProxy(int max_depth);
+    DataIndexProxy();
     ~DataIndexProxy();
 
     fdsio::RequestQueue      idx_queue;
