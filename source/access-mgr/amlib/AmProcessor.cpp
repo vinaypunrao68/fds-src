@@ -587,15 +587,15 @@ AmProcessor_impl::statVolumeCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.setVolMetadata",
+              respond_and_delete(amReq, ERR_OK); \
+              return;);
+
     auto shVol = getVolume(amReq, false);
     if (!haveCacheToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
-    fiu_do_on("am.uturn.processor.setVolMetadata",
-              respond_and_delete(amReq, ERR_OK); \
-              return;);
-
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchSetVolumeMetadata(amReq);
 }
@@ -648,15 +648,15 @@ AmProcessor_impl::abortBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor_impl::startBlobTx(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.startBlobTx",
+              respond_and_delete(amReq, ERR_OK); \
+              return;);
+
     auto shVol = getVolume(amReq, false);
     if (!haveCacheToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
-
-    fiu_do_on("am.uturn.processor.startBlobTx",
-              respond_and_delete(amReq, ERR_OK); \
-              return;);
 
     // Generate a random transaction ID to use
     static_cast<StartBlobTxReq*>(amReq)->tx_desc =
@@ -706,6 +706,10 @@ AmProcessor_impl::deleteBlob(AmRequest *amReq) {
 
 void
 AmProcessor_impl::putBlob(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.putBlob",
+              respond_and_delete(amReq, ERR_OK); \
+              return;);
+
     auto shVol = getVolume(amReq, false);
 
     if (!haveCacheToken(shVol)) {
@@ -713,6 +717,7 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
         return;
     }
 
+    // Convert the offset to use a Byte term instead of Object
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
 
@@ -726,10 +731,6 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
         SCOPED_PERF_TRACEPOINT_CTX(amReq->hash_perf_ctx);
         amReq->obj_id = ObjIdGen::genObjectId(blobReq->dataPtr->c_str(), amReq->data_len);
     }
-
-    fiu_do_on("am.uturn.processor.putBlob",
-              respond_and_delete(amReq, ERR_OK); \
-              return;);
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::putBlobCb, amReq);
 
