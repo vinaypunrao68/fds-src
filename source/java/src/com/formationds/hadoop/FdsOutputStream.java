@@ -117,7 +117,7 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        if (currentBuffer.position() >= objectSize) {
+        if (!(currentBuffer.position() < objectSize)) {
             flush();
         }
         currentBuffer.put((byte) b);
