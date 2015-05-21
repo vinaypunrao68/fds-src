@@ -11,7 +11,7 @@
 
 -   name: start influxdb
     service: name=influxdb state=started
-    when: fds_om_influxdb_url is defined and inventory_hostname in fds_om_influxdb_url
+    when: inventory_hostname in om_influxdb_url
     tags:
         - startup
 

@@ -352,7 +352,7 @@ DataDiscoveryModule::disk_open_map()
         pd_uuids[idx] = uuid;
     }
     if ((pd_hdd_found + pd_ssd_found) == 0) {
-        fds_panic("Can't find any devices\n");
+        LOGCRITICAL << "Can't find any devices!!!";
     }
 }
 
@@ -466,7 +466,7 @@ DataDiscoveryModule::mod_shutdown()
 // \PersisDataIO::PersisDataIO
 // ----------------------------------------------------------------------------
 PersisDataIO::PersisDataIO()
-    : pd_queue(2, 1000), pd_counters_("PM", nullptr){}
+    : pd_queue(2), pd_counters_("PM", nullptr){}
 
 // \sersisDataIO::~PersisDataIO
 // ----------------------------

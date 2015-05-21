@@ -249,7 +249,7 @@ namespace fds
 
         msg_bind->svc_id.svc_uuid.svc_uuid   = gl_OmUuid.uuid_get_val();
         msg_bind->svc_node.svc_uuid.svc_uuid = gl_OmUuid.uuid_get_val();
-        memset(&msg->node_stor, 0, sizeof(msg->node_stor));
+        msg->node_stor = fpi::StorCapMsg();
     }
 
     // init_om_pm_info_msg

@@ -135,7 +135,7 @@ public class S3SmokeTest {
         count = 10;
 
         Integer pmPort = 7000;
-        config = new XdiClientFactory(pmPort + amResponsePortOffset).remoteOmService(host, 9090);
+        config = new XdiClientFactory().remoteOmService(host, 9090);
 
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);

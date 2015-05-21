@@ -49,7 +49,7 @@ class MigrationMgr {
 
     typedef std::unique_ptr<MigrationMgr> unique_ptr;
     /// source SM -> MigrationExecutor object map
-    typedef std::unordered_map<NodeUuid, MigrationExecutor::unique_ptr, UuidHash> SrcSmExecutorMap;
+    typedef std::unordered_map<NodeUuid, MigrationExecutor::shared_ptr, UuidHash> SrcSmExecutorMap;
     /// SM token id -> [ source SM -> MigrationExecutor ]
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
     /// executorId -> migrationClient
@@ -175,7 +175,8 @@ class MigrationMgr {
      * Assumes we are receiving DLT close event for the correct version,
      * caller should check this
      */
-    Error handleDltClose();
+    Error handleDltClose(const DLT* dlt,
+                         const NodeUuid& mySvcUuid);
 
     inline fds_bool_t isDltTokenReady(const ObjectID& objId) const {
         if (dltTokenStates.size() > 0) {
@@ -189,9 +190,11 @@ class MigrationMgr {
      * If migration not in progress and DLT tokens active/not active
      * states are not assigned, activate DLT tokens (this SM did not need
      * to resync or get data from other SMs).
+     * This method must be called only when this SM is a part of DLT
      */
-    void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
-
+    void notifyDltUpdate(const fds::DLT *dlt,
+                         fds_uint32_t bitsPerDltToken,
+                         const NodeUuid& mySvcUuid);
 
     /**
      * Coalesce all migration executor.
@@ -261,6 +264,23 @@ class MigrationMgr {
                                           const NodeUuid& mySvcUuid,
                                           const DLT* dlt);
 
+
+    /**
+     * This method is called when executor failed to sync tokens on the
+     * first or second round of migration/resync. For some set of errors,
+     * new sources will be selected for a given set of dltTokens and token
+     * sync/migration will restart with a new set of source SMs for this tokens.
+     * On some errors (e.g., if failure happened on the destination side) or
+     * if we tried with all source SMs, the sync will fail for the given set
+     * of DLT tokens.
+     * @return true if at least one retry started, otherwise return false
+     */
+    void retryWithNewSMs(fds_uint64_t executorId,
+                         fds_token_id smToken,
+                         const std::set<fds_token_id>& dltTokens,
+                         fds_uint32_t round,
+                         const Error& error);
+
     /**
      * Stops migration and sends ack with error to OM
      */
@@ -279,6 +299,20 @@ class MigrationMgr {
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
 
+    /**
+     * Indexes this vector is a DLT token, and boolean value is true if
+     * DLT token is available, and false if DLT token is unavailable.
+     * Initialization on SM startup:
+     *   Case 1: New SM, no previous DLT, so that no migration is necessary.
+     *          SM will receive DLT update from OM and set all DLT tokens that this
+     *          SM owns to available.
+     *   Case 2: New SM added to the domain where there is an existing DLT.
+     *          SM will received StartMigration message from OM. All DLT tokens will
+     *          be initialized to unavailable.
+     *   Case 3: SM restarts and it was part of DLT before the shutdown.
+     *          MigrationMgr will be called to start resync. All DLT tokens will be
+     *          initialized to unavailable.
+     */
     std::vector<fds_bool_t> dltTokenStates;
 
     /// next ID to assign to a migration executor
@@ -325,9 +359,6 @@ class MigrationMgr {
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_rwlock clientLock;
-
-    /// maximum number of items in the delta set.
-    fds_uint32_t maxDeltaSetSize;
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;

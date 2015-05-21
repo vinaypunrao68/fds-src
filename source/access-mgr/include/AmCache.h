@@ -39,6 +39,11 @@ class AmCache {
     Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs);
 
     /**
+     * Removes metadata cache for the volume.
+     */
+    void invalidateMetaCache(fds_volid_t const volId);
+
+    /**
      * Removes volume cache for the volume.
      * Any dirty entries must be flushed back to persistent
      * storage prior to removal, otherwise they will be lost.
@@ -88,21 +93,18 @@ class AmCache {
      */
     Error putBlobDescriptor(fds_volid_t const volId,
                             typename descriptor_cache_type::key_type const& blobName,
-                            typename descriptor_cache_type::value_type const blobDesc)
-    { descriptor_cache.add(volId, blobName, blobDesc); return ERR_OK; }
+                            typename descriptor_cache_type::value_type const blobDesc);
 
     Error putOffset(fds_volid_t const volId,
                     typename offset_cache_type::key_type const& blobOff,
-                    typename offset_cache_type::value_type const objId)
-    { offset_cache.add(volId, blobOff, objId); return ERR_OK; }
+                    typename offset_cache_type::value_type const objId);
 
     /**
      * Inserts new object into the object cache.
      */
     Error putObject(fds_volid_t const volId,
                     typename object_cache_type::key_type const& objId,
-                    typename object_cache_type::value_type const obj)
-    { object_cache.add(volId, objId, obj); return ERR_OK; }
+                    typename object_cache_type::value_type const obj);
 
     /**
      * Removes cache entries for a specific blob in a volume.

@@ -308,7 +308,6 @@ struct AmDispatcher
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
-    bool mockTimeoutEnabled_ = false;
 };
 
 }  // namespace fds

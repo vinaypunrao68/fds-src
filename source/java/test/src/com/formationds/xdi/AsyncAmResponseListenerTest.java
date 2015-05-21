@@ -39,9 +39,7 @@ public class AsyncAmResponseListenerTest {
         listener.start();
         RequestId requestId = new RequestId("foo");
         CompletableFuture<TxDescriptor> cf = listener.expect(requestId);
-        assertFalse(cf.isDone());
         listener.startBlobTxResponse(requestId, new TxDescriptor(42l));
-        assertTrue(cf.isDone());
         assertEquals(42l, cf.get()
                 .getTxId());
     }
