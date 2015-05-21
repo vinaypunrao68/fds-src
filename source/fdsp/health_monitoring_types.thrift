@@ -25,7 +25,7 @@ enum HealthState {
 struct HealthInfoMessage {
   1: required common.SvcID  serviceID;
   2: required i32           servicePort;
-  3: required HealthState   serviceStatue;
+  3: required HealthState   serviceState;
   4: i32                    statusCode;       // This should be a value in fds_errno_t
   5: string                 statusInfo;
 }
