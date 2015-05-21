@@ -175,7 +175,8 @@ class MigrationMgr {
      * Assumes we are receiving DLT close event for the correct version,
      * caller should check this
      */
-    Error handleDltClose();
+    Error handleDltClose(const DLT* dlt,
+                         const NodeUuid& mySvcUuid);
 
     inline fds_bool_t isDltTokenReady(const ObjectID& objId) const {
         if (dltTokenStates.size() > 0) {
@@ -189,9 +190,11 @@ class MigrationMgr {
      * If migration not in progress and DLT tokens active/not active
      * states are not assigned, activate DLT tokens (this SM did not need
      * to resync or get data from other SMs).
+     * This method must be called only when this SM is a part of DLT
      */
-    void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
-
+    void notifyDltUpdate(const fds::DLT *dlt,
+                         fds_uint32_t bitsPerDltToken,
+                         const NodeUuid& mySvcUuid);
 
     /**
      * Coalesce all migration executor.
@@ -295,6 +298,20 @@ class MigrationMgr {
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
 
+    /**
+     * Indexes this vector is a DLT token, and boolean value is true if
+     * DLT token is available, and false if DLT token is unavailable.
+     * Initialization on SM startup:
+     *   Case 1: New SM, no previous DLT, so that no migration is necessary.
+     *          SM will receive DLT update from OM and set all DLT tokens that this
+     *          SM owns to available.
+     *   Case 2: New SM added to the domain where there is an existing DLT.
+     *          SM will received StartMigration message from OM. All DLT tokens will
+     *          be initialized to unavailable.
+     *   Case 3: SM restarts and it was part of DLT before the shutdown.
+     *          MigrationMgr will be called to start resync. All DLT tokens will be
+     *          initialized to unavailable.
+     */
     std::vector<fds_bool_t> dltTokenStates;
 
     /// next ID to assign to a migration executor
