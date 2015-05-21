@@ -21,23 +21,23 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class XdiAuthorizer {
     private static final Logger LOG = Logger.getLogger(XdiAuthorizer.class);
     private Authenticator authenticator;
     private Authorizer authorizer;
-    private ConfigurationApi config;
-    private final BucketMetadataCache cache;
+    private final Cache<String, Map<String, String>> volumeMetadataCache;
     private AsyncAm asyncAm;
 
-    public XdiAuthorizer(Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, ConfigurationApi config) {
+    public XdiAuthorizer(Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
         this.authenticator = authenticator;
         this.authorizer = authorizer;
         this.asyncAm = asyncAm;
-        this.config = config;
-        cache = new BucketMetadataCache(config, asyncAm);
-        cache.start();
+        volumeMetadataCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .build();
     }
 
     public static BlobDescriptor withAcl(BlobDescriptor blobDescriptor, XdiAcl.Value acl) {
@@ -75,7 +75,14 @@ public class XdiAuthorizer {
             return true;
         }
 
-        Map<String, String> volumeMetadata = cache.getMetadata(volume);
+        Map<String, String> volumeMetadata = new HashMap<>();
+
+        try {
+            volumeMetadata = volumeMetadataCache.get(volume, () -> asyncAm.getVolumeMetadata(S3Endpoint.FDS_S3, volume).get());
+        } catch (ExecutionException e) {
+            LOG.error("Error retrieving metadata for volume " + volume, e);
+        }
+
         XdiAcl.Value acl = XdiAcl.parse(volumeMetadata);
         return acl.allow(intent);
     }
@@ -112,98 +119,9 @@ public class XdiAuthorizer {
         if (!hasVolumePermission(token, bucketName, Intent.changePermissions)) {
             throw new SecurityException();
         }
-        VolumeDescriptor volumeDescriptor = config.statVolume(S3Endpoint.FDS_S3, bucketName);
-        String systemVolume = XdiConfigurationApi.systemFolderName(volumeDescriptor.getTenantId());
-        createVolumeIfNeeded(systemVolume, volumeDescriptor.getTenantId());
-        Map<String, String> metadata = new HashMap<String, String>();
+        Map<String, String> metadata = asyncAm.getVolumeMetadata(S3Endpoint.FDS_S3, bucketName).get();
         metadata.put(XdiAcl.X_AMZ_ACL, newAcl.getCommonName());
-        String blobName = makeBucketAclBlobName(volumeDescriptor.getVolId());
-        asyncAm.updateBlobOnce(S3Endpoint.FDS_S3, systemVolume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), metadata).get();
-        cache.scheduleRefresh(false);
-    }
-
-    private void createVolumeIfNeeded(String volume, long tenantId) {
-        try {
-            config.createVolume(S3Endpoint.FDS_S3, volume, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), tenantId);
-        } catch (TException e) {
-
-        }
-    }
-
-    private String makeBucketAclBlobName(long volumeId) {
-        return "fds_bucket_acl_" + volumeId;
-    }
-
-
-    private class BucketMetadataCache {
-        private final Cache<String, CompletableFuture<Map<String, String>>> cache;
-        private final ConfigurationApi config;
-        private final AsyncAm am;
-
-        BucketMetadataCache(ConfigurationApi config, AsyncAm am) {
-            this.config = config;
-            this.am = am;
-            cache = CacheBuilder.newBuilder()
-                    .expireAfterWrite(10, TimeUnit.MINUTES)
-                    .build();
-        }
-
-        void start() {
-            scheduleRefresh(false);
-            Thread thread = new Thread(() -> {
-                while (true) {
-                    try {
-                        Thread.sleep(5000);
-                        scheduleRefresh(true);
-                    } catch (Exception e) {
-                        LOG.error("Error refreshing bucket metadata cache", e);
-                    }
-                }
-            });
-            thread.setName("Volume metadata cache updater");
-            thread.start();
-        }
-
-        Map<String, String> getMetadata(String bucketName) {
-            try {
-                CompletableFuture<Map<String, String>> cf = cache.get(bucketName, () -> CompletableFuture.completedFuture(new HashMap<String, String>()));
-                if (cf.isDone()) {
-                    return cf.get();
-                } else {
-                    return new HashMap<>();
-                }
-            } catch (Exception e) {
-                LOG.error("Error polling bucket metadata cache", e);
-            }
-
-            return new HashMap<>();
-        }
-
-        void scheduleRefresh(boolean deferrable) {
-            try {
-                config.listVolumes(S3Endpoint.FDS_S3)
-                        .stream()
-                        .forEach(vd -> {
-                            String systemVolume = XdiConfigurationApi.systemFolderName(vd.getTenantId());
-                            String blobName = makeBucketAclBlobName(vd.getVolId());
-                            CompletableFuture<BlobDescriptor> blobFuture = am.statBlob(S3Endpoint.FDS_S3, systemVolume, blobName)
-                                    .exceptionally(e -> new BlobDescriptor(vd.getName(), 0, new HashMap<String, String>()));
-                            CompletableFuture<Map<String, String>> cf = blobFuture.thenApply(bd -> bd.getMetadata());
-                            cache.put(vd.getName(), cf);
-
-                            if (!deferrable) {
-                                try {
-                                    cf.get();
-                                } catch (Exception e) {
-                                    LOG.error("Error refreshing cache", e);
-                                    cache.put(vd.getName(), CompletableFuture.completedFuture(Maps.newHashMap()));
-                                }
-                            }
-
-                        });
-            } catch (TException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        asyncAm.setVolumeMetadata(S3Endpoint.FDS_S3, bucketName, metadata).get();
+        volumeMetadataCache.put(bucketName, metadata);
     }
 }

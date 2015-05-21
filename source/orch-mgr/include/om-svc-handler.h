@@ -7,6 +7,7 @@
 #include <OmResources.h>
 #include <fdsp/OMSvc.h>
 #include <fdsp/om_api_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <OmEventTracker.h>
 
@@ -26,13 +27,23 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
     explicit OmSvcHandler(CommonModuleProviderIf *provider);
     virtual ~OmSvcHandler();
 
-    int mod_init(SysParams const *const param);
+    int mod_init(SysParams const *const param) override;
     /**
      * Stub Overrides from OMSvcIf
      */
     virtual void registerService(const fpi::SvcInfo& svcInfo) override {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
+
+    virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg) override {
+    	// Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg) override {
+    	// Don't do anything here. This stub is just to keep cpp compiler happy
+    	return;
+    }
+
     void getSvcInfo(fpi::SvcInfo &_return,
                     const  fpi::SvcUuid& svcUuid) override {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -42,6 +53,8 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
      * RPC overrides from fpi::OMSvcIf
      */
     virtual void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo) override;
+    virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
+    virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
 
@@ -55,8 +68,8 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
                       boost::shared_ptr<fpi::NodeInfoMsg> &node);
 
     virtual void
-    TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlTestBucket> &msg);
+    getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::GetVolumeDescriptor> &msg);
 
     virtual void
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
@@ -80,3 +93,4 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 
 }  // namespace fds
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OM_SVC_HANDLER_H_
+

@@ -189,7 +189,7 @@ describe( 'Testing volume creation permutations', function(){
                 settings: [
                     { predicate: 'Kept', value: 'for 1 day' },
                     { predicate: 'at 12am', value: 'for 1 week' },
-                    { predicate: 'Mondays', value: 'for 30 days' },
+                    { predicate: 'Mondays', value: 'for 90 days' },
                     { predicate: 'First day of the month', value: 'for 180 days' },
                     { predicate: 'January', value: 'for 5 years' }
                 ]
@@ -225,7 +225,7 @@ describe( 'Testing volume creation permutations', function(){
                     { predicate: 'Kept', value: 'for 1 day' },
                     { predicate: 'at 12am', value: 'for 2 days' },
                     { predicate: 'Mondays', value: 'for 1 week' },
-                    { predicate: 'First day of the month', value: 'for 30 days' },
+                    { predicate: 'First day of the month', value: 'for 90 days' },
                     { predicate: 'January', value: 'for 2 years' }
                 ]
             }
@@ -258,7 +258,7 @@ describe( 'Testing volume creation permutations', function(){
                 settings: [
                     { predicate: 'Kept', value: 'for 2 days' },
                     { predicate: 'at 12am', value: 'for 30 days' },
-                    { predicate: 'Mondays', value: 'for 240 days' },
+                    { predicate: 'Mondays', value: 'for 210 days' },
                     { predicate: 'First day of the month', value: 'for 2 years' },
                     { predicate: 'January', value: 'for 15 years' }
                 ]
@@ -273,7 +273,7 @@ describe( 'Testing volume creation permutations', function(){
         
         var qos = {
             priority: 3,
-            capacity: 60,
+            capacity: 500,
             limit: 1000
         };
         
@@ -312,7 +312,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Flash Only',
-            { preset: CUSTOM, priority: '3', sla: '60', limit: '1000'},
+            { preset: CUSTOM, priority: '3', sla: '500', limit: '1000'},
             { 
                 preset: CUSTOM, 
                 settings: [
@@ -349,7 +349,7 @@ describe( 'Testing volume creation permutations', function(){
                 settings: [
                     { predicate: 'Kept', value: 'for 2 days' },
                     { predicate: 'at 12am', value: 'for 30 days' },
-                    { predicate: 'Mondays', value: 'for 240 days' },
+                    { predicate: 'Mondays', value: 'for 210 days' },
                     { predicate: 'First day of the month', value: 'for 2 years' },
                     { predicate: 'January', value: 'for 15 years' }
                 ]

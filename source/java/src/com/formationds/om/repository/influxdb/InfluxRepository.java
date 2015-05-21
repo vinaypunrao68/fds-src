@@ -4,7 +4,6 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.crud.AbstractRepository;
-
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.om.repository.query.QueryCriteria;
@@ -31,7 +30,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     public static final String CP_DBNAME = "om.repository.db";
 
     public static final String TIMESTAMP_COLUMN_NAME = "time";
-    public static final String SEQUENCE_COLUMN_NAME = "sequence";
+    public static final String SEQUENCE_COLUMN_NAME = "sequence_number";
 
     protected static final String SELECT = "select ";
     protected static final String FROM   = " from ";
@@ -45,9 +44,9 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     private InfluxDBConnection dbConnection;
 
     /**
-     * @param url
-     * @param adminUser
-     * @param adminCredentials
+     * @param url the url
+     * @param adminUser the admin user
+     * @param adminCredentials the credentials
      */
     protected InfluxRepository( String url, String adminUser, char[] adminCredentials ) {
         this.adminConnection =new InfluxDBConnection( url, adminUser, adminCredentials );
@@ -125,7 +124,10 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
 
         StringBuilder sb = new StringBuilder();
 
-        String prefix = SELECT + "*" + FROM + getEntityName();
+        // * if no columns, otherwise comma-separated list of column names
+        String projection = queryCriteria.getColumnString();
+
+        String prefix = SELECT + projection + FROM + getEntityName();
         sb.append( prefix );
 
         if ( queryCriteria.getRange() != null ||
@@ -168,7 +170,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
 
                 Volume volume = contextIt.next();
 
-                sb.append( volIdColumnName + " = '" + volume.getId() + "'" );
+                sb.append( volIdColumnName ).append( " = '" ).append( volume.getId() ).append( "'" );
 
                 if ( contextIt.hasNext() ) {
                     sb.append( OR );
@@ -206,7 +208,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     /**
      * Run the specified operation once a connection is available.
      *
-     * @param r
+     * @param r the function to run once the connection is available
      *
      * @return a completion stage that will contain the result of the function when complete
      */
@@ -231,7 +233,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      *
      * @return true if the database was successfully created.  False if it already exists.
      *
-     * @throws ??? zero documentation on exceptions in influxdb-java api
+     * @throws RuntimeException ??? zero documentation on exceptions in influxdb-java api
      */
     protected boolean createDatabase( InfluxDatabase database ) {
         InfluxDB admin = adminConnect();
@@ -241,7 +243,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     /**
      *
      * @param admin the admin connection
-     * @param database
+     * @param database the database
      * @return true if the atabase was successfully created. False if it already exists
      */
     private boolean createDatabase( InfluxDB admin, InfluxDatabase database )
@@ -259,7 +261,41 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         return true;
     }
 
-    public String getTimestampColumnName() {
+    /**
+     *
+     * @return the timestamp column name
+     */
+    public String getTimestampColumnName()
+    {
         return TIMESTAMP_COLUMN_NAME;
+    }
+
+    /**
+     *
+     * @return the sequence column name
+     */
+    public String getSequenceColumnName()
+    {
+        return SEQUENCE_COLUMN_NAME;
+    }
+
+    /**
+     *
+     * @param col the column name
+     * @return true if the column name matches the timestamp column name
+     */
+    public boolean isTimestampColumn(String col)
+    {
+        return getTimestampColumnName().equalsIgnoreCase( col );
+    }
+
+    /**
+     *
+     * @param col the column name
+     *
+     * @return true if the column name matches the sequence column name
+     */
+    public boolean isSequenceColumn(String col) {
+        return getSequenceColumnName().equalsIgnoreCase( col );
     }
 }

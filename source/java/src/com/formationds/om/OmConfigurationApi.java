@@ -1,32 +1,41 @@
+
 /*
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
 package com.formationds.om;
 
-import com.formationds.protocol.ApiException;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.StreamingRegistrationMsg;
-import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
+import com.formationds.apis.SnapshotPolicy;
+import com.formationds.apis.StreamingRegistrationMsg;
+import com.formationds.apis.Tenant;
+import com.formationds.apis.User;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
+import com.formationds.om.events.OmEvents;
+import com.formationds.apis.FDSP_ModifyVolType;
+import com.formationds.apis.FDSP_GetVolInfoReqType;
+import com.formationds.om.events.EventManager;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
-import com.formationds.commons.events.*;
-import com.formationds.om.events.EventManager;
+import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class OmConfigurationApi implements com.formationds.util.thrift.ConfigurationApi {
@@ -48,8 +57,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         public ConfigurationCache(ConfigurationService.Iface config) throws Exception {
             version = config.configurationVersion(0);
             users = config.allUsers(0);
-            usersByName = users.stream().collect(Collectors.toMap(u -> u.getIdentifier(), u -> u));
-            usersById = users.stream().collect(Collectors.toMap(u -> u.getId(), u -> u));
+            usersByName = users.stream().collect(Collectors.toMap( ( Function<User, String> ) User::getIdentifier, u -> u));
+            usersById = users.stream().collect(Collectors.toMap( User::getId, u -> u));
             tenants = config.listTenants(0);
             usersByTenant = HashMultimap.create();
             tenantsById = new HashMap<>();
@@ -59,7 +68,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                 tenantsById.put(tenant.getId(), tenant);
                 List<User> tenantUsers = config.listUsersForTenant(tenant.getId());
                 usersByTenant
-                    .putAll(tenant.getId(), tenantUsers.stream().map(u -> u.getId()).collect(Collectors.toSet()));
+                    .putAll(tenant.getId(), tenantUsers.stream().map( User::getId ).collect(Collectors.toSet()));
                 for (User tenantUser : tenantUsers) {
                     tenantsByUser.put(tenantUser.getId(), tenant.getId());
                 }
@@ -71,7 +80,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             } catch (TException e) {
                 volumeDescriptors = Lists.newArrayList();
             }
-            volumesByName = volumeDescriptors.stream().collect(Collectors.toMap(v -> v.getName(), v -> v));
+            volumesByName = volumeDescriptors.stream().collect(Collectors.toMap( VolumeDescriptor::getName, v -> v));
         }
 
         public Collection<User> users() { return users; }
@@ -106,7 +115,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
         public List<User> listUsersForTenant(long tenantId) {
             return usersByTenant.get(tenantId).stream()
-                                .map(id -> usersById.get(id))
+                                .map( usersById::get )
                                 .collect(Collectors.toList());
         }
 
@@ -142,7 +151,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             try {
                 return new ConfigurationCache(configClientFactory.getClient());
             } catch (Exception e) {
-                LOG.error("Unable to load configuration", e);
                 throw new RuntimeException(e);
             }
         });
@@ -163,69 +171,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     public static String systemFolderName(long tenantId) {
         return "SYSTEM_VOLUME_" + tenantId;
-    }
-
-    enum ConfigEvent implements EventDescriptor {
-
-        CREATE_LOCAL_DOMAIN(EventCategory.SYSTEM, "Created local domain {0}", "domainName", "domainSite"),
-        CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
-        CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
-        UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
-        ASSIGN_USER_TENANT(EventCategory.SYSTEM, "Assigned user {0} to tenant {1}", "userId", "tenantId"),
-        REVOKE_USER_TENANT(EventCategory.SYSTEM, "Revoked user {0} from tenant {1}", "userId", "tenantId"),
-        CREATE_QOS_POLICY(EventCategory.VOLUMES, "Created QoS policy {0}", "policyName"),
-        MODIFY_QOS_POLICY(EventCategory.VOLUMES, "Modified QoS policy {0}", "policyName"),
-        DELETE_QOS_POLICY(EventCategory.VOLUMES, "Deleted QoS policy {0}", "policyName"),
-        CREATE_VOLUME(EventCategory.VOLUMES, "Created volume: domain={0}; name={1}; tenantId={2}; type={3}; size={4}",
-                      "domainName", "volumeName", "tenantId", "volumeType", "maxSize"),
-        DELETE_VOLUME(EventCategory.VOLUMES, "Deleted volume: domain={0}; name={1}", "domainName", "volumeName"),
-        CREATE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Created snapshot policy {0} {1} {2}; id={3}",
-                               "name", "recurrence", "retention", "id"),
-        DELETE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Deleted snapshot policy: id={0}", "id"),
-        ATTACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Attached snapshot policy {0} to volume id {1}",
-                               "policyId", "volumeId"),
-        DETACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Detached snapshot policy {0} from volume id {1}",
-                               "policyId", "volumeId"),
-        CREATE_SNAPSHOT(EventCategory.VOLUMES, "Created snapshot {0} of volume {1}.  Retention time = {2}",
-                        "snapshotName", "volumeId", "retentionTime"),
-
-        CLONE_VOLUME(EventCategory.VOLUMES,
-                     "Cloned volume {0} with policy id {1}; clone name={2}; Cloned volume Id = {3}",
-                     "volumeId", "policyId", "clonedVolumeName", "clonedVolumeId"),
-        RESTORE_CLONE(EventCategory.VOLUMES, "Restored cloned volume {0} with snapshot id {1}", "volumeId",
-                      "snapshotId");
-
-        private final EventType     type;
-        private final EventCategory category;
-        private final EventSeverity severity;
-        private final String        defaultMessage;
-        private final List<String>  argNames;
-
-        private ConfigEvent(EventCategory category, String defaultMessage, String... argNames) {
-            this(EventType.USER_ACTIVITY, category, EventSeverity.CONFIG, defaultMessage, argNames);
-        }
-
-        private ConfigEvent(EventType type, EventCategory category, EventSeverity severity,
-                            String defaultMessage, String... argNames) {
-            this.type = type;
-            this.category = category;
-            this.severity = severity;
-            this.defaultMessage = defaultMessage;
-            this.argNames = (argNames != null ? Arrays.asList(argNames) : new ArrayList<String>(0));
-        }
-
-        public String key() { return name(); }
-
-        public List<String> argNames() { return argNames; }
-
-        public EventType type() { return type; }
-
-        public EventCategory category() { return category; }
-
-        public EventSeverity severity() { return severity; }
-
-        public String defaultMessage() { return defaultMessage; }
-
     }
 
     @Override
@@ -256,7 +201,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public long createLocalDomain(String domainName, String domainSite)
         throws TException {
         long id = getConfig().createLocalDomain(domainName, domainSite);
-        EventManager.notifyEvent(ConfigEvent.CREATE_LOCAL_DOMAIN, domainName, domainSite);
+        EventManager.notifyEvent(OmEvents.CREATE_LOCAL_DOMAIN, domainName, domainSite);
         return id;
     }
 
@@ -342,6 +287,13 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return;
     }
     
+    @Override
+    public void startupLocalDomain(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().startupLocalDomain(domainName);
+        return;
+    }
+    
     /**
      * Shutdown the given Local Domain.
      * 
@@ -397,7 +349,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         getConfig().activateLocalDomainServices(domainName, sm, dm, am);
         return;
     }
-    
+
+    /**
+     * Activate the specified Services on the specified Node.
+     *
+     * @param act_serv_req - FDSP_ActivateOneNodeType: Class identifying node and its services to be activated.
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int ActivateNode(com.formationds.apis.FDSP_ActivateOneNodeType act_serv_req)
+            throws org.apache.thrift.TException {
+        return getConfig().ActivateNode(act_serv_req);
+    }
+
     /**
      * List all currently defined Services for the given Local Domain.
      * 
@@ -412,10 +379,23 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listLocalDomainServices(domainName);
     }
-    
+
+    /**
+     * List all currently defined Services for the given Local Domain.
+     *
+     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Services for the only Local Domain.
+     *
+     * @throws TException
+     */
+    @Override
+    public List<FDSP_Node_Info_Type> ListServices(int ignore)
+            throws org.apache.thrift.TException {
+        return getConfig().ListServices(ignore);
+    }
+
     /**
      * Remove all currently defined Services on all currently defined Nodes the given Local Domain.
-     * 
+     *
      * If all Service flags are set to False, it will
      * be interpreted to mean remove all Services currently defined for the Node.
      * Removal means that the Service is unregistered from the Domain and shutdown.
@@ -424,9 +404,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @param sm - A boolean indicating whether the SM Service should be removed (True) or not (False)
      * @param dm - A boolean indicating whether the DM Service should be removed (True) or not (False)
      * @param am - A boolean indicating whether the AM Service should be removed (True) or not (False)
-     * 
+     *
      * @return void.
-     * 
+     *
      * @throws TException
      */
     @Override
@@ -436,15 +416,32 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return;
     }
 
+    /**
+     * Remove the specified Services from the specified Node.
+     *
+     * @param rm_node_req - FDSP_RemoveServicesType: Class identifying node and its services to be removed.
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int RemoveServices(com.formationds.apis.FDSP_RemoveServicesType rm_node_req)
+            throws org.apache.thrift.TException {
+        return getConfig().RemoveServices(rm_node_req);
+    }
+
     @Override
     public long createTenant(String identifier)
         throws TException {
         long tenantId = getConfig().createTenant(identifier);
+        /*
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
         // TODO: XDI implementation hardcodes tenant system volume domain to "FDS_S3" (via S3Endpoint.FDS_S3. Not sure if this is correct?
         getConfig().createVolume( "FDS_S3", systemFolderName( tenantId ), volumeSettings, tenantId );
+        */
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
+        EventManager.notifyEvent(OmEvents.CREATE_TENANT, identifier);
         return tenantId;
     }
 
@@ -468,7 +465,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         long userId = getConfig().createUser(identifier, passwordHash, secret, isFdsAdmin);
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.CREATE_USER, identifier, isFdsAdmin, userId);
+        EventManager.notifyEvent(OmEvents.CREATE_USER, identifier, isFdsAdmin, userId);
         return userId;
     }
 
@@ -477,7 +474,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         getConfig().assignUserToTenant(userId, tenantId);
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.ASSIGN_USER_TENANT, userId, tenantId);
+        EventManager.notifyEvent(OmEvents.ASSIGN_USER_TENANT, userId, tenantId);
     }
 
     @Override
@@ -485,7 +482,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         getConfig().revokeUserFromTenant( userId, tenantId );
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.REVOKE_USER_TENANT, userId, tenantId);
+        EventManager.notifyEvent(OmEvents.REVOKE_USER_TENANT, userId, tenantId);
     }
 
     @Override
@@ -535,7 +532,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                            boolean isFdsAdmin) throws TException {
         getConfig().updateUser(userId, identifier, passwordHash, secret, isFdsAdmin);
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.UPDATE_USER, identifier, isFdsAdmin, userId);
+        EventManager.notifyEvent(OmEvents.UPDATE_USER, identifier, isFdsAdmin, userId);
     }
 
     @Override
@@ -561,7 +558,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public FDSP_PolicyInfoType createQoSPolicy(String policyName, long iopsMin, long iopsMax, int relPrio)
             throws TException {
         FDSP_PolicyInfoType qosPolicy = getConfig().createQoSPolicy(policyName, iopsMin, iopsMax, relPrio);
-        EventManager.notifyEvent(ConfigEvent.CREATE_QOS_POLICY, qosPolicy.policy_name);
+        EventManager.notifyEvent(OmEvents.CREATE_QOS_POLICY, qosPolicy.policy_name);
         return qosPolicy;
     }
 
@@ -600,7 +597,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             throws TException {
         FDSP_PolicyInfoType policy = getConfig().modifyQoSPolicy(currentPolicyName, newPolicyName,
                                                                  iopsMin, iopsMax, relPrio);
-        EventManager.notifyEvent(ConfigEvent.MODIFY_QOS_POLICY, policy.policy_name);
+        EventManager.notifyEvent(OmEvents.MODIFY_QOS_POLICY, policy.policy_name);
         return policy;
     }
 
@@ -615,7 +612,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void deleteQoSPolicy(String policyName)
         throws ApiException, org.apache.thrift.TException {
         getConfig().deleteQoSPolicy(policyName);
-        EventManager.notifyEvent(ConfigEvent.DELETE_QOS_POLICY, policyName);
+        EventManager.notifyEvent(OmEvents.DELETE_QOS_POLICY, policyName);
     }
 
     @Override
@@ -628,7 +625,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         long maxSize = (VolumeType.BLOCK.equals(vt) ?
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
-        EventManager.notifyEvent(ConfigEvent.CREATE_VOLUME, domainName, volumeName, tenantId,
+        EventManager.notifyEvent(OmEvents.CREATE_VOLUME, domainName, volumeName, tenantId,
                                  vt.name(),
                                  maxSize);
         statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
@@ -647,11 +644,23 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
+    public FDSP_VolumeDescType GetVolInfo(FDSP_GetVolInfoReqType vol_info_req)
+            throws org.apache.thrift.TException {
+        return getConfig().GetVolInfo(vol_info_req);
+    }
+
+    @Override
+    public int ModifyVol(FDSP_ModifyVolType mod_vol_req)
+            throws TException {
+        return getConfig().ModifyVol(mod_vol_req);
+    }
+
+    @Override
     public void deleteVolume(String domainName, String volumeName)
         throws TException {
         getConfig().deleteVolume(domainName, volumeName);
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.DELETE_VOLUME, domainName, volumeName);
+        EventManager.notifyEvent(OmEvents.DELETE_VOLUME, domainName, volumeName);
         statStreamRegistrationHandler.notifyVolumeDeleted( domainName, volumeName );
     }
 
@@ -667,6 +676,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         return Lists.newArrayList( fillCacheMaybe().volumesByName()
                                                    .values() );
+    }
+
+    @Override
+    public List<FDSP_VolumeDescType> ListVolumes(int ignore)
+            throws TException {
+        return Lists.newArrayList( getConfig().ListVolumes(ignore) );
     }
 
     @Override
@@ -692,7 +707,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws ApiException, org.apache.thrift.TException {
         long l = getConfig().createSnapshotPolicy(policy);
         // TODO: is the value returned the new policy id?
-        EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(),
+        EventManager.notifyEvent(OmEvents.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(),
                                  policy.getRetentionTimeSeconds(), l);
         return l;
     }
@@ -709,7 +724,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void deleteSnapshotPolicy(long id)
         throws ApiException, org.apache.thrift.TException {
         getConfig().deleteSnapshotPolicy(id);
-        EventManager.notifyEvent(ConfigEvent.DELETE_SNAPSHOT_POLICY, id);
+        EventManager.notifyEvent(OmEvents.DELETE_SNAPSHOT_POLICY, id);
     }
 
     // TODO need deleteSnapshotForVolume Iface call.
@@ -718,7 +733,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void attachSnapshotPolicy(long volumeId, long policyId)
         throws ApiException, org.apache.thrift.TException {
         getConfig().attachSnapshotPolicy(volumeId, policyId);
-        EventManager.notifyEvent(ConfigEvent.ATTACH_SNAPSHOT_POLICY, policyId, volumeId);
+        EventManager.notifyEvent(OmEvents.ATTACH_SNAPSHOT_POLICY, policyId, volumeId);
     }
 
     @Override
@@ -731,7 +746,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void detachSnapshotPolicy(long volumeId, long policyId)
         throws ApiException, org.apache.thrift.TException {
         getConfig().detachSnapshotPolicy(volumeId, policyId);
-        EventManager.notifyEvent(ConfigEvent.DETACH_SNAPSHOT_POLICY, policyId, volumeId);
+        EventManager.notifyEvent(OmEvents.DETACH_SNAPSHOT_POLICY, policyId, volumeId);
     }
 
     @Override
@@ -745,7 +760,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         getConfig().createSnapshot(volumeId, snapshotName, retentionTime, timelineTime);
         // TODO: is there a generated snapshot id?
-        EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime);
+        EventManager.notifyEvent(OmEvents.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime);
     }
 
     @Override
@@ -758,7 +773,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void restoreClone(long volumeId, long snapshotId)
         throws ApiException, org.apache.thrift.TException {
         getConfig().restoreClone(volumeId, snapshotId);
-        EventManager.notifyEvent(ConfigEvent.RESTORE_CLONE, volumeId, snapshotId);
+        EventManager.notifyEvent(OmEvents.RESTORE_CLONE, volumeId, snapshotId);
     }
 
     @Override
@@ -770,7 +785,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         }
         dropCache();
 
-        EventManager.notifyEvent(ConfigEvent.CLONE_VOLUME, volumeId, fdsp_PolicyInfoId, clonedVolumeName, clonedVolumeId);
+        EventManager.notifyEvent(OmEvents.CLONE_VOLUME, volumeId, fdsp_PolicyInfoId, clonedVolumeName, clonedVolumeId);
         return clonedVolumeId;
     }
 

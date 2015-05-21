@@ -6,62 +6,51 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/qos/qos.html',
         scope: { qos: '=ngModel', saveOnly: '@' },
-        controller: function( $scope, $filter ){
+        controller: function( $scope, $filter, $volume_api ){
             
-            $scope.custom = { priority: 5, limit: 0, sla: 0 };
+            $scope.custom = { priority: 5, limit: 0, sla: 0, name: $filter( 'translate' )( 'common.l_custom' ) };
             
-            $scope.presets = [
-                {
-                    label: $filter( 'translate' )( 'volumes.qos.l_least_important' ),
-                    value: { priority: 10, limit: 0, sla: 0 }
-                },
-                {
-                    label: $filter( 'translate' )( 'volumes.qos.l_standard' ),
-                    value: { priority: 7, limit: 0, sla: 0 }                    
-                },
-                {
-                    label: $filter( 'translate' )( 'volumes.qos.l_most_important' ),
-                    value: { priority: 1, limit: 0, sla: 0 }                    
-                },
-                {
-                    label: $filter( 'translate' )( 'common.l_custom' ),
-                    value: $scope.custom                    
-                }
-            ];
-            
-            $scope.qosPreset = $scope.presets[0];
             $scope.qos = {};
             $scope.editing = false;           
             
-            $scope.limitChoices = [100,200,300,400,500,750,1000,2000,3000,0];
+            $scope.limitChoices = [100,200,300,500,1000,2000,3000,5000,7500, 10000,0];
+            $scope.guaranteeChoices = [0,100,200,300,500,1000,2000,3000,5000, 7500, 10000];
 
-            var init = function(){
-
+            var rationalizeWithPresets = function(){
+                
                 if ( !angular.isDefined( $scope.qos ) || !angular.isDefined( $scope.qos.sla ) ){
-                    $scope.qos = $scope.presets[1].value;
+                    $scope.qos = $scope.presets[1];
+                    return;
                 }
                 
-                if ( $scope.qos.priority === $scope.presets[0].value.priority &&
-                    $scope.qos.sla === $scope.presets[0].value.sla &&
-                    $scope.qos.limit === $scope.presets[0].value.limit ){
+                $scope.qosPreset = undefined;
+                
+                for ( var i = 0; angular.isDefined( $scope.presets ) && i < $scope.presets.length-1; i++ ) {
                     
-                    $scope.qosPreset = $scope.presets[0];
-                }
-                else if ( $scope.qos.priority === $scope.presets[1].value.priority &&
-                    $scope.qos.sla === $scope.presets[1].value.sla &&
-                    $scope.qos.limit === $scope.presets[1].value.limit ){
+                    var preset = $scope.presets[i];
                     
-                    $scope.qosPreset = $scope.presets[1];
+                    if ( $scope.qos.priority === preset.priority &&
+                        $scope.qos.sla === preset.sla &&
+                        $scope.qos.limit === preset.limit ){
+
+                        $scope.qosPreset = preset;
+                    }
                 }
-                else if ( $scope.qos.priority === $scope.presets[2].value.priority &&
-                    $scope.qos.sla === $scope.presets[2].value.sla &&
-                    $scope.qos.limit === $scope.presets[2].value.limit ){
+                
+                if ( $scope.qosPreset === undefined ){
+                    $scope.qosPreset = $scope.presets[ $scope.presets.length - 1 ];
+                }
+            };
+            
+            var init = function(){
+
+                $volume_api.getQosPolicyPresets( function( presets ){
                     
-                    $scope.qosPreset = $scope.presets[2];
-                }                
-                else {
-                    $scope.qosPreset = $scope.presets[3];
-                }
+                    $scope.presets = presets;
+                    $scope.presets.push( $scope.custom );
+                    
+                    rationalizeWithPresets();
+                });
             };
             
             $scope.limitSliderLabel = function( value ){
@@ -70,6 +59,15 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                     return '\u221E';
                 }
 
+                return value;
+            };
+            
+            $scope.guaranteeSliderLabel = function( value ){
+                
+                if ( value === 0 ){
+                    return $filter( 'translate' )( 'common.l_none' );
+                }
+                
                 return value;
             };
 
@@ -86,7 +84,7 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                     return;
                 }
 
-                $scope.qos = newVal.value;
+                $scope.qos = newVal;
             });
          
             init();

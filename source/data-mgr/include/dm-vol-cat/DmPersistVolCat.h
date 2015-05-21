@@ -23,7 +23,7 @@ namespace fds {
 
 extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
-extern const std::string VOL_META_INDEX;
+extern const fds_uint64_t VOL_META_ID;
 
 struct __attribute__((packed)) BlobObjKey {
     fds_uint64_t blobId;

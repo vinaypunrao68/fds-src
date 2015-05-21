@@ -15,7 +15,6 @@
 #include <fds_base_migrators.h>
 #include <fds_migration.h>
 #include <util/Log.h>
-#include <NetSession.h>
 #include <StorMgrVolumes.h>
 #include<ObjectStoreMock.h>
 
@@ -91,7 +90,7 @@ protected:
 
         std::string myIp = net::get_local_ip("eth0");
         int port = conf_helper_.get<int>("port");
-        int myIpInt = netSession::ipString2Addr(myIp);
+        int myIpInt = net::ipString2Addr(myIp);
         // TODO(rao): Do not hard code.  Get from config
         std::string node_name = "localhost-mig";
         migpath_session_ = nst_->createServerSession<netMigrationPathServerSession>(

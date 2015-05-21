@@ -3,15 +3,9 @@
  */
 package com.formationds.xdi;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Service;
-import FDS_ProtocolInterface.FDSP_SessionReqResp;
-import com.formationds.am.Main;
 import com.formationds.apis.XdiService;
 import com.formationds.apis.XdiService.AsyncIface;
 import com.formationds.apis.AsyncXdiServiceRequest;
-import com.formationds.apis.AsyncXdiServiceRequest.Client;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.apis.RequestId;
@@ -23,7 +17,6 @@ import com.formationds.util.thrift.ThriftAsyncResourceImpl;
 import com.formationds.util.thrift.ThriftClientConnection;
 import com.formationds.util.thrift.ThriftClientConnectionFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
-import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.TAsyncClientManager;
@@ -39,30 +32,11 @@ public class XdiClientFactory {
     private final ThriftClientFactory<XdiService.Iface>             amService;
     private final ThriftClientFactory<AsyncXdiServiceRequest.Iface> onewayAmService;
     private final ThriftClientFactory<Iface>                       configService;
-    private final ThriftClientFactory<FDSP_ConfigPathReq.Iface>    legacyConfigService;
 
-    private int amResponsePort;
 
-    public XdiClientFactory(int amResponsePort) {
-        this.amResponsePort = amResponsePort;
-
+    public XdiClientFactory() {
         configService = ConfigServiceClientFactory.newConfigService();
-        legacyConfigService = ConfigServiceClientFactory.newLegacyConfigService();
-
         amService = AmServiceClientFactory.newAmService();
-
-        ThriftClientConnectionFactory<AsyncXdiServiceRequest.Iface> onewayAmFactory =
-            new ThriftClientConnectionFactory<>(proto -> {
-                AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(proto);
-                try {
-                    client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
-                } catch (TException e) {
-                    LOG.error("Could not handshake remote AM!", e);
-                    throw new RuntimeException(e);
-                }
-                return client;
-            });
-
         onewayAmService = AmServiceClientFactory.newOneWayAsyncAmService();
     }
 
@@ -76,10 +50,6 @@ public class XdiClientFactory {
 
     public AsyncXdiServiceRequest.Iface remoteOnewayAm(String host, int port) {
         return onewayAmService.getClient(host, port);
-    }
-
-    public FDSP_ConfigPathReq.Iface legacyConfig(String host, int port) {
-        return legacyConfigService.getClient(host, port);
     }
 
     public AsyncResourcePool<ThriftClientConnection<XdiService.AsyncIface>> makeAmAsyncPool(String host, int port) throws

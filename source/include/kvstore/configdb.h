@@ -93,6 +93,8 @@ struct ConfigDB : KVStore {
     bool deleteSvcMap(const fpi::SvcInfo& svcinfo);
     bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap);
     bool updateSvcMap(const fpi::SvcInfo& svcinfo);
+    bool changeStateSvcMap( const int64_t svc_uuid, 
+                            const fpi::ServiceStatus svc_status );
     
     // volume policies
     fds_uint32_t createQoSPolicy(const std::string& identifier,

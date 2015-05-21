@@ -33,10 +33,10 @@ class InfluxDb:
         self.port = config["port"]
         self.user = config["user"]
         self.password = config["password"]
-        self.dbname = "perf"
+        self.dbname = config["db"]
+        self.db = influxdb.InfluxDBClient(self.ip, self.port, self.user, self.password, self.dbname)
 
     def write_records(self, series, records):
-        db = influxdb.InfluxDBClient(self.ip, self.port, self.user, self.password, self.dbname)
         cols, vals = [list(x) for x in  zip(*records)]
         vals = [dyn_cast(x) for x in vals]
         data = [
@@ -48,14 +48,14 @@ class InfluxDb:
             ]
           }
         ]
-        print data
-        db.write_points(data)
+        self.db.write_points(data)
 
 influx_db_config = {
     "ip" : "metrics.formationds.com",
     "port" : 8086,
     "user" : "perf",
     "password" : "perf",
+    "db" : "perf",
 }
 
 if __name__ == "__main__":

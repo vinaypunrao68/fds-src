@@ -4,12 +4,10 @@
 
 package com.formationds.om.webkit;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 
 import com.formationds.protocol.commonConstants;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
-import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.webkit.rest.*;
 import com.formationds.om.webkit.rest.domain.*;
 import com.formationds.om.webkit.rest.events.IngestEvents;
@@ -18,9 +16,13 @@ import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
 import com.formationds.om.webkit.rest.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.metrics.QueryMetrics;
 import com.formationds.om.webkit.rest.metrics.SystemHealthStatus;
-import com.formationds.om.webkit.rest.platform.ActivateNode;
-import com.formationds.om.webkit.rest.platform.DeactivateNode;
+import com.formationds.om.webkit.rest.platform.AddNode;
+import com.formationds.om.webkit.rest.platform.AddService;
+import com.formationds.om.webkit.rest.platform.MutateNode;
+import com.formationds.om.webkit.rest.platform.MutateService;
+import com.formationds.om.webkit.rest.platform.RemoveNode;
 import com.formationds.om.webkit.rest.platform.ListNodes;
+import com.formationds.om.webkit.rest.platform.RemoveService;
 import com.formationds.om.webkit.rest.snapshot.*;
 import com.formationds.om.webkit.rest.policy.PostQoSPolicy;
 import com.formationds.om.webkit.rest.policy.GetQoSPolicies;
@@ -76,8 +78,6 @@ public class WebKitImpl {
 
     public void start( ) {
 
-        final FDSP_ConfigPathReq.Iface legacyConfig =
-            SingletonLegacyConfig.instance().api();
         final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
         webApp = new WebApp( webDir );
@@ -111,7 +111,7 @@ public class WebKitImpl {
         /*
          * provides snapshot RESTful API endpoints
          */
-        snapshot( configAPI, legacyConfig );
+        snapshot( configAPI );
 
         /*
          * provides QoS RESTful API endpoints
@@ -132,27 +132,29 @@ public class WebKitImpl {
         authenticate( HttpMethod.GET, "/api/config/volumes",
                       ( t ) -> new ListVolumes( authorizer,
                                                 configAPI,
-                                                legacyConfig,
                                                 t ) );
         authenticate( HttpMethod.POST, "/api/config/volumes",
                       ( t ) -> new CreateVolume( authorizer,
-                                                 legacyConfig,
                                                  configAPI,
                                                  t ) );
         authenticate( HttpMethod.POST,
                       "/api/config/volumes/clone/:volumeId/:cloneVolumeName/:timelineTime",
-                      ( t ) -> new CloneVolume( configAPI,
-                                                legacyConfig ) );
+                      ( t ) -> new CloneVolume( configAPI ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
                       ( t ) -> new DeleteVolume( authorizer, configAPI,
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
                       ( t ) -> new SetVolumeQosParams(
-                          legacyConfig,
                           SingletonConfigAPI.instance()
                                             .api(),
                           authorizer,
                           t ) );
+        
+        authenticate( HttpMethod.GET, "/api/config/volumes/presets/qos",
+        			  ( t ) -> new ListQosPresets() );
+        
+        authenticate( HttpMethod.GET, "/api/config/volumes/presets/timeline",
+  			  		  ( t ) -> new ListTimelinePresets() );        
 
         fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid",
                       ( t ) -> new ShowToken( configAPI,
@@ -260,27 +262,42 @@ public class WebKitImpl {
     }
     private void platform( ) {
 
-        final FDSP_ConfigPathReq.Iface legacyConfig =
-            SingletonLegacyConfig.instance().api();
+        final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
         logger.trace( "registering platform endpoints" );
-        fdsAdminOnly( HttpMethod.GET, "/api/config/services",
-                      ( t ) -> new ListNodes( legacyConfig ),
+
+        fdsAdminOnly( HttpMethod.GET, "/api/config/nodes",
+                      ( t ) -> new ListNodes( configAPI ),
                       authorizer );
-        fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
-                      ( t ) -> new ActivateNode( legacyConfig ),
+        fdsAdminOnly( HttpMethod.POST, "/api/config/nodes/:node_uuid/:domain_id",
+                      ( t ) -> new AddNode( configAPI ),
                       authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/api/config/services/:node_uuid",
-                      ( t ) -> new DeactivateNode( legacyConfig ),
+        fdsAdminOnly( HttpMethod.DELETE, "/api/config/nodes/:node_uuid",
+                      ( t ) -> new RemoveNode( configAPI ),
                       authorizer );
+
+        fdsAdminOnly( HttpMethod.PUT, "/api/config/nodes/:node_uuid",
+        			  ( t ) -> new MutateNode( configAPI ),
+        			  authorizer );
+        
+        fdsAdminOnly( HttpMethod.POST, "/api/config/nodes/:node_uuid/services",
+        			  ( t ) -> new AddService( configAPI ),
+        			  authorizer );
+        
+        fdsAdminOnly( HttpMethod.DELETE, "/api/config/nodes/:node_uuid/services/:service_uuid", 
+        			  ( t ) -> new RemoveService( configAPI ),
+        			  authorizer );
+        
+        fdsAdminOnly( HttpMethod.PUT, "/api/config/nodes/:node_uuid/services/:service_uuid",
+        			  ( t ) -> new MutateService( configAPI ),
+        			  authorizer );
+        
         logger.trace( "registered platform endpoints" );
 
     }
 
     private void localDomain( ) {
 
-        final FDSP_ConfigPathReq.Iface legacyConfig =
-            SingletonLegacyConfig.instance().api();
         final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
         logger.trace( "Registering Local Domain endpoints." );
@@ -288,42 +305,36 @@ public class WebKitImpl {
         fdsAdminOnly( HttpMethod.POST,
                       "/local_domains/:local_domain",
                       ( t ) -> new PostLocalDomain( authorizer,
-                                                    legacyConfig,
                                                     configAPI,
                                                     t ),
                       authorizer );
         fdsAdminOnly( HttpMethod.GET,
                       "/local_domains",
                       ( t ) -> new GetLocalDomains( authorizer,
-                                                    legacyConfig,
                                                     configAPI,
                                                     t ),
                       authorizer );
         fdsAdminOnly( HttpMethod.PUT,
                       "/local_domains/:local_domain",
                       ( t ) -> new PutLocalDomain( authorizer,
-                                                   legacyConfig,
                                                    configAPI,
                                                    t ),
                       authorizer );
         fdsAdminOnly( HttpMethod.PUT,
                       "/local_domains/:local_domain/throttle",
                       ( t ) -> new PutThrottle( authorizer,
-                                                legacyConfig,
                                                 configAPI,
                                                 t ),
                       authorizer );
         fdsAdminOnly( HttpMethod.PUT,
                       "/local_domains/:local_domain/scavenger",
                       ( t ) -> new PutScavenger( authorizer,
-                                                 legacyConfig,
                                                  configAPI,
                                                  t ),
                       authorizer );
         fdsAdminOnly( HttpMethod.DELETE,
                       "/local_domains/:local_domain",
                       ( t ) -> new DeleteLocalDomain( authorizer,
-                                                      legacyConfig,
                                                       configAPI,
                                                       t ),
                       authorizer );
@@ -331,14 +342,12 @@ public class WebKitImpl {
         fdsAdminOnly( HttpMethod.GET,
                       "/local_domains/:local_domain/services",
                       ( t ) -> new GetLocalDomainServices( authorizer,
-                                                           legacyConfig,
                                                            configAPI,
                                                            t ),
                       authorizer );
         fdsAdminOnly( HttpMethod.PUT,
                       "/local_domains/:local_domain/services",
                       ( t ) -> new PutLocalDomainServices( authorizer,
-                                                           legacyConfig,
                                                            configAPI,
                                                            t ),
                       authorizer );
@@ -363,7 +372,6 @@ public class WebKitImpl {
         
         authenticate( HttpMethod.GET,  "/api/systemhealth",
         		( t ) -> new SystemHealthStatus(
-        				SingletonLegacyConfig.instance().api(),
         				SingletonConfigAPI.instance().api(),
         				authorizer,
         				t ) );
@@ -398,8 +406,7 @@ public class WebKitImpl {
                                             .api() ) );
     }
 
-    private void snapshot( final ConfigurationApi config,
-                           final FDSP_ConfigPathReq.Iface legacyConfigPath ) {
+    private void snapshot( final ConfigurationApi config ) {
         /**
          * logical grouping for each HTTP method.
          *
@@ -410,13 +417,12 @@ public class WebKitImpl {
         logger.trace( "registering snapshot endpoints" );
         snapshotGets( config );
         snapshotDeletes( config );
-        snapshotPosts( config, legacyConfigPath );
+        snapshotPosts( config );
         snapshotPuts( config );
         logger.trace( "registered snapshot endpoints" );
     }
 
-    private void snapshotPosts( final ConfigurationApi config,
-                                final FDSP_ConfigPathReq.Iface legacyConfigPath ) {
+    private void snapshotPosts( final ConfigurationApi config ) {
         // POST methods
         authenticate( HttpMethod.POST, "/api/config/snapshot/policies",
                       ( t ) -> new CreateSnapshotPolicy( config ) );
@@ -428,7 +434,7 @@ public class WebKitImpl {
                       ( t ) -> new RestoreSnapshot( config ) );
         authenticate( HttpMethod.POST,
                       "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
-                      ( t ) -> new CloneSnapshot( config, legacyConfigPath ) );
+                      ( t ) -> new CloneSnapshot( config ) );
     }
 
     private void snapshotPuts( final ConfigurationApi config ) {

@@ -45,17 +45,10 @@ public enum FirebreakType {
      * @return the matching firebreak type, or an empty optional if not.
      */
     public static Optional<FirebreakType> metricFirebreakType(String m) {
-        Metrics mt = null;
         try {
-            mt = Metrics.byMetadataKey(m);
+            return metricFirebreakType( Metrics.lookup( m ) );
         } catch (UnsupportedMetricException ume) {
-            try {
-                mt = Metrics.valueOf(m.toUpperCase());
-            } catch (IllegalArgumentException iae) {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
-
-        return metricFirebreakType(mt);
     }
 }

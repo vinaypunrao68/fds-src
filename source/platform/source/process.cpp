@@ -57,9 +57,20 @@ namespace fds
             pid_t    child_pid;
             pid_t    res_pid;
 
+            int    j = 0;
+
+            std::ostringstream commandBuffer;
+
+            for (j = 0; argv[j]!= NULL; j++)
+            {
+                commandBuffer << argv[j] << " ";
+            }
+
+            LOGDEBUG << "Preparing to fork and exec:  " << commandBuffer.str();
+
             child_pid = fork();
 
-            if (child_pid != 0)
+            if (child_pid > 0)
             {
                 if (daemonize)
                 {
@@ -69,23 +80,15 @@ namespace fds
                 }
                 return child_pid;
             }
-
-            int    j = 0;
-
-            printf("\n");
-
-            std::ostringstream commandBuffer;
-
-            for (j = 0; argv[j]!= NULL; j++)
+            else if (child_pid < 0)
             {
-                commandBuffer << argv[j] << " ";
+                LOGDEBUG << "fds_spawn fork failure:  errno = " << errno;
             }
 
-            LOGDEBUG << "fds_spawn execvp = " << commandBuffer.str();
+            // In the child process, No logging between fork and exec
 
-            /* Child process, close all file descriptors. */
+            /* Close all file descriptors. */
             flim = fds_get_fd_limit();
-            printf("Close fd up to %d\n", flim);
 
             for (fd = 0; fd < flim; fd++)
             {
@@ -95,10 +98,8 @@ namespace fds
             // There is probably a better way, but for now, create a dummy variable to capture the
             // return value from dup().  This prevents a compiler warning when compiling with -O2
             fd = open("/dev/null", O_RDWR);  // will be file descriptor 0
-            int unused_discard = dup(fd);  // will be file descriptor 1
-            unused_discard = dup(fd);      // will be file descriptor 2
-
-            // No sense logging after this point
+            int unused_discard = dup(fd);    // will be file descriptor 1
+            unused_discard = dup(fd);        // will be file descriptor 2
 
             if (daemonize)
             {
@@ -106,15 +107,14 @@ namespace fds
 
                 if (res != 0)
                 {
-                    printf("Fatal error, can't daemonize %s\n", argv[0]);
                     abort();
                 }
             }
 
-
             /* actual child process */
 
             execvp(argv[0], argv);
+            LOGDEBUG << "fds_spawn execvp failure:  errno = " << errno;
             abort();
         }
 

@@ -480,15 +480,6 @@ struct CtrlNotifyDMTClose {
 }
 
 /**
- * Notifies DM that about a new, but not yet active DMT.
- * TODO(Andrew): This needs a response structure.
- */
-struct CtrlNotifyDMTUpdate {
-     1: dm_types.FDSP_DMT_Type        dmt_data;
-     2: i32                  dmt_version;
-}
-
-/**
  * Aborts a currently active replica migration. The
  * migration is addressed by DMT version and all migrations
  * on behalf of that migration are aborted.

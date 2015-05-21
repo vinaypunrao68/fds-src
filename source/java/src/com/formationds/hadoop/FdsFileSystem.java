@@ -77,7 +77,7 @@ public class FdsFileSystem extends FileSystem {
 
         int amResponsePort = new ServerPortFinder().findPort("HDFS async AM response port", 10000);
         HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 8899);
-        XdiClientFactory cf = new XdiClientFactory(amResponsePort);
+        XdiClientFactory cf = new XdiClientFactory();
         try {
             asyncAm = new RealAsyncAm(cf.remoteOnewayAm(amConnectionData.getHost(), amConnectionData.getPort()), amResponsePort, 10, TimeUnit.SECONDS);
             asyncAm.start();
@@ -294,6 +294,10 @@ public class FdsFileSystem extends FileSystem {
 
     @Override
     public FileStatus[] listStatus(Path path) throws FileNotFoundException, IOException {
+        Path absolutePath = getAbsolutePath(path);
+        if (!isDirectory(absolutePath)) {
+            return new FileStatus[] { getFileStatus(absolutePath) };
+        }
         return listAllSubPaths(path, false, false)
                 .stream()
                 .map(bd -> asFileStatus(bd))

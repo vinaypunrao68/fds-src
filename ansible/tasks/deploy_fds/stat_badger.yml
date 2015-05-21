@@ -6,13 +6,12 @@
         badger_process_patterns:
             - '{ "name": "stat-badger", "pattern": ".+badger_core\\.py -f.+" }'
             - '{ "name": "bare-AM", "pattern": ".+bare_am.+" }'
-            - '{ "name": "bare-AM", "pattern": ".+bare_am.+" }'
             - '{ "name": "AccessMgr", "pattern": "^java.+com.formationds.am.Main.+" }'
             - '{ "name": "OrchMgr-java", "pattern": "^java.+com.formationds.om.Main.+" }'
-            - '{ "name": "OrchMgr-native", "pattern": "^bash.+orchMgr+" }'
-            - '{ "name": "StorMgr", "pattern": ".+StorMgr --fds-root.+" }'
-            - '{ "name": "DataMgr", "pattern": ".+DataMgr --fds-root.+" }'
-            - '{ "name": "PlatformMgr", "pattern": ".+platformd --fds-root.+" }'
+            - '{ "name": "StorMgr", "pattern": ".+StorMgr.+--fds-root.+" }'
+            - '{ "name": "DataMgr", "pattern": ".+DataMgr.+--fds-root.+" }'
+            - '{ "name": "PlatformMgr", "pattern": "^platformd --fds-root.+" }'
+            - '{ "name": "InfluxDB", "pattern": "^/opt/fds-deps/embedded/influxdb/influxdb.+" }'
         badger_influxdb08_host: "{{'127.0.0.1' if fds_customer_install is defined else '10.2.10.20'}}"
         badger_influxdb08_port: 8086
         badger_influxdb08_database: "system_stats"
@@ -55,21 +54,38 @@
         group=stat-badger
         mode=0755
 
--   name: write stat-badger influxdb emitter config
+-   name: copy FDS-written stat-badger modules
     template:
-        src=../../templates/badger/conf.d/influxdb08_emitter.conf.j2
-        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/conf.d/influxdb08_emitter.conf
+        src=../../files/badger/modules/{{item}}.py
+        dest=/opt/fds-deps/embedded/stat-badger/badger_modules/{{item}}.py
+        owner=stat-badger
+    with_items:
+        - fds_counters
+
+-   name: copy FDS-written stat-badger emitters
+    template:
+        src=../../files/badger/emitters/{{item}}.py
+        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/{{item}}.py
+        owner=stat-badger
+    with_items:
+        - fds_influxdb08_emitter
+
+-   name: write stat-badger fds_influxdb08_emitter config
+    template:
+        src=../../templates/badger/conf.d/fds_influxdb08_emitter.conf.j2
+        dest=/opt/fds-deps/embedded/stat-badger/badger_emitters/conf.d/fds_influxdb08_emitter.conf
         owner=stat-badger
         group=stat-badger
         mode=0644
 
--   name: write stat-badger disk module config
+-   name: write stat-badger module configs
     template:
         src=../../templates/badger/conf.d/{{item}}.conf.j2
         dest=/opt/fds-deps/embedded/stat-badger/badger_modules/conf.d/{{item}}.conf
         owner=stat-badger
     with_items:
         - disk
+        - fds_counters
         - process_stats
 
 -   name: ensure stat-badger is running

@@ -27,17 +27,16 @@ ObjectStore::ObjectStore(const std::string &modName,
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           conf_verify_data(true),
-          numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    volTbl, diskMap, data_store)),
+                                    diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          isReadyAsMigrSrc(true)
+          currentState(OBJECT_STORE_INIT)
 {
 }
 
@@ -46,10 +45,40 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
+/**
+ * Open metadata and data store for given SM tokens
+ * Ok if metadata and data stores are already open for any of
+ * given tokens.
+ */
+Error
+ObjectStore::openStore(const SmTokenSet& smTokens) {
+    Error err(ERR_OK);
+    // we may already have meta and data stores open for these
+    // SM tokens, but call open in case some of the stores not open
+    err = metaStore->openMetadataStore(diskMap, smTokens);
+    if (!err.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << err;
+        return err;
+    }
+    err = dataStore->openDataStore(diskMap, smTokens, false);
+    if (!err.ok()) {
+        LOGERROR << "Failed to open Data Store " << err;
+    }
+    return err;
+}
+
 Error
 ObjectStore::handleNewDlt(const DLT* dlt) {
     fds_uint32_t nbits = dlt->getNumBitsForToken();
     metaStore->setNumBitsPerToken(nbits);
+
+    // if Object store failed to initialize, will fail
+    // validating token ownership
+    ObjectStoreState curState = currentState.load();
+    if (curState == OBJECT_STORE_UNAVAILABLE) {
+        LOGCRITICAL << "Object Store unavailable, not updating token ownership";
+        return ERR_NODE_NOT_ACTIVE;
+    }
 
     Error err = diskMap->handleNewDlt(dlt);
     if (err == ERR_SM_NOERR_GAINED_SM_TOKENS) {
@@ -77,8 +106,18 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     } else if (err == ERR_SM_SUPERBLOCK_INCONSISTENT) {
         LOGCRITICAL << "We got DLT version that superblock already knows about ["
                     << dlt->getVersion() << "] but not all SM tokens are marked valid."
-                    << " We don't know how to handle this yet.. Failing DLT update!";
+                    << " How do we handle this? Marking Object Store unavailable";
         err = ERR_PERSIST_STATE_MISMATCH;
+        // second phase of initializing object store failed!
+        currentState = OBJECT_STORE_UNAVAILABLE;
+    }
+
+    // if updating disk map determined that this SM restart case and it succeeded
+    // validating superblock, object store is ready to service IO and become a source
+    // of migration. Note that at this point none of DLT tokens are not ready yet,
+    // this is controlled by a data struct in the migration mgr
+    if (err == ERR_SM_NOERR_NEED_RESYNC) {
+        currentState = OBJECT_STORE_READY;
     }
 
     return err;
@@ -121,10 +160,28 @@ ObjectStore::removeVolume(fds_volid_t volId) {
 }
 
 Error
+ObjectStore::checkAvailability() const {
+    ObjectStoreState curState = currentState.load();
+    if (curState == OBJECT_STORE_UNAVAILABLE) {
+        LOGERROR << "Object Store failed to initialized; rejecting IO";
+        return ERR_NODE_NOT_ACTIVE;
+    } else if (curState == OBJECT_STORE_INIT) {
+        LOGERROR << "Object Store is coming up, but not ready to accept IO";
+        return ERR_NOT_READY;
+    }
+    return ERR_OK;
+}
+
+Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData,
                        fds_bool_t forwardedIO) {
+    Error err = checkAvailability();
+    if (!err.ok()) {
+        return err;
+    }
+
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
     PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
@@ -133,7 +190,6 @@ ObjectStore::putObject(fds_volid_t volId,
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
 
-    Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
     LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
              << std::dec;
@@ -320,6 +376,11 @@ ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
                        diskio::DataTier& usedTier,
                        Error& err) {
+    err = checkAvailability();
+    if (!err.ok()) {
+        return nullptr;
+    }
+
     PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId);
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -420,6 +481,11 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        ObjMetaData::const_ptr objMetaData,
                        Error& err)
 {
+    err = checkAvailability();
+    if (!err.ok()) {
+        return nullptr;
+    }
+
     PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId);
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -438,12 +504,15 @@ Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
+    Error err = checkAvailability();
+    if (!err.ok()) {
+        return err;
+    }
+
     PerfContext objWaitCtx(PerfEventType::SM_DELETE_OBJ_TASK_SYNC_WAIT, volId);
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
-
-    Error err(ERR_OK);
 
     // New object metadata to update the refcnts
     ObjMetaData::ptr updatedMeta;
@@ -689,12 +758,15 @@ Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
+    Error err = checkAvailability();
+    if (!err.ok()) {
+        return err;
+    }
+
     PerfContext objWaitCtx(PerfEventType::SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId);
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
-
-    Error err(ERR_OK);
 
     // New object metadata to update association
     ObjMetaData::ptr updatedMeta;
@@ -825,6 +897,12 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
 Error
 ObjectStore::applyObjectMetadataData(const ObjectID& objId,
                                      const fpi::CtrlObjectMetaDataPropagate& msg) {
+
+    Error err = checkAvailability();
+    if (!err.ok()) {
+        return err;
+    }
+
     // we do not expect to receive rebal message for same object id concurrently
     // but we may do GC later while migrating, etc, so locking anyway
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -832,7 +910,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     bool isDataPhysicallyExist = false;
     bool metadataAlreadyReconciled = false;
 
-    Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
     // since object can be associated with multiple volumes, we just
     // set volume id to invalid. Here is it used only to collect perf
@@ -842,6 +919,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
     // We will update metadata with metadata sent to us from source SM
     ObjMetaData::ptr updatedMeta;
+
+    LOGMIGRATE << "Applyying Object: " << fds::logString(msg);
 
     // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
     //
@@ -1089,8 +1168,10 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     }
 
     LOGDEBUG << "Applied object data/metadata to object store " << objId
-             << " delta from src SM " << fds::logString(msg)
-             << " updated meta " << *updatedMeta << " " << err;
+             << ": Delta from src SM " << fds::logString(msg)
+             << " >>> "
+             << " Updated meta " << *updatedMeta << " "
+             << " Error=" << err;
     return err;
 }
 
@@ -1199,23 +1280,39 @@ ObjectStore::mod_init(SysParams const *const p) {
     taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
+    // check if there is at least one device
+    if (diskMap->getTotalDisks() == 0) {
+        LOGCRITICAL << "Object Store is unavailable, until at least one device is added";
+        currentState = OBJECT_STORE_UNAVAILABLE;
+        return 0;
+    }
 
     // do initial validation of SM persistent state
     Error err = diskMap->loadPersistentState();
-    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+    fiu_do_on("sm.objectstore.faults.init.firstphase", err = ERR_SM_SUPERBLOCK_NO_RECONCILE; );
+    if (err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE)) {
+        // open metadata store for tokens owned by this SM
+        Error openErr = metaStore->openMetadataStore(diskMap);
+        if (!openErr.ok()) {
+            LOGERROR << "Failed to open Metadata Store " << openErr;
+            return -1;
+        } else {
+            // open data store for tokens owned by this SM
+            openErr = dataStore->openDataStore(diskMap,
+                                               (err == ERR_SM_NOERR_PRISTINE_STATE));
+        }
+        LOGDEBUG << "First phase of object store init done";
 
-    // open metadata store for tokens owned by this SM
-    Error openErr = metaStore->openMetadataStore(diskMap);
-    if (!openErr.ok()) {
-        LOGERROR << "Failed to open Metadata Store " << openErr;
-        return -1;
+        // if object store comes up in pristine state, then we are done
+        // initializing it -- set state to ready
+        if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+            currentState = OBJECT_STORE_READY;
+        }
     } else {
-        // open data store for tokens owned by this SM
-        err = dataStore->openDataStore(diskMap,
-                                       (err == ERR_SM_NOERR_PRISTINE_STATE));
+        LOGCRITICAL << "Object Store failed to initialize! " << err;
+        currentState = OBJECT_STORE_UNAVAILABLE;
     }
 
-    LOGDEBUG << "Done";
     return 0;
 }
 

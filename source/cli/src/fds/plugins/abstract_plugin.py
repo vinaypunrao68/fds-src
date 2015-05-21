@@ -33,6 +33,8 @@ class AbstractPlugin( object ):
     added_str = "added"
     all_str = "all"
     services_str = "services"
+    service_str = "service"
+    service_id_str = "service_id"
     state_str = "state"
     domain_name_str = "domain_name"
     recurrence_rule_str = "recurrence_rule"
@@ -45,6 +47,8 @@ class AbstractPlugin( object ):
     hour_str = "hour"
     minute_str = "minute"
     policy_id_str = "policy_id"    
+    timeline_preset_str = "timeline_preset_id"
+    qos_preset_str = "qos_preset_id"
 
     def __init__(self, session):
         self.__session = session
@@ -54,6 +58,10 @@ class AbstractPlugin( object ):
     
     def detect_shortcut(self, args):
         raise NotImplementedError( "Required method for an FDS CLI plugin.")
+    
+    @property
+    def arg_str(self):
+        return "-"
     
     @property
     def session(self):

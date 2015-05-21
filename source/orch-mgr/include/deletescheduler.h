@@ -25,6 +25,10 @@ class DeleteScheduler : public HasLogger {
     void dump();
     void shutdown();
 
+    /**
+     * Start the delete scheduler thread
+     */
+    void start();
   protected:
     typedef boost::heap::fibonacci_heap<snapshot::DeleteTask*> PriorityQueue;
 
@@ -44,7 +48,6 @@ class DeleteScheduler : public HasLogger {
 
     // run the scheduler
     void run();
-
   private:
     // signal a change
     void ping();

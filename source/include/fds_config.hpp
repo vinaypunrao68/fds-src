@@ -11,6 +11,7 @@
 #include <concurrency/Mutex.h>
 #include <libconfig.h++>
 #include <fds_error.h>
+#include <sys/stat.h>
 
 namespace fds {
 /**

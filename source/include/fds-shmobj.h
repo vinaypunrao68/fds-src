@@ -217,7 +217,7 @@ class ShmqReqOut : public fdsio::Request
   public:
     virtual ~ShmqReqOut() {}
     ShmqReqOut(bool block, shmq_req_t *in, size_t size)
-        : fdsio::Request(block), req_in(in), req_size(size) {}
+        : fdsio::Request(block), req_size(size), req_in(in) {}
 
   protected:
     friend class ShmConPrdQueue;

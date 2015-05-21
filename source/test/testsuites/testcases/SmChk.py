@@ -10,7 +10,7 @@ Module to wrap the usage of smchk for verifying sm tokens and metadata within sy
 import TestCase
 import sys
 import os
-import subprocess
+import time
 import re
 
 testlib_path = os.path.join(os.getcwd(), '..',)
@@ -29,6 +29,24 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
 
         self.parameters = parameters
 
+    def _get_latest_sm_log(self, node):
+        """
+        Grabs the latest SM log from fds_root/var/logs/ directory
+        :param node: Node object to find the sm log for
+        :return: Full path to the latest SM log file
+        """
+        fds_dir = node.nd_conf_dict['fds_root']
+        # Get a list of all log files.
+        log_files = os.listdir(fds_dir + "/var/logs")
+        # Make the full path for each log
+        log_files = map(lambda x: os.path.join(fds_dir, 'var', 'logs', x), log_files)
+        # Find just the SM logs
+        log_files = filter(lambda x: 'sm' in x, log_files)
+        # Now get just the latest log by sorting on mtime and taking the last one
+        latest_log = sorted(log_files, key=os.path.getmtime)[-1]
+
+        return latest_log
+
 
     def test_SmChk(self):
         """
@@ -45,11 +63,9 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
         om_node = fdscfg.rt_om_node
 
         dlt_file = os.path.join(om_node.nd_conf_dict['fds_root'], 'var', 'logs', 'currentDLT')
-
         current_dlt = dlt.transpose_dlt(dlt.load_dlt(dlt_file))
 
         for node_uuid, tokens in current_dlt.items():
-
             # Setup stuff we'll want to check against
             num_checked_tokens = len(tokens)
 
@@ -57,7 +73,10 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
             tokens_str = ''.join(tokens_str.split())
 
             call = ' '.join(['./fdsconsole.py', 'smdebug', 'startSmchk', str(node_uuid), '--targetTokens', tokens_str])
-            om_node.nd_agent.exec_wait(call, fds_tools=True)
+            res = om_node.nd_agent.exec_wait(call, fds_tools=True)
+            if res != 0:
+                self.log.error("start smchk failed...")
+                return False
 
             # We'll want to search the SM log for this output:
             # Completed SM Integrity Check:
@@ -67,15 +86,28 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
             # TODO(brian): This will not work in a 'real' environment, only in simulated local env
             nodes = fdscfg.rt_obj.cfg_nodes
             for node in nodes:
-                if node.nd_uuid == node_uuid:
-                    fds_dir = node.nd_conf_dict['fds_root']
-                    log_files = os.listdir(fds_dir + "/var/logs")
-                    for log_file in filter(lambda x: 'sm' in x, log_files):
-                        result = smchk_re.findall(log_file)
-                        if result is not None and (result[-1].group('total_verified') == num_checked_tokens and
-                                                           result[-1].group('num_corrupted') == 0 and
-                                                           result[-1].group('ownership_mismatch') == 0):
-                            # Now verify that we got what was expected
-                            return True
+                # Remember to subtract 1 from node_uuid because it's actually an SM svc uuid
+                if node.nd_uuid is not None and (int(node.nd_uuid, 0) == node_uuid - 1):
+                    latest_log = self._get_latest_sm_log(node)
+                    fh = open(latest_log, 'r')
+                    # Just keep looking until we find the log message
+                    result = []
+                    timeout_cntr = 0 # 100 iterations of find/sleep will be ~30 minutes
+                    while not result:
+                        # Set the file's cursor back to 0
+                        fh.seek(0)
+                        result = smchk_re.findall(fh.read())
+                        # For now, just sleep for 20 second intervals
+                        # TODO: Replace this with a smarter mechanism
+                        if timeout_cntr == 100:
+                            break
+                        time.sleep(20)
+                        timeout_cntr += 1
 
-        return False
+                    fh.close()
+                    if len(result) == 0 or (result[-1][2]!= num_checked_tokens and
+                                                 result[-1][3] == 0 and
+                                                 result[-1][4] == 0):
+                        return False
+
+        return True

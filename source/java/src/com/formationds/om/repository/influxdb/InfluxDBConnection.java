@@ -4,6 +4,7 @@
 
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.om.RetryHelper;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
@@ -14,7 +15,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -35,19 +35,19 @@ public class InfluxDBConnection {
 
     /**
      *
-     * @param url
-     * @param user
-     * @param credentials
+     * @param url the influxdb url
+     * @param user the influx user
+     * @param credentials the influx user credentials
      */
     InfluxDBConnection( String url, String user, char[] credentials ) {
         this(url, user, credentials, null);
     }
 
     /**
-     * @param url
-     * @param user
-     * @param credentials
-     * @param database
+     * @param url the influxdb url
+     * @param user the influx user
+     * @param credentials the influx user credentials
+     * @param database the influx database
      */
     InfluxDBConnection( String url, String user, char[] credentials, String database ) {
         this.url = url;
@@ -140,65 +140,27 @@ public class InfluxDBConnection {
         return influxDB;
     }
 
-    /**
-     * @return a future that will contain the connection once available
-     */
     protected CompletableFuture<InfluxDB> connectWithRetry() {
 
-        Random rng = new Random( System.currentTimeMillis() );
-        final int minDelay = 500;
-        final int maxDelay = 10000;
+        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl(), () -> {
+            InfluxDB conn = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
 
-        return CompletableFuture.supplyAsync( () -> {
-            int cnt = 0;
-            InfluxDB conn = null;
-            do {
-                try {
-
-                    conn = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
-
-                    // attempt to ping the server to make sure it is really there.
-                    conn.ping();
-
-                } catch ( Exception e ) {
-
-                    conn = null;
-                    try {
-
-                        final int delay = Math.max( minDelay, rng.nextInt( maxDelay ) );
-                        if ( cnt % 20 == 0 ) {
-                            logger.trace( "{} Connection attempts failed.  InfluxDB is not ready.  Waiting {} ms before retrying",
-                                          (cnt == 0 ? "" : cnt),
-                                          delay );
-                        }
-                        Thread.sleep( delay );
-
-                    } catch ( InterruptedException ie ) {
-
-                        // reset interrupt
-                        Thread.currentThread().interrupt();
-                        throw new IllegalStateException( "InfluxDB connection retry interrupted." );
-
-                    }
-                }
-                cnt++;
-            }
-            while ( conn == null );
+            // attempt to ping the server to make sure it is really there.
+            conn.ping();
 
             return conn;
         } );
     }
 
+    /**
+     *
+     * @return the db writer
+     */
     public InfluxDBWriter getDBWriter() {
         if ( !database.isPresent() ) {
             throw new IllegalStateException( "Can't create writer for system database." );
         }
-        return new InfluxDBWriter() {
-            @Override
-            public void write( TimeUnit precision, Serie... series ) {
-                connect().write( database.get(), precision, series );
-            }
-        };
+        return ( precision, series ) -> connect().write( database.get(), precision, series );
     }
 
     public InfluxDBReader getDBReader()
@@ -210,28 +172,57 @@ public class InfluxDBConnection {
             @Override
             public List<Serie> query( String query, TimeUnit precision )
             {
+                long start = System.currentTimeMillis();
+                long connTime = -1;
+                long queryTime = -1;
+                List<Serie> result = Collections.emptyList();
+                Throwable failed = null;
                 try {
+                    logger.trace( "QUERY_BEGIN [{}]: {}", start, query );
 
-                    return connect().query( database.get(), query, precision );
+                    InfluxDB conn = connect();
+                    connTime = System.currentTimeMillis() - start;
 
-                } catch ( RuntimeException e ) {
+                    result = conn.query( database.get(), query, precision );
+                    queryTime = System.currentTimeMillis() - start - connTime;
+
+                    return result;
+
+                } catch ( Throwable e ) {
 
                     // This is expected if we haven't yet written any data to the database
                     // for the series in the query.
                     String msg = e.getMessage();
                     if ( msg != null && msg.startsWith("Couldn't find series:") ) {
 
-                        return Collections.emptyList();
+                        // empty list
+                        return result;
 
                     } else {
 
+                        failed = e;
+                        logger.trace( "QUERY_FAIL  [{}]: {} [ex={}; conn={} ms; query={} ms]",
+                                      start,
+                                      query,
+                                      e.getMessage(),
+                                      connTime,
+                                      queryTime );
+
                         throw e;
-
                     }
-                } catch ( Throwable t ) {
-                    throw t;
-                }
 
+                } finally {
+
+                    logger.trace( "QUERY_END   [{}]: {} [result={}; conn={} ms; query={} ms]",
+                                  start,
+                                  query,
+                                  (failed != null ?
+                                         "'" +  failed.getMessage() + "'" :
+                                         Integer.toString( result.size() ) ),
+                                  connTime,
+                                  queryTime );
+
+                }
             }
         };
     }
@@ -240,13 +231,10 @@ public class InfluxDBConnection {
         if ( !database.isPresent() ) {
             throw new IllegalStateException( "Can't create writer for system database." );
         }
-        return new InfluxDBWriter() {
-            @Override
-            public void write( TimeUnit precision, Serie... series ) {
-                getAsyncConnection().thenAccept( ( conn ) -> {
-                    conn.write( database.get(), precision, series );
-                } );
-            }
+        return ( precision, series ) -> {
+            getAsyncConnection().thenAccept( ( conn ) -> {
+                conn.write( database.get(), precision, series );
+            } );
         };
     }
 }

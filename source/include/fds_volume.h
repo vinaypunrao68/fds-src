@@ -131,6 +131,7 @@ class VolumeDesc : public HasState {
     bool isClone() const;
     fds_volid_t getSrcVolumeId() const;
     fds_volid_t getLookupVolumeId() const;
+    bool isSystemVolume() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
     fpi::ResourceState getState() const {

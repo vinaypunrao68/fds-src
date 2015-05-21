@@ -106,7 +106,7 @@ class ServerEventHandler2 : public apache::thrift::server::TServerEventHandler
    */
   virtual void deleteContext(void* serverContext,
                              boost::shared_ptr<tp::TProtocol>input,
-                             boost::shared_ptr<tp::TProtocol>output)
+                             boost::shared_ptr<tp::TProtocol>output) override
   {
       LOGDEBUG << "Removing connection: " << getTransportKey(input->getTransport());
   }
@@ -208,12 +208,12 @@ endpoint_connect_server(int                   port,
     } else {
         ptr = new EpSvcHandle(owner, evt, maj, min);
     }
-    ptr->ep_state = EP_ST_DISCONNECTED | EP_ST_NO_PLUGIN;
-    fds_verify((ptr->ep_trans == NULL) && (ptr->ep_rpc == NULL));
+    ptr->ep_set_status(EP_ST_DISCONNECTED | EP_ST_NO_PLUGIN);
+    fds_verify(!ptr->ep_get_trans() && !ptr->ep_get_rpc());
 
-    ptr->ep_trans = trans;
-    ptr->ep_rpc   = rpc;
-    ptr->ep_sock  = bo::static_pointer_cast<tt::TSocket>(sock);
+    ptr->ep_set_trans(trans);
+    ptr->ep_set_rpc(rpc);
+    ptr->ep_set_sock(bo::static_pointer_cast<tt::TSocket>(sock));
 
     ptr->ep_reconnect();
     if (peer == NullSvcUuid) {
@@ -373,7 +373,7 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
     try {
         fds_scoped_lock l(ep_handle_map_mtx);
         auto ep = ep_handle_map.at(key);
-        int fd = ep->ep_sock->getSocketFD();
+        int fd = ep->ep_get_sock()->getSocketFD();
         do {
             if (fcntl(fd, F_GETFL) != -1) {
                 return (ep); 
@@ -383,8 +383,8 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
             return (ep);
         }
         try {
-            ep->ep_sock->close();
-            ep->ep_sock->open();
+            ep->ep_get_sock()->close();
+            ep->ep_get_sock()->open();
             LOGNORMAL << " connection failed and redone successfully. ";
             return (ep);
         } catch (...) {
@@ -408,12 +408,12 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
             << " ip:port: " << ip << ":" << port;
 
         EpSvcHandle::pointer ep = new EpSvcHandle(peer, NULL, maj, min);
-        ep->ep_sock = bo::make_shared<net::Socket>(ip, port);
-        ep->ep_trans = bo::make_shared<tt::TFramedTransport>(ep->ep_sock);
+        ep->ep_set_sock(bo::make_shared<net::Socket>(ip, port));
+        ep->ep_trans = bo::make_shared<tt::TFramedTransport>(ep->ep_get_sock());
         auto proto = bo::make_shared<tp::TBinaryProtocol>(ep->ep_trans);
         ep->ep_rpc = alloc_rpc_client(peer, maj, min, proto);
         try {
-            ep->ep_sock->open();
+            ep->ep_get_sock()->open();
             {
                 fds_scoped_lock l(ep_handle_map_mtx);
                 /* Look up again.  ep may hanve been added while we weren't under lock */

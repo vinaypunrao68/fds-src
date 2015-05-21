@@ -47,6 +47,7 @@ class MigrationExecutor {
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
+    typedef std::shared_ptr<MigrationExecutor> shared_ptr;
 
     enum MigrationExecutorState {
         ME_INIT,
@@ -55,6 +56,7 @@ class MigrationExecutor {
         ME_SECOND_PHASE_REBALANCE_START,
         ME_SECOND_PHASE_APPLYING_DELTA,
         ME_DONE,
+        ME_DONE_WITH_ERROR,
         ME_ERROR
     };
 
@@ -65,13 +67,30 @@ class MigrationExecutor {
         return std::atomic_load(&state);
     }
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
+        if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
+            return true;
+        }
         if (isFirstRound) {
             return (std::atomic_load(&state) == ME_SECOND_PHASE_REBALANCE_START);
         }
         return (std::atomic_load(&state) == ME_DONE);
     }
     inline fds_bool_t isDone() const {
-        return (std::atomic_load(&state) == ME_DONE);
+        MigrationExecutorState curState = std::atomic_load(&state);
+        return ((curState == ME_DONE) || (curState == ME_DONE_WITH_ERROR));
+    }
+    inline void setDoneWithError() {
+        MigrationExecutorState newState = ME_DONE_WITH_ERROR;
+        std::atomic_store(&state, newState);
+    }
+
+    inline bool inErrorState() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (curState == ME_ERROR || curState == ME_DONE_WITH_ERROR) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -102,6 +121,11 @@ class MigrationExecutor {
      * Handles message from Source SM to apply delta set to this SM
      */
     Error applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
+
+    /**
+     * Wait for all pending Executor requests to complete.
+     */
+    void waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid);
 
   private:
     /**
@@ -190,12 +214,25 @@ class MigrationExecutor {
     MigrationDoubleSeqNum seqNumDeltaSet;
 
     /**
+     * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from
+     * deleting the Executor.
+     *
+     * TODO(Sean):  This doesn't eliminate 100% of the race condition that exist between the abort
+     *              migration and the executor.  The effectiveness of the approach is
+     *              determined how how early we can increment the "reference count."
+     *              It is possible to call unordered map of excutors.clear() before
+     *              reference count is incremented.
+     *              Other way is to hold a mutex per executor, this causes bigger issues
+     *              with recursive locking and easiness of deadlocking.  This approach
+     *              was explored, but gave up due to "code litttering" all over the migration
+     *              path with mutex ops.
+     */
+    MigrationTrackIOReqs trackIOReqs;
+
+    /**
      * Is this migration for a SM resync
      */
-     bool forResync;
-
-    /// true if standalone (no rpc sent)
-    fds_bool_t testMode;
+    bool forResync;
 };
 
 }  // namespace fds

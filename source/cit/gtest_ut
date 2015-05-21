@@ -15,7 +15,7 @@ Build/linux-x86_64.debug/tests/sm_metadb_gtest --fds-root=./config/ --fds.sm.tes
 Build/linux-x86_64.debug/tests/sm_objdata_persist_gtest --fds-root=./config/ --fds.sm.testing.standalone=true
 Build/linux-x86_64.debug/tests/sm_tier_migration_gtest
 Build/linux-x86_64.debug/tests/histogram_gtest
-Build/linux-x86_64.debug/tests/sm_token_migration_seqnum_gtest
+Build/linux-x86_64.debug/tests/sm_token_migration_utility_gtest
 Build/linux-x86_64.debug/tests/sm_token_snapshot_delta_gtest
 Build/linux-x86_64.debug/tests/sm_token_persistent_snapshot_gtest
 Build/linux-x86_64.debug/tests/object_metadata_reconcile_gtest

@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
@@ -125,6 +127,12 @@ public class HdfsSmokeTest {
         assertEquals("a", rootObjects[0].getPath().getName());
         assertEquals("foo", rootObjects[1].getPath().getName());
         assertEquals("z", rootObjects[2].getPath().getName());
+
+        Path notDir = new Path("/notDirectory");
+        touch (notDir);
+        assertTrue(fileSystem.exists(notDir));
+        FileStatus[] status = fileSystem.listStatus(notDir);
+        assertEquals(1,status.length);
     }
 
     @Test
@@ -354,7 +362,7 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory(0);
+        XdiClientFactory xdiCf = new XdiClientFactory();
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 

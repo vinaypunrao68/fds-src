@@ -439,6 +439,24 @@ void SvcMgr::handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e)
     // TODO(Rao): Implement
 }
 
+void SvcMgr::getDMTData(::FDS_ProtocolInterface::CtrlNotifyDMTUpdate &fdsp_dmt)
+{
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDMT(fdsp_dmt, nullarg);
+}
+
+void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
+{
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDLT(fdsp_dlt, nullarg);
+}
+
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
 : HasModuleProvider(moduleProvider)
