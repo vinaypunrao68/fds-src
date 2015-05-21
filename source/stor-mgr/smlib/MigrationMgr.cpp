@@ -595,8 +595,15 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
 
     // beta2: stop the whole migration process on any error
     if (!error.ok()) {
-        abortMigration(error);
-        return;
+        if (resyncOnRestart) {
+            retryWithNewSMs(executorId, smToken, dltTokens, round, error);
+        } else {
+            // for token migration, we cannot get source SMs from the current
+            // commited DLT, because we are migrating for the target DLT
+            // TODO(Anna) need to be able to fail per-token migration instead of abort
+            abortMigration(error);
+            return;
+        }
     }
 
     // check if there are other executors for the same SM Token that need to start migration
@@ -999,11 +1006,11 @@ MigrationMgr::coalesceClients()
     }
 }
 
-void MigrationMgr::retryWithNewSMsOrAbort(fds_uint64_t executorId,
-                                          fds_token_id smToken,
-                                          const std::set<fds_token_id>& dltTokens,
-                                          fds_uint32_t round,
-                                          const Error& error) {
+void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
+                                   fds_token_id smToken,
+                                   const std::set<fds_token_id>& dltTokens,
+                                   fds_uint32_t round,
+                                   const Error& error) {
     NodeUuid sourceSmUuid;   // source SM for executor with id executorId
     MigrationExecutor::shared_ptr migrExecutor;   // executor that failed to sync
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();

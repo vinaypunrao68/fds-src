@@ -273,12 +273,13 @@ class MigrationMgr {
      * On some errors (e.g., if failure happened on the destination side) or
      * if we tried with all source SMs, the sync will fail for the given set
      * of DLT tokens.
+     * @return true if at least one retry started, otherwise return false
      */
-    void retryWithNewSMsOrAbort(fds_uint64_t executorId,
-                                fds_token_id smToken,
-                                const std::set<fds_token_id>& dltTokens,
-                                fds_uint32_t round,
-                                const Error& error);
+    void retryWithNewSMs(fds_uint64_t executorId,
+                         fds_token_id smToken,
+                         const std::set<fds_token_id>& dltTokens,
+                         fds_uint32_t round,
+                         const Error& error);
 
     /**
      * Stops migration and sends ack with error to OM
