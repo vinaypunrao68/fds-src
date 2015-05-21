@@ -21,22 +21,8 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
     
-    nextSnapshotRequest = 0;
     parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 16);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
-    snapshotRequests.resize(parallelMigration);
-    for (int i = 0; i < parallelMigration; i++) {
-        snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
-        snapshotRequests[i].retryReq = false;
-        snapshotRequests[i].smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
-                                                      this,
-                                                      std::placeholders::_1,
-                                                      std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4,
-                                                      std::placeholders::_5);
-    }
-
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 }
 
@@ -196,7 +182,7 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
         LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
-        auto snapshotRequest = getSnapshotRequest();
+        auto snapshotRequest = createSnapshotRequest();
         snapshotRequest->token_id = retrySmTokenInProgress;
         snapshotRequest->retryReq = true;
         Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequest);
@@ -239,7 +225,7 @@ MigrationMgr::startSmTokenMigration(fds_token_id smToken) {
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
-    auto snapshotRequest = getSnapshotRequest();
+    auto snapshotRequest = createSnapshotRequest();
     snapshotRequest->token_id = smToken;
     snapshotRequest->retryReq = false;
     Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequest);

@@ -342,19 +342,22 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
-     * Map of the Qos request to snapshot index db
-     * This is not protected. Assuming no aditions/removals to the 
-     * map after initialization
+     * Create a snapshot request dynamically. It will be deleted when processed
      */
 
-    // std::unordered_map<fds_token_id, SmIoSnapshotObjectDB> snapshotRequest;
-    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
-    std::atomic<int> nextSnapshotRequest;
-    inline SmIoSnapshotObjectDB* getSnapshotRequest() {
-        return &(snapshotRequests[nextSnapshotRequest.fetch_add(1) % parallelMigration]);
-
+    inline SmIoSnapshotObjectDB* createSnapshotRequest() {
+        auto p = new SmIoSnapshotObjectDB;
+        p->io_type = FDS_SM_SNAPSHOT_TOKEN;
+        p->retryReq = false;
+        p->smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3,
+                                                      std::placeholders::_4,
+                                                      std::placeholders::_5);
     }
-    
+
     /// SM token id -> [ source SM -> MigrationExecutor ]
     //
     /// so far we don't need a lock for the migrExecutors, because the actions

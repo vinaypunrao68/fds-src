@@ -804,6 +804,7 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
+    delete snapReq;
 }
 
 void
