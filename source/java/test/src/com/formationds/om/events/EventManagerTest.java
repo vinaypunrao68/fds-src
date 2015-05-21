@@ -43,9 +43,9 @@ public class EventManagerTest {
     static Object key = new Object();
     static final Set<? super Event> events = new LinkedHashSet<>();
 
-    static final Configuration mockedConfiguration = mock(Configuration.class);
-    static final ConfigurationApi mockedConfig = mock(ConfigurationApi.class);
-    static final XdiService.Iface  mockedAMService = mock(XdiService.Iface.class);
+    static final Configuration mockedConfiguration = mock( Configuration.class );
+    static final ConfigurationApi mockedConfig = mock( ConfigurationApi.class );
+    static final XdiService.Iface  mockedAMService = mock( XdiService.Iface.class );
     static final MetricRepository
         metricsRepoMock = mock( MetricRepository.class );
 
@@ -81,8 +81,8 @@ public class EventManagerTest {
                                          "events.odb$" ) );
 
         // initialize the event manager notification handler to store in an in-memory map
-        EventManager.instance().initEventNotifier(key, (e) -> {
-            events.add(e);
+        EventManager.instance().initEventNotifier( key, ( e ) -> {
+            events.add( e );
             return true;
         });
     }
@@ -102,7 +102,7 @@ public class EventManagerTest {
     @Test
     public void testCalculationIsFirebreak() {
         double r = 6.164390352038617D / 0.0D;
-        Assert.assertFalse(Double.isNaN(r));
+        Assert.assertFalse( Double.isNaN( r ) );
         Assert.assertTrue( Double.isInfinite( r ) );
 
         Assert.assertFalse( Calculation.isFirebreak( 6.164390352038617D, 0.0D ) );
@@ -117,23 +117,23 @@ public class EventManagerTest {
     public void testEventNotification() {
         clearEvents();
 
-        Volume v1 = new VolumeBuilder().withId("1").withName("v1").build();
-        Volume v2 = new VolumeBuilder().withId("2").withName("v2").build();
+        Volume v1 = new VolumeBuilder().withId( "1" ).withName( "v1" ).build();
+        Volume v2 = new VolumeBuilder().withId( "2" ).withName( "v2" ).build();
 
         long nowMS = Instant.now().toEpochMilli();
-        long oldTsMS = Instant.now().minus(Duration.ofHours(25)).toEpochMilli();
-        final FirebreakEvent v1e1 = new FirebreakEvent(v1, FirebreakType.CAPACITY, nowMS - 120000, 0x7FFFL, 5.00D);
-        final FirebreakEvent v2e1 = new FirebreakEvent(v2, FirebreakType.CAPACITY, nowMS - 120000, 0xFFFFL, 10.00D);
-        final FirebreakEvent v1e2 = new FirebreakEvent(v1, FirebreakType.CAPACITY, nowMS, 0x7FFFL, 5.00D);
-        final FirebreakEvent v2e2 = new FirebreakEvent(v2, FirebreakType.CAPACITY, nowMS, 0xFFFFL, 10.00D);
-        final FirebreakEvent ov1e1 = new FirebreakEvent(v1, FirebreakType.CAPACITY, oldTsMS, 0x7FFFL, 5.00D);
-        final FirebreakEvent ov2e1 = new FirebreakEvent(v2, FirebreakType.CAPACITY, oldTsMS, 0xFFFFL, 10.00D);
+        long oldTsMS = Instant.now().minus( Duration.ofHours( 25 ) ).toEpochMilli();
+        final FirebreakEvent v1e1 = new FirebreakEvent( v1, FirebreakType.CAPACITY, nowMS - 120000, 0x7FFFL, 5.00D );
+        final FirebreakEvent v2e1 = new FirebreakEvent( v2, FirebreakType.CAPACITY, nowMS - 120000, 0xFFFFL, 10.00D );
+        final FirebreakEvent v1e2 = new FirebreakEvent( v1, FirebreakType.CAPACITY, nowMS, 0x7FFFL, 5.00D );
+        final FirebreakEvent v2e2 = new FirebreakEvent( v2, FirebreakType.CAPACITY, nowMS, 0xFFFFL, 10.00D );
+        final FirebreakEvent ov1e1 = new FirebreakEvent( v1, FirebreakType.CAPACITY, oldTsMS, 0x7FFFL, 5.00D );
+        final FirebreakEvent ov2e1 = new FirebreakEvent( v2, FirebreakType.CAPACITY, oldTsMS, 0xFFFFL, 10.00D );
 
         // perf events
-        final FirebreakEvent v1pe1 = new FirebreakEvent(v1, FirebreakType.PERFORMANCE, nowMS-360000, 0x7FFFL, 50.00D);
-        final FirebreakEvent v2pe1 = new FirebreakEvent(v2, FirebreakType.PERFORMANCE, nowMS-360000, 0xFFFFL, 100.00D);
+        final FirebreakEvent v1pe1 = new FirebreakEvent( v1, FirebreakType.PERFORMANCE, nowMS-360000, 0x7FFFL, 50.00D );
+        final FirebreakEvent v2pe1 = new FirebreakEvent( v2, FirebreakType.PERFORMANCE, nowMS-360000, 0xFFFFL, 100.00D );
 
-        EventManager.instance().notifyEvent(v1e1);
+        EventManager.instance().notifyEvent( v1e1 );
         Assert.assertTrue( events.contains( v1e1 ) );
 
         EventManager.instance().notifyEvent( v2e1 );
