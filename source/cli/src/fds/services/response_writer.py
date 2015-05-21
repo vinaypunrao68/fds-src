@@ -24,6 +24,7 @@ class ResponseWriter():
             return
         else:
             print tabulate.tabulate( data, headers=headers )
+            print "\n"
 
         
     @staticmethod
@@ -284,4 +285,20 @@ class ResponseWriter():
             
         return d_users
         
+    @staticmethod
+    def prep_tenants_for_table(tenants):
+        '''
+        Scrub the tenant objects for a readable tabular format
+        '''
+        
+        d_tenants = []
+        
+        for tenant in tenants:
+            ov = OrderedDict()
+            
+            ov["ID"] = tenant.id
+            ov["Name"] = tenant.name
+            d_tenants.append( ov )
+            
+        return d_tenants
         

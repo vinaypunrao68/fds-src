@@ -51,6 +51,7 @@ class AbstractPlugin( object ):
     qos_preset_str = "qos_preset_id"
     user_name_str = "username"
     user_id_str = "user_id"
+    tenant_id_str = "tenant_id"
 
     def __init__(self, session):
         self.__session = session

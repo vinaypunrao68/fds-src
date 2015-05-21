@@ -8,6 +8,8 @@ class Tenant(object):
 
     def __init__(self, name="", an_id=-1):
         self.__name = name
+        self.__id = an_id
+        self.__users = []
         
     @property
     def name(self):
@@ -24,3 +26,11 @@ class Tenant(object):
     @id.setter
     def id(self, an_id):
         self.__id = an_id
+        
+    @property
+    def users(self):
+        return self.__users
+    
+    @users.setter
+    def users(self, users):
+        self.__users = users

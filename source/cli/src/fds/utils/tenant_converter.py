@@ -1,4 +1,5 @@
 from fds.model.tenant import Tenant
+from fds.utils.user_converter import UserConverter
 
 class TenantConverter(object):
     '''
@@ -17,6 +18,14 @@ class TenantConverter(object):
         j_tenant["name"] = tenant.name
         j_tenant["id"] = tenant.id
         
+        j_users = []
+        
+        for user in tenant.users:
+            j_user = UserConverter.to_json(user)
+            j_users.append( j_user )
+            
+        j_tenant["users"] = j_users
+        
         return j_tenant
     
     @staticmethod
@@ -29,3 +38,13 @@ class TenantConverter(object):
         
         tenant.name = j_tenant.pop( "name", "" )
         tenant.id = j_tenant.pop( "id", -1 )
+        
+        j_users = j_tenant.pop( "users", [])
+        
+        for j_user in j_users:
+            user = UserConverter.build_user_from_json(j_user)
+            tenant.users.append( user )
+            
+        return tenant
+            
+            
