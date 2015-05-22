@@ -22,6 +22,11 @@
 #include <util/stringutils.h>
 
 #include <fdsp/svc_types_types.h>
+#include <fdsp/health_monitoring_api_types.h>
+
+#include "fds_module_provider.h"
+#include <net/SvcMgr.h>
+#include <net/SvcRequestPool.h>
 
 #include "platform/platform_manager.h"
 #include "platform/disk_capabilities.h"
@@ -445,9 +450,12 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
                             std::string procName = mapIter->first;
                             int appIndex = -1;
 
+                            notifyOmAProcessDied (procName);
+
                             m_appPidMap.erase (mapIter++);
 
                             // need to tell the OM here, that something died, unless we are in shutdown mode, this work is the next card
+
 
                             if (m_autoRestartFailedProcesses)
                             {
@@ -483,6 +491,34 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
                 usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
             }
         }
+
+        void PlatformManager::notifyOmAProcessDied (std::string const &procName)
+        {
+            apis::NotifyHealthReportPtr message (new apis::NotifyHealthReport());
+
+            //apis::NotifyHealthReportPtr message = boost::make_shared <apis::NotifyHealthReport()>;
+
+            message->healthReport.serviceID.svc_uuid.svc_uuid = -1;         // TEMP HARD CODE
+            message->healthReport.serviceID.svc_name = "testing";
+
+            message->healthReport.servicePort = 65534;
+            message->healthReport.serviceState = fds::apis::HealthState::UNEXPECTED_EXIT;
+
+            message->healthReport.statusCode = 987654321;
+            message->healthReport.statusInfo = "All dummy data for testing purposes";
+
+            fpi::SvcUuid omUuid;
+
+            omUuid.svc_uuid = fdsConfig->get_abs<fds_uint64_t>("fds.common.om_uuid");
+
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+            auto request = svcMgr->newEPSvcRequest (omUuid);
+
+            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), message);
+            request->invoke();
+        }
+
 
         void PlatformManager::run()
         {
