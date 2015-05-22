@@ -61,7 +61,28 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
                 var userCookie = readCookie( 'user' );
                 var tokenCookie = readCookie( 'token' );
                 
-                if ( response.status === 401 && ( userCookie !== null || tokenCookie !== null ) ){
+                var logout = false;
+                
+                if ( userCookie !== null || tokenCookie !== null ){
+                    if ( response.status === 401 ){
+                        logout = true;
+                    }
+
+                    if ( response.data !== null && !(response.data instanceof Object) && response.data.indexOf( '{' ) !== -1 ){
+                        try{
+                            var j_str = response.data.substring( response.data.indexOf( '{' ) );
+                            var j_data = JSON.parse( j_str );
+
+                            if ( j_data.code && j_data.code == 'ECONNRESET' ){
+                                logout = true;
+                            }
+                        }
+                        catch( o ){
+                        }
+                    }                    
+                }
+                
+                if ( logout === true ){
                     this.document.cookie = 'token=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
                     this.document.cookie = 'user=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
                     location.reload();
