@@ -1,5 +1,5 @@
 import json
-from model.domain import Domain
+from fdscli.model.domain import Domain
 
 class DomainConverter():
     '''

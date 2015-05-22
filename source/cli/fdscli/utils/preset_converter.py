@@ -1,6 +1,6 @@
-from model.qos_preset import QosPreset
-from model.timeline_preset import TimelinePreset
-from utils.snapshot_policy_converter import SnapshotPolicyConverter
+from fdscli.model.qos_preset import QosPreset
+from fdscli.model.timeline_preset import TimelinePreset
+from fdscli.utils.snapshot_policy_converter import SnapshotPolicyConverter
 import json
 
 class PresetConverter(object):

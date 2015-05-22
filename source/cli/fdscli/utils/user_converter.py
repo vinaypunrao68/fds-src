@@ -1,4 +1,4 @@
-from model.user import User
+from fdscli.model.user import User
 import json
 
 class UserConverter(object):

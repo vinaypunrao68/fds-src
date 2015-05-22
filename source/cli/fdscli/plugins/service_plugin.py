@@ -1,8 +1,8 @@
 from abstract_plugin import AbstractPlugin
-from services.node_service import NodeService
-from utils.node_converter import NodeConverter
-from services.response_writer import ResponseWriter
-from model.service import Service
+from fdscli.services.node_service import NodeService
+from fdscli.utils.node_converter import NodeConverter
+from fdscli.services.response_writer import ResponseWriter
+from fdscli.model.service import Service
 
 import json
 

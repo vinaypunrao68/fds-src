@@ -1,4 +1,4 @@
-from services.rest_helper import RESTHelper
+from fdscli.services.rest_helper import RESTHelper
 
 class AbstractService():
     '''

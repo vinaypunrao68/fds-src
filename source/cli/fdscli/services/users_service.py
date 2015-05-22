@@ -1,5 +1,5 @@
 from abstract_service import AbstractService
-from utils.user_converter import UserConverter
+from fdscli.utils.user_converter import UserConverter
 
 class UsersService( AbstractService ):
     '''

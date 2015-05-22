@@ -5,8 +5,8 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
-from services.fds_auth import FdsAuth
 from fdscli import FDSShell
+from services.fds_auth import FdsAuth
 
 def main():
     cmdargs=sys.argv[1:]

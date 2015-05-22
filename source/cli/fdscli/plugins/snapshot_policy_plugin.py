@@ -1,12 +1,12 @@
 from abstract_plugin import AbstractPlugin
 import json
-from model.snapshot_policy import SnapshotPolicy
-from model.recurrence_rule import RecurrenceRule
-from utils.snapshot_policy_converter import SnapshotPolicyConverter
-from utils.snapshot_policy_validator import SnapshotPolicyValidator
-from utils.recurrence_rule_converter import RecurrenceRuleConverter
-from services.snapshot_policy_service import SnapshotPolicyService
-from services.response_writer import ResponseWriter
+from fdscli.model.snapshot_policy import SnapshotPolicy
+from fdscli.model.recurrence_rule import RecurrenceRule
+from fdscli.utils.snapshot_policy_converter import SnapshotPolicyConverter
+from fdscli.utils.snapshot_policy_validator import SnapshotPolicyValidator
+from fdscli.utils.recurrence_rule_converter import RecurrenceRuleConverter
+from fdscli.services.snapshot_policy_service import SnapshotPolicyService
+from fdscli.services.response_writer import ResponseWriter
 
 '''
 Created on Apr 13, 2015

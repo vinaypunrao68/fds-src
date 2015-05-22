@@ -1,6 +1,6 @@
 from abstract_service import AbstractService
 import json
-from utils.domain_converter import DomainConverter
+from fdscli.utils.domain_converter import DomainConverter
 
 class LocalDomainService( AbstractService ):
     '''
