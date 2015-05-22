@@ -386,16 +386,23 @@ Error ObjectStorMgr::handleDltUpdate() {
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        objStorMgr->getUuid(),
+                                                        getUuid(),
                                                         curDlt->getNumBitsForToken());
         } else {
             // not doing resync, making all DLT tokens ready
-            objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
             // pretend we successfully started resync, return success
             err = ERR_OK;
         }
     } else if (err.ok()) {
-        objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+        if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+            // we only care about DLT which contains this SM
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
+        }
     }
 
     return err;
@@ -498,7 +505,7 @@ ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
  * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
 
-Error
+void
 ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 {
     Error err(ERR_OK);
@@ -542,10 +549,9 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     }
 
     putReq->response_cb(err, putReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 {
     Error err(ERR_OK);
@@ -589,10 +595,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     }
 
     delReq->response_cb(err, delReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 {
     fds_assert(0 != addObjRefReq);
@@ -602,7 +607,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     Error rc = ERR_OK;
 
     if (addObjRefReq->objIds().empty()) {
-        return rc;
+        return;
     }
 
     uint64_t origNumObjIds = addObjRefReq->objIds().size();
@@ -663,11 +668,9 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     }
 
     addObjRefReq->response_cb(rc, addObjRefReq);
-
-    return rc;
 }
 
-Error
+void
 ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 {
     Error err(ERR_OK);
@@ -702,7 +705,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
 
     getReq->response_cb(err, getReq);
-    return err;
 }
 
 /**
@@ -1010,7 +1012,7 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "XXX: migrationAbort";
+    LOGDEBUG << "Abort Migration request";
 
     // tell migration mgr to abort migration
     err = objStorMgr->migrationMgr->abortMigration();
@@ -1039,7 +1041,7 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
     SmIoNotifyDLTClose *closeDLTReq = static_cast<SmIoNotifyDLTClose *>(ioReq);
     fds_verify(closeDLTReq != NULL);
 
-    LOGDEBUG << "XXX: executing dlt close";
+    LOGDEBUG << "Executing DLT close request";
 
 
     // Store the current DLT to the presistent storage to be used
@@ -1077,7 +1079,7 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
     objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
 
     // notify token migration manager
-    err = objStorMgr->migrationMgr->handleDltClose();
+    err = migrationMgr->handleDltClose(getDLT(), getUuid());
 
     qosCtrl->markIODone(*closeDLTReq);
 
@@ -1228,13 +1230,11 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_MIGRATION_ABORT:
         {
-            LOGDEBUG << "XXX: MIGRATION ABORT";
             threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
             break;
         }
         case FDS_SM_NOTIFY_DLT_CLOSE:
         {
-            LOGDEBUG << "XXX: NOTIFY DLT CLOSE";
             threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
             break;
         }

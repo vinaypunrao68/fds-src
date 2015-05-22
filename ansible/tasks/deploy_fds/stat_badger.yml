@@ -6,13 +6,12 @@
         badger_process_patterns:
             - '{ "name": "stat-badger", "pattern": ".+badger_core\\.py -f.+" }'
             - '{ "name": "bare-AM", "pattern": ".+bare_am.+" }'
-            - '{ "name": "bare-AM", "pattern": ".+bare_am.+" }'
             - '{ "name": "AccessMgr", "pattern": "^java.+com.formationds.am.Main.+" }'
             - '{ "name": "OrchMgr-java", "pattern": "^java.+com.formationds.om.Main.+" }'
-            - '{ "name": "OrchMgr-native", "pattern": "^bash.+orchMgr+" }'
-            - '{ "name": "StorMgr", "pattern": ".+StorMgr --fds-root.+" }'
-            - '{ "name": "DataMgr", "pattern": ".+DataMgr --fds-root.+" }'
-            - '{ "name": "PlatformMgr", "pattern": ".+platformd --fds-root.+" }'
+            - '{ "name": "StorMgr", "pattern": ".+StorMgr.+--fds-root.+" }'
+            - '{ "name": "DataMgr", "pattern": ".+DataMgr.+--fds-root.+" }'
+            - '{ "name": "PlatformMgr", "pattern": "^platformd --fds-root.+" }'
+            - '{ "name": "InfluxDB", "pattern": "^/opt/fds-deps/embedded/influxdb/influxdb.+" }'
         badger_influxdb08_host: "{{'127.0.0.1' if fds_customer_install is defined else '10.2.10.20'}}"
         badger_influxdb08_port: 8086
         badger_influxdb08_database: "system_stats"

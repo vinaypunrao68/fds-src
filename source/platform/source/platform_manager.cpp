@@ -39,20 +39,20 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap()
+        PlatformManager::PlatformManager() : Module ("pm"), m_deactivateInProgress(false), m_appPidMap(), m_autoRestartFailedProcesses (false)
         {
 
         }
 
         int PlatformManager::mod_init (SysParams const *const param)
         {
-            conf = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
+            fdsConfig = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-            db = new kvstore::PlatformDB (rootDir, conf->get<std::string> ("redis_host","localhost"), conf->get <int> ("redis_port", 6379), 1);
+            db = new kvstore::PlatformDB (rootDir, fdsConfig->get<std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
 
             if (!db->isConnected())
             {
-                LOGCRITICAL << "unable to talk to platformdb @ [" << conf->get<std::string> ("redis_host","localhost") << ":" << conf->get <int> ("redis_port", 6379) << "]";
+                LOGCRITICAL << "unable to talk to platformdb @ [" << fdsConfig->get<std::string> ("redis_host","localhost") << ":" << fdsConfig->get <int> ("redis_port", 6379) << "]";
             } else {
                 db->getNodeInfo (nodeInfo);
                 db->getNodeDiskCapability (diskCapability);
@@ -70,6 +70,7 @@ namespace fds
                 LOGNOTIFY << "Using stored uuid for this node : " << nodeInfo.uuid;
             }
 
+            m_autoRestartFailedProcesses = fdsConfig->get_abs <bool> ("fds.feature_toggle.pm.restart_failed_children_processes");
             determineDiskCapability();
 
             return 0;
@@ -88,14 +89,14 @@ namespace fds
             }
             catch (const std::out_of_range &error)
             {
+                // consider making this an assert or some kind of fatal error, this should never happen in a release type build
                 LOGERROR << "PlatformManager::getProcName is unable to identify a textual process name for index value " << processID << ", " << error.what();
             }
 
-            return nullptr;
+            return "";
         }
 
-
-        pid_t PlatformManager::startProcess (int processID)
+        void PlatformManager::startProcess (int processID)
         {
             std::vector<std::string>    args;
             pid_t                       pid;
@@ -104,15 +105,17 @@ namespace fds
 
             if (procName.empty())
             {
-                return -1;
+                return;         // Note, error logged in getProcName()
             }
+
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
             auto mapIter = m_appPidMap.find (procName);
 
             if (m_appPidMap.end() != mapIter)
             {
                 LOGDEBUG << "Received a request to start " << procName << ", but it is already running.  Not doing anything.";
-                return 0;
+                return;
             }
 
             if (JAVA_AM == processID)
@@ -123,7 +126,7 @@ namespace fds
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;
-                remoteDebugger << JAVA_DEBUGGER_OPTIONS << conf->get <int> ("platform_port") + 7777;
+                remoteDebugger << JAVA_DEBUGGER_OPTIONS << fdsConfig->get <int> ("platform_port") + 7777;
                 args.push_back (remoteDebugger.str());
 #endif // DEBUG
 
@@ -132,26 +135,27 @@ namespace fds
             else
             {
                 command = procName;
+                args.push_back ("--foreground");
             }
 
             // Common command line options
-            args.push_back ("--foreground");
             args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", getNodeUUID (fpi::FDSP_PLATFORM)));
-            args.push_back (util::strformat ("--fds.common.om_ip_list=%s", conf->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
-            args.push_back (util::strformat ("--fds.pm.platform_port=%d", conf->get <int> ("platform_port")));
+            args.push_back (util::strformat ("--fds.common.om_ip_list=%s", fdsConfig->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
+            args.push_back (util::strformat ("--fds.pm.platform_port=%d", fdsConfig->get <int> ("platform_port")));
 
             pid = fds_spawn_service (command, rootDir, args, false);
+
+LOGDEBUG << "After fds_spawn_service with pid = " << pid;
 
             if (pid > 0)
             {
                 LOGDEBUG << procName << " started by platformd as pid " << pid;
+                m_appPidMap[procName] = pid;
             }
             else
             {
                 LOGERROR << "fds_spawn_service() for " << procName << " FAILED to start by platformd with errno=" << errno;
             }
-
-            return pid;
         }
 
         bool PlatformManager::waitPid (pid_t const pid, uint64_t waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
@@ -180,13 +184,13 @@ namespace fds
                     }
                     else if (WIFSIGNALED (status))
                     {
-                        if (!monitoring)
+                        if (monitoring)
                         {
-                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGKILL during a shutdown sequence)";
+                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
                         }
                         else
                         {
-                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
+                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGTERM or SIGKILL during a shutdown sequence)";
                         }
                     }
 
@@ -252,79 +256,48 @@ namespace fds
             m_appPidMap.erase (mapIter);
         }
 
+
         // plf_start_node_services
         // -----------------------
         //
-        void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
+        void PlatformManager::activateServices (const fpi::ActivateServicesMsgPtr &activateMsg)
         {
-            pid_t    pid;
-
-            auto     &info = activateMsg->info;
-
-            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
-
-            // In all the cases below, if pid == 0 is returned from startProcess, the process is already running so, so we fall through to the next check
+            auto &info = activateMsg->info;
 
             if (info.has_sm_service)
             {
-                pid = startProcess(STORAGE_MANAGER);
+                {
+                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                    m_startQueue.push_back (STORAGE_MANAGER);
+                }
 
-                if (pid < 0)
-                {
-                    LOGCRITICAL << "Failed to start:  " << SM_NAME;
-                }
-                else if (pid > 1)
-                {
-                    m_appPidMap[SM_NAME] = pid;
-                    nodeInfo.fHasSm = true;
-                }
+                m_startQueueCondition.notify_one();
+                nodeInfo.fHasSm = true;
             }
 
             if (info.has_dm_service)
             {
-                pid = startProcess(DATA_MANAGER);
+                {
+                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                    m_startQueue.push_back (DATA_MANAGER);
+                }
 
-                if (pid < 0)
-                {
-                    LOGCRITICAL << "Failed to start:  " << DM_NAME;
-                }
-                else if (pid > 1)
-                {
-                    m_appPidMap[DM_NAME] = pid;
-                    nodeInfo.fHasDm = true;
-                }
+                m_startQueueCondition.notify_one();
+                nodeInfo.fHasDm = true;
             }
 
             if (info.has_am_service)
             {
-                // For the AM, if bare_am is running, presume that the java_am is also running, the monitoring side will restart both if a failure is detected
-                pid = startProcess(BARE_AM);
-
-                if (pid < 0)
                 {
-                    LOGCRITICAL << "Failed to start:  " << BARE_AM_NAME;
+                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                    m_startQueue.push_back (BARE_AM);
+                    m_startQueue.push_back (JAVA_AM);
                 }
-                else if (pid > 1)
-                {
-                    m_appPidMap[BARE_AM_NAME] = pid;
 
-                    pid = startProcess(JAVA_AM);
-
-                    if (pid < 0)
-                    {
-                        LOGCRITICAL << "Failed to start:  " << JAVA_AM_CLASS_NAME;
-
-                        stopProcess (BARE_AM);
-                    }
-                    else if (pid > 1)
-                    {
-                        m_appPidMap[JAVA_AM_CLASS_NAME] = pid;
-                        nodeInfo.fHasAm = true;
-                    }
-                }
+                m_startQueueCondition.notify_one();
+                nodeInfo.fHasAm = true;
             }
 
-            db->setNodeInfo(nodeInfo);
         }
 
         void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
@@ -335,16 +308,19 @@ namespace fds
             {
                 stopProcess(JAVA_AM);
                 stopProcess(BARE_AM);
+                nodeInfo.fHasAm = false;
             }
 
             if (deactivateMsg->deactivate_dm_svc && nodeInfo.fHasDm)
             {
                 stopProcess(DATA_MANAGER);
+                nodeInfo.fHasDm = false;
             }
 
             if (deactivateMsg->deactivate_sm_svc && nodeInfo.fHasSm)
             {
                 stopProcess(STORAGE_MANAGER);
+                nodeInfo.fHasSm = false;
             }
         }
 
@@ -368,16 +344,17 @@ namespace fds
         // and calculate all the data.
         void PlatformManager::determineDiskCapability()
         {
-            auto ssd_iops_max = conf->get<uint32_t>("capabilities.disk.ssd.iops_max");
-            auto ssd_iops_min = conf->get<uint32_t>("capabilities.disk.ssd.iops_min");
-            auto hdd_iops_max = conf->get<uint32_t>("capabilities.disk.hdd.iops_max");
-            auto hdd_iops_min = conf->get<uint32_t>("capabilities.disk.hdd.iops_min");
-            auto space_reserve = conf->get<float>("capabilities.disk.reserved_space");
+            auto ssd_iops_max = fdsConfig->get<uint32_t>("capabilities.disk.ssd.iops_max");
+            auto ssd_iops_min = fdsConfig->get<uint32_t>("capabilities.disk.ssd.iops_min");
+            auto hdd_iops_max = fdsConfig->get<uint32_t>("capabilities.disk.hdd.iops_max");
+            auto hdd_iops_min = fdsConfig->get<uint32_t>("capabilities.disk.hdd.iops_min");
+            auto space_reserve = fdsConfig->get<float>("capabilities.disk.reserved_space");
 
             DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             auto disk_counts = dpm->disk_counts();
 
-            if (0 == (disk_counts.first + disk_counts.second)) {
+            if (0 == (disk_counts.first + disk_counts.second))
+            {
                 // We don't have real disks
                 diskCapability.disk_capacity = 0x7ffff;
                 diskCapability.ssd_capacity = 0x10000;
@@ -398,10 +375,10 @@ namespace fds
                 diskCapability.ssd_capacity = (1.0 - space_reserve) * disk_capacities.second;
             }
 
-            if (conf->get<bool>("testing.manual_nodecap",false))
+            if (fdsConfig->get<bool>("testing.manual_nodecap",false))
             {
-                diskCapability.node_iops_max    = conf->get<int>("testing.node_iops_max", 100000);
-                diskCapability.node_iops_min    = conf->get<int>("testing.node_iops_min", 6000);
+                diskCapability.node_iops_max    = fdsConfig->get<int>("testing.node_iops_max", 100000);
+                diskCapability.node_iops_min    = fdsConfig->get<int>("testing.node_iops_min", 6000);
             }
             LOGDEBUG << "Set node iops max to: " << diskCapability.node_iops_max;
             LOGDEBUG << "Set node iops min to: " << diskCapability.node_iops_min;
@@ -417,6 +394,25 @@ namespace fds
             return uuid.uuid_get_val();
         }
 
+        void PlatformManager::startQueueMonitor()
+        {
+            LOGDEBUG << "Starting thread for PlatformManager::startQueueMonitor()";
+
+            while (true)
+            {
+                std::unique_lock <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                m_startQueueCondition.wait (lock, [this] { return !m_startQueue.empty(); });
+
+                while (!m_startQueue.empty())
+                {
+                    auto index = m_startQueue.front();
+                    m_startQueue.pop_front();
+
+                    startProcess(index);
+                }
+            }
+        }
+
         void PlatformManager::childProcessMonitor()
         {
             LOGDEBUG << "Starting thread for PlatformManager::childProcessMonitor()";
@@ -426,8 +422,12 @@ namespace fds
             uint32_t lastCount = 0;
 #endif
 
+            bool deadProcessesFound;
+
             while (true)
             {
+                deadProcessesFound = false;
+
                 {   // Create a context for the lock_guard
                     std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 #ifdef DEBUG
@@ -442,7 +442,31 @@ namespace fds
                     {
                         if (waitPid (mapIter->second, 1000, true))
                         {
+                            std::string procName = mapIter->first;
+                            int appIndex = -1;
+
                             m_appPidMap.erase (mapIter++);
+
+                            // need to tell the OM here, that something died, unless we are in shutdown mode, this work is the next card
+
+                            if (m_autoRestartFailedProcesses)
+                            {
+                                // Find the appIndex of the process that died.
+                                for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
+                                {
+                                    if (iter->second == procName)
+                                    {
+                                        appIndex = iter->first;
+                                        break;
+                                    }
+                                }
+
+                                {   // context for lock_guard
+                                    deadProcessesFound = true;
+                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                    m_startQueue.push_back (appIndex);
+                                }
+                            }
                         }
                         else
                         {
@@ -451,6 +475,11 @@ namespace fds
                     }
                 }  // lock_guard context
 
+                if (deadProcessesFound)
+                {
+                    m_startQueueCondition.notify_one();
+                }
+
                 usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
             }
         }
@@ -458,8 +487,10 @@ namespace fds
         void PlatformManager::run()
         {
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
+            std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
 
             childMonitorThread.detach();
+            startQueueMonitorThread.detach();
 
             while (1)
             {

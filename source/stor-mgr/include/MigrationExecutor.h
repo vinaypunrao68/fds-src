@@ -43,10 +43,14 @@ class MigrationExecutor {
                       fds_uint64_t targetDltVer,
                       bool forResync,
                       MigrationDltFailedCb failedRetryHandler,
-                      MigrationExecutorDoneHandler doneHandler);
+                      MigrationExecutorDoneHandler doneHandler,
+                      FdsTimerPtr &timeoutTimer,
+                      uint32_t timoutDuration,
+                      const std::function<void()> &timeoutHandler);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
+    typedef std::shared_ptr<MigrationExecutor> shared_ptr;
 
     enum MigrationExecutorState {
         ME_INIT,
@@ -55,6 +59,7 @@ class MigrationExecutor {
         ME_SECOND_PHASE_REBALANCE_START,
         ME_SECOND_PHASE_APPLYING_DELTA,
         ME_DONE,
+        ME_DONE_WITH_ERROR,
         ME_ERROR
     };
 
@@ -65,13 +70,30 @@ class MigrationExecutor {
         return std::atomic_load(&state);
     }
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
+        if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
+            return true;
+        }
         if (isFirstRound) {
             return (std::atomic_load(&state) == ME_SECOND_PHASE_REBALANCE_START);
         }
         return (std::atomic_load(&state) == ME_DONE);
     }
     inline fds_bool_t isDone() const {
-        return (std::atomic_load(&state) == ME_DONE);
+        MigrationExecutorState curState = std::atomic_load(&state);
+        return ((curState == ME_DONE) || (curState == ME_DONE_WITH_ERROR));
+    }
+    inline void setDoneWithError() {
+        MigrationExecutorState newState = ME_DONE_WITH_ERROR;
+        std::atomic_store(&state, newState);
+    }
+
+    inline bool inErrorState() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (curState == ME_ERROR || curState == ME_DONE_WITH_ERROR) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**

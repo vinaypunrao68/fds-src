@@ -75,7 +75,7 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset) override;
 
-    virtual Error deleteBlobMetaDesc(const std::string & blobName);
+    virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
 
   private:
     // vars

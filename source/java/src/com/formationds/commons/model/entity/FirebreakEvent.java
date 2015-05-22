@@ -10,9 +10,6 @@ import com.formationds.commons.events.EventType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Volume;
 
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import javax.xml.bind.annotation.XmlRootElement;
 
 /**
@@ -20,7 +17,6 @@ import javax.xml.bind.annotation.XmlRootElement;
  * firebreak occurrence and usage/sigma data relevant to the firebreak.
  */
 @XmlRootElement
-@Entity
 public class FirebreakEvent extends Event {
 
     public static final String DEFAULT_MESSAGE_FMT = "Volume {0}; Type data {1}; Current Usage (bytes)={2}; Sigma2={3}";
@@ -30,7 +26,6 @@ public class FirebreakEvent extends Event {
     private Long volumeId;
     private String volumeName;
 
-    @Enumerated(EnumType.ORDINAL)
     private FirebreakType firebreakType;
 
     private Long currentUsageBytes;

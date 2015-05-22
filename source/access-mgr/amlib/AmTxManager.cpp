@@ -179,6 +179,10 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc)
     return err;
 }
 
+void
+AmTxManager::invalidateMetaCache(const VolumeDesc& volDesc)
+{ amCache->invalidateMetaCache(volDesc.volUUID); }
+
 Error
 AmTxManager::removeVolume(const VolumeDesc& volDesc)
 { return amCache->removeVolume(volDesc.volUUID); }

@@ -256,6 +256,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGNOTIFY << "Received scavenger stop command";
         } else {
             apiException("Unrecognized scavenger action: " + *scavengerAction);
+            return;
         };
 
         /*
@@ -1083,7 +1084,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         snapshot.timelineTime = *timelineTime;
 
         snapshot.state = fpi::ResourceState::Loading;
-        LOGDEBUG << "snapshot request for volumeid:" << snapshot.volumeId
+        LOGDEBUG << "snapshot request for volume id:" << snapshot.volumeId
                  << " name:" << snapshot.snapshotName;
 
 
@@ -1104,20 +1105,27 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
 std::thread* runConfigService(OrchMgr* om) {
     int port = MODULEPROVIDER()->get_conf_helper().get_abs<int>("fds.om.config_port", 9090);
-    LOGNORMAL << "about to start config service @ " << port;
-    boost::shared_ptr<apis::ConfigurationServiceHandler> handler(new apis::ConfigurationServiceHandler(om));  //NOLINT
-    boost::shared_ptr<TProcessor> processor(new apis::ConfigurationServiceProcessor(handler));  //NOLINT
-    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));  //NOLINT
-    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-    boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
+    LOGDEBUG << "Starting Configuration Service, listening on port: " << port;
 
-    TThreadedServer server(processor,
-                           serverTransport,
-                           transportFactory,
-                           protocolFactory);
+    boost::shared_ptr<TServerTransport> serverTransport( 
+        new TServerSocket( port ) );  //NOLINT
+    boost::shared_ptr<TTransportFactory> transportFactory( 
+        new TFramedTransportFactory( ) );
+    boost::shared_ptr<TProtocolFactory> protocolFactory( 
+        new TBinaryProtocolFactory( ) );  //NOLINT
 
-    server.serve();
+    boost::shared_ptr<apis::ConfigurationServiceHandler> handler(
+        new apis::ConfigurationServiceHandler( om ) ); // NOLINT
+    boost::shared_ptr<TProcessor> processor(
+        new apis::ConfigurationServiceProcessor( handler ) ); // NOLINT
+    
+    TThreadedServer server( processor,
+                            serverTransport,
+                            transportFactory,
+                            protocolFactory );
 
+    server.serve();   
+    
     return nullptr;
 }
 

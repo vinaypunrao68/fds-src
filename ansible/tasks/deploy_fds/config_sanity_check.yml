@@ -1,4 +1,9 @@
 ---
+-   name: set sane fds_om_host value if missing
+    set_fact:
+        fds_om_host: '127.0.0.1'
+    when: fds_om_host is not defined
+
 -   name: "sanity check -> fds_om_host_count is defined when fds_ft_common_enable_multi_om_support==true"
     fail: 
         msg: "You must specify a value for fds_om_host_count (odd integer >= 1) when fds_ft_common_enable_multi_om_support == true"
@@ -58,3 +63,7 @@
         msg: "You are trying to deploy a local fds-deps package that is not present on your workstation! You specified 'fds_deploy_local_deps=True' in your inventory, but I can't find a deb named 'fds-deps_*' in fds-src/omnibus/omnibus-fds-deps/pkg. Exiting."
     when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and fds_deps_package_stat.skipped is defined
     tags: local_check
+
+-   name: set up influxdb URL
+    set_fact:
+        om_influxdb_url: "{{ fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://'+fds_om_host+':8086' }}"

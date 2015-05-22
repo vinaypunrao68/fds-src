@@ -77,7 +77,7 @@ public class FdsFileSystem extends FileSystem {
 
         int amResponsePort = new ServerPortFinder().findPort("HDFS async AM response port", 10000);
         HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 8899);
-        XdiClientFactory cf = new XdiClientFactory(amResponsePort);
+        XdiClientFactory cf = new XdiClientFactory();
         try {
             asyncAm = new RealAsyncAm(cf.remoteOnewayAm(amConnectionData.getHost(), amConnectionData.getPort()), amResponsePort, 10, TimeUnit.SECONDS);
             asyncAm.start();

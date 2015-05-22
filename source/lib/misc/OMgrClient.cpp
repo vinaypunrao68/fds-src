@@ -210,30 +210,40 @@ fds_bool_t OMgrClient::hasCommittedDMT() const {
 Error OMgrClient::getDMT() {
 	Error err(ERR_OK);
 	auto svcMgr = MODULEPROVIDER()->getSvcMgr();
-	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
-	svcMgr->getDMTData(fdsp_dmt);
-
-	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
-		err = ERR_NOT_FOUND;
+	if (!svcMgr) {
+		// Not likely scenario, but possible.
+		LOGERROR << "ERROR: Unable to retrieve SvcMgr";
+		err = ERR_NODE_NOT_ACTIVE;
 	} else {
-		err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
-	}
+		::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
+			svcMgr->getDMTData(fdsp_dmt);
 
+		if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
+			err = ERR_NOT_FOUND;
+		} else {
+			err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+		}
+	}
 	return err;
 }
 
 Error OMgrClient::getDLT() {
 	Error err(ERR_OK);
 	auto svcMgr = MODULEPROVIDER()->getSvcMgr();
-	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
-	svcMgr->getDLTData(fdsp_dlt);
-
-	if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
-		err = ERR_NOT_FOUND;
+	if (!svcMgr) {
+		// Not likely scenario, but possible.
+		LOGERROR << "ERROR: Unable to retrieve SvcMgr";
+		err = ERR_NODE_NOT_ACTIVE;
 	} else {
-		err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
-	}
+		::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
+			svcMgr->getDLTData(fdsp_dlt);
 
+		if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
+			err = ERR_NOT_FOUND;
+		} else {
+			err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+		}
+	}
 	return err;
 }
 

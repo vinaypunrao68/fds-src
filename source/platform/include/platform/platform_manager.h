@@ -51,7 +51,7 @@ namespace fds
 
                 /* Overrides from Module */
                 virtual int  mod_init (SysParams const *const param) override;
-                virtual void mod_startup()
+                virtual void mod_startup() override
                 {
                 }
 
@@ -74,27 +74,35 @@ namespace fds
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
             protected:
-
                 fds_int64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();
 
                 bool waitPid (pid_t pid, uint64_t waitTimeoutNanoSeconds, bool monitoring = false);
-                pid_t startProcess (int id);
+                void startProcess (int id);
                 void stopProcess (int id);
 
             private:
-                FdsConfigAccessor                  *conf;
+                FdsConfigAccessor                  *fdsConfig;
                 fpi::FDSP_AnnounceDiskCapability    diskCapability;
 
                 kvstore::PlatformDB                *db;
                 fpi::NodeInfo                       nodeInfo;
                 std::string                         rootDir;
 
+                bool                                m_deactivateInProgress;
+
                 std::mutex                          m_pidMapMutex;
                 std::map <std::string, pid_t>       m_appPidMap;
 
+                std::mutex                          m_startQueueMutex;
+                std::condition_variable             m_startQueueCondition;
+                std::list <int>                     m_startQueue;
+
+                bool                                m_autoRestartFailedProcesses;
+
                 void childProcessMonitor();
+                void startQueueMonitor();
                 std::string getProcName (int const index);
         };
     }  // namespace pm

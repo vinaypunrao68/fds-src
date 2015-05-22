@@ -183,7 +183,7 @@ class FdsProcess : public boost::noncopyable,
         return proc_thrp;
     }
 
-    virtual util::Properties* getProperties();
+    virtual util::Properties* getProperties() override;
 
     /**
     * @brief Deamonize the process if '--foreground' arg isn't specified
@@ -202,7 +202,6 @@ class FdsProcess : public boost::noncopyable,
     * @brief Close all fds.  Redirect standards streams to /dev/null
     */
     static void closeAllFDs();
-
 
  protected:
     // static members/methods
