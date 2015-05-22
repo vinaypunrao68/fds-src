@@ -53,11 +53,6 @@ class MigrationExecutor {
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
     typedef std::shared_ptr<MigrationExecutor> shared_ptr;
 
-    enum MigrationType {
-        MIGR_SM_ADD_NODE,
-        MIGR_SM_RESYNC
-    };
-
     enum MigrationExecutorState {
         ME_INIT,
         ME_FIRST_PHASE_REBALANCE_START,

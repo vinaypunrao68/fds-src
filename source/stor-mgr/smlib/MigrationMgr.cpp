@@ -234,7 +234,7 @@ MigrationMgr::startResync(const fds::DLT *dlt,
     }
 
     // set migration type to resync.
-    MigrationMgr::MigrationType migrType = MIGR_SM_RESYNC;
+    SMMigrType migrType = MIGR_SM_RESYNC;
 
     return startMigration(resyncMsg, NULL, mySvcUuid,
                           bitsPerDltToken, migrType, onePhaseMigration);

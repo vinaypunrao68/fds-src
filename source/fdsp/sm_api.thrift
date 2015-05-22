@@ -344,7 +344,7 @@ struct CtrlObjectRebalanceFilterSet {
   5: bool   lastFilterSet;
   /** Set of objects to be sync'ed */
   6: list<sm_types.CtrlObjectMetaDataSync>    objectsToFilter;
-  /** is this rebalance for a SM resync */
+  /** Migration for which this message is sent will be one phase migration */
   7: bool  onePhaseMigration;
 }
 

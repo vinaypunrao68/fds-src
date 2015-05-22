@@ -11,6 +11,7 @@
 #include <SMSvcHandler.h>
 #include <net/SvcRequestPool.h>
 #include <MigrationExecutor.h>
+#include <MigrationMgr.h>
 
 namespace fds {
 
@@ -36,7 +37,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           sourceSmUuid(srcSmId),
           targetDltVersion(targetDltVer),
           migrationType(migrType),
-          onePhaseMigration(resync)
+          onePhaseMigration(resync),
           seqNumDeltaSet(timeoutTimer, timeoutDuration, timeoutHandler)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
@@ -675,7 +676,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             }
             // we finished second phase of migration. If this is resync after restart
             // send finish client resync message to the source.
-            if (migrationType == MigrationType::MIGR_SM_RESYNC) {
+            if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
                 sendFinishResyncToClient();
             }
         } else {
@@ -689,7 +690,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         MigrationExecutorState newState = ME_ERROR;
         std::atomic_store(&state, newState);
 
-        if (migrationType == MigrationType::MIGR_SM_RESYNC) {
+        if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
             // in case the source started forwarding, we don't want it to continue
             // on error; so just send stop client resync message to source SM so
             // it can cleanup and stop forwarding

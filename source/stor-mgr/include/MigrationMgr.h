@@ -403,6 +403,7 @@ class MigrationMgr {
      FdsTimer mTimer;
 };
 
+typedef MigrationMgr::MigrationType SMMigrType;
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
