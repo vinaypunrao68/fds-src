@@ -79,8 +79,6 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         if (tier == diskio::flashTier) {
             PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_WRITE, volId);
-        } else if (tier == diskio::diskTier) {
-            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_DISK_WRITE, volId);
         }
 
         // get location in persistent layer to return with this method
@@ -146,8 +144,6 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                  << volId << std::dec;
         if (tier == diskio::flashTier) {
             PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_READ, volId);
-        } else if (tier == diskio::diskTier) {
-            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_DISK_READ, volId);
         }
 
         // Copy the data to the give buffer
