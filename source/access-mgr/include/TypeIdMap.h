@@ -20,55 +20,55 @@ namespace fds
 template<typename Msg> fpi::FDSPMsgTypeId constexpr message_type_id(Msg const& msg);
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::AbortBlobTxMsg const& msg)
-{ return FDSP_MSG_TYPEID(AbortBlobTxMsg); }
+{ return FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::CloseVolumeMsg const& msg)
-{ return FDSP_MSG_TYPEID(CloseVolumeMsg); }
+{ return FDSP_MSG_TYPEID(fpi::CloseVolumeMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::CommitBlobTxMsg const& msg)
-{ return FDSP_MSG_TYPEID(CommitBlobTxMsg); }
+{ return FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::DeleteBlobMsg const& msg)
-{ return FDSP_MSG_TYPEID(DeleteBlobMsg); }
+{ return FDSP_MSG_TYPEID(fpi::DeleteBlobMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::GetBlobMetaDataMsg const& msg)
-{ return FDSP_MSG_TYPEID(GetBlobMetaDataMsg); }
+{ return FDSP_MSG_TYPEID(fpi::GetBlobMetaDataMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::GetBucketMsg const& msg)
-{ return FDSP_MSG_TYPEID(GetBucketMsg); }
+{ return FDSP_MSG_TYPEID(fpi::GetBucketMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::GetVolumeMetadataMsg const& msg)
-{ return FDSP_MSG_TYPEID(GetVolumeMetadataMsg); }
+{ return FDSP_MSG_TYPEID(fpi::GetVolumeMetadataMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::OpenVolumeMsg const& msg)
-{ return FDSP_MSG_TYPEID(OpenVolumeMsg); }
+{ return FDSP_MSG_TYPEID(fpi::OpenVolumeMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::QueryCatalogMsg const& msg)
-{ return FDSP_MSG_TYPEID(QueryCatalogMsg); }
+{ return FDSP_MSG_TYPEID(fpi::QueryCatalogMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::SetBlobMetaDataMsg const& msg)
-{ return FDSP_MSG_TYPEID(SetBlobMetaDataMsg); }
+{ return FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::SetVolumeMetadataMsg const& msg)
-{ return FDSP_MSG_TYPEID(SetVolumeMetadataMsg); }
+{ return FDSP_MSG_TYPEID(fpi::SetVolumeMetadataMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::StartBlobTxMsg const& msg)
-{ return FDSP_MSG_TYPEID(StartBlobTxMsg); }
+{ return FDSP_MSG_TYPEID(fpi::StartBlobTxMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::StatVolumeMsg const& msg)
-{ return FDSP_MSG_TYPEID(StatVolumeMsg); }
+{ return FDSP_MSG_TYPEID(fpi::StatVolumeMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::UpdateCatalogMsg const& msg)
-{ return FDSP_MSG_TYPEID(UpdateCatalogMsg); }
+{ return FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::UpdateCatalogOnceMsg const& msg)
-{ return FDSP_MSG_TYPEID(UpdateCatalogOnceMsg); }
+{ return FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::PutObjectMsg const& msg)
-{ return FDSP_MSG_TYPEID(PutObjectMsg); }
+{ return FDSP_MSG_TYPEID(fpi::PutObjectMsg); }
 
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::GetObjectMsg const& msg)
-{ return FDSP_MSG_TYPEID(GetObjectMsg); }
+{ return FDSP_MSG_TYPEID(fpi::GetObjectMsg); }
 // =============
 
 }  // namespace fds

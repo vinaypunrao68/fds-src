@@ -72,7 +72,7 @@ void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
     if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
-            (typedRequest->dmt_version != dataManager.omClient->getDMTVersion())) {
+            (typedRequest->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion())) {
             helper.err = ERR_IO_DMT_MISMATCH;
         }
     } else {
