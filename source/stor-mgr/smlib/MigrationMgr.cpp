@@ -22,11 +22,8 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
 
-    uint32_t num_tokens = ((uint32_t) 0x1) << g_fdsprocess->get_fds_config()->get<uint32_t>("fds.om.token_factor");
-    LOGMIGRATE << "Max number of tokens: " << num_tokens;
-    fds_verify(num_tokens > 0);
-    snapshotRequests.resize(num_tokens);
-    for (uint32_t i = 0; i < num_tokens; ++i) {
+    snapshotRequests.resize(SMTOKEN_COUNT);
+    for (uint32_t i = 0; i < SMTOKEN_COUNT; ++i) {
         snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
         snapshotRequests[i].retryReq = false;
         snapshotRequests[i].smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
