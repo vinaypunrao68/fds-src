@@ -354,7 +354,6 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-
     if [[ $name == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
     elif [[ $name == "am" ]]; then
@@ -489,6 +488,20 @@ function showerrors() {
     done
 }
 
+function showports() {
+    local apps="$@"
+    if [[ $1 == 'all' ]]; then
+        apps="am om dm sm pm xdi"
+    fi
+    for app in ${apps}; do
+        local pid=$(getAppPid $app)
+        if [[ -n $pid ]]; then
+            local pids=$(echo -en $pid| tr ' ' '|' | sed 's/.$//')
+            loginfo "Ports used by : $(blue $app)/$pids"
+            netstat -lntp | grep -E "PID|${pids}"
+        fi
+    done
+}
 
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
@@ -631,7 +644,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -679,6 +692,9 @@ case "${CMD}" in
         ;;
     err*)
         showerrors $APP
+        ;;
+    port*)
+        showports $APP
         ;;
     *) usage ;;
 esac
