@@ -338,7 +338,7 @@ class MigrationMgr {
     /// set of SM tokens that are currently in progress of migrating
     std::unordered_set<fds_token_id> smTokenInProgress;
     /// mutex for smTokenInProgress
-    fds_rwlock smTokenInProgressRWLock;
+    fds_mutex smTokenInProgressMutex;
 
     /// thread-safe iterator over MigrExecutorMap
     /// provides - constructor
@@ -381,7 +381,10 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
-     * Vector of requests (static). Equals to the number of tokens
+     * Vector of requests (static). Equals to the number of tokens. 
+     * TODO(matteo): it seems I cannot create this dynamically and destroy it
+     * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
+     * actually reused after it is popped out the QoS queue. Likely need more investigation
      */
     std::vector<SmIoSnapshotObjectDB> snapshotRequests;
 

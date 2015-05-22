@@ -189,7 +189,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
         if (next == migrExecutors.cend())
             break;
         {
-            SCOPEDWRITE(smTokenInProgressRWLock);
+            FDSGUARD(smTokenInProgressMutex);
             smTokenInProgress.insert(next->first);
         }
         startSmTokenMigration(next->first);
@@ -561,7 +561,7 @@ MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSe
     LOGMIGRATE << "recvRebalanceDeltaSet: " << smTokenInProgress.size();
     std::unordered_set<fds_token_id> curSmTokenInProgress;
     {
-        SCOPEDREAD(smTokenInProgressRWLock);
+        FDSGUARD(smTokenInProgressMutex);
         curSmTokenInProgress = smTokenInProgress;
     }
 
@@ -670,7 +670,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         // If I'm here I have migrated a token, need to find the next token to migrate
         LOGMIGRATE << "erasing " << smToken;
         {
-            SCOPEDWRITE(smTokenInProgressRWLock);
+            FDSGUARD(smTokenInProgressMutex);
             smTokenInProgress.erase(smToken);
         }
         LOGMIGRATE << "fetch and increment nextExecutor";
@@ -679,7 +679,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
                 {
-                    SCOPEDWRITE(smTokenInProgressRWLock);
+                    FDSGUARD(smTokenInProgressMutex);
                     smTokenInProgress.insert(next->first);
                 }
                 LOGMIGRATE << "call startSmTokenMigration for " << next->first;
@@ -687,7 +687,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             } else {
                 // coming in here during second phase when calling the ExecutorDone callback
                 {
-                    SCOPEDWRITE(smTokenInProgressRWLock);
+                    FDSGUARD(smTokenInProgressMutex);
                     smTokenInProgress.insert(next->first);
                 }
                 startSecondRebalanceRound(next->first);
@@ -696,7 +696,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
             // need to make sure all executors have terminated
             {
-                SCOPEDREAD(smTokenInProgressRWLock);
+                FDSGUARD(smTokenInProgressMutex);
                 if (smTokenInProgress.size() > 0) {
                     LOGMIGRATE << "exiting done migrating";
                     return;
@@ -714,7 +714,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                         if (next == migrExecutors.cend())
                             break;
                         {
-                            SCOPEDWRITE(smTokenInProgressRWLock);
+                            FDSGUARD(smTokenInProgressMutex);
                             smTokenInProgress.insert(next->first);
                         }
                         startSecondRebalanceRound(next->first);
