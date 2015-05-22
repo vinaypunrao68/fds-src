@@ -21,7 +21,23 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
-    
+
+    uint32_t num_tokens = ((uint32_t) 0x1) << g_fdsprocess->get_fds_config()->get<uint32_t>("fds.om.token_factor");
+    LOGMIGRATE << "Max number of tokens: " << num_tokens;
+    fds_verify(num_tokens > 0);
+    snapshotRequests.resize(num_tokens);
+    for (uint32_t i = 0; i < num_tokens; ++i) {
+        snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
+        snapshotRequests[i].retryReq = false;
+        snapshotRequests[i].smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3,
+                                                      std::placeholders::_4,
+                                                      std::placeholders::_5);
+    }
+
     parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 16);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
@@ -191,10 +207,9 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
         LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
-        auto snapshotRequest = createSnapshotRequest();
-        snapshotRequest->token_id = retrySmTokenInProgress;
-        snapshotRequest->retryReq = true;
-        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequest);
+        snapshotRequests[retrySmTokenInProgress].token_id = retrySmTokenInProgress;
+        snapshotRequests[retrySmTokenInProgress].retryReq = true;
+        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[retrySmTokenInProgress]);
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
             // for now, we are failing the whole migration on any error
@@ -234,10 +249,9 @@ MigrationMgr::startSmTokenMigration(fds_token_id smToken) {
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
-    auto snapshotRequest = createSnapshotRequest();
-    snapshotRequest->token_id = smToken;
-    snapshotRequest->retryReq = false;
-    Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequest);
+    snapshotRequests[smToken].token_id = smToken;
+    snapshotRequests[smToken].retryReq = false;
+    Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[smToken]);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
         // for now, we are failing the whole migration on any error

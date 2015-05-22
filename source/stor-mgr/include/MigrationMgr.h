@@ -381,22 +381,9 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
-     * Create a snapshot request dynamically. It will be deleted when processed
+     * Vector of requests (static). Equals to the number of tokens
      */
-
-    inline SmIoSnapshotObjectDB* createSnapshotRequest() {
-        auto p = new SmIoSnapshotObjectDB;
-        p->io_type = FDS_SM_SNAPSHOT_TOKEN;
-        p->retryReq = false;
-        p->smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
-                                                      this,
-                                                      std::placeholders::_1,
-                                                      std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4,
-                                                      std::placeholders::_5);
-        return p;
-    }
+    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
 
     /**
      * Timer to detect if there is no activities on the Executors.

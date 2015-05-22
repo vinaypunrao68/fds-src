@@ -760,7 +760,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
-    LOGDEBUG << "snapshotTokenInternal " << *snapReq;
 
     // When this lock is held, any put/delete request in that
     // object id range will block
@@ -782,8 +781,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
-    LOGDEBUG << "snapshotTokenInternal done " << *snapReq;
-    delete snapReq;
 }
 
 void
