@@ -10,21 +10,11 @@
 
 namespace fds {
 
-ObjectDataStoreCounters::ObjectDataStoreCounters(const std::string &id)
-    : FdsCounters(id, MODULEPROVIDER() ? MODULEPROVIDER()->get_cntrs_mgr().get() : nullptr),
-    ssd_reads("ssd_reads", this),
-    ssd_writes("ssd_writes", this),
-    hdd_reads("hdd_reads", this),
-    hdd_writes("hdd_writes", this)
-{
-}
-  
-
 ObjectDataStore::ObjectDataStore(const std::string &modName,
                                  SmIoReqHandler *data_store)
         : Module(modName.c_str()),
-          persistData(new ObjectPersistData("SM Obj Persist Data Store", data_store)),
-          odsCntrs("sm.ods.") {
+          persistData(new ObjectPersistData("SM Obj Persist Data Store", data_store))
+{
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
@@ -89,9 +79,8 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         if (tier == diskio::flashTier) {
             PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_WRITE, volId);
-            odsCntrs.ssd_writes.incr();
         } else if (tier == diskio::diskTier) {
-            odsCntrs.hdd_writes.incr();
+            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_DISK_WRITE, volId);
         }
 
         // get location in persistent layer to return with this method
@@ -157,9 +146,8 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                  << volId << std::dec;
         if (tier == diskio::flashTier) {
             PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_READ, volId);
-            odsCntrs.ssd_reads.incr();
         } else if (tier == diskio::diskTier) {
-            odsCntrs.hdd_reads.incr();
+            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_DISK_READ, volId);
         }
 
         // Copy the data to the give buffer
