@@ -1766,8 +1766,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // we must have a node (platform) that runs any service
         // registered with OM and node must be in active state
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
-            if (pmNodes->hasRegistered(msg)) {
-                LOGDEBUG << "re registraion : " << msg->service_uuid.uuid;
+            bool fAllowReRegistration = MODULEPROVIDER()->get_fds_config()->get<bool>
+                    ("fds.feature_toggle.om.allow_service_reregistration",false);
+            if (pmNodes->hasRegistered(msg) && fAllowReRegistration) {
+                LOGDEBUG << "re registration : " << msg->service_uuid.uuid;
             } else {
                 LOGERROR << "Error: cannot register service " << msg->node_name
                          << " on platform with uuid " 
