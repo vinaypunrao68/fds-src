@@ -11,6 +11,7 @@
 #include <SMSvcHandler.h>
 #include <net/SvcRequestPool.h>
 #include <MigrationExecutor.h>
+#include <MigrationMgr.h>
 
 namespace fds {
 
@@ -20,6 +21,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_token_id smTokId,
                                      fds_uint64_t executorID,
                                      fds_uint64_t targetDltVer,
+                                     fds_uint32_t migrType,
                                      bool resync,
                                      MigrationDltFailedCb failedRetryHandler,
                                      MigrationExecutorDoneHandler doneHandler,
@@ -34,7 +36,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           smTokenId(smTokId),
           sourceSmUuid(srcSmId),
           targetDltVersion(targetDltVer),
-          forResync(resync),
+          migrationType(migrType),
+          onePhaseMigration(resync),
           seqNumDeltaSet(timeoutTimer, timeoutDuration, timeoutHandler)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
@@ -74,7 +77,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
-    if (!forResync) {
+    if (!onePhaseMigration) {
         MigrationExecutorState expectState = ME_FIRST_PHASE_APPLYING_DELTA;
         if (!std::atomic_compare_exchange_strong(&state,
                                                  &expectState,
@@ -119,7 +122,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = dltTok.second;
         msg->lastFilterSet = ((dltTok.second + 1) < dltTokens.size()) ? false : true;
-        msg->forResync = forResync;
+        msg->onePhaseMigration = onePhaseMigration;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << msg->tokenId << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
@@ -254,7 +257,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
-        msg->forResync = forResync;
+        msg->onePhaseMigration = onePhaseMigration;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << dltTok << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
@@ -303,7 +306,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // receive responses before finish sending all the messages...
     // we sent all the messages, go to next state
     expectState = ME_FIRST_PHASE_REBALANCE_START;
-    if (forResync) {
+    if (onePhaseMigration) {
         nextState = ME_SECOND_PHASE_APPLYING_DELTA;
     } else {
         nextState = ME_FIRST_PHASE_APPLYING_DELTA;
@@ -673,7 +676,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             }
             // we finished second phase of migration. If this is resync after restart
             // send finish client resync message to the source.
-            if (forResync) {
+            if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
                 sendFinishResyncToClient();
             }
         } else {
@@ -687,7 +690,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         MigrationExecutorState newState = ME_ERROR;
         std::atomic_store(&state, newState);
 
-        if (forResync) {
+        if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
             // in case the source started forwarding, we don't want it to continue
             // on error; so just send stop client resync message to source SM so
             // it can cleanup and stop forwarding
@@ -699,7 +702,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
                << " Round " << roundNum
-               << " isResync? " << forResync;
+               << " isResync? " << onePhaseMigration;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
