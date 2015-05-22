@@ -45,8 +45,11 @@ uint64_t objcount = 0;
 void do_read(int fd, uint64_t & num) {
     for (uint64_t c = 0; c < objcount; ++c) {
         memset(buffer, 0, objsize);
-        if (read(fd, buffer, objsize) < 0) {
-            std::cerr << "failed to read from file, error='" << errno << std::endl;
+        ssize_t b = deviceMode ? pread(fd, buffer, objsize, num * sizeof(uint64_t)) :
+                read(fd, buffer, objsize);
+        if (b < 0) {
+            std::cerr << "failed to read from file, error='" << errno
+                    << "', num='" << num << "'" << std::endl;
             return;
         }
 
@@ -63,12 +66,16 @@ void do_read(int fd, uint64_t & num) {
 void do_write(int fd, uint64_t & num) {
     for (uint64_t c = 0; c < objcount; ++c) {
         memset(buffer, 0, objsize);
+        uint64_t tnum = num;
         for (uint32_t i = 0; i < len; ++i) {
             static_cast<uint64_t *>(buffer)[i] = num++;
         }
 
-        if (write(fd, buffer, objsize) < 0) {
-            std::cerr << "failed to write to file, error: '" << errno << "'" << std::endl;
+        ssize_t b = deviceMode ? pwrite(fd, buffer, objsize, tnum * sizeof(uint64_t)) :
+                write(fd, buffer, objsize);
+        if (b < 0) {
+            std::cerr << "failed to write to file, error: '" << errno
+                    << "', num='" << tnum << "'" << std::endl;
             return;
         }
     }
@@ -124,7 +131,7 @@ int main(int argc, char * argv[]) {
         ("count", po::value<uint64_t>(&count)->default_value(count), "file count")
         ("jobs", po::value<uint32_t>(&jobs)->default_value(jobs), "# of concurrent jobs")
         ("objsize", po::value<uint32_t>(&objsize)->default_value(objsize), "object size")
-        ("sync", "synchromous I/O");
+        ("sync", "synchronous I/O");
 
     hidden.add_options()
         ("startnum", po::value<uint64_t>(&startnum)->default_value(startnum),
@@ -132,7 +139,7 @@ int main(int argc, char * argv[]) {
 
     desc.add(visible).add(hidden);
 
-    // Parse comman line options
+    // Parse common line options
     po::variables_map vmap;
     try {
         po::store(po::parse_command_line(argc, argv, desc), vmap);
@@ -172,6 +179,16 @@ int main(int argc, char * argv[]) {
         flags |= O_SYNC;
     }
 
+    int fd = 0;
+    if (deviceMode) {
+        fd = open(path.c_str(), flags, S_IRWXU | S_IRGRP);
+        if (fd < 0) {
+            std::cerr << path << ": unable to open file for I/O! error='"
+                    << errno << "'" << std::endl;
+            return rc;
+        }
+    }
+
     if (jobs > 1) {
         // prepare for spawning child
         uint32_t tjobs = jobs;
@@ -183,7 +200,7 @@ int main(int argc, char * argv[]) {
         pid_t pid = 0;
 
         for (uint32_t i = 0; i < tjobs; ++i) {
-            startnum += i * count * filesize;
+            startnum += (i * count * filesize) / sizeof(uint64_t);
 
             if ((tjobs - 1) == i) {
                 // last process, schedule remaining files
@@ -215,14 +232,16 @@ int main(int argc, char * argv[]) {
 
     uint64_t num = startnum;
     for (uint64_t i = 0; i < count; ++i) {
-        std::ostringstream filename;
-        filename << filePrefix << num;
+        if (!deviceMode) {
+            std::ostringstream filename;
+            filename << filePrefix << num;
 
-        int fd = open(filename.str().c_str(), flags, S_IRWXU | S_IRGRP);
-        if (fd < 0) {
-            std::cerr << filename << ": unabled to open a file for I/O! error='"
-                    << errno << "'" << std::endl;
-            return rc;
+            fd = open(filename.str().c_str(), flags, S_IRWXU | S_IRGRP);
+            if (fd < 0) {
+                std::cerr << filename << ": unable to open a file for I/O! error='"
+                        << errno << "'" << std::endl;
+                return rc;
+            }
         }
 
         readOp ? do_read(fd, num) : do_write(fd, num);
@@ -231,7 +250,9 @@ int main(int argc, char * argv[]) {
             break;
         }
 
-        close(fd);
+        if (!deviceMode) {
+            close(fd);
+        }
     }
 
     return rc;
