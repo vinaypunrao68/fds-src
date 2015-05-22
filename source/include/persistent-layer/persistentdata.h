@@ -10,23 +10,6 @@
 #include <persistent-layer/dm_io.h>
 #include <concurrency/Mutex.h>
 #include <fds_error.h>
-#include <fds_counters.h>
-
-namespace fds {
-
-class PMCounters : public FdsCounters
-{
- public:
-     PMCounters(const std::string &id, FdsCountersMgr *mgr)
-        : FdsCounters(id, mgr),
-          diskR_Err("diskR_Err", this),
-          diskW_Err("diskW_Err", this)
-     {
-     }
-     NumericCounter diskR_Err;
-     NumericCounter diskW_Err;
-};
-}  // namespace fds
 
 namespace diskio {
 
@@ -130,7 +113,6 @@ class PersisDataIO
     PersisDataIO();
     ~PersisDataIO();
 
-    fds::PMCounters          pd_counters_;
     fdsio::RequestQueue      pd_queue;
 };
 
