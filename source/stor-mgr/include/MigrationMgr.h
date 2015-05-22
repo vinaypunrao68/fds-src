@@ -67,6 +67,11 @@ class MigrationMgr {
         MIGR_ABORTED       // If migration aborted due to error before DLT close
     };
 
+    enum MigrationType {
+        MIGR_SM_ADD_NODE,
+        MIGR_SM_RESYNC
+    };
+
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
@@ -85,7 +90,8 @@ class MigrationMgr {
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken,
-                         bool forResync);
+                         MigrationType migrType,
+                         bool onePhaseMigration);
 
     /**
      * Start resync process for SM tokens. Find the list of
@@ -241,6 +247,8 @@ class MigrationMgr {
     void dltTokenMigrationFailedCb(fds_token_id &smToken);
 
     void retryTokenMigrForFailedDltTokens();
+
+    void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
 
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken);
@@ -431,6 +439,7 @@ class MigrationMgr {
      FdsTimer mTimer;
 };
 
+typedef MigrationMgr::MigrationType SMMigrType;
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
