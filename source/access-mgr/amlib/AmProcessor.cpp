@@ -239,8 +239,10 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
             err = amDispatcher->attachVolume(amReq->volume_name);
         }
     }
-    if (!err.ok())
-        { amReq->cb->call(err); }
+
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+    }
     return err;
 }
 
