@@ -184,7 +184,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     fds_verify(smTokenInProgress.size() == 0)
     nextExecutor.set(migrExecutors.begin());
     fds_verify(parallelMigration > 0);
-    for (int issued = 0; issued < parallelMigration; issued++) {
+    for (uint32_t issued = 0; issued < parallelMigration; issued++) {
         auto next = nextExecutor.fetch_and_increment_saturating(); 
         if (next == migrExecutors.cend())
             break;
@@ -709,7 +709,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
                 LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
                 nextExecutor.set(migrExecutors.begin());
-                for (int issued = 0; issued < parallelMigration; ++issued) {
+                for (uint32_t issued = 0; issued < parallelMigration; ++issued) {
                         auto next = nextExecutor.fetch_and_increment_saturating();
                         if (next == migrExecutors.cend())
                             break;
