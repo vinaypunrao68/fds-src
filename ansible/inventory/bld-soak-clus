@@ -6,7 +6,9 @@
 
 [bld-soak-clus:vars]
 cluster_location=bld
-deploy_artifact=nightly
+force=yes
+deploy_artifact=local
+fds_build=debug
 fds_default_nic=em1
 fds_om_host=10.2.10.40
 fds_metrics_enables=false

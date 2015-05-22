@@ -108,7 +108,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
     LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
-             << " current DMT version " << dataManager.omClient->getDMTVersion();
+             << " current DMT version " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 
     // 'finish this io' for qos accounting purposes, if we are
     // forwarding, the main time goes to waiting for response
@@ -120,7 +120,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
-    if (commitBlobReq->dmt_version != dataManager.omClient->getDMTVersion()) {
+    if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
         VolumeMeta* vol_meta = nullptr;
         fds_bool_t is_forwarding = false;
 
@@ -134,9 +134,9 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
-            if (commitBlobReq->dmt_version != dataManager.omClient->getDMTVersion()) {
+            if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-                           << " because our DMT is " << dataManager.omClient->getDMTVersion();
+                           << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
                 helper.err = dataManager.catSyncMgr->forwardCatalogUpdate(commitBlobReq,
                                                                           blob_version,
                                                                           blob_obj_list,
@@ -151,7 +151,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
             }
         } else {
             // DMT mismatch must not happen if volume is in 'not forwarding' state
-            fds_verify(commitBlobReq->dmt_version != dataManager.omClient->getDMTVersion());
+            fds_verify(commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion());
         }
     }
 
