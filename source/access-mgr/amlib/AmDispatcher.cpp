@@ -133,17 +133,18 @@ AmDispatcher::attachVolume(std::string const& volume_name) {
         return ERR_NOT_READY;
     }
 
-    if (noNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-        fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
-        msg->volume_name = volume_name;
-        req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
-        req->invoke();
-        LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
-    } catch(...) {
-        LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
-        return ERR_NOT_READY;
+    if (!noNetwork) {
+        try {
+            auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+            fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
+            msg->volume_name = volume_name;
+            req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
+            req->invoke();
+            LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
+        } catch(...) {
+            LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
+            return ERR_NOT_READY;
+        }
     }
     return ERR_OK;
 }
