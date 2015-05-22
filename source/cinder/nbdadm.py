@@ -10,7 +10,235 @@ import fcntl
 import psutil
 import time
 
-lock_file = "/tmp/nbdadm_lock"
+class nbd_user_error(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class nbd_client_error(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class nbd_modprobe_error(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class nbd_volume_error(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class nbd_host_error(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class nbdlib:
+
+    def __init__(self, lockfile="/tmp/nbdadm_lock"):
+        self.lock_file = lockfile
+
+    @contextmanager
+    def __lock(self, use_lock = False):
+        if self.lock_file is not None and use_lock:
+            lockfd = os.open(self.lock_file, os.O_CREAT)
+            fcntl.flock(lockfd, fcntl.LOCK_EX)
+            yield None
+            fcntl.flock(lockfd, fcntl.LOCK_UN)
+        else:
+            yield None
+
+    def __device_paths(self):
+        for dev in os.listdir('/dev'):
+            if dev.startswith('nbd') and dev[3:].isdigit():
+                yield "/dev/" + dev
+
+    def __insmod_nbd():
+        return os.system("modprobe nbd -q") == 0
+
+    def __consume_arg(self, args, arg, hasValue = False):
+        if arg in args:
+            val = args.index(arg)
+            args.pop(val)
+            if hasValue:
+                return args.pop(val)
+            else:
+                return True
+        else:
+            if hasValue:
+                return None
+            else:
+                return False
+
+    def __nbd_connections(self):
+        for p in psutil.process_iter():
+            if p.name() == 'nbd-client':
+                try:
+                    args = p.cmdline()
+
+                    volume_name = self.__consume_arg(args, "-N", True)
+                    if volume_name is None:
+                        volume_name = self.__consume_arg(args, "-name", True)
+
+                    self.__consume_arg(args, '-sdp')
+                    self.__consume_arg(args, '-swap')
+                    self.__consume_arg(args, '-persist')
+                    self.__consume_arg(args, '-nofork')
+                    self.__consume_arg(args, '-block-size', True)
+                    self.__consume_arg(args, '-b', True)
+                    self.__consume_arg(args, '-timeout', True)
+                    self.__consume_arg(args, '-t', True)
+                    self.__consume_arg(args, 'nbd-client')
+
+                    # this isn't an nbd invocation we care about
+                    if len(args) < 2 or self.__consume_arg(args, '-d') or volume_name is None:
+                        continue
+
+                    nbd_host = args[0]
+                    port = 10809
+                    nbd_device = args[-1]
+                    if args.count == 3:
+                        port = args[1]
+
+                    yield (p, nbd_device, nbd_host, port, volume_name)
+                except psutil.NoSuchProcess:
+                    continue
+
+    def __safekill(self, process):
+        try:
+            process.kill()
+        except psutil.NoSuchProcess as e:
+            pass
+
+    def __disconnect(self, dev, process):
+        dproc = None
+        try:
+            dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            dproc.wait(3)
+        except psutil.TimeoutExpired as e:
+            if dproc is not None:
+                self.__safekill(dproc)
+
+        for i in xrange(0, 100):
+            if not process.is_running():
+                break
+
+            try:
+                process.kill()
+            except psutil.NoSuchProcess:
+                pass
+
+            time.sleep(0.05)
+
+    def __check_c(self, dev):
+        dev_available = False
+        try:
+            with open(os.devnull, 'wb') as devnull:
+                cproc = psutil.Popen('nbd-client -c %s' % dev, shell=True, stderr=devnull, stdout=devnull)
+                exit = cproc.wait(3)
+                if exit == 1:
+                    dev_available = True
+
+        except psutil.TimeoutExpired as e:
+            pass
+
+        return dev_available
+
+    def __attach_dev(self, host, port, vol_name, dev):
+
+        attached_dev = False
+
+        if port == 10809:
+            nbd_args = ['nbd-client', '-N', vol_name, host, dev, '-b', '4096', '-t', '5']
+        else:
+            nbd_args = ['nbd-client', '-N', vol_name, host, str(port), dev, '-b', '4096', '-t', '5']
+
+        nbd_client = subprocess.Popen(nbd_args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        # add timeout?
+        (stdout, stderr) = nbd_client.communicate()
+
+        if nbd_client.returncode == 0:
+            attached_dev = True
+
+        elif 'Server closed connection' in stderr:
+            raise nbd_volume_error("server closed connection - does specified volume exist?")
+
+        elif 'Socket failed: Connection refused' in stderr:
+            raise nbd_host_error("connection refused by server - is nbd host up?")
+
+        return attached_dev
+
+
+    def detach(self, volume, host = None, use_lock = False):
+        if os.geteuid() != 0:
+            raise nbd_user_error("you must be root to detach")
+
+        attempted_detach = False
+        with self.__lock(use_lock):
+            for c in self.__nbd_connections():
+                (process, dev, c_host, port, c_volume) = c
+                if volume == c_volume and (host is None or host == c_host):
+                    attempted_detach = True
+
+                    self.__disconnect(dev, process)
+
+                    if process.is_running():
+                        error_str = "could not stop nbd-client[%d] on %s" % (process.pid, dev)
+                        raise nbd_client_error(error_str)
+
+            return attempted_detach
+
+    def attach(self, host, port, vol_name, use_lock = False, use_c = False):
+        # Check that user is root
+        if os.geteuid() != 0:
+            raise nbd_user_error("you must be root to attach")
+
+        if port == None:
+            port = 10809
+
+        ret_dev = None
+
+        with self.__lock(use_lock):
+            devs = list(self.__device_paths())
+            if len(devs) == 0:
+                if not self.__insmod_nbd():
+                    raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
+
+                devs = list(self.__device_paths())
+
+            for conn in self.__nbd_connections():
+                (p, c_dev, c_host, c_port, volume) = conn
+                if vol_name == volume and (c_host, c_port) == (host, port):
+                    ret_dev = c_dev
+
+            if ret_dev is None:
+                conns = set([d for (_, d, _, _, _) in self.__nbd_connections()])
+                ret_dev = None
+                for dev in devs:
+                    if dev not in conns:
+                        if use_c:
+                            if not self.__check_c(dev):
+                                continue
+
+                        dev_is_attached = self.__attach_dev(host, port, vol_name, dev)
+
+                        if dev_is_attached:
+                            ret_dev = dev
+                            break
+                        else:
+                            continue
+
+        return ret_dev
+
+    def list_conn(self):
+        return [(dev, host, port, vol) for (proc, dev, host, port, vol) in self.__nbd_connections()]
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -31,76 +259,6 @@ def get_parser():
     subparsers.add_parser("list", help='list attached volumes')
     return parser
 
-@contextmanager
-def lock():
-    if lock_file is not None:
-        lockfd = os.open(lock_file, os.O_CREAT)
-        fcntl.flock(lockfd, fcntl.LOCK_EX)
-        yield None
-        fcntl.flock(lockfd, fcntl.LOCK_UN)
-    else:
-        yield None
-
-def device_paths():
-    for dev in os.listdir('/dev'):
-        if dev.startswith('nbd') and dev[3:].isdigit():
-            yield "/dev/" + dev
-
-def consume_arg(args, arg, hasValue = False):
-    if arg in args:
-        val = args.index(arg)
-        args.pop(val)
-        if hasValue:
-            return args.pop(val)
-        else:
-            return True
-    else:
-        if hasValue:
-            return None
-        else:
-            return False
-
-def nbd_connections():
-    for p in psutil.process_iter():
-        if p.name() == 'nbd-client':
-            try:
-                args = p.cmdline()
-
-                volume_name = consume_arg(args, "-N", True)
-                if volume_name is None:
-                    volume_name = consume_arg(args, "-name", True)
-
-                consume_arg(args, '-sdp')
-                consume_arg(args, '-swap')
-                consume_arg(args, '-persist')
-                consume_arg(args, '-nofork')
-                consume_arg(args, '-block-size', True)
-                consume_arg(args, '-b', True)
-                consume_arg(args, '-timeout', True)
-                consume_arg(args, '-t', True)
-                consume_arg(args, 'nbd-client')
-
-                # this isn't an nbd invocation we care about
-                if len(args) < 2 or consume_arg(args, '-d') or volume_name is None:
-                    continue
-
-                nbd_host = args[0]
-                port = 10809
-                nbd_device = args[-1]
-                if args.count == 3:
-                    port = args[1]
-
-                yield (p, nbd_device, nbd_host + ":" + str(port), volume_name)
-            except psutil.NoSuchProcess:
-                continue
-
-
-def list_conn(args):
-    for c in nbd_connections():
-        (process, device, host, volume) = c
-        print "%s\t%s\t%s" % (device, host, volume)
-    return 0
-
 def split_host(host_spec):
     port = 10809
     if ':' in host_spec:
@@ -112,145 +270,69 @@ def split_host(host_spec):
 
     return (host, port)
 
-
-def insmod_nbd():
-    return os.system("modprobe nbd -q") == 0
-
-def attach(args):
-    if os.geteuid() != 0:
-        sys.stderr.write('you must be root to attach\n')
-        return 1
-
-    (host, port) = split_host(args.nbd_host)
-
-    devs = list(device_paths())
-    if len(devs) == 0:
-        if not insmod_nbd():
-            sys.stderr.write("no nbd devices found and modprobe nbd failed")
-            return 5
-        devs = list(device_paths())
-
-    for conn in nbd_connections():
-        (p, dev, c_host, volume) = conn
-        if args.volume_name == volume and split_host(c_host) == (host, port):
-            print dev
-            return 0
-
-    conns = set([d for (_, d, _, _) in nbd_connections()])
-    for dev in devs:
-        if dev not in conns:
-            if args.should_use_c:
-                try:
-                    with open(os.devnull, 'wb') as devnull:
-                        cproc = psutil.Popen('nbd-client -c %s' % dev, shell=True, stderr=devnull, stdout=devnull)
-                    exit = cproc.wait(3)
-                    if exit != 1:
-                        continue
-
-                except psutil.TimeoutExpired as e:
-                    continue
-
-
-            if port == 10809:
-                nbd_args = ['nbd-client', '-N', args.volume_name, host, dev, '-b', '4096', '-t', '5']
-            else:
-                nbd_args = ['nbd-client', '-N', args.volume_name, host, str(port), dev, '-b', '4096', '-t', '5']
-
-            nbd_client = subprocess.Popen(nbd_args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            # add timeout?
-            (stdout, stderr) = nbd_client.communicate()
-
-            if nbd_client.returncode == 0:
-                print dev
-                return 0
-            elif 'Server closed connection' in stderr:
-                sys.stderr.write('server closed connection - does specified volume exist?\n')
-                return 2
-            elif 'Socket failed: Connection refused' in stderr:
-                sys.stderr.write('connection refused by server - is nbd host up?\n')
-                return 3
-            else:
-                continue
-
-    sys.stderr.write('no eligible nbd devices found\n')
-    return 4
-
-def safekill(process):
-    try:
-        process.kill()
-    except psutil.NoSuchProcess as e:
-        pass
-
-
-def disconnect(dev, process):
-    dproc = None
-    try:
-        dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        dproc.wait(3)
-    except psutil.TimeoutExpired as e:
-        if dproc is not None:
-            safekill(dproc)
-
-    for i in xrange(0, 100):
-        if not process.is_running():
-            break
-
-        try:
-            process.kill()
-        except psutil.NoSuchProcess:
-            pass
-
-        time.sleep(0.05)
-
-
-def detach(args):
-    if os.geteuid() != 0:
-        sys.stderr.write('you must be root to detach\n')
-        return 2
-
-    retval = 0
-    attempted_detach = False
-    for c in nbd_connections():
-        (process, dev, host, volume) = c
-        if args.volume_name == volume and (args.nbd_host is None or split_host(args.nbd_host) == split_host(host)):
-            attempted_detach = True
-            disconnect(dev, process)
-            if process.is_running():
-                sys.stderr.write('could not stop nbd-client[%d] on %s\n' % (process.pid, dev))
-                retval = 1
-
-    if not attempted_detach:
-        print 'nothing to detach'
-    return retval
-
-
-
 def main(argv = sys.argv):
-    global lock_file
     args = list(argv)
     args.pop(0)
     parser = get_parser()
     result = parser.parse_args(args)
-    lock_file = result.lockfile
+
+    nbdlib_inst = nbdlib(result.lockfile)
+    return_val = 0
 
     try:
         if result.command == 'list':
-            return list_conn(result)
+            for conn in nbdlib_inst.list_conn():
+                (device, host, port, volume) = conn
+                print "%s\t%s:%s\t%s" % (device, host, str(port), volume)
+
         elif result.command == 'attach':
-            with lock():
-                return attach(result)
+            host = None
+            port = None
+            if result.nbd_host is not None:
+                (host, port) = split_host(result.nbd_host)
+            dev = nbdlib_inst.attach(host, port, result.volume_name, True, result.should_use_c)
+            if dev is None:
+                sys.stderr.write('no eligible nbd devices found\n')
+                return_val = 4
+            else:
+                print dev
+
         elif result.command == 'detach':
-            with lock():
-                return detach(result)
+            host = None
+            if result.nbd_host is not None:
+                (host, _) = split_host(result.nbd_host)
+            if not nbdlib_inst.detach(result.volume_name, host, True):
+                print 'nothing to detach'
+
+    except nbd_user_error as e:
+        sys.stderr.write(e.message() + '\n')
+        return_val = 1
+
+    except nbd_client_error as e:
+        sys.stderr.write(e.message() + '\n')
+        return_val = 2
+
+    except nbd_volume_error as e:
+        sys.stderr.write(e.message() + '\n')
+        return_val = 2
+
+    except nbd_host_error as e:
+        sys.stderr.write(e.message() + '\n')
+        return_val = 3
+
+    except nbd_modprobe_error as e:
+        sys.stderr.write(e.message() + '\n')
+        return_val = 5
+
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         tb = traceback.format_exc()
         sys.stderr.write(tb + '\n')
-        return 255
+        return_val = 255
+
+    return return_val
 
 
 if __name__ == '__main__':
     sys.exit(main())
-
-
 
