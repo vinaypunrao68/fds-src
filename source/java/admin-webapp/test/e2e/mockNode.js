@@ -6,30 +6,11 @@ mockNode = function(){
         
         var pollerId;
         
-        service.detachedNodes = [
+        var createNode = function( name ){
+            
+            var node = 
             {
-              "name": "awesome-new-node",
-              "uuid": 2,
-              "ipV6address": "0.0.0.0",
-              "ipV4address": "127.0.0.1",
-              "state": "DISCOVERED",
-              "services": {
-                "DM": [
-                  {
-                    "uuid": 7088430947183220035,
-                    "autoName": "PM",
-                    "port": 7031,
-                    "status": "INVALID",
-                    "type": "FDSP_PLATFORM"
-                  }
-                ]
-              }
-            }
-        ];
-
-        service.nodes = [
-            {
-              "name": "awesome-node",
+              "name": name,
               "uuid": 1,
               "ipV6address": "0.0.0.0",
               "ipV4address": "127.0.0.1",
@@ -81,8 +62,33 @@ mockNode = function(){
                   }
                 ]
               }
+            };
+              
+            return node;
+        };
+        
+        service.detachedNodes = [
+            {
+              "name": "awesome-new-node",
+              "uuid": 2,
+              "ipV6address": "0.0.0.0",
+              "ipV4address": "127.0.0.1",
+              "state": "DISCOVERED",
+              "services": {
+                "DM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "PM",
+                    "port": 7031,
+                    "status": "INVALID",
+                    "type": "FDSP_PLATFORM"
+                  }
+                ]
+              }
             }
-          ];
+        ];
+
+        service.nodes = [createNode( 'awesome-node' )];
 
         service.FDS_NODE_UP = 'FDS_Node_Up';
         service.FDS_NODE_DOWN = 'FDS_Node_Down';
