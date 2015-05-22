@@ -344,6 +344,7 @@ class MigrationMgr {
     /// provides - constructor
     ///          - fetch_and_increment_saturating
     ///          - set
+    /// Needs to be here since it uses MigrExecutorMap
     struct NextExecutor {
         /// constructor
         explicit NextExecutor(const MigrExecutorMap& ex) : exMap(ex) {}
@@ -411,7 +412,7 @@ class MigrationMgr {
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
     /// number of parallel thread -- from platform.conf
-    int parallelMigration;
+    uint32_t parallelMigration;
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed

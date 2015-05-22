@@ -38,7 +38,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
                                                       std::placeholders::_5);
     }
 
-    parallelMigration = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.parallel_migration", 16);
+    parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 16);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 
@@ -557,6 +557,10 @@ MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSe
     fds_bool_t found = false;
     // called for second round as well?
     LOGMIGRATE << "recvRebalanceDeltaSet: " << smTokenInProgress.size();
+    // TODO(matteo): investigate more this function. smTokenInProgress is
+    // being snapshotted and then iterated over here. It is unclear whether
+    // this might lead to a race. Possibly investigate alternative solutions 
+    // here
     std::unordered_set<fds_token_id> curSmTokenInProgress;
     {
         FDSGUARD(smTokenInProgressMutex);
@@ -705,7 +709,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
                 LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
                 nextExecutor.set(migrExecutors.begin());
-                for (int issued = 0; issued < parallelMigration; issued++) {
+                for (int issued = 0; issued < parallelMigration; ++issued) {
                         auto next = nextExecutor.fetch_and_increment_saturating();
                         if (next == migrExecutors.cend())
                             break;
