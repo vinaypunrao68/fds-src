@@ -125,7 +125,13 @@ AmDispatcher::getDLT() {
 
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
-    // should we check the netwrok  readiness here??.  This code is moved  from OMgrClient  to AM. 
+    // We need valid DLT and DMTs before we can start issuing IO,
+    // block attachments here until this is true.
+    if (DMT_VER_INVALID == dmtMgr->getCommittedVersion() ||
+        nullptr == dltMgr->getDLT()) {
+        LOGWARN << "Could not attach to volume before receiving domain tables.";
+        return ERR_NOT_READY;
+    }
 
     if (noNetwork) return 0;
     try {
@@ -137,9 +143,9 @@ AmDispatcher::attachVolume(std::string const& volume_name) {
         LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
     } catch(...) {
         LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
+        return ERR_NOT_READY;
     }
-    return 0;
-
+    return ERR_OK;
 }
 
 /**
