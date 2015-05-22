@@ -15,6 +15,13 @@ angular.module( 'base' ).factory( '$http_fds', ['$http', '$rootScope', function(
             return;
         }
         
+        var userCookie = readCookie( 'user' );
+        var tokenCookie = readCookie( 'token' );
+        
+        if ( userCookie === null || tokenCookie === null ){
+            return;
+        }
+        
         var $event = {
             type: 'ERROR',
             text: (angular.isDefined( code ) ? 'Error ' + code + ': ' + response.message : response.message )

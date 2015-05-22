@@ -41,7 +41,8 @@ class MigrationExecutor {
                       fds_token_id smTokId,
                       fds_uint64_t id,
                       fds_uint64_t targetDltVer,
-                      bool forResync,
+                      fds_uint32_t migrationType,
+                      bool onePhaseMigration,
                       MigrationDltFailedCb failedRetryHandler,
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
@@ -188,6 +189,11 @@ class MigrationExecutor {
     NodeUuid sourceSmUuid;
 
     /**
+     * Migration Type: Is it a add new SM node or a SM resync?
+     */
+    fds_uint32_t migrationType;
+
+    /**
      * SM Token to migration from the source SM node.
      */
     fds_token_id smTokenId;
@@ -233,9 +239,9 @@ class MigrationExecutor {
     MigrationTrackIOReqs trackIOReqs;
 
     /**
-     * Is this migration for a SM resync
+     * Will this migration have only one phase?
      */
-    bool forResync;
+    bool onePhaseMigration;
 };
 
 }  // namespace fds
