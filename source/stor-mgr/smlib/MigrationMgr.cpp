@@ -188,10 +188,8 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
         auto next = nextExecutor.fetch_and_increment_saturating(); 
         if (next == migrExecutors.cend())
             break;
-        {
-            FDSGUARD(smTokenInProgressMutex);
-            smTokenInProgress.insert(next->first);
-        }
+        FDSGUARD(smTokenInProgressMutex);
+        smTokenInProgress.insert(next->first);
         startSmTokenMigration(next->first);
     }
     return err;
@@ -678,10 +676,8 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         if (next != migrExecutors.end()) {
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
-                {
-                    FDSGUARD(smTokenInProgressMutex);
-                    smTokenInProgress.insert(next->first);
-                }
+                FDSGUARD(smTokenInProgressMutex);
+                smTokenInProgress.insert(next->first);
                 LOGMIGRATE << "call startSmTokenMigration for " << next->first;
                 startSmTokenMigration(next->first);
             } else {
