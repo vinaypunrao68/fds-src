@@ -210,13 +210,10 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
             return rc;
         }
 
-        OMgrClient * omClient = dataManager_.omClient;
-        fds_verify(omClient);
-
         std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
                 tokenOidMap;
         for (auto oid : objIds) {
-            const DLT * dlt = omClient->getCurrentDLT();
+            const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
             fds_verify(dlt);
 
             fds_token_id token = dlt->getToken(oid);
@@ -253,11 +250,8 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     // 2. what if call to increment ref count fails
     // 3. whether to do it in background/ foreground thread
 
-    OMgrClient * omClient = dataManager_.omClient;
-    fds_verify(omClient);
-
     // Create message
-    fpi::AddObjectRefMsgPtr addObjReq(new AddObjectRefMsg());
+    fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
     addObjReq->srcVolId = srcVolId;
     addObjReq->destVolId = destVolId;
     addObjReq->objIds = *objIds;
@@ -266,7 +260,7 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     //     addObjReq->objIds.push_back(it);
     // }
 
-    const DLT * dlt = omClient->getCurrentDLT();
+    const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     fds_verify(dlt);
 
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(

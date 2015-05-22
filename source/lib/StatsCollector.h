@@ -12,7 +12,7 @@
 
 namespace fds {
 
-class OMgrClient;
+struct SvcMgr;
 
 /**
  * A callback to a service (DM/SM/AM) that will be called periodically
@@ -61,12 +61,7 @@ class StatsCollector : public boost::noncopyable {
 
     static StatsCollector* singleton();
 
-    /**
-     * This is temporary until service layer can provide us
-     * with DMT; Using om client to provide DMT so we know where
-     * to push per-volume stats
-     */
-    void registerOmClient(OMgrClient* omclient);
+    void setSvcMgr(SvcMgr *svcMgr);
 
     /**
      * Start and stop collecting systems stats and pushing them to
@@ -176,11 +171,8 @@ class StatsCollector : public boost::noncopyable {
     FdsTimerPtr qosTimer;
     FdsTimerTaskPtr qosTimerTask;
 
-    /**
-     * OMclient so we can get DMT
-     * does not own, gets passed via registerOmCLient
-     */
-    OMgrClient* om_client_;
+    /* Reference to service manager mostly for dmt */
+     SvcMgr *svcMgr_;
 };
 
 extern StatsCollector* g_statsCollector;

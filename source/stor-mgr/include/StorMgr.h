@@ -49,7 +49,6 @@
 using namespace FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
-struct OMgrClient;
 
 extern ObjectStorMgr *objStorMgr;
 
@@ -60,12 +59,6 @@ const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
 
 class ObjectStorMgr : public Module, public SmIoReqHandler {
-    public:
-     /*
-      * OM/boostrap related members
-      */
-     OMgrClient         *omClient;
-
     protected:
      typedef enum {
          NORMAL_MODE = 0,
@@ -312,11 +305,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      NodeUuid getUuid() const;
      fds_bool_t amIPrimary(const ObjectID& objId);
 
-     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
-     void getTokensForNode(TokenList *tl,
-                           const NodeUuid &uuid,
-                           fds_uint32_t index);
-     fds_uint32_t getTotalNumTokens() const;
 
      virtual std::string log_string() {
          std::stringstream ret;

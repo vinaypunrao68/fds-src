@@ -16,7 +16,6 @@
 #include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
-#include <OMgrClient.h>
 
 namespace fds {
 
@@ -184,23 +183,6 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << "Received Abort Migration, will revert to previously "
              << " commited DLT version " << abortMsg->DLT_version;
 
-#if 0
-    // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration();
-
-    // revert to DLT version provided in abort message
-    if (abortMsg->DLT_version > 0) {
-        // will ignore error from setCurrent -- if this SM does not know
-        // about DLT with given version, then it did not have a DLT previously..
-        objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
-    }
-
-    // send response
-    fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
-    msg->DLT_version = abortMsg->DLT_version;
-    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), *msg);
-#endif
     auto abortMigrationReq = new SmIoAbortMigration(abortMsg);
     abortMigrationReq->io_type = FDS_SM_MIGRATION_ABORT;
     abortMigrationReq->abortMigrationDLTVersion = abortMsg->DLT_version;
@@ -261,7 +243,7 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
     // tell migration mgr to start object rebalance
-    const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
+    const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
     if (objStorMgr->objectStore->isUnavailable()) {
@@ -1036,7 +1018,8 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
-    err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data, nullptr);
+    err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt->dlt_data.dlt_type,
+                                                   dlt->dlt_data.dlt_data, nullptr);
     if (err.ok()) {
         err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
@@ -1076,55 +1059,13 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     // Set closed flag for the DLT. We use it for garbage collecting
     // DLT tokens that are no longer belong to this SM. We want to make
     // sure we garbage collect only when DLT is closed
-    err = objStorMgr->omClient->getDltManager()->setCurrentDltClosed();
+    err = MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrentDltClosed();
     if (err == ERR_NOT_FOUND) {
         LOGERROR << "SM received DLT close without receiving DLT, ok for now, but fix OM!!!";
         // returning OK to OM
         sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         return;
     }
-#if 0
-
-    // Store the current DLT to the presistent storage to be used
-    // by offline smcheck.
-    objStorMgr->storeCurrentDLT();
-
-    // tell superblock that DLT is closed, so that it will invalidate
-    // appropriate SM tokens -- however, it is possible that this SM
-    // got DLT update and close for the DLT version this SM does not belong
-    // to, that should only happen on initial start; but for not notifying
-    // superblock about DLT this SM does not belong to
-    if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
-    }
-
-    // re-enable GC and Tier Migration
-    // If this SM did not receive start migration or rebalance
-    // message and GC and TierMigration were not disabled, this operation
-    // will be a noop
-    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
-                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
-    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
-    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
-
-    // Update the DLT information for the SM checker when migration
-    // is complete.
-    // Strangely, compilation has some issues when trying to acquire the latest
-    // DLT in the SMCheckOnline class.  So, decided to update the DLT
-    // here.
-    // TODO(Sean):  This is a bit of a hack.  Access to DLT from SMCheck is
-    //              causing compilation issues, so make couple layers of
-    //              indirect call to update the
-    objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
-
-    // notify token migration manager
-    err = objStorMgr->migrationMgr->handleDltClose();
-
-    // send response
-    asyncHdr->msg_code = err.GetErrno();
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-#endif
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
@@ -1148,7 +1089,7 @@ SMSvcHandler::NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                SmIoNotifyDLTClose *DLTCloseReq)
 
 {
-    LOGDEBUG << "XXX: NotifyDLTCloseCB called with DLTversion="
+    LOGDEBUG << "NotifyDLTCloseCB called with DLTversion="
              << DLTCloseReq->closeDLTVersion;
 
     // send response
@@ -1166,9 +1107,10 @@ SMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
 {
     Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new DMT commit version  "
+    LOGNOTIFY << "Received new DMT commit version  "
                 << dmt->dmt_data.dmt_type;
-    err = objStorMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt->dmt_data.dmt_type,
+                                                   dmt->dmt_data.dmt_data);
     if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DMT, ignoring";
         err = ERR_OK;
