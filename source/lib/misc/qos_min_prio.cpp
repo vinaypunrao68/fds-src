@@ -15,53 +15,35 @@ QoSMinPrioDispatcher::QoSMinPrioDispatcher(FDS_QoSControl *ctrl, fds_log* log, f
   max_outstanding_ios = 20;
 }
 
-QoSMinPrioDispatcher::~QoSMinPrioDispatcher()
-{
-  qda_lock.write_lock();
-  for (qstate_map_it_t it = qstate_map.begin();
-       it != qstate_map.end();
-       ++it)
-    {
-      TBQueueState *qstate = it->second;
-      delete qstate;
-    }
-  qstate_map.clear();
-  qda_lock.write_unlock();  
-}
-
 Error QoSMinPrioDispatcher::registerQueue(fds_qid_t queue_id,
 					  FDS_VolumeQueue *queue)
 {
-  Error err(ERR_OK);
-
   /* we need a new queue state to control new queue */
-  TBQueueState *qstate = new TBQueueState(queue_id,
-					  queue->iops_assured,
-					  10000,
-					  queue->priority,
-					  wait_time_microsec,
-					  20);
+  auto qstate = queue_state_type(new TBQueueState(queue_id,
+                                                  queue->iops_assured,
+                                                  10000,
+                                                  queue->priority,
+                                                  wait_time_microsec,
+                                                  20));
 
   if (!qstate) {
     FDS_PLOG_SEV(qda_log, fds::fds_log::error) 
       << "QoSMinPrioDispatcher: failed to create queue state for queue " << queue_id;
-    err = ERR_MAX;
-    return err;
+    return ERR_MAX;
   }
 
   qda_lock.write_lock();
 
   /* call base class to actually add queue */
-  err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
+  auto err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
   if (!err.ok()) {
     qda_lock.write_unlock();
-    delete qstate;
     return err;
   }
 
   /* base class already checked that queue_id is valid and not already registered */
   /* add queue state to map */
-  qstate_map[queue_id] = qstate;
+  qstate_map[queue_id].swap(qstate);
   qda_lock.write_unlock();
 
   FDS_PLOG_SEV(qda_log, fds::fds_log::notification) 
@@ -74,25 +56,19 @@ Error QoSMinPrioDispatcher::registerQueue(fds_qid_t queue_id,
 
 Error QoSMinPrioDispatcher::deregisterQueue(fds_qid_t queue_id)
 {
-  Error err(ERR_OK);
-  TBQueueState *qstate = NULL;
-
   qda_lock.write_lock();
 
   /* call base class to remove queue first */
-  err = FDS_QoSDispatcher::deregisterQueueWithLockHeld(queue_id);
+  auto err = FDS_QoSDispatcher::deregisterQueueWithLockHeld(queue_id);
   /* if error, still try to remove queue state first before returning */
 
-  if (qstate_map.count(queue_id) == 0) {
+  auto qstate_it = qstate_map.find(queue_id);
+  if (qstate_map.end() == qstate_it) {
     qda_lock.write_unlock();
-    err = ERR_DUPLICATE;  /* we probably got same error from base class, but still good to check if queue state exists */
-    return err;
+    return ERR_DUPLICATE; /* we probably got same error from base class, but still good to check if queue state exists */
   }
-  qstate = qstate_map[queue_id];
-  qstate_map.erase(queue_id);
+  qstate_map.erase(qstate_it);
   qda_lock.write_unlock();
-
-  delete qstate;
 
   FDS_PLOG_SEV(qda_log, fds::fds_log::notification) 
     << "QoSMinPrioDispatcher: deregistered queue " << queue_id;
@@ -103,8 +79,8 @@ Error QoSMinPrioDispatcher::deregisterQueue(fds_qid_t queue_id)
 void QoSMinPrioDispatcher::ioProcessForEnqueue(fds_qid_t queue_id, 
 					       FDS_IOType *io)
 {
-  TBQueueState* qstate = qstate_map[queue_id];
-  assert(qstate);
+  auto& qstate = qstate_map[queue_id];
+  fds_assert(qstate);
   FDS_PLOG(qda_log) << "QoSMinPrioDispatcher: handling enqueue IO to queue " << queue_id;
   qstate->handleIoEnqueue(io);
 }
@@ -112,8 +88,8 @@ void QoSMinPrioDispatcher::ioProcessForEnqueue(fds_qid_t queue_id,
 void QoSMinPrioDispatcher::ioProcessForDispatch(fds_qid_t queue_id,
 						FDS_IOType *io)
 {
-  TBQueueState* qstate = qstate_map[queue_id];
-  assert(qstate);
+  auto& qstate = qstate_map[queue_id];
+  fds_assert(qstate);
 
   /* this will update performance history and number of queued ios */
   qstate->handleIoDispatch(io);
@@ -129,30 +105,24 @@ void QoSMinPrioDispatcher::ioProcessForDispatch(fds_qid_t queue_id,
 fds_qid_t QoSMinPrioDispatcher::getNextQueueForDispatch()
 {
   fds_qid_t ret_qid = 0;
-  TBQueueState *dispatch_qstate = NULL;
+  TBQueueState *dispatch_qstate = nullptr;
   double min_wma {0.0};
   uint min_wma_hiprio {0};
 
   /* this is work-conserving dispatcher, since this function is called only when:
    * 1) we have at least one pending IO (in any queue); AND
    * 2) the current number of outstanding IOs < max */  
+  auto it = qstate_map.find(last_dispatch_qid);
 
-  qstate_map_it_t end_it = qstate_map.find(last_dispatch_qid);
-  if (end_it == qstate_map.end()) {
-    /* the queue we dispatched IO from last time seems to be removed */
-    end_it = qstate_map.begin();
-  }
-  qstate_map_it_t it = end_it;
-  it++;
-  if (it == qstate_map.end()) {
-    it = qstate_map.begin();
-  }
+  for (auto i = qstate_map.size(); 0 < i; --i, ++it) {
+    /* next queue */
+    if (it == qstate_map.end()) {
+      it = qstate_map.begin();
+    }
+    last_dispatch_qid = it->second->queue_id;
 
-  last_dispatch_qid = it->second->queue_id;
-
-  for (uint i = 0; i < qstate_map.size(); ++i) {
-    TBQueueState *qstate = it->second;
-    assert(qstate != NULL);
+    auto& qstate = it->second;
+    fds_assert(qstate);
 
     /* before querying any state, update assured tokens */
     fds_uint64_t now = util::getTimeStampMicros();
@@ -178,25 +148,20 @@ fds_qid_t QoSMinPrioDispatcher::getNextQueueForDispatch()
       double q_wma = qstate->getIOPerfWMA();
       if (!dispatch_qstate) {
 	min_wma = q_wma;
-	dispatch_qstate = qstate;
+	dispatch_qstate = qstate.get();
 	min_wma_hiprio = qstate->priority;
       }
       else if (qstate->priority < min_wma_hiprio) {
 	/* assuming higher priority has a lower priority number (highest == 1) */
 	min_wma_hiprio = qstate->priority;
 	min_wma = q_wma;
-	dispatch_qstate = qstate;
+	dispatch_qstate = qstate.get();
       }
       else if ((qstate->priority == min_wma_hiprio) && (q_wma < min_wma)) {
 	min_wma = q_wma;
-	dispatch_qstate = qstate;
+	dispatch_qstate = qstate.get();
       }
     }
-
-    /* next queue */
-    ++it;
-    if (it == qstate_map.end())
-      it = qstate_map.begin();
   }
 
   /* we did not find any queue that has IOs and need to meet its iops_min */
