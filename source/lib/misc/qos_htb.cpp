@@ -483,7 +483,7 @@ TBQueueState::~TBQueueState()
 fds_uint32_t
 TBQueueState::handleIoEnqueue(FDS_IOType* /*io*/)
 {
-    return (std::atomic_fetch_add(&queued_io_counter, (unsigned int)1) + 1);
+    return (queued_io_counter.fetch_add(1, std::memory_order_relaxed) + 1);
 }
 
 /* for now assuming constant IO cost */
@@ -508,7 +508,7 @@ TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
         recent_iops[hist_slotix]++;
     }
 
-    return (std::atomic_fetch_sub(&queued_io_counter, (unsigned int)1) - 1);
+    return (queued_io_counter.fetch_sub(1, std::memory_order_relaxed) - 1);
 }
 
 /* This is an array of powers of 0.9 */
