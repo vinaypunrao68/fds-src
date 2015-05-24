@@ -1,5 +1,5 @@
-from fdscli.model.tenant import Tenant
-from fdscli.utils.user_converter import UserConverter
+from ..model.tenant import Tenant
+from ..utils.user_converter import UserConverter
 
 class TenantConverter(object):
     '''

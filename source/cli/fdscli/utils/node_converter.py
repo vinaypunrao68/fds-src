@@ -1,5 +1,5 @@
 import json
-from fdscli.model.node import Node
+from ..model.node import Node
 from service_converter import ServiceConverter
 
 class NodeConverter():

@@ -1,5 +1,5 @@
 from abstract_service import AbstractService
-from fdscli.utils.snapshot_policy_converter import SnapshotPolicyConverter
+from ..utils.snapshot_policy_converter import SnapshotPolicyConverter
 
 class SnapshotPolicyService( AbstractService ):
     '''

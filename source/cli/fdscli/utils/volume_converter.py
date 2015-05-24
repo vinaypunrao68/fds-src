@@ -1,5 +1,5 @@
 import json
-from fdscli.model.volume import Volume
+from ..model.volume import Volume
 
 '''
 Created on Apr 14, 2015

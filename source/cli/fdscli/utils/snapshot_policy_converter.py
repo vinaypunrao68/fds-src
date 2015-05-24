@@ -1,5 +1,5 @@
 import json
-from fdscli.model.snapshot_policy import SnapshotPolicy
+from ..model.snapshot_policy import SnapshotPolicy
 from recurrence_rule_converter import RecurrenceRuleConverter
 
 class SnapshotPolicyConverter():

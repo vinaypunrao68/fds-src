@@ -1,4 +1,4 @@
-from fdscli.model.snapshot import Snapshot
+from ..model.snapshot import Snapshot
 import json
 
 class SnapshotConverter():

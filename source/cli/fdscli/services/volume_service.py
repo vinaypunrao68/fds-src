@@ -1,8 +1,8 @@
 from abstract_service import AbstractService
-from fdscli.utils.volume_converter import VolumeConverter
-from fdscli.utils.snapshot_converter import SnapshotConverter
-from fdscli.services.snapshot_service import SnapshotService
-from fdscli.utils.preset_converter import PresetConverter
+from ..utils.volume_converter import VolumeConverter
+from ..utils.snapshot_converter import SnapshotConverter
+from ..services.snapshot_service import SnapshotService
+from ..utils.preset_converter import PresetConverter
 
 
 class VolumeService( AbstractService ):

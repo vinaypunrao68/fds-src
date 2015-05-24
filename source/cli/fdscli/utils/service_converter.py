@@ -1,5 +1,5 @@
 import json
-from fdscli.model.service import Service
+from ..model.service import Service
 
 class ServiceConverter():
     '''

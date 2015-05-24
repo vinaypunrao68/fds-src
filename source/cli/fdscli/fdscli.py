@@ -71,7 +71,7 @@ class FDSShell( cmd.Cmd ):
             if ( mod_name == "abstract_plugin" ):
                 continue
             
-            loadedModule = __import__( "fdscli.plugins." + mod_name, fromlist=[mod_name] )
+            loadedModule = __import__( "plugins." + mod_name, globals=globals(), fromlist=[mod_name] )
 
             clazzName = self.formatClassName( mod_name )
             clazz = getattr( loadedModule, clazzName )
