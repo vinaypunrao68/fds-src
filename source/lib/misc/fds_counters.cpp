@@ -400,9 +400,9 @@ NumericCounter::NumericCounter(const std::string &id, FdsCounters *export_parent
 NumericCounter::NumericCounter(const NumericCounter& c)
 : FdsBaseCounter(c)
 {
-    val_ = c.val_.load(std::memory_order_relaxed);
-    min_value_ = c.min_value_.load(std::memory_order_relaxed);
-    max_value_ = c.max_value_.load(std::memory_order_relaxed);
+    val_ = c.val_.load();
+    min_value_ = c.min_value_.load();
+    max_value_ = c.max_value_.load();
 }
 
 /**
@@ -415,7 +415,7 @@ NumericCounter::NumericCounter() {}
  */
 uint64_t NumericCounter::value() const
 {
-    return val_.load(std::memory_order_relaxed);
+    return val_.load();
 }
 
 /**
@@ -423,15 +423,20 @@ uint64_t NumericCounter::value() const
  */
 void NumericCounter::reset()
 {
-    val_.store(0, std::memory_order_relaxed);
-    min_value_.store(std::numeric_limits<uint64_t>::max(), std::memory_order_relaxed);
-    max_value_.store(0, std::memory_order_relaxed);;
+    val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
 }
 /**
  *
  */
 void NumericCounter::incr() {
-    incr(1);
+    val_++;
+    uint64_t val = val_.load();
+    uint64_t max = max_value_.load();
+    /* min_ stays the same*/
+    if (val > max)
+        max_value_ = val;
 }
 
 /**
@@ -439,17 +444,24 @@ void NumericCounter::incr() {
  * @param v
  */
 void NumericCounter::incr(const uint64_t v) {
-    auto val = val_.fetch_add(v, std::memory_order_relaxed) + v;
-    auto old_max = max_value_.load(std::memory_order_consume);
-    if (old_max < val)
-        { max_value_.store(val, std::memory_order_release); }
+    val_ += v;
+    uint64_t val = val_.load();
+    uint64_t max = max_value_.load();
+    /* min_ stays the same*/
+    if (val > max)
+        max_value_ = val;
 }
 
 /**
  *
  */
 void NumericCounter::decr() {
-    decr(1);
+    val_--;
+    uint64_t val = val_.load();
+    uint64_t min = min_value_.load();
+    /* max_ stays the same*/
+    if (val < min)
+        min_value_ = val;
 }
 
 /**
@@ -457,10 +469,12 @@ void NumericCounter::decr() {
  * @param v
  */
 void NumericCounter::decr(const uint64_t v) {
-    auto val = val_.fetch_sub(v, std::memory_order_relaxed) - v;
-    auto old_min = min_value_.load(std::memory_order_consume);
-    if (old_min > val)
-        { min_value_.store(val, std::memory_order_release); }
+    val_ -= v;
+    uint64_t val = val_.load();
+    uint64_t min = min_value_.load();
+    /* max_ stays the same*/
+    if (val < min)
+        min_value_ = val;
 }
 
 /**
