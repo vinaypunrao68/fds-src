@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright 2013-2015 by Formations Data Systems, Inc.
  */
 #include <string>
@@ -252,4 +253,11 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
+void notifyServiceRestart(boost::shared_ptr< ::fds::apis::NotifyHealthReport>& report, boost::shared_ptr<int64_t>& nullarg) {
+	// TODO(neil) : implement
+	LOGNORMAL << "Received Health Report from PM: "
+			<< report->healthReport.serviceID.svc_name
+			<< " state: " << report->healthReport.serviceState
+			<< " status: " << report->healthReport.statusCode << std::endl;
+}
 }  //  namespace fds

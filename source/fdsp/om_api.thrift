@@ -8,6 +8,7 @@ include "om_types.thrift"
 include "common.thrift"
 include "svc_types.thrift"
 include "svc_api.thrift"
+include "health_monitoring_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
@@ -87,4 +88,11 @@ service OMSvc extends svc_api.PlatNetSvc {
   * @param NULL
   */
   svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
+
+  /**
+  * @brief Called by PM to notify of a downed service that got restarted
+  *
+  * @param NotifyHealthReport
+  */
+  void notifyServiceRestart(1: health_monitoring_api.NotifyHealthReport report, 2: i64 nullarg) throws (1: common.ApiException e);
 }
