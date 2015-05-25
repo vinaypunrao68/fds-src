@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+#include <util/properties.h>
+#include <net/net_utils.h>
 #include <ratio>
 
 #include "platform/platform_shm_typedefs.h"
@@ -23,7 +25,7 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
 
-#define FDSP_SERIALIZE(type , varname) \
+#define FDSP_SERIALIZE(type, varname) \
     boost::shared_ptr<std::string> varname; \
     fds::serializeFdspMsg(type, varname);
 
@@ -1763,17 +1765,33 @@ bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid,
         std::stringstream uuid;
         uuid << svc_uuid;
         
+         LOGDEBUG << "ConfigDB changing service status:"
+                  << " uuid: " << std::hex << svc_uuid << std::dec
+                  << " status: " << svc_status;
+        
         Reply reply = r.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-        if (reply.isOk()) 
+        if ( reply.isValid() ) 
         {
+            std::string value = reply.getString();
             fpi::SvcInfo svcInfo;
-            fds::deserializeFdspMsg( reply.getString(), svcInfo );
+            fds::deserializeFdspMsg( value, svcInfo );
             
+            fpi::ServiceStatus old_svc_status = svcInfo.svc_status;
             svcInfo.svc_status = svc_status;
-            
+                        
             bRetCode = updateSvcMap( svcInfo );
             
-            // TODO add node stuff here!
+            LOGDEBUG << "ConfigDB updated service status:"
+                     << " uuid: " << std::hex << svc_uuid << std::dec
+                     << " from status: " << old_svc_status 
+                     << " to status: " << svc_status;
+            
+            /* Convert new registration request to existing registration request */
+            kvstore::NodeInfoType nodeInfo;
+            fromTo( svcInfo, nodeInfo );
+            updateNode( nodeInfo );
+            
+            bRetCode = true;
         }
     }
     catch( const RedisException& e ) 
@@ -1786,9 +1804,42 @@ bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid,
     return bRetCode;
 }
 
+void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 
+                       kvstore::NodeInfoType nodeInfo )
+{
+    nodeInfo.control_port = svcInfo.svc_port;
+    nodeInfo.data_port = svcInfo.svc_port;
+    nodeInfo.ip_lo_addr = fds::net::ipString2Addr(svcInfo.ip);  
+    nodeInfo.node_name = svcInfo.name;   
+    nodeInfo.node_type = svcInfo.svc_type;
+
+    fds::assign( nodeInfo.service_uuid, svcInfo.svc_id );
+
+    NodeUuid node_uuid;
+    node_uuid.uuid_set_type( nodeInfo.service_uuid.uuid, fpi::FDSP_PLATFORM );
+    nodeInfo.node_uuid.uuid  = static_cast<int64_t>( node_uuid.uuid_get_val() );
+
+    fds_assert( nodeInfo.node_type != fpi::FDSP_PLATFORM ||
+                nodeInfo.service_uuid == nodeInfo.node_uuid );
+
+    if ( nodeInfo.node_type == fpi::FDSP_PLATFORM ) 
+    {
+        fpi::FDSP_AnnounceDiskCapability& diskInfo = nodeInfo.disk_info;
+        
+        util::Properties props( &svcInfo.props );
+        diskInfo.node_iops_max = props.getInt( "node_iops_max" );
+        diskInfo.node_iops_min = props.getInt( "node_iops_min" );
+        diskInfo.disk_capacity = props.getDouble( "disk_capacity" );
+
+        diskInfo.ssd_capacity = props.getDouble( "ssd_capacity" );
+        diskInfo.disk_type = props.getInt( "disk_type" );
+    }
+}
+
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 {
-    try {
+    try 
+    {
         svcMap.clear();
         Reply reply = r.sendCommand("hgetall svcmap");
         StringList strings;
@@ -1801,12 +1852,14 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
             fds::deserializeFdspMsg(value, svcInfo);
             svcMap.push_back(svcInfo);
         }
-    } catch(const RedisException& e) {
+    } 
+    catch ( const RedisException& e ) 
+    {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
     }
+    
     return true;
-
 }
 
 

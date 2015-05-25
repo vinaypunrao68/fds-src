@@ -4,13 +4,14 @@ package com.formationds.om.webkit.rest.platform;
  */
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceType;
+import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -51,7 +52,7 @@ public class ListNodes
         Map<String, Node> clusterMap = computeNodeMap( list );
 
         /*
-         * TODO (Tinius) Domain ( Global and Local ) finish implementation
+         * TODO ( Tinius ) Domain ( Global and Local ) finish implementation
          *
          * for now we only support on global domain and one local domain,
          * so hard hard code the global domain to "fds"
@@ -71,99 +72,173 @@ public class ListNodes
      *
      * Most if not all of this code will be thrown away once platformd/om
      * service issues are resolved. This fix is just to get us to beta 2.
-     * @return
+     *
+     * @return Returns {@link Map} of keys {@link String} and value {@link Node}
      */
     public Map<String, Node> computeNodeMap( List<com.formationds.protocol.FDSP_Node_Info_Type> list ){
     	
     	final Map<String,Node> clusterMap = new HashMap<>( );
         
-    	if ( list == null || list.isEmpty() ){
+    	if ( list == null || list.isEmpty() ) {
+
     		return clusterMap;
+
     	}
-    	
 
-        for( final FDSP_Node_Info_Type info : list ) {
+      /*
+       * TODO(Tinius) The Service Layer things they need a well known UUID for OM.
+       *
+       * There are several issues with this. But since they never produced a
+       * design specification or got any approvals before they implemented what
+       * we have now, no one had the change to bring up concerns with the
+       * design/architectural approach.
+       *
+       * find the OM and set its UUID to the Node ID its running one
+       *
+       * So the method om below is a HACK to allow teh OM to group services
+       * by there node ID ( our screwed up UUID ).
+       */
+      om( list );
+      for( final FDSP_Node_Info_Type info : list ) {
 
-            final Optional<Service> service = ServiceType.find( info );
-            if( service.isPresent() ) {
+        final Optional<Service> service = ServiceType.find( info );
+        if( service.isPresent( ) )
+        {
+          final String ipv6Addr =
+                  ipAddr2String( info.getIp_hi_addr( ) )
+                          .orElse( String.valueOf( info.getIp_hi_addr( ) ) );
 
-                final String ipv6Addr =
-                    ipAddr2String( info.getIp_hi_addr() )
-                        .orElse( String.valueOf( info.getIp_hi_addr() ) );
-                final String ipv4Addr =
-                    ipAddr2String( info.getIp_lo_addr() )
-                        .orElse( String.valueOf( info.getIp_lo_addr() ) );
+          final String ipv4Addr =
+                  ipAddr2String( info.getIp_lo_addr( ) )
+                          .orElse( String.valueOf( info.getIp_lo_addr( ) ) );
 
-                final String nodeUUID = String.valueOf(
-                    info.getNode_uuid() );
-                NodeState nodeState = NodeState.UP;
-                final Optional<NodeState> optional =
-                    NodeState.byFdsDefined( info.getNode_state().name() );
-                if( optional.isPresent() ) {
+          final String nodeUUID = String.valueOf( info.getNode_uuid( ) );
+          NodeState nodeState = NodeState.UP;
 
-                     nodeState = optional.get();
+          final Optional<NodeState> optional =
+                  NodeState.byFdsDefined( info.getNode_state( )
+                                              .name( ) );
 
-                }
+          if( optional.isPresent( ) )
+          {
 
-                if( !clusterMap.containsKey( nodeUUID ) ) {
+            nodeState = optional.get( );
 
-                    clusterMap.put( nodeUUID,
-                                    Node.uuid( nodeUUID )
-                                        .ipV6address( ipv6Addr )
-                                        .ipV4address( ipv4Addr )
-                                        .state( nodeState )
-                                        .name( nodeName( ipv4Addr ) )
-                                        .build() );
-                }
+          }
 
-                Service serviceInstance = service.get();
-                Node thisNode = clusterMap.get( nodeUUID );
-                
-                thisNode.addService( serviceInstance );
+          if( !clusterMap.containsKey( nodeUUID ) )
+          {
 
-            } else {
+            clusterMap.put( nodeUUID,
+                            Node.uuid( nodeUUID )
+                                .ipV6address( ipv6Addr )
+                                .ipV4address( ipv4Addr )
+                                .state( nodeState )
+                                .name( nodeName( ipv4Addr ) )
+                                .build( ) );
+          }
 
-                logger.warn( "Unexpected service found -- {}",
-                             info.toString() );
-            }
-        }    	
-        
-        return clusterMap;
-    }
+          Service serviceInstance = service.get( );
+          Node thisNode = clusterMap.get( nodeUUID );
+          thisNode.addService( serviceInstance );
 
-    protected Optional<String> ipAddr2String( final Long ipAddr ) {
-
-        try {
-
-            return Optional.of( InetAddress.getByAddress( htonl( ipAddr ) )
-                                           .getHostAddress() );
-
-        } catch( UnknownHostException e ) {
-
-            logger.error( "Failed to convert " + ipAddr + " its it IPv4 address", e );
         }
+        else
+        {
 
-        return Optional.empty();
+          logger.warn( "Unexpected service found -- {}",
+                       info.toString( ) );
+
+        }
+      }
+
+      return clusterMap;
     }
 
-    protected String nodeName( final String ipv4Addr ) {
-
-        return ipv4Addr;
-
-    }
-
-    private byte[] htonl( long x )
+  protected void om( final List<FDSP_Node_Info_Type> list )
+  {
+    for( final FDSP_Node_Info_Type node : list )
     {
-        byte[] res = new byte[4];
-        for( int i = 0; i < 4; i++ ) {
-
-            res[i] = ( new Long( x >>> 24 ) ).byteValue( );
-            x <<= 8;
-
+      logger.debug( "TYPE::{}", node.getNode_type() );
+      if( node.getNode_type().equals( FDSP_MgrIdType.FDSP_ORCH_MGR ) )
+      {
+        logger.trace( "Found OM service {}", node );
+        final Optional<Long> pmUUID = pm( list,
+                                          ipAddr2String( node.getIp_lo_addr() ) );
+        if( pmUUID.isPresent() )
+        {
+          logger.trace( "Found PM uuid {} ", pmUUID.get() );
+          logger.trace( "Updating OM service Node UUID {} ( before )",
+                        node.getNode_uuid() );
+          node.setNode_uuid( pmUUID.get() );
+          logger.trace( "Updated OM service Node UUID {} ( after )",
+                        node.getNode_uuid( ) );
         }
+      }
+    }
+  }
 
-        return res;
+  protected Optional<Long> pm( final List<FDSP_Node_Info_Type> list,
+                               final Optional<String> omNodeName )
+  {
+    for( final FDSP_Node_Info_Type node : list )
+    {
+      logger.debug( "TYPE::{}", node.getNode_type() );
+      if( node.getNode_type().equals( FDSP_MgrIdType.FDSP_PLATFORM ) )
+      {
+        logger.trace( "Found PM service {} ", node );
+
+        if( omNodeName.isPresent() )
+        {
+          final Optional<String> pmNodeName = ipAddr2String( node.getIp_lo_addr() );
+          if( pmNodeName.isPresent() &&
+              pmNodeName.get().equalsIgnoreCase( omNodeName.get( ) ) )
+          {
+            return Optional.of( node.getNode_uuid( ) );
+          }
+        }
+      }
     }
 
+    return Optional.empty();
+  }
 
+  protected Optional<String> ipAddr2String( final Long ipAddr )
+  {
+    try
+    {
+
+      return Optional.of( InetAddress.getByAddress( htonl( ipAddr ) )
+                                     .getHostAddress( ) );
+
+    }
+    catch( UnknownHostException e )
+    {
+
+      logger.error( "Failed to convert " + ipAddr + " to its IPv4 address",
+                    e );
+    }
+
+    return Optional.empty( );
+  }
+
+  protected String nodeName( final String ipv4Addr )
+  {
+    // TODO what should we do for the node name? default to ip address for now
+    return ipv4Addr;
+  }
+
+  private byte[] htonl( long x )
+  {
+    byte[] res = new byte[ 4 ];
+    for( int i = 0; i < 4; i++ )
+    {
+
+      res[ i ] = ( new Long( x >>> 24 ) ).byteValue( );
+      x <<= 8;
+
+    }
+
+    return res;
+  }
 }
