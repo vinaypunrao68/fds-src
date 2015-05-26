@@ -103,6 +103,7 @@ namespace fds
 
                 void childProcessMonitor();
                 void startQueueMonitor();
+                void notifyOmAProcessDied (std::string const &procName);
                 std::string getProcName (int const index);
         };
     }  // namespace pm
