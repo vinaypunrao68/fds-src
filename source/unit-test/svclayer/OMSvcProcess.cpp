@@ -65,17 +65,6 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     {
     }
 
-    void notifyServiceRestart(const  ::fds::apis::NotifyHealthReport& report, const int64_t nullarg) {
-    	// Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-
-    void notifyServiceRestart(boost::shared_ptr< ::fds::apis::NotifyHealthReport>& report, boost::shared_ptr<int64_t>& nullarg) {
-    	// Your implementation goes here
-	    printf("notifyServiceRestart\n");
-    }
-
-
     OMSvcProcess *om_;
 
 };

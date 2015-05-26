@@ -51,9 +51,6 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    void notifyServiceRestart(const  ::fds::apis::NotifyHealthReport& report, const int64_t nullarg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
     /**
      * RPC overrides from fpi::OMSvcIf
      */
@@ -62,7 +59,6 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
     virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
-    virtual void notifyServiceRestart(boost::shared_ptr< ::fds::apis::NotifyHealthReport>& report, boost::shared_ptr<int64_t>& nullarg) override;
 
     /**
      * Async message handlers
@@ -86,6 +82,9 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 
     void setConfigDB(kvstore::ConfigDB* configDB);
     
+    void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    						boost::shared_ptr<fpi::NotifyHealthReport> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;

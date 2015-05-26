@@ -53,6 +53,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -253,11 +254,13 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
-void OmSvcHandler::notifyServiceRestart(boost::shared_ptr< ::fds::apis::NotifyHealthReport>& report, boost::shared_ptr<int64_t>& nullarg) {
-	// TODO(neil) : implement
+
+void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
+{
 	LOGNORMAL << "Received Health Report from PM: "
-			<< report->healthReport.serviceID.svc_name
-			<< " state: " << report->healthReport.serviceState
-			<< " status: " << report->healthReport.statusCode << std::endl;
+			<< msg->healthReport.serviceID.svc_name
+			<< " state: " << msg->healthReport.serviceState
+			<< " status: " << msg->healthReport.statusCode << std::endl;
 }
 }  //  namespace fds

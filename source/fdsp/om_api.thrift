@@ -53,6 +53,8 @@ struct CtrlSvcEvent {
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
 }
 
+// Make NotifyHealthReport defined within the fpi namespace.
+typedef health_monitoring_api.NotifyHealthReport NotifyHealthReport
 
  # OM Service.  Only put sync rpc calls in here.  Async RPC calls use
  # message passing provided by BaseAsyncSvc
@@ -88,11 +90,4 @@ service OMSvc extends svc_api.PlatNetSvc {
   * @param NULL
   */
   svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
-
-  /**
-  * @brief Called by PM to notify of a downed service that got restarted
-  *
-  * @param NotifyHealthReport
-  */
-  void notifyServiceRestart(1: health_monitoring_api.NotifyHealthReport report, 2: i64 nullarg) throws (1: common.ApiException e);
 }
