@@ -67,6 +67,11 @@ class MigrationMgr {
         MIGR_ABORTED       // If migration aborted due to error before DLT close
     };
 
+    enum MigrationType {
+        MIGR_SM_ADD_NODE,
+        MIGR_SM_RESYNC
+    };
+
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
@@ -85,7 +90,8 @@ class MigrationMgr {
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken,
-                         bool forResync);
+                         MigrationType migrType,
+                         bool onePhaseMigration);
 
     /**
      * Start resync process for SM tokens. Find the list of
@@ -242,6 +248,8 @@ class MigrationMgr {
 
     void retryTokenMigrForFailedDltTokens();
 
+    void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
+
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken);
 
@@ -335,10 +343,41 @@ class MigrationMgr {
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
 
-    /// SM token token that is currently in progress of migrating
-    /// TODO(Anna) make it more general if we want to migrate several
-    /// tokens at a time
-    fds_token_id smTokenInProgress;
+    /// set of SM tokens that are currently in progress of migrating
+    std::unordered_set<fds_token_id> smTokenInProgress;
+    /// mutex for smTokenInProgress
+    fds_mutex smTokenInProgressMutex;
+
+    /// thread-safe iterator over MigrExecutorMap
+    /// provides - constructor
+    ///          - fetch_and_increment_saturating
+    ///          - set
+    /// Needs to be here since it uses MigrExecutorMap
+    struct NextExecutor {
+        /// constructor
+        explicit NextExecutor(const MigrExecutorMap& ex) : exMap(ex) {}
+        /// return current iterator and increment atomically
+        /// if at the end of the vector don't increment
+        MigrExecutorMap::const_iterator fetch_and_increment_saturating() {
+            FDSGUARD(m);
+            auto tmp = it;
+            if (it != exMap.cend())
+                it++;
+            return  tmp;
+        }
+        /// atomic setter
+        void set(MigrExecutorMap::iterator i) {
+            FDSGUARD(m);
+            it = i;
+        }
+        const MigrExecutorMap& exMap;
+        MigrExecutorMap::const_iterator it;
+        fds_mutex m;
+        NextExecutor() = delete;
+    } nextExecutor;
+
+    /// SM token token that is currently in the second round
+    fds_token_id smTokenInProgressSecondRound;
     fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
 
     /// SM token for which retry token migration is going on.
@@ -351,9 +390,12 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
-     * Qos request to snapshot index db
+     * Vector of requests (static). Equals to the number of tokens. 
+     * TODO(matteo): it seems I cannot create this dynamically and destroy it
+     * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
+     * actually reused after it is popped out the QoS queue. Likely need more investigation
      */
-    SmIoSnapshotObjectDB snapshotRequest;
+    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
 
     /**
      * Timer to detect if there is no activities on the Executors.
@@ -377,6 +419,8 @@ class MigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+    /// number of parallel thread -- from platform.conf
+    uint32_t parallelMigration;
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed
@@ -395,6 +439,7 @@ class MigrationMgr {
      FdsTimer mTimer;
 };
 
+typedef MigrationMgr::MigrationType SMMigrType;
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_

@@ -144,6 +144,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // start migration
     const DLT* dlt = objStorMgr->getDLT();
+
     if (dlt != NULL) {
         err = objStorMgr->migrationMgr->startMigration(migrationMsg,
                                                        std::bind(&SMSvcHandler::startMigrationCb,
@@ -153,6 +154,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                                  std::placeholders::_1),
                                                        objStorMgr->getUuid(),
                                                        dlt->getNumBitsForToken(),
+                                                       SMMigrType::MIGR_SM_ADD_NODE,
                                                        false); //false because it's not a resync case
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "

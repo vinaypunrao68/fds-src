@@ -37,7 +37,7 @@ class MigrationClient {
                              NodeUuid& _destinationSMNodeID,
                              fds_uint64_t& targetDltVersion,
                              fds_uint32_t bitsPerToken,
-                             bool forResync);
+                             bool onePhaseMigration);
     ~MigrationClient();
 
      enum MigrationClientState {
@@ -298,9 +298,9 @@ class MigrationClient {
     MigrationTrackIOReqs trackIOReqs;
 
     /**
-     * Is this migration for a SM resync
+     * Will this migration have single phase only?
      */
-    bool forResync;
+    bool onePhaseMigration;
 };  // class MigrationClient
 
 }  // namespace fds

@@ -74,7 +74,6 @@ class AmRequest : public FDS_IOType {
 
  protected:
     std::string        blob_name;
-    util::StopWatch    stopwatch;
 };
 
 struct AmTxReq {

@@ -14,12 +14,6 @@ namespace fds {
 uint32_t HybridTierCtrlr::BATCH_SZ = 1024;
 uint32_t HybridTierCtrlr::FREQUENCY = 10;
 
-HTCCounters::HTCCounters(const std::string &id)
-    : FdsCounters(id, MODULEPROVIDER() ? MODULEPROVIDER()->get_cntrs_mgr().get() : nullptr),
-    movedCnt("movedCnt", this)
-{
-}
-
 // TODO(Rao):
 // -Handle unowned token case.
 // -Move runTask into ObjectStore
@@ -27,8 +21,7 @@ HTCCounters::HTCCounters(const std::string &id)
 // -Expose stats for testing
 HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                  SmDiskMap::ptr diskMap)
-    : htcCntrs_("sm.htc."),
-      featureEnabled(false),
+    : featureEnabled(false),
       hybridTierLock("HybridTierLock")
 {
     threadpool_ = MODULEPROVIDER()->proc_thrpool();
@@ -149,8 +142,7 @@ void HybridTierCtrlr::moveToNextToken()
         /* Start moving objects for the next token.  First we take a snap */
         snapToken();
     } else {
-        GLOGNOTIFY << "Completed processing all tokens.  Aggregate moved cnt: "
-            << htcCntrs_.movedCnt.value() << ".  Scheduling hybrid tier work again";
+        GLOGNOTIFY << "Completed processing all tokens. Scheduling hybrid tier work again";
         /* Completed moving objects.  Schedule the next relocation task */
         tokenSet_.clear();
         scheduleNextRun_(FREQUENCY);
@@ -234,7 +226,6 @@ void HybridTierCtrlr::moveObjsToTierCb(const Error& e,
         /* On error we still continue processing */
     } else {
         LOGDEBUG << "Moved " << req->movedCnt << " objects for token: " << *nextToken_;
-        htcCntrs_.movedCnt.incr(req->movedCnt);
     }
 
     if (tokenItr_->itr->Valid()) {

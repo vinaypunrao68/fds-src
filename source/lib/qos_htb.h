@@ -30,8 +30,9 @@
 namespace fds {
 
   class TBQueueState;
-  typedef std::unordered_map<fds_qid_t, TBQueueState* > qstate_map_t;
-  typedef std::unordered_map<fds_qid_t, TBQueueState*>::iterator qstate_map_it_t;
+  using queue_state_type = std::unique_ptr<TBQueueState>;
+  using qstate_map_type = std::unordered_map<fds_qid_t, queue_state_type>;
+
 
   /* Queue state that is controlled by two demand-driven token buckets: one that
    * ensures minimum rate, and another ensures that tokens are never consumed
@@ -183,34 +184,33 @@ namespace fds {
   class QoSHTBDispatcher: public FDS_QoSDispatcher {
   public:
     QoSHTBDispatcher(FDS_QoSControl* ctrl, fds_log *log, fds_int64_t _total_iops);
-    virtual ~QoSHTBDispatcher();
+    QoSHTBDispatcher(QoSHTBDispatcher const& rhs) = delete;
+    QoSHTBDispatcher operator=(QoSHTBDispatcher const& rhs) = delete;
+    ~QoSHTBDispatcher() override = default;
 
     /***** implementation of base class functions *****/
     /* handle notification that IO was just queued */
-    virtual void ioProcessForEnqueue(fds_qid_t queue_id,
-				     FDS_IOType *io);
+    void ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io) override;
 
     /* handle notification that IO will be dispatched */
-    virtual void ioProcessForDispatch(fds_qid_t queue_id,
-				      FDS_IOType *io);
+    void ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io) override;
 
     /* returns queue is whose IO needs to be dispatched next
      * this implementation consumes tokens required to dispatch IO */
-    virtual fds_qid_t getNextQueueForDispatch();
+    fds_qid_t getNextQueueForDispatch() override;
 
     /* this implementation calls based class registerQueue first */
-    virtual Error registerQueue(fds_qid_t queue_id,
-				FDS_VolumeQueue *queue);
+    Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue) override;
 
     /* this implementation calls base class deregisterQueue first */
-    virtual Error deregisterQueue(fds_qid_t queue_id);
+    Error deregisterQueue(fds_qid_t queue_id) override;
 
-    virtual Error modifyQueueQosParams(fds_qid_t queue_id,
-				       fds_int64_t iops_assured,
-				       fds_int64_t iops_throttle,
-				       fds_uint32_t prio);
+    Error modifyQueueQosParams(fds_qid_t queue_id,
+                               fds_int64_t iops_assured,
+                               fds_int64_t iops_throttle,
+                               fds_uint32_t prio) override;
 
-    virtual void setThrottleLevel(float throttle_level);
+    void setThrottleLevel(float throttle_level) override;
 
     /**** extra methods that we could also add to base class ***/
 
@@ -224,10 +224,9 @@ namespace fds {
    using FDS_QoSDispatcher::dispatchIOs;
 
   private:
-   void setQueueThrottleLevel(TBQueueState* qstate, float throttle_level);
-   void setQueueThrottleLevel(TBQueueState* qstate, fds_int32_t tlevel_x, double tlevel_frac);
+   void setQueueThrottleLevel(queue_state_type& qstate, float const throttle_level);
+   void setQueueThrottleLevel(queue_state_type& qstate, fds_int32_t const tlevel_x, double const tlevel_frac);
 
-  private:
     /****** configurable parameters *****/
 
     /* The total rate of IOs that will be dispatched from all the queues
@@ -257,7 +256,7 @@ namespace fds {
 
     /***** dynamic state ******/
     RecvTokenBucket avail_pool; /* pool of available tokens (non-guaranteed tokens + expired guaranteed tokens) */
-    qstate_map_t qstate_map;  /* min and max rate control for each queue, and other queue state */
+    qstate_map_type qstate_map;  /* min and max rate control for each queue, and other queue state */
 
     fds_qid_t last_dispatch_qid; /* queue id from which we dispatch last IO */
   };
