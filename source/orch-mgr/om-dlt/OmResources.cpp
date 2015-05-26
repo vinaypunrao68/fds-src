@@ -14,6 +14,7 @@
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
+#include <omutils.h>
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>

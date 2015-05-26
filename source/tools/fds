@@ -139,7 +139,7 @@ function activate() {
     if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
     if [[ -n $actapps ]]; then
         # Bao: wait for platformd before activate
-        sleep 7
+        sleep 14
 
         logwarn "asking OM to accept all discovered nodes..."
 	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local > cli.out) 2>/dev/null
