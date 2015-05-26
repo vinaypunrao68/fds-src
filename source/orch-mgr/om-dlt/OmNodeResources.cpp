@@ -727,6 +727,30 @@ OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
     return false;
 }
 
+fds_bool_t OM_PmAgent::hasRegistered(const FdspNodeRegPtr  msg) {
+    OM_NodeAgent::pointer nodeAgent;
+    switch (msg->node_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            nodeAgent = activeSmAgent;
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            nodeAgent = activeDmAgent;
+            break;
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
+            nodeAgent  = activeAmAgent;
+            break;
+        default:
+            break;
+    };
+
+    if (nodeAgent == NULL) return false;
+    if (msg->node_name != nodeAgent->get_node_name()) return false;
+    if (nodeAgent->get_uuid() != msg->service_uuid.uuid) return false;
+
+    return true;
+
+}
+
 // register_service
 // ----------------
 //
@@ -1314,6 +1338,12 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
     LOGDEBUG << "Service of type " << svc_role << " on node " << std::hex
              << pm_uuid.uuid_get_val() << std::dec << " exists? " << bret;
     return bret;
+}
+
+fds_bool_t OM_PmContainer::hasRegistered(const FdspNodeRegPtr  msg) {
+    NodeAgent::pointer agent = agent_info(NodeUuid(msg->node_uuid.uuid));
+    if (NULL == agent) return false;
+    return OM_PmAgent::agt_cast_ptr(agent)->hasRegistered(msg);
 }
 
 // handle_register_service
