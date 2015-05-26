@@ -253,7 +253,7 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
-void notifyServiceRestart(boost::shared_ptr< ::fds::apis::NotifyHealthReport>& report, boost::shared_ptr<int64_t>& nullarg) {
+void OmSvcHandler::notifyServiceRestart(boost::shared_ptr< ::fds::apis::NotifyHealthReport>& report, boost::shared_ptr<int64_t>& nullarg) {
 	// TODO(neil) : implement
 	LOGNORMAL << "Received Health Report from PM: "
 			<< report->healthReport.serviceID.svc_name
