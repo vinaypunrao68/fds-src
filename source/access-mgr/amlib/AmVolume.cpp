@@ -25,6 +25,12 @@ AmVolume::getToken() const {
     return access_token->getToken();
 }
 
+std::pair<bool, bool>
+AmVolume::getMode() const {
+    return std::make_pair(access_token->writeAllowed(),
+                          access_token->cacheAllowed());
+}
+
 void
 AmVolume::setToken(fds_int64_t const _token) {
     access_token->setToken(_token);

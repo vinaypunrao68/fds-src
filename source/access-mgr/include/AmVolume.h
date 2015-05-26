@@ -22,6 +22,8 @@ struct AmVolume : public FDS_Volume {
 
     ~AmVolume();
 
+    std::pair<bool, bool> getMode() const;
+
     fds_int64_t getToken() const;
     void setToken(fds_int64_t const _token);
 

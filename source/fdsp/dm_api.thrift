@@ -149,8 +149,8 @@ struct OpenVolumeMsg {
   1: required i64                       volume_id;
   /** Existing token */
   2: optional i64                       token = 0;
-  /** Requested access policy (or volume default) */
-  3: optional common.VolumeAccessPolicy policy;
+  /** Requested access mode */
+  3: optional common.VolumeAccessMode   mode;
 }
 
 /**
@@ -159,7 +159,7 @@ struct OpenVolumeMsg {
  */
 struct OpenVolumeRspMsg {
   /** Token for volume access */
-  1: required i64       token;
+  1: required i64                       token;
 }
 
 /**

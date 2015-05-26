@@ -163,8 +163,8 @@ struct VolumeSettings {
   4: required i64 contCommitlogRetention;
   /** the media policy type */
   5: MediaPolicy mediaPolicy;
-  /** the default access policy */
-  6: optional common.VolumeAccessPolicy default_policy;
+  /** the default access mode */
+  6: optional common.VolumeAccessMode default_mode;
 }
 
 /**

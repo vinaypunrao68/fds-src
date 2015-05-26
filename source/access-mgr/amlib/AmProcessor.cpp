@@ -121,6 +121,7 @@ class AmProcessor_impl
 
     std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
     inline bool haveCacheToken(std::shared_ptr<AmVolume> const& volume) const;
+    inline bool haveWriteToken(std::shared_ptr<AmVolume> const& volume) const;
 
     /**
      * FEATURE TOGGLE: Single AM Enforcement
@@ -416,7 +417,21 @@ AmProcessor_impl::haveCacheToken(std::shared_ptr<AmVolume> const& volume) const 
          * Wed 01 Apr 2015 01:52:55 PM PDT
          */
         if (!volume_open_support || (invalid_vol_token != volume->getToken())) {
-            return true;
+            return volume->getMode().second;
+        }
+    }
+    return false;
+}
+
+bool
+AmProcessor_impl::haveWriteToken(std::shared_ptr<AmVolume> const& volume) const {
+    if (volume) {
+        /**
+         * FEATURE TOGGLE: Single AM Enforcement
+         * Wed 01 Apr 2015 01:52:55 PM PDT
+         */
+        if (!volume_open_support || (invalid_vol_token != volume->getToken())) {
+            return volume->getMode().first;
         }
     }
     return false;
@@ -440,6 +455,7 @@ AmProcessor_impl::registerVolume(const VolumeDesc& volDesc, fds_int64_t const to
         // Create a fake token that doesn't expire.
         auto access_token = boost::make_shared<AmVolumeAccessToken>(
                 token_timer,
+                fpi::VolumeAccessMode(),
                 invalid_vol_token,
                 nullptr);
         volTable->registerVolume(volDesc, access_token);
@@ -458,10 +474,19 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
 
     }
 
+    // TODO(bszmyd): Tue 26 May 2015 10:45:50 AM MDT
+    // Eventually this should be part of the response from DM.
     // Build an access token that will renew itself at regular
     // intervals
+    auto mode = (err.ok() ? fpi::VolumeAccessMode() :
+                            fpi::VolumeAccessMode());
+    if (!err.ok()) {
+        mode.can_cache = false;
+        mode.can_write = false;
+    }
     auto access_token = boost::make_shared<AmVolumeAccessToken>(
         token_timer,
+        mode,
         token,
         [this, vol_id = volDesc.volUUID] () mutable -> void {
         this->renewToken(vol_id);
@@ -594,7 +619,7 @@ AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
               return;);
 
     auto shVol = getVolume(amReq, false);
-    if (!haveCacheToken(shVol)) {
+    if (!haveWriteToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -655,7 +680,7 @@ AmProcessor_impl::startBlobTx(AmRequest *amReq) {
               return;);
 
     auto shVol = getVolume(amReq, false);
-    if (!haveCacheToken(shVol)) {
+    if (!haveWriteToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -689,7 +714,7 @@ AmProcessor_impl::startBlobTxCb(AmRequest *amReq, const Error &error) {
 void
 AmProcessor_impl::deleteBlob(AmRequest *amReq) {
     auto shVol = getVolume(amReq, false);
-    if (!haveCacheToken(shVol)) {
+    if (!haveWriteToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -714,7 +739,7 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
 
     auto shVol = getVolume(amReq, false);
 
-    if (!haveCacheToken(shVol)) {
+    if (!haveWriteToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -947,7 +972,7 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
 void
 AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
     auto shVol = getVolume(amReq, false);
-    if (!haveCacheToken(shVol)) {
+    if (!haveWriteToken(shVol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
