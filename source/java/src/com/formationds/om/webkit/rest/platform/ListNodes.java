@@ -166,8 +166,8 @@ public class ListNodes
       if( node.getNode_type().equals( FDSP_MgrIdType.FDSP_ORCH_MGR ) )
       {
         logger.trace( "Found OM service {}", node );
-        final Optional<Long> pmUUID = pm( list,
-                                          ipAddr2String( node.getIp_lo_addr() ) );
+        final Optional<Long> pmUUID = findOmPlatformUUID( list,
+                                                          ipAddr2String( node.getIp_lo_addr() ) );
         if( pmUUID.isPresent() )
         {
           logger.trace( "Found PM uuid {} ", pmUUID.get() );
@@ -181,8 +181,8 @@ public class ListNodes
     }
   }
 
-  protected Optional<Long> pm( final List<FDSP_Node_Info_Type> list,
-                               final Optional<String> omNodeName )
+  protected Optional<Long> findOmPlatformUUID( final List<FDSP_Node_Info_Type> list,
+                                               final Optional<String> omNodeName )
   {
     for( final FDSP_Node_Info_Type node : list )
     {
