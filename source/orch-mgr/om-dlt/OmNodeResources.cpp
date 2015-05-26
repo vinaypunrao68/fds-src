@@ -1342,6 +1342,7 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
 
 fds_bool_t OM_PmContainer::hasRegistered(const FdspNodeRegPtr  msg) {
     NodeAgent::pointer agent = agent_info(NodeUuid(msg->node_uuid.uuid));
+    if (NULL == agent) return false;
     return OM_PmAgent::agt_cast_ptr(agent)->hasRegistered(msg);
 }
 
