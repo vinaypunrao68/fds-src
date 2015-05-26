@@ -105,7 +105,7 @@ public class ListNodes
         if( service.isPresent( ) )
         {
           /*
-           * TODO(Tinius) once redesigned figure out what this should really be. Loking at the native side ( C++ ) 
+           * TODO(Tinius) once redesigned figure out what this should really be. Looking at the native side ( C++ ) 
            * I don't see any use of the ip_hi_addr, so it will take a little more digging to determine the what/how
            * of the high-order bytes
            */
