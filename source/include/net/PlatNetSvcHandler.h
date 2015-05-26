@@ -19,6 +19,7 @@
     [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
         boost::shared_ptr<std::string>& payloadBuf) \
     { \
+        DBG(fiu_do_on("svc.dropincoming.##FDSPMsgT", return;)); \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
         SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
