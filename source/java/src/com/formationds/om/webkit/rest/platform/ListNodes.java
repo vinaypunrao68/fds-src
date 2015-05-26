@@ -109,7 +109,7 @@ public class ListNodes
            * I don't see any use of the ip_hi_addr, so it will take a little more digging to determine the what/how
            * of the high-order bytes
            */
-          final String ipv6Addr = "0.0.0.0";
+          final String ipv6Addr = "::1";
 
           final String ipv4Addr =
                   ipAddr2String( info.getIp_lo_addr( ) )
