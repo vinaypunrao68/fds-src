@@ -1,16 +1,16 @@
-from ..services import volume_service
-from ..services import response_writer
-from ..model.volume import Volume
-from ..model.snapshot import Snapshot
-from ..utils.volume_converter import VolumeConverter
+from services import volume_service
+from services import response_writer
+from model.volume import Volume
+from model.snapshot import Snapshot
+from utils.volume_converter import VolumeConverter
 
 from abstract_plugin import AbstractPlugin
 import json
 import time
-from ..utils.volume_validator import VolumeValidator
-from ..utils.snapshot_converter import SnapshotConverter
-from ..services.snapshot_policy_service import SnapshotPolicyService
-from ..utils.snapshot_policy_converter import SnapshotPolicyConverter
+from utils.volume_validator import VolumeValidator
+from utils.snapshot_converter import SnapshotConverter
+from services.snapshot_policy_service import SnapshotPolicyService
+from utils.snapshot_policy_converter import SnapshotPolicyConverter
 
 class VolumePlugin( AbstractPlugin):
     '''

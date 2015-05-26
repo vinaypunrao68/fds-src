@@ -1,4 +1,4 @@
-from ..services.rest_helper import RESTHelper
+from services.rest_helper import RESTHelper
 
 class AbstractService():
     '''

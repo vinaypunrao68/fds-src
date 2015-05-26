@@ -5,7 +5,7 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
-from fdscli import FDSShell
+from fdscli.FDSShell import FDSShell
 from services.fds_auth import FdsAuth
 
 def main():

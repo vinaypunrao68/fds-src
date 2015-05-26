@@ -1,5 +1,5 @@
 import json
-from ..model.domain import Domain
+from model.domain import Domain
 
 class DomainConverter():
     '''

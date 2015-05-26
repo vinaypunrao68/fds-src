@@ -8,11 +8,11 @@ maps those options to the appropriate calls for tenant management
 
 @author: nate
 '''
-from ..services.tenant_service import TenantService
+from services.tenant_service import TenantService
 import json
-from ..utils.tenant_converter import TenantConverter
-from ..services.response_writer import ResponseWriter
-from ..utils.user_converter import UserConverter
+from utils.tenant_converter import TenantConverter
+from services.response_writer import ResponseWriter
+from utils.user_converter import UserConverter
 class TenantPlugin( AbstractPlugin):
     
     def __init__(self, session):

@@ -1,10 +1,10 @@
 from abstract_service import AbstractService
-from ..utils.node_state_converter import NodeStateConverter
-from ..utils.node_converter import NodeConverter
-from ..utils.service_converter import ServiceConverter
-from ..model.node import Node
-from ..model.service import Service
-from ..model.node_state import NodeState
+from utils.node_state_converter import NodeStateConverter
+from utils.node_converter import NodeConverter
+from utils.service_converter import ServiceConverter
+from model.node import Node
+from model.service import Service
+from model.node_state import NodeState
 
 class NodeService( AbstractService ):
     '''

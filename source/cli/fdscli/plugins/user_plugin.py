@@ -1,9 +1,9 @@
 from abstract_plugin import AbstractPlugin
 import getpass
-from ..services.users_service import UsersService
-from ..utils.user_converter import UserConverter
+from services.users_service import UsersService
+from utils.user_converter import UserConverter
 import json
-from ..services.response_writer import ResponseWriter
+from services.response_writer import ResponseWriter
 from collections import OrderedDict
 
 class UserPlugin(AbstractPlugin):    

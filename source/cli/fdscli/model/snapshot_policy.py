@@ -1,4 +1,4 @@
-from ..model.recurrence_rule import RecurrenceRule
+from model.recurrence_rule import RecurrenceRule
 
 class SnapshotPolicy():
     '''

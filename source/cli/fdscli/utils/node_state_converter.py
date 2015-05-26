@@ -1,5 +1,5 @@
 import json
-from ..model.node_state import NodeState
+from model.node_state import NodeState
 
 class NodeStateConverter():
     '''
