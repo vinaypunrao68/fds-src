@@ -86,7 +86,7 @@ public class ListNodes
     	}
 
       /*
-       * TODO(Tinius) The Service Layer things they need a well known UUID for OM.
+       * TODO(Tinius) The Service Layer thinks they need a well known UUID for OM.
        *
        * There are several issues with this. But since they never produced a
        * design specification or got any approvals before they implemented what
@@ -104,9 +104,12 @@ public class ListNodes
         final Optional<Service> service = ServiceType.find( info );
         if( service.isPresent( ) )
         {
-          final String ipv6Addr =
-                  ipAddr2String( info.getIp_hi_addr( ) )
-                          .orElse( String.valueOf( info.getIp_hi_addr( ) ) );
+          /*
+           * TODO(Tinius) once redesigned figure out what this should really be. Loking at the native side ( C++ ) 
+           * I don't see any use of the ip_hi_addr, so it will take a little more digging to determine the what/how
+           * of the high-order bytes
+           */
+          final String ipv6Addr = "0.0.0.0";
 
           final String ipv4Addr =
                   ipAddr2String( info.getIp_lo_addr( ) )
