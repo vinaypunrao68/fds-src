@@ -30,7 +30,9 @@ namespace fds
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status )
     {       
-        // update configDB with which services this platform has
+        /*
+         * Update configDB with the new status for the given service on the given node
+         */
         if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
         {
             LOGDEBUG << "Successfully changed service ID ( " 
