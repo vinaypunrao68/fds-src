@@ -90,7 +90,7 @@ public class ListNodes
        *
        * There are several issues with this. But since they never produced a
        * design specification or got any approvals before they implemented what
-       * we have now, no one had the change to bring up concerns with the
+       * we have now, no one had the chance to bring up concerns with the
        * design/architectural approach.
        *
        * find the OM and set its UUID to the Node ID its running one
