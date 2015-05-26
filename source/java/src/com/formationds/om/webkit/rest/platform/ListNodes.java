@@ -95,8 +95,8 @@ public class ListNodes
        *
        * find the OM and set its UUID to the Node ID its running one
        *
-       * So the method om below is a HACK to allow teh OM to group services
-       * by there node ID ( our screwed up UUID ).
+       * So the method om below is a HACK to allow the OM to group services
+       * by their node ID ( our screwed up UUID ).
        */
       om( list );
       for( final FDSP_Node_Info_Type info : list ) {
