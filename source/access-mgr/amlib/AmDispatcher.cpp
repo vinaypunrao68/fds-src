@@ -125,15 +125,14 @@ AmDispatcher::getDLT() {
 
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
-    // We need valid DLT and DMTs before we can start issuing IO,
-    // block attachments here until this is true.
-    if (DMT_VER_INVALID == dmtMgr->getCommittedVersion() ||
-        nullptr == dltMgr->getDLT()) {
-        LOGWARN << "Could not attach to volume before receiving domain tables.";
-        return ERR_NOT_READY;
-    }
-
     if (!noNetwork) {
+        // We need valid DLT and DMTs before we can start issuing IO,
+        // block attachments here until this is true.
+        if (DMT_VER_INVALID == dmtMgr->getCommittedVersion() ||
+            nullptr == dltMgr->getDLT()) {
+            LOGWARN << "Could not attach to volume before receiving domain tables.";
+            return ERR_NOT_READY;
+        }
         try {
             auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
             fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
@@ -239,26 +238,30 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
-                                 fds_int64_t const token,
-                                 std::function<void(fds_int64_t const, Error const)> cb) {
-    fiu_do_on("am.uturn.dispatcher", cb(0, ERR_OK); return;);
+AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+    auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
 
-    LOGDEBUG << "Attempting to open volume: " << std::hex << vol_id;
+    LOGDEBUG << "Attempting to open volume: " << std::hex << amReq->io_vol_id
+             << " with token: " << volReq->token;
+
     auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
-    volMDMsg->volume_id = vol_id;
-    volMDMsg->token = token;
+    volMDMsg->volume_id = amReq->io_vol_id;
+    volMDMsg->token = volReq->token;
 
     /** What to do with the response */
-    auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
-                        const Error& error,
-                        boost::shared_ptr<std::string> payload) {
+    auto svc_cb = [amReq] (QuorumSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload) mutable -> void {
         auto e = error;
         auto msg = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-        cb((msg ? msg->token : invalid_vol_token), e);
+        // Set the token to the one from DM, or invalid if error
+        static_cast<fds::AttachVolumeReq*>(amReq)->token =
+            (msg ? msg->token : invalid_vol_token);
+        amReq->proc_cb(e);
     };
 
-    auto asyncOpenVolReq = createQuorumRequest(vol_id, volMDMsg, svc_cb);
+    auto asyncOpenVolReq = createQuorumRequest(amReq->io_vol_id, volMDMsg, svc_cb);
     asyncOpenVolReq->invoke();
 }
 

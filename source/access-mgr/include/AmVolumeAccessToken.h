@@ -37,6 +37,12 @@ struct AmVolumeAccessToken :
     bool writeAllowed()
     { return mode.can_write; }
 
+    mode_type getMode() const
+    { return mode; }
+
+    void setMode(mode_type const& _mode)
+    { mode = _mode; }
+
     token_type getToken() const
     { return token; }
 

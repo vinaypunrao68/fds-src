@@ -20,6 +20,9 @@ namespace fds
  * attach is complete.
  */
 struct AttachVolumeReq : public AmRequest {
+    fpi::VolumeAccessMode mode;
+    fds_int64_t token {invalid_vol_token};
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -33,6 +36,7 @@ struct AttachVolumeReq : public AmRequest {
         e2e_req_perf_ctx.type = PerfEventType::AM_VOLUME_ATTACH_REQ,
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
+    ~AttachVolumeReq() override = default;
 };
 
 }  // namespace fds

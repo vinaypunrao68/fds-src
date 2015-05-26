@@ -22,7 +22,9 @@ AmVolume::~AmVolume() = default;
 
 fds_int64_t
 AmVolume::getToken() const {
-    return access_token->getToken();
+    if (access_token)
+        return access_token->getToken();
+    return invalid_vol_token;
 }
 
 std::pair<bool, bool>
