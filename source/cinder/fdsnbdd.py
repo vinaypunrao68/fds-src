@@ -138,7 +138,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         LOG.warning('FDS_DRIVER: detach volume %s to %s begin' % (volume['name'], connector['ip']))
         try:
             url = self.host_to_nbdd_url(connector['ip'])
-            self.nbd.detach_remote_all(url, volume['name'])
+            self.nbd.detach_nbd_remote_all(url, volume['name'])
             LOG.warning('FDS_DRIVER: detach volume %s to %s success' % (volume['name'], connector['ip']))
         except Exception as e:
             LOG.warning('FDS_DRIVER: detach volume %s to %s failed with exception %s' % (volume['name'], connector['ip'], traceback.format_exc()))
