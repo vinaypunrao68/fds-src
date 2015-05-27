@@ -264,7 +264,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             var timelinePolicies = [];
 
             for ( var i = 0; i < realPolicies.length; i++ ){
-                if ( realPolicies[i].name.indexOf( '_TIMELINE_' ) === -1 ){
+                if ( realPolicies[i].id.name.indexOf( '_TIMELINE_' ) === -1 ){
                     notTimelinePolicies.push( realPolicies[i] );
                 }
                 else {
@@ -274,7 +274,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
             $scope.snapshotPolicies = notTimelinePolicies;
             $scope.timelinePolicies = {
-                continuous: $scope.thisVolume.commit_log_retention,
+                continuous: $scope.thisVolume.commitLogRetention,
                 policies: timelinePolicies
             };
         });

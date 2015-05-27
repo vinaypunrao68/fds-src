@@ -81,14 +81,16 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     
     $scope.commitChanges = function(){
         
-        $scope.thisVolume.sla = $scope.editQos.sla;
-        $scope.thisVolume.priority = $scope.editQos.priority;
-        $scope.thisVolume.limit = $scope.editQos.limit;
+        $scope.thisVolume.qosPolicy = {
+            priority: $scope.editQos.priority,
+            iops_max: $scope.editQos.limit,
+            iops_min: $scope.editQos.sla
+        };
         
-        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
+        $scope.thisVolume.commitLogRetention = $scope.timelinePolicies.commitLogRetention;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
-            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
+//            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
             $scope.volumeVars.selectedVolume = volume;
             $scope.cancel();
         });

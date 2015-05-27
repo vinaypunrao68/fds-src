@@ -30,7 +30,7 @@ var updateVolume = function( vol ){
 **/
 var createNewStat = function( vol ){
     
-    var limit = parseInt( vol.limit );
+    var limit = parseInt( vol.qosPolicy.iops_max );
     
     if ( limit === 0 ){
         limit = 10000;
@@ -62,8 +62,8 @@ var createNewStat = function( vol ){
         PUTS: puts,
         GETS: gets,
         SSD_GETS: ssd,
-        LBYTES: vol.current_usage.size,
-        PBYTES: Math.round( vol.current_usage.size * 0.4),
+        LBYTES: vol.status.currentUsage.size,
+        PBYTES: Math.round( vol.status.currentUsage.size * 0.4),
         ROLLPOINT: true
     };
     

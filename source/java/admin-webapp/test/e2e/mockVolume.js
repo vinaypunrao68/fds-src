@@ -58,7 +58,7 @@ mockVolume = function(){
             var temp = [];
 
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if( volService.volumes[i].name !== volume.name ){
+                if( volService.volumes[i].id.name !== volume.id.name ){
                     temp.push( volService.volumes[i] );
                 }
             }
@@ -103,6 +103,17 @@ mockVolume = function(){
             
             volume.rate = 10000;
             volume.snapshots = [];
+            
+            // re-name the policies
+            for ( var polIndex = 0; polIndex < volume.snapshotPolicies.length; polIndex++ ){
+                var policy = volume.snapshotPolicies[polIndex];
+                
+                policy.id = {
+                    uuid: (new Date()).getTime() - polIndex,
+                    name: volume.id.uuid + '_TIMELINE_' + policy.recurrenceRule.FREQ
+                };
+            }
+            
             volService.volumes.push( volume );
             saveVolumeEvent( volume );
             
@@ -126,7 +137,7 @@ mockVolume = function(){
             var volume;
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id === volumeId ){
+                if ( volService.volumes[i].id.uuid === volumeId ){
                     volume = volService.volumes[i];
                     break;
                 }
@@ -137,7 +148,7 @@ mockVolume = function(){
             }
             
             var id = (new Date()).getTime();
-            volume.snapshots.push( { id: id, name: id, creation: id } );
+            volume.snapshots.push( { id: { uuid: id, name: id }, creation: id } );
             
             callback();
         };
@@ -150,7 +161,7 @@ mockVolume = function(){
             //callback( [] );
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id === volumeId ){
+                if ( volService.volumes[i].id.uuid === volumeId ){
                     
                     if ( angular.isFunction( callback ) ){
                         callback( volService.volumes[i].snapshots );
