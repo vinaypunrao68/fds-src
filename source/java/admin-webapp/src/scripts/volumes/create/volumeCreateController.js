@@ -8,39 +8,39 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     $scope.timelinePolicies = {};
     
-    var creationCallback = function( volume, newVolume ){
-
-        //SNAPSHOT SCHEDULES
-        
-        // for each time deliniation used we need to create a policy and attach
-        // it using the volume id in the name so we can identify it easily
-        for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
-            volume.snapshotPolicies[i].name =
-                volume.snapshotPolicies[i].name + '_' + newVolume.id;
-
-            $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
-                // attach the policy to the volume
-                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-            });
-        }
-
-        // TIMELINE SCHEDULES
-        
-        for ( var j = 0; angular.isDefined( volume.timelinePolicies ) && j < volume.timelinePolicies.length; j++ ){
-            
-            var policy = volume.timelinePolicies[j];
-            
-            policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
-            
-            // create the policy
-            $snapshot_service.createSnapshotPolicy( policy, function( policy, rtnCode ){
-                // attach the policy
-                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-            });
-        }
-        
-        $scope.cancel();
-    };
+//    var creationCallback = function( volume, newVolume ){
+//
+//        //SNAPSHOT SCHEDULES
+//        
+//        // for each time deliniation used we need to create a policy and attach
+//        // it using the volume id in the name so we can identify it easily
+//        for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
+//            volume.snapshotPolicies[i].name =
+//                volume.snapshotPolicies[i].name + '_' + newVolume.id;
+//
+//            $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
+//                // attach the policy to the volume
+//                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
+//            });
+//        }
+//
+//        // TIMELINE SCHEDULES
+//        
+//        for ( var j = 0; angular.isDefined( volume.timelinePolicies ) && j < volume.timelinePolicies.length; j++ ){
+//            
+//            var policy = volume.timelinePolicies[j];
+//            
+//            policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
+//            
+//            // create the policy
+//            $snapshot_service.createSnapshotPolicy( policy, function( policy, rtnCode ){
+//                // attach the policy
+//                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
+//            });
+//        }
+//        
+//        $scope.cancel();
+//    };
     
     var createVolume = function( volume ){
         
@@ -56,12 +56,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         * logic to combine the attachments so we need to do this in many calls
         * TODO:  Replace with server side logic
         **/
-        $volume_api.save( volume, function( newVolume ){ creationCallback( volume, newVolume ); },
-            function( response, code ){
-                
-                $http_fds.genericFailure( response, code );
+        $volume_api.save( volume, function( newVolume ){ 
             
-            });
+            // this basically just goes back to the list page
+            $scope.cancel();
+        });
     };
     
     var cloneVolume = function( volume ){
@@ -110,17 +109,30 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.$broadcast( 'fds::refresh' );
         
         var volume = {};
-        volume.sla = $scope.newQos.sla;
-        volume.limit = $scope.newQos.limit;
-        volume.priority = $scope.newQos.priority;
-        volume.snapshotPolicies = $scope.snapshotPolicies;
-        volume.timelinePolicies = $scope.timelinePolicies.policies;
-        volume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
-        volume.data_connector = $scope.dataConnector;
-        volume.name = $scope.volumeName;
+        volume.id = {
+            name: $scope.volumeName
+        };
+        
+        volume.qosPolicy = {
+            iops_min: $scope.newQos.sla,
+            iops_max: $scope.newQos.limit,
+            priority: $scope.newQos.priority
+        };
+        
+        volume.snapshotPolicies = $scope.timelinePolicies.policies;
+        volume.commitLogRetention = $scope.timelinePolicies.commitLogRetention;
+        
+        volume.settings = {
+            type: $scope.dataConnector.type
+        };
+        
+        if ( $scope.dataConnector.type === 'BLOCK' ){
+            volume.settings.capacity = $scope.dataConnector.attributes;
+        }
+        
         volume.mediaPolicy = $scope.mediaPolicy.value;
         
-        if ( !angular.isDefined( volume.name ) || volume.name === '' ){
+        if ( !angular.isDefined( volume.id.name ) || volume.id.name === '' ){
             
             var $event = {
                 text: 'A volume name is required.',

@@ -77,7 +77,7 @@ mockVolume = function(){
             for ( var i = 0; i < volService.volumes.length; i++ ){
                 var thisVol = volService.volumes[i];
 
-                if ( thisVol.name === volume.name ){
+                if ( thisVol.id.name === volume.id.name ){
                     // edit
                     volService.volumes[i] = volume;
 
@@ -91,10 +91,14 @@ mockVolume = function(){
                 }
             }
 
-            volume.id = (new Date()).getTime();
-            volume.current_usage = {
-                size: 0,
-                unit: 'B'
+            volume.id.uuid = (new Date()).getTime();
+            volume.status = {
+                currentUsage: {
+                    size: 0,
+                    unit: 'B'
+                },
+                lastCapacityFirebreak: 0,
+                lastPerformanceFirebreak: 0
             };
             
             volume.rate = 10000;
@@ -159,27 +163,28 @@ mockVolume = function(){
 
         volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
         //                callback( [] );
-            var ps = $snapshot_service.getPolicies();
-            var rtn = [];
-
-            for ( var i = 0; i < ps.length; i++ ){
+            var policies = [];
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                var volume = volService.volumes[i];
                 
-                if ( ps[i].name.indexOf( volumeId ) != -1 ){
-                    rtn.push( ps[i] );
+                if ( volume.id.uuid === volumeId ){
+                    policies = volume.snapshotPolicies;
+                    break;
                 }
             }
             
             if ( angular.isFunction( callback ) ){
-                callback( rtn );
+                callback( policies );
             }
             
             return {
                 then: function( cb ){
                     if ( angular.isFunction( cb ) ){
-                        cb( rtn );
+                        cb( policies );
                     }
                 }
-            }
+            };
         };
         
         volService.getQosPolicyPresets = function( callback, failure ){

@@ -55,7 +55,7 @@ var createNewStat = function( vol ){
     }
     
     // rationalize usage to correct values
-    vol.current_usage.size = parseInt( vol.current_usage.size ) + parseInt((vol.rate / 60).toFixed( 0 ));
+    vol.status.currentUsage.size = parseInt( vol.status.currentUsage.size ) + parseInt((vol.rate / 60).toFixed( 0 ));
 
     var minute = {
         time: (new Date()).getTime(),
@@ -139,7 +139,7 @@ var computeStats = function(){
     for ( var i = 0; vols != null && i < vols.length; i++ ){
         
         var volume = vols[i];
-        var stat = JSON.parse( window.localStorage.getItem( volume.id + '_stats' ) );
+        var stat = JSON.parse( window.localStorage.getItem( volume.id.uuid + '_stats' ) );
         
         if ( !angular.isDefined( stat ) || stat === null ){
             
@@ -153,7 +153,7 @@ var computeStats = function(){
             stat = addStats( volume, stat );
         }
         
-        window.localStorage.setItem( volume.id + '_stats', JSON.stringify( stat ) );
+        window.localStorage.setItem( volume.id.uuid + '_stats', JSON.stringify( stat ) );
     }
 };
 

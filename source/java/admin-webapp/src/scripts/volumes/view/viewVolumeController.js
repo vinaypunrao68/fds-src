@@ -118,30 +118,30 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.getSlaLabel = function(){
         
-        if ( $scope.qos.sla === 0 ){
+        if ( $scope.qos.iops_min === 0 ){
             return $filter( 'translate' )( 'common.l_none' );
         }
         
-        return $scope.qos.sla;
+        return $scope.qos.iops_min;
     };
     
     $scope.getLimitLabel = function(){
         
-        if ( $scope.qos.limit === 0 ){
+        if ( $scope.qos.iops_max === 0 ){
             return $filter( 'translate' )( 'volumes.qos.l_unlimited' );
         }
         
-        return $scope.qos.limit;
+        return $scope.qos.iops_max;
     };
     
     $scope.getDataTypeLabel = function(){
         
-        if ( !angular.isDefined( $scope.dataConnector ) || !angular.isDefined( $scope.dataConnector.type ) ){
+        if ( !angular.isDefined( $scope.thisVolume ) || !angular.isDefined( $scope.thisVolume.settings ) ){
             return '';
         }
         
-        var firstLetter = $scope.dataConnector.type.substr( 0, 1 ).toUpperCase();
-        var theRest = $scope.dataConnector.type.substr( 1 ).toLowerCase();
+        var firstLetter = $scope.thisVolume.settings.type.substr( 0, 1 ).toUpperCase();
+        var theRest = $scope.thisVolume.settings.type.substr( 1 ).toLowerCase();
         
         return firstLetter + theRest;
     };
@@ -258,7 +258,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return;
         }
         
-        return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
+        return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id.uuid, function( realPolicies ){
 
             var notTimelinePolicies = [];
             var timelinePolicies = [];
@@ -300,9 +300,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     };    
     
     var initQosSettings = function(){
-        $scope.qos.sla = $scope.thisVolume.sla;
-        $scope.qos.limit = $scope.thisVolume.limit;
-        $scope.qos.priority = $scope.thisVolume.priority;
+        $scope.qos = $scope.thisVolume.qosPolicy;
         $scope.mediaPolicy = $media_policy_helper.convertRawToObjects( $scope.thisVolume.mediaPolicy );
         $scope.mediaPreset = $qos_policy_helper.convertRawToPreset( $scope.qos ).label;
     };
@@ -437,7 +435,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
         $scope.thisVolume = $scope.volumeVars.selectedVolume;
 
-        $scope.dataConnector = $scope.thisVolume.data_connector;
+//        $scope.dataConnector = $scope.thisVolume.data_connector;
 
         initQosSettings();
 
