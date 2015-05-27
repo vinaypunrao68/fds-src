@@ -1020,7 +1020,7 @@ class TestDeletes(TestCase.FDSTestCase):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_Deletes,
-                                             "delete N no.of objects")
+                                             "check N no.of keys")
         self.dataset = dataset
         self.count   = int(count)
         self.passedBucket=bucket
