@@ -170,7 +170,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         pass
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
-        self.nbd.image_via_nbd(self.nbd_image_endpoints.next(), context, volume, image_service, image_id)
+        self.image_via_nbd(self.nbd_image_endpoints.next(), context, volume, image_service, image_id)
 
     def image_via_nbd(self, nbd_server, context, volume, image_service, image_id):
         with self.nbd.use_nbd_local(nbd_server, volume["name"]) as dev:
