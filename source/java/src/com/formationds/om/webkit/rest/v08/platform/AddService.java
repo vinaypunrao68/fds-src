@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -17,9 +18,9 @@ public class AddService implements RequestHandler {
     private static final Logger logger =
             LoggerFactory.getLogger( AddService.class );
 
-    private ConfigurationService.Iface client;
+    private ConfigurationApi client;
 	
-	public AddService( final ConfigurationService.Iface client ){
+	public AddService( final ConfigurationApi client ){
 		
 		this.client = client;
 	}

@@ -18,6 +18,7 @@ import com.formationds.commons.model.Service;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -27,9 +28,9 @@ public class RemoveService implements RequestHandler {
     private static final Logger logger =
             LoggerFactory.getLogger( RemoveService.class );
 
-    private ConfigurationService.Iface client;
+    private ConfigurationApi client;
 	
-	public RemoveService( final ConfigurationService.Iface client ){
+	public RemoveService( final ConfigurationApi client ){
 		
 		this.client = client;
 	}

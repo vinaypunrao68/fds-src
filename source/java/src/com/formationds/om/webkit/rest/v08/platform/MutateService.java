@@ -23,6 +23,7 @@ import com.formationds.commons.model.type.ServiceType;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -31,9 +32,9 @@ public class MutateService implements RequestHandler {
 
     private static final Logger logger = LoggerFactory.getLogger( MutateService.class );
 
-    private ConfigurationService.Iface client;
+    private ConfigurationApi client;
 	
-	public MutateService( final ConfigurationService.Iface client ){
+	public MutateService( final ConfigurationApi client ){
 		
 		this.client = client;
 	}
