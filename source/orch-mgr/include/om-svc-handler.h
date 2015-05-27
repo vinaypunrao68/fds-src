@@ -8,6 +8,8 @@
 #include <fdsp/OMSvc.h>
 #include <fdsp/om_api_types.h>
 #include <fdsp/svc_types_types.h>
+#include <fdsp/health_monitoring_api_types.h>
+#include <fdsp/health_monitoring_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <OmEventTracker.h>
 
@@ -80,6 +82,9 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 
     void setConfigDB(kvstore::ConfigDB* configDB);
     
+    void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    						boost::shared_ptr<fpi::NotifyHealthReport> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;

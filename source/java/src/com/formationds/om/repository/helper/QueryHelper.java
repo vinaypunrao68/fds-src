@@ -392,6 +392,14 @@ public class QueryHelper {
 	    		contexts = api.listVolumes("")
 	    			.stream()
                         .filter(vd -> authorizer.ownsVolume(token, vd.getName()))
+                        
+/*
+ * HACK
+ * .filter( v -> isSystemVolume() != true )
+ * 
+ * THIS IS ALSO IN ListVolumes.java
+ */                        
+                        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
                         .map(vd -> {
 
                             String volumeId = "";

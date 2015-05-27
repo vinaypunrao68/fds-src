@@ -212,6 +212,7 @@ Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                         leveldb::DB *db)
 {
+    LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec;
     Error err(ERR_OK);
     ObjMetaData omd;
 
@@ -603,7 +604,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_SECOND_PHASE_APPLYING_DELTA)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
-                 << ": Unexpected migration executor state";
+                 << ": Unexpected migration executor state " << state;
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -659,6 +660,7 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 void
 MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     fds_uint32_t roundNum = 2;
+    LOGMIGRATE << "handleMigrationRoundDone";
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states
@@ -668,6 +670,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         if (!std::atomic_compare_exchange_strong(&state,
                                                  &expect,
                                                  ME_SECOND_PHASE_REBALANCE_START)) {
+            LOGMIGRATE << "ok, see if we are in the second round of migration";
             // ok, see if we are in the second round of migration
             expect = ME_SECOND_PHASE_APPLYING_DELTA;
             if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
@@ -680,6 +683,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                 sendFinishResyncToClient();
             }
         } else {
+            LOGMIGRATE << "we just finished first round and started second round";
             roundNum = 1;
             // we just finished first round and started second round
         }

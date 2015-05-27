@@ -15,7 +15,7 @@ enum HealthState {
   LIMITED          = 404003;
   SHUTTING_DOWN    = 404004;
   ERROR            = 404005;
-  UNREACHABLE      = 404005;
+  UNREACHABLE      = 404006;
   UNEXPECTED_EXIT  = 404007;
 }
 
