@@ -5,6 +5,7 @@ package com.formationds.om.webkit.rest.v08;
 
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.webkit.AbstractApiDefinition;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
 import com.formationds.om.webkit.rest.v08.events.QueryEvents;
 import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
@@ -47,68 +48,50 @@ import com.formationds.om.webkit.rest.v08.volumes.ListVolumes;
 import com.formationds.om.webkit.rest.v08.volumes.ModifyVolume;
 import com.formationds.om.webkit.rest.v08.volumes.MutateSnapshotPolicy;
 import com.formationds.om.webkit.rest.v08.users.GetUser;
-import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.JsonResource;
-import com.formationds.web.toolkit.RequestHandler;
+
 import com.formationds.web.toolkit.WebApp;
 
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
-import javax.servlet.http.HttpServletResponse;
-
-import java.util.function.Function;
 
 /**
  * @author ptinius
  */
-public class WebKitImpl {
+public class ApiDefinition extends AbstractApiDefinition{
 
     private static final Logger logger =
-        LoggerFactory.getLogger( WebKitImpl.class );
+        LoggerFactory.getLogger( ApiDefinition.class );
 
-    private static final String URL_PREFIX = "/fds/config/0.8";
+    private static final String URL_PREFIX = "/fds/config/v08";
     
     private WebApp webApp;
 
-    private final String webDir;
-    private final int httpPort;
-    private final int httpsPort;
     private final Authenticator authenticator;
     private final Authorizer authorizer;
     private final SecretKey secretKey;
 
-    public WebKitImpl( final Authenticator authenticator,
+    public ApiDefinition( final Authenticator authenticator,
                        final Authorizer authorizer,
-                       final String webDir,
-                       final int httpPort,
-                       final int httpsPort,
-                       final SecretKey secretKey ) {
+                       final SecretKey secretKey,
+                       WebApp webApp) {
 
         this.authenticator = authenticator;
         this.authorizer = authorizer;
-        this.webDir = webDir;
-        this.httpPort = httpPort;
-        this.httpsPort = httpsPort;
         this.secretKey = secretKey;
+        this.webApp = webApp;
 
     }
 
-    public void start( WebApp webapp) {
+    public void configure() {
 
         final ConfigurationApi configApi = SingletonConfigAPI.instance().api();
-
-//        this.webApp = new WebApp( webDir );
-        this.webApp = webapp;
-        
-        logger.info( "Initializing REST API 0.8..." );
         
         configureCapabilities( configApi );
         configureAuthEndpoints( configApi );
@@ -121,7 +104,6 @@ public class WebKitImpl {
         configureMetricsEndpoints( configApi );
         configureEventsEndpoints( configApi );
         
-        logger.info( "Completed REST API 0.8 initialization" );
     }
     
     /**
@@ -152,7 +134,7 @@ public class WebKitImpl {
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
     	
     	//re-issue a token for a specific user
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( config, getSecretKey() ) );
     	
     	logger.trace( "Completed initializing authentication endpoints." );
     }
@@ -232,19 +214,19 @@ public class WebKitImpl {
     	logger.trace( "Initializing user endpoints..." );
     	
     	// list users
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers( config, getSecretKey() ) );
     	
     	// create user
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser( config, getSecretKey() ) );
     	
     	// get a specific user
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser( config, getSecretKey() ) );
     	
     	// get current user
     	authenticate( HttpMethod.GET, URL_PREFIX + "/userinfo", (token) -> new CurrentUser( getAuthorizer(), token ) );
     	
     	//edit user
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( config, getAuthorizer(), getSecretKey(), token ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( config, getAuthorizer(), getSecretKey(), token ) );
     	
     	// delete user  TODO: Not implemented yet
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/users/:user_id", (token) -> new DeleteUser( config ), getAuthorizer() );
@@ -262,19 +244,19 @@ public class WebKitImpl {
     	logger.trace( "Initializing node endpoints..." );
     	
     	// list nodes and services
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes", (token) -> new ListNodes( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes", (token) -> new ListNodes( config ) );
     	
     	// get one specific node
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id", (token) -> new GetNode( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id", (token) -> new GetNode( config ) );
     	
     	// add a node into the system
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id", (token) -> new AddNode( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id", (token) -> new AddNode( config ) );
     	
     	// remove a node
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id", (token) -> new RemoveNode( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id", (token) -> new RemoveNode( config ) );
     	
     	// change a node (includes state)
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id", (token) -> new MutateNode( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id", (token) -> new MutateNode( config ) );
     	
     	logger.trace( "Completed initializing node endpoints." );
     }
@@ -289,16 +271,16 @@ public class WebKitImpl {
     	logger.trace( "Initializing service endpoints..." );
     	
     	// list services on a node
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services", (token) -> new ListServices( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services", (token) -> new ListServices( config ) );
     	
     	// add a new service to a node
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id/services", (token) -> new AddService( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id/services", (token) -> new AddService( config ) );
     	
     	// remove a service from a node
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new RemoveService( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new RemoveService( config ) );
     	
     	// change a service (primarily used for start/stop)
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new MutateService( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new MutateService( config ) );
     	
     	logger.trace( "Completed initializing service endpoints." );
     }
@@ -313,22 +295,22 @@ public class WebKitImpl {
     	logger.trace( "Initializing tenant endpoints..." );
     	
     	// list the tenants
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants( config, getSecretKey() ) );
     	
     	// create tenant
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant( config, getSecretKey() ) );
     	
     	// delete tenant TODO: Not implemented
-//    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ), getAuthorizer() );
+//    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ) );
     	
     	// edit tenant TODO: Not implemented
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( config ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( config ) );
     	
     	// assign a user to a tenancy
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant( config, getSecretKey() ) );
     	
     	// remove a user from a tenancy
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant( config, getSecretKey() ), getAuthorizer() );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant( config, getSecretKey() ) );
     	
     	logger.trace( "Completed initializing tenant endpoints." );
     }
@@ -377,79 +359,20 @@ public class WebKitImpl {
     
 // Accessors for debug-ability    
     
-    private WebApp getWebApp(){
+    protected WebApp getWebApp(){
     	return this.webApp;
     }
     
-    private Authorizer getAuthorizer(){
+    protected Authorizer getAuthorizer(){
     	return this.authorizer;
     }
     
-    private Authenticator getAuthenticator(){
+    protected Authenticator getAuthenticator(){
     	return this.authenticator;
     }
     
-    private SecretKey getSecretKey(){
+    protected SecretKey getSecretKey(){
     	return this.secretKey;
-    }
-    
-    /**
-     * Helper method in order to make sure only an FDS admin
-     * can hit the requested URL
-     * 
-     * @param method
-     * @param route
-     * @param reqHandler
-     * @param authorizer
-     */
-    private void fdsAdminOnly( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> reqHandler, Authorizer authorizer ) {
-        
-    	authenticate( method, route, ( t ) -> {
-            
-            try {
-                
-            	if( authorizer.userFor( t )
-                              .isIsFdsAdmin() ) {
-                    return reqHandler.apply( t );
-                } else {
-                    return ( r, p ) -> {
-                    	
-                		JSONObject jObject = new JSONObject();
-                		jObject.put( "message",  "Invalid permissions" );
-                        
-                		return new JsonResource( jObject, HttpServletResponse.SC_UNAUTHORIZED );
-                    };
-                }
-            	
-            } catch( SecurityException e ) {
-                
-            	logger.error( "Error authorizing request, userId = " + t.getUserId(), e );
-                
-            	return ( r, p ) -> {
-            		
-            		JSONObject jObject = new JSONObject();
-            		jObject.put( "message",  "Invalid permissions" );
-            		
-                    return new JsonResource( jObject, HttpServletResponse.SC_UNAUTHORIZED );
-            	};
-            }
-        } );
-    }
-
-    /**
-     * Helper to make sure the call is authenticated
-     * before passing to the requested URL
-     *  
-     * @param method
-     * @param route
-     * @param reqHandler
-     */
-    private void authenticate( HttpMethod method, String route, Function<AuthenticationToken,RequestHandler> reqHandler ) {
-        
-    	HttpAuthenticator httpAuth = new HttpAuthenticator( reqHandler, getAuthenticator() );
-    	
-    	HttpErrorHandler httpErrorHandler = new HttpErrorHandler( httpAuth );
-        getWebApp().route( method, route, () -> httpErrorHandler );
     }
 }
 

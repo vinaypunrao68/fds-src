@@ -187,18 +187,6 @@ public class Main {
                         httpsPort,
                         secretKey );
         	originalImpl.start();
-        	
-        	if ( FdsFeatureToggles.REST_08.isActive() ){
-        		
-        		logger.info( "REST version 0.8 Web toolkit enabled" );
-        		new com.formationds.om.webkit.rest.v08.WebKitImpl(
-        				authenticator, 
-        				authorizer, 
-        				webDir, 
-        				httpPort, 
-        				httpsPort, 
-        				secretKey ).start( originalImpl.getWebApp() );
-        	}
 
         } else {
 
