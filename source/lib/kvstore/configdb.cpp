@@ -345,7 +345,25 @@ bool ConfigDB::volumeExists(fds_volid_t volumeId) {
     }
     return false;
 }
-bool ConfigDB::volumeExists(ConstString volumeName, int localDomain){ return false; }
+
+bool ConfigDB::volumeExists(ConstString volumeName, int localDomain)
+{ 
+    std::vector<VolumeDesc> volumes;
+    const bool bRetCode = getVolumes( volumes, localDomain );
+    if ( bRetCode )
+    {
+        for ( const auto volume : volumes )
+        {
+            if ( volume.getName().compare( volumeName ) == 0 )
+            {
+                return true;
+            }
+        }
+    }
+    
+    return false; 
+}
+
 bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volIds, int localDomain) {
     std::vector<long long> volumeIds; //NOLINT
 
