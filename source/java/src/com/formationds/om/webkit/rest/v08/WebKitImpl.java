@@ -1,0 +1,274 @@
+package com.formationds.om.webkit.rest.v08;
+/*
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+ */
+
+import com.formationds.protocol.commonConstants;
+import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.webkit.rest.*;
+import com.formationds.om.webkit.rest.domain.*;
+import com.formationds.om.webkit.rest.events.IngestEvents;
+import com.formationds.om.webkit.rest.events.QueryEvents;
+import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
+import com.formationds.om.webkit.rest.metrics.QueryFirebreak;
+import com.formationds.om.webkit.rest.metrics.QueryMetrics;
+import com.formationds.om.webkit.rest.metrics.SystemHealthStatus;
+import com.formationds.om.webkit.rest.v08.platform.AddNode;
+import com.formationds.om.webkit.rest.v08.platform.GetNode;
+import com.formationds.om.webkit.rest.v08.platform.ListNodes;
+import com.formationds.om.webkit.rest.v08.platform.MutateNode;
+import com.formationds.om.webkit.rest.v08.platform.RemoveNode;
+import com.formationds.om.webkit.rest.v08.snapshots.CreateSnapshot;
+import com.formationds.om.webkit.rest.v08.snapshots.DeleteSnapshot;
+import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshotsByVolumeId;
+import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
+import com.formationds.om.webkit.rest.v08.token.GrantToken;
+import com.formationds.om.webkit.rest.v08.token.ReissueToken;
+import com.formationds.om.webkit.rest.v08.users.CreateUser;
+import com.formationds.om.webkit.rest.v08.users.CurrentUser;
+import com.formationds.om.webkit.rest.v08.users.ListUsers;
+import com.formationds.om.webkit.rest.v08.users.UpdatePassword;
+import com.formationds.om.webkit.rest.v08.volumes.CloneVolume;
+import com.formationds.om.webkit.rest.v08.volumes.CreateVolume;
+import com.formationds.om.webkit.rest.v08.volumes.DeleteVolume;
+import com.formationds.om.webkit.rest.v08.volumes.GetVolume;
+import com.formationds.om.webkit.rest.v08.volumes.ListVolumes;
+import com.formationds.om.webkit.rest.v08.volumes.ModifyVolume;
+import com.formationds.om.webkit.rest.v08.users.GetUser;
+import com.formationds.om.webkit.rest.policy.PostQoSPolicy;
+import com.formationds.om.webkit.rest.policy.GetQoSPolicies;
+import com.formationds.om.webkit.rest.policy.PutQoSPolicy;
+import com.formationds.om.webkit.rest.policy.DeleteQoSPolicy;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
+import com.formationds.security.Authorizer;
+import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.web.toolkit.*;
+
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.crypto.SecretKey;
+import javax.servlet.http.HttpServletResponse;
+
+import java.util.function.Function;
+
+/**
+ * @author ptinius
+ */
+public class WebKitImpl {
+
+    private static final Logger logger =
+        LoggerFactory.getLogger( WebKitImpl.class );
+
+    private static final String URL_PREFIX = "/fds/config/0.8";
+    
+    private WebApp webApp;
+
+    private final String webDir;
+    private final int httpPort;
+    private final int httpsPort;
+    private final Authenticator authenticator;
+    private final Authorizer authorizer;
+    private final SecretKey secretKey;
+
+    public WebKitImpl( final Authenticator authenticator,
+                       final Authorizer authorizer,
+                       final String webDir,
+                       final int httpPort,
+                       final int httpsPort,
+                       final SecretKey secretKey ) {
+
+        this.authenticator = authenticator;
+        this.authorizer = authorizer;
+        this.webDir = webDir;
+        this.httpPort = httpPort;
+        this.httpsPort = httpsPort;
+        this.secretKey = secretKey;
+
+    }
+
+    public void start( ) {
+
+        final ConfigurationApi configApi = SingletonConfigAPI.instance().api();
+
+        this.webApp = new WebApp( webDir );
+        
+        configureAuthEndpoints( configApi );
+        configureVolumeEndpoints( configApi );
+        configureUserEndpoints( configApi );
+        configureNodeEndpoints( configApi );
+    }
+    
+    /**
+     * Configure all endpoints having to do with tokens and authentication
+     */
+    private void configureAuthEndpoints( ConfigurationApi config ){
+    	
+    	// login / get an token using credentials
+    	getWebApp().route( HttpMethod.POST, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
+    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
+    	
+    	//re-issue a token for a specific user
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( config, getSecretKey() ), getAuthorizer() );
+    }
+    
+    /**
+     * Configure all endpoints having to do with volumes
+     * @param config
+     */
+    private void configureVolumeEndpoints( ConfigurationApi config ){
+    	
+    	// list volumes
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes() );
+    	
+    	// get a specific volume
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume() );
+    	
+    	// create a volume
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( config, getAuthorizer(), token ) );
+    	
+    	// clone a volume.  It takes as input either a snapshot ID/obj or a time
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id", (token) -> new CloneVolume( config ) );
+    	
+    	// delete volume
+    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id", (token) -> new DeleteVolume( config, getAuthorizer(), token ) );
+    	
+    	// modify a volume
+    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new ModifyVolume( config ) );
+    	
+    	// take a snapshot of a volume
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new CreateSnapshot( config ) );
+    	
+    	// list snapshots for a volume
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshotsByVolumeId( config ) );
+    	
+    	// get a specific snapshot
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( config ) );
+    	
+    	// delete a snapshot
+    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new DeleteSnapshot( config ) );
+    }
+    
+    /**
+     * Setup all the endpoints for dealing with users
+     * 
+     * @param config
+     */
+    private void configureUserEndpoints( ConfigurationApi config ){
+    	
+    	// list users
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers( config, getSecretKey() ), getAuthorizer() );
+    	
+    	// create user
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser( config, getSecretKey() ), getAuthorizer() );
+    	
+    	// get a specific user
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser( config, getSecretKey() ), getAuthorizer() );
+    	
+    	// get current user
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/userinfo", (token) -> new CurrentUser( getAuthorizer(), token ) );
+    	
+    	//edit user
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( config, getAuthorizer(), getSecretKey(), token ), getAuthorizer() );
+    }
+    
+    /**
+     * Setup all the endpoints for interacting with nodes
+     * 
+     * @param config
+     */
+    private void configureNodeEndpoints( ConfigurationApi config ){
+    	
+    	// list nodes and services
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes", (token) -> new ListNodes( config ), getAuthorizer() );
+    	
+    	// get one specific node
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id", (token) -> new GetNode( config ), getAuthorizer() );
+    	
+    	// add a node into the system
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id", (token) -> new AddNode( config ), getAuthorizer() );
+    	
+    	// remove a node
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id", (token) -> new RemoveNode( config ), getAuthorizer() );
+    	
+    	// change a node (includes state)
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id", (token) -> new MutateNode( config ), getAuthorizer() );
+    }
+    
+// Accessors for debug-ability    
+    
+    private WebApp getWebApp(){
+    	return this.webApp;
+    }
+    
+    private Authorizer getAuthorizer(){
+    	return this.authorizer;
+    }
+    
+    private Authenticator getAuthenticator(){
+    	return this.authenticator;
+    }
+    
+    private SecretKey getSecretKey(){
+    	return this.secretKey;
+    }
+    
+    /**
+     * Helper method in order to make sure only an FDS admin
+     * can hit the requested URL
+     * 
+     * @param method
+     * @param route
+     * @param f
+     * @param authorizer
+     */
+    private void fdsAdminOnly( HttpMethod method,
+                               String route,
+                               Function<AuthenticationToken, RequestHandler> f,
+                               Authorizer authorizer ) {
+        authenticate( method, route, ( t ) -> {
+            try {
+                if( authorizer.userFor( t )
+                              .isIsFdsAdmin() ) {
+                    return f.apply( t );
+                } else {
+                    return ( r, p ) ->
+                        new JsonResource( new JSONObject().put( "message",
+                                                                "Invalid permissions" ),
+                                          HttpServletResponse.SC_UNAUTHORIZED );
+                }
+            } catch( SecurityException e ) {
+                logger.error(
+                    "Error authorizing request, userId = " + t.getUserId(),
+                    e );
+                return ( r, p ) ->
+                    new JsonResource( new JSONObject().put( "message",
+                                                            "Invalid permissions" ),
+                                      HttpServletResponse.SC_UNAUTHORIZED );
+            }
+        } );
+    }
+
+    /**
+     * Helper to make sure the call is authenticated
+     * before passing to the requested URL
+     *  
+     * @param method
+     * @param route
+     * @param f
+     */
+    private void authenticate( HttpMethod method,
+                               String route,
+                               Function<AuthenticationToken,
+                                   RequestHandler> f ) {
+        HttpErrorHandler eh =
+            new HttpErrorHandler(
+                new HttpAuthenticator( f,
+                                       authenticator) );
+        webApp.route( method, route, ( ) -> eh );
+    }
+}
+
