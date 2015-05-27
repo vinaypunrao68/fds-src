@@ -138,7 +138,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         LOG.warning('FDS_DRIVER: detach volume %s to %s begin' % (volume['name'], connector['ip']))
         try:
             url = self.host_to_nbdd_url(connector['ip'])
-            self.nbd.detach_remote_all(url, volume['name'])
+            self.nbd.detach_nbd_remote_all(url, volume['name'])
             LOG.warning('FDS_DRIVER: detach volume %s to %s success' % (volume['name'], connector['ip']))
         except Exception as e:
             LOG.warning('FDS_DRIVER: detach volume %s to %s failed with exception %s' % (volume['name'], connector['ip'], traceback.format_exc()))
@@ -170,7 +170,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         pass
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
-        self.nbd.image_via_nbd(self.nbd_image_endpoints.next(), context, volume, image_service, image_id)
+        self.image_via_nbd(self.nbd_image_endpoints.next(), context, volume, image_service, image_id)
 
     def image_via_nbd(self, nbd_server, context, volume, image_service, image_id):
         with self.nbd.use_nbd_local(nbd_server, volume["name"]) as dev:
