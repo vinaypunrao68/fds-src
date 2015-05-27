@@ -966,6 +966,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
+    handlers[FDS_DM_CHKER] = new dm::DmCheckerHandler(*this);
 }
 
 DataMgr::~DataMgr()

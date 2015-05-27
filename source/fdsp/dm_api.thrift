@@ -458,6 +458,21 @@ struct GetDmStatsRespMsg {
 }
 
 /* ------------------------------------------------------------
+   Operations for  Meta verifications 
+   ------------------------------------------------------------*/
+
+struct dmMigrationChkMsg {
+  1: i64                       volume_id;
+  2: i64                       dest_dm;
+  3: bool                      chkRemedy ;
+}
+
+struct dmMigrationChkResp {
+  1: i64                       volume_id;
+  2: bool                      status;
+}
+
+/* ------------------------------------------------------------
    Operations for Replication
    ------------------------------------------------------------*/
 
