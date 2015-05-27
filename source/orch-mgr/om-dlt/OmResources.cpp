@@ -1751,6 +1751,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     TRACEFUNC;
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
+    bool fPrevRegistered = false;
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
@@ -1769,6 +1770,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             bool fAllowReRegistration = MODULEPROVIDER()->get_fds_config()->get<bool>
                     ("fds.feature_toggle.om.allow_service_reregistration",false);
             if (pmNodes->hasRegistered(msg) && fAllowReRegistration) {
+                fPrevRegistered = true;
                 LOGDEBUG << "re registration : " << msg->service_uuid.uuid;
             } else {
                 LOGERROR << "Error: cannot register service " << msg->node_name
@@ -1796,7 +1798,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
          * schedule the broadcast with a 3s delay.
          */
         MODULEPROVIDER()->proc_thrpool()->schedule(&OM_NodeDomainMod::setupNewNode,
-                                                  this, uuid, msg, newNode, 3000);
+                                                   this, uuid, msg, newNode, 3000, fPrevRegistered);
     }
     return err;
 }
@@ -1804,7 +1806,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     const FdspNodeRegPtr msg,
                                     NodeAgent::pointer   newNode,
-                                    fds_uint32_t delayTime) {
+                                    fds_uint32_t delayTime,
+                                    bool fPrevRegistered) {
 
     if (delayTime) {
         usleep(delayTime * 1000);
@@ -1895,6 +1898,10 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             	// Send the DMT to DMs.
                 om_dmt_update_cluster();
+                if (fPrevRegistered) {
+                    om_locDomain->om_bcast_vol_list(newNode);
+                    LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
+                }
             }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
@@ -1906,6 +1913,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             // it receives an IO for that volume
             if (msg->node_type != fpi::FDSP_ACCESS_MGR) {
                 om_locDomain->om_bcast_vol_list(newNode);
+                LOGDEBUG << "bcasting vol as domain is NOT up :" << msg->node_type;
             }
         }
 }
