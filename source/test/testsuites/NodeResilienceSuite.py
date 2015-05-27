@@ -62,10 +62,10 @@ def suiteConstruction(self):
     suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
 
-    suite.addTest(testcases.TestFDSServiceMgt.TestDMKill())
-    suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown())
-    suite.addTest(testcases.TestFDSServiceMgt.TestDMBringUp())
-    suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
+    #suite.addTest(testcases.TestFDSServiceMgt.TestDMKill())
+    #suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown())
+    #suite.addTest(testcases.TestFDSServiceMgt.TestDMBringUp())
+    #suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
 
     suite.addTest(testcases.TestFDSServiceMgt.TestPMKill())
     suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
