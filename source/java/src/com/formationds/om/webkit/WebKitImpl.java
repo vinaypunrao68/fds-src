@@ -13,6 +13,7 @@ import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.om.webkit.rest.LandingPage;
+import com.formationds.om.webkit.rest.v08.ApiDefinition;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +77,7 @@ public class WebKitImpl {
         if ( FdsFeatureToggles.REST_08.isActive() ){
         	
         	logger.info( "Initializing REST API v08..." );
-        	ApiDefinition rest08 = new ApiDefinition( this.authenticator, this.authorizer, this.secretKey, webApp );
+        	ApiDefinition rest08 = new com.formationds.om.webkit.rest.v08.ApiDefinition( this.authenticator, this.authorizer, this.secretKey, webApp );
         	rest08.configure();
             logger.info( "Completed initializing REST API v08." );
         }

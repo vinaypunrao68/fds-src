@@ -29,7 +29,7 @@ public class RouteFinder {
                 .replaceAll("^/", "")
                 .replaceAll("$/", "");
         map.put(name, handler);
-        logger.debug( "Adding route: " + name );
+//        logger.debug( "Adding route: " + name );
     }
 
     public Optional<Route> resolve(Request request) {
