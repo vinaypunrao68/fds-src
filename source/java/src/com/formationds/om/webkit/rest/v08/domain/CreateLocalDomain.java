@@ -26,16 +26,16 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.util.Map;
 
-public class PostLocalDomain
+public class CreateLocalDomain
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( PostLocalDomain.class );
+    LoggerFactory.getLogger( CreateLocalDomain.class );
 
   private final Authorizer authorizer;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
-  public PostLocalDomain( final Authorizer authorizer,
+  public CreateLocalDomain( final Authorizer authorizer,
                             final ConfigurationService.Iface configApi,
                             final AuthenticationToken token ) {
     this.authorizer = authorizer;

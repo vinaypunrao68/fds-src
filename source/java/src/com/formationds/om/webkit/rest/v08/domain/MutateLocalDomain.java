@@ -21,16 +21,16 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
-public class PutLocalDomain
+public class MutateLocalDomain
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( PutLocalDomain.class );
+    LoggerFactory.getLogger( MutateLocalDomain.class );
 
   private final Authorizer authorizer;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
-  public PutLocalDomain( final Authorizer authorizer,
+  public MutateLocalDomain( final Authorizer authorizer,
                          final ConfigurationService.Iface configApi,
                          final AuthenticationToken token ) {
     this.authorizer = authorizer;

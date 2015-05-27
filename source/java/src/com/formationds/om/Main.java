@@ -178,13 +178,27 @@ public class Main {
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
-            logger.info( "Web toolkit enabled" );
-            new WebKitImpl( authenticator,
+        	if ( FdsFeatureToggles.REST_08.isActive() ){
+        		
+        		logger.info( "REST version 0.8 Web toolkit enabled" );
+        		new com.formationds.om.webkit.rest.v08.WebKitImpl(
+        				authenticator, 
+        				authorizer, 
+        				webDir, 
+        				httpPort, 
+        				httpsPort, 
+        				secretKey ).start();
+        	}
+        	else {
+        		logger.info( "Original Web toolkit enabled" );
+        		
+            	new WebKitImpl( authenticator,
                             authorizer,
                             webDir,
                             httpPort,
                             httpsPort,
                             secretKey ).start( );
+        	}
 
         } else {
 

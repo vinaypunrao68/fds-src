@@ -18,13 +18,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-public class ListSnapshotsByVolumeId
+public class ListSnapshots
   implements RequestHandler {
 
   private static final String REQ_PARAM_VOLUME_ID = "volumeId";
   private ConfigurationApi config;
 
-  public ListSnapshotsByVolumeId(final ConfigurationApi config) {
+  public ListSnapshots(final ConfigurationApi config) {
     this.config = config;
   }
 

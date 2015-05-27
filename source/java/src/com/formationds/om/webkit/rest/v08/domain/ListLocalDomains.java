@@ -20,16 +20,16 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
-public class GetLocalDomains
+public class ListLocalDomains
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( GetLocalDomains.class );
+    LoggerFactory.getLogger( ListLocalDomains.class );
 
   private final Authorizer authorizer;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
-  public GetLocalDomains( final Authorizer authorizer,
+  public ListLocalDomains( final Authorizer authorizer,
                           final ConfigurationService.Iface configApi,
                           final AuthenticationToken token ) {
     this.authorizer = authorizer;

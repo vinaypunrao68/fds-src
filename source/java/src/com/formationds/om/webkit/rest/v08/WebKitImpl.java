@@ -23,7 +23,7 @@ import com.formationds.om.webkit.rest.v08.platform.RemoveNode;
 import com.formationds.om.webkit.rest.v08.platform.RemoveService;
 import com.formationds.om.webkit.rest.v08.snapshots.CreateSnapshot;
 import com.formationds.om.webkit.rest.v08.snapshots.DeleteSnapshot;
-import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshotsByVolumeId;
+import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshots;
 import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
 import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
 import com.formationds.om.webkit.rest.v08.tenants.CreateTenant;
@@ -107,6 +107,8 @@ public class WebKitImpl {
 
         this.webApp = new WebApp( webDir );
         
+        logger.info( "Initializing REST API 0.8..." );
+        
         configureCapabilities( configApi );
         configureAuthEndpoints( configApi );
         configureVolumeEndpoints( configApi );
@@ -117,6 +119,8 @@ public class WebKitImpl {
         configureTenantEndpoints( configApi );
         configureMetricsEndpoints( configApi );
         configureEventsEndpoints( configApi );
+        
+        logger.info( "Completed REST API 0.8 initialization" );
     }
     
     /**
@@ -126,9 +130,13 @@ public class WebKitImpl {
      */
     private void configureCapabilities( ConfigurationApi config ){
     	
-    	 ParsedConfig platformConfig = SingletonConfiguration.instance().getConfig().getPlatformConfig();
+    	logger.trace( "Initializing capabilities URLs..." );
     	
-    	 authenticate( HttpMethod.GET, URL_PREFIX + "/capabilities", ( t ) -> new SystemCapabilities( platformConfig ) );
+    	ParsedConfig platformConfig = SingletonConfiguration.instance().getConfig().getPlatformConfig();
+	
+		authenticate( HttpMethod.GET, URL_PREFIX + "/capabilities", ( t ) -> new SystemCapabilities( platformConfig ) );
+		
+		logger.trace( "Completed initializing capabilities URLs." );
     }
     
     /**
@@ -136,12 +144,16 @@ public class WebKitImpl {
      */
     private void configureAuthEndpoints( ConfigurationApi config ){
     	
+    	logger.trace( "Initializing authentication endpoints..." );
+    	
     	// login / get an token using credentials
     	getWebApp().route( HttpMethod.POST, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
     	
     	//re-issue a token for a specific user
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( config, getSecretKey() ), getAuthorizer() );
+    	
+    	logger.trace( "Completed initializing authentication endpoints." );
     }
     
     /**
@@ -149,6 +161,8 @@ public class WebKitImpl {
      * @param config
      */
     private void configureVolumeEndpoints( ConfigurationApi config ){
+    	
+    	logger.trace( "Initializing volume endpoints..." );
     	
     	// list volumes
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes() );
@@ -172,13 +186,15 @@ public class WebKitImpl {
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new CreateSnapshot( config ) );
     	
     	// list snapshots for a volume
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshotsByVolumeId( config ) );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshots( config ) );
     	
     	// get a specific snapshot
     	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( config ) );
     	
     	// delete a snapshot
     	authenticate( HttpMethod.DELETE, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new DeleteSnapshot( config ) );
+    	
+    	logger.trace( "Completed initializing volume endpoints." );
     }
     
     /**
@@ -188,6 +204,8 @@ public class WebKitImpl {
      */
     private void configureSnapshotPolicyEndpoints( ConfigurationApi config ){
     
+    	logger.trace( "Initializing snapshot policy endpionts..." );
+    	
     	// list the snapshot policies for a volume
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshot_policies", (token) -> new ListSnapshotPoliciesForVolume( config ) );
     	
@@ -199,6 +217,8 @@ public class WebKitImpl {
     	
     	// edit a snapshot policy for a volume
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new MutateSnapshotPolicy( config ) );
+    	
+    	logger.trace( "Completed initializing snapshot policy endpoints." );
     }
     
     /**
@@ -207,6 +227,8 @@ public class WebKitImpl {
      * @param config
      */
     private void configureUserEndpoints( ConfigurationApi config ){
+    	
+    	logger.trace( "Initializing user endpoints..." );
     	
     	// list users
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers( config, getSecretKey() ), getAuthorizer() );
@@ -225,6 +247,8 @@ public class WebKitImpl {
     	
     	// delete user  TODO: Not implemented yet
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/users/:user_id", (token) -> new DeleteUser( config ), getAuthorizer() );
+    	
+    	logger.trace( "Completed initializing user endpoints." );
     }
     
     /**
@@ -233,6 +257,8 @@ public class WebKitImpl {
      * @param config
      */
     private void configureNodeEndpoints( ConfigurationApi config ){
+    	
+    	logger.trace( "Initializing node endpoints..." );
     	
     	// list nodes and services
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes", (token) -> new ListNodes( config ), getAuthorizer() );
@@ -248,6 +274,8 @@ public class WebKitImpl {
     	
     	// change a node (includes state)
     	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id", (token) -> new MutateNode( config ), getAuthorizer() );
+    	
+    	logger.trace( "Completed initializing node endpoints." );
     }
     
     /**
@@ -256,6 +284,8 @@ public class WebKitImpl {
      * @param config
      */
     private void configureServiceEndpoints( ConfigurationApi config ){
+    	
+    	logger.trace( "Initializing service endpoints..." );
     	
     	// list services on a node
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services", (token) -> new ListServices( config ), getAuthorizer() );
@@ -268,6 +298,8 @@ public class WebKitImpl {
     	
     	// change a service (primarily used for start/stop)
     	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new MutateService( config ), getAuthorizer() );
+    	
+    	logger.trace( "Completed initializing service endpoints." );
     }
     
     /**
@@ -276,6 +308,8 @@ public class WebKitImpl {
      * @param config
      */
     private void configureTenantEndpoints( ConfigurationApi config ){
+    	
+    	logger.trace( "Initializing tenant endpoints..." );
     	
     	// list the tenants
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants( config, getSecretKey() ), getAuthorizer() );
@@ -294,6 +328,8 @@ public class WebKitImpl {
     	
     	// remove a user from a tenancy
     	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant( config, getSecretKey() ), getAuthorizer() );
+    	
+    	logger.trace( "Completed initializing tenant endpoints." );
     }
     
     /**
@@ -302,6 +338,8 @@ public class WebKitImpl {
      * @param config
      */
     private void configureMetricsEndpoints( ConfigurationApi config ){
+    	
+    	logger.trace( "Initializing metrics endpoints..." );
     	
     	// get volume activity statistics
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/stats/volumes", (token) -> new QueryMetrics( getAuthorizer(), token ) );
@@ -314,6 +352,8 @@ public class WebKitImpl {
     	
     	// post new stats into the system
         getWebApp().route( HttpMethod.POST, URL_PREFIX + "/stats", () -> new IngestVolumeStats( config ) );
+        
+        logger.trace( "Completed initializing metrics endpoints." );
     }
     
     /**
@@ -323,11 +363,15 @@ public class WebKitImpl {
      */
     private void configureEventsEndpoints( ConfigurationApi config ){
 
+    	logger.trace( "Initializing events endpoints..." );
+    	
     	// TODO: only the AM should be sending this event to us. How can we validate that?
         getWebApp().route( HttpMethod.POST, URL_PREFIX + "/events", () -> new IngestEvents() );
 
         // get a list of events that match a filters
-        authenticate( HttpMethod.PUT, URL_PREFIX + "/events", (token) -> new QueryEvents() );    	
+        authenticate( HttpMethod.PUT, URL_PREFIX + "/events", (token) -> new QueryEvents() );
+        
+        logger.trace( "Completed initializing events endpoints." );
     }
     
 // Accessors for debug-ability    
@@ -354,32 +398,39 @@ public class WebKitImpl {
      * 
      * @param method
      * @param route
-     * @param f
+     * @param reqHandler
      * @param authorizer
      */
-    private void fdsAdminOnly( HttpMethod method,
-                               String route,
-                               Function<AuthenticationToken, RequestHandler> f,
-                               Authorizer authorizer ) {
-        authenticate( method, route, ( t ) -> {
+    private void fdsAdminOnly( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> reqHandler, Authorizer authorizer ) {
+        
+    	authenticate( method, route, ( t ) -> {
+            
             try {
-                if( authorizer.userFor( t )
+                
+            	if( authorizer.userFor( t )
                               .isIsFdsAdmin() ) {
-                    return f.apply( t );
+                    return reqHandler.apply( t );
                 } else {
-                    return ( r, p ) ->
-                        new JsonResource( new JSONObject().put( "message",
-                                                                "Invalid permissions" ),
-                                          HttpServletResponse.SC_UNAUTHORIZED );
+                    return ( r, p ) -> {
+                    	
+                		JSONObject jObject = new JSONObject();
+                		jObject.put( "message",  "Invalid permissions" );
+                        
+                		return new JsonResource( jObject, HttpServletResponse.SC_UNAUTHORIZED );
+                    };
                 }
+            	
             } catch( SecurityException e ) {
-                logger.error(
-                    "Error authorizing request, userId = " + t.getUserId(),
-                    e );
-                return ( r, p ) ->
-                    new JsonResource( new JSONObject().put( "message",
-                                                            "Invalid permissions" ),
-                                      HttpServletResponse.SC_UNAUTHORIZED );
+                
+            	logger.error( "Error authorizing request, userId = " + t.getUserId(), e );
+                
+            	return ( r, p ) -> {
+            		
+            		JSONObject jObject = new JSONObject();
+            		jObject.put( "message",  "Invalid permissions" );
+            		
+                    return new JsonResource( jObject, HttpServletResponse.SC_UNAUTHORIZED );
+            	};
             }
         } );
     }
@@ -390,17 +441,14 @@ public class WebKitImpl {
      *  
      * @param method
      * @param route
-     * @param f
+     * @param reqHandler
      */
-    private void authenticate( HttpMethod method,
-                               String route,
-                               Function<AuthenticationToken,
-                                   RequestHandler> f ) {
-        HttpErrorHandler eh =
-            new HttpErrorHandler(
-                new HttpAuthenticator( f,
-                                       authenticator) );
-        webApp.route( method, route, ( ) -> eh );
+    private void authenticate( HttpMethod method, String route, Function<AuthenticationToken,RequestHandler> reqHandler ) {
+        
+    	HttpAuthenticator httpAuth = new HttpAuthenticator( reqHandler, getAuthenticator() );
+    	
+    	HttpErrorHandler httpErrorHandler = new HttpErrorHandler( httpAuth );
+        getWebApp().route( method, route, () -> httpErrorHandler );
     }
 }
 
