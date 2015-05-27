@@ -148,8 +148,8 @@ class FDSNBDDriver(driver.VolumeDriver):
         # FIXME: real stats
         return {
             'driver_version': self.VERSION,
-            'free_capacity_gb': 100,
-            'total_capacity_gb': 100,
+            'free_capacity_gb': 4000,
+            'total_capacity_gb': 4000,
             'reserved_percentage': self.configuration.reserved_percentage,
             'storage_protocol': 'local',
             'vendor_name': 'Formation Data Systems, Inc.',
