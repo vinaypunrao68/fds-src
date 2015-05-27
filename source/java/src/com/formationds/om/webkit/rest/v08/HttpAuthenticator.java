@@ -1,7 +1,7 @@
-package com.formationds.om.webkit.rest.v08;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
+package com.formationds.om.webkit.rest.v08;
 
 import java.util.Arrays;
 import java.util.Map;

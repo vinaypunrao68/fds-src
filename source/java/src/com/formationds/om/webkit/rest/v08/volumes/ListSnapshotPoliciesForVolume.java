@@ -1,7 +1,6 @@
-/**
- * Copyright (c) 2015 Formation Data Systems. All rights reserved.
+/*
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.webkit.rest.v08.volumes;
 
 import com.formationds.commons.model.SnapshotPolicy;

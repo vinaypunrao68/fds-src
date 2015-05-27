@@ -1,7 +1,7 @@
-package com.formationds.om.webkit.rest.v08.platform;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
+package com.formationds.om.webkit.rest.v08.platform;
 
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.Domain;

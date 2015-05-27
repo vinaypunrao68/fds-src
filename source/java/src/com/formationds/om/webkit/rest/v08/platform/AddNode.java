@@ -1,9 +1,8 @@
-package com.formationds.om.webkit.rest.v08.platform;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
- * 
- * This class is for adding a node into an FDS domain
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
+package com.formationds.om.webkit.rest.v08.platform;
+
 import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.om.events.EventManager;
