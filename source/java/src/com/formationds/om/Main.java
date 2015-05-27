@@ -178,6 +178,16 @@ public class Main {
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
+        	logger.info( "Original Web toolkit enabled" );
+    		
+        	WebKitImpl originalImpl = new WebKitImpl( authenticator,
+                        authorizer,
+                        webDir,
+                        httpPort,
+                        httpsPort,
+                        secretKey );
+        	originalImpl.start();
+        	
         	if ( FdsFeatureToggles.REST_08.isActive() ){
         		
         		logger.info( "REST version 0.8 Web toolkit enabled" );
@@ -187,17 +197,7 @@ public class Main {
         				webDir, 
         				httpPort, 
         				httpsPort, 
-        				secretKey ).start();
-        	}
-        	else {
-        		logger.info( "Original Web toolkit enabled" );
-        		
-            	new WebKitImpl( authenticator,
-                            authorizer,
-                            webDir,
-                            httpPort,
-                            httpsPort,
-                            secretKey ).start( );
+        				secretKey ).start( originalImpl.getWebApp() );
         	}
 
         } else {

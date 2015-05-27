@@ -101,11 +101,12 @@ public class WebKitImpl {
 
     }
 
-    public void start( ) {
+    public void start( WebApp webapp) {
 
         final ConfigurationApi configApi = SingletonConfigAPI.instance().api();
 
-        this.webApp = new WebApp( webDir );
+//        this.webApp = new WebApp( webDir );
+        this.webApp = webapp;
         
         logger.info( "Initializing REST API 0.8..." );
         

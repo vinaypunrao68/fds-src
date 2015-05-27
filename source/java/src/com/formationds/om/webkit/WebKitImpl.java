@@ -76,6 +76,17 @@ public class WebKitImpl {
 
     }
 
+    /**
+     * TODO:  Remove
+     * 
+     * This is a way for us to be able to serve both the new, and old API versions simultaneously
+     * 
+     * @return
+     */
+    public WebApp getWebApp(){
+    	return this.webApp;
+    }
+    
     public void start( ) {
 
         final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
