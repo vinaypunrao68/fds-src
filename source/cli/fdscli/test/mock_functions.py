@@ -1,13 +1,13 @@
-from fds.model.volume import Volume
-from fds.model.snapshot import Snapshot
-from fds.model.node import Node
-from fds.model.service import Service
-from fds.model.domain import Domain
-from fds.model.snapshot_policy import SnapshotPolicy
-from fds.model.timeline_preset import TimelinePreset
-from fds.model.qos_preset import QosPreset
-from fds.model.user import User
-from fds.model.tenant import Tenant
+from model.volume import Volume
+from model.snapshot import Snapshot
+from model.node import Node
+from model.service import Service
+from model.domain import Domain
+from model.snapshot_policy import SnapshotPolicy
+from model.timeline_preset import TimelinePreset
+from model.qos_preset import QosPreset
+from model.user import User
+from model.tenant import Tenant
 
 '''
 Created on Apr 22, 2015

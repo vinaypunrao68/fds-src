@@ -9,8 +9,8 @@ class TestSnapshotPolicyOther(BaseCliTest):
     @author: nate
     '''
     
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies_by_volume", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.attach_snapshot_policy", side_effect=mock_functions.attachPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies_by_volume", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.attach_snapshot_policy", side_effect=mock_functions.attachPolicy )
     def test_attach_snapshot_policy(self, mockAttach, mockList):
         '''
         Test attaching a snapshot policy to a volume
@@ -41,8 +41,8 @@ class TestSnapshotPolicyOther(BaseCliTest):
         assert mockAttach.call_count == 1
         assert mockList.call_count == 1
         
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies_by_volume", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.detach_snapshot_policy", side_effect=mock_functions.detachPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies_by_volume", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.detach_snapshot_policy", side_effect=mock_functions.detachPolicy )
     def test_detach_snapshot_policy(self, mockDetach, mockList):
         '''
         Test detaching a snapshot policy from a volume
@@ -73,8 +73,8 @@ class TestSnapshotPolicyOther(BaseCliTest):
         assert mockDetach.call_count == 1
         assert mockList.call_count == 1    
         
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.delete_snapshot_policy", side_effect=mock_functions.deleteSnapshotPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.delete_snapshot_policy", side_effect=mock_functions.deleteSnapshotPolicy )
     def test_delete_snapshot_policy(self, mockDelete, mockList):            
         '''
         Test the deletion of a snapshot policy

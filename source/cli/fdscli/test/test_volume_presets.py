@@ -8,8 +8,8 @@ class TestVolumePresets(BaseCliTest):
     
     @author: nate
     '''
-    @patch( "fds.services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
-    @patch( "fds.services.volume_service.VolumeService.get_timeline_presets", side_effect=mock_functions.listTimelinePresets)
+    @patch( "services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
+    @patch( "services.volume_service.VolumeService.get_timeline_presets", side_effect=mock_functions.listTimelinePresets)
     def test_list_presets(self, mockTime, mockQos):
         '''
         Test whether our preset listing works
@@ -36,9 +36,9 @@ class TestVolumePresets(BaseCliTest):
         assert mockTime.call_count == 2
         assert mockQos.call_count == 2   
         
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
-    @patch( "fds.services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
-    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume)
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
+    @patch( "services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
+    @patch( "services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume)
     def test_create_volume_with_qos(self, mockCreate, mockQos, mockList):     
         '''
         Try to create a volume using a qos preset
@@ -60,13 +60,13 @@ class TestVolumePresets(BaseCliTest):
         assert volume.iops_guarantee == 1
         assert volume.iops_limit == 1
     
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.attach_snapshot_policy", side_effect=mock_functions.attachPolicy )
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
-    @patch( "fds.services.volume_service.VolumeService.get_timeline_presets", side_effect=mock_functions.listTimelinePresets)
-    @patch( "fds.services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime)   
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.attach_snapshot_policy", side_effect=mock_functions.attachPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
+    @patch( "services.volume_service.VolumeService.get_timeline_presets", side_effect=mock_functions.listTimelinePresets)
+    @patch( "services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
+    @patch( "services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
+    @patch( "services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime)   
     def test_clone_volume(self, mockClone, mockFind, mockQos, mockTimeline, mockCreatePolicy, mockAttachPolicy, mockList):
         '''
         Test cloning a volume with both a timeline preset and a qos preset
@@ -103,15 +103,15 @@ class TestVolumePresets(BaseCliTest):
         assert pol_id == 100
         assert vol_id == 354
         
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies_by_volume", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.attach_snapshot_policy", side_effect=mock_functions.attachPolicy )
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.detach_snapshot_policy", side_effect=mock_functions.detachPolicy )
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
-    @patch( "fds.services.volume_service.VolumeService.get_timeline_presets", side_effect=mock_functions.listTimelinePresets)
-    @patch( "fds.services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume)           
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies_by_volume", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.attach_snapshot_policy", side_effect=mock_functions.attachPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.detach_snapshot_policy", side_effect=mock_functions.detachPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
+    @patch( "services.volume_service.VolumeService.get_timeline_presets", side_effect=mock_functions.listTimelinePresets)
+    @patch( "services.volume_service.VolumeService.get_qos_presets", side_effect=mock_functions.listQosPresets)
+    @patch( "services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
+    @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume)           
     def test_edit_volume_with_presets(self, mockEdit, mockFind, mockQos, mockTimeline, mockCreatePolicy, mockDetachPolicy, mockAttachPolicy, mockListSnaps, mockList):
         '''
         Test editing a volume by sending in some preset selections

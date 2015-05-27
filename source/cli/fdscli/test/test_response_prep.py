@@ -1,14 +1,14 @@
 from base_cli_test import BaseCliTest
-from fds.model.volume import Volume
-from fds.model.node import Node
-from fds.model.service import Service
-from fds.model.snapshot import Snapshot
-from fds.model.snapshot_policy import SnapshotPolicy
-from fds.model.domain import Domain
+from model.volume import Volume
+from model.node import Node
+from model.service import Service
+from model.snapshot import Snapshot
+from model.snapshot_policy import SnapshotPolicy
+from model.domain import Domain
 
 import time
-from fds.services.response_writer import ResponseWriter
-from fds.model.recurrence_rule import RecurrenceRule
+from services.response_writer import ResponseWriter
+from model.recurrence_rule import RecurrenceRule
 
 class TestResponseWriterPrep(BaseCliTest):
     '''

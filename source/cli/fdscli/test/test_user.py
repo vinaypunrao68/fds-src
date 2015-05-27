@@ -10,7 +10,7 @@ class TestUsers( BaseCliTest):
     @author: nate
     '''
     
-    @patch( "fds.services.users_service.UsersService.list_users", side_effect=mock_functions.listUsers)
+    @patch( "services.users_service.UsersService.list_users", side_effect=mock_functions.listUsers)
     def test_list_users(self, mockList):
         '''
         Test that list users is called correctly
@@ -22,8 +22,8 @@ class TestUsers( BaseCliTest):
         assert mockList.call_count == 1
         
     @patch( "getpass.getpass", side_effect=mock_functions.passwordGetter)
-    @patch( "fds.services.users_service.UsersService.create_user", side_effect=mock_functions.createUser )
-    @patch( "fds.services.users_service.UsersService.list_users", side_effect=mock_functions.listUsers)
+    @patch( "services.users_service.UsersService.create_user", side_effect=mock_functions.createUser )
+    @patch( "services.users_service.UsersService.list_users", side_effect=mock_functions.listUsers)
     def test_create_user(self, mockList, mockCreate, mockPass):
         '''
         Test that the creation service is called correctly
@@ -48,7 +48,7 @@ class TestUsers( BaseCliTest):
         
         assert username == "joe"
         
-    @patch( "fds.services.users_service.UsersService.change_password", side_effect=mock_functions.changePassword )
+    @patch( "services.users_service.UsersService.change_password", side_effect=mock_functions.changePassword )
     @patch( "getpass.getpass", side_effect=mock_functions.passwordGetter)
     def test_change_password(self, mockPass, mockChange):
         '''
@@ -79,7 +79,7 @@ class TestUsers( BaseCliTest):
         user_id = mockChange.call_args[0][0]
         assert user_id == "3"
         
-    @patch( "fds.services.users_service.UsersService.get_user_token", side_effect=mock_functions.get_token)
+    @patch( "services.users_service.UsersService.get_user_token", side_effect=mock_functions.get_token)
     def test_get_token(self, mockToken):
         '''
         Test that we request the right token
@@ -102,7 +102,7 @@ class TestUsers( BaseCliTest):
         
         assert user_id == "1"
         
-    @patch( "fds.services.users_service.UsersService.reissue_user_token", side_effect=mock_functions.reissueToken)
+    @patch( "services.users_service.UsersService.reissue_user_token", side_effect=mock_functions.reissueToken)
     def test_reissue_token(self, mockReissue):
         '''
         Test that we request the token reissue correctly

@@ -1,7 +1,7 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
-from fds.utils.node_converter import NodeConverter
+from utils.node_converter import NodeConverter
 
 def filter_for_discovered(nodes):
     return nodes
@@ -19,9 +19,9 @@ class TestNodes( BaseCliTest ):
     @author: nate
     '''
     
-    @patch( "fds.plugins.node_plugin.NodePlugin.filter_for_added_nodes", side_effect=filter_for_added )
-    @patch( "fds.plugins.node_plugin.NodePlugin.filter_for_discovered_nodes", side_effect=filter_for_discovered )
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "plugins.node_plugin.NodePlugin.filter_for_added_nodes", side_effect=filter_for_added )
+    @patch( "plugins.node_plugin.NodePlugin.filter_for_discovered_nodes", side_effect=filter_for_discovered )
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_list_nodes(self, mockList, mockDisc, mockAdd):
         '''
         Test that list nodes gets called correctly with the args
@@ -51,8 +51,8 @@ class TestNodes( BaseCliTest ):
         assert mockDisc.call_count == 1
         assert mockAdd.call_count == 1
         
-    @patch( "fds.services.node_service.NodeService.add_node", side_effect=mock_functions.addNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.add_node", side_effect=mock_functions.addNode)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_add_node(self, mockList, mockAdd):
         '''
         Test that activate is called with all three services set to true
@@ -83,8 +83,8 @@ class TestNodes( BaseCliTest ):
         assert first[0][1].dm == second[0][1].dm == third[0][1].dm
         assert first[0][1].sm == second[0][1].sm == third[0][1].sm
         
-    @patch( "fds.services.node_service.NodeService.remove_node", side_effect=mock_functions.removeNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.remove_node", side_effect=mock_functions.removeNode)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_remove_node(self, mockList, mockRemove):
         '''
         Test that activate is called with all three services set to true
@@ -107,8 +107,8 @@ class TestNodes( BaseCliTest ):
         
         assert first[0][0] == "1"
     
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes) 
-    @patch( "fds.services.response_writer.ResponseWriter.writeJson", side_effect=writeJson)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes) 
+    @patch( "services.response_writer.ResponseWriter.writeJson", side_effect=writeJson)
     def test_list_services(self, mockWriteJson, mockList):
         '''
         Test the list services functionality.  This one is a little more intense because
@@ -134,8 +134,8 @@ class TestNodes( BaseCliTest ):
         assert len( node.services["SM"] ) == 1
         assert len( node.services["DM"] ) == 1
     
-    @patch( "fds.services.node_service.NodeService.stop_node", side_effect=mock_functions.stopNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.stop_node", side_effect=mock_functions.stopNode)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_stop_node(self, mockList, mockStop):
         '''
         Test to see that the stop node functionality makes the right call
@@ -160,8 +160,8 @@ class TestNodes( BaseCliTest ):
         assert node_id == "21ABC"
         assert mockList.call_count == 1
         
-    @patch( "fds.services.node_service.NodeService.start_node", side_effect=mock_functions.startNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.start_node", side_effect=mock_functions.startNode)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_start_node(self, mockList, mockStart):
         '''
         Test to see that the stop node functionality makes the right call

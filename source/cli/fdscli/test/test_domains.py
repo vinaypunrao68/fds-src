@@ -9,7 +9,7 @@ class TestDomains(BaseCliTest):
     @author: nate
     '''
 
-    @patch( "fds.services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
+    @patch( "services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
     def test_list_domains(self, mockList):
         '''
         Test that we can list out the domains
@@ -21,8 +21,8 @@ class TestDomains(BaseCliTest):
         
         assert mockList.call_count == 1
         
-    @patch( "fds.services.local_domain_service.LocalDomainService.shutdown", side_effect=mock_functions.shutdownDomain)
-    @patch( "fds.services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
+    @patch( "services.local_domain_service.LocalDomainService.shutdown", side_effect=mock_functions.shutdownDomain)
+    @patch( "services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
     def test_shutdown(self, mockList, mockShutdown):
         '''
         Testing that shutdown gets called
@@ -49,8 +49,8 @@ class TestDomains(BaseCliTest):
         
         assert name == "local"
         
-    @patch( "fds.services.local_domain_service.LocalDomainService.start", side_effect=mock_functions.startDomain)
-    @patch( "fds.services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
+    @patch( "services.local_domain_service.LocalDomainService.start", side_effect=mock_functions.startDomain)
+    @patch( "services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
     def test_startup(self, mockList, mockStart):
         '''
         Testing that shutdown gets called

@@ -2,8 +2,8 @@ from base_cli_test import BaseCliTest
 from mock import patch
 import mock_functions
 import time
-from fds.model.volume import Volume
-from fds.utils.volume_converter import VolumeConverter
+from model.volume import Volume
+from utils.volume_converter import VolumeConverter
 
 class VolumeCloneTest( BaseCliTest):
     '''
@@ -14,9 +14,9 @@ class VolumeCloneTest( BaseCliTest):
     @author: nate
     '''
     
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.find_volume_from_snapshot_id", side_effect=mock_functions.findVolumeBySnapId)
-    @patch( "fds.services.volume_service.VolumeService.clone_from_snapshot_id", side_effect=mock_functions.cloneFromSnapshotId)
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.find_volume_from_snapshot_id", side_effect=mock_functions.findVolumeBySnapId)
+    @patch( "services.volume_service.VolumeService.clone_from_snapshot_id", side_effect=mock_functions.cloneFromSnapshotId)
     def test_clone_from_snapshot_id(self, mockCloneSnap, mockFindBySnap, mockList ):
         '''
         Try to create a clone with a snapshot ID
@@ -44,10 +44,10 @@ class VolumeCloneTest( BaseCliTest):
         
         print "Clone volume by snapshot ID was successful.\n\n"
 
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
+    @patch( "services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
+    @patch( "services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
     def test_clone_from_timeline_name(self, mockClone, mockList, mockName, mockId ):
         '''
         Test creating a clone from the timeline with a volume name
@@ -75,10 +75,10 @@ class VolumeCloneTest( BaseCliTest):
         
         print "Cloning from timeline time and volume name was successful.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
+    @patch( "services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
+    @patch( "services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
     def test_clone_from_timeline_id(self, mockClone, mockList, mockName, mockId ):
         '''
         Test creating a clone from the timeline with a volume ID
@@ -106,9 +106,9 @@ class VolumeCloneTest( BaseCliTest):
         
         print "Cloning from timeline time and volume name was successful.\n\n" 
       
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )        
+    @patch( "services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )        
     def test_clone_from_args(self, mockClone, mockList, mockName ):
         '''
         Test to see if new QoS items are passed through from the arg list
@@ -138,9 +138,9 @@ class VolumeCloneTest( BaseCliTest):
         
         print "Cloning volume with new QoS settings from args was successful.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )        
+    @patch( "services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )        
     def test_clone_from_data(self, mockClone, mockList, mockName ):
         '''
         Test to see if new QoS settings are accepted from a JSON data string
@@ -177,8 +177,8 @@ class VolumeCloneTest( BaseCliTest):
         
         print "Cloning volume with new QoS setting from a JSON string was successful."
         
-    @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
-    @patch( "fds.services.volume_service.VolumeService.clone_from_snapshot_id", side_effect=mock_functions.cloneFromSnapshotId)
+    @patch( "services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
+    @patch( "services.volume_service.VolumeService.clone_from_snapshot_id", side_effect=mock_functions.cloneFromSnapshotId)
     def test_boundary_conditions(self, mockSnap, mockTime):
         '''
         Test the expected failure cases if arguments are out of bounds
