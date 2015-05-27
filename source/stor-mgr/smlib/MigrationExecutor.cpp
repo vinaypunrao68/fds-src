@@ -27,7 +27,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      MigrationExecutorDoneHandler doneHandler,
                                      FdsTimerPtr& timeoutTimer,
                                      uint32_t timeoutDuration,
-                                     const std::function<void()>& timeoutHandler)
+                                     const std::function<void()>& timeoutHandler,
+                                     fds_uint8_t iNum)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
           migrFailedRetryHandler(failedRetryHandler),
@@ -38,7 +39,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           targetDltVersion(targetDltVer),
           migrationType(migrType),
           onePhaseMigration(resync),
-          seqNumDeltaSet(timeoutTimer, timeoutDuration, timeoutHandler)
+          seqNumDeltaSet(timeoutTimer, timeoutDuration, timeoutHandler),
+          instanceNum(iNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
 }

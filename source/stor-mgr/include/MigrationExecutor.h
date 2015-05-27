@@ -47,7 +47,8 @@ class MigrationExecutor {
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
-                      const std::function<void()> &timeoutHandler);
+                      const std::function<void()> &timeoutHandler,
+                      fds_uint8_t instanceNum = 1);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -69,6 +70,9 @@ class MigrationExecutor {
     }
     inline MigrationExecutorState getState() const {
         return std::atomic_load(&state);
+    }
+    inline fds_uint8_t getInstanceNum() const {
+        return instanceNum;
     }
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
         if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
@@ -168,6 +172,12 @@ class MigrationExecutor {
 
     /// Id of this executor, used for communicating with source SM
     fds_uint64_t executorId;
+
+    /**
+     * For a given SM token, the instance number of executor
+     * created to migrate token data.
+     */
+    fds_uint8_t instanceNum;
 
     /// state of this migration executor
     std::atomic<MigrationExecutorState> state;

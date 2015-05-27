@@ -562,7 +562,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryTest) {
     DLT::SourceNodeMap srcNodeMap;
     uint32_t numOfTokens = pow(2, dlt->getWidth());
 
-    std::vector<fds_token_id> dltTokens;
+    std::set<fds_token_id> dltTokens;
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
@@ -591,7 +591,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryTwoTest) {
     DLT::SourceNodeMap srcNodeMap;
     uint32_t numOfTokens = pow(2, dlt->getWidth());
 
-    std::vector<fds_token_id> dltTokens;
+    std::set<fds_token_id> dltTokens;
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
@@ -621,7 +621,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryFailedSrcTest) {
     DLT::SourceNodeMap srcNodeMap;
     uint32_t numOfTokens = pow(2, dlt->getWidth());
 
-    std::vector<fds_token_id> dltTokens;
+    std::set<fds_token_id> dltTokens;
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
@@ -654,7 +654,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMAllInvalidTest) {
     DLT::SourceNodeMap srcNodeMap;
     uint32_t numOfTokens = pow(2, dlt->getWidth());
 
-    std::vector<fds_token_id> dltTokens;
+    std::set<fds_token_id> dltTokens;
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {

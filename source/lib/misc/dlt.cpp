@@ -327,7 +327,7 @@ void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
  * count as N.
  */
 NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
-                                  std::vector<fds_token_id>& dltTokens,
+                                  std::set<fds_token_id>& dltTokens,
                                   const uint8_t& retryCount,
                                   std::map<NodeUuid, bool>& failedSMs) {
     NodeTokenMap newTokenGroups;
@@ -336,7 +336,7 @@ NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
      * out the next replica SM which will act as source for migration of
      * this token.
      */
-    for (std::vector<fds_token_id>::iterator tokenIter = dltTokens.begin();
+    for (std::set<fds_token_id>::iterator tokenIter = dltTokens.begin();
          tokenIter != dltTokens.end(); tokenIter++) {
         bool foundSrcSM = false;
         uint8_t curSrcIdx = getIndex(*tokenIter, curSrcSM);

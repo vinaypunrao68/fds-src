@@ -56,7 +56,6 @@ class MigrationMgr {
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
 
     typedef std::set<fds_token_id> RetrySmTokenSet;
-
     /**
      * Matches OM state, just for sanity checks that we are getting
      * messages from OM/SMs in the correct state...
@@ -218,6 +217,18 @@ class MigrationMgr {
     void coalesceClients();
 
   private:
+
+    /**
+     * Create Migration executor for token migration.
+     */
+   MigrationExecutor::unique_ptr createMigrationExecutor(NodeUuid& srcSmUuid,
+                                                         const NodeUuid& mySvcUuid,
+                                                         fds_uint32_t bitsPerDltToken,
+                                                         fds_token_id& smTok,
+                                                         fds_uint64_t& targetDltVersion,
+                                                         MigrationType& migrationType,
+                                                         bool& onePhaseMigration,
+                                                         fds_uint8_t instanceNum = 1); 
     /**
      * Callback function from the metadata snapshot request for a particular SM token
      */
@@ -428,7 +439,16 @@ class MigrationMgr {
      */
      RetrySmTokenSet retryMigrSmTokenSet;
 
-     // For synchronization between the timer thread and token migration thread.
+    /**
+     * Source SMs which are marked as failed for some executors during migration.
+     * TODO(Gurpreet) Still has to figure out how to mark a SM as failed. It might depend
+     * upon the type of error encountered. If the error seen when this SM was a source
+     * is fatal error(SM is down or something of that severity), it can be marked as
+     * failed.
+     */
+    std::map<NodeUuid, bool> failedSMsAsSource;
+
+    // For synchronization between the timer thread and token migration thread.
      fds_mutex migrSmTokenLock;
 
     /**
