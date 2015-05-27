@@ -12,6 +12,7 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
+#include <omutils.h>
 #include <orchMgr.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
@@ -726,6 +727,30 @@ OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
     return false;
 }
 
+fds_bool_t OM_PmAgent::hasRegistered(const FdspNodeRegPtr  msg) {
+    OM_NodeAgent::pointer nodeAgent;
+    switch (msg->node_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            nodeAgent = activeSmAgent;
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            nodeAgent = activeDmAgent;
+            break;
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
+            nodeAgent  = activeAmAgent;
+            break;
+        default:
+            break;
+    };
+
+    if (nodeAgent == NULL) return false;
+    if (msg->node_name != nodeAgent->get_node_name()) return false;
+    if (nodeAgent->get_uuid() != msg->service_uuid.uuid) return false;
+
+    return true;
+
+}
+
 // register_service
 // ----------------
 //
@@ -854,7 +879,9 @@ void
 OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
     LOGDEBUG << "Will deactivate service " << svc_type;
-
+    
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    
     // we are just deactivating the service during this run, so no
     // need to update configDB
 
@@ -865,31 +892,61 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
     fds_mutex::scoped_lock l(dbNodeInfoLock);
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
-            if (activeSmAgent) {
-                LOGDEBUG << "Will deactivate SM service " << std::hex
-                         << (activeSmAgent->get_uuid()).uuid_get_val() << std::dec;
+            if ( activeSmAgent ) 
+            {
+                LOGDEBUG << "Will deactivate SM service " 
+                         << std::hex
+                         << ( activeSmAgent->get_uuid() ).uuid_get_val() 
+                         << std::dec;
+                
+                change_service_state( configDB, 
+                                      ( activeSmAgent->get_uuid() ).uuid_get_val(),
+                                      fpi::SVC_STATUS_INACTIVE );
+                
                 activeSmAgent = nullptr;
-            } else {
+            } 
+            else 
+            {
                 LOGDEBUG << "SM service already not active on platform " 
                          << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
-            if (activeDmAgent) {
-                LOGDEBUG << "Will deactivate DM service " << std::hex
-                         << (activeDmAgent->get_uuid()).uuid_get_val() << std::dec;
+            if ( activeDmAgent ) 
+            {
+                LOGDEBUG << "Will deactivate DM service " 
+                         << std::hex
+                         << ( activeDmAgent->get_uuid() ).uuid_get_val() 
+                         << std::dec;
+                
+                change_service_state( configDB, 
+                                      ( activeDmAgent->get_uuid() ).uuid_get_val(),
+                                      fpi::SVC_STATUS_INACTIVE );
+                
                 activeDmAgent = nullptr;
-            } else {
+            }
+            else
+            {
                 LOGDEBUG << "DM service already not active on platform " 
                          << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
-            if (activeAmAgent) {
-                LOGDEBUG << "Will deactivate AM service " << std::hex
-                         << (activeAmAgent->get_uuid()).uuid_get_val() << std::dec;
+            if ( activeAmAgent ) 
+            {
+                LOGDEBUG << "Will deactivate AM service " 
+                         << std::hex
+                         << ( activeAmAgent->get_uuid() ).uuid_get_val() 
+                         << std::dec;
+                
+                change_service_state( configDB, 
+                                      ( activeAmAgent->get_uuid() ).uuid_get_val(),
+                                      fpi::SVC_STATUS_INACTIVE );
+                  
                 activeAmAgent = nullptr;
-            } else {
+            }
+            else
+            {
                 LOGDEBUG << "AM service already not active on platform " 
                          << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
@@ -898,26 +955,6 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
             LOGWARN << "Unknown service type " << svc_type << ". Did we add a new"
                     << " service type? If so, update this method";
     };
-}
-
-void
-OM_PmAgent::change_service_state( const int64_t svc_uuid, 
-                                  const fpi::ServiceStatus svc_status )
-{
-        // update configDB with which services this platform has
-    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
-    {
-        LOGDEBUG << "Successfully changed service ID ( " 
-                 << std::hex << svc_uuid << std::dec << " ) "
-                 << "state to ( " << svc_status << " )";
-    }
-    else
-    {
-        LOGWARN << "Failed to changed service ID ( " 
-                << std::hex << svc_uuid << std::dec << " ) "
-                << "state to ( " << svc_status << " )";
-    }
 }
 
 // send_activate_services
@@ -1301,6 +1338,12 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
     LOGDEBUG << "Service of type " << svc_role << " on node " << std::hex
              << pm_uuid.uuid_get_val() << std::dec << " exists? " << bret;
     return bret;
+}
+
+fds_bool_t OM_PmContainer::hasRegistered(const FdspNodeRegPtr  msg) {
+    NodeAgent::pointer agent = agent_info(NodeUuid(msg->node_uuid.uuid));
+    if (NULL == agent) return false;
+    return OM_PmAgent::agt_cast_ptr(agent)->hasRegistered(msg);
 }
 
 // handle_register_service
