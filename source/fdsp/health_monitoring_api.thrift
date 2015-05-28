@@ -5,7 +5,7 @@
 
 include "health_monitoring_types.thrift"
 
-namespace cpp fds.apis
+namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
 
 struct NotifyHealthReport {

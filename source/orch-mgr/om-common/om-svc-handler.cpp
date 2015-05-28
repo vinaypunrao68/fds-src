@@ -265,17 +265,17 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 			<< " status: " << msg->healthReport.statusCode << std::endl;
 
 	switch (msg->healthReport.serviceState) {
-		case fds::apis::RUNNING:
-		case fds::apis::INITIALIZING:
-		case fds::apis::DEGRADED:
-		case fds::apis::LIMITED:
-		case fds::apis::SHUTTING_DOWN:
-		case fds::apis::ERROR:
-		case fds::apis::UNREACHABLE:
+		case fpi::RUNNING:
+		case fpi::INITIALIZING:
+		case fpi::DEGRADED:
+		case fpi::LIMITED:
+		case fpi::SHUTTING_DOWN:
+		case fpi::ERROR:
+		case fpi::UNREACHABLE:
 			LOGWARN << "Handling for service state: " << msg->healthReport.serviceState
 				<< " not implemented yet.";
 			break;
-		case fds::apis::UNEXPECTED_EXIT:
+		case fpi::UNEXPECTED_EXIT:
 				if (healthSvcNameIsAM_DM_or_SM(msg->healthReport.serviceID.svc_name)) {
 					/**
 					 * When a PM pings this OM with the state of an individual service

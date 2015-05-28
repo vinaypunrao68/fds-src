@@ -4,24 +4,24 @@ user_rtime_env    := user
 user_build_dir    :=
 
 user_thrift       := \
-	$(topdir)/fdsp/FDSP.thrift \
-	$(topdir)/fdsp/fds_stream.thrift \
-	$(topdir)/fdsp/common.thrift \
-	$(topdir)/fdsp/health_monitoring_api.thrift \
-	$(topdir)/fdsp/health_monitoring_types.thrift \
-	$(topdir)/fdsp/am_types.thrift \
-	$(topdir)/fdsp/dm_types.thrift \
-  $(topdir)/fdsp/om_types.thrift \
-	$(topdir)/fdsp/pm_data.thrift \
-	$(topdir)/fdsp/sm_types.thrift \
-	$(topdir)/fdsp/svc_types.thrift \
-	$(topdir)/fdsp/am_api.thrift \
-	$(topdir)/fdsp/config_api.thrift \
-	$(topdir)/fdsp/dm_api.thrift \
-	$(topdir)/fdsp/om_api.thrift \
-	$(topdir)/fdsp/sm_api.thrift \
-  $(topdir)/fdsp/xdi.thrift \
-  $(topdir)/fdsp/svc_api.thrift
+                     $(topdir)/fdsp/FDSP.thrift \
+                     $(topdir)/fdsp/fds_stream.thrift \
+                     $(topdir)/fdsp/common.thrift \
+                     $(topdir)/fdsp/health_monitoring_api.thrift \
+                     $(topdir)/fdsp/health_monitoring_types.thrift \
+                     $(topdir)/fdsp/am_types.thrift \
+                     $(topdir)/fdsp/dm_types.thrift \
+                     $(topdir)/fdsp/om_types.thrift \
+                     $(topdir)/fdsp/pm_data.thrift \
+                     $(topdir)/fdsp/sm_types.thrift \
+                     $(topdir)/fdsp/svc_types.thrift \
+                     $(topdir)/fdsp/am_api.thrift \
+                     $(topdir)/fdsp/config_api.thrift \
+                     $(topdir)/fdsp/dm_api.thrift \
+                     $(topdir)/fdsp/om_api.thrift \
+                     $(topdir)/fdsp/sm_api.thrift \
+                     $(topdir)/fdsp/xdi.thrift \
+                     $(topdir)/fdsp/svc_api.thrift
 
 user_thrift_flag  := -r --gen java
 
@@ -29,12 +29,12 @@ user_postdep      := compile
 user_install      := orchMgr genkey iodriver
 user_install_loc  := exe
 user_clean        := \
-	target \
-	gen-java \
-        admin-webapp \
-	$(comm_dir_lib)/java \
-	$(comm_dir_lib)/admin-webapp \
-	$(comm_dir_lib)/demo
+                     target \
+                     gen-java \
+                     admin-webapp \
+                     $(comm_dir_lib)/java \
+                     $(comm_dir_lib)/admin-webapp \
+                     $(comm_dir_lib)/demo
 
 include $(topdir)/Makefile.incl
 

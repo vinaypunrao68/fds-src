@@ -543,12 +543,12 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") unexpectedly exited.";
 
-            apis::NotifyHealthReportPtr message (new apis::NotifyHealthReport());
+            fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
 
             message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;         // TEMP HARD CODE
             message->healthReport.serviceID.svc_name = serviceRecord->name;
             message->healthReport.servicePort = serviceRecord->svc_port;
-            message->healthReport.serviceState = fds::apis::HealthState::UNEXPECTED_EXIT;
+            message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             message->healthReport.statusInfo = textualContent.str();
 

@@ -5,7 +5,7 @@
 
 include "common.thrift"
 
-namespace cpp fds.apis
+namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om.types
 
 enum HealthState {
