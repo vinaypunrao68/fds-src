@@ -248,6 +248,7 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
     auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
     volMDMsg->volume_id = amReq->io_vol_id;
     volMDMsg->token = volReq->token;
+    volMDMsg->mode = volReq->mode;
 
     /** What to do with the response */
     auto svc_cb = [amReq] (QuorumSvcRequest* svcReq,

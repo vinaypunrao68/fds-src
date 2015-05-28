@@ -147,10 +147,10 @@ struct CreateVolumeCloneRespMsg {
 struct OpenVolumeMsg {
   /** The volume to request access to */
   1: required i64                       volume_id;
-  /** Existing token */
-  2: optional i64                       token = 0;
   /** Requested access mode */
-  3: optional common.VolumeAccessMode   mode;
+  2: required common.VolumeAccessMode   mode;
+  /** Existing token */
+  3: optional i64                       token = 0;
 }
 
 /**
