@@ -28,6 +28,9 @@ public enum FdsFeatureToggles
   @Label( "Webkit Feature" )
   @Webkit
   WEB_KIT,
+  
+  @Label( "REST 0.8 API Implementation")
+  REST_08,
 
   @Label( "SNMP Feature" )
   @Snmp

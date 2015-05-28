@@ -178,13 +178,15 @@ public class Main {
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
-            logger.info( "Web toolkit enabled" );
-            new WebKitImpl( authenticator,
-                            authorizer,
-                            webDir,
-                            httpPort,
-                            httpsPort,
-                            secretKey ).start( );
+        	logger.info( "Original Web toolkit enabled" );
+    		
+        	WebKitImpl originalImpl = new WebKitImpl( authenticator,
+                        authorizer,
+                        webDir,
+                        httpPort,
+                        httpsPort,
+                        secretKey );
+        	originalImpl.start();
 
         } else {
 
