@@ -11,7 +11,11 @@ angular.module( 'tenant' ).controller( 'createTenantController', ['$scope', '$te
 
     $scope.save = function(){
 
-        var tenant = {name: $scope.name};
+        var tenant = { 
+            id: {
+                name: $scope.name
+            },
+        };
 
         $tenant_api.createTenant( tenant, done );
     };

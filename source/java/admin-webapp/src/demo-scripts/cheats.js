@@ -91,10 +91,16 @@ var addNode = function( name ){
         "services": {
             "DM": [
                 {
-                    "uuid": (new Date()).getTime() + 1,
-                    "autoName": "PM",
+                    "id": {
+                        "uuid": (new Date()).getTime() + 1,
+                        "name": "PM",
+                    },
                     "port": 7031,
-                    "status": "INVALID",
+                    "status": {
+                        "state": "NOT_RUNNING",
+                        "code": 1000,
+                        "description": "Not added."
+                    },
                     "type": "FDSP_PLATFORM"
                 }
             ]
@@ -134,7 +140,7 @@ var setServiceState = function( nodeName, services, state ){
                 continue;
             }
 
-            service[0].status = state;
+            service[0].status.state = state;
         }
         break;
     }
@@ -151,7 +157,7 @@ var listNodes = function( full ){
     var nodes = JSON.parse( window.localStorage.getItem( 'nodes' ) );
     
     for ( var i = 0; i < nodes.length; i++ ){
-        var str = nodes[i].uuid + ': ' + nodes[i].name;
+        var str = nodes[i].id.uuid + ': ' + nodes[i].id.name;
         
         if ( full === true ){
             str = nodes[i];
@@ -170,7 +176,7 @@ var listDetachedNodes = function( full ){
     var nodes = JSON.parse( window.localStorage.getItem( 'detachedNodes' ) );
 
     for ( var i = 0; i < nodes.length; i++ ){
-        var str = nodes[i].uuid + ': ' + nodes[i].name;
+        var str = nodes[i].id.uuid + ': ' + nodes[i].id.name;
         
         if ( full === true ){
             str = nodes[i];

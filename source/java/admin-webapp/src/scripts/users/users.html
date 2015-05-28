@@ -18,8 +18,10 @@
             <tboday>
                 <tr class="user-row" ng-repeat="user in users | filter:userQuery">
 <!--                    <td><input type="checkbox" /></td>-->
-                    <td class="user-identifier">{{user.identifier}}</td>
-                    <td class="tenant-name">{{ user.tenant.name }}</td>
+                    <td class="user-identifier">{{user.id.name}}</td>
+                    <td class="tenant-name">
+                        <span ng-if="user.tenantId && user.tenantId">{{ user.tenantId.name }}</span>
+                    </td>
                     <td>
                         <div class="flex">
                             <span class="icon icon-edit" ng-click="editUser( user )"></span>

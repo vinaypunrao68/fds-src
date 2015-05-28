@@ -6,9 +6,15 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
     $scope.tenantsReturned = function( tenants ){
         $scope.tenants = tenants;
         
-        for ( var i = 0; $scope.editing === true && i < $scope.tenants.length && angular.isDefined( $scope.userVars.selectedUser.tenant ); i++ ){
-            if ( $scope.tenants[i].name === $scope.userVars.selectedUser.tenant.name ){
+        for ( var i = 0; $scope.editing === true && i < $scope.tenants.length; i++ ){
+            
+            $scope.tenants[i].name = $scope.tenants[i].id.name;
+            
+            if ( angular.isDefined( $scope.userVars.selectedUser.tenant ) &&
+                $scope.tenants[i].id.name === $scope.userVars.selectedUser.tenantId.name ){
+                
                 $scope.tenant = $scope.tenants[i];
+                $scope.tenant.name = $scope.tenant.id.name;
             }
         }
     };
@@ -29,7 +35,7 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
     $scope.setForEdit = function(){
         
         var user = $scope.userVars.selectedUser;
-        $scope.name = user.identifier;
+        $scope.name = user.id.name;
         $scope.password = '******';
         $scope.editing = true;
     };
@@ -129,7 +135,7 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
 
                 if ( angular.isDefined( $scope.tenant ) ){
 
-                        $tenant_api.attachUser( $scope.tenant, item.id, function(){
+                        $tenant_api.attachUser( $scope.tenant, item.id.uuid, function(){
                     }, function(){} );
                 }
             },
