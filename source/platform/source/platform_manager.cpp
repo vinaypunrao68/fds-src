@@ -538,8 +538,6 @@ namespace fds
             if (!found)
             {
                 LOGERROR << "Unable to find a service map record for a process that exited unexpectedly.";
-                // This is a problem... PM responsible for this service cannot send msg to OM, which is now oblivious.
-                fds_verify(0);
                 return;
             }
 
