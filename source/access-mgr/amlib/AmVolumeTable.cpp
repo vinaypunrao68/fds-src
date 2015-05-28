@@ -177,8 +177,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& volDesc)
 }
 
 /*
- * Creates volume if it has not been created yet
- * Does nothing if volume is already registered, call is idempotent
+ * Binds access token to volume and drains any pending IO
  */
 Error
 AmVolumeTable::processAttach(const VolumeDesc& volDesc,

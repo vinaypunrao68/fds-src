@@ -581,7 +581,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     auto shVol = getVolume(amReq);
     auto& vol_desc = *shVol->voldesc;
-    if (ERR_OK != error && !volReq->mode.can_write && !volReq->mode.can_cache) {
+    if (ERR_OK != error && (volReq->mode.can_write || volReq->mode.can_cache)) {
         // TODO(bszmyd): Tue 26 May 2015 11:11:53 AM MDT
         // This should be controlled by the connector
         // Retry open with r/o mode
@@ -607,14 +607,15 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                 this->renewToken(vol_id);
                 });
             // Renew this token at a regular interval
-            auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
-                { LOGWARN << "Failed to schedule token renewal timer!"; }
             err = volTable->processAttach(vol_desc, access_token);
         } else {
+            token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
         }
+        auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+        if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+            { LOGWARN << "Failed to schedule token renewal timer!"; }
 
         if (err.ok()) {
             if (volReq->mode.can_cache) {
