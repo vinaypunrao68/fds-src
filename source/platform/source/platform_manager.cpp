@@ -493,7 +493,9 @@ namespace fds
             std::vector <fpi::SvcInfo> serviceMap;
             MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
 
-            fpi::SvcInfo *serviceRecord = nullptr;
+            fpi::SvcInfo serviceRecord;
+            bool found = false;
+            ResourceUUID uuid;
 
             fpi::FDSP_MgrIdType serviceType (fpi::FDSP_INVALID_SVC);
 
@@ -508,44 +510,48 @@ namespace fds
 
                 case DATA_MANAGER:
                 {
-                    serviceType = fpi::FDSP_ACCESS_MGR;
+                    serviceType = fpi::FDSP_DATA_MGR;
 
                 } break;
 
                 case STORAGE_MANAGER:
                 {
-                    serviceType = fpi::FDSP_ACCESS_MGR;
+                    serviceType = fpi::FDSP_STOR_MGR;
 
                 } break;
             }
 
-            // for ( std::vector <fpi::SvcInfo>::iterator vectIter = serviceMap.begin(); vectIter != serviceMap.end(); ++vectIter)
-            for (auto vectIter : serviceMap)
+            // Go through service map and try to find the entity corresponding to this process
+            for (auto map_entry : serviceMap)
             {
-                ResourceUUID    uuid (vectIter.svc_id.svc_uuid.svc_uuid);
+                uuid  = map_entry.svc_id.svc_uuid.svc_uuid;
 
                 // Check if this is a service on this node and is the same service type as the expired process
                 if (getNodeUUID(fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val() &&  uuid.uuid_get_type() == serviceType)
                 {
-                    serviceRecord = &vectIter;
+                    serviceRecord = map_entry;
+                    found = true;
                     break;
                 }
             }
 
-            if (nullptr == serviceRecord)
+            if (!found)
             {
                 LOGERROR << "Unable to find a service map record for a process that exited unexpectedly.";
+                // This is a problem... PM responsible for this service cannot send msg to OM, which is now oblivious.
+                fds_verify(0);
                 return;
             }
 
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") unexpectedly exited.";
 
+            // Send message to OM
             fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
 
-            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
-            message->healthReport.serviceID.svc_name = serviceRecord->name;
-            message->healthReport.servicePort = serviceRecord->svc_port;
+            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord.svc_id.svc_uuid.svc_uuid;
+            message->healthReport.serviceID.svc_name = serviceRecord.name;
+            message->healthReport.servicePort = serviceRecord.svc_port;
             message->healthReport.platformUUID.svc_uuid.svc_uuid = nodeInfo.uuid;
             message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;

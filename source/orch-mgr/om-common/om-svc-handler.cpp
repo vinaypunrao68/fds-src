@@ -254,8 +254,6 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
-#define healthSvcNameIsAM_DM_or_SM(x) ((x == "AM") || (x == "DM") || (x == "SM"))
-
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
 {
@@ -263,6 +261,11 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 			<< msg->healthReport.serviceID.svc_name
 			<< " state: " << msg->healthReport.serviceState
 			<< " status: " << msg->healthReport.statusCode << std::endl;
+
+	ResourceUUID service_UUID (msg->healthReport.serviceID.svc_uuid.svc_uuid);
+	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
+	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
+	bool pm_found = false;
 
 	switch (msg->healthReport.serviceState) {
 		case fpi::RUNNING:
@@ -276,56 +279,62 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 				<< " not implemented yet.";
 			break;
 		case fpi::UNEXPECTED_EXIT:
-				if (healthSvcNameIsAM_DM_or_SM(msg->healthReport.serviceID.svc_name)) {
-					/**
-					 * When a PM pings this OM with the state of an individual service
-					 * restart (AM/DM/SM) that the PM originally spawned, then we will
-					 * find the AM/DM/SM agent that corresponds to the report, and use the
-					 * PM method to deactivate the AM/DM/SM that is currently registered
-					 * with the OM.
-					 * It should then reactivate because user is expecting the service to
-					 * be up since it's passed in as UNEXPECTED.
-					 */
-					LOGNORMAL << "Cleaning up old process information.";
-					std::list<NodeSvcEntity_t> services;
-					OM_PmContainer::pointer pm_nodes = OM_Module::om_singleton()->
-												om_nodedomain_mod()-> om_loc_domain_ctrl()->om_pm_nodes();
-					pm_nodes->populate_nodes_in_container(services);
+				switch (service_type) {
+					case fpi::FDSP_ACCESS_MGR:
+						comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+						// no break
+					case fpi::FDSP_DATA_MGR:
+						comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+						// no break
+					case fpi::FDSP_STOR_MGR: {
+						comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+						/**
+						 * When a PM pings this OM with the state of an individual service
+						 * restart (AM/DM/SM) that the PM originally spawned, then we will
+						 * find the AM/DM/SM agent that corresponds to the report, and use the
+						 * PM method to deactivate the AM/DM/SM that is currently registered
+						 * with the OM.
+						 * It should then reactivate because user is expecting the service to
+						 * be up since it's passed in as UNEXPECTED.
+						 */
+						LOGNORMAL << "Cleaning up old process information.";
+						std::list<NodeSvcEntity_t> pm_services;
+						NodeSvcEntity_t *actual_pm_service = NULL;
+						OM_PmContainer::pointer pm_nodes = OM_Module::om_singleton()->
+													om_nodedomain_mod()-> om_loc_domain_ctrl()->om_pm_nodes();
+						pm_nodes->populate_nodes_in_container(pm_services);
 
-					/**
-					 * For now, only 1 PM per OM node.
-					 * In the future, if we have > 1 PM, we'll need the following enhancements:
-					 * 1. PM health message coming in needs to have a UUID of the PM (for ease).
-					 *    Right now that is coming in via the service layer but by the time
-					 *    notifyServiceRestart() receives it, that header seems to have been stripped.
-					 * 2. We need to get the right OM_PM agent given the UUID, to make sure
-					 * 	  that we're deactivating and reactivating the right AM/SM/DM.
-					 */
-					fds_verify(services.size() == 1);
-					OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
-							om_loc_domain_ctrl()->om_pm_agent(services.begin()->node_uuid);
-					if (msg->healthReport.serviceID.svc_name == "AM") {
-						LOGDEBUG << "Deactivating AM";
-						om_pm_agt->send_deactivate_services(false, false, true);
-						LOGDEBUG << "Reactivating AM";
-						om_pm_agt->send_activate_services(false, false, true);
-					} else if (msg->healthReport.serviceID.svc_name == "DM") {
-						LOGDEBUG << "Deactivating DM";
-						om_pm_agt->send_deactivate_services(false, true, false);
-						LOGDEBUG << "Reactivating DM";
-						om_pm_agt->send_activate_services(false, true, false);
-					} else {
-						fds_verify(msg->healthReport.serviceID.svc_name == "SM");
-						LOGDEBUG << "Deactivating SM";
-						om_pm_agt->send_deactivate_services(true, false, false);
-						LOGDEBUG << "Reactivating SM";
-						om_pm_agt->send_activate_services(true, false, false);
+						/**
+						 * We need to find the right PM agent who is in charge of the service
+						 * that just died.
+						 */
+						for (std::list<NodeSvcEntity_t>::iterator i = pm_services.begin();
+								i != pm_services.end(); i++) {
+							// Technically node_uuid should be unsigned too...
+							if (i->node_uuid.uuid_get_val() ==
+								(fds_uint64_t)(msg->healthReport.platformUUID.svc_uuid.svc_uuid)) {
+								pm_found = true;
+								actual_pm_service = &(*i);
+								break;
+							}
+						}
+						fds_verify(pm_found);
+						OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
+								om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
+						om_pm_agt->send_deactivate_services(comp_type == fpi::FDSP_STOR_MGR,
+															comp_type == fpi::FDSP_DATA_MGR,
+															comp_type == fpi::FDSP_ACCESS_MGR);
+						om_pm_agt->send_activate_services(comp_type == fpi::FDSP_STOR_MGR,
+															comp_type == fpi::FDSP_DATA_MGR,
+															comp_type == fpi::FDSP_ACCESS_MGR);
+						break;
 					}
-				} else {
-					LOGDEBUG << "Unhandled process: " << msg->healthReport.serviceID.svc_name;
-					// Currently PM is passing in as "testing"
-					// fds_verify(msg->healthReport.serviceID.svc_name != OM);
-					// fds_verify(msg->healthReport.serviceID.svc_name != PM);
+					default:
+						// Panic on unhandled service
+						LOGDEBUG << "Unhandled process: " << msg->healthReport.serviceID.svc_name <<
+							" with service type: " << service_type;
+						fds_verify(0);
+						break;
 				}
 			break;
 		default:
