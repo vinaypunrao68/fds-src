@@ -8,6 +8,8 @@ import pkgutil
 from fdscli.FDSShell import FDSShell
 from services.fds_auth import FdsAuth
 
+sys.path.append( os.path.dirname( os.path.abspath( __file__ ) ) )
+
 def main():
     cmdargs=sys.argv[1:]
 
