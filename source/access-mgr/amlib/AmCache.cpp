@@ -20,15 +20,20 @@ AmCache::AmCache()
 AmCache::~AmCache() = default;
 
 Error
-AmCache::registerVolume(fds_volid_t const vol_uuid, size_t const num_objs) {
-    Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
-    if (ERR_OK != err) {
-        return err;
-    }
-    err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
-    if (ERR_OK != err) {
-        descriptor_cache.removeVolume(vol_uuid);
-        return err;
+AmCache::registerVolume(fds_volid_t const vol_uuid,
+                        size_t const num_objs,
+                        bool const can_cache_meta) {
+    Error err;
+    if (can_cache_meta) {
+        err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
+        if (ERR_OK != err) {
+            return err;
+        }
+        err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
+        if (ERR_OK != err) {
+            descriptor_cache.removeVolume(vol_uuid);
+            return err;
+        }
     }
     err = object_cache.addVolume(vol_uuid, num_objs);
     if (ERR_OK != err) {

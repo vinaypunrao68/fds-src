@@ -618,10 +618,8 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
             { LOGWARN << "Failed to schedule token renewal timer!"; }
 
         if (err.ok()) {
-            if (volReq->mode.can_cache) {
-                // Create caches if we have a token
-                txMgr->registerVolume(vol_desc);
-            }
+            // Create caches if we have a token
+            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
 
             // If this is a real request, set the return data
             if (amReq->cb) {
