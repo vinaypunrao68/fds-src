@@ -148,13 +148,11 @@ Error
 AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
-    Error err(ERR_OK);
 
     // If the transaction is a delete, we want to remove the cache entry
     if (txDesc->opType == FDS_DELETE_BLOB) {
         // Remove from blob caches
-        err = removeBlob(txDesc->volId,
-                         txDesc->blobName);
+        removeBlob(txDesc->volId, txDesc->blobName);
     } else {
         fds_verify(txDesc->opType == FDS_PUT_BLOB);
 
@@ -173,16 +171,14 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
         cacheDesc->setBlobSize(blobSize);
 
         // Insert descriptor into the cache
-        err = putBlobDescriptor(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
+        putBlobDescriptor(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
 
-        if (ERR_OK == err) {
-            // Add blob objects from tx to object cache
-            for (const auto &object : txDesc->stagedBlobObjects) {
-                putObject(txDesc->volId, object.first, object.second);
-            }
+        // Add blob objects from tx to object cache
+        for (const auto &object : txDesc->stagedBlobObjects) {
+            putObject(txDesc->volId, object.first, object.second);
         }
     }
-    return err;
+    return ERR_OK;
 }
 
 Error
