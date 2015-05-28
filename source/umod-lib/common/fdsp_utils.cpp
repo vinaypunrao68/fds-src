@@ -134,6 +134,12 @@ std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg & vol) {
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::DmMigrationChkMsg & vol) {
+    std::ostringstream oss;
+    oss << " DmMigrationChkMsg Vol Id: " << vol.volume_id;
+    return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
 {
     std::ostringstream oss;
