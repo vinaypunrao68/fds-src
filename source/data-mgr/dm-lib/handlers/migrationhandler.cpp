@@ -15,22 +15,22 @@
 namespace fds {
 namespace dm {
 
-DmCheckerHandler::DmCheckerHandler(DataMgr& dataManager)
+DmMigrationHandler::DmMigrationHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
 }
 
-void DmCheckerHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                        boost::shared_ptr<fpi::DmMigrationChkMsg>& message) {
+void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
 }
 
-void DmCheckerHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
 }
 
-void DmCheckerHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                         boost::shared_ptr<fpi::DmMigrationChkMsg>& message,
+void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
 }
 

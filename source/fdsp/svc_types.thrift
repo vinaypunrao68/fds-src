@@ -174,7 +174,7 @@ enum  FDSPMsgTypeId {
   CloseVolumeRspMsgTypeId;
   ReloadVolumeMsgTypeId;
   ReloadVolumeRspMsgTypeId;
-  DmMigrationChkMsgTypeId;
+  CtrlNotifyDMStartMigrationMsgTypeId;
 }
 
 /**

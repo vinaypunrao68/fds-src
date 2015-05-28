@@ -461,15 +461,15 @@ struct GetDmStatsRespMsg {
    Operations for  Meta verifications 
    ------------------------------------------------------------*/
 
-struct DmMigrationChkMsg {
-  1: i64                       volume_id;
-  2: i64                       dest_dm;
-  3: bool                      chkRemedy ;
+struct CtrlNotifyDMStartMigrationMsg {
+  1: list<dm_types.DMVolumeMigrationGroup> migrations;
+  2: i64                     DMT_version;
+  3: bool                    dryRun = false;
+
 }
 
-struct DmMigrationChkResp {
-  1: i64                       volume_id;
-  2: bool                      status;
+struct CtrlNotifyDMStartMigrationRspMsg {
+  1: list<dm_types.DMVolumeMigrationDiff> diff;
 }
 
 /* ------------------------------------------------------------

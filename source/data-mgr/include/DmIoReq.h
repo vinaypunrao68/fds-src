@@ -46,7 +46,7 @@ extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMs
 extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
-extern std::string logString(const FDS_ProtocolInterface::DmMigrationChkMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
 // ======
 
     /*
@@ -709,17 +709,17 @@ struct DmIoReloadVolume : dmCatReq {
 
 };
 
-struct DmIoChecker : dmCatReq {
-    boost::shared_ptr<fpi::DmMigrationChkMsg> message;
-    boost::shared_ptr<fpi::DmMigrationChkResp> response;
-    explicit DmIoChecker(boost::shared_ptr<fpi::DmMigrationChkMsg> msg)
+struct DmIoMigration : dmCatReq {
+    boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
+    boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationRspMsg> response;
+    explicit DmIoMigration(boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
-              response(new fpi::DmMigrationChkResp()),
-              dmCatReq(msg->volume_id, "", "", 0, FDS_DM_CHKER) {
+              response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
+              dmCatReq(0, "", "", 0, FDS_DM_MIGRATION) {
     }
 
-    friend std::ostream& operator<<(std::ostream& out, const DmIoChecker& io) {
-        return out << "DmIoChecker vol " << std::hex << io.volId << std::dec;
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigration& io) {
+        return out << "DmIoMigration vol ";
     }
 
 };
