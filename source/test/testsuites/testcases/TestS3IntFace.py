@@ -20,6 +20,39 @@ import boto
 from boto.s3 import connection
 from boto.s3.key import Key
 import filecmp
+import random
+
+class Helper:
+    @staticmethod
+    def tobytes(num):
+        if type(num) == types.IntType:
+            return num
+
+        if type(num) == types.StringType:
+            if num.isdigit(): return int(num)
+            m = re.search(r'[A-Za-z]', num)
+            if m.start() <=0:
+                return num
+
+            n = int(num[0:m.start()])
+            c = num[m.start()].upper()
+            if c == 'K': return n*1024;
+            if c == 'M': return n*1024*1024;
+            if c == 'G': return n*1024*1024*1024;
+            
+    @staticmethod
+    def genData(length=10, seed=None):
+        r = random.Random(seed)
+        return ''.join([r.choice(string.ascii_lowercase) for i in range(0, Helper.tobytes(length))])
+
+    @staticmethod
+    def bucketName(seed=None):
+        return 'volume-{}'.format( Helper.genData(10, seed))
+
+    @staticmethod
+    def keyName(seed=None):
+        return 'key-{}'.format( Helper.genData(12, seed))
+
 
 # Class to contain S3 objects used by these test cases.
 class S3(object):
