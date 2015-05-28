@@ -145,13 +145,11 @@ namespace fds
             }
 
             // Common command line options
-            args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", getNodeUUID (fpi::FDSP_PLATFORM)));
+            args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", nodeInfo.uuid));
             args.push_back (util::strformat ("--fds.common.om_ip_list=%s", fdsConfig->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
             args.push_back (util::strformat ("--fds.pm.platform_port=%d", fdsConfig->get <int> ("platform_port")));
 
             pid = fds_spawn_service (command, rootDir, args, false);
-
-LOGDEBUG << "After fds_spawn_service with pid = " << pid;
 
             if (pid > 0)
             {
@@ -545,9 +543,10 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
 
             fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
 
-            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;         // TEMP HARD CODE
+            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
             message->healthReport.serviceID.svc_name = serviceRecord->name;
             message->healthReport.servicePort = serviceRecord->svc_port;
+            message->healthReport.platformUUID.svc_uuid.svc_uuid = nodeInfo.uuid;
             message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             message->healthReport.statusInfo = textualContent.str();

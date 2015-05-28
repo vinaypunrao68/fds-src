@@ -26,7 +26,7 @@ struct HealthInfoMessage {
   1: required common.SvcID  serviceID;
   2: required i32           servicePort;
   3: required HealthState   serviceState;
-  4: i32                    statusCode;       // This should be a value in fds_errno_t
-  5: string                 statusInfo;
+  4: common.SvcID           platformUUID;     // Only intended to be used when Platformd spoofs a HealthInfoMessage
+  5: i32                    statusCode;       // This should be a value in fds_errno_t
+  6: string                 statusInfo;
 }
-
