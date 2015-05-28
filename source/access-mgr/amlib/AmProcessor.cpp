@@ -222,6 +222,8 @@ class AmProcessor_impl
 
 Error
 AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
+    static fpi::VolumeAccessMode const default_access_mode;
+
     Error err;
     if (shut_down) {
         err = ERR_SHUTTING_DOWN;
@@ -239,7 +241,10 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
             // the wait list by queuing a no-op attach request ourselves, this
             // will cause the attach to use the default mode.
             if (FDS_ATTACH_VOL != amReq->io_type) {
-                auto attachReq = new AttachVolumeReq(invalid_vol_id, amReq->volume_name, nullptr);
+                auto attachReq = new AttachVolumeReq(invalid_vol_id,
+                                                     amReq->volume_name,
+                                                     default_access_mode,
+                                                     nullptr);
                 amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
                 volTable->enqueueRequest(attachReq);
             }
@@ -459,10 +464,9 @@ AmProcessor_impl::renewToken(const fds_volid_t vol_id) {
 
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
-    auto amReq = new AttachVolumeReq(vol_id, "", nullptr);
+    auto amReq = new AttachVolumeReq(vol_id, "", shVol->access_token->getMode(), nullptr);
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
     amReq->token = shVol->getToken();
-    amReq->mode = shVol->access_token->getMode();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::attachVolumeCb, amReq);
     amDispatcher->dispatchOpenVolume(amReq);
 }
@@ -622,6 +626,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
             if (amReq->cb) {
                 auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
                 cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
+                cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
             }
         }
     }

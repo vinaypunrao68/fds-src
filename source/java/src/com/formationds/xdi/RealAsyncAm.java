@@ -3,6 +3,7 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
@@ -92,7 +93,11 @@ public class RealAsyncAm implements AsyncAm {
     @Override
     public CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException {
         return scheduleAsync(rid -> {
-            oneWayAm.attachVolume(rid, domainName, volumeName);
+	    // TODO (bszmyd)
+	    // Should probably expose this ability to attach with an explicit mode to the connectors
+	    // for now we just default to r/w with cache
+	    VolumeAccessMode mode = new VolumeAccessMode();
+            oneWayAm.attachVolume(rid, domainName, volumeName, mode);
         });
     }
 

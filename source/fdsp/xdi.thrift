@@ -1,5 +1,6 @@
 /*
  * Copyright 2013-2015 Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "common.thrift"
@@ -67,7 +68,7 @@ service AsyncXdiServiceRequest {
     oneway void handshakeStart(1:RequestId requestId 2:i32 portNumber),
 
     oneway void attachVolume(1:RequestId requestId, 2: string domainName,
-                             3:string volumeName),
+                             3:string volumeName, 4: common.VolumeAccessMode mode),
 
     oneway void volumeContents(1:RequestId requestId, 2:string domainName,
                                3:string volumeName, 4:i32 count, 5:i64 offset, 6:string pattern,
@@ -117,7 +118,7 @@ service AsyncXdiServiceRequest {
 service AsyncXdiServiceResponse {
     oneway void handshakeComplete(1:RequestId requestId),
 
-    oneway void attachVolumeResponse(1:RequestId requestId),
+    oneway void attachVolumeResponse(1:RequestId requestId, 2:common.VolumeAccessMode mode),
 
     oneway void volumeContents(1:RequestId requestId, 2:list<common.BlobDescriptor> response),
 
