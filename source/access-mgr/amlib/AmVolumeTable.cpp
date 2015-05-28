@@ -10,6 +10,7 @@
 #include "AmVolume.h"
 
 #include "AmRequest.h"
+#include "requests/AttachVolumeReq.h"
 #include "PerfTrace.h"
 #include "AmQoSCtrl.h"
 
@@ -31,21 +32,24 @@ class WaitQueue {
     ~WaitQueue() = default;
 
     template<typename Cb>
-    void drain(std::string const&, Cb&&);
+    void remove_if(std::string const&, Cb&&);
     Error delay(AmRequest*);
     bool empty() const;
     void pop(AmRequest*);
 };
 
 template<typename Cb>
-void WaitQueue::drain(std::string const& vol_name, Cb&& cb) {
+void WaitQueue::remove_if(std::string const& vol_name, Cb&& cb) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
-        for (auto& req: wait_it->second) {
-            cb(req);
+        wait_it->second.erase(
+            std::remove_if(wait_it->second.begin(),
+                           wait_it->second.end(),
+                           cb));
+        if (wait_it->second.empty()) {
+            queue.erase(wait_it);
         }
-        queue.erase(wait_it);
     }
 }
 
@@ -107,61 +111,101 @@ void AmVolumeTable::registerCallback(tx_callback_type cb) {
 }
 
 /*
- * Creates volume if it has not been created yet
- * Does nothing if volume is already registered, call is idempotent
+ * Register the volume and create QoS structs 
+ * Search the wait queue for an attach on this volume (by name),
+ * if found process it, and only it.
  */
 Error
-AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
-                              boost::shared_ptr<AmVolumeAccessToken> access_token)
+AmVolumeTable::registerVolume(const VolumeDesc& volDesc)
 {
     Error err(ERR_OK);
-    fds_volid_t vol_uuid = vdesc.GetID();
+    fds_volid_t vol_uuid = volDesc.GetID();
+    map_rwlock.write_lock();
+    auto const& it = volume_map.find(vol_uuid);
+    if (volume_map.cend() == it) {
+        /** Create queue and register with QoS */
+        FDS_VolumeQueue* queue {nullptr};
+        if (volDesc.isSnapshot()) {
+            LOGDEBUG << "Volume is a snapshot : [0x" << std::hex << vol_uuid << "]";
+            queue = qos_ctrl->getQueue(volDesc.qosQueueId);
+        }
+        if (!queue) {
+            queue = new FDS_VolumeQueue(4096,
+                                        volDesc.iops_throttle,
+                                        volDesc.iops_assured,
+                                        volDesc.relativePrio);
+            err = qos_ctrl->registerVolume(volDesc.volUUID, queue);
+        }
 
-    {
-        WriteGuard wg(map_rwlock);
-        auto it = volume_map.find(vol_uuid);
-        if (volume_map.end() == it) {
-            /** Create queue and register with QoS */
-            FDS_VolumeQueue* queue {nullptr};
-            if (vdesc.isSnapshot()) {
-                LOGDEBUG << "Volume is a snapshot : [0x" << std::hex << vol_uuid << "]";
-                queue = qos_ctrl->getQueue(vdesc.qosQueueId);
-            }
-            if (!queue) {
-                queue = new FDS_VolumeQueue(4096,
-                                            vdesc.iops_throttle,
-                                            vdesc.iops_assured,
-                                            vdesc.relativePrio);
-                err = qos_ctrl->registerVolume(vdesc.volUUID, queue);
-            }
+        /** Internal bookkeeping */
+        if (err.ok()) {
+            // Create the volume and add it to the known volume map
+            auto new_vol = std::make_shared<AmVolume>(volDesc, queue, nullptr);
+            volume_map[vol_uuid] = std::move(new_vol);
+            map_rwlock.write_unlock();
 
-            /** Internal bookkeeping */
-            if (err.ok()) {
-                auto new_vol = std::make_shared<AmVolume>(vdesc, queue, access_token);
-                /** Drain wait queue into QoS */
-                wait_queue->drain(vdesc.name,
-                                  [this, vol_uuid] (AmRequest* amReq) mutable -> void {
-                                      amReq->setVolId(vol_uuid);
-                                      this->enqueueRequest(amReq);
+            // Search the queue for the first attach we find.
+            // The wait queue will iterate the queue for the given volume and
+            // apply the callback to each request. For the first attach request
+            // we find we process it (to cause volumeOpen to start), and remove
+            // it from the queue...but only the first.
+            wait_queue->remove_if(volDesc.name,
+                                  [this, &vol_desc = volDesc, found = false]
+                                  (AmRequest* amReq) mutable -> bool {
+                                      if (!found && FDS_ATTACH_VOL == amReq->io_type) {
+                                          auto volReq = static_cast<AttachVolumeReq*>(amReq);
+                                          volReq->setVolId(vol_desc.volUUID);
+                                          this->enqueueRequest(amReq);
+                                          found = true;
+                                          return true;
+                                      }
+                                      return false;
                                   });
-                volume_map[vol_uuid] = std::move(new_vol);
 
-                LOGNOTIFY << "AmVolumeTable - Register new volume " << vdesc.name
-                          << " " << std::hex << vol_uuid << std::dec
-                          << ", policy " << vdesc.volPolicyId
-                          << " (iops_throttle=" << vdesc.iops_throttle
-                          << ", iops_assured=" << vdesc.iops_assured
-                          << ", prio=" << vdesc.relativePrio << ")"
-                          << " result: " << err.GetErrstr();
-            } else {
-                LOGERROR << "Volume failed to register : [0x"
-                         << std::hex << vol_uuid << "]"
-                         << " because: " << err;
-            }
+            LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
+                      << " " << std::hex << vol_uuid << std::dec
+                      << ", policy " << volDesc.volPolicyId
+                      << " (iops_throttle=" << volDesc.iops_throttle
+                      << ", iops_assured=" << volDesc.iops_assured
+                      << ", prio=" << volDesc.relativePrio << ")"
+                      << " result: " << err.GetErrstr();
+            return err;
+        } else {
+            LOGERROR << "Volume failed to register : [0x"
+                     << std::hex << vol_uuid << "]"
+                     << " because: " << err;
         }
     }
-
+    map_rwlock.write_unlock();
     return err;
+}
+
+/*
+ * Binds access token to volume and drains any pending IO
+ */
+Error
+AmVolumeTable::processAttach(const VolumeDesc& volDesc,
+                             boost::shared_ptr<AmVolumeAccessToken> access_token)
+{
+    fds_volid_t vol_uuid = volDesc.GetID();
+    WriteGuard wg(map_rwlock);
+    auto it = volume_map.find(vol_uuid);
+    if (volume_map.end() == it) {
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    fds_assert(it->second);
+    // Assign the volume the token we got from DM
+    it->second->access_token.swap(access_token);
+
+    /** Drain wait queue into QoS */
+    wait_queue->remove_if(volDesc.name,
+                          [this, vol_uuid] (AmRequest* amReq) {
+                              amReq->setVolId(vol_uuid);
+                              this->enqueueRequest(amReq);
+                              return true;
+                          });
+    return ERR_OK;
 }
 
 Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
@@ -204,11 +248,13 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
 {
     WriteGuard wg(map_rwlock);
     /** Drain any wait queue into as any Error */
-    wait_queue->drain(volDesc.name,
-                      [] (AmRequest* amReq) {
-                          amReq->cb->call(FDSN_StatusEntityDoesNotExist);
-                          delete amReq;
-                      });
+    wait_queue->remove_if(volDesc.name,
+                          [] (AmRequest* amReq) {
+                              if (amReq->cb)
+                                  amReq->cb->call(FDSN_StatusEntityDoesNotExist);
+                              delete amReq;
+                              return true;
+                          });
     if (0 == volume_map.erase(volDesc.volUUID)) {
         LOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
         return ERR_OK;

@@ -32,6 +32,7 @@ class AmAsyncDataApi {
     typedef sp<std::string> shared_string_type;
     typedef sp<apis::ObjectOffset> shared_offset_type;
     typedef sp<apis::TxDescriptor> shared_tx_ctx_type;
+    typedef sp<fpi::VolumeAccessMode> shared_vol_mode_type;
     typedef sp<std::map<std::string, std::string>> shared_meta_type;
 
  private:
@@ -53,7 +54,8 @@ class AmAsyncDataApi {
 
     void attachVolume(handle_type& requestId,
                       shared_string_type& domainName,
-                      shared_string_type& volumeName);
+                      shared_string_type& volumeName,
+                      shared_vol_mode_type& mode);
 
     void detachVolume(handle_type& requestId,
                       shared_string_type& domainName,

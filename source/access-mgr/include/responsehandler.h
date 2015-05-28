@@ -211,6 +211,7 @@ struct GetVolumeMetadataCallback {
 
 struct AttachCallback {
     boost::shared_ptr<VolumeDesc> volDesc;
+    boost::shared_ptr<fpi::VolumeAccessMode> mode;
 };
 
 struct DetachCallback {};
