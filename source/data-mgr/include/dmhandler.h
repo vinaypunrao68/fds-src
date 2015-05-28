@@ -299,10 +299,10 @@ struct ReloadVolumeHandler : Handler {
 struct DmCheckerHandler : Handler {
     explicit DmCheckerHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::dmMigrationChkMsg>& message);
+                       boost::shared_ptr<fpi::DmMigrationChkMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::dmMigrationChkMsg>& message,
+                        boost::shared_ptr<fpi::DmMigrationChkMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 

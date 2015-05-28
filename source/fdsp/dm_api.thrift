@@ -461,13 +461,13 @@ struct GetDmStatsRespMsg {
    Operations for  Meta verifications 
    ------------------------------------------------------------*/
 
-struct dmMigrationChkMsg {
+struct DmMigrationChkMsg {
   1: i64                       volume_id;
   2: i64                       dest_dm;
   3: bool                      chkRemedy ;
 }
 
-struct dmMigrationChkResp {
+struct DmMigrationChkResp {
   1: i64                       volume_id;
   2: bool                      status;
 }

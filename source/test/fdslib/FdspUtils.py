@@ -294,7 +294,7 @@ def newStopSmchkMsg():
     return msg
 
 def newDmchkMsg(volId, destDm, remedy):
-    msg = smapi.ttypes.dmMigrationChkMsg()
+    msg = smapi.ttypes.DmMigrationChkMsg()
     msg.volume_id = volId
     msg.dest_dm = destDm
     msg.chkRemedy = remedy

@@ -3,12 +3,14 @@
  */
 
 #include <dmhandler.h>
-#include <fds_assert.h>
 #include <util/Log.h>
-#include <DmIoReq.h>
-#include <PerfTrace.h>
 #include <fds_error.h>
-#include <DMSvcHandler.h>
+#include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
+#include <PerfTrace.h>
+#include <VolumeMeta.h>
+#include <DmIoReq.h>
 
 namespace fds {
 namespace dm {
@@ -19,7 +21,7 @@ DmCheckerHandler::DmCheckerHandler(DataMgr& dataManager)
 }
 
 void DmCheckerHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                        boost::shared_ptr<fpi::dmMigrationChkMsg>& message) {
+                                        boost::shared_ptr<fpi::DmMigrationChkMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
 }
@@ -28,7 +30,7 @@ void DmCheckerHandler::handleQueueItem(dmCatReq* dmRequest) {
 }
 
 void DmCheckerHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                         boost::shared_ptr<fpi::dmMigrationChkMsg>& message,
+                                         boost::shared_ptr<fpi::DmMigrationChkMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
 }
 
