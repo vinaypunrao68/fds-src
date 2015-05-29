@@ -493,9 +493,7 @@ namespace fds
             std::vector <fpi::SvcInfo> serviceMap;
             MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
 
-            fpi::SvcInfo serviceRecord;
-            bool found = false;
-            ResourceUUID uuid;
+            fpi::SvcInfo const *serviceRecord = nullptr;
 
             fpi::FDSP_MgrIdType serviceType (fpi::FDSP_INVALID_SVC);
 
@@ -521,21 +519,20 @@ namespace fds
                 } break;
             }
 
-            // Go through service map and try to find the entity corresponding to this process
-            for (auto map_entry : serviceMap)
+            // Search through the service map looking for the entity corresponding to this process
+            for (auto const &vectItem : serviceMap)
             {
-                uuid  = map_entry.svc_id.svc_uuid.svc_uuid;
+                ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
 
                 // Check if this is a service on this node and is the same service type as the expired process
                 if (getNodeUUID(fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val() &&  uuid.uuid_get_type() == serviceType)
                 {
-                    serviceRecord = map_entry;
-                    found = true;
+                    serviceRecord = &vectItem;
                     break;
                 }
             }
 
-            if (!found)
+            if (nullptr == serviceRecord)
             {
                 LOGERROR << "Unable to find a service map record for a process that exited unexpectedly.";
                 return;
@@ -544,12 +541,11 @@ namespace fds
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") unexpectedly exited.";
 
-            // Send message to OM
             fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
 
-            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord.svc_id.svc_uuid.svc_uuid;
-            message->healthReport.serviceID.svc_name = serviceRecord.name;
-            message->healthReport.servicePort = serviceRecord.svc_port;
+            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
+            message->healthReport.serviceID.svc_name = serviceRecord->name;
+            message->healthReport.servicePort = serviceRecord->svc_port;
             message->healthReport.platformUUID.svc_uuid.svc_uuid = nodeInfo.uuid;
             message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
@@ -561,7 +557,6 @@ namespace fds
             request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), message);
             request->invoke();
         }
-
 
         void PlatformManager::run()
         {
