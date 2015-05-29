@@ -970,7 +970,7 @@ class TestPuts(TestCase.FDSTestCase):
             key = Helper.keyName(self.dataset + str(n))
             value = Helper.genData(self.size,n)
             self.parameters["s3"].verifiers[self.dataset][key] = hash(value)
-            k = Key(s3.bucket1, key)
+            k = s3.bucket1.new_key(key)
             self.log.info('uploading key {} : {}'.format(n, key))
             k.set_contents_from_string(value)
 
