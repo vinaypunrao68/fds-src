@@ -293,10 +293,10 @@ def newStopSmchkMsg():
 
     return msg
 
-def newDmchkMsg(volId, destDm, remedy):
-    msg = smapi.ttypes.DmMigrationChkMsg()
-    msg.volume_id = volId
-    msg.dest_dm = destDm
-    msg.chkRemedy = remedy
+def newDmchkMsg(volId, source, remedy):
+    msg = smapi.ttypes.CtrlNotifyDMStartMigrationMsg()
+    msg.migrations.VolDescriptors.volUUID = volId
+    msg.migrations.source = source
+    msg.dryRun = remedy
 
     return msg

@@ -16,12 +16,12 @@ class DMDebugContext(Context):
 
     @cliadmincmd
     @arg('vol-name', help= "-Volume name  of the checker")
-    @arg('dest-dm', help= "-service uuid of the destination DM")
-    @arg('chk-remedy', help= "-Action based on the  checker result, True->sync the nodes False->report the diffs" )
-    def dmChk(self, vol_name, dest_dm, chk_remedy ):
+    @arg('source-dm', help= "-service uuid of the source  DM")
+    @arg('dry-run', help= "-Action based on the  checker result, True->sync the nodes False->report the diffs" )
+    def dmChk(self, vol_name, source_dm, dry_run ):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
-            dmChecker = FdspUtils.newDmchkMsg(volume_id, dest_dm, chk_remedy)
+            dmChecker = FdspUtils.newDmchkMsg(volume_id, source_dm, dry_run)
             self.dmClient().sendAsyncSvcReq(dm, dmChecker, None)
         except ApiException, e:
             print e
