@@ -321,12 +321,16 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 						fds_verify(pm_found);
 						OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
 								om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
-						om_pm_agt->send_deactivate_services(comp_type == fpi::FDSP_STOR_MGR,
-															comp_type == fpi::FDSP_DATA_MGR,
-															comp_type == fpi::FDSP_ACCESS_MGR);
-						om_pm_agt->send_activate_services(comp_type == fpi::FDSP_STOR_MGR,
-															comp_type == fpi::FDSP_DATA_MGR,
-															comp_type == fpi::FDSP_ACCESS_MGR);
+						/**
+						 * PM doesn't want to hear about the actual deactivate service but
+						 * OM side needs to deactiate it. So just call the response
+						 * which will do the OM side cleanup.
+						 */
+						Error 			dummyErr (ERR_OK);
+						om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
+								comp_type == fpi::FDSP_DATA_MGR,
+								comp_type == fpi::FDSP_ACCESS_MGR,
+								NULL, dummyErr, NULL);
 						break;
 					}
 					default:
