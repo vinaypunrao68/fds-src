@@ -775,7 +775,8 @@ class OM_NodeDomainMod : public Module
     void setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
                        NodeAgent::pointer   newNode,
-                       fds_uint32_t delayTime );
+                      fds_uint32_t delayTime,
+                      bool fPrevRegistered);
 
     /**
      * Activate well known service on an node

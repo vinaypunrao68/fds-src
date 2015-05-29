@@ -4,6 +4,7 @@ import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.VolumeAccessMode;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
@@ -65,7 +66,7 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     }
 
     @Override
-    public void attachVolumeResponse(RequestId requestId) throws TException {
+    public void attachVolumeResponse(RequestId requestId, VolumeAccessMode mode) throws TException {
         complete(requestId, null);
     }
 

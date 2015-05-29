@@ -105,7 +105,8 @@ AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& reques
 void
 AmAsyncXdiResponse::attachVolumeResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId,
-                                     boost::shared_ptr<VolumeDesc>& volDesc) {
+                                     boost::shared_ptr<VolumeDesc>& volDesc,
+                                     boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
             boost::make_shared<fpi::ErrorCode>());
@@ -113,7 +114,7 @@ AmAsyncXdiResponse::attachVolumeResp(const Error &error,
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
-        XDICLIENTCALL(attachVolumeResponse(requestId));
+        XDICLIENTCALL(attachVolumeResponse(requestId, mode));
     }
 }
 
