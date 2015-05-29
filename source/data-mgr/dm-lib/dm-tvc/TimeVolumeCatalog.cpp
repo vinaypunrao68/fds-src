@@ -129,7 +129,7 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fds_int64_t& token,
-                             fpi::VolumeAccessPolicy const& policy) {
+                             fpi::VolumeAccessMode const& mode) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -140,12 +140,12 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
             auto table = new DmVolumeAccessTable(volId);
-            table->getToken(token, policy, vol_tok_lease_time);
+            table->getToken(token, mode, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
             // Table already exists, check if we can attach again or
             // renew the existing token.
-            err = it->second->getToken(token, policy, vol_tok_lease_time);
+            err = it->second->getToken(token, mode, vol_tok_lease_time);
         }
     }
 

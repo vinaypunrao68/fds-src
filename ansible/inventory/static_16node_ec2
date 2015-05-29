@@ -48,7 +48,6 @@ awo-bh-01 fds_deploy_local_deps=False fds_build=release
 10.3.20.91
 
 [static_16node_ec2:vars]
-clean_fds=no
 ansible_ssh_user=deploy
 cluster_location=awo
 deploy_artifact=nightly
@@ -62,4 +61,5 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 fds_ft_common_enable_multi_om_support=false
 fds_om_host_count=3
-
+clean_fds=yes
+force=yes

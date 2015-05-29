@@ -179,8 +179,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     // **********
     // Thrift response handlers
     // **********
-    void attachVolumeResponse(const apis::RequestId& requestId) override {}
-    void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
+    void attachVolumeResponse(const apis::RequestId& requestId,
+                              const fpi::VolumeAccessMode& mode) override {}
+    void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                              boost::shared_ptr<fpi::VolumeAccessMode>& mode) override {}
     void volumeContents(const apis::RequestId& requestId,
                         const std::vector<fpi::BlobDescriptor> & response) override {}
     void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
@@ -251,7 +253,8 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void attachVolumeResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
-                          boost::shared_ptr<VolumeDesc>& volDesc) override {
+                          boost::shared_ptr<VolumeDesc>& volDesc,
+                          boost::shared_ptr<fpi::VolumeAccessMode>& mode) override {
         ASSERT_EQ(ERR_OK, error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();

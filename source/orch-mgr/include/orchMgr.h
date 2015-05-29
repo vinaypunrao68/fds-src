@@ -75,7 +75,7 @@ class OrchMgr: public SvcProcess {
     std::string node_id_to_name[MAX_OM_NODES];
 
     /*
-     * Cmdline configurables
+     * Command Line configurable
      */
     int conf_port_num; /* config port to listen for cli commands */
     int ctrl_port_num; /* control port (register node + config cmds from AM) */

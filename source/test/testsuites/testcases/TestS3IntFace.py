@@ -20,6 +20,48 @@ import boto
 from boto.s3 import connection
 from boto.s3.key import Key
 import filecmp
+import random
+import types
+import string
+import re
+
+class Helper:
+    @staticmethod
+    def tobytes(num):
+        if type(num) == types.IntType:
+            return num
+
+        if type(num) == types.StringType:
+            if num.isdigit(): return int(num)
+            m = re.search(r'[A-Za-z]', num)
+            if m.start() <=0:
+                return num
+
+            n = int(num[0:m.start()])
+            c = num[m.start()].upper()
+            if c == 'K': return n*1024;
+            if c == 'M': return n*1024*1024;
+            if c == 'G': return n*1024*1024*1024;
+
+    @staticmethod
+    def boolean(value):
+        if type(value) == types.StringType:
+            value = value.lower()
+        return value in ['true', '1', 'yes', 1, 'ok', 'set', True]
+
+    @staticmethod
+    def genData(length=10, seed=None):
+        r = random.Random(seed)
+        return ''.join([r.choice(string.ascii_lowercase) for i in range(0, Helper.tobytes(length))])
+
+    @staticmethod
+    def bucketName(seed=None):
+        return 'volume-{}'.format( Helper.genData(10, seed))
+
+    @staticmethod
+    def keyName(seed=None):
+        return 'key-{}'.format( Helper.genData(12, seed))
+
 
 # Class to contain S3 objects used by these test cases.
 class S3(object):
@@ -899,6 +941,145 @@ class TestS3DelBucket(TestCase.FDSTestCase):
             return True
 
 
+class TestPuts(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, dataset='key', count=10, size='1K'):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_Puts,
+                                             "upload N no.of objects with specified size")
+        self.dataset = dataset
+        self.count   = int(count)
+        self.size    = size
+        self.passedBucket=bucket
+
+    def test_Puts(self):
+        if not self.checkS3Info(self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+        if self.dataset not in s3.verifiers:
+            s3.verifiers[self.dataset] = {}
+            s3.verifiers[self.dataset]['count'] = self.count
+            s3.verifiers[self.dataset]['size'] = self.size
+        else:
+            self.count = s3.verifiers[self.dataset]['count']
+            self.size = s3.verifiers[self.dataset]['size']
+
+        self.log.info("uploading {} keys of size: {}".format(self.count, self.size))
+        for n in range(0, self.count):
+            key = Helper.keyName(self.dataset + str(n))
+            value = Helper.genData(self.size,n)
+            self.parameters["s3"].verifiers[self.dataset][key] = hash(value)
+            k = s3.bucket1.new_key(key)
+            self.log.info('uploading key {} : {}'.format(n, key))
+            k.set_contents_from_string(value)
+
+        return True
+
+class TestGets(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, dataset='key', count=10, size='1K'):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_Gets,
+                                             "fetch N no.of objects with specified size")
+        self.dataset = dataset
+        self.count   = int(count)
+        self.size    = size
+        self.passedBucket=bucket
+
+    def test_Gets(self):
+        if not self.checkS3Info(self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+        if self.dataset not in s3.verifiers:
+            s3.verifiers[self.dataset] = {}
+            s3.verifiers[self.dataset]['count'] = self.count
+            s3.verifiers[self.dataset]['size'] = self.size
+        else:
+            self.count = s3.verifiers[self.dataset]['count']
+            self.size = s3.verifiers[self.dataset]['size']
+
+        self.log.info("fetching {} keys of size: {}".format(self.count, self.size))
+
+        for n in range(0, self.count):
+            key = Helper.keyName(self.dataset + str(n))
+            value = s3.bucket1.get_key(key).get_contents_as_string()
+            valuehash = hash(value)
+            if self.parameters["s3"].verifiers[self.dataset][key] != valuehash:
+                self.log.error('hash mismatch for key {} : {} '.format(n, key))
+                return False
+            k = Key(s3.bucket1, key)
+            self.log.info('fetching key {} : {}'.format(n, key))
+            k.set_contents_from_string(value)
+
+        return True
+
+class TestDeletes(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, dataset='key', count=10):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_Deletes,
+                                             "check N no.of keys")
+        self.dataset = dataset
+        self.count   = int(count)
+        self.passedBucket=bucket
+
+    def test_Deletes(self):
+        if not self.checkS3Info(self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+        if self.dataset not in s3.verifiers:
+            s3.verifiers[self.dataset] = {}
+            s3.verifiers[self.dataset]['count'] = self.count
+        else:
+            self.count = s3.verifiers[self.dataset]['count']
+
+        self.log.info("deleting {} keys".format(self.count))
+
+        for n in range(0, self.count):
+            key = Helper.keyName(self.dataset + str(n))
+            k = Key(s3.bucket1, key)
+            k.delete()
+
+        return True
+
+class TestKeys(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, dataset='key', count=10, exist=True):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_Keys,
+                                             "delete N no.of objects")
+        self.dataset = dataset
+        self.count   = int(count)
+        self.exist   = Helper.boolean(exist)
+        self.passedBucket=bucket
+
+    def test_Keys(self):
+        if not self.checkS3Info(self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+        if self.dataset not in s3.verifiers:
+            s3.verifiers[self.dataset] = {}
+            s3.verifiers[self.dataset]['count'] = self.count
+        else:
+            self.count = s3.verifiers[self.dataset]['count']
+
+        self.log.info("checking {} keys".format(self.count))
+        bucket_keys = [key.name for key in s3.bucket1.list()]
+        for n in range(0, self.count):
+            key = Helper.keyName(self.dataset + str(n))
+            key_exists = key in bucket_keys
+            if self.exist != key_exists:
+                self.log.error("key {} exist check failed. Should exist: {}, Does exist: {}".format(key, self.exist, key_exists))
+                return False
+
+        return True
+
+
+
 # This class contains the attributes and methods to reset
 # the S3 object so that we can reuse these test cases.
 #
@@ -923,8 +1104,6 @@ class TestS3ObjReset(TestCase.FDSTestCase):
             del self.parameters["s3"]
 
         return True
-
-
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

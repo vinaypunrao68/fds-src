@@ -15,12 +15,14 @@
 #include <thrift/server/TThreadPoolServer.h>
 
 #include <fds_typedefs.h>
+#include <fdsp_utils.h>
 #include <string>
 #include <vector>
 #include <util/Log.h>
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
+#include <omutils.h>
 #include <util/stringutils.h>
 #include <util/timeutils.h>
 #include <net/PlatNetSvcHandler.h>
@@ -39,12 +41,13 @@ static void add_service_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  /
     fpi::SvcInfo svcInfo;
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
+    
     /* Getting from svc map.  Should be able to get it from config db as well */
     if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
-        GLOGWARN << "could not fing svcinfo for uuid:" << svcUuid.svc_uuid;
+        GLOGWARN << "could not find svcinfo for uuid:" << svcUuid.svc_uuid;
         return;
     }
-
+    
     fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
     nodeInfo.node_uuid = SvcMgr::mapToSvcUuid(svcUuid, fpi::FDSP_PLATFORM).svc_uuid;
     nodeInfo.service_uuid = svcUuid.svc_uuid;
@@ -445,19 +448,33 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, boost::shared_ptr<std::string>& domainName) {
-        // Currently (3/18/2015) only support for one Local Domain. So the specified name is ignored.
+    void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, 
+                                 boost::shared_ptr<std::string>& domainName) {
+        /*
+         * Currently (3/18/2015) only support for one Local Domain. 
+         * So the specified name is ignored. Also, we should be using Domain UUID.
+         */
 
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        std::vector<fpi::SvcInfo> svcinfos;
+        if ( configDB->getSvcMap( svcinfos ) ) 
+        {
+            if ( svcinfos.size( ) > 0 ) 
+            {
+                for ( const fpi::SvcInfo svcinfo : svcinfos )
+                {
+                    _return.push_back( fds::fromSvcInfo( svcinfo ) );
+                }
+            } 
+            else
+            {
+                LOGNORMAL << "No persisted local domain ( " 
+                          << domainName 
+                          << " ) services found.";
+            }
+        }
 
-        local->om_sm_nodes()->
-                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
-        local->om_am_nodes()->
-                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
-        local->om_dm_nodes()->
-                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
-        local->om_pm_nodes()->
-                agent_foreach<std::vector<fpi::FDSP_Node_Info_Type> &>(_return, add_service_to_vector);
+        // always return ourself FS-1779: OM does not report status to UI
+        _return.push_back( fds::fromSvcInfo( fds::gl_orch_mgr->getSvcMgr()->getSelfSvcInfo() ) );
     }
 
     /**

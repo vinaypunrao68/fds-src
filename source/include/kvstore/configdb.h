@@ -156,6 +156,8 @@ struct ConfigDB : KVStore {
             }
         }
     };
+    
+    void fromTo( fpi::SvcInfo svcInfo, kvstore::NodeInfoType nodeInfo );
 };
 
 #define TRACKMOD(...) ModificationTracker modtracker(this)

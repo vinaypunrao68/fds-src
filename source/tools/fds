@@ -54,8 +54,13 @@ apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
 
+declare -A TESTS
+TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
+TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
+TESTS["restart"]="SimpleRestartTest.ini"
+
 function usage() {
-    log "$(yellow usage: $(basename $0) [cmd] [app] [options])"
+    log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
     log " cmd : "
     log "   - $(yellow start)     : start the app "
     log "   - $(yellow stop)      : stop  the app "
@@ -64,6 +69,7 @@ function usage() {
     log "   - $(yellow clogs)     : remove the logs"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
+    log "   - $(yellow test)      : run specific tests"
     log "   - $(yellow tail)      : tail the application log file"
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
@@ -72,6 +78,8 @@ function usage() {
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log " app : om/pm/sm/am/dm/all"
+    log " $(yellow testname): name of a test"
+    echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
     printBuildMode
     exit 0
 }
@@ -139,10 +147,10 @@ function activate() {
     if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
     if [[ -n $actapps ]]; then
         # Bao: wait for platformd before activate
-        sleep 7
+        sleep 14
 
         logwarn "asking OM to accept all discovered nodes..."
-	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local > cli.out) 2>/dev/null
+	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
     fi
 }
 
@@ -354,7 +362,6 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-
     if [[ $name == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
     elif [[ $name == "am" ]]; then
@@ -489,6 +496,20 @@ function showerrors() {
     done
 }
 
+function showports() {
+    local apps="$@"
+    if [[ $1 == 'all' ]]; then
+        apps="am om dm sm pm xdi"
+    fi
+    for app in ${apps}; do
+        local pid=$(getAppPid $app)
+        if [[ -n $pid ]]; then
+            local pids=$(echo -en $pid| tr ' ' '|' | sed 's/.$//')
+            loginfo "Ports used by : $(blue $app)/$pids"
+            netstat -lntp | grep -E "PID|${pids}"
+        fi
+    done
+}
 
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
@@ -540,6 +561,19 @@ function clean() {
 
     cleanInfluxDB
     cleanBinDirs
+}
+
+function runTest() {
+    local testname=$1
+    local TESTSUITEDIR=${SOURCEDIR}/test/testsuites
+
+    if [[ -n $testname ]] && [[ ${TESTS[$testname]+1} ]]; then
+        stopApp all
+        (cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
+    else
+        logerror "no matching tests for [$testname]"
+    fi
+            
 }
 
 function cleanlogs() {
@@ -619,10 +653,19 @@ if [ $run_from_install_dir -eq 1 ]; then
     source_lib
 fi
 
+
+if [[ $CMD == "test" ]]; then
+    TEST=$APP
+    APP="all"
+fi
+
 # check the values
 CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
+TESTNAME=""
+
+
 
 #echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \
 #     "TOOLSDIR=${TOOLSDIR} CONFIG_ETC=${CONFIG_ETC} BINDIR=${BINDIR}"
@@ -631,7 +674,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*) ;;
+    test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -679,6 +722,12 @@ case "${CMD}" in
         ;;
     err*)
         showerrors $APP
+        ;;
+    test)
+        runTest $TEST
+        ;;
+    port*)
+        showports $APP
         ;;
     *) usage ;;
 esac

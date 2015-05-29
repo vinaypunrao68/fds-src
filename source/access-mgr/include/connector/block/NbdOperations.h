@@ -244,7 +244,8 @@ class NbdOperations
 
     void attachVolumeResp(const resp_api_type::error_type &error,
                           handle_type& requestId,
-                          resp_api_type::shared_vol_descriptor_type& volDesc) override;
+                          resp_api_type::shared_vol_descriptor_type& volDesc,
+                          resp_api_type::shared_vol_mode_type& mode) override;
 
     // The two response types we do support
     void getBlobResp(const resp_api_type::error_type &error,

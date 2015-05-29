@@ -40,7 +40,10 @@ struct AmVolumeTable : public HasLogger {
     using tx_callback_type = std::function<void(AmRequest*)>;
     void registerCallback(tx_callback_type cb);
 
-    Error registerVolume(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
+    // A volume descriptor from OM means we probably have an attach pending
+    Error processAttach(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
+
+    Error registerVolume(const VolumeDesc& volDesc);
     Error removeVolume(const VolumeDesc& volDesc);
 
     /**

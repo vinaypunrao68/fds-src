@@ -2,8 +2,11 @@ package com.formationds.web.toolkit;
 
 import com.formationds.web.toolkit.route.LexicalTrie;
 import com.formationds.web.toolkit.route.QueryResult;
+
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.util.MultiMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -13,7 +16,10 @@ import java.util.function.Supplier;
  */
 public class RouteFinder {
     private LexicalTrie<Supplier<RequestHandler>> map;
-
+    
+    private static final Logger logger =
+            LoggerFactory.getLogger( RouteFinder.class );
+    
     public RouteFinder() {
         map = LexicalTrie.newTrie();
     }
@@ -23,6 +29,7 @@ public class RouteFinder {
                 .replaceAll("^/", "")
                 .replaceAll("$/", "");
         map.put(name, handler);
+//        logger.debug( "Adding route: " + name );
     }
 
     public Optional<Route> resolve(Request request) {
