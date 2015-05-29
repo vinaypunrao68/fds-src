@@ -1006,9 +1006,10 @@ class TestGets(TestCase.FDSTestCase):
             key = Helper.keyName(self.dataset + str(n))
             value = s3.bucket1.get_key(key).get_contents_as_string()
             valuehash = hash(value)
-            if self.parameters["s3"].verifiers[self.dataset][key] != valuehash:
-                self.log.error('hash mismatch for key {} : {} '.format(n, key))
-                return False
+            if self.dataset in self.parameters["s3"].verifiers and key in self.parameters["s3"].verifiers[self.dataset]:
+                if self.parameters["s3"].verifiers[self.dataset][key] != valuehash:
+                    self.log.error('hash mismatch for key {} : {} '.format(n, key))
+                    return False
             k = Key(s3.bucket1, key)
             self.log.info('fetching key {} : {}'.format(n, key))
             k.set_contents_from_string(value)
