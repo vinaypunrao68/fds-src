@@ -229,7 +229,7 @@ struct Snapshot {
     8:i64 timelineTime,
 }
 
-struct VolumeAccessPolicy {
-  1: optional bool exclusive_read = true;
-  2: optional bool exclusive_write = true;
+struct VolumeAccessMode {
+  1: optional bool can_write = true;
+  2: optional bool can_cache = true;
 }

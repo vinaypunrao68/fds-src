@@ -627,11 +627,11 @@ struct DmIoVolumeOpen : dmCatReq {
     explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
             : dmCatReq(message->volume_id, "", "", 0, FDS_OPEN_VOLUME),
               token(message->token),
-              access_policy(message->policy) {
+              access_mode(message->mode) {
     }
 
     fds_int64_t token;
-    fpi::VolumeAccessPolicy access_policy;
+    fpi::VolumeAccessMode access_mode;
 
     // response callback
     CbType dmio_get_volmd_resp_cb;
