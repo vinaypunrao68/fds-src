@@ -389,19 +389,21 @@ mockVolume = function(){
 
             api.connectors = [{
                 type: 'Block',
-                api: 'Basic, Cinder',
-                options: {
-                    max_size: '100',
-                    unit: ['GB', 'TB', 'PB']
-                },
-                attributes: {
-                    size: '10',
+                capacity: {
+                    size: 10,
                     unit: 'GB'
+                },
+                blockSize: {
+                    size: 128,
+                    unit: 'KB'
                 }
             },
             {
                 type: 'Object',
-                api: 'S3, Swift'
+                maxObjectSize: {
+                    size: 1,
+                    unit: 'GB'
+                }
             }];
         }();
 

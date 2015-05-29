@@ -5,22 +5,22 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/data-connector/data-connector.html',
-        scope: { dataConnector: '=ngModel', editable: '@', enable: '=?'},
+        scope: { setting: '=ngModel', editable: '@', enable: '=?'},
         controller: function( $scope, $data_connector_api ){
             
             $scope.sizes = [{name: 'MB'}, {name:'GB'}, {name:'TB'},{name:'PB'}];
-            $scope.connectors = $data_connector_api.connectors;
+            $scope.settings = $data_connector_api.connectors;
             $scope._selectedSize = 1;
             $scope._selectedUnit = $scope.sizes[1];
 
             var findUnit = function(){
 
-                if ( !angular.isDefined( $scope.dataConnector.attributes ) ){
+                if ( !angular.isDefined( $scope.setting.capacity ) ){
                     return;
                 }
                 
                 for ( var i = 0; i < $scope.sizes.length; i++ ){
-                    if ( $scope.sizes[i].name == $scope.dataConnector.attributes.size ){
+                    if ( $scope.sizes[i].name == $scope.setting.capacity.unit ){
                         $scope._selectedUnit = $scope.sizes[i];
                     }
                 }
@@ -28,26 +28,26 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             
             var refreshSelection = function(){
                  
-                if ( angular.isDefined( $scope.dataConnector.attributes ) ){
-                    $scope.dataConnector.attributes.size = $scope._selectedSize;
-                    $scope.dataConnector.attributes.unit = $scope._selectedUnit.name;
+                if ( angular.isDefined( $scope.setting.capacity ) ){
+                    $scope.setting.capacity.size = $scope._selectedSize;
+                    $scope.setting.capacity.unit = $scope._selectedUnit.name;
                 }
             };
             
             $scope.$on( 'fds::refresh', refreshSelection );
             
-            $scope.$watch( 'dataConnector', function( newVal ){
+            $scope.$watch( 'settings', function( newVal ){
                 
                 if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.type ) ){
-                    $scope.dataConnector = $scope.connectors[1];
+                    $scope.setting = $scope.settings[1];
                     return;
                 }
                 
                 $scope.$emit( 'fds::data_connector_changed' );
                 $scope.$emit( 'change' );
                 
-                if ( $scope.dataConnector.attributes ){
-                    $scope._selectedSize = $scope.dataConnector.attributes.size;
+                if ( $scope.setting.capacity ){
+                    $scope._selectedSize = $scope.settings.capacity.size;
                     findUnit();
                 }
                 

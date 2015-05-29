@@ -5,33 +5,33 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     $scope.thisVolume = {};
     
     var initQosSettings = function(){
-        $scope.editQos.capacity = $scope.thisVolume.sla;
-        $scope.editQos.limit = $scope.thisVolume.limit;
-        $scope.editQos.priority = $scope.thisVolume.priority;
+        $scope.editQos.capacity = $scope.thisVolume.qosPolicy.iops_min;
+        $scope.editQos.limit = $scope.thisVolume.qosPolicy.iops_max;
+        $scope.editQos.priority = $scope.thisVolume.qosPolicy.priority;
         $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
     };
     
     var initSnapshotSettings = function(){
-        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
 
-            var notTimelinePolicies = [];
-            var timelinePolicies = [];
+        var realPolicies = $scope.thisVolume.dataProtectionPolicysnapshotPolicies;
 
-            for ( var i = 0; i < realPolicies.length; i++ ){
-                if ( realPolicies[i].name.indexOf( '_TIMELINE_' ) === -1 ){
-                    notTimelinePolicies.push( realPolicies[i] );
-                }
-                else {
-                    timelinePolicies.push( realPolicies[i] );
-                }
+        var notTimelinePolicies = [];
+        var timelinePolicies = [];
+
+        for ( var i = 0; i < realPolicies.length; i++ ){
+            if ( realPolicies[i].id.name.indexOf( '_TIMELINE_' ) === -1 ){
+                notTimelinePolicies.push( realPolicies[i] );
             }
+            else {
+                timelinePolicies.push( realPolicies[i] );
+            }
+        }
 
-            $scope.snapshotPolicies = notTimelinePolicies;
-            $scope.timelinePolicies = {
-                commitLogRetention: $scope.thisVolume.commit_log_retention,
-                policies: timelinePolicies
-            };
-        });
+        $scope.snapshotPolicies = notTimelinePolicies;
+        $scope.timelinePolicies = {
+            commitLogRetention: $scope.thisVolume.commit_log_retention,
+            policies: timelinePolicies
+        };
     };
     
     $scope.deleteVolume = function(){

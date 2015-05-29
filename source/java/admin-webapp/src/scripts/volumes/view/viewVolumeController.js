@@ -258,26 +258,26 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return;
         }
         
-        return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id.uuid, function( realPolicies ){
+//        return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id.uuid, function( realPolicies ){
 
-            var notTimelinePolicies = [];
-            var timelinePolicies = [];
+        var notTimelinePolicies = [];
+        var timelinePolicies = [];
+        var realPolicies = $scope.volumeVars.selectedVolume.dataProtectionPolicy.snapshotPolicies;
 
-            for ( var i = 0; i < realPolicies.length; i++ ){
-                if ( realPolicies[i].id.name.indexOf( '_TIMELINE_' ) === -1 ){
-                    notTimelinePolicies.push( realPolicies[i] );
-                }
-                else {
-                    timelinePolicies.push( realPolicies[i] );
-                }
+        for ( var i = 0; i < realPolicies.length; i++ ){
+            if ( realPolicies[i].id.name.indexOf( '_TIMELINE_' ) === -1 ){
+                notTimelinePolicies.push( realPolicies[i] );
             }
+            else {
+                timelinePolicies.push( realPolicies[i] );
+            }
+        }
 
-            $scope.snapshotPolicies = notTimelinePolicies;
-            $scope.timelinePolicies = {
-                continuous: $scope.thisVolume.commitLogRetention,
-                policies: timelinePolicies
-            };
-        });
+        $scope.snapshotPolicies = notTimelinePolicies;
+        $scope.timelinePolicies = {
+            continuous: $scope.thisVolume.commitLogRetention,
+            policies: timelinePolicies
+        };
     };
     
     var initTimeline = function(){
@@ -443,10 +443,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             
             timelinePresets = presets;
             
-            initSnapshotSettings().then( function(){
-                // must come after the snapshot settings initialization
-                initSnapshotDescriptions();
-            });
+            initSnapshotSettings();
+            // must come after the snapshot settings initialization
+            initSnapshotDescriptions();
         });
 
         capacityIntervalId = $interval( pollCapacity, 60000 );

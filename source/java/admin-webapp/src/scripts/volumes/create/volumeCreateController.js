@@ -1,7 +1,7 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', '$filter', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds, $filter ){
 
     $scope.snapshotPolicies = [];
-    $scope.dataConnector = {};
+    $scope.dataSettings = {};
     $scope.volumeName = '';
     $scope.mediaPolicy = 0;
     $scope.enableDc = false;
@@ -112,16 +112,12 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             priority: $scope.newQos.priority
         };
         
-        volume.snapshotPolicies = $scope.timelinePolicies.policies;
-        volume.commitLogRetention = $scope.timelinePolicies.commitLogRetention;
-        
-        volume.settings = {
-            type: $scope.dataConnector.type
+        volume.dataProtectionPolicy = {
+            snapshotPolicies: $scope.timelinePolicies.policies,
+            commitLogRetention: $scope.timelinePolicies.commitLogRetention
         };
         
-        if ( $scope.dataConnector.type === 'BLOCK' ){
-            volume.settings.capacity = $scope.dataConnector.attributes;
-        }
+        volume.settings = $scope.dataSettings;
         
         volume.mediaPolicy = $scope.mediaPolicy.value;
         
@@ -162,7 +158,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             priority: volume.priority
         };
         
-        $scope.dataConnector = volume.data_connector;
+        $scope.dataSettings = volume.settings;
         
         $scope.$broadcast( 'fds::tiering-choice-refresh' );
         $scope.$broadcast('fds::fui-slider-refresh' );
