@@ -67,3 +67,4 @@
 -   name: set up influxdb URL
     set_fact:
         om_influxdb_url: "{{ fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://'+fds_om_host+':8086' }}"
+    tags: local_check
