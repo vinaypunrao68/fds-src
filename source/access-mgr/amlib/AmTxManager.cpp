@@ -167,7 +167,7 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
 
     // A duplicate is ok, though strange that we got another register call
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
-    if (ERR_DUPLICATE == err) {
+    if (ERR_VOL_DUPLICATE == err) {
         err = ERR_OK;
     }
 
