@@ -5,7 +5,6 @@
 package com.formationds.commons.togglz.feature.flag;
 
 import com.formationds.commons.togglz.feature.FdsFeatureManagerProvider;
-import com.formationds.commons.togglz.feature.annotation.InfluxDB;
 import com.formationds.commons.togglz.feature.annotation.Snmp;
 import com.formationds.commons.togglz.feature.annotation.Webkit;
 import org.togglz.core.Feature;
@@ -29,23 +28,13 @@ public enum FdsFeatureToggles
   @Label( "Webkit Feature" )
   @Webkit
   WEB_KIT,
+  
+  @Label( "REST 0.8 API Implementation")
+  REST_08,
 
   @Label( "SNMP Feature" )
   @Snmp
-  SNMP,
-
-  @EnabledByDefault
-  @Label( "Persist To ObjectDB Feature" )
-  @InfluxDB
-  PERSIST_OBJECTDB,
-
-  @Label( "Persist To InfluxDB Feature" )
-  @InfluxDB
-  PERSIST_INFLUXDB,
-
-  @Label( "Query InfluxDB Feature" )
-  @InfluxDB
-  QUERY_INFLUXDB;
+  SNMP;
 
   /**
    * @return Returns {@code true} if the feature associated with {@code this}

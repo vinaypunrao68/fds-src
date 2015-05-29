@@ -67,6 +67,11 @@ class MigrationMgr {
         MIGR_ABORTED       // If migration aborted due to error before DLT close
     };
 
+    enum MigrationType {
+        MIGR_SM_ADD_NODE,
+        MIGR_SM_RESYNC
+    };
+
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
@@ -85,7 +90,8 @@ class MigrationMgr {
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken,
-                         bool forResync);
+                         MigrationType migrType,
+                         bool onePhaseMigration);
 
     /**
      * Start resync process for SM tokens. Find the list of
@@ -99,6 +105,11 @@ class MigrationMgr {
      * Handles message from OM to abort migration
      */
     Error abortMigration();
+
+    /**
+     * Handle a timeout error from executor or client.
+     */
+    void timeoutAbortMigration();
 
     /**
      * Handle start object rebalance from destination SM
@@ -175,7 +186,8 @@ class MigrationMgr {
      * Assumes we are receiving DLT close event for the correct version,
      * caller should check this
      */
-    Error handleDltClose();
+    Error handleDltClose(const DLT* dlt,
+                         const NodeUuid& mySvcUuid);
 
     inline fds_bool_t isDltTokenReady(const ObjectID& objId) const {
         if (dltTokenStates.size() > 0) {
@@ -189,9 +201,11 @@ class MigrationMgr {
      * If migration not in progress and DLT tokens active/not active
      * states are not assigned, activate DLT tokens (this SM did not need
      * to resync or get data from other SMs).
+     * This method must be called only when this SM is a part of DLT
      */
-    void notifyDltUpdate(fds_uint32_t bitsPerDltToken);
-
+    void notifyDltUpdate(const fds::DLT *dlt,
+                         fds_uint32_t bitsPerDltToken,
+                         const NodeUuid& mySvcUuid);
 
     /**
      * Coalesce all migration executor.
@@ -234,6 +248,8 @@ class MigrationMgr {
 
     void retryTokenMigrForFailedDltTokens();
 
+    void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
+
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken);
 
@@ -270,12 +286,13 @@ class MigrationMgr {
      * On some errors (e.g., if failure happened on the destination side) or
      * if we tried with all source SMs, the sync will fail for the given set
      * of DLT tokens.
+     * @return true if at least one retry started, otherwise return false
      */
-    void retryWithNewSMsOrAbort(fds_uint64_t executorId,
-                                fds_token_id smToken,
-                                const std::set<fds_token_id>& dltTokens,
-                                fds_uint32_t round,
-                                const Error& error);
+    void retryWithNewSMs(fds_uint64_t executorId,
+                         fds_token_id smToken,
+                         const std::set<fds_token_id>& dltTokens,
+                         fds_uint32_t round,
+                         const Error& error);
 
     /**
      * Stops migration and sends ack with error to OM
@@ -295,6 +312,20 @@ class MigrationMgr {
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
 
+    /**
+     * Indexes this vector is a DLT token, and boolean value is true if
+     * DLT token is available, and false if DLT token is unavailable.
+     * Initialization on SM startup:
+     *   Case 1: New SM, no previous DLT, so that no migration is necessary.
+     *          SM will receive DLT update from OM and set all DLT tokens that this
+     *          SM owns to available.
+     *   Case 2: New SM added to the domain where there is an existing DLT.
+     *          SM will received StartMigration message from OM. All DLT tokens will
+     *          be initialized to unavailable.
+     *   Case 3: SM restarts and it was part of DLT before the shutdown.
+     *          MigrationMgr will be called to start resync. All DLT tokens will be
+     *          initialized to unavailable.
+     */
     std::vector<fds_bool_t> dltTokenStates;
 
     /// next ID to assign to a migration executor
@@ -312,10 +343,41 @@ class MigrationMgr {
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
 
-    /// SM token token that is currently in progress of migrating
-    /// TODO(Anna) make it more general if we want to migrate several
-    /// tokens at a time
-    fds_token_id smTokenInProgress;
+    /// set of SM tokens that are currently in progress of migrating
+    std::unordered_set<fds_token_id> smTokenInProgress;
+    /// mutex for smTokenInProgress
+    fds_mutex smTokenInProgressMutex;
+
+    /// thread-safe iterator over MigrExecutorMap
+    /// provides - constructor
+    ///          - fetch_and_increment_saturating
+    ///          - set
+    /// Needs to be here since it uses MigrExecutorMap
+    struct NextExecutor {
+        /// constructor
+        explicit NextExecutor(const MigrExecutorMap& ex) : exMap(ex) {}
+        /// return current iterator and increment atomically
+        /// if at the end of the vector don't increment
+        MigrExecutorMap::const_iterator fetch_and_increment_saturating() {
+            FDSGUARD(m);
+            auto tmp = it;
+            if (it != exMap.cend())
+                it++;
+            return  tmp;
+        }
+        /// atomic setter
+        void set(MigrExecutorMap::iterator i) {
+            FDSGUARD(m);
+            it = i;
+        }
+        const MigrExecutorMap& exMap;
+        MigrExecutorMap::const_iterator it;
+        fds_mutex m;
+        NextExecutor() = delete;
+    } nextExecutor;
+
+    /// SM token token that is currently in the second round
+    fds_token_id smTokenInProgressSecondRound;
     fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
 
     /// SM token for which retry token migration is going on.
@@ -328,9 +390,22 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
-     * Qos request to snapshot index db
+     * Vector of requests (static). Equals to the number of tokens. 
+     * TODO(matteo): it seems I cannot create this dynamically and destroy it
+     * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
+     * actually reused after it is popped out the QoS queue. Likely need more investigation
      */
-    SmIoSnapshotObjectDB snapshotRequest;
+    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
+
+    /**
+     * Timer to detect if there is no activities on the Executors.
+     */
+    FdsTimerPtr migrationTimeoutTimer;
+
+    /**
+     * abort migration after this duration of inactivities.
+     */
+    uint32_t migrationTimeoutSec;
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
     //
@@ -342,11 +417,10 @@ class MigrationMgr {
     MigrClientMap migrClients;
     fds_rwlock clientLock;
 
-    /// maximum number of items in the delta set.
-    fds_uint32_t maxDeltaSetSize;
-
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
+    /// number of parallel thread -- from platform.conf
+    uint32_t parallelMigration;
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed
@@ -364,6 +438,8 @@ class MigrationMgr {
      */
      FdsTimer mTimer;
 };
+
+typedef MigrationMgr::MigrationType SMMigrType;
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_

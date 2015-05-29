@@ -33,37 +33,6 @@ class MockDataMgr : public SvcProcess {
     }
 };
 
-struct TestOMgrClient : OMgrClient {
-    TestOMgrClient(fpi::FDSP_MgrIdType node_type,
-                   const std::string& node_name,
-                   fds_log *parent_log) : OMgrClient(node_type,
-                                                     node_name,
-                                                     parent_log) {
-        setupTestMode();
-    }
-
-    void setupTestMode() {
-        setNoNetwork(true);
-        DLT *dlt = new DLT(1, 1, 1, true);
-
-        for (uint i = 0; i < dlt->getNumTokens(); i++) {
-            for (uint j= 0; j < dlt->getDepth(); j++) {
-                dlt->setNode(i, j, 12345678);
-            }
-        }
-        dltMgr->add(*dlt);
-
-        DMT *dmt = new DMT(1, 1, 1, true);
-
-        for (uint i = 0; i < dmt->getNumColumns(); i++) {
-            for (uint j= 0; j < dmt->getDepth(); j++) {
-                dmt->setNode(i, j, 12345678);
-            }
-        }
-        dmtMgr->add(dmt, DMT_COMMITTED);
-    }
-};
-
 static fds::Module *dmVec[] = {
     &fds::gl_fds_stat,
     NULL
@@ -90,6 +59,24 @@ struct DMTester :  SvcProcess {
 
     virtual void registerSvcProcess() override
     {
+        /* Nothing to register.  Creaate fake dlt and dmt */
+        DLT *dlt = new DLT(1, 1, 1, true);
+
+        for (uint i = 0; i < dlt->getNumTokens(); i++) {
+            for (uint j= 0; j < dlt->getDepth(); j++) {
+                dlt->setNode(i, j, 12345678);
+            }
+        }
+        getSvcMgr()->getDltManager()->add(*dlt);
+
+        DMT *dmt = new DMT(1, 1, 1, true);
+
+        for (uint i = 0; i < dmt->getNumColumns(); i++) {
+            for (uint j= 0; j < dmt->getDepth(); j++) {
+                dmt->setNode(i, j, 12345678);
+            }
+        }
+        getSvcMgr()->getDmtManager()->add(dmt, DMT_COMMITTED);
     }
 
     void initDM() {
@@ -103,9 +90,6 @@ struct DMTester :  SvcProcess {
         dataMgr->features.setTestMode(true);
         dataMgr->features.setCatSyncEnabled(false);
         dataMgr->features.setTimelineEnabled(false);
-        dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
-                                               "dm",
-                                               GetLog());
 
         dataMgr->initHandlers();
         dataMgr->mod_enable_service();

@@ -81,7 +81,12 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error registerVolume(const VolumeDesc& volDesc);
+    Error registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta = false);
+
+    /**
+     * Remove all metadata caches
+     */
+    void invalidateMetaCache(const VolumeDesc& volDesc);
 
     /**
      * Notify that we have detached a volume, and remove any available

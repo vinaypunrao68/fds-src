@@ -23,6 +23,7 @@ class FdsAuth():
         self.__parser.read( confFile )
         
         self.__token = None
+        self.__user_id = -1
         self.__features = []
         self.__hostname = self.get_from_parser( 'hostname' )
         self.__port = self.get_from_parser( 'port' )
@@ -66,6 +67,9 @@ class FdsAuth():
     def get_token(self):
         return self.__token
     
+    def get_user_id(self):
+        return self.__user_id
+    
     def is_allowed(self, feature):
         
         for capability in self.__features:
@@ -95,12 +99,15 @@ class FdsAuth():
             self.__password = ""
             response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + '/api/auth/token', params=payload )
             response = response.json()
+            
+            if ( "userId" in response ):
+                self.__user_id = response["userId"]
         
-            if ( 'token' in response ):
+            if ( "token" in response ):
                 self.__token = response['token']
                 
-            if ( 'features' in response ):
-                self.__features = response['features']
+            if ( "features" in response ):
+                self.__features = response["features"]
                 
             return self.__token
         

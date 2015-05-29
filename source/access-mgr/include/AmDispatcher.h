@@ -13,14 +13,13 @@ namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
-class OMgrClient;
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
  * does the work to send and receive AM network messages over
  * the service layer.
  */
-struct AmDispatcher
+struct AmDispatcher : HasModuleProvider
 {
     /**
      * The dispatcher takes a shared ptr to the DMT manager
@@ -29,7 +28,7 @@ struct AmDispatcher
      * TODO(Andrew): Make the dispatcher own this piece or
      * iterface with platform lib.
      */
-    AmDispatcher();
+    explicit AmDispatcher(CommonModuleProviderIf *modProvider);
     AmDispatcher(AmDispatcher const&)               = delete;
     AmDispatcher& operator=(AmDispatcher const&)    = delete;
     AmDispatcher(AmDispatcher &&)                   = delete;
@@ -61,9 +60,7 @@ struct AmDispatcher
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(fds_volid_t const vol_id,
-                            fds_int64_t const token,
-                            std::function<void(fds_int64_t const, Error const)> cb);
+    void dispatchOpenVolume(AmRequest *amReq);
 
     /**
      * Dispatches an open volume request to DM.
@@ -185,9 +182,16 @@ struct AmDispatcher
      */
     void dispatchVolumeContents(AmRequest *amReq);
 
+    bool  getNoNetwork() {
+           return noNetwork;
+     }
+
   private:
-    /** OM Client to attach and manage the DLT/DMT */
-    std::unique_ptr<OMgrClient> om_client;
+
+    /**
+     * set flag for network available.
+     */
+     bool noNetwork;
 
     /**
      * Shared ptrs to the DLT and DMT managers used
@@ -308,7 +312,6 @@ struct AmDispatcher
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
-    bool mockTimeoutEnabled_ = false;
 };
 
 }  // namespace fds

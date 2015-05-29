@@ -18,8 +18,9 @@ user_cpp          := \
     sm_token_compactor_gtest.cpp \
     sm_token_state_gtest.cpp     \
     sm_tier_migration_gtest.cpp  \
-    sm_token_migration_gtest.cpp \
-    sm_token_migration_utility_gtest.cpp \
+    sm_token_migration_sequence_gtest.cpp \
+    sm_token_migration_double_sequence_gtest.cpp \
+    sm_token_migration_track_req_gtest.cpp \
     sm_token_snapshot_delta_gtest.cpp \
     sm_token_persistent_snapshot_gtest.cpp \
     object_metadata_reconcile_gtest.cpp \
@@ -40,8 +41,9 @@ user_bin_exe      := \
     sm_tokcompactor_gtest \
     sm_token_state_gtest  \
     sm_tier_migration_gtest \
-    sm_token_migration_gtest \
-    sm_token_migration_utility_gtest \
+    sm_token_migration_sequence_gtest \
+    sm_token_migration_double_sequence_gtest \
+    sm_token_migration_track_req_gtest \
     sm_token_snapshot_delta_gtest \
     sm_token_persistent_snapshot_gtest \
     object_metadata_reconcile_gtest \
@@ -60,8 +62,9 @@ sm_objdata_persist_gtest   := object_persist_data_gtest.cpp
 sm_tokcompactor_gtest := sm_token_compactor_gtest.cpp
 sm_token_state_gtest  := sm_token_state_gtest.cpp
 sm_tier_migration_gtest := sm_tier_migration_gtest.cpp
-sm_token_migration_gtest := sm_token_migration_gtest.cpp
-sm_token_migration_utility_gtest := sm_token_migration_utility_gtest.cpp 
+sm_token_migration_sequence_gtest := sm_token_migration_sequence_gtest.cpp 
+sm_token_migration_double_sequence_gtest := sm_token_migration_double_sequence_gtest.cpp 
+sm_token_migration_track_req_gtest := sm_token_migration_track_req_gtest.cpp 
 sm_token_snapshot_delta_gtest := sm_token_snapshot_delta_gtest.cpp
 sm_token_persistent_snapshot_gtest := sm_token_persistent_snapshot_gtest.cpp
 object_metadata_reconcile_gtest := object_metadata_reconcile_gtest.cpp

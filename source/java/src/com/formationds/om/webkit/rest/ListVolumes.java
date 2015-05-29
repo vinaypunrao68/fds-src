@@ -66,6 +66,8 @@ public class ListVolumes implements RequestHandler {
 /*
  * HACK
  * .filter( v -> isSystemVolume() != true )
+ * 
+ * THIS IS ALSO IN QueryHelper.java
  */
         .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
 				.map(v -> {

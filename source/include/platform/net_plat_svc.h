@@ -23,10 +23,10 @@ namespace fds
 
             // Module methods.
             //
-            virtual int  mod_init(SysParams const *const p);
-            virtual void mod_startup();
-            virtual void mod_enable_service();
-            virtual void mod_shutdown();
+            virtual int  mod_init(SysParams const *const p) override;
+            virtual void mod_startup() override;
+            virtual void mod_enable_service() override;
+            virtual void mod_shutdown() override;
 
             virtual DomainAgent::pointer nplat_self() override
             {
@@ -48,7 +48,7 @@ namespace fds
             virtual void nplat_set_my_ep(bo::intrusive_ptr<EpSvcImpl> ep) override;
             virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() override;
 
-            inline std::string const *const nplat_domain_master(int *port)
+            inline std::string const *const nplat_domain_master(int *port) override
             {
                 *port = plat_lib->plf_get_om_svc_port();
                 return plat_lib->plf_get_om_ip();

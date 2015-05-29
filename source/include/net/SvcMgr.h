@@ -78,6 +78,19 @@ struct SvcHandle;
 using SvcHandlePtr = boost::shared_ptr<SvcHandle>;
 using StringPtr = boost::shared_ptr<std::string>;
 class PlatNetSvcHandler;
+struct DLT;
+struct DLTManager;
+struct DMTManager;
+using DLTManagerPtr = boost::shared_ptr<DLTManager>;
+using DMTManagerPtr = boost::shared_ptr<DMTManager>;
+class TableColumn;
+typedef TableColumn DltTokenGroup;
+typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
+typedef TableColumn DmtColumn;
+typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
+using OmDltUpdateRespCbType = std::function<void (const Error&)> ;
+// Callback for DMT close
+typedef std::function<void(Error &err)> DmtCloseCb;
 
 /*--------------- Floating functions --------------*/
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
@@ -309,6 +322,66 @@ struct SvcMgr : HasModuleProvider, Module {
     * @return 
     */
     SynchronizedTaskExecutor<uint64_t>* getTaskExecutor();
+    
+    /**
+    * @brief Return current dlt
+    */
+    fds_uint64_t getDMTVersion();
+
+    /**
+    * @brief Return current dlt
+    */
+    const DLT* getCurrentDLT();
+
+    /**
+    * @brief Returns dlt manager
+    */
+    DLTManagerPtr getDltManager() { return dltMgr_; }
+
+    /**
+    * @brief Returns dmt manager
+    */
+    DMTManagerPtr getDmtManager() { return dmtMgr_; }
+
+    /**
+    * @brief 
+    *
+    * @param objId
+    *
+    * @return 
+    */
+    DltTokenGroupPtr getDLTNodesForDoidKey(const ObjectID &objId);
+
+    /**
+    * @brief 
+    *
+    * @param vol_id
+    *
+    * @return 
+    */
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id);
+
+    /**
+    * @brief 
+    *
+    * @param vol_id
+    * @param dmt_version
+    *
+    * @return 
+    */
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id,
+                                      fds_uint64_t dmt_version);
+    /**
+    * @brief 
+    *
+    * @return 
+    */
+    bool hasCommittedDMT() const;
+
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error getDLT();
+    Error getDMT();
 
     /**
     * @brief Return true if e is an error service layer should handle
@@ -445,6 +518,12 @@ struct SvcMgr : HasModuleProvider, Module {
 
     /* For executing task in a threadpool in a synchronized manner */
     SynchronizedTaskExecutor<uint64_t> *taskExecutor_;
+
+    /* Dlt manager */
+    DLTManagerPtr dltMgr_;
+    /* Dmt manager */
+    DMTManagerPtr dmtMgr_;
+
 };
 
 /**

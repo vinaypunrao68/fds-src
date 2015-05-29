@@ -20,7 +20,6 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
-#include "lib/OMgrClient.h"
 #include "PerfTypes.h"
 
 using diskio::DataTier;
@@ -49,7 +48,6 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosOutNum(10),
       volTbl(nullptr),
       qosCtrl(nullptr),
-      omClient(nullptr),
       shuttingDown(false)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
@@ -85,14 +83,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    fds_verify(omClient == nullptr);
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog());
-    }
-
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -193,7 +184,7 @@ void ObjectStorMgr::mod_enable_service()
                             sysTaskQueue);
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
 
         /**
          * This is post service registration. Check if object store passed the initial
@@ -208,12 +199,12 @@ void ObjectStorMgr::mod_enable_service()
             LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
                       << " starting the second phase";
             // get DMT from OM if DMT already exist
-            omClient->getDMT();
+            MODULEPROVIDER()->getSvcMgr()->getDMT();
             // get DLT from OM
-            Error err = omClient->getDLT();
+            Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
                 // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
                 if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
                     LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
                 } else {
@@ -226,7 +217,7 @@ void ObjectStorMgr::mod_enable_service()
         }
 
         // Enable stats collection in SM for stats streaming
-        StatsCollector::singleton()->registerOmClient(omClient);
+        StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
         StatsCollector::singleton()->startStreaming(
             std::bind(&ObjectStorMgr::sampleSMStats, this, std::placeholders::_1), NULL);
     }
@@ -272,6 +263,10 @@ void ObjectStorMgr::mod_enable_service()
 
             delete testVdb;
         }
+    }
+
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
     Module::mod_enable_service();
@@ -331,24 +326,6 @@ int ObjectStorMgr::run()
     return 0;
 }
 
-const TokenList&
-ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
-    return omClient->getTokensForNode(uuid);
-}
-
-void
-ObjectStorMgr::getTokensForNode(TokenList *tl,
-                                const NodeUuid &uuid,
-                                fds_uint32_t index) {
-    return omClient->getCurrentDLT()->getTokens(tl,
-                                                uuid,
-                                                index);
-}
-
-fds_uint32_t
-ObjectStorMgr::getTotalNumTokens() const {
-    return omClient->getCurrentDLT()->getNumTokens();
-}
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
@@ -360,15 +337,14 @@ const DLT* ObjectStorMgr::getDLT() {
     if (testStandalone == true) {
         return standaloneTestDlt;
     }
-    if (!omClient) { return nullptr; }
-    return omClient->getCurrentDLT();
+    return MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 }
 
 fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     if (testStandalone == true) {
         return true;  // TODO(Anna) add test DLT and use my svc uuid = 1
     }
-    DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
+    DltTokenGroupPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
     return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
@@ -377,7 +353,7 @@ Error ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
-    const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
         LOGNORMAL << "SM received first DLT after restart, which matched "
@@ -386,16 +362,23 @@ Error ObjectStorMgr::handleDltUpdate() {
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        objStorMgr->getUuid(),
+                                                        getUuid(),
                                                         curDlt->getNumBitsForToken());
         } else {
             // not doing resync, making all DLT tokens ready
-            objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
             // pretend we successfully started resync, return success
             err = ERR_OK;
         }
     } else if (err.ok()) {
-        objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+        if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+            // we only care about DLT which contains this SM
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
+        }
     }
 
     return err;
@@ -498,7 +481,7 @@ ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
  * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
 
-Error
+void
 ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 {
     Error err(ERR_OK);
@@ -542,10 +525,9 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     }
 
     putReq->response_cb(err, putReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 {
     Error err(ERR_OK);
@@ -589,10 +571,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     }
 
     delReq->response_cb(err, delReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 {
     fds_assert(0 != addObjRefReq);
@@ -602,7 +583,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     Error rc = ERR_OK;
 
     if (addObjRefReq->objIds().empty()) {
-        return rc;
+        return;
     }
 
     uint64_t origNumObjIds = addObjRefReq->objIds().size();
@@ -663,11 +644,9 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     }
 
     addObjRefReq->response_cb(rc, addObjRefReq);
-
-    return rc;
 }
 
-Error
+void
 ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 {
     Error err(ERR_OK);
@@ -702,7 +681,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
 
     getReq->response_cb(err, getReq);
-    return err;
 }
 
 /**
@@ -782,7 +760,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
-    LOGDEBUG << *snapReq;
 
     // When this lock is held, any put/delete request in that
     // object id range will block
@@ -1008,7 +985,7 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "XXX: migrationAbort";
+    LOGDEBUG << "Abort Migration request";
 
     // tell migration mgr to abort migration
     err = objStorMgr->migrationMgr->abortMigration();
@@ -1017,7 +994,7 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     if (abortMigrationReq->abortMigrationDLTVersion > 0) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
-        objStorMgr->omClient->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+        MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
     }
 
     qosCtrl->markIODone(*abortMigrationReq);
@@ -1037,7 +1014,7 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
     SmIoNotifyDLTClose *closeDLTReq = static_cast<SmIoNotifyDLTClose *>(ioReq);
     fds_verify(closeDLTReq != NULL);
 
-    LOGDEBUG << "XXX: executing dlt close";
+    LOGDEBUG << "Executing DLT close request";
 
 
     // Store the current DLT to the presistent storage to be used
@@ -1075,7 +1052,7 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
     objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
 
     // notify token migration manager
-    err = objStorMgr->migrationMgr->handleDltClose();
+    err = migrationMgr->handleDltClose(getDLT(), getUuid());
 
     qosCtrl->markIODone(*closeDLTReq);
 
@@ -1134,7 +1111,7 @@ ObjectStorMgr::storeCurrentDLT()
     // verify dlt ownership.
     //
     // TODO(Sean):  cleanup when going moving to online smcheck
-    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    DLT *currentDLT = const_cast<DLT *>(MODULEPROVIDER()->getSvcMgr()->getCurrentDLT());
     std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
 
     // Must remove pre-existing file.  Otherwise, it will append a new version to the
@@ -1226,13 +1203,11 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_MIGRATION_ABORT:
         {
-            LOGDEBUG << "XXX: MIGRATION ABORT";
             threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
             break;
         }
         case FDS_SM_NOTIFY_DLT_CLOSE:
         {
-            LOGDEBUG << "XXX: NOTIFY DLT CLOSE";
             threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
             break;
         }

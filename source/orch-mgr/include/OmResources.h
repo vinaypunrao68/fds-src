@@ -186,6 +186,7 @@ class OM_PmAgent : public OM_NodeAgent
      * Allowing only one type of service per Platform
      */
     fds_bool_t service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const;
+    fds_bool_t hasRegistered(const FdspNodeRegPtr  msg);
     /**
      * Send 'activate services' message to Platform
      */
@@ -205,10 +206,6 @@ class OM_PmAgent : public OM_NodeAgent
                                        EPSvcRequest* req,
                                        const Error& error,
                                        boost::shared_ptr<std::string> payload);
-    
-    void change_service_state( const int64_t svc_uuid, 
-                               const fpi::ServiceStatus svc_status );
-
     /**
      * Tell platform Agent about new active service
      * Platform Agent keeps a pointer to active services node agents
@@ -333,6 +330,8 @@ class OM_PmContainer : public OM_AgentContainer
      */
     fds_bool_t check_new_service(const NodeUuid& pm_uuid,
                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
+
+    fds_bool_t hasRegistered(const FdspNodeRegPtr  msg);
     /**
      * Tell platform agent with uuid 'pm_uuid' about new service registered
      */
@@ -773,15 +772,16 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
-    Error setupNewNode(const NodeUuid&      uuid,
+    void setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
                        NodeAgent::pointer   newNode,
-                       fds_uint32_t delayTime );
+                      fds_uint32_t delayTime,
+                      bool fPrevRegistered);
 
     /**
      * Activate well known service on an node
      */
-    Error om_activate_known_services( const NodeUuid& node_uuid,
+    void om_activate_known_services( const NodeUuid& node_uuid,
                                       fds_uint32_t delayTime );
 
     /**

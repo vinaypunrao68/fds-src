@@ -3,6 +3,7 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
@@ -53,7 +54,7 @@ public class RealAsyncAm implements AsyncAm {
                                 .processor(processor));
 
                 new Thread(() -> server.serve(), "AM async listener thread").start();
-                LOG.info("Started async AM listener on port " + port);
+                LOG.debug("Started async AM listener on port " + port);
             }
 
             responseListener.start();
@@ -63,7 +64,7 @@ public class RealAsyncAm implements AsyncAm {
                         handshake(port).get(),
                         120, Duration.standardSeconds(1), "async handshake with bare_am")
                         .apply(null);
-                LOG.info("Async AM handshake done");
+                LOG.debug("Async AM handshake done");
             }
 
         } catch (Exception e) {
@@ -92,7 +93,11 @@ public class RealAsyncAm implements AsyncAm {
     @Override
     public CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException {
         return scheduleAsync(rid -> {
-            oneWayAm.attachVolume(rid, domainName, volumeName);
+	    // TODO (bszmyd)
+	    // Should probably expose this ability to attach with an explicit mode to the connectors
+	    // for now we just default to r/w with cache
+	    VolumeAccessMode mode = new VolumeAccessMode();
+            oneWayAm.attachVolume(rid, domainName, volumeName, mode);
         });
     }
 
@@ -187,6 +192,20 @@ public class RealAsyncAm implements AsyncAm {
     public CompletableFuture<VolumeStatus> volumeStatus(String domainName, String volumeName) {
         return scheduleAsync(rid -> {
             oneWayAm.volumeStatus(rid, domainName, volumeName);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Map<String, String>> getVolumeMetadata(String domainName, String volumeName) {
+        return scheduleAsync(rid -> {
+            oneWayAm.getVolumeMetadata(rid, domainName, volumeName);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> setVolumeMetadata(String domainName, String volumeName, Map<String, String> metadata) {
+        return scheduleAsync(rid -> {
+            oneWayAm.setVolumeMetadata(rid, domainName, volumeName, metadata);
         });
     }
 }

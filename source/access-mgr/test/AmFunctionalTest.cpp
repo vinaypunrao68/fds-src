@@ -179,33 +179,35 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     // **********
     // Thrift response handlers
     // **********
-    void attachVolumeResponse(const apis::RequestId& requestId) {}
-    void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void attachVolumeResponse(const apis::RequestId& requestId,
+                              const fpi::VolumeAccessMode& mode) override {}
+    void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                              boost::shared_ptr<fpi::VolumeAccessMode>& mode) override {}
     void volumeContents(const apis::RequestId& requestId,
-                        const std::vector<fpi::BlobDescriptor> & response) {}
+                        const std::vector<fpi::BlobDescriptor> & response) override {}
     void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
-                        boost::shared_ptr<std::vector<fpi::BlobDescriptor> >& response) {}
+                        boost::shared_ptr<std::vector<fpi::BlobDescriptor> >& response) override {}
     void statBlobResponse(const apis::RequestId& requestId,
-                          const fpi::BlobDescriptor& response) {}
+                          const fpi::BlobDescriptor& response) override {}
     void statBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                          boost::shared_ptr<fpi::BlobDescriptor>& response) {
+                          boost::shared_ptr<fpi::BlobDescriptor>& response) override {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
         }
     }
     void startBlobTxResponse(const apis::RequestId& requestId,
-                             const apis::TxDescriptor& response) {}
+                             const apis::TxDescriptor& response) override {}
     void startBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                             boost::shared_ptr<apis::TxDescriptor>& response) {}
-    void commitBlobTxResponse(const apis::RequestId& requestId) {}
-    void commitBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
-    void abortBlobTxResponse(const apis::RequestId& requestId) {}
-    void abortBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+                             boost::shared_ptr<apis::TxDescriptor>& response) override {}
+    void commitBlobTxResponse(const apis::RequestId& requestId) override {}
+    void commitBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
+    void abortBlobTxResponse(const apis::RequestId& requestId) override {}
+    void abortBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
     void getBlobResponse(const apis::RequestId& requestId,
-                         const std::string& response) {}
+                         const std::string& response) override {}
     void getBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                         boost::shared_ptr<std::string>& response) {
+                         boost::shared_ptr<std::string>& response) override {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -213,45 +215,46 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
     void getBlobWithMetaResponse(const apis::RequestId& requestId,
                                  const std::string& data,
-                                 const fpi::BlobDescriptor& blobDesc) {}
+                                 const fpi::BlobDescriptor& blobDesc) override {}
     void getBlobWithMetaResponse(boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<std::string>& data,
-                                 boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
+                                 boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
         }
     }
-    void handshakeComplete(const apis::RequestId& requestId) {}
-    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) {}
-    void updateMetadataResponse(const apis::RequestId& requestId) {}
-    void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
-    void updateBlobResponse(const apis::RequestId& requestId) {}
-    void updateBlobResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
-    void updateBlobOnceResponse(const apis::RequestId& requestId) {}
-    void updateBlobOnceResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
-    void deleteBlobResponse(const apis::RequestId& requestId) {}
-    void deleteBlobResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void handshakeComplete(const apis::RequestId& requestId) override {}
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) override {}
+    void updateMetadataResponse(const apis::RequestId& requestId) override {}
+    void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
+    void updateBlobResponse(const apis::RequestId& requestId) override {}
+    void updateBlobResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
+    void updateBlobOnceResponse(const apis::RequestId& requestId) override {}
+    void updateBlobOnceResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
+    void deleteBlobResponse(const apis::RequestId& requestId) override {}
+    void deleteBlobResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
     void volumeStatus(const apis::RequestId& requestId,
-                      const apis::VolumeStatus& response) {}
+                      const apis::VolumeStatus& response) override {}
     void volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
-                      boost::shared_ptr<apis::VolumeStatus>& response) {}
-    void setVolumeMetadataResponse(const apis::RequestId& requestId) {}
-    void setVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+                      boost::shared_ptr<apis::VolumeStatus>& response) override {}
+    void setVolumeMetadataResponse(const apis::RequestId& requestId) override {}
+    void setVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) override {}
     void getVolumeMetadataResponse(const apis::RequestId& requestId,
-                                   const std::map<std::string, std::string>& metadata) {}
+                                   const std::map<std::string, std::string>& metadata) override {}
     void getVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                                   boost::shared_ptr<std::map<std::string, std::string>>& metadata) {}
+                                   boost::shared_ptr<std::map<std::string, std::string>>& metadata) override {}
     void completeExceptionally(const apis::RequestId& requestId,
                                const fpi::ErrorCode errorCode,
-                               const std::string& message) {}
+                               const std::string& message) override {}
     void completeExceptionally(boost::shared_ptr<apis::RequestId>& requestId,
                                boost::shared_ptr<fpi::ErrorCode>& errorCode,
-                               boost::shared_ptr<std::string>& message) {}
+                               boost::shared_ptr<std::string>& message) override {}
 
     void attachVolumeResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
-                          boost::shared_ptr<VolumeDesc>& volDesc) override {
+                          boost::shared_ptr<VolumeDesc>& volDesc,
+                          boost::shared_ptr<fpi::VolumeAccessMode>& mode) override {
         ASSERT_EQ(ERR_OK, error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -261,7 +264,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
-                         boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+                         boost::shared_ptr<apis::TxDescriptor>& txDesc) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -270,7 +273,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void updateBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId) {
+                        boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -279,7 +282,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void updateBlobOnceResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId) {
+                            boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -288,7 +291,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void updateMetadataResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId) {
+                        boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -297,7 +300,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void abortBlobTxResp(const Error &error,
-                         boost::shared_ptr<apis::RequestId>& requestId) {
+                         boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -306,7 +309,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void commitBlobTxResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {
+                          boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -317,7 +320,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
                      const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
-                     fds_uint32_t& length) {
+                     fds_uint32_t& length) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -329,7 +332,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                              boost::shared_ptr<apis::RequestId>& requestId,
                              const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                              fds_uint32_t& length,
-                             boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
+                             boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -339,7 +342,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
-                      boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
+                      boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -348,7 +351,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void deleteBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId) {
+                        boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -358,7 +361,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void volumeStatusResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
-                          boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
+                          boost::shared_ptr<apis::VolumeStatus>& volumeStatus) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -368,7 +371,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void volumeContentsResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId,
-                            boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents) {
+                            boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -377,7 +380,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
 
     void setVolumeMetadataResp(const Error &error,
-                               boost::shared_ptr<apis::RequestId>& requestId) {
+                               boost::shared_ptr<apis::RequestId>& requestId) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -387,7 +390,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void getVolumeMetadataResp(const Error &error,
                                boost::shared_ptr<apis::RequestId>& requestId,
-                               boost::shared_ptr<std::map<std::string, std::string>>& metadata) {
+                               boost::shared_ptr<std::map<std::string, std::string>>& metadata) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();

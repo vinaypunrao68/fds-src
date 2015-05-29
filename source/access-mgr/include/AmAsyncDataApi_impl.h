@@ -50,17 +50,19 @@ AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
 template<typename H>
 void AmAsyncDataApi<H>::attachVolume(H& requestId,
                                      shared_string_type& domainName,
-                                     shared_string_type& volumeName) {
+                                     shared_string_type& volumeName,
+                                     shared_vol_mode_type& mode) {
     // Closure for response call
     auto closure = [p = responseApi, requestId](AttachCallback* cb, Error const& e) mutable -> void {
-        p->attachVolumeResp(e, requestId, cb->volDesc);
+        p->attachVolumeResp(e, requestId, cb->volDesc, cb->mode);
     };
 
     auto callback = create_async_handler<AttachCallback>(std::move(closure));
 
     AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
-                                              *volumeName,
-                                              callback);
+                                             *volumeName,
+                                             *mode,
+                                             callback);
     amProcessor->enqueueRequest(blobReq);
 }
 

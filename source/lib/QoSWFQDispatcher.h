@@ -112,6 +112,8 @@ namespace fds {
     ~QoSWFQDispatcher() {}
     Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_qid_t queue_id);
+
+    using FDS_QoSDispatcher::modifyQueueQosParams;
     Error modifyQueueQosParams(fds_qid_t queue_id,
 			       fds_uint64_t iops_min,
 			       fds_uint64_t iops_max,

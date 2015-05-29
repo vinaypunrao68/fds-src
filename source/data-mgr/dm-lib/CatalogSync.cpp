@@ -4,6 +4,7 @@
 
 #include <string>
 #include <set>
+#include <fdsp/dm_api_types.h>
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <fds_assert.h>
@@ -236,7 +237,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     LOGMIGRATE << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
                << std::dec << " blob " << commitBlobReq->blob_name;
 
-    ForwardCatalogMsgPtr fwdMsg(new ForwardCatalogMsg());
+    fpi::ForwardCatalogMsgPtr fwdMsg(new fpi::ForwardCatalogMsg());
     fwdMsg->volume_id = commitBlobReq->volId;
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
@@ -281,7 +282,6 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
         : Module("CatalogSyncMgr"),
           dataManager_(dataManager),
           sync_in_progress(false),
-          max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
           cat_sync_lock("Catalog Sync lock"),
           omDmtUpdateCb(NULL),
@@ -559,7 +559,7 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
                                         fds_bool_t forward_complete)
 {
     Error err(ERR_OK);
-    VolSyncStateMsgPtr fwdMsg(new VolSyncStateMsg());
+    fpi::VolSyncStateMsgPtr fwdMsg(new fpi::VolSyncStateMsg());
 
     fwdMsg->volume_id = volId;
     fwdMsg->forward_complete = forward_complete;

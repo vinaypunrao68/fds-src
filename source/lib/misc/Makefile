@@ -8,7 +8,6 @@ user_cpp         :=      \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
     fds_timer.cpp        \
-    OMgrClient.cpp       \
     QoSWFQDispatcher.cpp \
     qos_htb.cpp          \
     fds_obj_cache.cpp	 \
@@ -30,7 +29,6 @@ user_cpp         :=      \
 user_incl_dir    := .. $(topdir)
 user_no_style    := \
     VolumeCatalog.cpp    \
-    OMgrClient.cpp       \
     qos_htb.cpp          \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \

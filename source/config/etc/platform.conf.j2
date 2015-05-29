@@ -42,7 +42,7 @@ fds: {
         am: {
         }
         om: {
-
+           allow_service_reregistration = {{ ft_allow_service_reregistration }}
         }
     }
 
@@ -387,6 +387,9 @@ fds: {
 
             /* boolean to enable/disable SM resync feature */
             enable_resync = true
+
+            /* timeout duration in sec */
+            migration_timeout=300
         }
         tiering: {
             hybrid: {

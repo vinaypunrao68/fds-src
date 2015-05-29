@@ -41,9 +41,13 @@ class MigrationExecutor {
                       fds_token_id smTokId,
                       fds_uint64_t id,
                       fds_uint64_t targetDltVer,
-                      bool forResync,
+                      fds_uint32_t migrationType,
+                      bool onePhaseMigration,
                       MigrationDltFailedCb failedRetryHandler,
-                      MigrationExecutorDoneHandler doneHandler);
+                      MigrationExecutorDoneHandler doneHandler,
+                      FdsTimerPtr &timeoutTimer,
+                      uint32_t timoutDuration,
+                      const std::function<void()> &timeoutHandler);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -82,6 +86,15 @@ class MigrationExecutor {
     inline void setDoneWithError() {
         MigrationExecutorState newState = ME_DONE_WITH_ERROR;
         std::atomic_store(&state, newState);
+    }
+
+    inline bool inErrorState() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (curState == ME_ERROR || curState == ME_DONE_WITH_ERROR) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -176,6 +189,11 @@ class MigrationExecutor {
     NodeUuid sourceSmUuid;
 
     /**
+     * Migration Type: Is it a add new SM node or a SM resync?
+     */
+    fds_uint32_t migrationType;
+
+    /**
      * SM Token to migration from the source SM node.
      */
     fds_token_id smTokenId;
@@ -221,9 +239,9 @@ class MigrationExecutor {
     MigrationTrackIOReqs trackIOReqs;
 
     /**
-     * Is this migration for a SM resync
+     * Will this migration have only one phase?
      */
-    bool forResync;
+    bool onePhaseMigration;
 };
 
 }  // namespace fds

@@ -43,7 +43,7 @@ class QoSMinPrioDispatcher: public FDS_QoSDispatcher
 {
 public:
   QoSMinPrioDispatcher(FDS_QoSControl* ctrl, fds_log* log, fds_uint32_t _outstand_count);
-  ~QoSMinPrioDispatcher();
+  ~QoSMinPrioDispatcher() = default;
 
   /***** implementation of base class functions *****/
   /* handle notification that IO was just queued */
@@ -78,7 +78,7 @@ private:
   fds_uint64_t wait_time_microsec;
 
   /******** dynamic state **********/
-  qstate_map_t qstate_map; /* min rate control and recent iops history for priority sharing */
+  qstate_map_type qstate_map; /* min rate control and recent iops history for priority sharing */
 
   fds_qid_t last_dispatch_qid; /* queue id from which we dispatched last IO */
 };

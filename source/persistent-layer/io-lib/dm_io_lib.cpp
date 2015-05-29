@@ -466,7 +466,7 @@ DataDiscoveryModule::mod_shutdown()
 // \PersisDataIO::PersisDataIO
 // ----------------------------------------------------------------------------
 PersisDataIO::PersisDataIO()
-    : pd_queue(2, 1000), pd_counters_("PM", nullptr){}
+    : pd_queue(2) {}
 
 // \sersisDataIO::~PersisDataIO
 // ----------------------------
@@ -492,9 +492,6 @@ diskio::PersisDataIO::disk_read(DiskRequest *req)
     if (block == true) {
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
-    }
-    if (err != fds::ERR_OK) {
-        pd_counters_.diskR_Err.incr();
     }
     return err;
 }
@@ -534,9 +531,6 @@ diskio::PersisDataIO::disk_write(DiskRequest *req)
     if (block == true) {
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
-    }
-    if (err != fds::ERR_OK) {
-        pd_counters_.diskR_Err.incr();
     }
     return err;
 }

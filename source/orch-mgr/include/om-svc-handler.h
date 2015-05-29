@@ -27,7 +27,7 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
     explicit OmSvcHandler(CommonModuleProviderIf *provider);
     virtual ~OmSvcHandler();
 
-    int mod_init(SysParams const *const param);
+    int mod_init(SysParams const *const param) override;
     /**
      * Stub Overrides from OMSvcIf
      */

@@ -12,6 +12,7 @@
 
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AsyncResponseHandlers.h"
@@ -19,14 +20,12 @@
 #include "requests/requests.h"
 #include <net/MockSvcHandler.h>
 #include <AmDispatcherMocks.hpp>
-#include "lib/OMgrClient.h"
 #include "lib/StatsCollector.h"
 #include "TypeIdMap.h"
 
 namespace fds {
 
 // Some logging routines have external linkage
-// ======
 extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
 extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
@@ -41,16 +40,15 @@ extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
 extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
-// ======
 
-AmDispatcher::AmDispatcher() = default;
+AmDispatcher::AmDispatcher(CommonModuleProviderIf *modProvider) 
+        : HasModuleProvider(modProvider)
+{
+}
 AmDispatcher::~AmDispatcher() = default;
 
 void
 AmDispatcher::start() {
-    /** Construct the Orch Client */
-    om_client.reset(new OMgrClient(FDSP_ACCESS_MGR, "localhost-sh", GetLog()));
-
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.testing.");
     if (conf.get<fds_bool_t>("uturn_dispatcher_all", false)) {
         fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
@@ -65,23 +63,21 @@ AmDispatcher::start() {
     if (conf.get<bool>("standalone", false)) {
         dmtMgr = boost::make_shared<DMTManager>(1);
         dltMgr = boost::make_shared<DLTManager>();
-        om_client->setNoNetwork(true);
+        noNetwork = true;
     } else {
         // Set the DLT manager in svc layer so that it knows to dispatch
         // requests on behalf of specific placement table versions.
-        dmtMgr = om_client->getDmtManager();
-        dltMgr = om_client->getDltManager();
+        dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
+        dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
         gSvcRequestPool->setDltManager(dltMgr);
 
-        // TODO(bszmyd): Thu 26 Mar 2015 02:39:33 PM PDT
-        // Shouldn't be using .get() on a unique_ptr, fix this
-	StatsCollector::singleton()->registerOmClient(om_client.get());
 	fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
 	fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
 	if (print_qos_stats) {
 	    StatsCollector::singleton()->enableQosStats("AM");
 	}
 	if (!disableStreamingStats) {
+        StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
@@ -89,7 +85,7 @@ AmDispatcher::start() {
 
 Error
 AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
-    auto err = om_client->updateDlt(dlt_type, dlt_data, cb);
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt_type, dlt_data, cb);
     if (ERR_DUPLICATE == err) {
         LOGWARN << "Received duplicate DLT version, ignoring";
         err = ERR_OK;
@@ -99,7 +95,7 @@ AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbT
 
 Error
 AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
-    auto err = om_client->updateDmt(dmt_type, dmt_data);
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt_type, dmt_data);
     if (ERR_DUPLICATE == err) {
         LOGWARN << "Received duplicate DMT version, ignoring";
         err = ERR_OK;
@@ -109,27 +105,47 @@ AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
 
 Error
 AmDispatcher::getDMT() {
-	if (om_client->getNoNetwork()) {
+	if (getNoNetwork()) {
 		// Standalone mode
 		return (ERR_OK);
 	} else {
-		return (om_client->getDMT());
+		return (MODULEPROVIDER()->getSvcMgr()->getDMT());
 	}
 }
 
 Error
 AmDispatcher::getDLT() {
-	if (om_client->getNoNetwork()) {
+	if (getNoNetwork()) {
 		// Standalone mode
 		return (ERR_OK);
 	} else {
-		return (om_client->getDLT());
+		return (MODULEPROVIDER()->getSvcMgr()->getDLT());
 	}
 }
 
 Error
 AmDispatcher::attachVolume(std::string const& volume_name) {
-    return om_client->getVolumeDescriptor(volume_name);
+    if (!noNetwork) {
+        // We need valid DLT and DMTs before we can start issuing IO,
+        // block attachments here until this is true.
+        if (DMT_VER_INVALID == dmtMgr->getCommittedVersion() ||
+            nullptr == dltMgr->getDLT()) {
+            LOGWARN << "Could not attach to volume before receiving domain tables.";
+            return ERR_NOT_READY;
+        }
+        try {
+            auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+            fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
+            msg->volume_name = volume_name;
+            req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
+            req->invoke();
+            LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
+        } catch(...) {
+            LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
+            return ERR_NOT_READY;
+        }
+    }
+    return ERR_OK;
 }
 
 /**
@@ -222,26 +238,31 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
-                                 fds_int64_t const token,
-                                 std::function<void(fds_int64_t const, Error const)> cb) {
-    fiu_do_on("am.uturn.dispatcher", cb(0, ERR_OK); return;);
+AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+    auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
 
-    LOGDEBUG << "Attempting to open volume: " << std::hex << vol_id;
+    LOGDEBUG << "Attempting to open volume: " << std::hex << amReq->io_vol_id
+             << " with token: " << volReq->token;
+
     auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
-    volMDMsg->volume_id = vol_id;
-    volMDMsg->token = token;
+    volMDMsg->volume_id = amReq->io_vol_id;
+    volMDMsg->token = volReq->token;
+    volMDMsg->mode = volReq->mode;
 
     /** What to do with the response */
-    auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
-                        const Error& error,
-                        boost::shared_ptr<std::string> payload) {
+    auto svc_cb = [amReq] (QuorumSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload) mutable -> void {
         auto e = error;
         auto msg = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-        cb((msg ? msg->token : invalid_vol_token), e);
+        // Set the token to the one from DM, or invalid if error
+        static_cast<fds::AttachVolumeReq*>(amReq)->token =
+            (msg ? msg->token : invalid_vol_token);
+        amReq->proc_cb(e);
     };
 
-    auto asyncOpenVolReq = createQuorumRequest(vol_id, volMDMsg, svc_cb);
+    auto asyncOpenVolReq = createQuorumRequest(amReq->io_vol_id, volMDMsg, svc_cb);
     asyncOpenVolReq->invoke();
 }
 

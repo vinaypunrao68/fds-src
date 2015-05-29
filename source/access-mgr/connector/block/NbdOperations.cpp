@@ -126,15 +126,20 @@ NbdOperations::init(boost::shared_ptr<std::string> vol_name,
     volumeName = vol_name;
 
     handle_type reqId{0, 0};
+
+    // We assume the client wants R/W with a cache for now
+    auto mode = boost::make_shared<fpi::VolumeAccessMode>();
     amAsyncDataApi->attachVolume(reqId,
                                  domainName,
-                                 volumeName);
+                                 volumeName,
+                                 mode);
 }
 
 void
 NbdOperations::attachVolumeResp(const Error& error,
                                 handle_type& requestId,
-                                boost::shared_ptr<VolumeDesc>& volDesc) {
+                                boost::shared_ptr<VolumeDesc>& volDesc,
+                                boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
     LOGDEBUG << "Reponse for attach: [" << error << "]";
     if (ERR_OK == error) {
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {

@@ -158,7 +158,7 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc)
+AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta)
 {
     // The cache size is controlled in terms of MiB, but the LRU
     // knows only terms in # of elements. Do this conversion.
@@ -166,7 +166,7 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc)
         (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
 
     // A duplicate is ok, though strange that we got another register call
-    auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs);
+    auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
     if (ERR_DUPLICATE == err) {
         err = ERR_OK;
     }
@@ -178,6 +178,10 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc)
     }
     return err;
 }
+
+void
+AmTxManager::invalidateMetaCache(const VolumeDesc& volDesc)
+{ amCache->invalidateMetaCache(volDesc.volUUID); }
 
 Error
 AmTxManager::removeVolume(const VolumeDesc& volDesc)
