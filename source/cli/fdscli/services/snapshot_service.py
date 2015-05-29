@@ -1,5 +1,5 @@
 from abstract_service import AbstractService
-from utils.snapshot_converter import SnapshotConverter
+from utils.converters.volume.snapshot_converter import SnapshotConverter
 
 class SnapshotService( AbstractService ):
 

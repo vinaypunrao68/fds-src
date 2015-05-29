@@ -1,8 +1,8 @@
 from abstract_plugin import AbstractPlugin
 from services.node_service import NodeService
-from utils.node_converter import NodeConverter
+from utils.converters.platform.node_converter import NodeConverter
 from services.response_writer import ResponseWriter
-from model.service import Service
+from model.platform.service import Service
 
 import json
 

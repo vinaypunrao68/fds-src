@@ -1,13 +1,13 @@
-from model.volume import Volume
-from model.snapshot import Snapshot
-from model.node import Node
-from model.service import Service
-from model.domain import Domain
-from model.snapshot_policy import SnapshotPolicy
-from model.timeline_preset import TimelinePreset
-from model.qos_preset import QosPreset
-from model.user import User
-from model.tenant import Tenant
+from model.volume.volume import Volume
+from model.volume.snapshot import Snapshot
+from model.platform.node import Node
+from model.platform.service import Service
+from model.platform.domain import Domain
+from model.volume.snapshot_policy import SnapshotPolicy
+from model.volume.data_protection_policy_preset import TimelinePreset
+from model.volume.qos_preset import QosPreset
+from model.admin.user import User
+from model.admin.tenant import Tenant
 
 '''
 Created on Apr 22, 2015

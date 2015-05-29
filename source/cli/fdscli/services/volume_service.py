@@ -1,8 +1,8 @@
 from abstract_service import AbstractService
-from utils.volume_converter import VolumeConverter
-from utils.snapshot_converter import SnapshotConverter
+from utils.converters.volume.volume_converter import VolumeConverter
+from utils.converters.volume.snapshot_converter import SnapshotConverter
 from services.snapshot_service import SnapshotService
-from utils.preset_converter import PresetConverter
+from utils.converters.volume.preset_converter import PresetConverter
 
 
 class VolumeService( AbstractService ):

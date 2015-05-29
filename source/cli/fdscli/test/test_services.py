@@ -1,7 +1,7 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
-from utils.node_converter import NodeConverter
+from utils.converters.platform.node_converter import NodeConverter
 
 class TestServices(BaseCliTest):
     '''

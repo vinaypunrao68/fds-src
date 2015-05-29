@@ -1,8 +1,8 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
-from utils.volume_converter import VolumeConverter
-from model.volume import Volume
+from utils.converters.volume.volume_converter import VolumeConverter
+from model.volume.volume import Volume
 
 class VolumeEditTest( BaseCliTest ):
     '''

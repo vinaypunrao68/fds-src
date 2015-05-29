@@ -1,14 +1,14 @@
 from base_cli_test import BaseCliTest
-from model.volume import Volume
-from model.node import Node
-from model.service import Service
-from model.snapshot import Snapshot
-from model.snapshot_policy import SnapshotPolicy
-from model.domain import Domain
+from model.volume.volume import Volume
+from model.platform.node import Node
+from model.platform.service import Service
+from model.volume.snapshot import Snapshot
+from model.volume.snapshot_policy import SnapshotPolicy
+from model.platform.domain import Domain
 
 import time
 from services.response_writer import ResponseWriter
-from model.recurrence_rule import RecurrenceRule
+from model.volume.recurrence_rule import RecurrenceRule
 
 class TestResponseWriterPrep(BaseCliTest):
     '''

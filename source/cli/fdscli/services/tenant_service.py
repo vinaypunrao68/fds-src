@@ -1,5 +1,5 @@
 from abstract_service import AbstractService
-from utils.tenant_converter import TenantConverter
+from utils.converters.admin.tenant_converter import TenantConverter
 
 
 class TenantService( AbstractService):

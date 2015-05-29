@@ -7,7 +7,7 @@ import tabulate
 import json
 import time
 from collections import OrderedDict
-from utils.recurrence_rule_converter import RecurrenceRuleConverter
+from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
     

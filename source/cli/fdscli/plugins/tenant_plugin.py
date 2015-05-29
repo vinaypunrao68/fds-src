@@ -10,9 +10,9 @@ maps those options to the appropriate calls for tenant management
 '''
 from services.tenant_service import TenantService
 import json
-from utils.tenant_converter import TenantConverter
+from utils.converters.admin.tenant_converter import TenantConverter
 from services.response_writer import ResponseWriter
-from utils.user_converter import UserConverter
+from utils.converters.admin.user_converter import UserConverter
 class TenantPlugin( AbstractPlugin):
     
     def __init__(self, session):

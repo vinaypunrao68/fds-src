@@ -1,7 +1,7 @@
 from abstract_plugin import AbstractPlugin
 from services.local_domain_service import LocalDomainService
 from services.response_writer import ResponseWriter
-from utils.domain_converter import DomainConverter
+from utils.converters.platform.domain_converter import DomainConverter
 
 import json
 

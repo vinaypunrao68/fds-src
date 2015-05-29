@@ -1,7 +1,7 @@
 from abstract_plugin import AbstractPlugin
 import getpass
 from services.users_service import UsersService
-from utils.user_converter import UserConverter
+from utils.converters.admin.user_converter import UserConverter
 import json
 from services.response_writer import ResponseWriter
 from collections import OrderedDict

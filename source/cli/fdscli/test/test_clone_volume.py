@@ -2,8 +2,8 @@ from base_cli_test import BaseCliTest
 from mock import patch
 import mock_functions
 import time
-from model.volume import Volume
-from utils.volume_converter import VolumeConverter
+from model.volume.volume import Volume
+from utils.converters.volume.volume_converter import VolumeConverter
 
 class VolumeCloneTest( BaseCliTest):
     '''
