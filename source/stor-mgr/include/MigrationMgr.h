@@ -216,6 +216,13 @@ class MigrationMgr {
      */
     void coalesceClients();
 
+    /**
+     * Unique restart id that will be used to restart migration
+     * with new source SMs.
+     */
+     fds_uint32_t getUniqueRestartId()
+     { return std::atomic_fetch_add(&uniqRestartId, (fds_uint32_t)1); }
+
   private:
 
     /**
@@ -227,7 +234,8 @@ class MigrationMgr {
                                                          fds_token_id& smTok,
                                                          fds_uint64_t& targetDltVersion,
                                                          MigrationType& migrationType,
-                                                         bool& onePhaseMigration,
+                                                         bool onePhaseMigration,
+                                                         fds_uint32_t uniqueId = 0,
                                                          fds_uint8_t instanceNum = 1); 
     /**
      * Callback function from the metadata snapshot request for a particular SM token
@@ -235,7 +243,8 @@ class MigrationMgr {
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db, bool retry);
+                                   leveldb::DB *db, bool retry,
+                                   fds_uint32_t uniqueId);
 
     /**
      * Callback for a migration executor that it finished migration
@@ -262,7 +271,7 @@ class MigrationMgr {
     void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
 
     /// enqueues snapshot message to qos
-    void startSmTokenMigration(fds_token_id smToken);
+    void startSmTokenMigration(fds_token_id smToken, fds_uint32_t uid=0);
 
     // send msg to source SM to send second round of delta sets
     void startSecondRebalanceRound(fds_token_id smToken);
@@ -401,6 +410,11 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
+     * Uuid of object Store Manager's for which this migration manager is created.
+     */
+    NodeUuid objStoreMgrUuid;
+
+    /**
      * Vector of requests (static). Equals to the number of tokens. 
      * TODO(matteo): it seems I cannot create this dynamically and destroy it
      * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
@@ -457,6 +471,12 @@ class MigrationMgr {
      * was not ready.
      */
      FdsTimer mTimer;
+
+    /**
+     * Unique ID that will be used to identify what migrations to restart
+     * in case of an election of new source SMs.
+     */
+     std::atomic<fds_uint32_t>  uniqRestartId;
 };
 
 typedef MigrationMgr::MigrationType SMMigrType;

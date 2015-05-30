@@ -48,6 +48,7 @@ class MigrationExecutor {
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
                       const std::function<void()> &timeoutHandler,
+                      fds_uint32_t uniqId = 0,
                       fds_uint8_t instanceNum = 1);
     ~MigrationExecutor();
 
@@ -74,6 +75,8 @@ class MigrationExecutor {
     inline fds_uint8_t getInstanceNum() const {
         return instanceNum;
     }
+    inline fds_uint32_t getUniqueId() const { return uniqueId; }
+
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
         if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
             return true;
@@ -197,6 +200,13 @@ class MigrationExecutor {
      * Source SM id
      */
     NodeUuid sourceSmUuid;
+
+    /**
+     * Unique id for the executor. This will be used to identify
+     * migration executors for which to restart migration from a
+     * new source SM.
+     */
+     fds_uint32_t uniqueId;
 
     /**
      * Migration Type: Is it a add new SM node or a SM resync?

@@ -327,9 +327,9 @@ void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
  * count as N.
  */
 NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
-                                  std::set<fds_token_id>& dltTokens,
+                                  const std::set<fds_token_id>& dltTokens,
                                   const uint8_t& retryCount,
-                                  std::map<NodeUuid, bool>& failedSMs) {
+                                  std::map<NodeUuid, bool>& failedSMs) const {
     NodeTokenMap newTokenGroups;
     /**
      * Go over the table column for the token in DLT table and figure

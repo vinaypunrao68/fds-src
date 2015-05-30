@@ -566,7 +566,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryTest) {
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
-        dltTokens.push_back(i);
+        dltTokens.insert(i);
     }
     unsigned curSrcSm = 1;
     unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
@@ -595,7 +595,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryTwoTest) {
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
-        dltTokens.push_back(i);
+        dltTokens.insert(i);
     }
 
     unsigned curSrcSm = 3;
@@ -625,7 +625,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryFailedSrcTest) {
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
-        dltTokens.push_back(i);
+        dltTokens.insert(i);
     }
     failedSMs[NodeUuid(4)] = true;
     failedSMs[NodeUuid(1)] = true;
@@ -658,7 +658,7 @@ TEST_F(SmObjectStoreTest, findNewSrcSMAllInvalidTest) {
     std::map<NodeUuid, bool> failedSMs;
 
     for (uint32_t  i = 0; i < numOfTokens; i++) {
-        dltTokens.push_back(i);
+        dltTokens.insert(i);
     }
     failedSMs[NodeUuid(4)] = true;
     failedSMs[NodeUuid(3)] = true;
