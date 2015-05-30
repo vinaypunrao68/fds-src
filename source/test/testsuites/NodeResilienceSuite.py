@@ -51,18 +51,20 @@ def suiteConstruction(self):
     #suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestOMWait())
 
-    suite.addTest(testcases.TestFDSServiceMgt.TestAMKill())
-    # PM now notifies OM about downed services and automatically restarts them.
-    suite.addTest(testcases.TestFDSServiceMgt.TestAMWait())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMBringUp())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
     suite.addTest(testcases.TestFDSServiceMgt.TestSMKill())
-    # PM now notifies OM about downed services and automatically restarts them.
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
 
-    # Failing because of FS-2084 and FS-2085
-    #suite.addTest(testcases.TestFDSServiceMgt.TestDMKill())
-    # PM now notifies OM about downed services and automatically restarts them.
-    #suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMBringUp())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMWait())
 
     suite.addTest(testcases.TestFDSServiceMgt.TestPMKill())
     suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
