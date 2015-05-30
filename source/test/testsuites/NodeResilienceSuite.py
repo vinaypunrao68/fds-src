@@ -51,21 +51,20 @@ def suiteConstruction(self):
     #suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestOMWait())
 
-    #suite.addTest(testcases.TestFDSServiceMgt.TestAMKill())
-    #suite.addTest(testcases.TestFDSServiceMgt.TestAMVerifyDown())
-    # Broken because AMAgent is now gone - PM will restart AM in the future
-    #suite.addTest(testcases.TestFDSServiceMgt.TestAMBringUp())
-    #suite.addTest(testcases.TestFDSServiceMgt.TestAMWait())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMBringUp())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
     suite.addTest(testcases.TestFDSServiceMgt.TestSMKill())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
 
-    #suite.addTest(testcases.TestFDSServiceMgt.TestDMKill())
-    #suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown())
-    #suite.addTest(testcases.TestFDSServiceMgt.TestDMBringUp())
-    #suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMBringUp())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMWait())
 
     suite.addTest(testcases.TestFDSServiceMgt.TestPMKill())
     suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
