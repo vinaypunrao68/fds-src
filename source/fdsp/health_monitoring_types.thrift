@@ -5,6 +5,12 @@
 
 include "common.thrift"
 
+/**
+ * @author    Donavan Nelson <donavan @ formationds.com>
+ * @version   0.7
+ * @since     2015-05-30
+ */
+
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om.types
 
