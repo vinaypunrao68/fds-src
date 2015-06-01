@@ -279,7 +279,6 @@ def newCtrlStartHybridTierCtrlrMsg():
     msg = CtrlStartHybridTierCtrlrMsg()
     return msg
 
-
 def newStartSmchkMsg(targetTokens):
     msg = smapi.ttypes.CtrlNotifySMCheck()
     msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_START
@@ -291,5 +290,13 @@ def newStartSmchkMsg(targetTokens):
 def newStopSmchkMsg():
     msg = smapi.ttypes.CtrlNotifySMCheck()
     msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_STOP
+
+    return msg
+
+def newDmchkMsg(volId, source, remedy):
+    msg = smapi.ttypes.CtrlNotifyDMStartMigrationMsg()
+    msg.migrations.VolDescriptors.volUUID = volId
+    msg.migrations.source = source
+    msg.dryRun = remedy
 
     return msg

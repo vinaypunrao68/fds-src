@@ -35,7 +35,6 @@ namespace fds
             std::string get_ip_str() const;
             std::string get_node_root() const;
             const struct node_stor_cap   *node_capability() const;
-            void node_get_shm_rec(struct node_data *ndata) const;
 
             /* Temp. solution before we can replace netsession */
             fds_uint32_t node_base_port() const;
@@ -67,7 +66,6 @@ namespace fds
              * Fill in the inventory for this agent based on data provided by the message.
              */
             void svc_info_frm_shm(fpi::SvcInfo *svc) const;
-            void node_info_frm_shm(struct node_data *out) const;
             void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id);
             void node_fill_inventory(const FdspNodeRegPtr msg);
             void node_update_inventory(const FdspNodeRegPtr msg);
