@@ -5,9 +5,25 @@
 
 include "health_monitoring_types.thrift"
 
-namespace cpp fds.apis
+/**
+ * @author    Donavan Nelson <donavan @ formationds.com>
+ * @version   0.7
+ * @since     2015-05-30
+ */
+
+namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
 
+/**
+ * Send a health report notification to the OM
+ * <p>
+ * This function is used by all services to send periodic health report notifications to the OM.
+ * Should a service die unexpectedly, the PM will send a health report notification to the OM
+ * on behalf of the process that died.
+ *
+ * @param   healthReport  A populated healthInforMessage
+ * @return  Nothing
+ */
 struct NotifyHealthReport {
     1: health_monitoring_types.HealthInfoMessage   healthReport;
 }

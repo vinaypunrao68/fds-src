@@ -11,6 +11,18 @@
     tags:
         - shutdown
 
+-   name: shutdown_om
+    service: name=fds-om state=stopped
+    when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
+    tags:
+        - shutdown
+
+-   name: shutdown_pm
+    service: name=fds-pm state=stopped
+    when: fds_installed|success
+    tags:
+        - shutdown
+
 -   name: kill_all_procs
     shell: pkill -9 -f {{item}} || true
     ignore_errors: True

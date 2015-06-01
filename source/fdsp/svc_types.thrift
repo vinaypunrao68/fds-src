@@ -175,6 +175,9 @@ enum  FDSPMsgTypeId {
   ReloadVolumeMsgTypeId;
   ReloadVolumeRspMsgTypeId;
   CtrlNotifyDMStartMigrationMsgTypeId;
+
+  /** Health Status */
+  NotifyHealthReportTypeId                  = 100000;
 }
 
 /**
