@@ -228,6 +228,11 @@ typedef enum {
 
     FDSN_StatusErrorMissingContentLength                       ,
 
+    /*
+     * Errors for Platform things
+     */
+    PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH               = 60000,
+
     /* keep this as the last*/
     FDSN_StatusErrorUnknown                                     ,
     /* Generic catch all error.  DON'T USE IT, unless you don't have an option */

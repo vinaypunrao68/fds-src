@@ -38,7 +38,6 @@ namespace fds
         // get this info either from service map or config db
         node_data_t    ninfo;
 
-        node_info_frm_shm(&ninfo);
         out->node_addr.assign(ninfo.nd_ip_addr);
         out->node_auto_name.assign(ninfo.nd_auto_name);
 
