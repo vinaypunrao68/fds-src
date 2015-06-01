@@ -458,6 +458,21 @@ struct GetDmStatsRespMsg {
 }
 
 /* ------------------------------------------------------------
+   Operations for  Meta verifications 
+   ------------------------------------------------------------*/
+
+struct CtrlNotifyDMStartMigrationMsg {
+  1: list<dm_types.DMVolumeMigrationGroup> migrations;
+  2: i64                     DMT_version;
+  3: bool                    dryRun = false;
+
+}
+
+struct CtrlNotifyDMStartMigrationRspMsg {
+  1: list<dm_types.DMVolumeMigrationDiff> diff;
+}
+
+/* ------------------------------------------------------------
    Operations for Replication
    ------------------------------------------------------------*/
 
