@@ -28,6 +28,7 @@ class AmRequest : public FDS_IOType {
 
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
+    fds_uint64_t   blob_offset_end;
     std::string    volume_name;
 
     ProcessorCallback proc_cb;

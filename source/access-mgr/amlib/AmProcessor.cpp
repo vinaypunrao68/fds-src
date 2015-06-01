@@ -161,10 +161,9 @@ class AmProcessor_impl
     void getBlobCb(AmRequest *amReq, const Error& error);
 
     /**
-     * Look for object data in cache
-     * or fallback to SM
+     * Look for object data in SM
      */
-    void getObjects(AmRequest *amReq);
+    void getObject(AmRequest *amReq);
 
     /**
      * Processes a put blob request
@@ -260,8 +259,6 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
 
 void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
-    fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
-
     fds_verify(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
     fds_verify(amReq->magicInUse() == true);
 
@@ -295,6 +292,10 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
         case fds::FDS_IO_READ:
         case fds::FDS_GET_BLOB:
             getBlob(amReq);
+            break;
+
+        case fds::FDS_SM_GET_OBJECT:
+            getObject(amReq);
             break;
 
         case fds::FDS_IO_WRITE:
@@ -362,11 +363,12 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
     amDispatcher->start();
-    txMgr->init();
 
     auto closure = [this](AmRequest* amReq) mutable -> void { this->processBlobReq(amReq); };
+
+    txMgr->init(closure);
     volTable.reset(new AmVolumeTable(qos_threads, GetLog()));
-    volTable->registerCallback(std::move(closure));
+    volTable->registerCallback(closure);
 }
 
 void
@@ -834,13 +836,28 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     // offsets, so we need to be consistent in query catalog
     // Review this!
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
-    auto maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    auto const maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     blobReq->blob_offset = (amReq->blob_offset * maxObjSize);
+    blobReq->blob_offset_end = blobReq->blob_offset;
+
+    // If this is a large read, the number of end offset needs to encompass
+    // the extra objects required.
+    if (maxObjSize < amReq->data_len) {
+        auto const extra_objects = (amReq->data_len / maxObjSize) - 1
+                                 + (0 != amReq->data_len % maxObjSize) ? 1 : 0;
+        blobReq->blob_offset_end += extra_objects * maxObjSize;
+    }
+
+    // Create buffers for return objects, we don't know how many till we have
+    // a valid descriptor
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    cb->return_buffers = boost::make_shared<std::vector<boost::shared_ptr<std::string>>>();
 
     // FIXME(bszmyd): Sun 26 Apr 2015 04:41:12 AM MDT
     // Don't support unaligned currently, reject if this is not
     if (0 != (amReq->blob_offset % maxObjSize)) {
-        LOGERROR << "unaligned read not supported, offset: " << amReq->blob_offset;
+        LOGERROR << "unaligned read not supported, offset: " << amReq->blob_offset
+                 << " length: " << amReq->data_len;
         getBlobCb(amReq, ERR_INVALID);
         return;
     }
@@ -863,24 +880,20 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
                 // Fill in the data here
                 cb->blobDesc = cachedBlobDesc;
             }
-            // TODO(bszmyd): Thu 21 May 2015 12:36:15 PM MDT
-            // Fix this when we support unaligned reads.
-            // Number of objects required to request given data length
-            auto num_objs = (amReq->data_len / maxObjSize) +
-                                ((0 != amReq->data_len % maxObjSize) ? 1 : 0);
-            blobReq->object_ids.reset(new std::vector<ObjectID::ptr>(num_objs, nullptr));
 
             // Check cache for object IDs
             err = txMgr->getBlobOffsetObjects(volId,
                                               amReq->getBlobName(),
                                               amReq->blob_offset,
+                                              amReq->blob_offset_end,
                                               maxObjSize,
-                                              *blobReq->object_ids);
+                                              blobReq->object_ids);
             // ObjectIDs were found in the cache
             if ((ERR_OK == err) && (blobReq->metadata_cached == blobReq->get_metadata)) {
                 // Found all metadata, just need object data
                 blobReq->metadata_cached = true;
-                return getObjects(amReq);
+                amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+                return txMgr->getObjects(blobReq);
             }
         }
     } else {
@@ -892,31 +905,9 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     amDispatcher->dispatchQueryCatalog(amReq);
 }
 
-void
-AmProcessor_impl::getObjects(AmRequest *amReq) {
-    Error err = ERR_OK;
-    fds_volid_t volId = amReq->io_vol_id;
-
-    // We can read data from the cache
-    // Create return buffers if needed
-    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-    cb->return_buffers = boost::make_shared<std::vector<boost::shared_ptr<std::string>>>(blobReq->object_ids->size(), nullptr);
-
-    // Check cache for object data
-    LOGDEBUG << "checking cache for: " << blobReq->object_ids->size() << " objects";
-    err = txMgr->getObjects(volId, *blobReq->object_ids, *cb->return_buffers);
-    if (err == ERR_OK) {
-        // Data was found in cache, so fill data and callback
-        LOGTRACE << "Data found in cache!";
-        cb->return_size = cb->return_buffers->empty() ? 0 : cb->return_buffers->front()->size();
-        getBlobCb(amReq, ERR_OK);
-        return;
-    }
-
-    // We couldn't find the data in the cache Fallback to retrieving
-    // the data from the SM.
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+void AmProcessor_impl::getObject(AmRequest *amReq) {
+    // Tx manager sets this request up including the proc_cb since it's
+    // issuing them. Apparently we couldn't find the data in the cache
     amDispatcher->dispatchGetObject(amReq);
 }
 
@@ -938,26 +929,25 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
                   << "B ]";
         amDispatcher->dispatchQueryCatalog(amReq);
         return;
-    }
+    } else if (ERR_OK == error) {
+        // We still return all of the object even if less was requested, adjust
+        // the return length, not the buffer.
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
 
-    // We still return all of the object even if less was requested, adjust
-    // the return length, not the buffer.
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-    cb->return_size = std::min(amReq->data_len, static_cast<size_t>(cb->return_size));
-    respond(amReq, error);
+        // Calculate the sum size of our buffers
+        size_t vector_size = std::accumulate(cb->return_buffers->cbegin(),
+                                             cb->return_buffers->cend(),
+                                             0,
+                                             [] (size_t const& total_size, boost::shared_ptr<std::string> const& buf)
+                                             { return total_size + buf->size(); });
 
-    // Insert original Object into cache. Do not insert the truncated version
-    // since we really do have all the data. This is done after response to
-    // reduce latency.
-    if (ERR_OK == error && !cb->return_buffers->empty()) {
-        txMgr->putObject(amReq->io_vol_id,
-                           *blobReq->object_ids->front(),
-                           cb->return_buffers->front());
+        cb->return_size = std::min(amReq->data_len, vector_size);
+
         // If we have a cache token, we can stash this metadata
         if (!blobReq->metadata_cached && haveCacheToken(getVolume(amReq, true))) {
             txMgr->putOffset(amReq->io_vol_id,
-                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                               *blobReq->object_ids);
+                             BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                             blobReq->object_ids);
             if (blobReq->get_metadata) {
                 auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
                 if (cbm->blobDesc)
@@ -968,7 +958,7 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
         }
     }
 
-    delete amReq;
+    respond_and_delete(amReq, error);
 }
 
 
@@ -1023,7 +1013,9 @@ AmProcessor_impl::statBlob(AmRequest *amReq) {
 void
 AmProcessor_impl::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
-        getObjects(amReq);
+        // We got the metadata, now get the objects
+        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+        return txMgr->getObjects(static_cast<GetBlobReq *>(amReq));
     } else {
         respond_and_delete(amReq, error);
     }

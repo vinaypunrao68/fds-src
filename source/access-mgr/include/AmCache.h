@@ -69,16 +69,17 @@ class AmCache {
     Error getBlobOffsetObjects(fds_volid_t volId,
                                const std::string &blobName,
                                fds_uint64_t const obj_offset,
+                               fds_uint64_t const obj_offset_end,
                                size_t const obj_size,
                                std::vector<ObjectID::ptr>& obj_ids);
 
     /**
      * Retrieves object data from cache for given volume and object ids.
-     * If all objects are not found, returns error.
+     * Returns hit_cnt, miss_cnt
      */
-    Error getObjects(fds_volid_t volId,
-                     std::vector<ObjectID::ptr> const& objectIds,
-                     std::vector<boost::shared_ptr<std::string>>& objects);
+    std::pair<size_t, size_t> getObjects(fds_volid_t volId,
+                                         std::vector<ObjectID::ptr> const& objectIds,
+                                         std::vector<boost::shared_ptr<std::string>>& objects);
 
     /**
      * Updates the cache with the contents from a commited

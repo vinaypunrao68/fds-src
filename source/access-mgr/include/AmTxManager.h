@@ -20,6 +20,7 @@ struct AmRequest;
 struct AmTxDescriptor;
 struct AmVolume;
 struct AmVolumeAccessToken;
+struct GetBlobReq;
 
 /**
  * Manages outstanding AM transactions. The transaction manager tracks which
@@ -55,9 +56,12 @@ struct AmTxManager {
     ~AmTxManager();
 
     /**
-     * Initialize the cache and volume table
+     * Initialize the cache and volume table and register
+     * the callback we make to the transaction layer
      */
-    void init();
+    using processor_cb_type = std::function<void(AmRequest*)>;
+    void init(processor_cb_type cb);
+
 
     /**
      * Removes an existing transaction from the manager, destroying
@@ -146,7 +150,8 @@ struct AmTxManager {
 
     Error getBlobOffsetObjects(fds_volid_t volId,
                                std::string const& blobName,
-                               fds_uint64_t obj_offset,
+                               fds_uint64_t const obj_offset,
+                               fds_uint64_t const obj_offset_end,
                                size_t const obj_size,
                                std::vector<ObjectID::ptr>& obj_ids);
 
@@ -154,15 +159,11 @@ struct AmTxManager {
                     BlobOffsetPair const& blobOff,
                     std::vector<boost::shared_ptr<ObjectID>> const& objId);
 
-    Error putObject(fds_volid_t const volId,
-                    ObjectID const& objId,
-                    boost::shared_ptr<std::string> const obj);
-    Error getObjects(fds_volid_t volId,
-                     std::vector<ObjectID::ptr> const& objectIds,
-                     std::vector<boost::shared_ptr<std::string>>& objects);
+    void getObjects(GetBlobReq* blobReq);
 
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
+    processor_cb_type processor_enqueue;
 };
 
 }  // namespace fds

@@ -22,7 +22,7 @@ struct GetBlobReq: public AmRequest {
     fds_bool_t retry { false };
 
     // IDs used to provide a consistent read across objects
-    std::unique_ptr<std::vector<ObjectID::ptr>> object_ids;
+    std::vector<ObjectID::ptr> object_ids;
 
     inline GetBlobReq(fds_volid_t _volid,
                       const std::string& _volumeName,
@@ -32,6 +32,26 @@ struct GetBlobReq: public AmRequest {
                       fds_uint64_t _data_len);
 
     ~GetBlobReq() override = default;
+
+    void setResponseCount(uint16_t const cnt) {
+        fds_assert(0 == resp_acks.load(std::memory_order_relaxed));
+        resp_acks.store(cnt, std::memory_order_relaxed);
+    }
+
+    void notifyResponse(const Error &e) {
+        auto cnt = resp_acks.load(std::memory_order_acquire);
+        op_err = e.ok() ? op_err : e;
+        resp_acks.store(--cnt, std::memory_order_release);
+        if (0 == cnt) {
+            // Call back to processing layer
+            proc_cb(op_err);
+        }
+    }
+
+ private:
+    /* ack cnt for responses, decremented when response from SM and DM come back */
+    std::atomic_uint_fast16_t resp_acks;
+    Error op_err {ERR_OK};
 };
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
@@ -41,7 +61,7 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len)
     : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset, _data_len),
-      get_metadata(false), metadata_cached(false)
+      get_metadata(false), metadata_cached(false), resp_acks(0)
 {
     qos_perf_ctx.type = PerfEventType::AM_GET_QOS;
     hash_perf_ctx.type = PerfEventType::AM_GET_HASH;

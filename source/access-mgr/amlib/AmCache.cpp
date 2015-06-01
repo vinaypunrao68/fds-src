@@ -82,20 +82,24 @@ Error
 AmCache::getBlobOffsetObjects(fds_volid_t volId,
                               const std::string &blobName,
                               fds_uint64_t const obj_offset,
+                              fds_uint64_t const obj_offset_end,
                               size_t const obj_size,
                               std::vector<ObjectID::ptr>& obj_ids) {
     LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
-             << " blob " << blobName << " offset " << obj_offset;
+             << " blob " << blobName << " offset " << obj_offset
+             << " objects " << obj_ids.size();
 
-    auto it = obj_ids.begin();
-    for (size_t _i = 0; obj_ids.end() != it; ++it, ++_i) {
+    // Search for all the Offset pairs for the range of data we're interested in
+    // and populate the object ids vector with ids.
+    obj_ids.clear();
+    for (auto cur_off = obj_offset; obj_offset_end >= cur_off; cur_off += obj_size) {
         ObjectID::ptr obj_id;
-        auto offset_pair = BlobOffsetPair(blobName, (obj_offset + (_i * obj_size)));
+        auto offset_pair = BlobOffsetPair(blobName, cur_off);
         auto err = offset_cache.get(volId, offset_pair, obj_id);
         if (err == ERR_OK) {
             PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
             LOGDEBUG << "Found offset, id: " << *obj_id;
-            *it = obj_id;
+            obj_ids.push_back(obj_id);
         } else {
             return err; // Had a cache miss, inform processor
         }
@@ -103,14 +107,14 @@ AmCache::getBlobOffsetObjects(fds_volid_t volId,
     return ERR_OK;
 }
 
-Error
+std::pair<size_t, size_t>
 AmCache::getObjects(fds_volid_t volId,
                  std::vector<ObjectID::ptr> const& objectIds,
                  std::vector<boost::shared_ptr<std::string>>& objects)
 {
     static boost::shared_ptr<std::string> null_object = boost::make_shared<std::string>();
-    Error error {ERR_OK};
     fds_verify(objectIds.size() == objects.size());
+    size_t hit_cnt = 0, miss_cnt = 0;
     auto id_it = objectIds.begin();
     auto data_it = objects.begin();
     for (; id_it != objectIds.end(); ++id_it, ++data_it) {
@@ -123,14 +127,15 @@ AmCache::getObjects(fds_volid_t volId,
         if (NullObjectID != *obj_id) {
             auto err = object_cache.get(volId, *obj_id, blobObjectPtr);
             if (ERR_OK != err) {
-                error = err;
+                ++miss_cnt;
                 continue;
             }
         }
+        ++hit_cnt;
         PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, volId);
         *data_it = blobObjectPtr;
     }
-    return error;
+    return std::make_pair(hit_cnt, miss_cnt);
 }
 
 Error

@@ -685,8 +685,8 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     fds_volid_t volId = amReq->io_vol_id;
     // TODO(bszmyd): Thu 28 May 2015 09:14:07 PM MDT
     // This needs to handle multiple ids or be made into a sub-request
-    auto blobReq = static_cast<GetBlobReq *>(amReq);
-    ObjectID const& objId    = *blobReq->object_ids->front();
+    auto blobReq = static_cast<GetObjectReq *>(amReq);
+    ObjectID const& objId = *blobReq->obj_id;
 
     auto getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
     getObjMsg->volume_id = volId;
@@ -698,7 +698,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
     auto const dlt = dltMgr->getAndLockCurrentDLT();
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb,amReq,dlt->getVersion()));
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
     auto asyncGetReq = createFailoverRequest(objId,
                                              getObjMsg,
                                              respCb,
@@ -720,7 +720,6 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
-    auto cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
     // notify DLT manager that request completed, so we can decrement refcnt
     dltMgr->decDLTRefcnt(dltVersion);
 
@@ -729,11 +728,8 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
     if (error == ERR_OK) {
         LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
                  << " DLT version " << dltVersion;
-        // TODO(bszmyd): Thu 28 May 2015 04:58:27 PM MDT
-        // This doesn't support multiple return buffers yet...
-        auto buf = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
-        cb->return_size = buf->size();
-        cb->return_buffers->front() = std::move(buf);
+        auto blobReq = static_cast<GetObjectReq*>(amReq);
+        blobReq->obj_data = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
                  << amReq->blob_offset << " Error: " << error;
@@ -750,10 +746,14 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
                                      return;);
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
-    auto blobOffset = amReq->blob_offset;
+    auto start_offset = amReq->blob_offset;
+    auto end_offset = amReq->blob_offset_end;
     auto volId = amReq->io_vol_id;
 
-    LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: " << blobOffset << " volid: " << volId;
+    LOGDEBUG << "blob name: " << amReq->getBlobName()
+             << " start offset: " << start_offset
+             << " end offset: " << end_offset
+             << " volid: " << volId;
     /*
      * TODO(Andrew): We should eventually specify the offset in the blob
      * we want...all objects won't work well for large blobs.
@@ -761,8 +761,8 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     auto queryMsg = boost::make_shared<fpi::QueryCatalogMsg>();
     queryMsg->volume_id    = volId;
     queryMsg->blob_name    = amReq->getBlobName();
-    queryMsg->start_offset = blobOffset;
-    queryMsg->end_offset   = blobOffset;
+    queryMsg->start_offset = start_offset;
+    queryMsg->end_offset   = end_offset;
     // We don't currently specify a version
     queryMsg->blob_version = blob_version_invalid;
     queryMsg->obj_list.clear();
@@ -830,20 +830,19 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
         }
     }
 
-    decltype(blobReq->object_ids) new_ids {new std::vector<ObjectID::ptr>()};
+    auto new_ids = std::vector<ObjectID::ptr>();
 
-    // TODO(xxx) should be able to have multiple object id + implement range
-    // queries in DM
     for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
          it != qryCatRsp->obj_list.cend();
          ++it) {
-        if ((fds_uint64_t)(*it).offset == amReq->blob_offset) {
+        fds_uint64_t cur_offset = it->offset;
+        if (cur_offset >= amReq->blob_offset || cur_offset <= amReq->blob_offset_end) {
             // found offset!!!
             // TODO(bszmyd): Thu 21 May 2015 12:36:15 PM MDT
             // Fix this when we support unaligned reads.
             // Number of objects required to request given data length
             auto objId = new ObjectID((*it).data_obj_id.digest);
-            new_ids->emplace_back(objId);
+            new_ids.emplace_back(objId);
         }
     }
 
@@ -852,14 +851,15 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     // in AmProcessor::getBlobCb due to the write/read race
     // between DM/SM. If this is a retry then the object id should be
     // anything but what it was...or we should be able to get the object
-    if (blobReq->retry && !std::equal(new_ids->begin(),
-                                      new_ids->end(),
-                                      blobReq->object_ids->begin(),
+    if (blobReq->retry && !std::equal(new_ids.begin(),
+                                      new_ids.end(),
+                                      blobReq->object_ids.begin(),
                                       [](ObjectID::ptr const& a, ObjectID::ptr const& b)
                                         { return *a == *b; })) {
         blobReq->retry = false; // We've gotten a new Id we're not insane
     }
-    blobReq->object_ids = std::move(new_ids);
+    blobReq->object_ids.swap(new_ids);
+    blobReq->object_ids.shrink_to_fit();
 
     // if we are here, we did not get response for offset we needed!
     LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
