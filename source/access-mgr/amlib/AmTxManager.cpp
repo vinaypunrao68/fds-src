@@ -165,7 +165,7 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
     auto num_cached_objs = (0 < volDesc.maxObjSizeInBytes) ?
         (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
 
-    // A duplicate is ok, though strange that we got another register call
+    // A duplicate is ok, renewal's of a token cause this
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
     if (ERR_VOL_DUPLICATE == err) {
         err = ERR_OK;
@@ -200,21 +200,28 @@ BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
 { return amCache->getBlobDescriptor(volId, blobName, error); }
 
-ObjectID::ptr
-AmTxManager::getBlobOffsetObject(fds_volid_t volId, const std::string &blobName, fds_uint64_t blobOffset, Error &error)
-{ return amCache->getBlobOffsetObject(volId, blobName, blobOffset, error); }
+Error
+AmTxManager::getBlobOffsetObjects(fds_volid_t volId, const std::string &blobName, fds_uint64_t const obj_offset, size_t const obj_size, std::vector<ObjectID::ptr>& obj_ids)
+{ return amCache->getBlobOffsetObjects(volId, blobName, obj_offset, obj_size, obj_ids); }
 
 Error
 AmTxManager::putObject(fds_volid_t const volId, ObjectID const& objId, boost::shared_ptr<std::string> const obj)
 { return amCache->putObject(volId, objId, obj); }
 
-boost::shared_ptr<std::string>
-AmTxManager::getBlobObject(fds_volid_t volId, const ObjectID &objectId, Error &error)
-{ return amCache->getBlobObject(volId, objectId, error); }
+Error
+AmTxManager::getObjects(fds_volid_t volId, const std::vector<ObjectID::ptr> &objectIds, std::vector<boost::shared_ptr<std::string>> &objects)
+{ return amCache->getObjects(volId, objectIds, objects); }
 
 Error
-AmTxManager::putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, boost::shared_ptr<ObjectID> const objId)
-{ return amCache->putOffset(volId, blobOff, objId); }
+AmTxManager::putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, std::vector<boost::shared_ptr<ObjectID>> const& object_ids)
+{
+    for (auto const& obj_id : object_ids) {
+        auto err = amCache->putOffset(volId, blobOff, obj_id);
+        if (!err.ok())
+            { return err; }
+    }
+    return ERR_OK;
+}
 
 Error
 AmTxManager::putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc)

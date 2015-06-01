@@ -144,20 +144,22 @@ struct AmTxManager {
                             std::string const& blobName,
                             boost::shared_ptr<BlobDescriptor> const blobDesc);
 
-    ObjectID::ptr getBlobOffsetObject(fds_volid_t volId,
-                                      std::string const& blobName,
-                                      fds_uint64_t blobOffset,
-                                      Error &error);
+    Error getBlobOffsetObjects(fds_volid_t volId,
+                               std::string const& blobName,
+                               fds_uint64_t obj_offset,
+                               size_t const obj_size,
+                               std::vector<ObjectID::ptr>& obj_ids);
+
     Error putOffset(fds_volid_t const volId,
                     BlobOffsetPair const& blobOff,
-                    boost::shared_ptr<ObjectID> const objId);
+                    std::vector<boost::shared_ptr<ObjectID>> const& objId);
 
     Error putObject(fds_volid_t const volId,
                     ObjectID const& objId,
                     boost::shared_ptr<std::string> const obj);
-    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId,
-                                                 ObjectID const& objectId,
-                                                 Error &error);
+    Error getObjects(fds_volid_t volId,
+                     std::vector<ObjectID::ptr> const& objectIds,
+                     std::vector<boost::shared_ptr<std::string>>& objects);
 
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);

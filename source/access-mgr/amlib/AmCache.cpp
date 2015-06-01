@@ -78,35 +78,59 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     return blobDescPtr;
 }
 
-ObjectID::ptr
-AmCache::getBlobOffsetObject(fds_volid_t volId,
-                             const std::string &blobName,
-                             fds_uint64_t blobOffset,
-                             Error &error) {
+Error
+AmCache::getBlobOffsetObjects(fds_volid_t volId,
+                              const std::string &blobName,
+                              fds_uint64_t const obj_offset,
+                              size_t const obj_size,
+                              std::vector<ObjectID::ptr>& obj_ids) {
     LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
-             << " blob " << blobName << " offset " << blobOffset;
+             << " blob " << blobName << " offset " << obj_offset;
 
-    ObjectID::ptr blobOffsetPtr;
-    error = offset_cache.get(volId, BlobOffsetPair(blobName, blobOffset), blobOffsetPtr);
-    if (error == ERR_OK) {
-        PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
+    auto it = obj_ids.begin();
+    for (size_t _i = 0; obj_ids.end() != it; ++it, ++_i) {
+        ObjectID::ptr obj_id;
+        auto offset_pair = BlobOffsetPair(blobName, (obj_offset + (_i * obj_size)));
+        auto err = offset_cache.get(volId, offset_pair, obj_id);
+        if (err == ERR_OK) {
+            PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
+            LOGDEBUG << "Found offset, id: " << *obj_id;
+            *it = obj_id;
+        } else {
+            return err; // Had a cache miss, inform processor
+        }
     }
-    return blobOffsetPtr;
+    return ERR_OK;
 }
 
-boost::shared_ptr<std::string>
-AmCache::getBlobObject(fds_volid_t volId,
-                       const ObjectID &objectId,
-                       Error &error) {
-    LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
-             << " object " << objectId;
+Error
+AmCache::getObjects(fds_volid_t volId,
+                 std::vector<ObjectID::ptr> const& objectIds,
+                 std::vector<boost::shared_ptr<std::string>>& objects)
+{
+    static boost::shared_ptr<std::string> null_object = boost::make_shared<std::string>();
+    Error error {ERR_OK};
+    fds_verify(objectIds.size() == objects.size());
+    auto id_it = objectIds.begin();
+    auto data_it = objects.begin();
+    for (; id_it != objectIds.end(); ++id_it, ++data_it) {
+        auto const& obj_id = *id_it;
+        boost::shared_ptr<std::string> blobObjectPtr = null_object;
+        GLOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
+                  << " object " << *obj_id;
 
-    boost::shared_ptr<std::string> blobObjectPtr;
-    error = object_cache.get(volId, objectId, blobObjectPtr);
-    if (error == ERR_OK) {
+        // If this is a null object return a zero size object to the connector,
+        if (NullObjectID != *obj_id) {
+            auto err = object_cache.get(volId, *obj_id, blobObjectPtr);
+            if (ERR_OK != err) {
+                error = err;
+                continue;
+            }
+        }
         PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, volId);
+        *data_it = blobObjectPtr;
     }
-    return blobObjectPtr;
+    return error;
 }
 
 Error

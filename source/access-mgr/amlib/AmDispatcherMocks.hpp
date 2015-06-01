@@ -9,18 +9,19 @@ struct AmDispatcherMockCbs
     static void getObjectCb(AmRequest *amReq)
     {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-        cb->returnSize = amReq->data_len;
         cb->return_buffers = nullptr;
         amReq->proc_cb(ERR_OK);                        
     }
     static void queryCatalogCb(AmRequest *amReq)
     {
-        if (static_cast<GetBlobReq*>(amReq)->get_metadata) {
+        auto blobReq = static_cast<GetBlobReq*>(amReq);
+        if (blobReq->get_metadata) {
             auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             cb->blobDesc = boost::make_shared<BlobDescriptor>();
-            cb->blobDesc->setBlobSize(cb->returnSize);
+            cb->blobDesc->setBlobSize(amReq->data_len);
         }
-        amReq->obj_id = ObjectID();
+        blobReq->object_ids.reset(new std::vector<ObjectID::ptr>());
+        blobReq->object_ids->emplace_back(new ObjectID());
         amReq->proc_cb(ERR_OK);
     }
 };
