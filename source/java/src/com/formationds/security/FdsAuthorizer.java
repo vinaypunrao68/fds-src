@@ -3,10 +3,10 @@
  */
 package com.formationds.security;
 
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -30,7 +30,23 @@ public class FdsAuthorizer implements Authorizer {
         return config.tenantId(user.getId());
     }
 
-    @Override
+  /**
+   * @param token the authentication token
+   * @param snapshotName the name of the snapshot
+   * @return Returns {@code true} is snapshot is owned by; Otherwise {@code false}
+   */
+  @Override
+  public boolean ownsSnapshot( final AuthenticationToken token,
+                               final String snapshotName )
+  {
+    return !AuthenticationToken.ANONYMOUS.equals( token ) && isAdmin( token );
+  }
+
+  private boolean isAdmin( final AuthenticationToken token ) {
+      return ( token != null ) && userFor( token ).isIsFdsAdmin( );
+  }
+
+  @Override
     public boolean ownsVolume(AuthenticationToken token, String volume) throws SecurityException {
         if (AuthenticationToken.ANONYMOUS.equals(token)) {
             return false;
