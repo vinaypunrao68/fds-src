@@ -19,12 +19,12 @@ class SettingsConverter(object):
         
         if ( settings.type is "BLOCK" ):
             
-            j_settings["capacity"] = SizeConverter.to_json(settings.size)
-            j_settings["block_size"] = SizeConverter.to_json(settings.block_size)
+            j_settings["capacity"] = json.loads(SizeConverter.to_json(settings.size))
+            j_settings["block_size"] = json.loads(SizeConverter.to_json(settings.block_size))
             
         else:
             
-            j_settings["max_object_size"] = SizeConverter.to_json(settings.max_object_size)
+            j_settings["max_object_size"] = json.loads(SizeConverter.to_json(settings.max_object_size))
             
         j_settings = json.dumps(j_settings)
         

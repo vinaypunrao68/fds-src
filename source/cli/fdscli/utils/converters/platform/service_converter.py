@@ -1,5 +1,7 @@
 import json
 from model.platform.service import Service
+from utils.converters.platform.service_status_converter import ServiceStatusConverter
+from utils.converters.fds_id_converter import FdsIdConverter
 
 class ServiceConverter():
     '''
@@ -9,15 +11,17 @@ class ServiceConverter():
     '''
     
     @staticmethod
-    def build_service_from_json( jString ):
+    def build_service_from_json( j_str ):
+        
+        if not isinstance(j_str, dict):
+            j_str = json.loads(j_str)
         
         service = Service()
         
-        service.auto_name = jString.pop( "autoName", "UNKNOWN" )
-        service.port = jString.pop( "port", 0 )
-        service.type = jString.pop( "type", "FDS_PLATFORM" )
-        service.id = jString.pop( "uuid", -1)
-        service.status = jString.pop( "status", "UNKNOWN" )
+        service.type = j_str.pop("type", service.type)
+        service.port = j_str.pop("port", service.port)
+        service.id = FdsIdConverter.build_id_from_json(j_str.pop("id"))
+        service.status = ServiceStatusConverter.build_status_from_json(j_str.pop("status"))
         
         return service 
     
@@ -25,11 +29,10 @@ class ServiceConverter():
     def to_json( service ):
         d = dict()
         
-        d["autoName"] = service.auto_name
         d["port"] = service.port
-        d["status"] = service.status
+        d["status"] = json.loads(ServiceStatusConverter.to_json(service.status))
+        d["id"] = json.loads(FdsIdConverter.to_json(service.id))
         d["type"] = service.type
-        d["uuid"] = service.id
         
         result = json.dumps( d )
         

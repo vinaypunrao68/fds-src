@@ -6,7 +6,7 @@ class Node(object):
     @author: nate
     '''
 
-    def __init__(self, an_id=FdsId(), name="", state="UP", ip_v4_address=None):
+    def __init__(self, an_id=FdsId(), state="UP", ip_v4_address=None):
         self.ip_v4_address = ip_v4_address
         self.ip_v6_address = None
         self.id = an_id

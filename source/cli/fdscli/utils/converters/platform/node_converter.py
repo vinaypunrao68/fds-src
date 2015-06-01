@@ -1,6 +1,7 @@
 import json
 from model.platform.node import Node
 from service_converter import ServiceConverter
+from utils.converters.fds_id_converter import FdsIdConverter
 
 class NodeConverter():
     '''
@@ -34,20 +35,19 @@ class NodeConverter():
         return services
     
     @staticmethod
-    def build_node_from_json( jsonString ):
+    def build_node_from_json( j_str ):
         
         node = Node()
         
-        if not isinstance( jsonString, dict ):
-            jsonString = json.loads(jsonString)
+        if not isinstance( j_str, dict ):
+            j_str = json.loads(j_str)
 
-        node.id = jsonString.pop( "uuid", -1 )
-        node.state = jsonString.pop( "state", "UP" )
-        node.ip_v4_address = jsonString.pop( "ipV4address", "127.0.0.1" )
-        node.ip_v6_address = jsonString.pop( "ipV6address", "" )
-        node.name = jsonString.pop( "name", node.ip_v4_address )
+        node.id = FdsIdConverter.build_id_from_json(j_str.pop( "id", node.id ))
+        node.state = j_str.pop( "state", "UP" )
+        node.ip_v4_address = j_str.pop( "ipV4address", node.ip_v4_address)
+        node.ip_v6_address = j_str.pop( "ipV6address", node.ip_v6_address)
         
-        services = jsonString.pop( "services", None )
+        services = j_str.pop( "services", None )
         
         if ( services is not None ):
             for key in ("AM","DM","SM","PM","OM"):
@@ -59,11 +59,10 @@ class NodeConverter():
     def to_json( node ):
         d = dict()
         
-        d["uuid"] = node.id
+        d["id"] = json.loads(FdsIdConverter.to_json(node.id))
         d["state"] = node.state
         d["ipV4address"] = node.ip_v4_address
         d["ipV6address"] = node.ip_v6_address
-        d["name"] = node.name
         
         s_dict = dict()
         

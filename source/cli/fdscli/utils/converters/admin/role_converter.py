@@ -16,7 +16,7 @@ class RoleConverter(object):
         
         j_role = dict()
         
-        j_role["name"] = role.name
+        j_role["name"] = role.name   
         j_role["features"] = role.features
         
         j_role = json.dumps(j_role)

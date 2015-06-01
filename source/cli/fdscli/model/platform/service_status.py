@@ -6,7 +6,7 @@ class ServiceStatus(object):
     @author: nate
     '''
     
-    def __init_(self, state="NOT_RUNNING", error_code=0, description=""):
+    def __init__(self, state="NOT_RUNNING", error_code=0, description=""):
         self.state = state
         self.error_code = error_code
         self.description = description
@@ -16,13 +16,12 @@ class ServiceStatus(object):
         return self.__state
     
     @state.setter
-    def state(self, state):
+    def state(self, a_state):
         
-        if state not in ("RUNNING", "NOT_RUNNING", "DEGRADED", "LIMITED", "ERROR", "UNREACHABLE", "UNEXPECTED_EXIT", "INITIALIZING", "SHUTTING_DOWN"):
+        if a_state not in ("RUNNING", "NOT_RUNNING", "DEGRADED", "LIMITED", "ERROR", "UNREACHABLE", "UNEXPECTED_EXIT", "INITIALIZING", "SHUTTING_DOWN"):
             raise TypeError()
-            return
         
-        self.__state = state
+        self.__state = a_state
         
     @property
     def error_code(self):

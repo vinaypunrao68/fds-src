@@ -17,7 +17,7 @@ class VolumeStatusConverter(object):
         j_str["state"] = status.state
         j_str["last_capacity_firebreak"] = status.last_capacity_firebreak
         j_str["last_performance_firebreak"] = status.last_performance_firebreak
-        j_str["current_usage"] = SizeConverter.to_json(status.current_usage)
+        j_str["current_usage"] = json.loads(SizeConverter.to_json(status.current_usage))
         
         j_str = json.dumps(j_str)
         

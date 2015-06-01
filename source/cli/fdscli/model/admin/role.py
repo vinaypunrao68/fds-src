@@ -25,7 +25,7 @@ class Role(object):
         
     @property
     def features(self):
-        return features
+        return self.__features
     
     @features.setter
     def features(self, features):
