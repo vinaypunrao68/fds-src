@@ -305,6 +305,11 @@ class OM_AgentContainer : public AgentContainer
     virtual void agent_deactivate(NodeAgent::pointer agent);
 
     /**
+     * For derived classes, this would allow them to return the correct type.
+     */
+    virtual FDS_ProtocolInterface::FDSP_MgrIdType container_type() const = 0;
+
+    /**
      * Returns a list of nodes that are currently in the container.
      * The method will clear the vector being passed in and populate it.
      */
@@ -359,6 +364,9 @@ class OM_PmContainer : public OM_AgentContainer
                                   FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
                                   NodeAgent::pointer svc_agent);
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_PLATFORM;
+    }
     /**
      * Returns a list of nodes that are currently in the PM container.
      * The method will clear the vector being passed in and populate it.
@@ -395,6 +403,9 @@ class OM_SmContainer : public OM_AgentContainer
     OM_SmContainer();
     virtual ~OM_SmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR;
+    }
     /**
      * Returns a list of nodes that are currently in the PM container.
      * The method will clear the vector being passed in and populate it.
@@ -419,6 +430,9 @@ class OM_DmContainer : public OM_AgentContainer
     OM_DmContainer();
     virtual ~OM_DmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR;
+    }
     /**
      * Returns a list of nodes that are currently in the PM container.
      * The method will clear the vector being passed in and populate it.
@@ -441,6 +455,9 @@ class OM_AmContainer : public OM_AgentContainer
     OM_AmContainer();
     virtual ~OM_AmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR;
+    }
     /**
      * Returns a list of nodes that are currently in the PM container.
      * The method will clear the vector being passed in and populate it.

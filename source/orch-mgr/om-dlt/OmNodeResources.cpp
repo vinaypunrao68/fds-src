@@ -1241,18 +1241,26 @@ OM_AgentContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &contain
 {
 	NodeUuid nd_uuid;
 	NodeAgent::pointer agent;
+	FDS_ProtocolInterface::FDSP_MgrIdType type = container_type();
 
 	if (rs_available_elm() == 0) {
 		return (ERR_NOT_FOUND);
 	}
 
+	fds_verify((type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR) ||
+			(type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR) ||
+			(type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_PLATFORM) ||
+			(type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR));
+
 	container_nodes.clear();
 
 	for (fds_uint32_t i = 0; i < rs_available_elm(); i++) {
-	        agent = agent_info(i);
-	        container_nodes.emplace_back(agent->get_node_name(),
-	                                     agent->get_uuid(),
-	                                     agent->node_get_svc_type());
+        agent = agent_info(i);
+        if (agent->node_get_svc_type() == type) {
+    	    container_nodes.emplace_back(agent->get_node_name(),
+    	                                 agent->get_uuid(),
+    	                                 agent->node_get_svc_type());
+        }
 	}
 
 	return (ERR_OK);
@@ -1441,62 +1449,20 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
 const Error
 OM_PmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
 {
-	NodeUuid nd_uuid;
-	NodeAgent::pointer agent;
-	Error err;
-
-	container_nodes.clear();
-
-	// First populate all the nodes
-	err = OM_AgentContainer::populate_nodes_in_container(container_nodes);
-	if (err != ERR_OK) {
-		return (err);
-	}
-
-	// Then remove any non PM nodes
-	using mgr_id_type = FDS_ProtocolInterface::FDSP_MgrIdType;
-	container_nodes.remove_if([] (NodeSvcEntity const& entity)
-	               { return entity.svc_type != mgr_id_type::FDSP_PLATFORM;} );
-
-	return (ERR_OK);
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
 }
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
 OM_SmContainer::OM_SmContainer() : OM_AgentContainer(fpi::FDSP_STOR_MGR) {}
-
 // populate_nodes_in_container
 // -----------------------------
 //
 const Error
 OM_SmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
 {
-	NodeUuid nd_uuid;
-	NodeAgent::pointer agent;
-	NodeSvcEntity temp;
-	Error err;
-	std::list<NodeSvcEntity>::iterator iter;
-
-	container_nodes.clear();
-	// First populate all the nodes
-	err = OM_AgentContainer::populate_nodes_in_container(container_nodes);
-	if (err != ERR_OK) {
-		return (err);
-	}
-
-	// Then remove any non SM nodes
-	iter = container_nodes.begin();
-	while (iter != container_nodes.end()) {
-		if (iter->svc_type != FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR) {
-			iter = container_nodes.erase(iter);
-		} else {
-			iter++;
-		}
-	}
-
-	return (ERR_OK);
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
 }
-
 // agent_activate
 // --------------
 //
@@ -1583,30 +1549,7 @@ OM_DmContainer::OM_DmContainer() : OM_AgentContainer(fpi::FDSP_DATA_MGR) {}
 const Error
 OM_DmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
 {
-	NodeUuid nd_uuid;
-	NodeAgent::pointer agent;
-	NodeSvcEntity	temp;
-	Error err;
-	std::list<NodeSvcEntity>::iterator iter;
-
-	container_nodes.clear();
-	// First populate all the nodes
-	err = OM_AgentContainer::populate_nodes_in_container(container_nodes);
-	if (err != ERR_OK) {
-		return (err);
-	}
-
-	// Then remove any non DM nodes
-	iter = container_nodes.begin();
-	while (iter != container_nodes.end()) {
-		if (iter->svc_type != FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR) {
-			iter = container_nodes.erase(iter);
-		} else {
-			iter++;
-		}
-	}
-
-	return (ERR_OK);
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
 }
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
@@ -1619,32 +1562,8 @@ OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_ACCESS_MGR) {}
 const Error
 OM_AmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
 {
-	NodeUuid nd_uuid;
-	NodeAgent::pointer agent;
-	NodeSvcEntity temp;
-	Error err;
-	std::list<NodeSvcEntity>::iterator iter;
-
-	container_nodes.clear();
-	// First populate all the nodes
-	err = OM_AgentContainer::populate_nodes_in_container(container_nodes);
-	if (err != ERR_OK) {
-		return (err);
-	}
-
-	// Then remove any non AM nodes
-	iter = container_nodes.begin();
-	while (iter != container_nodes.end()) {
-		if (iter->svc_type != FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR) {
-			iter = container_nodes.erase(iter);
-		} else {
-			iter++;
-		}
-	}
-
-	return (ERR_OK);
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
 }
-
 // --------------------------------------------------------------------------------------
 // OM Node Container
 // --------------------------------------------------------------------------------------
