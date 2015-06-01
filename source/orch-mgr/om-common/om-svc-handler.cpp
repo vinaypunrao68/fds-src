@@ -189,7 +189,7 @@ void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, bo
 	OM_Module *om = OM_Module::om_singleton();
 	DataPlacement *dp = om->om_dataplace_mod();
 	std::string data_buffer;
-	DLT const *dtp = NULL;
+	DLT const *dtp = nullptr;
     FDS_ProtocolInterface::FDSP_DLT_Data_Type dlt_val;
 	if (!(dp->getCommitedDlt())){
 		LOGDEBUG << "Not sending DLT to new node, because no "
@@ -265,7 +265,6 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 	ResourceUUID service_UUID (msg->healthReport.serviceID.svc_uuid.svc_uuid);
 	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
 	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
-	bool pm_found = false;
 
 	switch (msg->healthReport.serviceState) {
 		case fpi::RUNNING:
@@ -279,73 +278,78 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 				<< " not implemented yet.";
 			break;
 		case fpi::UNEXPECTED_EXIT:
-				switch (service_type) {
-					case fpi::FDSP_ACCESS_MGR:
-						comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
-						// no break
-					case fpi::FDSP_DATA_MGR:
-						comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
-						// no break
-					case fpi::FDSP_STOR_MGR: {
-						comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
-						/**
-						 * When a PM pings this OM with the state of an individual service
-						 * restart (AM/DM/SM) that the PM originally spawned, then we will
-						 * find the AM/DM/SM agent that corresponds to the report, and use the
-						 * PM method to deactivate the AM/DM/SM that is currently registered
-						 * with the OM.
-						 * It should then reactivate because user is expecting the service to
-						 * be up since it's passed in as UNEXPECTED.
-						 */
-						LOGNORMAL << "Cleaning up old process information.";
-						std::list<NodeSvcEntity_t> pm_services;
-						NodeSvcEntity_t *actual_pm_service = NULL;
-						OM_PmContainer::pointer pm_nodes = OM_Module::om_singleton()->
-													om_nodedomain_mod()-> om_loc_domain_ctrl()->om_pm_nodes();
-						pm_nodes->populate_nodes_in_container(pm_services);
-
-						/**
-						 * We need to find the right PM agent who is in charge of the service
-						 * that just died.
-						 */
-						for (std::list<NodeSvcEntity_t>::iterator i = pm_services.begin();
-								i != pm_services.end(); i++) {
-							// Technically node_uuid should be unsigned too...
-							if (i->node_uuid.uuid_get_val() ==
-								(fds_uint64_t)(msg->healthReport.platformUUID.svc_uuid.svc_uuid)) {
-								pm_found = true;
-								actual_pm_service = &(*i);
-								break;
-							}
-						}
-						fds_verify(pm_found);
-						OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
-								om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
-						/**
-						 * PM doesn't want to hear about the actual deactivate service but
-						 * OM side needs to deactiate it. So just call the response
-						 * which will do the OM side cleanup.
-						 */
-						Error 			dummyErr (ERR_OK);
-						om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
-								comp_type == fpi::FDSP_DATA_MGR,
-								comp_type == fpi::FDSP_ACCESS_MGR,
-								NULL, dummyErr, NULL);
-						break;
-					}
-					default:
-						// Panic on unhandled service
-						LOGDEBUG << "Unhandled process: " << msg->healthReport.serviceID.svc_name <<
-							" with service type: " << service_type;
-						fds_verify(0);
-						break;
+			switch (service_type) {
+				case fpi::FDSP_ACCESS_MGR:
+					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+					// no break
+				case fpi::FDSP_DATA_MGR:
+					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+					// no break
+				case fpi::FDSP_STOR_MGR: {
+					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+					heatlhReportUnexpectedExit(comp_type, msg);
+					break;
 				}
+				default:
+					// Panic on unhandled service
+					fds_panic("Unhandled process: %s with service type %d",
+							msg->healthReport.serviceID.svc_name.c_str(),
+							service_type);
+					break;
+			}
 			break;
 		default:
 			// Panic on unhandled service states.
-			LOGERROR << "Unknown service state";
-			fds_verify(0);
+			fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
 			break;
 	}
+}
+
+void OmSvcHandler::heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
+		boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
+	/**
+	 * When a PM pings this OM with the state of an individual service
+	 * restart (AM/DM/SM) that the PM originally spawned, then we will
+	 * find the AM/DM/SM agent that corresponds to the report, and use the
+	 * PM method to deactivate the AM/DM/SM that is currently registered
+	 * with the OM.
+	 * It should then reactivate because user is expecting the service to
+	 * be up since it's passed in as UNEXPECTED.
+	 */
+	 LOGNORMAL << "Cleaning up old process information.";
+	 std::list<fds::NodeSvcEntity> pm_services;
+ 	 bool pm_found = false;
+	 NodeSvcEntity *actual_pm_service = nullptr;
+	 OM_PmContainer::pointer pm_nodes = OM_Module::om_singleton()->
+								om_nodedomain_mod()-> om_loc_domain_ctrl()->om_pm_nodes();
+	 pm_nodes->populate_nodes_in_container(pm_services);
+
+	 /**
+	  * We need to find the right PM agent who is in charge of the service
+	  * that just died.
+	  */
+	 for (std::list<NodeSvcEntity>::iterator i = pm_services.begin();
+			i != pm_services.end(); i++) {
+		 // Technically node_uuid should be unsigned too...
+		 if (i->node_uuid.uuid_get_val() ==
+			(fds_uint64_t)(msg->healthReport.platformUUID.svc_uuid.svc_uuid)) {
+			pm_found = true;
+			actual_pm_service = &(*i);
+			break;
+		 }
+	 }
+	 fds_verify(pm_found);
+	 OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
+			om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
+	 /**
+	  * PM doesn't want to hear about the actual deactivate service but
+	  * OM side needs to deactiate it. So just call the response
+	  * which will do the OM side cleanup.
+	  */
+	 Error 			dummyErr (ERR_OK);
+	 om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
+			comp_type == fpi::FDSP_DATA_MGR,
+			comp_type == fpi::FDSP_ACCESS_MGR,
+			nullptr, dummyErr, nullptr);
 }
 }  //  namespace fds
