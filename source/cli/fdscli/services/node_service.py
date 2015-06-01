@@ -1,10 +1,8 @@
 from abstract_service import AbstractService
-from utils.node_state_converter import NodeStateConverter
 from utils.converters.platform.node_converter import NodeConverter
 from utils.converters.platform.service_converter import ServiceConverter
 from model.platform.node import Node
 from model.platform.service import Service
-from model.node_state import NodeState
 
 class NodeService( AbstractService ):
     '''
@@ -28,8 +26,8 @@ class NodeService( AbstractService ):
         '''
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/1")
-        data = NodeStateConverter.to_json( node_state )
-        return self.rest_helper.post( self.session, url, data )
+#         data = NodeStateConverter.to_json( node_state )
+#         return self.rest_helper.post( self.session, url, data )
     
     def deactivate_node(self, node_id):
         '''
@@ -40,11 +38,11 @@ class NodeService( AbstractService ):
         node_id is the UUID of the node to de-activate
         node_state is a node state object defines which services will be stopped        
         '''
-        node_state = NodeState()
+#         node_state = NodeState()
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id )
-        data = NodeStateConverter.to_json( node_state )
-        return self.rest_helper.delete( self.session, url, data )        
+#         data = NodeStateConverter.to_json( node_state )
+#         return self.rest_helper.delete( self.session, url, data )        
         
     def list_nodes(self):
         '''        
@@ -74,8 +72,8 @@ class NodeService( AbstractService ):
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/nodes/", node_id, "/1" )
-        data = NodeStateConverter.to_json( node_state )
-        return self.rest_helper.post( self.session, url, data )
+#         data = NodeStateConverter.to_json( node_state )
+#         return self.rest_helper.post( self.session, url, data )
     
     def start_node(self, node_id):
         '''

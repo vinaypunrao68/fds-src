@@ -11,40 +11,32 @@ This is that mechanism
 
 @author: nate
 '''
+from utils.converters.fds_id_converter import FdsIdConverter
+from utils.converters.volume.qos_policy_converter import QosPolicyConverter
+from utils.converters.volume.settings_converter import SettingsConverter
+from utils.converters.volume.volume_status_converter import VolumeStatusConverter
+from utils.converters.volume.data_protection_policy_converter import DataProtectionPolicyConverter
+
 class VolumeConverter( object ):
     
     @staticmethod
-    def build_volume_from_json( jsonString ):
+    def build_volume_from_json( j_str ):
         '''
         This takes a json dictionary and turns it into a volume class instantiation
         '''
 
         volume = Volume();
         
-        if not isinstance( jsonString, dict ):
-            jsonString = json.loads(jsonString)
+        if not isinstance( j_str, dict ):
+            j_str = json.loads(j_str)
         
-        volume.name = jsonString.pop( "name", None )
-        volume.iops_guarantee = jsonString.pop( "sla", int(volume.iops_guarantee) )
-        volume.iops_limit = jsonString.pop( "limit", int(volume.iops_limit) )
-        volume.id = jsonString.pop( "id", volume.id )
-        volume.media_policy = jsonString.pop( "mediaPolicy", volume.media_policy )
-        volume.continuous_protection = jsonString.pop( "commit_log_retention", int(volume.continuous_protection) )
-        volume.priority = jsonString.pop( "priority", int(volume.priority) )
-        volume.tenant_id = jsonString.pop( "tenantId", volume.tenant_id)
-        
-        dc = jsonString.pop( "data_connector", None )
-        
-        if ( dc is not None ):
-            volume.type = dc.pop( "type", volume.type )
-        
-        volume.state = jsonString.pop( "state", volume.state )
-        
-        cu = jsonString.pop( "current_usage", None )
-        
-        if ( cu is not None ):
-            volume.current_size = cu.pop( "size", None )
-            volume.current_units = cu.pop( "unit", None )
+        volume.id = FdsIdConverter.build_id_from_json(j_str.pop("id"))
+        volume.status = VolumeStatusConverter.build_status_from_json(j_str.pop("status"))
+        volume.media_policy = j_str.pop("media_policy", volume.media_policy)
+        volume.application = j_str.pop("application", volume.application)
+        volume.qos_policy = QosPolicyConverter.build_policy_from_json(j_str.pop("qos_policy"))
+        volume.data_protection_policy = DataProtectionPolicyConverter.build_policy_from_json(j_str.pop("data_protection_policy"))
+        volume.tenant_id = FdsIdConverter.build_id_from_json(j_str.pop("tenant_id"))
         
         return volume
     
@@ -56,28 +48,27 @@ class VolumeConverter( object ):
         '''
         
         d = dict()
-        d["name"] = volume.name
-        d["id"] = volume.id
-        d["limit"] = volume.iops_limit
-        d["sla"] = volume.iops_guarantee
-        d["mediaPolicy"] = volume.media_policy
-        d["priority"] = volume.priority
-        d["commit_log_retention"] = volume.continuous_protection
         
-        dc = dict()
+        j_id = FdsIdConverter.to_json( volume.id )
         
-        if ( volume.type == "object" ):
-            dc["api"] = "S3, Swift"
-            dc["type"] = "OBJECT"
-        else:
-            dc["api"] = "Basic, Cinder"
-            dc["type"] = "BLOCK"
-            attrs = dict()
-            attrs["size"] = volume.current_size
-            attrs["unit"] = volume.current_units
-            dc["attributes"] = attrs
-            
-        d["data_connector"] = dc
+        d["id"] = json.loads(j_id)
+        
+        j_qos = QosPolicyConverter.to_json(volume.qos_policy)
+        
+        d["qos_policy"] = json.loads(j_qos)
+        d["media_policy"] = volume.media_policy
+
+        j_settings = SettingsConverter.to_json(volume.settings)
+        d["settings"] = json.loads(j_settings)
+
+        j_status = VolumeStatusConverter.to_json(volume.status)
+        d["status"] = json.loads(j_status)
+        
+        j_d_policy = DataProtectionPolicyConverter.to_json(volume.data_protection_policy)
+        d["data_protection_policy"] = json.loads(j_d_policy)
+        
+        d["application"] = volume.application
+        d["tenant_id"] = json.loads(FdsIdConverter.to_json(volume.tenant_id))
         
         result = json.dumps( d )
         

@@ -13,6 +13,7 @@ class SnapshotPolicy():
         self.id = an_id
         self.retention_time_in_seconds = retention_time_in_seconds
         self.preset_id = preset_id
+        self.timeline_time = timeline_time
     
     @property
     def id(self):
@@ -25,6 +26,14 @@ class SnapshotPolicy():
             raise TypeError()
         
         self.__id = an_id
+    
+    @property
+    def timeline_time(self):
+        return self.__timeline_time
+    
+    @timeline_time.setter
+    def timeline_time(self, a_time):
+        self.__timeline_time = a_time
     
     @property
     def recurrence_rule(self):

@@ -1,5 +1,5 @@
 from model.volume.qos_preset import QosPreset
-from model.volume.data_protection_policy_preset import TimelinePreset
+from model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
 from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
 import json
 
@@ -31,7 +31,7 @@ class PresetConverter(object):
         Take a JSON string for a timeline preset and turn it into an object
         '''
         
-        timeline = TimelinePreset()
+        timeline = DataProtectionPolicyPreset()
         timeline.id = jsonString.pop("uuid", timeline.id)
         timeline.name = jsonString.pop("name", "UNKNOWN")
         timeline.continuous_protection = jsonString.pop("commitLogRetention", timeline.continuous_protection)

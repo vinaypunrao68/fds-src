@@ -41,7 +41,7 @@ class DataProtectionPolicy(object):
     @preset_id.setter
     def preset_id(self, preset_id):
         
-        if not isinstance(preset_id, FdsId):
+        if preset_id is not None and not isinstance(preset_id, FdsId):
             raise TypeError()
         
         self.__preset_id = preset_id

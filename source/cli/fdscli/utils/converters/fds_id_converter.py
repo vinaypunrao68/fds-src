@@ -11,7 +11,7 @@ class FdsIdConverter(object):
     @staticmethod
     def to_json(an_id):
         
-        if not isinstance(an_id, FdsId):
+        if an_id is not None and not isinstance(an_id, FdsId):
             raise TypeError()
         
         id_dict = dict()
