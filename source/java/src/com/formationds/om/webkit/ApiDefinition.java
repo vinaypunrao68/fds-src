@@ -1,10 +1,5 @@
 package com.formationds.om.webkit;
 
-import javax.crypto.SecretKey;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.webkit.rest.AssignUserToTenant;
@@ -59,6 +54,7 @@ import com.formationds.om.webkit.rest.snapshot.AttachSnapshotPolicyIdToVolumeId;
 import com.formationds.om.webkit.rest.snapshot.CloneSnapshot;
 import com.formationds.om.webkit.rest.snapshot.CreateSnapshot;
 import com.formationds.om.webkit.rest.snapshot.CreateSnapshotPolicy;
+import com.formationds.om.webkit.rest.snapshot.DeleteSnapshot;
 import com.formationds.om.webkit.rest.snapshot.DeleteSnapshotPolicy;
 import com.formationds.om.webkit.rest.snapshot.DetachSnapshotPolicyIdToVolumeId;
 import com.formationds.om.webkit.rest.snapshot.EditSnapshotPolicy;
@@ -74,6 +70,10 @@ import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.crypto.SecretKey;
 
 public class ApiDefinition extends AbstractApiDefinition{
 
@@ -429,6 +429,11 @@ public class ApiDefinition extends AbstractApiDefinition{
 	        authenticate( HttpMethod.DELETE,
 	                      "/api/config/snapshot/policies/:policyId",
 	                      ( t ) -> new DeleteSnapshotPolicy( config ) );
+          authenticate( HttpMethod.DELETE,
+                        "/api/config/snapshot/:snapshotName",
+                        ( t ) -> new DeleteSnapshot( authorizer,
+                                                     config,
+                                                     t ) );
 
 	    }
 

@@ -11,7 +11,18 @@ public class DumbAuthorizer implements Authorizer {
         return 0;
     }
 
-    @Override
+  /**
+   * @param token the authentication token
+   * @param snapshotName the name of the snapshot
+   * @return Returns {@code true} is snapshot is owned by; Otherwise {@code false}
+   */
+  @Override
+  public boolean ownsSnapshot( final AuthenticationToken token,
+                               final String snapshotName ) {
+    return true;
+  }
+
+  @Override
     public boolean ownsVolume(AuthenticationToken token, String volume) {
         return true;
     }
