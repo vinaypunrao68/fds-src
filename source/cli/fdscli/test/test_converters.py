@@ -20,7 +20,6 @@ from utils.converters.platform.domain_converter import DomainConverter
 from model.platform.service import Service
 from model.platform.service_status import ServiceStatus
 from utils.converters.platform.service_converter import ServiceConverter
-from mock import self
 from model.platform.node import Node
 from utils.converters.platform.node_converter import NodeConverter
 

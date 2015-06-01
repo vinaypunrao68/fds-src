@@ -15,7 +15,7 @@ class EventService( AbstractService ):
         Get a list of system events that match your filter parameters
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/config/events")
+        url = "{}{}".format( self.get_url_preamble(), "/events")
         #TODO convert the filter to JSON
         data = "" 
         return self.rest_helper().put( self.session, url, data )

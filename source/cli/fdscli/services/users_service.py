@@ -15,7 +15,7 @@ class UsersService( AbstractService ):
         ''' 
         get a list of all the users you're allowed to see
         '''
-        url = "{}{}".format( self.get_url_preamble(), "/api/system/users" )        
+        url = "{}{}".format( self.get_url_preamble(), "/users" )        
         j_users = self.rest_helper.get( self.session, url )
         
         users = []
@@ -31,7 +31,7 @@ class UsersService( AbstractService ):
         create a new user
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/system/users/", login, "/", password )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/users/", login, "/", password )
         return self.rest_helper.post( self.session, url )
     
     def change_password(self, user_id, password ):
@@ -39,14 +39,14 @@ class UsersService( AbstractService ):
         Change a users password
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/system/users/", user_id, "/", password )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/users/", user_id, "/", password )
         return self.rest_helper.put( self.session, url )
     
     def reissue_user_token(self, user_id):
         '''
         Re-issue a users token.  This will effectively cause the effected user to have to revalidate themselves
         '''
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/system/token/", user_id )
+        url = "{}{}{}".format( self.get_url_preamble(), "/token/", user_id )
         return self.rest_helper.post( self.session, url )
     
     def get_user_token(self, user_id ):
@@ -54,7 +54,7 @@ class UsersService( AbstractService ):
         Retrieve the token for a specified user
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/system/token/", user_id )
+        url = "{}{}{}".format( self.get_url_preamble(), "/token/", user_id )
         return self.rest_helper.get( self.session, url )
     
     def who_am_i(self):
@@ -62,7 +62,7 @@ class UsersService( AbstractService ):
         Retrieve the user associated with this session/token
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/auth/currentUser" )
+        url = "{}{}".format( self.get_url_preamble(), "/userinfo" )
         me = self.rest_helper.get( self.session, url )
         
         real_me = UserConverter.build_user_from_json(me)

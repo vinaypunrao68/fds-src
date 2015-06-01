@@ -3,6 +3,7 @@ from services.node_service import NodeService
 from services.response_writer import ResponseWriter
 
 import json
+from utils.converters.platform.node_converter import NodeConverter
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -180,25 +181,24 @@ class NodePlugin( AbstractPlugin ):
         '''
         Activate a set of discovered nodes
         '''
-        id_list = []
+        n_list = []
+        d_nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes())
         
         if ( args[AbstractPlugin.node_ids_str] is None ):
-            nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes() )
-            for node in nodes:
-                id_list.append( node["uuid"] )
+            for node in d_nodes:
+                n_list.append( node )
             #end of for loop
         else:
-            id_list = args[AbstractPlugin.node_ids_str]
-            
-        # make each call
-        state = NodeState()
+            for node in d_nodes:
+                if node.id.uuid == args[AbstractPlugin.node_ids_str]:
+                    n_list.append( node )
         
         failures = []
         
-        for uuid in id_list:
-            result = self.get_node_service().add_node( uuid, state )
+        for node in n_list:
+            result = self.get_node_service().add_node( node.id.uuid, node )
             if ( result["status"] != 200 ):
-                failures.append( uuid )
+                failures.append( node.id.uuid )
             
         if ( len( failures ) > 0 ):
             print "The following IDs were not added due to errors: {}\n".format( failures )

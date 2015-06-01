@@ -14,7 +14,7 @@ class TenantService( AbstractService):
         Get a list of all tenants in the system
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/system/tenants")
+        url = "{}{}".format( self.get_url_preamble(), "/tenants")
         response = self.rest_helper.get( self.session, url )
         
         tenants = []
@@ -30,7 +30,7 @@ class TenantService( AbstractService):
         Create a new tenancy in the system
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/system/tenants/", tenant_name)
+        url = "{}{}{}".format( self.get_url_preamble(), "/tenants/", tenant_name)
         return self.rest_helper.post( self.session, url )
     
     def assign_user_to_tenant(self, tenant_id, user_id):
@@ -38,7 +38,7 @@ class TenantService( AbstractService):
         assign a user to a tenancy
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/system/tenants/", tenant_id, "/", user_id)
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/tenants/", tenant_id, "/", user_id)
         return self.rest_helper.put( self.session, url )
     
     def remove_user_from_tenant(self, tenant_id, user_id):
@@ -46,6 +46,6 @@ class TenantService( AbstractService):
         remove the specified user from the specified tenancy
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/system/tenants/", tenant_id, "/", user_id )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/tenants/", tenant_id, "/", user_id )
         return self.rest_helper.delete( self.session, url )
         
