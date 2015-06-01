@@ -293,6 +293,19 @@ struct ReloadVolumeHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+/**
+ * dm checker  for validating the DM migration
+ */
+struct DmMigrationHandler : Handler {
+    explicit DmMigrationHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_
