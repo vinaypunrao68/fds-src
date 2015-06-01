@@ -7,6 +7,7 @@ from utils.snapshot_policy_validator import SnapshotPolicyValidator
 from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
 from services.snapshot_policy_service import SnapshotPolicyService
 from services.response_writer import ResponseWriter
+from plugins.abstract_plugin import AbstractPlugin
 
 '''
 Created on Apr 13, 2015
@@ -71,6 +72,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         
         __create_parser.add_argument( "-" + AbstractPlugin.data_str, help="A JSON formatted string that defines your policy entirely.  If this is present all other arguments will be ignored.", default=None )
         __create_parser.add_argument( "-" + AbstractPlugin.name_str, help="The name of the policy you are creating.", default=None)
+        __create_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that this policy will be attached to.", required=True)
         __create_parser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that you want to keep snapshots that are created with this policy. 0 = forever", type=int, default=0)
         __create_parser.add_argument( "-" + AbstractPlugin.recurrence_rule_str, help="The iCal format recurrence rule you would like this policy to follow. http://www.kanzaki.com/docs/ical/rrule.html")
         __create_parser.add_argument( "-" + AbstractPlugin.frequency_str, help="The frequency for which you would like snapshots to be taken on volumes this policy is applied to.", choices=["DAILY", "HOURLY", "WEEKLY", "MONTHLY", "YEARLY"], default="DAILY")
@@ -117,34 +119,9 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         self.add_format_arg( __delete_parser )
         
         __delete_parser.add_argument( "-" + AbstractPlugin.policy_id_str, help="The UUID of the snapshot policy you would like to delete.", required=True)
+        __delete_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that this policy is attached to.", requred=True)
         
-        __delete_parser.set_defaults( func=self.delete_snapshot_policy, format="tabular" )
-        
-    def create_attach_parser(self, subparser):
-        '''
-        create a parser for handling the attach command
-        '''
-        
-        __attach_parser = subparser.add_parser( "attach", help="Attach the specified policy to a specified volume.  This will cause snapshot to happen on that volume in accordance with the policy.")
-        self.add_format_arg( __attach_parser )
-        
-        __attach_parser.add_argument( "-" + AbstractPlugin.policy_id_str, help="The UUID of the policy that you wish to attach.", required=True)
-        __attach_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume you would like to attach the policy to.", required=True)
-        
-        __attach_parser.set_defaults( func=self.attach_snapshot_policy, format="tabular")  
-        
-    def create_detach_parser(self, subparser):
-        '''
-        create a parser for handling the detach command
-        '''
-        
-        __detach_parser = subparser.add_parser( "detach", help="Detach the specified policy to a specified volume.  This will cause snapshot to stop occurring on that volume in accordance with the policy.")
-        self.add_format_arg( __detach_parser )
-        
-        __detach_parser.add_argument( "-" + AbstractPlugin.policy_id_str, help="The UUID of the policy that you wish to detach.", required=True)
-        __detach_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume you would like to detach the policy from.", required=True)
-        
-        __detach_parser.set_defaults( func=self.detach_snapshot_policy, format="tabular")  
+        __delete_parser.set_defaults( func=self.delete_snapshot_policy, format="tabular" ) 
         
     # make the correct calls
     
@@ -214,7 +191,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
                 policy.recurrence_rule.byhour = args[AbstractPlugin.hour_str]
                 policy.recurrence_rule.byminute = args[AbstractPlugin.minute_str]
             
-        self.get_snapshot_policy_service().create_snapshot_policy( policy )
+        self.get_snapshot_policy_service().create_snapshot_policy( args[AbstractPlugin.volume_id_str], policy )
 
         self.list_snapshot_policies(args)
     
@@ -265,29 +242,8 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         Take the arguments and make the call to delete the snapshot policy specified
         '''
         
-        response = self.get_snapshot_policy_service().delete_snapshot_policy( args[AbstractPlugin.policy_id_str] )
+        response = self.get_snapshot_policy_service().delete_snapshot_policy( args[AbstractPlugin.volume_id_str], args[AbstractPlugin.policy_id_str] )
             
-        if ( response["status"].lower() == "ok" ):
-            self.list_snapshot_policies(args)
-            
-            
-    def attach_snapshot_policy(self, args):
-        ''' 
-        The the arguments and make the attach snapshot policy service call
-        '''
-        
-        response = self.get_snapshot_policy_service().attach_snapshot_policy( args[AbstractPlugin.policy_id_str], args[AbstractPlugin.volume_id_str])
-        
-        if ( response["status"].lower() == "ok" ):
-            self.list_snapshot_policies(args)
-            
-    def detach_snapshot_policy(self, args):
-        '''
-        Takes the arguments and makes the detach snapshot policy service call
-        '''
-        
-        response = self.get_snapshot_policy_service().detach_snapshot_policy( args[AbstractPlugin.policy_id_str], args[AbstractPlugin.volume_id_str])
-        
         if ( response["status"].lower() == "ok" ):
             self.list_snapshot_policies(args)
             

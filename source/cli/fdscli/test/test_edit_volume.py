@@ -38,10 +38,10 @@ class VolumeEditTest( BaseCliTest ):
         
         volume = mockEdit.call_args[0][0]
         
-        assert volume.iops_guarantee == 2
-        assert volume.iops_limit == 13
-        assert volume.priority == 9
-        assert volume.continuous_protection == 300000
+        assert volume.qos_policy.iops_min == 2
+        assert volume.qos_policy.iops_max == 13
+        assert volume.qos_policy.priority == 9
+        assert volume.data_protection_policy.commit_log_retention.time == 300000
         
         print "Edit volume by name was successful.\n\n"
         
@@ -71,10 +71,10 @@ class VolumeEditTest( BaseCliTest ):
         
         volume = mockEdit.call_args[0][0]
         
-        assert volume.iops_guarantee == 2000
-        assert volume.iops_limit == 100
-        assert volume.priority == 1
-        assert volume.continuous_protection == 90000
+        assert volume.qos_policy.iops_min == 2000
+        assert volume.qos_policy.iops_max == 100
+        assert volume.qos_policy.priority == 1
+        assert volume.data_protection_policy.commit_log_retention.time == 90000
         
         print "Edit volume by ID was successful.\n\n"    
         
@@ -90,11 +90,11 @@ class VolumeEditTest( BaseCliTest ):
         print "Editing a volume with JSON data"
         
         volume = Volume()
-        volume.iops_guarantee = 100
-        volume.iops_limit = 2000
-        volume.continuous_protection = 100000
-        volume.priority = 5
-        volume.id = 6
+        volume.qos_policy.iops_min = 100
+        volume.qos_policy.iops_max = 2000
+        volume.data_protection_policy.commit_log_retention.time = 100000
+        volume.qos_policy.priority = 5
+        volume.id.uuid = 6
         
         volStr = VolumeConverter.to_json( volume )
         
@@ -110,10 +110,10 @@ class VolumeEditTest( BaseCliTest ):
         
         volume = mockEdit.call_args[0][0]
         
-        assert volume.priority == 5
-        assert volume.iops_guarantee == 100
-        assert volume.iops_limit == 2000
-        assert volume.continuous_protection == 100000
+        assert volume.qos_policy.priority == 5
+        assert volume.qos_policy.iops_min == 100
+        assert volume.qos_policy.iops_max == 2000
+        assert volume.data_protection_policy.commit_log_retention == 100000
         
         print "Edit volume by JSON string was successful.\n\n"
         

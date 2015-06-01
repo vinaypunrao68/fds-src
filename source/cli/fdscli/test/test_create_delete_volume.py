@@ -81,14 +81,14 @@ class VolumeTest1( BaseCliTest ):
         
         print "Checking the call stack to make sure it went to the right place"
         
-        assert volume.continuous_protection == 86400
-        assert volume.id == -1
-        assert volume.name == "Franklin"
-        assert volume.iops_guarantee == 0
-        assert volume.iops_limit == 0
+        assert volume.data_protection_policy.commit_log_retention.time == 86400
+        assert volume.id.uuid == -1
+        assert volume.id.name == "Franklin"
+        assert volume.qos_policy.iops_min == 0
+        assert volume.qos_policy.iops_max == 0
         assert volume.media_policy == "HDD_ONLY"
-        assert volume.priority == 7
-        assert volume.type == "object"
+        assert volume.qos_policy.priority == 7
+        assert volume.settings.type == "object"
         
         print "test_create_with_defaults passed.\n\n"
 
@@ -106,16 +106,16 @@ class VolumeTest1( BaseCliTest ):
          
         print "Checking the parameters made it through"
          
-        assert volume.continuous_protection == 86400
-        assert volume.id == -1
-        assert volume.name == "Franklin2"
-        assert volume.iops_guarantee == 30
-        assert volume.iops_limit == 30
+        assert volume.data_protection_policy.commit_log_retention.time == 86400
+        assert volume.id.uuid == -1
+        assert volume.id.name == "Franklin2"
+        assert volume.qos_policy.iops_min == 30
+        assert volume.qos_policy.iops_max == 30
         assert volume.media_policy == "SSD_ONLY"
-        assert volume.priority == 1
-        assert volume.type == "block"
-        assert volume.current_size == 2
-        assert volume.current_units == "MB"   
+        assert volume.qos_policy.priority == 1
+        assert volume.settings.type == "block"
+        assert volume.status.current_usage.size == 2
+        assert volume.status.current_usage.units == "MB"   
          
         print "test_create_with_args passed.\n\n"  
         

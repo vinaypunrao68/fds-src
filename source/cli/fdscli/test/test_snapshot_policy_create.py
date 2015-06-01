@@ -16,7 +16,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         Test that a snapshot policy created with the minimal set of data fills in the correct defaults
         '''
         
-        args = ["snapshot_policy", "create", "-name=MyPolicy"]
+        args = ["snapshot_policy", "create", "-name=MyPolicy", "-volume_id=3"]
         
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -39,7 +39,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         Test policy creation with command line arguments
         '''
         
-        args = ["snapshot_policy", "create", "-name=MyPolicy", "-frequency=WEEKLY", "-hour", "3", "12", "-day_of_week", "SU", "WE", "-minute", "15", "30", "45"]
+        args = ["snapshot_policy", "create", "-name=MyPolicy", "-volume_id=3", "-frequency=WEEKLY", "-hour", "3", "12", "-day_of_week", "SU", "WE", "-minute", "15", "30", "45"]
         
         self.callMessageFormatter(args)
         self.cli.run(args)        
@@ -62,7 +62,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         test policy creation and check the restrictions are being enforced
         '''
         #no name
-        args = [ "snapshot_policy", "create", "-frequency=DAILY", "-day_of_week", "SU", "MO" ]
+        args = [ "snapshot_policy", "create", "-volume_id=3", "-frequency=DAILY", "-day_of_week", "SU", "MO" ]
         
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -139,7 +139,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         
         jString = "{\"name\":\"MyPolicy\",\"retention\":86400,\"timelineTime\":0,\"recurrenceRule\":{\"FREQ\":\"WEEKLY\",\"BYDAY\":[\"SU\"]}}"
         
-        args = ["snapshot_policy", "create", "-data=" + jString]
+        args = ["snapshot_policy", "create", "-data=" + jString, "-volume_id=3"]
         self.callMessageFormatter(args)
         self.cli.run(args)
         

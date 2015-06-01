@@ -79,10 +79,6 @@ class TestNodes( BaseCliTest ):
         assert second[0][0] == "2"
         assert third[0][0] == "3"
         
-        assert first[0][1].am == second[0][1].am == third[0][1].am
-        assert first[0][1].dm == second[0][1].dm == third[0][1].dm
-        assert first[0][1].sm == second[0][1].sm == third[0][1].sm
-        
     @patch( "services.node_service.NodeService.remove_node", side_effect=mock_functions.removeNode)
     @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_remove_node(self, mockList, mockRemove):

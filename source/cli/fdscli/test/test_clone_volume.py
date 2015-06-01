@@ -40,7 +40,7 @@ class VolumeCloneTest( BaseCliTest):
         volume = mockCloneSnap.call_args[0][1]
         
         assert snap_id == "35"
-        assert volume.name == "CloneVol"
+        assert volume.id.name == "CloneVol"
         
         print "Clone volume by snapshot ID was successful.\n\n"
 
@@ -71,7 +71,7 @@ class VolumeCloneTest( BaseCliTest):
         a_time = mockClone.call_args[0][0]
         assert a_time == 123456789
         volume = mockClone.call_args[0][1]
-        assert volume.name == "ClonedVol"
+        assert volume.id.name == "ClonedVol"
         
         print "Cloning from timeline time and volume name was successful.\n\n"
         
@@ -102,7 +102,7 @@ class VolumeCloneTest( BaseCliTest):
         a_time = mockClone.call_args[0][0]
         assert a_time == 123456789
         volume = mockClone.call_args[0][1]
-        assert volume.name == "ClonedVol2"
+        assert volume.id.name == "ClonedVol2"
         
         print "Cloning from timeline time and volume name was successful.\n\n" 
       
@@ -130,10 +130,10 @@ class VolumeCloneTest( BaseCliTest):
         a_time = mockClone.call_args[0][0]
         volume = mockClone.call_args[0][1]
                
-        assert volume.priority == 9
-        assert volume.iops_guarantee == 5000
-        assert volume.iops_limit == 3000
-        assert volume.continuous_protection == 86500
+        assert volume.qos_policy.priority == 9
+        assert volume.qos_policy.iops_min == 5000
+        assert volume.qos_policy.iops_max == 3000
+        assert volume.data_protection_policy.commit_log_retention.time == 86500
         assert a_time >= now
         
         print "Cloning volume with new QoS settings from args was successful.\n\n"
@@ -151,10 +151,10 @@ class VolumeCloneTest( BaseCliTest):
         now = int(time.time())
         
         volume = Volume()
-        volume.iops_guarantee = 30000
-        volume.iops_limit = 100500
-        volume.priority = 1
-        volume.continuous_protection = 90000
+        volume.qos_policy.iops_min = 30000
+        volume.qos_policy.iops_max = 100500
+        volume.qos_policy.priority = 1
+        volume.data_protection_policy.commit_log_retention.time = 90000
         
         volStr = VolumeConverter.to_json( volume )
         
@@ -170,10 +170,10 @@ class VolumeCloneTest( BaseCliTest):
         volume = mockClone.call_args[0][1]
         
         assert a_time >= now
-        assert volume.iops_guarantee == 30000
-        assert volume.iops_limit == 100500
-        assert volume.priority == 1
-        assert volume.continuous_protection == 90000
+        assert volume.qos_policy.iops_min == 30000
+        assert volume.qos_policy.iops_max == 100500
+        assert volume.qos_policy.priority == 1
+        assert volume.data_protection_policy.commit_log_retention.time == 90000
         
         print "Cloning volume with new QoS setting from a JSON string was successful."
         
