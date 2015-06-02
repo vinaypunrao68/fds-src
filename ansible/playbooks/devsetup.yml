@@ -182,15 +182,15 @@
         - python-mock
 
     - name: create pip config directory at ~/.pip
-      file: path="~/.pip"
+      file: path="{{ lookup('env','HOME') }}/.pip"
         state=directory
 
     - name: touch pip config file at ~/pip/pip.conf
-      file: path="~/.pip/pip.conf"
+      file: path="{{ lookup('env','HOME') }}/.pip/pip.conf"
         state=touch
 
     - name: add Artifactory pip repo to pip config
-      lineinfile: dest="~/.pip/pip.conf"
+      lineinfile: dest="{{ lookup('env','HOME') }}/.pip/pip.conf"
         line="{{item}}"
       with_items:
         - "[global]"
