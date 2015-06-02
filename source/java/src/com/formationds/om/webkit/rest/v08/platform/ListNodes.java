@@ -4,12 +4,9 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.commons.model.Domain;
-import com.formationds.commons.model.Node;
-import com.formationds.commons.model.Service;
+import com.formationds.client.v08.model.Domain;
+import com.formationds.client.v08.model.Node;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.type.NodeState;
-import com.formationds.commons.model.type.ServiceType;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -58,7 +55,7 @@ public class ListNodes
          * so hard hard code the global domain to "fds"
          */
 
-        final Domain domain = Domain.uuid( 1L ).domain( "fds" ).build();
+        final Domain domain = new Domain( 1L, "fds", "fds" );
         domain.getNodes().addAll( clusterMap.values() );
 
         return new TextResource( ObjectModelHelper.toJSON( domain ) );

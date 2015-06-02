@@ -5,18 +5,20 @@
 package com.formationds.om.webkit.rest.v08.domain;
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.Domain;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
-import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -25,16 +27,12 @@ public class ListLocalDomains
   private static final Logger logger =
     LoggerFactory.getLogger( ListLocalDomains.class );
 
-  private final Authorizer authorizer;
   private final ConfigurationService.Iface configApi;
-  private final AuthenticationToken token;
 
   public ListLocalDomains( final Authorizer authorizer,
                           final ConfigurationService.Iface configApi,
                           final AuthenticationToken token ) {
-    this.authorizer = authorizer;
     this.configApi = configApi;
-    this.token = token;
   }
 
   @Override
@@ -54,16 +52,16 @@ public class ListLocalDomains
           throw e;
       }
       
-      JSONArray array = new JSONArray();
-
-      for (com.formationds.apis.LocalDomain localDomain : localDomains) {
-          array.put(new JSONObject()
-                          .put("name", localDomain.name)
-                          .put("id", localDomain.id)
-                          .put("site", localDomain.site));
+      List<Domain> domains = new ArrayList<Domain>();
+      
+      for ( com.formationds.apis.LocalDomain thriftDomain : localDomains ){
+    	  Domain domain = ExternalModelConverter.convertToExternalDomain( thriftDomain );
+    	  domains.add( domain );
       }
 
-      return new JsonResource(array);
+      String jsonString = ObjectModelHelper.toJSON( domains );
+
+      return new TextResource( jsonString );
   }
 }
 

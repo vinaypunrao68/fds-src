@@ -4,16 +4,15 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.*;
 import com.formationds.commons.model.calculated.performance.AverageIOPs;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
@@ -355,10 +354,7 @@ public class QueryHelper {
                                                           .withY( p.getValue() )
                                                           .build();
                                 s.setDatapoint( dp );
-                                s.setContext(
-                                    new VolumeBuilder().withName( p.getVolumeName() )
-                                                       .withId( String.valueOf( p.getVolumeId() ) )
-                                                       .build() );
+                                s.setContext( new Volume( Long.parseLong( p.getVolumeId() ), p.getVolumeName() ) );
                             } );
             series.add( s );
         } );
@@ -410,8 +406,7 @@ public class QueryHelper {
 
                             }
 
-                            Volume volume = new VolumeBuilder().withId(volumeId).withName(vd.getName())
-                                    .build();
+                            Volume volume = new Volume( Long.parseLong(volumeId), vd.getName() );
 
                             return volume;
                         })

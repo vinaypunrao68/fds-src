@@ -4,9 +4,9 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
-import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.type.Metrics;
 
 import java.util.ArrayList;
@@ -16,7 +16,7 @@ import java.util.List;
  * @author ptinius
  */
 public class SeriesBuilder {
-  private Context context;
+  private Volume context;
   private Metrics type;
   private List<Datapoint> datapoints;
 
@@ -31,7 +31,7 @@ public class SeriesBuilder {
    *
    * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
    */
-  public SeriesBuilder withContext( Context context ) {
+  public SeriesBuilder withContext( Volume context ) {
     this.context = context;
     return this;
   }
