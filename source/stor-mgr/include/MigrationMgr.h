@@ -71,6 +71,8 @@ class MigrationMgr {
         MIGR_SM_RESYNC
     };
 
+    const fds_uint8_t MAX_RETRIES_WITH_DIFFERENT_SRCS = 3;
+
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);

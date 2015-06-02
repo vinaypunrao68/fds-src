@@ -1168,6 +1168,15 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
             break;
         }
     }
+
+    if (migrExecutor->getInstanceNum() > MAX_RETRIES_WITH_DIFFERENT_SRCS) {
+        LOGCRITICAL << "Executor " << std::hex << executorId
+                    << " failed to sync DLT tokens from source SM "
+                    << sourceSmUuid.uuid_get_val()
+                    << " and exhausted number of retries. ";
+        return;
+    }
+
     // on error, executor sends stop resync msg to client, so that if client is
     // still alive, it will stop sending any sync related msgs to this SM
 
@@ -1183,13 +1192,10 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                    << sourceSmUuid.uuid_get_val() << std::dec << " " << error
                    << " will find new source SM(s) to sync from";
 
-        fds_uint8_t migrationRetryCount;
-        migrationRetryCount += migrExecutor->getInstanceNum();
-
         const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
         NodeTokenMap newTokenGroups = dlt->getNewSourceSMs(sourceSmUuid,
                                                            dltTokens,
-                                                           migrationRetryCount,
+                                                           migrExecutor->getInstanceNum(),
                                                            failedSMsAsSource);
 
         for (auto const& tokenGroup : newTokenGroups) {
