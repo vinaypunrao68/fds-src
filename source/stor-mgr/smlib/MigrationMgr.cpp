@@ -685,7 +685,13 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             return;
         }
     }
-    fds_verify(round > 0);
+
+    /**
+     * For resync of SM node, round could be 0.
+     */
+    if (!resyncOnRestart) {
+        fds_verify(round > 0);
+    }
 
     // beta2: stop the whole migration process on any error
     if (!error.ok()) {

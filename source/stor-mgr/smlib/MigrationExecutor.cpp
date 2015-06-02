@@ -394,6 +394,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
     // here we just check for errors
     if (!error.ok()) {
         switch (error.GetErrno()) {
+            case ERR_NODE_NOT_ACTIVE:
             case ERR_SM_RESYNC_SOURCE_DECLINE:
                 // SM declined to be a source for DLT token
                 LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
@@ -678,8 +679,13 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             // ok, see if we are in the second round of migration
             expect = ME_SECOND_PHASE_APPLYING_DELTA;
             if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
-                // must be a bug somewhere...
-                fds_panic("Unexpected migration executor state!");
+                MigrationExecutorState curState = atomic_load(&state);
+                // check if we are in done with error state for a sm resync
+                if (!((migrationType == SMMigrType::MIGR_SM_RESYNC) &&
+                    (curState == ME_DONE_WITH_ERROR))) {
+                    // must be a bug somewhere...
+                    fds_panic("Unexpected migration executor state!");
+                }            
             }
             // we finished second phase of migration. If this is resync after restart
             // send finish client resync message to the source.
