@@ -39,8 +39,8 @@
         - "/etc/stat-badger"
 
 -   name: copy stat-badger upstart config
-    copy:
-        src=../../files/deploy_fds/upstart/stat-badger.conf
+    template:
+        src=../../templates/deploy_fds/upstart/stat-badger.conf.j2
         dest=/etc/init/stat-badger.conf
         owner=root
         group=root

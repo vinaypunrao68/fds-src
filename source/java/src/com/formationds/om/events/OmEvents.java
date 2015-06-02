@@ -1,13 +1,13 @@
 package com.formationds.om.events;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public enum OmEvents implements EventDescriptor {
 
@@ -26,6 +26,7 @@ public enum OmEvents implements EventDescriptor {
     CREATE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Created snapshot policy {0} {1} {2}; id={3}",
                            "name", "recurrence", "retention", "id"),
     DELETE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Deleted snapshot policy: id={0}", "id"),
+    DELETE_SNAPSHOT(EventCategory.VOLUMES, "Deleted snapshot: volume id={0} snapshot id={0}", "volumeId", "snapshotId"),
     ATTACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Attached snapshot policy {0} to volume id {1}",
                            "policyId", "volumeId"),
     DETACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Detached snapshot policy {0} from volume id {1}",

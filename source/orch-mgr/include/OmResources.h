@@ -166,6 +166,20 @@ typedef OM_NodeAgent                    OM_DmAgent;
 typedef OM_NodeAgent                    OM_AmAgent;
 typedef std::list<OM_NodeAgent::pointer>  NodeList;
 
+struct NodeSvcEntity {
+	NodeSvcEntity() {};
+	NodeSvcEntity(const std::basic_string<char> &in_name,
+			const fds::ResourceUUID &in_uid, const FdspNodeType &in_type) :
+		node_uuid(in_uid),
+		node_name(in_name),
+		svc_type(in_type)
+		{}
+	~NodeSvcEntity() {};
+    NodeUuid node_uuid;
+    std::string node_name;
+    FdspNodeType svc_type;
+};
+
 /**
  * Agent interface to communicate with the platform service on the remote node.
  * This is the communication end-point to the node.
@@ -291,6 +305,17 @@ class OM_AgentContainer : public AgentContainer
     virtual void agent_deactivate(NodeAgent::pointer agent);
 
     /**
+     * For derived classes, this would allow them to return the correct type.
+     */
+    virtual FDS_ProtocolInterface::FDSP_MgrIdType container_type() const = 0;
+
+    /**
+     * Returns a list of nodes that are currently in the container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<fds::NodeSvcEntity> &container_nodes);
+
+    /**
      * Move all pending nodes to addNodes and rmNodes
      * The second function only moves nodes that are in 'filter_nodes'
      * set and leaves other pending nodes pending
@@ -338,6 +363,17 @@ class OM_PmContainer : public OM_AgentContainer
     Error handle_register_service(const NodeUuid& pm_uuid,
                                   FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
                                   NodeAgent::pointer svc_agent);
+
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_PLATFORM;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
+
+
     /**
      * Makes sure Platform agents do not point on unregistered services
      * Will search all Platform agents for a service with uuid 'uuid'
@@ -367,6 +403,15 @@ class OM_SmContainer : public OM_AgentContainer
     OM_SmContainer();
     virtual ~OM_SmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
+
     static inline OM_SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_SmContainer *>(get_pointer(ptr));
     }
@@ -385,6 +430,15 @@ class OM_DmContainer : public OM_AgentContainer
     OM_DmContainer();
     virtual ~OM_DmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
+
     static inline OM_DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_DmContainer *>(get_pointer(ptr));
     }
@@ -400,6 +454,15 @@ class OM_AmContainer : public OM_AgentContainer
   public:
     OM_AmContainer();
     virtual ~OM_AmContainer() {}
+
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
 
     static inline OM_AmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_AmContainer *>(get_pointer(ptr));
