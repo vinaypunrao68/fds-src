@@ -22,6 +22,7 @@ from fds.services.users_service import UsersService
 from fds.model.node_state import NodeState
 from fds.model.service import Service 
 from fds.model.domain import Domain
+import time
 
 sys.path.insert(0, '../../scale-framework')
 import config
@@ -59,6 +60,7 @@ class InfluxdbService(object):
 	if srv_id == None:
 		log.info('Starting Influxdb service on node {}'.format(node_ip))
 		sudo('service influxdb start')	
+		time.sleep(3)
 		srv_id = fhobj.get_service_pid('influxdb')
 		if srv_id != None:
 			log.info('Influxdb service has started on node {}'.format(node_ip))
@@ -93,6 +95,7 @@ class InfluxdbService(object):
 	if srv_id != None:
 		log.info('Stopping Influxdb service on node {}'.format(node_ip))
 		sudo('service influxdb stop')	
+		time.sleep(3)
 		srv_id = fhobj.get_service_pid('influxdb')
 		if srv_id == None:
 			log.info('Influxdb service has stopped on node {}'.format(node_ip))
@@ -104,6 +107,41 @@ class InfluxdbService(object):
 
 	else:
 		log.info('Influxdb service is already stopped on node {}'.format(node_ip))
+		log.info('There is nothing to do.')
+		return True
+
+    def kill(self, node_ip):
+        '''
+        Kill Influxdb service
+
+	    Attributes:
+	    -----------
+	    node_ip:  str
+		The IP address of the node to kill Influxdb service.
+
+	    Returns:
+	    -----------
+	    Boolean
+        '''
+	fhobj = fh.FabricHelper(node_ip)
+	env.host_string = node_ip
+        log.info(InfluxdbService.kill.__name__)
+	srv_id = fhobj.get_service_pid('influxdb')
+	if srv_id != None:
+		log.info('Killing Influxdb process on node {}'.format(node_ip))
+		sudo('kill -9 {}'.format(srv_id))	
+		time.sleep(3)
+		srv_id = fhobj.get_service_pid('influxdb')
+		if srv_id == None:
+			log.info('Influxdb service has been killed on node {}'.format(node_ip))
+		        return True
+
+                else:
+			log.info('Failed to kill Influxdb service on node {}'.format(node_ip))
+		        return False
+
+	else:
+		log.info('Influxdb service is not running on node {}'.format(node_ip))
 		log.info('There is nothing to do.')
 		return True
 
