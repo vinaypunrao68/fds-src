@@ -408,7 +408,7 @@ public class ExternalModelConverter {
 		
 		Duration extRetention = Duration.ofSeconds( intRetention );
 		
-		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, extId, extRule, extRetention );
+		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, extRule, extRetention );
 		
 		return externalPolicy;
 	}
