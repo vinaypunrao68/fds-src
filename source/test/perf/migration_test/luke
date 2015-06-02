@@ -1,7 +1,5 @@
 [luke]
 luke
-c3po
-chewie
 
 [luke:vars]
 fds_authentication=false

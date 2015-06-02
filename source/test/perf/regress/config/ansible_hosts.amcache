@@ -17,3 +17,4 @@ fds_svc_plat_lftp_enable=false
 fds_build=release
 fds_om_host=OM_HOST
 clean_fds=yes
+force=yes
