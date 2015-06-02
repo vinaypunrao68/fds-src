@@ -3,8 +3,12 @@ package com.formationds.om.webkit.rest.metrics;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.commons.model.*;
-import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.client.v08.model.Volume;
+import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Series;
+import com.formationds.commons.model.Service;
+import com.formationds.commons.model.SystemHealth;
+import com.formationds.commons.model.SystemStatus;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
@@ -410,11 +414,8 @@ public class SystemHealthStatus implements RequestHandler {
     private List<Volume> convertVolDescriptors(List<VolumeDescriptor> volDescs) {
 
         List<Volume> volumes = volDescs.stream().map((vd) -> {
-            VolumeBuilder vBuilder = new VolumeBuilder();
 
-            Volume volume = vBuilder.withId(Long.toString(vd.getVolId()))
-                    .withName(vd.getName())
-                    .build();
+            Volume volume = new Volume( vd.getVolId(), vd.getName() );
 
             return volume;
         })

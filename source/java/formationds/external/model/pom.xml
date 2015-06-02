@@ -37,6 +37,11 @@
             <artifactId>log4j-core</artifactId>
             <version>2.3</version>
         </dependency>
+        <dependency>
+            <groupId>fds</groupId>
+            <artifactId>fds-thrift</artifactId>
+            <version>1.0</version>
+        </dependency>
 
     </dependencies>
 

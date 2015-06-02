@@ -4,7 +4,7 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.commons.model.Volume;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
@@ -14,6 +14,7 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.helper.VolumeDatapointHelper;
 import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
+
 import org.apache.thrift.TException;
 import org.influxdb.dto.Serie;
 
@@ -413,7 +414,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 //        }
 
         // this only works because we know that formulateQueryString uses the volume id in the query.
-        queryCriteria.setContexts( Collections.singletonList( new Volume( 0, volumeId.toString(), "", "" ) ) );
+        queryCriteria.setContexts( Collections.singletonList( new Volume( 0L, volumeId.toString() ) ) );
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
 
         // get the query string

@@ -3,6 +3,8 @@ package com.formationds.client.model;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.formationds.client.v08.model.SizeUnit;
+
 import java.util.EnumSet;
 
 /**

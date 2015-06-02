@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 
-package com.formationds.client.model;
+package com.formationds.client.v08.model;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
 
 public class Node extends AbstractResource<Long> {
 
@@ -146,6 +147,14 @@ public class Node extends AbstractResource<Long> {
             this.ipv4Address = ipv4;
             this.ipv6Address = ipv6;
         }
+        
+        public Inet4Address getIpv4Address(){
+        	return ipv4Address;
+        }
+        
+        public Inet6Address getIpv6Address(){
+        	return ipv6Address;
+        }
 
         /**
          * Get the host IP address as a string, preferring an IPv4 address if set.
@@ -238,7 +247,7 @@ public class Node extends AbstractResource<Long> {
     /**
      * @return the node service map
      */
-    public Map<ServiceType, List<Service>> getServiceMap() {
+    public Map<ServiceType, List<Service>> getServices() {
         return serviceMap;
     }
 

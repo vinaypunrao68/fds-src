@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 
-package com.formationds.client.model;
+package com.formationds.client.v08.model;
 
 /**
  * A tenant is a product entity that manages a set of Tenant Users and a collection of

@@ -2,11 +2,12 @@
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 
-package com.formationds.client.model;
+package com.formationds.client.v08.model;
 
 import com.formationds.client.ical.RecurrenceRule;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,8 +68,9 @@ public class Volume extends AbstractResource<Long> {
     private DataProtectionPolicy dataProtectionPolicy;
     private VolumeAccessPolicy   accessPolicy;
     private QosPolicy            qosPolicy;
+    private Instant				 created;
 
-    Volume( Long uid,
+    public Volume( Long uid,
             String name,
             Tenant tenant,
             String application,
@@ -78,6 +80,7 @@ public class Volume extends AbstractResource<Long> {
             DataProtectionPolicy dataProtectionPolicy,
             VolumeAccessPolicy accessPolicy,
             QosPolicy qosPolicy,
+            Instant created,
             Map<String, String> tags ) {
         super( uid, tenant.getName(), name );
         this.tenant = tenant;
@@ -89,6 +92,12 @@ public class Volume extends AbstractResource<Long> {
         this.dataProtectionPolicy = dataProtectionPolicy;
         this.accessPolicy = accessPolicy;
         this.qosPolicy = qosPolicy;
+        this.created = created;
+    }
+    
+    public Volume( Long uid,
+    		String name ){
+    	this( uid, name, null, null, null, null, null, null, null, null, null, null );
     }
 
     public Tenant getTenant() {
@@ -134,6 +143,8 @@ public class Volume extends AbstractResource<Long> {
     public void setSettings( VolumeSettings settings ) {
         this.settings = settings;
     }
+    
+    public Instant getCreated(){ return created; }
 
     public MediaPolicy getMediaPolicy() { return mediaPolicy; }
 

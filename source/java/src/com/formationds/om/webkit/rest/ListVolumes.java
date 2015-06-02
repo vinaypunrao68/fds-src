@@ -245,7 +245,12 @@ public class ListVolumes implements RequestHandler {
 		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
 
 		query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
-		query.setContexts( Collections.singletonList( v ) );
+		
+		// "For now" code to use the new volume instead of the old.
+		com.formationds.client.v08.model.Volume newVolume = new com.formationds.client.v08.model.Volume( 
+				Long.parseLong( v.getId() ), v.getName() );
+		
+		query.setContexts( Collections.singletonList( newVolume ) );
 		query.setRange( range );
 
 		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();

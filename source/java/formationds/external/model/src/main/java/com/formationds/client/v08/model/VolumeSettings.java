@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 
-package com.formationds.client.model;
+package com.formationds.client.v08.model;
 
 import java.util.Objects;
 
@@ -58,7 +58,7 @@ abstract public class VolumeSettings {
      */
     public static class ObjectVolumeSettings extends VolumeSettings {
         private final Size maxObjectSize;
-
+        
         public ObjectVolumeSettings( Size maxObjectSize ) {
             super( VolumeType.OBJECT );
             this.maxObjectSize = maxObjectSize;
