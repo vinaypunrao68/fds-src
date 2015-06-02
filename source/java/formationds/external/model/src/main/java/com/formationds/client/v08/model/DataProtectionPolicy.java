@@ -25,12 +25,6 @@ public class DataProtectionPolicy extends DataProtectionPolicyBase {
         this.presetId = presetId;
     }
 
-    public DataProtectionPolicy( Long id, Long presetId, Duration commitLogRetention,
-                                 List<SnapshotPolicy> snapshotPolicies ) {
-        super( id, commitLogRetention, snapshotPolicies );
-        this.presetId = presetId;
-    }
-
     public Long getPresetId() {
         return presetId;
     }

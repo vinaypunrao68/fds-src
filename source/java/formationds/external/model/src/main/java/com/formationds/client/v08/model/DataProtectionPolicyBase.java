@@ -11,7 +11,6 @@ import java.util.Objects;
 
 abstract class DataProtectionPolicyBase {
 
-    private Long id;
     private Duration             commitLogRetention;
     private List<SnapshotPolicy> snapshotPolicies;
 
@@ -21,21 +20,8 @@ abstract class DataProtectionPolicyBase {
         this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
     }
 
-    public DataProtectionPolicyBase( Long id,
-                                     Duration commitLogRetention,
-                                     List<SnapshotPolicy> snapshotPolicies ) {
-        this.id = id;
-        this.commitLogRetention = commitLogRetention;
-        this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
-    }
-
-    public Long getId() { return id; }
     public Duration getCommitLogRetention() { return commitLogRetention; }
     public List<SnapshotPolicy> getSnapshotPolicies() { return snapshotPolicies; }
-
-    public void setId( Long id ) {
-        this.id = id;
-    }
 
     public void setCommitLogRetention( Duration commitLogRetention ) {
         this.commitLogRetention = commitLogRetention;
@@ -50,13 +36,12 @@ abstract class DataProtectionPolicyBase {
         if ( this == o ) { return true; }
         if ( !(o instanceof DataProtectionPolicyBase) ) { return false; }
         final DataProtectionPolicyBase that = (DataProtectionPolicyBase) o;
-        return Objects.equals( id, that.id ) &&
-               Objects.equals( commitLogRetention, that.commitLogRetention ) &&
+        return Objects.equals( commitLogRetention, that.commitLogRetention ) &&
                Objects.equals( snapshotPolicies, that.snapshotPolicies );
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash( id, commitLogRetention, snapshotPolicies );
+        return Objects.hash( commitLogRetention, snapshotPolicies );
     }
 }
