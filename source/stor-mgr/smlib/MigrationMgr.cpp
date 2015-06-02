@@ -148,6 +148,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                 fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
                 LOGMIGRATE << "Will create migration executor class with executor ID "
                            << std::hex << globalExecId << std::dec;
+
                 migrExecutors[smTok][srcSmUuid] = MigrationExecutor::unique_ptr(
                     new MigrationExecutor(smReqHandler,
                                           bitsPerDltToken,
@@ -166,8 +167,12 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                                     std::placeholders::_5),
                                           migrationTimeoutTimer,
                                           migrationTimeoutSec,
-                                          std::bind(&MigrationMgr::timeoutAbortMigration,
-                                                    this)));
+                                          std::bind(&MigrationMgr::retryWithNewSMs, this,
+                                                    std::placeholders::_1,
+                                                    std::placeholders::_2,
+                                                    std::placeholders::_3,
+                                                    std::placeholders::_4,
+                                                    std::placeholders::_5)));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -362,6 +367,7 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
                                    const DLT* dlt)
 {
     Error err(ERR_OK);
+
     fds_bool_t srcAccepted = false;
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
                << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID

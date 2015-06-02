@@ -47,7 +47,11 @@ class MigrationExecutor {
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
-                      const std::function<void()> &timeoutHandler);
+                      std::function<void(fds_uint64_t,
+                                         fds_uint32_t,
+                                         const std::set<fds_uint32_t>&,
+                                         fds_uint32_t,
+                                         const fds::Error&)> timeoutCb);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -221,6 +225,21 @@ class MigrationExecutor {
      * from source SM has a unique sequence number.
      */
     MigrationDoubleSeqNum seqNumDeltaSet;
+
+    /**
+     * Callback for the seqNumDeltaSet timeout
+     */
+    void handleTimeout();
+
+    /**
+     * Callback for the timeout handler
+     */
+
+   std::function<void(fds_uint64_t,
+                      fds_uint32_t,
+                      const std::set<fds_uint32_t>&,
+                      fds_uint32_t,
+                      const fds::Error&)> timeoutCb;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from

@@ -27,8 +27,13 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      MigrationExecutorDoneHandler doneHandler,
                                      FdsTimerPtr& timeoutTimer,
                                      uint32_t timeoutDuration,
-                                     const std::function<void()>& timeoutHandler)
-        : executorId(executorID),
+                                     std::function<void(fds_uint64_t,
+                                                        fds_uint32_t,
+                                                        const std::set<fds_uint32_t>&,
+                                                        fds_uint32_t,
+                                                        const fds::Error&)> timeoutCb)
+        : timeoutCb(timeoutCb),
+          executorId(executorID),
           migrDoneHandler(doneHandler),
           migrFailedRetryHandler(failedRetryHandler),
           dataStore(_dataStore),
@@ -38,13 +43,28 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           targetDltVersion(targetDltVer),
           migrationType(migrType),
           onePhaseMigration(resync),
-          seqNumDeltaSet(timeoutTimer, timeoutDuration, timeoutHandler)
+          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this))
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
 }
 
 MigrationExecutor::~MigrationExecutor()
 {
+}
+
+void MigrationExecutor::handleTimeout() {
+
+    int round = 0;
+
+    if (this->state.load() == ME_FIRST_PHASE_APPLYING_DELTA ||
+        this->state.load() == ME_FIRST_PHASE_REBALANCE_START) {
+        round = 1;
+    } else if (this->state.load() == ME_SECOND_PHASE_APPLYING_DELTA ||
+               this->state.load() == ME_SECOND_PHASE_REBALANCE_START) {
+        round = 2;
+    }
+
+    this->timeoutCb(this->executorId, this->smTokenId, this->dltTokens, round, ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
 void
