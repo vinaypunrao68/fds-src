@@ -8,32 +8,47 @@ import com.formationds.client.ical.RecurrenceRule;
 
 import java.time.Duration;
 
-public class SnapshotPolicy extends SnapshotPolicyBase {
+public class SnapshotPolicy {
 
-    public static SnapshotPolicy fromPreset(SnapshotPolicyBase p) {
-        return new SnapshotPolicy( p.getId(), p.getRecurrenceRule(), p.getRetentionTime() );
-    }
-
-    private Long presetId;
+    private Long           id;
+    private Duration       retentionTime;
+    private RecurrenceRule recurrenceRule;
 
     public SnapshotPolicy( RecurrenceRule recurrenceRule, Duration retentionTime ) {
-        super(retentionTime, recurrenceRule);
+        this.retentionTime = retentionTime;
+        this.recurrenceRule = recurrenceRule;
     }
 
-    public SnapshotPolicy( Long presetId, RecurrenceRule recurrenceRule, Duration retentionTime ) {
-        super(retentionTime, recurrenceRule);
-        this.presetId = presetId;
+    public SnapshotPolicy( Long id, RecurrenceRule recurrenceRule, Duration retentionTime ) {
+        this.id = id;
+        this.retentionTime = retentionTime;
+        this.recurrenceRule = recurrenceRule;
     }
 
-    public SnapshotPolicy( Long id, Long presetId, RecurrenceRule recurrenceRule, Duration retentionTime ) {
-        super(id, retentionTime, recurrenceRule );
-        this.presetId = presetId;
+    public Long getId() {
+        return id;
     }
 
-    public Long getPresetId() { return presetId; }
+    public SnapshotPolicy withId( Long id ) {
+        this.id = id;
+        return this;
+    }
 
-    public SnapshotPolicy withPresetId( Long presetId ) {
-        this.presetId = presetId;
+    public Duration getRetentionTime() {
+        return retentionTime;
+    }
+
+    public SnapshotPolicy withRetentionTime( Duration retentionTime ) {
+        this.retentionTime = retentionTime;
+        return this;
+    }
+
+    public RecurrenceRule getRecurrenceRule() {
+        return recurrenceRule;
+    }
+
+    public SnapshotPolicy withRecurrenceRule( RecurrenceRule recurrenceRule ) {
+        this.recurrenceRule = recurrenceRule;
         return this;
     }
 }
