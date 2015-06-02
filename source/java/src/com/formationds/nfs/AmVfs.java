@@ -122,7 +122,10 @@ public class AmVfs implements VirtualFileSystem {
                     .map(bd -> {
                         NfsPath childPath = new NfsPath(path, bd.getName());
                         NfsAttributes childAttributes = new NfsAttributes(bd.getMetadata());
-                        return new DirectoryEntry(childPath.fileName(), inode, childAttributes.asStat());
+                        return new DirectoryEntry(
+                                childPath.fileName(),
+                                childPath.asInode(childAttributes.getType()),
+                                childAttributes.asStat());
                     })
                     .collect(Collectors.toList());
         } catch (Exception e) {
