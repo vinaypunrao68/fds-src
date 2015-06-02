@@ -130,6 +130,15 @@ void SvcProcess::registerSvcProcess()
     LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
     std::vector<fpi::SvcInfo> svcMap;
 
+    auto config = get_conf_helper();
+    if (true == config.get<bool>("testing.sleep_enable", false)) {
+        auto sleep_time = config.get<int>("testing.sleep_time");
+        LOGNOTIFY << "Sleep for " << sleep_time
+                  << " before register service process ( parent )"
+                  << fds::logDetailedString(svcInfo_);
+        sleep(sleep_time);
+    }
+
     do {
         try {
             /* This will block until we get a connection.  All the call below should be
