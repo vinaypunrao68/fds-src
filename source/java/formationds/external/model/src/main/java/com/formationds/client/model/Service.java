@@ -5,7 +5,7 @@
 package com.formationds.client.model;
 
 public class Service extends AbstractResource<Long> {
-    public static enum ServiceStatus {
+    public enum ServiceStatus {
         UP,
         DOWN,
         ALL_AROUND,

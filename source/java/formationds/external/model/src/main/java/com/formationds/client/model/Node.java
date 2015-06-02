@@ -54,4 +54,6 @@ public class Node extends AbstractResource<Long> {
     public Node(Long id, String name) {
         super(id, name);
     }
+
+
 }
