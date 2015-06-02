@@ -15,7 +15,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class MemoryVirtualFileSystem implements VirtualFileSystem {
-
     AtomicInteger curId;
     Map<Integer, Node> idMap;
 
@@ -245,7 +244,7 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
         } else if(type == Stat.Type.REGULAR) {
             File file = new File(parentDir, path, 0, 0, ByteBuffer.allocate(0));
             parentDir.add(path, file);
-            return file.asInode();
+                return file.asInode();
         }
 
         throw new IOException("Don't know how to make type " + type.toString());

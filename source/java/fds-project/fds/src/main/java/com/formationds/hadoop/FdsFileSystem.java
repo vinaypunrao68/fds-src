@@ -124,7 +124,7 @@ public class FdsFileSystem extends FileSystem {
         }
     }
 
-    static <T> T unwindExceptions(SupplierWithExceptions<T> supplier) throws ApiException, Exception {
+    public static <T> T unwindExceptions(SupplierWithExceptions<T> supplier) throws ApiException, Exception {
         try {
             return supplier.supply();
         } catch (ExecutionException e) {

@@ -1,7 +1,14 @@
 package com.formationds.nfs;
 
+import com.formationds.apis.AsyncXdiServiceRequest;
+import com.formationds.util.Configuration;
+import com.formationds.util.ServerPortFinder;
+import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.RealAsyncAm;
+import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.PropertyConfigurator;
 import org.dcache.nfs.ExportFile;
+import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.v3.MountServer;
 import org.dcache.nfs.v3.NfsServerV3;
 import org.dcache.nfs.v4.*;
@@ -10,7 +17,9 @@ import org.dcache.xdr.OncRpcProgram;
 import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
 
+import javax.security.auth.Subject;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -22,20 +31,13 @@ import java.util.Properties;
  */
 public class App {
     public static void main(String[] args) throws Exception {
-        initConsoleLogging("DEBUG");
+        Configuration config = new Configuration("NFS", new String[] {"--console"});
         // create an instance of a filesystem to be exported
-        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem troll = (VirtualFileSystem) Proxy.newProxyInstance(
-                App.class.getClassLoader(),
-                new Class[]{VirtualFileSystem.class},
-                new InvocationHandler() {
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        System.out.println("Invoking " + method.getName());
-                        return method.invoke(vfs, args);
-                    }
-                }
-        );
+        AsyncXdiServiceRequest.Iface iface = new XdiClientFactory().remoteOnewayAm("localhost", 8899);
+        AsyncAm asyncAm = new RealAsyncAm(iface, new ServerPortFinder().findPort("NFS", 10000));
+        asyncAm.start();
+//        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
+        VirtualFileSystem vfs = new AmVfs(asyncAm);
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
@@ -64,26 +66,11 @@ public class App {
         nfsSvc.register(new OncRpcProgram(100003, 3), nfs3);
         nfsSvc.register(new OncRpcProgram(100005, 3), mountd);
 
-        Inode root = vfs.getRootInode();
-        vfs.mkdir(root, "exports", null, Stat.S_IFDIR | 755);
-
         // start RPC service
         nfsSvc.start();
 
         System.in.read();
     }
-
-    private static void initConsoleLogging(String loglevel) {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "INFO, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        properties.put("log4j.logger.com.formationds", loglevel);
-        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
-        PropertyConfigurator.configure(properties);
-    }
-
 }
 
 
