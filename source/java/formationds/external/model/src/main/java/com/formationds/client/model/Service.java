@@ -4,7 +4,7 @@
 
 package com.formationds.client.model;
 
-public class Service extends AbstractResource {
+public class Service extends AbstractResource<Long> {
     public static enum ServiceStatus {
         UP,
         DOWN,
@@ -19,7 +19,7 @@ public class Service extends AbstractResource {
     private final int port;
     private final ServiceStatus status;
 
-    public Service(ID id, ServiceType type,  int port, ServiceStatus status) {
+    public Service(Long id, ServiceType type,  int port, ServiceStatus status) {
         super(id, type.getFullName(), Integer.toString( port ));
         this.type = type;
         this.port = port;

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class Node extends AbstractResource {
+public class Node extends AbstractResource<Long> {
 
     public static class NodeState {
 
@@ -51,7 +51,7 @@ public class Node extends AbstractResource {
     private NodeState state;
     private Map<ServiceType, List<Service>> serviceMap;
 
-    public Node(ID id, String name) {
+    public Node(Long id, String name) {
         super(id, name);
     }
 }

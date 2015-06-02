@@ -6,7 +6,7 @@ package com.formationds.client.model;
 
 import java.util.Objects;
 
-public class User extends AbstractResource {
+public class User extends AbstractResource<Long> {
 
     private final RoleDescriptor roleDescriptor;
     private final Tenant tenant;
@@ -14,11 +14,11 @@ public class User extends AbstractResource {
     /**
      *
      * @param uid the user ID
-     * @param name
-     * @param roleDescriptor
-     * @param tenant
+     * @param name the user login name
+     * @param roleDescriptor the role
+     * @param tenant the tenant the user belongs to
      */
-    public User( ID uid, String name, RoleDescriptor roleDescriptor, Tenant tenant ) {
+    public User( Long uid, String name, RoleDescriptor roleDescriptor, Tenant tenant ) {
         super( uid, name );
         this.roleDescriptor = roleDescriptor;
         this.tenant = tenant;

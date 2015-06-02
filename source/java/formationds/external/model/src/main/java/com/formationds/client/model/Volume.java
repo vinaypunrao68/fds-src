@@ -5,8 +5,6 @@
 package com.formationds.client.model;
 
 import com.formationds.client.ical.RecurrenceRule;
-import com.formationds.client.model.ID.FdsUID;
-import com.formationds.client.model.Volume.QosPolicyBase;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -15,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class Volume extends AbstractResource {
+public class Volume extends AbstractResource<Long> {
 
     public static abstract  class SnapshotPolicyBase {
-        private ID             id;
+        private Long             id;
         private Duration       retentionTime;
         private RecurrenceRule recurrenceRule;
 
@@ -27,17 +25,17 @@ public class Volume extends AbstractResource {
             this.recurrenceRule = recurrenceRule;
         }
 
-        public SnapshotPolicyBase( ID id, Duration retentionTime, RecurrenceRule recurrenceRule ) {
+        public SnapshotPolicyBase( Long id, Duration retentionTime, RecurrenceRule recurrenceRule ) {
             this.id = id;
             this.retentionTime = retentionTime;
             this.recurrenceRule = recurrenceRule;
         }
 
-        public ID getId() {
+        public Long getId() {
             return id;
         }
 
-        public SnapshotPolicyBase withId( ID id ) {
+        public SnapshotPolicyBase withId( Long id ) {
             this.id = id;
             return this;
         }
@@ -67,25 +65,25 @@ public class Volume extends AbstractResource {
             return new SnapshotPolicy( p.getId(), p.getRecurrenceRule(), p.getRetentionTime() );
         }
 
-        private ID presetId;
+        private Long presetId;
 
         public SnapshotPolicy( RecurrenceRule recurrenceRule, Duration retentionTime ) {
             super(retentionTime, recurrenceRule);
         }
 
-        public SnapshotPolicy( ID presetId, RecurrenceRule recurrenceRule, Duration retentionTime ) {
+        public SnapshotPolicy( Long presetId, RecurrenceRule recurrenceRule, Duration retentionTime ) {
             super(retentionTime, recurrenceRule);
             this.presetId = presetId;
         }
 
-        public SnapshotPolicy( ID id, ID presetId, RecurrenceRule recurrenceRule, Duration retentionTime ) {
+        public SnapshotPolicy( Long id, Long presetId, RecurrenceRule recurrenceRule, Duration retentionTime ) {
             super(id, retentionTime, recurrenceRule );
             this.presetId = presetId;
         }
 
-        public ID getPresetId() { return presetId; }
+        public Long getPresetId() { return presetId; }
 
-        public SnapshotPolicy withPresetId( ID presetId ) {
+        public SnapshotPolicy withPresetId( Long presetId ) {
             this.presetId = presetId;
             return this;
         }
@@ -97,14 +95,14 @@ public class Volume extends AbstractResource {
             super(retentionTime, recurrenceRule);
         }
 
-        public SnapshotPolicyPreset( ID id, Duration retentionTime, RecurrenceRule recurrenceRule ) {
+        public SnapshotPolicyPreset( Long id, Duration retentionTime, RecurrenceRule recurrenceRule ) {
             super(id, retentionTime, recurrenceRule);
         }
     }
 
     public static abstract class DataProtectionPolicyBase {
 
-        private ID id;
+        private Long id;
         private Duration commitLogRetention;
         private List<SnapshotPolicy> snapshotPolicies;
 
@@ -114,7 +112,7 @@ public class Volume extends AbstractResource {
             this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
         }
 
-        public DataProtectionPolicyBase( ID id,
+        public DataProtectionPolicyBase( Long id,
                                          Duration commitLogRetention,
                                          List<SnapshotPolicy> snapshotPolicies ) {
             this.id = id;
@@ -122,11 +120,11 @@ public class Volume extends AbstractResource {
             this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
         }
 
-        public ID getId() { return id; }
+        public Long getId() { return id; }
         public Duration getCommitLogRetention() { return commitLogRetention; }
         public List<SnapshotPolicy> getSnapshotPolicies() { return snapshotPolicies; }
 
-        public void setId( ID id ) {
+        public void setId( Long id ) {
             this.id = id;
         }
 
@@ -155,7 +153,7 @@ public class Volume extends AbstractResource {
     }
 
     public static class DataProtectionPolicyPreset extends DataProtectionPolicyBase {
-        public DataProtectionPolicyPreset( ID id, Duration commitLogRetention,
+        public DataProtectionPolicyPreset( Long id, Duration commitLogRetention,
                                            List<SnapshotPolicy> snapshotPolicies ) {
             super( id, commitLogRetention, snapshotPolicies );
         }
@@ -166,29 +164,29 @@ public class Volume extends AbstractResource {
             return new DataProtectionPolicy( p.getId(), p.getCommitLogRetention(), p.getSnapshotPolicies() );
         }
 
-        private ID presetId = null;
+        private Long presetId = null;
         private Volume volume;
         public DataProtectionPolicy( Duration commitLogRetention,
                                      List<SnapshotPolicy> snapshotPolicies ) {
             super(commitLogRetention, snapshotPolicies);
         }
-        public DataProtectionPolicy( ID presetId, Duration commitLogRetention,
+        public DataProtectionPolicy( Long presetId, Duration commitLogRetention,
                                      List < SnapshotPolicy > snapshotPolicies ) {
             super( commitLogRetention, snapshotPolicies );
             this.presetId = presetId;
         }
 
-        public DataProtectionPolicy( ID id, ID presetId, Duration commitLogRetention,
+        public DataProtectionPolicy( Long id, Long presetId, Duration commitLogRetention,
                                      List < SnapshotPolicy > snapshotPolicies ) {
             super( id, commitLogRetention, snapshotPolicies );
             this.presetId = presetId;
         }
 
-        public ID getPresetId() {
+        public Long getPresetId() {
             return presetId;
         }
 
-        public void setPresetId( ID presetId ) {
+        public void setPresetId( Long presetId ) {
             this.presetId = presetId;
         }
 
@@ -213,27 +211,27 @@ public class Volume extends AbstractResource {
             return new QosPolicy( p.getId(), p.getPriority(), p.getIopsMin(), p.getIopsMax() );
         }
 
-        private ID presetID;
+        private Long presetID;
 
         public QosPolicy( int priority, int iopsMin, int iopsMax ) {
             super(priority, iopsMin, iopsMax );
         }
 
-        public QosPolicy( ID presetID, int priority, int iopsMin, int iopsMax ) {
+        public QosPolicy( Long presetID, int priority, int iopsMin, int iopsMax ) {
             super(priority, iopsMin, iopsMax );
             this.presetID = presetID;
         }
 
-        public QosPolicy( ID id, ID presetID, int priority, int iopsMin, int iopsMax ) {
+        public QosPolicy( Long id, Long presetID, int priority, int iopsMin, int iopsMax ) {
             super(id, priority, iopsMin, iopsMax );
             this.presetID = presetID;
         }
 
-        public ID getPresetID() {
+        public Long getPresetID() {
             return presetID;
         }
 
-        public void setPresetID( ID presetID ) {
+        public void setPresetID( Long presetID ) {
             this.presetID = presetID;
         }
     }
@@ -241,7 +239,7 @@ public class Volume extends AbstractResource {
     public static class QosPolicyBase {
 
         // id generated when the policy preset is saved.  null indicates an unsaved preset policy
-        private final ID id;
+        private final Long id;
 
         private final int priority;
         private final int iopsMin;
@@ -254,7 +252,7 @@ public class Volume extends AbstractResource {
          * @param iopsMin the minimum iops setting
          * @param iopsMax the maximum iops setting
          */
-        QosPolicyBase( ID id, int priority, int iopsMin, int iopsMax ) {
+        QosPolicyBase( Long id, int priority, int iopsMin, int iopsMax ) {
             this.id = id;
             this.priority = priority;
             this.iopsMin = iopsMin;
@@ -274,7 +272,7 @@ public class Volume extends AbstractResource {
             this.iopsMax = iopsMax;
         }
 
-        public ID getId() { return id; }
+        public Long getId() { return id; }
         public int getPriority() {  return priority; }
         public int getIopsMin() { return iopsMin; }
         public int getIopsMax() { return iopsMax; }
@@ -282,13 +280,13 @@ public class Volume extends AbstractResource {
         /**
          *
          * @param id the id for the qos policy preset
-         * @return a new instance with the specified ID and the settings for this policy
+         * @return a new instance with the specified id and the settings for this policy
          */
         QosPolicyPreset withId(Long id) {
             if (this.id != null) {
-                throw new IllegalStateException( "Only generate ID for presets that do not yet have an ID");
+                throw new IllegalStateException( "Only generate id for presets that do not yet have an id");
             }
-            return new QosPolicyPreset( FdsUID.id( id ), this.priority, this.iopsMin, this.iopsMax );
+            return new QosPolicyPreset( id, this.priority, this.iopsMin, this.iopsMax );
         }
 
         public boolean idEquals( Object o ) {
@@ -334,7 +332,7 @@ public class Volume extends AbstractResource {
          * @param iopsMin the minimum iops setting
          * @param iopsMax the maximum iops setting
          */
-        QosPolicyPreset( ID id, int priority, int iopsMin, int iopsMax ) {
+        QosPolicyPreset( Long id, int priority, int iopsMin, int iopsMax ) {
             super(id, priority, iopsMin, iopsMax );
         }
 
@@ -404,7 +402,7 @@ public class Volume extends AbstractResource {
     private VolumeAccessPolicy   accessPolicy;
     private QosPolicy            qosPolicy;
 
-    Volume( ID uid,
+    Volume( Long uid,
             String name,
             Tenant tenant,
             String application,

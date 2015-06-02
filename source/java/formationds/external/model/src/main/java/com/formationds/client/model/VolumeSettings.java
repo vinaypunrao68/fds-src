@@ -11,8 +11,8 @@ abstract public class VolumeSettings {
     /**
      *
      */
-    public static class Sys extends VolumeSettings {
-        public Sys() {
+    public static class SystemVolumeSettings extends VolumeSettings {
+        public SystemVolumeSettings() {
             super( VolumeType.SYSTEM );
         }
     }
@@ -20,11 +20,11 @@ abstract public class VolumeSettings {
     /**
      *
      */
-    public static class Blk extends VolumeSettings {
+    public static class BlockVolumeSettings extends VolumeSettings {
         private final Size capacity;
         private final Size blockSize;
 
-        public Blk( Size capacity, Size blockSize ) {
+        public BlockVolumeSettings( Size capacity, Size blockSize ) {
             super( VolumeType.BLOCK );
             this.capacity = capacity;
             this.blockSize = blockSize;
@@ -41,10 +41,10 @@ abstract public class VolumeSettings {
         @Override
         public boolean equals( Object o ) {
             if ( this == o ) { return true; }
-            if ( !(o instanceof Blk) ) { return false; }
-            final Blk blk = (Blk) o;
-            return Objects.equals( capacity, blk.capacity ) &&
-                   Objects.equals( blockSize, blk.blockSize );
+            if ( !(o instanceof BlockVolumeSettings) ) { return false; }
+            final BlockVolumeSettings block = (BlockVolumeSettings) o;
+            return Objects.equals( capacity, block.capacity ) &&
+                   Objects.equals( blockSize, block.blockSize );
         }
 
         @Override
@@ -56,10 +56,10 @@ abstract public class VolumeSettings {
     /**
      *
      */
-    public static class Obj extends VolumeSettings {
+    public static class ObjectVolumeSettings extends VolumeSettings {
         private final Size maxObjectSize;
 
-        public Obj( Size maxObjectSize ) {
+        public ObjectVolumeSettings( Size maxObjectSize ) {
             super( VolumeType.OBJECT );
             this.maxObjectSize = maxObjectSize;
         }
@@ -71,10 +71,9 @@ abstract public class VolumeSettings {
         @Override
         public boolean equals( Object o ) {
             if ( this == o ) { return true; }
-            if ( !(o instanceof Obj) ) { return false; }
-            if ( !super.equals( o ) ) { return false; }
-            final Obj that = (Obj) o;
-            return Objects.equals( maxObjectSize, that.maxObjectSize );
+            if ( !(o instanceof ObjectVolumeSettings) ) { return false; }
+            final ObjectVolumeSettings object = (ObjectVolumeSettings)o;
+            return Objects.equals( maxObjectSize, object.maxObjectSize );
         }
 
         @Override
@@ -87,11 +86,10 @@ abstract public class VolumeSettings {
     protected VolumeSettings( VolumeType type ) { this.type = type; }
     public VolumeType getVolumeType() { return this.type; }
 
-    @Override
     public boolean equals( Object o ) {
         if ( this == o ) { return true; }
         if ( !(o instanceof VolumeSettings) ) { return false; }
-        final VolumeSettings that = (VolumeSettings) o;
+        final VolumeSettings that = (VolumeSettings)o;
         return Objects.equals( type, that.type );
     }
 
@@ -99,4 +97,5 @@ abstract public class VolumeSettings {
     public int hashCode() {
         return Objects.hash( type );
     }
+
 }

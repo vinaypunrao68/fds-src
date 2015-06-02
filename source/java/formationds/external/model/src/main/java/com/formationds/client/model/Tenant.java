@@ -4,19 +4,17 @@
 
 package com.formationds.client.model;
 
-import com.formationds.client.model.ID.FdsUID;
-
 /**
  * A tenant is a product entity that manages a set of Tenant Users and a collection of
  * application volumes.  A tenant exists within the Global Domain and is associated with zero or more
  *
  */
-public class Tenant extends AbstractResource {
+public class Tenant extends AbstractResource<Long> {
 
-    public static final Tenant SYSTEM = new Tenant( new FdsUID(1L), "system");
+    public static final Tenant SYSTEM = new Tenant( 1L, "system" );
 
-    public Tenant( ID uuid, String name ) {
-        super( uuid, name );
+    public Tenant( Long id, String name ) {
+        super( id, name );
     }
 
 }
