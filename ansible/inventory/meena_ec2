@@ -5,7 +5,6 @@ awo-bh-01 fds_deploy_local_deps=False fds_build=debug
 clean_fds=no
 ansible_ssh_user=deploy
 cluster_location=awo
-deploy_artifact=nightly
 fds_build=debug
 fds_default_nic=eth0
 fds_deploy_local_deps=False
