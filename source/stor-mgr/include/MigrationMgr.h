@@ -413,6 +413,8 @@ class MigrationMgr {
 
     /**
      * Uuid of object Store Manager's for which this migration manager is created.
+     * TODO(Gurpreet): Replace all the places in migration code where we pass mySvcUuid
+     * as parameter and use objStoreMgrUuid instead.
      */
     NodeUuid objStoreMgrUuid;
 
@@ -457,10 +459,11 @@ class MigrationMgr {
 
     /**
      * Source SMs which are marked as failed for some executors during migration.
-     * TODO(Gurpreet) Still has to figure out how to mark a SM as failed. It might depend
+     * TODO(Gurpreet) Still has to figure out how to mark a SM as failed. It could depend
      * upon the type of error encountered. If the error seen when this SM was a source
      * is fatal error(SM is down or something of that severity), it can be marked as
-     * failed.
+     * failed. Using this will stop us from choosing failed SMs as newly elected
+     * source. Basically a small optimization.
      */
     std::map<NodeUuid, bool> failedSMsAsSource;
 

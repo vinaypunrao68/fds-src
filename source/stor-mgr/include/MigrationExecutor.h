@@ -75,7 +75,9 @@ class MigrationExecutor {
     inline fds_uint8_t getInstanceNum() const {
         return instanceNum;
     }
-    inline fds_uint32_t getUniqueId() const { return uniqueId; }
+    inline fds_uint32_t getUniqueId() const {
+        return uniqueId;
+    }
 
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
         if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
