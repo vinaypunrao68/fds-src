@@ -56,69 +56,69 @@ public class MutateService implements RequestHandler {
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 		
-        Long nodeUuid = requiredLong(routeParameters, "node_uuid");        
-        Long serviceId = requiredLong(routeParameters, "service_uuid");
-
-        final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
-       
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
-        
-        ListNodes listNodes = new ListNodes( client );
-        Map<String, Node> nodes = listNodes.computeNodeMap( list );
-        
-        Node ourNode = nodes.get( nodeUuid.toString() );
-        
-        int status = 0;
-        int httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
-        
-        if ( ourNode == null ){
-        	logger.warn( "Could not find a Node with ID: " + nodeUuid );
-        	return sendReturn( 0, HttpServletResponse.SC_BAD_REQUEST, nodeUuid );
-        } 
-        	
-        Boolean startAm = true;
-        Boolean startDm = true;
-        Boolean startSm = true;
-        
-        List<Service> ams = ourNode.getServices().get( ServiceType.AM );
-        List<Service> sms = ourNode.getServices().get( ServiceType.DM );
-        List<Service> dms = ourNode.getServices().get( ServiceType.SM );
-        
-        Service myService = findMyService( ourNode, serviceId );
-        Service argService = ObjectModelHelper.toObject( reader, myService.getClass() );
-        Boolean startService = (argService.getStatus().equals( ServiceStatus.ACTIVE ));
-        
-        //TODO: Now, because of how the thrift call works, we only look at the first one in each list.
-        startAm = shouldIStartService(  ams );
-        startSm = shouldIStartService(  sms );
-        startDm = shouldIStartService(  dms );
-        
-        // now... figure out what we were and overwrite that value with the passed in state.
-        switch( myService.getType() ){
-        	case FDSP_ACCESS_MGR:
-        		startAm = startService;
-        		break;
-        	case FDSP_DATA_MGR:
-        		startDm = startService;
-        		break;
-        	case FDSP_STOR_MGR:
-        		startSm = startService;
-        		break;
-        	default:
-        		break;
-        }
-        
-        status = 
-        		client.ActivateNode( new FDSP_ActivateOneNodeType(
-                                     1,
-                                     new FDSP_Uuid( nodeUuid ),
-                                     startSm,
-                                     startDm,
-                                     startAm ) );
-        
-        httpCode = HttpServletResponse.SC_OK;
+//        Long nodeUuid = requiredLong(routeParameters, "node_uuid");        
+//        Long serviceId = requiredLong(routeParameters, "service_uuid");
+//
+//        final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
+//       
+//        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
+//        
+//        ListNodes listNodes = new ListNodes( client );
+//        Map<String, Node> nodes = listNodes.computeNodeMap( list );
+//        
+//        Node ourNode = nodes.get( nodeUuid.toString() );
+//        
+//        int status = 0;
+//        int httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+//        
+//        if ( ourNode == null ){
+//        	logger.warn( "Could not find a Node with ID: " + nodeUuid );
+//        	return sendReturn( 0, HttpServletResponse.SC_BAD_REQUEST, nodeUuid );
+//        } 
+//        	
+//        Boolean startAm = true;
+//        Boolean startDm = true;
+//        Boolean startSm = true;
+//        
+//        List<Service> ams = ourNode.getServices().get( ServiceType.AM );
+//        List<Service> sms = ourNode.getServices().get( ServiceType.DM );
+//        List<Service> dms = ourNode.getServices().get( ServiceType.SM );
+//        
+//        Service myService = findMyService( ourNode, serviceId );
+//        Service argService = ObjectModelHelper.toObject( reader, myService.getClass() );
+//        Boolean startService = (argService.getStatus().equals( ServiceStatus.ACTIVE ));
+//        
+//        //TODO: Now, because of how the thrift call works, we only look at the first one in each list.
+//        startAm = shouldIStartService(  ams );
+//        startSm = shouldIStartService(  sms );
+//        startDm = shouldIStartService(  dms );
+//        
+//        // now... figure out what we were and overwrite that value with the passed in state.
+//        switch( myService.getType() ){
+//        	case FDSP_ACCESS_MGR:
+//        		startAm = startService;
+//        		break;
+//        	case FDSP_DATA_MGR:
+//        		startDm = startService;
+//        		break;
+//        	case FDSP_STOR_MGR:
+//        		startSm = startService;
+//        		break;
+//        	default:
+//        		break;
+//        }
+//        
+//        status = 
+//        		client.ActivateNode( new FDSP_ActivateOneNodeType(
+//                                     1,
+//                                     new FDSP_Uuid( nodeUuid ),
+//                                     startSm,
+//                                     startDm,
+//                                     startAm ) );
+//        
+//        httpCode = HttpServletResponse.SC_OK;
 	       
-        return sendReturn(status, httpCode, nodeUuid);
+        return sendReturn(0, 200, 300L);
 	}
 	
 	private JsonResource sendReturn( int status, int httpCode, Long nodeUuid ){

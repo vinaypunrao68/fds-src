@@ -79,52 +79,52 @@ public class ListNodes
     		return clusterMap;
     	}
     	
-
-        for( final FDSP_Node_Info_Type info : list ) {
-
-            final Optional<Service> service = ServiceType.find( info );
-            if( service.isPresent() ) {
-
-                final String ipv6Addr =
-                    ipAddr2String( info.getIp_hi_addr() )
-                        .orElse( String.valueOf( info.getIp_hi_addr() ) );
-                final String ipv4Addr =
-                    ipAddr2String( info.getIp_lo_addr() )
-                        .orElse( String.valueOf( info.getIp_lo_addr() ) );
-
-                final String nodeUUID = String.valueOf(
-                    info.getNode_uuid() );
-                NodeState nodeState = NodeState.UP;
-                final Optional<NodeState> optional =
-                    NodeState.byFdsDefined( info.getNode_state().name() );
-                if( optional.isPresent() ) {
-
-                     nodeState = optional.get();
-
-                }
-
-                if( !clusterMap.containsKey( nodeUUID ) ) {
-
-                    clusterMap.put( nodeUUID,
-                                    Node.uuid( nodeUUID )
-                                        .ipV6address( ipv6Addr )
-                                        .ipV4address( ipv4Addr )
-                                        .state( nodeState )
-                                        .name( nodeName( ipv4Addr ) )
-                                        .build() );
-                }
-
-                Service serviceInstance = service.get();
-                Node thisNode = clusterMap.get( nodeUUID );
-                
-                thisNode.addService( serviceInstance );
-
-            } else {
-
-                logger.warn( "Unexpected service found -- {}",
-                             info.toString() );
-            }
-        }    	
+//
+//        for( final FDSP_Node_Info_Type info : list ) {
+//
+//            final Optional<Service> service = ServiceType.find( info );
+//            if( service.isPresent() ) {
+//
+//                final String ipv6Addr =
+//                    ipAddr2String( info.getIp_hi_addr() )
+//                        .orElse( String.valueOf( info.getIp_hi_addr() ) );
+//                final String ipv4Addr =
+//                    ipAddr2String( info.getIp_lo_addr() )
+//                        .orElse( String.valueOf( info.getIp_lo_addr() ) );
+//
+//                final String nodeUUID = String.valueOf(
+//                    info.getNode_uuid() );
+//                NodeState nodeState = NodeState.UP;
+//                final Optional<NodeState> optional =
+//                    NodeState.byFdsDefined( info.getNode_state().name() );
+//                if( optional.isPresent() ) {
+//
+//                     nodeState = optional.get();
+//
+//                }
+//
+//                if( !clusterMap.containsKey( nodeUUID ) ) {
+//
+//                    clusterMap.put( nodeUUID,
+//                                    Node.uuid( nodeUUID )
+//                                        .ipV6address( ipv6Addr )
+//                                        .ipV4address( ipv4Addr )
+//                                        .state( nodeState )
+//                                        .name( nodeName( ipv4Addr ) )
+//                                        .build() );
+//                }
+//
+//                Service serviceInstance = service.get();
+//                Node thisNode = clusterMap.get( nodeUUID );
+//                
+//                thisNode.addService( serviceInstance );
+//
+//            } else {
+//
+//                logger.warn( "Unexpected service found -- {}",
+//                             info.toString() );
+//            }
+//        }    	
         
         return clusterMap;
     }
