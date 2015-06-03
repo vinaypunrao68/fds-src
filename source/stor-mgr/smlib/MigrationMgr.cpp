@@ -254,6 +254,9 @@ MigrationMgr::startResync(const fds::DLT *dlt,
          */
         if (INVALID_RESOURCE_UUID == ptr.first.toSvcUuid()) {
             const TokenList tokens(ptr.second.begin(), ptr.second.end());
+            numBitsPerDltToken = bitsPerDltToken;
+            fds_uint32_t numTokens = pow(2, bitsPerDltToken);
+            dltTokenStates.assign(numTokens, false);
             markDltTokensAvailable(tokens);
         } else {
             resyncMsg->migrations.push_back(grp);
