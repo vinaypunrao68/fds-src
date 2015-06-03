@@ -82,7 +82,7 @@ public class Volume extends AbstractResource<Long> {
             QosPolicy qosPolicy,
             Instant created,
             Map<String, String> tags ) {
-        super( uid, tenant.getName(), name );
+        super( uid, name );
         this.tenant = tenant;
         this.tags = tags;
         this.application = application;
