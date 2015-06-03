@@ -1,3 +1,0 @@
-export PYTHONPATH=${PYTHONPATH}:`pwd`/src
-
-python src/fds/fdscli.py $@
