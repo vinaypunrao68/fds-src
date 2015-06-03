@@ -425,7 +425,7 @@ int MetaStoreUTProc::runSmokeTest() {
     if (db_) {
         fds_token_id smTokId = 1;
         ObjMetaData omd;
-        leveldb::DB* ldb;
+        std::shared_ptr<leveldb::DB> ldb;
         leveldb::ReadOptions options;
         db_->snapshot(smTokId, ldb, options);
         leveldb::Iterator* it = ldb->NewIterator(options);
