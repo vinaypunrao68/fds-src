@@ -28,7 +28,7 @@ public class User extends AbstractResource<Long> {
         this.tenant = tenant;
     }
 
-    public RoleDescriptor getRoleDescriptor() {
+    public Role getRoleDescriptor() {
         return roleDescriptor;
     }
 

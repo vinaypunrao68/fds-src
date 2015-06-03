@@ -27,6 +27,8 @@ import java.util.Map;
 
 public class UpdatePassword implements RequestHandler {
     
+	private static final String USER_ARG = "user_id";
+	
 	private AuthenticationToken token;
     private ConfigurationApi configApi;
     private Authorizer authorizer;
@@ -43,9 +45,15 @@ public class UpdatePassword implements RequestHandler {
         String source = IOUtils.toString(request.getInputStream());
         JSONObject o = new JSONObject(source);
         
+        long userId = requiredLong( routeParameters, USER_ARG );
         String password = o.getString( "password" );
         
         User inputUser = ObjectModelHelper.toObject( source, User.class );
+        
+        // no id... let's make one.
+        if ( o.getString( "id" ) != null ){
+        	inputUser = new User( userId, inputUser.getName(), inputUser.getRoleDescriptor(), inputUser.getTenant() );
+        }
         
         com.formationds.apis.User currentUser = getAuthorizer().userFor( getToken() );
 
