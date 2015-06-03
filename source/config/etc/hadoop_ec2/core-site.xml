@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+<!--Put OM IP in value-->
+    <property>
+        <name>fds.cs.endpoint</name>
+        <value>10.3.106.253</value>
+    </property>
+<!--Put AM ip in value-->
+    <property>
+        <name>fds.am.endpoint</name>
+	<value>10.3.106.254</value>
+    </property>
+<!--Put volume name in value. suppose volume name is abcd then value will be fds://abcd/-->
+    <property>
+        <name>fs.defaultFS</name>
+        <value>fds://fremont/</value>
+    </property>
+    <property>
+        <name>fs.fds.impl</name>
+        <value>com.formationds.hadoop.FdsFileSystem</value>
+    </property>
+    <property>
+      <name>fs.AbstractFileSystem.fds.impl</name>
+      <value>com.formationds.hadoop.FdsFileSystem$AFS</value>
+    </property>
+</configuration>
