@@ -18,8 +18,8 @@ import com.formationds.web.toolkit.Resource;
 
 public class RevokeUserFromTenant implements RequestHandler{
 
-	private final static String TENANT_ARG = "tenantId";
-	private final static String USER_ARG = "userId";
+	private final static String TENANT_ARG = "tenant_id";
+	private final static String USER_ARG = "user_id";
 	
 	private ConfigurationApi configApi;
 
