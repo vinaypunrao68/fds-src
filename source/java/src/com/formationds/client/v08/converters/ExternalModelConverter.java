@@ -29,6 +29,7 @@ import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.SizeUnit;
+import com.formationds.client.v08.model.Snapshot;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Tenant;
 import com.formationds.client.v08.model.User;
@@ -391,6 +392,53 @@ public class ExternalModelConverter {
 		VolumeStatus externalStatus = new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
 		
 		return externalStatus;
+	}
+	
+	public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
+		
+		long creation = internalSnapshot.getCreationTimestamp();
+		long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
+		long snapshotId = internalSnapshot.getSnapshotId();
+		String snapshotName = internalSnapshot.getSnapshotName();
+		long volumeId = internalSnapshot.getVolumeId();
+		
+		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+				 								  snapshotName, 
+				 								  volumeId,
+				 								  Duration.ofSeconds( retentionInSeconds ), 
+				 								  Instant.ofEpochMilli( creation ) );
+		
+		return externalSnapshot;
+	}
+	
+	public static com.formationds.apis.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
+		
+		com.formationds.apis.Snapshot internalSnapshot = new com.formationds.apis.Snapshot();
+		
+		internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
+		internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
+		internalSnapshot.setSnapshotId( snapshot.getId() );
+		internalSnapshot.setSnapshotName( snapshot.getName() );
+		internalSnapshot.setVolumeId( snapshot.getVolumeId() );
+		
+		return internalSnapshot;
+	}
+	
+	public static Snapshot convertToExternalSnapshot( com.formationds.protocol.Snapshot protoSnapshot ){
+		
+		long creation = protoSnapshot.getCreationTimestamp();
+		long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
+		long volumeId = protoSnapshot.getRetentionTimeSeconds();
+		String snapshotName = protoSnapshot.getSnapshotName();
+		long snapshotId = protoSnapshot.getSnapshotId();
+		
+		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+												  snapshotName, 
+												  volumeId,
+												  Duration.ofSeconds( retentionInSeconds ),
+												  Instant.ofEpochMilli( creation ) );
+		
+		return externalSnapshot;
 	}
 	
 	public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ){

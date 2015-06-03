@@ -4,45 +4,69 @@
 
 package com.formationds.om.webkit.rest.v08.snapshots;
 
-import com.formationds.commons.model.Snapshot;
+import com.formationds.client.v08.model.Snapshot;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.List;
 import java.util.Map;
 
-public class CreateSnapshot
-  implements RequestHandler {
-  private ConfigurationApi config;
+public class CreateSnapshot implements RequestHandler {
 
-    public CreateSnapshot(ConfigurationApi config) {
-        this.config = config;
-    }
+	private static final String VOLUME_ARG = "volume_id";
+	
+	private ConfigurationApi configApi;
 
-    @Override
-    public Resource handle(final Request request,
-                           final Map<String, String> routeParameters)
-        throws Exception {
+	public CreateSnapshot() {}
 
-        try (final Reader reader =
-                 new InputStreamReader(request.getInputStream(), "UTF-8")) {
-            Gson gson = new GsonBuilder().create();
-            final Snapshot snapshot = gson.fromJson(reader,
-                                                    Snapshot.class);
+	@Override
+	public Resource handle(final Request request,
+			final Map<String, String> routeParameters) throws Exception {
 
-            config.createSnapshot(Long.valueOf(snapshot.getVolumeId()),
-                                  snapshot.getName(),
-                                  snapshot.getRetention(),
-                                  snapshot.getTimelineTime() );
-    }
-
-    return new JsonResource( new JSONObject().put( "status", "OK" ) );
-  }
+		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
+		
+		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
+		Snapshot inputSnapshot = ObjectModelHelper.toObject( reader, Snapshot.class );
+		
+		getConfigApi().createSnapshot( volumeId, 
+									   inputSnapshot.getName(), 
+									   inputSnapshot.getRetention().getSeconds(), 
+									   0 );
+		
+		List<Snapshot> snapshots = (new ListSnapshots()).listSnapshots( volumeId );
+		Snapshot mySnapshot = null;
+		
+		for ( Snapshot snapshot : snapshots ){
+			if ( snapshot.getVolumeId().equals( volumeId ) &&
+				 snapshot.getName().equals( inputSnapshot.getName() ) ){
+				mySnapshot = snapshot;
+				break;
+			}
+		}
+		
+		String jsonString = ObjectModelHelper.toJSON( mySnapshot );
+		
+		return new TextResource( jsonString );
+	}
+	
+	private ConfigurationApi getConfigApi(){
+		
+		if ( configApi == null ){
+			configApi = SingletonConfigAPI.instance().api();
+		}
+		
+		return configApi;
+	}
 }
