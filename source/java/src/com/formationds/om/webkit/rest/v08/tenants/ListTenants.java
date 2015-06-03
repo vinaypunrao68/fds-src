@@ -36,7 +36,7 @@ public class ListTenants implements RequestHandler {
     	List<Tenant> tenants = Collections.emptyList();
     	
     	try {
-    		listTenants();
+    		tenants = listTenants();
     	}
     	catch( Exception e ){
     		logger.error( "Could not get a list of tenants in the system" );
