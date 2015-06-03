@@ -19,6 +19,7 @@ import com.formationds.web.toolkit.TextResource;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletResponse;
@@ -50,8 +51,11 @@ public class UpdatePassword implements RequestHandler {
         
         User inputUser = ObjectModelHelper.toObject( source, User.class );
         
+        try {
+        	o.getString( "id" );
+        }
         // no id... let's make one.
-        if ( o.getString( "id" ) != null ){
+        catch( JSONException jException ){
         	inputUser = new User( userId, inputUser.getName(), inputUser.getRoleDescriptor(), inputUser.getTenant() );
         }
         
