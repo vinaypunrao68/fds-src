@@ -216,10 +216,10 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing user endpoints..." );
     	
     	// list users
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers() );
     	
     	// create user
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser() );
     	
     	// get a specific user
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser( config, getSecretKey() ) );
