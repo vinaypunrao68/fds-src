@@ -147,7 +147,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing volume endpoints..." );
     	
     	// list volumes
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes() );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes( getAuthorizer(), token ) );
     	
     	// get a specific volume
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume() );
