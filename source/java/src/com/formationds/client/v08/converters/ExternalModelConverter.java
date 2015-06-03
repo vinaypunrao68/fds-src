@@ -428,7 +428,7 @@ public class ExternalModelConverter {
 		
 		long creation = protoSnapshot.getCreationTimestamp();
 		long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
-		long volumeId = protoSnapshot.getRetentionTimeSeconds();
+		long volumeId = protoSnapshot.getVolumeId();
 		String snapshotName = protoSnapshot.getSnapshotName();
 		long snapshotId = protoSnapshot.getSnapshotId();
 		

@@ -33,7 +33,7 @@ import com.formationds.web.toolkit.TextResource;
 public class GetSnapshot implements RequestHandler {
 
 	private static final Logger LOG = Logger.getLogger(GetSnapshot.class);
-	private final static String REQ_PARAM_SNAPSHOT_ID = "snapshotId";
+	private final static String REQ_PARAM_SNAPSHOT_ID = "snapshot_id";
 
 	private ConfigurationApi configApi;
 
