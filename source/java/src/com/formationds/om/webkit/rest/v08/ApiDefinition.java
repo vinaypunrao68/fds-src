@@ -153,7 +153,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume() );
     	
     	// create a volume
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( config, getAuthorizer(), token ) );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( getAuthorizer(), token ) );
     	
     	// clone a volume.  It takes as input either a snapshot ID/obj or a time
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id", (token) -> new CloneVolume( config ) );

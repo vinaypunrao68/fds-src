@@ -50,9 +50,11 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.protocol.FDSP_MediaPolicy;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_VolType;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -581,6 +583,59 @@ public class ExternalModelConverter {
 		internalDescriptor.setPolicy( internalSettings );
 		
 		return internalDescriptor;
+	}
+	
+	public static FDSP_VolumeDescType convertToInternalVolumeDescType( Volume externalVolume ){
+		
+		FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
+		
+		volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
+		volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
+		volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
+		volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
+		
+		FDSP_MediaPolicy fdspMediaPolicy;
+		
+		switch( externalVolume.getMediaPolicy() ){
+			case HYBRID:
+				fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HYBRID;
+				break;
+			case SSD:
+				fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
+				break;
+			case HDD:
+			default:
+				fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD;
+				break;
+		}
+		
+		volumeType.setMediaPolicy( fdspMediaPolicy );
+		
+		volumeType.setLocalDomainId( 0 );
+		volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
+		volumeType.setVolUUID( externalVolume.getId() );
+		volumeType.setVol_name( externalVolume.getName() );
+		
+		VolumeSettings settings = externalVolume.getSettings();
+		
+		if ( settings instanceof BlockVolumeSettings ){
+			BlockVolumeSettings blockSettings = (BlockVolumeSettings)settings;
+			
+			volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE ).intValue() );
+			volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
+			volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
+		}
+		else {
+			ObjectVolumeSettings objectSettings = (ObjectVolumeSettings)settings;
+			
+			volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+			volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
+		}
+		
+		volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+		volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+		
+		return volumeType;
 	}
 	
 	/**

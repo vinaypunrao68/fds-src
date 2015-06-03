@@ -38,6 +38,15 @@ public class ListVolumes implements RequestHandler {
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
        
+		List<Volume> externalVolumes = listVolumes();
+		
+		String jsonString = ObjectModelHelper.toJSON( externalVolumes );
+		
+		return new TextResource( jsonString );
+	}
+	
+	public List<Volume> listVolumes() throws Exception{
+		
 		String domain = "";
 		List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
 		
@@ -45,10 +54,12 @@ public class ListVolumes implements RequestHandler {
 		rawVolumes = rawVolumes.stream()
 			// TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
 			.filter( descriptor -> {
+				LOG.debug( "Removing volume " + descriptor.getName() + " from the volume list." );
 				Boolean systemVolume = descriptor.getName().startsWith( "SYSTEM_VOLUME" );
 				return !systemVolume;
 			})
 			.filter( descriptor -> {
+				LOG.debug( "Removing a volume that the caller does not have access to." );
 				Boolean owns = getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
 				return owns;
 			})
@@ -58,13 +69,12 @@ public class ListVolumes implements RequestHandler {
 		
 		rawVolumes.stream().forEach( descriptor ->{
 			
+			LOG.trace( "Converting volume " + descriptor.getName() + " to external format." );
 			Volume externalVolume = ExternalModelConverter.convertToExternalVolume( descriptor );
 			externalVolumes.add( externalVolume );
-		});
+		});		
 		
-		String jsonString = ObjectModelHelper.toJSON( externalVolumes );
-		
-		return new TextResource( jsonString );
+		return externalVolumes;
 	}
 	
 	private Authorizer getAuthorizer(){
