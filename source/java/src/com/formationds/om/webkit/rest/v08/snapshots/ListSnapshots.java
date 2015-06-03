@@ -14,6 +14,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +45,7 @@ public class ListSnapshots implements RequestHandler {
 		
 		List<com.formationds.protocol.Snapshot> internalSnapshots = getConfigApi().listSnapshots( volumeId );
 		
-		List<Snapshot> externalSnapshots = Collections.emptyList();
+		List<Snapshot> externalSnapshots = new ArrayList<>();
 		
 		internalSnapshots.stream().forEach( internalSnapshot -> {
 			Snapshot externalSnapshot = ExternalModelConverter.convertToExternalSnapshot( internalSnapshot );
