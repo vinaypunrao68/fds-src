@@ -65,7 +65,7 @@ public class CreateVolume implements RequestHandler {
 			newVolume = ObjectModelHelper.toObject( bodyReader, Volume.class );
 		}
 		catch( Exception e ){
-			logger.error( "Unable to convet the body to a valid Volume object." );
+			logger.error( "Unable to convet the body to a valid Volume object.", e );
 			return new JsonResource(
 					new JSONObject().put( "message", "Invalid input parameters" ), HttpServletResponse.SC_BAD_REQUEST );
 		}
