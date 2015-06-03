@@ -254,10 +254,8 @@
     </dependency>
 
   <!--
-    Once all tests code relocated to the correct test packaging structure
-    the scope should be changed from compile to test. Production code
-    should not require junit.jar or mockito-all.jar to be included when
-    distributed.
+    Production code should not require junit.jar or mockito-all.jar to be
+    included when distributed.
   -->
     <!-- junit -->
     <dependency>
@@ -265,13 +263,12 @@
       <artifactId>junit</artifactId>
       <scope>compile</scope>
     </dependency>
-<!--
+
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
-      <scope>compile</scope>
+      <scope>test</scope>
     </dependency>
--->
   </dependencies>
 
 </project>

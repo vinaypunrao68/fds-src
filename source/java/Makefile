@@ -17,7 +17,7 @@ include $(topdir)/Makefile.incl
 compile:
 	@echo "Building Java components"
 
-	@mvn clean install -f fds-project/pom.xml --batch-mode -Dmaven.test.skip=true
+	@mvn clean install -f fds-project/pom.xml --batch-mode -Dmaven.test.skip=false
 
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
