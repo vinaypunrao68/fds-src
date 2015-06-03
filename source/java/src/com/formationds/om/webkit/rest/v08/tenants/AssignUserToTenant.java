@@ -3,27 +3,43 @@
  */
 package com.formationds.om.webkit.rest.v08.tenants;
 
+import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
-import javax.crypto.SecretKey;
 import java.util.Map;
 
 public class AssignUserToTenant implements RequestHandler {
-    private com.formationds.util.thrift.ConfigurationApi configCache;
-    private SecretKey                                    secretKey;
+	
+	private final static String TENANT_ARG = "tenantId";
+	private final static String USER_ARG = "userId";
+	
+    private ConfigurationApi configApi;
 
-    public AssignUserToTenant(com.formationds.util.thrift.ConfigurationApi configCache, SecretKey secretKey) {
-        this.configCache = configCache;
-        this.secretKey = secretKey;
-    }
+    public AssignUserToTenant(){}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
 
+    	long userId = requiredLong( routeParameters, USER_ARG );
+    	long tenantId = requiredLong( routeParameters, TENANT_ARG );
+    	
+    	getConfigApi().assignUserToTenant( userId, tenantId );
+    	
         return new JsonResource(new JSONObject().put("status", "ok"));
+    }
+    
+    private ConfigurationApi getConfigApi(){
+    	
+    	if ( configApi == null ){
+    		configApi = SingletonConfigAPI.instance().api();
+    	}
+    	
+    	return configApi;
     }
 }

@@ -306,13 +306,13 @@ public class ApiDefinition extends AbstractApiDefinition{
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ) );
     	
     	// edit tenant TODO: Not implemented
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( config ) );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant() );
     	
     	// assign a user to a tenancy
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant() );
     	
     	// remove a user from a tenancy
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant() );
     	
     	logger.trace( "Completed initializing tenant endpoints." );
     }
