@@ -8,9 +8,13 @@ import java.util.Objects;
 
 public class User extends AbstractResource<Long> {
 
-    private final RoleDescriptor roleDescriptor;
+    private final Role roleDescriptor;
     private final Tenant tenant;
 
+    private User(){
+    	this( 0L, "None", Role.ADMIN, null );
+    }
+    
     /**
      *
      * @param uid the user ID
@@ -18,7 +22,7 @@ public class User extends AbstractResource<Long> {
      * @param roleDescriptor the role
      * @param tenant the tenant the user belongs to
      */
-    public User( Long uid, String name, RoleDescriptor roleDescriptor, Tenant tenant ) {
+    public User( Long uid, String name, Role roleDescriptor, Tenant tenant ) {
         super( uid, name );
         this.roleDescriptor = roleDescriptor;
         this.tenant = tenant;

@@ -16,6 +16,10 @@ public enum Role implements RoleDescriptor {
 
     private final EnumSet<Feature> features;
 
+    private Role(){
+    	this( Feature.VOL_MGMT );
+    }
+    
     Role( Feature f1, Feature... features ) {
         this.features = EnumSet.of( f1, features );
     }

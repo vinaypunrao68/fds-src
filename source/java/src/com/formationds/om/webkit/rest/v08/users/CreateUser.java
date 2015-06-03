@@ -13,7 +13,9 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import java.util.Map;
 import java.util.UUID;
@@ -21,17 +23,19 @@ import java.util.UUID;
 public class CreateUser implements RequestHandler {
 
 	private ConfigurationApi configApi;
-    
-    private static final String LOGIN_KEY = "login";
-    private static final String PASSWORD_KEY = "password";
 
     public CreateUser() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         
-    	String login = requiredString( routeParameters, LOGIN_KEY );
-        String password = requiredString( routeParameters, PASSWORD_KEY );
+        String source = IOUtils.toString(request.getInputStream());
+        JSONObject o = new JSONObject(source);
+        
+        User inputUser = ObjectModelHelper.toObject( source, User.class );
+    	
+    	String login = inputUser.getName();
+        String password = o.getString( "password" );
 
         String hashed = new HashedPassword().hash(password);
         String secret = UUID.randomUUID().toString();
