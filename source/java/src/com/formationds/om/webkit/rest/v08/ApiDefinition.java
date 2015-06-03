@@ -35,6 +35,7 @@ import com.formationds.om.webkit.rest.v08.token.ReissueToken;
 import com.formationds.om.webkit.rest.v08.users.CreateUser;
 import com.formationds.om.webkit.rest.v08.users.CurrentUser;
 import com.formationds.om.webkit.rest.v08.users.ListUsers;
+import com.formationds.om.webkit.rest.v08.users.ListUsersForTenant;
 import com.formationds.om.webkit.rest.v08.users.UpdatePassword;
 import com.formationds.om.webkit.rest.v08.volumes.CloneVolume;
 import com.formationds.om.webkit.rest.v08.volumes.CreateSnapshotPolicy;
@@ -52,7 +53,6 @@ import com.formationds.security.Authorizer;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
-
 import com.formationds.web.toolkit.WebApp;
 
 import org.slf4j.Logger;
@@ -217,6 +217,9 @@ public class ApiDefinition extends AbstractApiDefinition{
     	
     	// list users
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers() );
+    	
+    	// list users for tenant
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/tenant/:tenant_id", (token) -> new ListUsersForTenant() );
     	
     	// create user
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser() );
