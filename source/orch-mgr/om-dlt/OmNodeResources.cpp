@@ -727,6 +727,30 @@ OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
     return false;
 }
 
+fds_bool_t OM_PmAgent::hasRegistered(const FdspNodeRegPtr  msg) {
+    OM_NodeAgent::pointer nodeAgent;
+    switch (msg->node_type) {
+        case FDS_ProtocolInterface::FDSP_STOR_MGR:
+            nodeAgent = activeSmAgent;
+            break;
+        case FDS_ProtocolInterface::FDSP_DATA_MGR:
+            nodeAgent = activeDmAgent;
+            break;
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
+            nodeAgent  = activeAmAgent;
+            break;
+        default:
+            break;
+    };
+
+    if (nodeAgent == NULL) return false;
+    if (msg->node_name != nodeAgent->get_node_name()) return false;
+    if (nodeAgent->get_uuid() != msg->service_uuid.uuid) return false;
+
+    return true;
+
+}
+
 // register_service
 // ----------------
 //
@@ -1209,6 +1233,39 @@ OM_AgentContainer::agent_unregister(const NodeUuid &uuid, const std::string &nam
     return err;
 }
 
+// populate_nodes_in_container
+// -----------------------------
+//
+const Error
+OM_AgentContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
+{
+	NodeUuid nd_uuid;
+	NodeAgent::pointer agent;
+	FDS_ProtocolInterface::FDSP_MgrIdType type = container_type();
+
+	if (rs_available_elm() == 0) {
+		return (ERR_NOT_FOUND);
+	}
+
+	fds_verify((type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR) ||
+			(type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR) ||
+			(type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_PLATFORM) ||
+			(type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR));
+
+	container_nodes.clear();
+
+	for (fds_uint32_t i = 0; i < rs_available_elm(); i++) {
+        agent = agent_info(i);
+        if (agent->node_get_svc_type() == type) {
+    	    container_nodes.emplace_back(agent->get_node_name(),
+    	                                 agent->get_uuid(),
+    	                                 agent->node_get_svc_type());
+        }
+	}
+
+	return (ERR_OK);
+}
+
 // ---------------------------------------------------------------------------------
 // OM Platform NodeAgent Container
 // ---------------------------------------------------------------------------------
@@ -1316,6 +1373,12 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
     return bret;
 }
 
+fds_bool_t OM_PmContainer::hasRegistered(const FdspNodeRegPtr  msg) {
+    NodeAgent::pointer agent = agent_info(NodeUuid(msg->node_uuid.uuid));
+    if (NULL == agent) return false;
+    return OM_PmAgent::agt_cast_ptr(agent)->hasRegistered(msg);
+}
+
 // handle_register_service
 // -----------------------
 //
@@ -1380,11 +1443,26 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
     return svc_uuid;
 }
 
+// populate_nodes_in_container
+// -----------------------------
+//
+const Error
+OM_PmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
+{
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
+}
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
 OM_SmContainer::OM_SmContainer() : OM_AgentContainer(fpi::FDSP_STOR_MGR) {}
-
+// populate_nodes_in_container
+// -----------------------------
+//
+const Error
+OM_SmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
+{
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
+}
 // agent_activate
 // --------------
 //
@@ -1465,11 +1543,27 @@ OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes,
 // --------------------------------------------------------------------------------------
 OM_DmContainer::OM_DmContainer() : OM_AgentContainer(fpi::FDSP_DATA_MGR) {}
 
+// populate_nodes_in_container
+// -----------------------------
+//
+const Error
+OM_DmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
+{
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
+}
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
 // -------------------------------------------------------------------------------------
 OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_ACCESS_MGR) {}
 
+// populate_nodes_in_container
+// -----------------------------
+//
+const Error
+OM_AmContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes)
+{
+	return (OM_AgentContainer::populate_nodes_in_container(container_nodes));
+}
 // --------------------------------------------------------------------------------------
 // OM Node Container
 // --------------------------------------------------------------------------------------

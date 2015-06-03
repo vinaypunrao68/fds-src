@@ -147,10 +147,10 @@ struct CreateVolumeCloneRespMsg {
 struct OpenVolumeMsg {
   /** The volume to request access to */
   1: required i64                       volume_id;
+  /** Requested access mode */
+  2: required common.VolumeAccessMode   mode;
   /** Existing token */
-  2: optional i64                       token = 0;
-  /** Requested access policy (or volume default) */
-  3: optional common.VolumeAccessPolicy policy;
+  3: optional i64                       token = 0;
 }
 
 /**
@@ -159,7 +159,7 @@ struct OpenVolumeMsg {
  */
 struct OpenVolumeRspMsg {
   /** Token for volume access */
-  1: required i64       token;
+  1: required i64                       token;
 }
 
 /**
@@ -455,6 +455,21 @@ struct GetDmStatsMsg {
   5: i64                       metadata_size;
 }
 struct GetDmStatsRespMsg {
+}
+
+/* ------------------------------------------------------------
+   Operations for  Meta verifications 
+   ------------------------------------------------------------*/
+
+struct CtrlNotifyDMStartMigrationMsg {
+  1: list<dm_types.DMVolumeMigrationGroup> migrations;
+  2: i64                     DMT_version;
+  3: bool                    dryRun = false;
+
+}
+
+struct CtrlNotifyDMStartMigrationRspMsg {
+  1: list<dm_types.DMVolumeMigrationDiff> diff;
 }
 
 /* ------------------------------------------------------------

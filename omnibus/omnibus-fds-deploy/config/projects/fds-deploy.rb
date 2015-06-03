@@ -12,7 +12,7 @@ homepage "https://CHANGE-ME.com"
 # and /opt/fds-deploy on all other platforms
 install_dir "#{default_root}/#{name}"
 
-build_version "0.7.6"
+build_version "2015.05.22"
 build_iteration 1
 
 # Creates required build directories

@@ -22,6 +22,11 @@
 #include <util/stringutils.h>
 
 #include <fdsp/svc_types_types.h>
+#include <fdsp/health_monitoring_api_types.h>
+
+#include "fds_module_provider.h"
+#include <net/SvcMgr.h>
+#include <net/SvcRequestPool.h>
 
 #include "platform/platform_manager.h"
 #include "platform/disk_capabilities.h"
@@ -39,7 +44,7 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_deactivateInProgress(false), m_appPidMap(), m_autoRestartFailedProcesses (false)
+        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false)
         {
 
         }
@@ -71,6 +76,7 @@ namespace fds
             }
 
             m_autoRestartFailedProcesses = fdsConfig->get_abs <bool> ("fds.feature_toggle.pm.restart_failed_children_processes");
+
             determineDiskCapability();
 
             return 0;
@@ -139,13 +145,11 @@ namespace fds
             }
 
             // Common command line options
-            args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", getNodeUUID (fpi::FDSP_PLATFORM)));
+            args.push_back (util::strformat ("--fds.pm.platform_uuid=%lld", nodeInfo.uuid));
             args.push_back (util::strformat ("--fds.common.om_ip_list=%s", fdsConfig->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
             args.push_back (util::strformat ("--fds.pm.platform_port=%d", fdsConfig->get <int> ("platform_port")));
 
             pid = fds_spawn_service (command, rootDir, args, false);
-
-LOGDEBUG << "After fds_spawn_service with pid = " << pid;
 
             if (pid > 0)
             {
@@ -386,7 +390,7 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
             db->setNodeDiskCapability(diskCapability);
         }
 
-        fds_int64_t PlatformManager::getNodeUUID(fpi::FDSP_MgrIdType svcType)
+        fds_uint64_t PlatformManager::getNodeUUID(fpi::FDSP_MgrIdType svcType)
         {
             ResourceUUID    uuid;
             uuid.uuid_set_type(nodeInfo.uuid, svcType);
@@ -445,26 +449,50 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
                             std::string procName = mapIter->first;
                             int appIndex = -1;
 
-                            m_appPidMap.erase (mapIter++);
+                            // Find the appIndex of the process that died.
+                            for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
+                            {
+                                if (iter->second == procName)
+                                {
+                                    appIndex = iter->first;
+                                    break;
+                                }
+                            }
 
-                            // need to tell the OM here, that something died, unless we are in shutdown mode, this work is the next card
+                            if (JAVA_AM == appIndex)
+                            {
+                                LOGDEBUG << "Discovered an exited XDI process, also killing bare_am";
+                                stopProcess(BARE_AM);
+                            }
+                            else if (BARE_AM == appIndex)
+                            {
+                                LOGDEBUG << "Discovered an exited bare_am process, also killing XDI";
+                                stopProcess(JAVA_AM);
+                            }
+
+                            notifyOmAProcessDied (procName, appIndex, mapIter->second);
+
+                            m_appPidMap.erase (mapIter++);
 
                             if (m_autoRestartFailedProcesses)
                             {
-                                // Find the appIndex of the process that died.
-                                for (auto iter = m_idToAppNameMap.begin(); m_idToAppNameMap.end() != iter; iter++)
+                                // Since ordering matters to the 2 AM process, enqueue a BARE_AM if XDI died and vise versa for the JAVA_AM below.
+                                if (JAVA_AM == appIndex)
                                 {
-                                    if (iter->second == procName)
-                                    {
-                                        appIndex = iter->first;
-                                        break;
-                                    }
+                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                    m_startQueue.push_back (BARE_AM);
                                 }
 
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                                     m_startQueue.push_back (appIndex);
+                                }
+
+                                if (BARE_AM == appIndex)
+                                {
+                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                    m_startQueue.push_back (JAVA_AM);
                                 }
                             }
                         }
@@ -482,6 +510,76 @@ LOGDEBUG << "After fds_spawn_service with pid = " << pid;
 
                 usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
             }
+        }
+
+        void PlatformManager::notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid)
+        {
+            std::vector <fpi::SvcInfo> serviceMap;
+            MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
+
+            fpi::SvcInfo const *serviceRecord = nullptr;
+
+            fpi::FDSP_MgrIdType serviceType (fpi::FDSP_INVALID_SVC);
+
+            switch (appIndex)
+            {
+                case BARE_AM:
+                case JAVA_AM:
+                {
+                    serviceType = fpi::FDSP_ACCESS_MGR;
+
+                } break;
+
+                case DATA_MANAGER:
+                {
+                    serviceType = fpi::FDSP_DATA_MGR;
+
+                } break;
+
+                case STORAGE_MANAGER:
+                {
+                    serviceType = fpi::FDSP_STOR_MGR;
+
+                } break;
+            }
+
+            // Search through the service map looking for the entity corresponding to this process
+            for (auto const &vectItem : serviceMap)
+            {
+                ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
+
+                // Check if this is a service on this node and is the same service type as the expired process
+                if (getNodeUUID(fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val() &&  uuid.uuid_get_type() == serviceType)
+                {
+                    serviceRecord = &vectItem;
+                    break;
+                }
+            }
+
+            if (nullptr == serviceRecord)
+            {
+                LOGERROR << "Unable to find a service map record for a process that exited unexpectedly.";
+                return;
+            }
+
+            std::ostringstream textualContent;
+            textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") unexpectedly exited.";
+
+            fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
+
+            message->healthReport.serviceID.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
+            message->healthReport.serviceID.svc_name = serviceRecord->name;
+            message->healthReport.servicePort = serviceRecord->svc_port;
+            message->healthReport.platformUUID.svc_uuid.svc_uuid = nodeInfo.uuid;
+            message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
+            message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
+            message->healthReport.statusInfo = textualContent.str();
+
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), message);
+            request->invoke();
         }
 
         void PlatformManager::run()

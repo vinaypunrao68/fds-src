@@ -26,6 +26,14 @@ public interface Authorizer {
      */
     boolean ownsVolume(AuthenticationToken token, String volume);
 
+  /**
+   * @param token the authentication token
+   * @param snapshotName the name of the snapshot
+   *
+   * @return Returns {@code true} is snapshot is owned by; Otherwise {@code false}
+   */
+    boolean ownsSnapshot( final AuthenticationToken token,
+                          final String snapshotName );
     /**
      *
      * @param token

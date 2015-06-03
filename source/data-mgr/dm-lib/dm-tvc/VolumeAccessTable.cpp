@@ -34,14 +34,14 @@ DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
 
 Error
 DmVolumeAccessTable::getToken(fds_int64_t& token,
-                              fpi::VolumeAccessPolicy const& policy,
+                              fpi::VolumeAccessMode const& mode,
                               std::chrono::duration<fds_uint32_t> const lease_time) {
     std::unique_lock<std::mutex> lk(lock);
     auto it = access_map.find(token);
     if (access_map.end() == it) {
-        // check that the exclusivity policy allows for this access request
-        if ((policy.exclusive_read && read_locked) ||
-            (policy.exclusive_write && write_locked)) {
+        // check that there isn't already a writer/cacher to the volume
+        if ((mode.can_cache && cached) ||
+            (mode.can_write && cached)) {
             return ERR_VOLUME_ACCESS_DENIED;
         }
         // Issue a new access token
@@ -54,18 +54,17 @@ DmVolumeAccessTable::getToken(fds_int64_t& token,
                                         LOGNOTIFY << "Expiring volume token: " << token;
                                         this->removeToken(token);
                                      }));
-        auto entry = std::make_pair(policy, task);
+        auto entry = std::make_pair(mode, task);
         timer->schedule(entry.second, lease_time);
 
         // Update table state
-        read_locked = policy.exclusive_read;
-        write_locked = policy.exclusive_write;
+        cached = mode.can_cache;
         access_map[token] = std::move(entry);
     } else {
         // TODO(bszmyd): Thu 09 Apr 2015 10:50:00 AM PDT
         // We currently do not support "upgrading" a token, renewal
-        // of a token requires usage of the same policy.
-        if (policy != it->second.first) {
+        // of a token requires usage of the same mode.
+        if (mode != it->second.first) {
             return ERR_VOLUME_ACCESS_DENIED;
         }
         // Reset the timer for this token
@@ -82,11 +81,8 @@ DmVolumeAccessTable::removeToken(fds_int64_t const token) {
     auto it = access_map.find(token);
     if (access_map.end() != it) {
         timer->cancel(it->second.second);
-        if (write_locked && it->second.first.exclusive_write) {
-            write_locked = false;
-        }
-        if (read_locked && it->second.first.exclusive_read) {
-            read_locked = false;
+        if (cached && it->second.first.can_cache) {
+            cached = false;
         }
         access_map.erase(it);
     }

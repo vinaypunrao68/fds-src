@@ -66,9 +66,11 @@ AmDataApi::attachVolume(const std::string& domainName,
 void
 AmDataApi::attachVolume(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
+    static fpi::VolumeAccessMode const default_access_mode;
     AttachVolumeResponseHandler::ptr handler(new AttachVolumeResponseHandler());
     AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
                                               *volumeName,
+                                              default_access_mode,
                                               SHARED_DYN_CAST(Callback, handler));
     amProcessor->enqueueRequest(blobReq);
     handler->wait();

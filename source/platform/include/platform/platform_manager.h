@@ -74,7 +74,7 @@ namespace fds
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
             protected:
-                fds_int64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
+                fds_uint64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();
 
@@ -90,8 +90,6 @@ namespace fds
                 fpi::NodeInfo                       nodeInfo;
                 std::string                         rootDir;
 
-                bool                                m_deactivateInProgress;
-
                 std::mutex                          m_pidMapMutex;
                 std::map <std::string, pid_t>       m_appPidMap;
 
@@ -103,6 +101,7 @@ namespace fds
 
                 void childProcessMonitor();
                 void startQueueMonitor();
+                void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);
                 std::string getProcName (int const index);
         };
     }  // namespace pm
