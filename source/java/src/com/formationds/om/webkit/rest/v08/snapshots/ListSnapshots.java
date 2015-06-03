@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class ListSnapshots implements RequestHandler {
 
-	private static final String REQ_PARAM_VOLUME_ID = "volumeId";
+	private static final String REQ_PARAM_VOLUME_ID = "volume_id";
 	private ConfigurationApi configApi;
 
 	public ListSnapshots() {
