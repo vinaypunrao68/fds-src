@@ -225,13 +225,13 @@ public class ApiDefinition extends AbstractApiDefinition{
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser() );
     	
     	// get a specific user
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser() );
     	
     	// get current user
     	authenticate( HttpMethod.GET, URL_PREFIX + "/userinfo", (token) -> new CurrentUser( getAuthorizer(), token ) );
     	
     	//edit user
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( config, getAuthorizer(), getSecretKey(), token ) );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( getAuthorizer(), token ) );
     	
     	// delete user  TODO: Not implemented yet
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/users/:user_id", (token) -> new DeleteUser( config ), getAuthorizer() );
