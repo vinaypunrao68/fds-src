@@ -73,9 +73,8 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
         return err;
     }
 
-    // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
-        LOGWARN << "We received empty migrations message from OM, nothing to do";
+        LOGWARN << "We received empty migrations message, nothing to do";
         if (cb) {
             cb(ERR_OK);
         }
@@ -248,7 +247,17 @@ MigrationMgr::startResync(const fds::DLT *dlt,
         fpi::SMTokenMigrationGroup grp;
         grp.source = ptr.first.toSvcUuid();
         grp.tokens = ptr.second;
-        resyncMsg->migrations.push_back(grp);
+
+        /**
+         * Could not find any other SM from the dlt table to act as source
+         * for migration of these dlt tokens. So mark them as available.
+         */
+        if (INVALID_RESOURCE_UUID == ptr.first.toSvcUuid()) {
+            const TokenList tokens(ptr.second.begin(), ptr.second.end());
+            markDltTokensAvailable(tokens);
+        } else {
+            resyncMsg->migrations.push_back(grp);
+        }
     }
 
     // set migration type to resync.
@@ -982,13 +991,18 @@ MigrationMgr::notifyDltUpdate(const DLT *dlt,
             // so this SM is up and does not resync or migration
             // Initialize DLT tokens that this SM owns to ready
             fds_uint32_t numTokens = pow(2, bitsPerDltToken);
-            const TokenList& toks = dlt->getTokens(mySvcUuid);
+            const TokenList& tokens = dlt->getTokens(mySvcUuid);
             dltTokenStates.assign(numTokens, false);
-            for (auto tok : toks) {
-                dltTokenStates[tok] = true;
-                LOGTRACE << "DLT token " << tok << " is available";
-            }
+            markDltTokensAvailable(tokens);
         }
+    }
+}
+
+void
+MigrationMgr::markDltTokensAvailable(const TokenList& tokens) {
+    for (auto token : tokens) {
+        dltTokenStates[token] = true;
+        LOGTRACE << "DLT token " << token << " is available";
     }
 }
 
