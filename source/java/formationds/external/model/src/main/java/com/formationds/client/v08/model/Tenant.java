@@ -13,6 +13,10 @@ public class Tenant extends AbstractResource<Long> {
 
     public static final Tenant SYSTEM = new Tenant( 1L, "system" );
 
+    private Tenant(){
+    	super( 0L, "None" );
+    }
+    
     public Tenant( Long id, String name ) {
         super( id, name );
     }

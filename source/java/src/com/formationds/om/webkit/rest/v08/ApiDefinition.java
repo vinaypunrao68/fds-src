@@ -297,10 +297,10 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing tenant endpoints..." );
     	
     	// list the tenants
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants() );
     	
     	// create tenant
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant() );
     	
     	// delete tenant TODO: Not implemented
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ) );
