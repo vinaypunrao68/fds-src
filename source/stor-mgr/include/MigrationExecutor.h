@@ -110,7 +110,7 @@ class MigrationExecutor {
      * destination SM.
      */
     Error startObjectRebalance(leveldb::ReadOptions& options,
-                               leveldb::DB *db);
+                               std::shared_ptr<leveldb::DB> db);
 
     Error startSecondObjectRebalanceRound();
 
@@ -120,7 +120,7 @@ class MigrationExecutor {
      * not ready to become source.
      */
     Error startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                    leveldb::DB *db);
+                                    std::shared_ptr<leveldb::DB> db);
     /**
      * Handles message from Source SM to apply delta set to this SM
      */

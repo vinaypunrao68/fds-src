@@ -224,7 +224,7 @@ class MigrationMgr {
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db, bool retry);
+                                   std::shared_ptr<leveldb::DB> db, bool retry);
 
     /**
      * Callback for a migration executor that it finished migration

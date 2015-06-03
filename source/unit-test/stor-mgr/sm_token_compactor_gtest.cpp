@@ -142,7 +142,7 @@ class TestReqHandler: public SmIoReqHandler {
         EXPECT_TRUE(odb != NULL);
 
         leveldb::ReadOptions options;
-        leveldb::DB *db = odb->GetDB();
+        std::shared_ptr<leveldb::DB> db = odb->GetDB();
         options.snapshot = db->GetSnapshot();
         snapReq->smio_snap_resp_cb(ERR_OK, NULL, options, db, false);
     }

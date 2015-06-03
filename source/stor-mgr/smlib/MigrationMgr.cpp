@@ -280,7 +280,7 @@ void
 MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                         SmIoSnapshotObjectDB* snapRequest,
                                         leveldb::ReadOptions& options,
-                                        leveldb::DB *db,
+                                        std::shared_ptr<leveldb::DB> db,
                                         bool retryMigrFailedTokens)
 {
     Error err(ERR_OK);

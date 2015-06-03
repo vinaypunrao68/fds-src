@@ -64,7 +64,7 @@ MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
 // migration executors
 Error
 MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                             leveldb::DB *db)
+                                             std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
     ObjMetaData omd;
@@ -210,7 +210,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 // migration executors
 Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
-                                        leveldb::DB *db)
+                                        std::shared_ptr<leveldb::DB> db)
 {
     LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec;
     Error err(ERR_OK);

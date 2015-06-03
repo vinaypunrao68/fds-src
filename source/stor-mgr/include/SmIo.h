@@ -356,7 +356,7 @@ class SmIoGetObjectReq : public SmIoReq {
 class SMTokenItr {
  public:
     leveldb::Iterator* itr;
-    leveldb::DB* db;
+    std::shared_ptr<leveldb::DB> db;
     leveldb::ReadOptions options;
     bool done;
 
@@ -379,7 +379,7 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db,
+                                std::shared_ptr<leveldb::DB> db,
                                 bool retry)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,

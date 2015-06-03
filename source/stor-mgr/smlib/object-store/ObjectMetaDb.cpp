@@ -23,7 +23,6 @@ void ObjectMetadataDb::setNumBitsPerToken(fds_uint32_t nbits) {
 
 void
 ObjectMetadataDb::closeMetadataDb() {
-    std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>>::iterator it;
     LOGDEBUG << "Will close all open Metadata DBs";
 
     SCOPEDWRITE(dbmapLock_);
@@ -148,12 +147,12 @@ std::shared_ptr<osm::ObjectDB> ObjectMetadataDb::getObjectDB(const ObjectID& obj
     }
 
     // else did not find it
-    return NULL;
+    return nullptr;
 }
 
 Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
-                           leveldb::DB*& db,
+                           std::shared_ptr<leveldb::DB>& db,
                            leveldb::ReadOptions& opts) {
     std::shared_ptr<osm::ObjectDB> odb = nullptr;
 
