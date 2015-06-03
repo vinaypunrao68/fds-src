@@ -1,0 +1,6 @@
+#!/bin/bash
+
+CLASSPATH=$CLASSPATH:../lib/java/\*
+
+java -classpath $CLASSPATH \
+     com.formationds.om.Main $*

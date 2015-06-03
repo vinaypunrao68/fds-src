@@ -17,5 +17,5 @@ env FDS_ROOT=/fds
 
 script
 chdir $FDS_ROOT/bin
-exec java -classpath $CLASSPATH:/fds/lib/java/fds-1.0-bin/fds-1.0/\*:/fds/lib/java/classes com.formationds.om.Main --foreground --fds-root=$FDS_ROOT > $FDS_ROOT/bin/om.out 2>&1
+exec java -classpath $CLASSPATH:/fds/lib/java/\* com.formationds.om.Main --foreground --fds-root=$FDS_ROOT > $FDS_ROOT/bin/om.out 2>&1
 end script
