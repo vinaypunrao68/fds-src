@@ -6,6 +6,7 @@ package com.formationds.om.webkit.rest.v08;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.webkit.AbstractApiDefinition;
+import com.formationds.om.webkit.rest.v08.domain.ListLocalDomains;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
 import com.formationds.om.webkit.rest.v08.events.QueryEvents;
 import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
@@ -102,6 +103,7 @@ public class ApiDefinition extends AbstractApiDefinition{
         configureTenantEndpoints( configApi );
         configureMetricsEndpoints( configApi );
         configureEventsEndpoints( configApi );
+        configureDomainEndpoints();
         
     }
     
@@ -318,6 +320,14 @@ public class ApiDefinition extends AbstractApiDefinition{
     	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant() );
     	
     	logger.trace( "Completed initializing tenant endpoints." );
+    }
+    
+    /**
+     * Setup all the URL's for domains
+     */
+    private void configureDomainEndpoints(){
+    	
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/local_domains", (token) -> new ListLocalDomains() );
     }
     
     /**
