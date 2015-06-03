@@ -394,26 +394,26 @@ public class ExternalModelConverter {
 		return externalStatus;
 	}
 	
-	public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
-		
-		long creation = internalSnapshot.getCreationTimestamp();
-		long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
-		long snapshotId = internalSnapshot.getSnapshotId();
-		String snapshotName = internalSnapshot.getSnapshotName();
-		long volumeId = internalSnapshot.getVolumeId();
-		
-		Snapshot externalSnapshot = new Snapshot( snapshotId, 
-				 								  snapshotName, 
-				 								  volumeId,
-				 								  Duration.ofSeconds( retentionInSeconds ), 
-				 								  Instant.ofEpochMilli( creation ) );
-		
-		return externalSnapshot;
-	}
+//	public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
+//		
+//		long creation = internalSnapshot.getCreationTimestamp();
+//		long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
+//		long snapshotId = internalSnapshot.getSnapshotId();
+//		String snapshotName = internalSnapshot.getSnapshotName();
+//		long volumeId = internalSnapshot.getVolumeId();
+//		
+//		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+//				 								  snapshotName, 
+//				 								  volumeId,
+//				 								  Duration.ofSeconds( retentionInSeconds ), 
+//				 								  Instant.ofEpochMilli( creation ) );
+//		
+//		return externalSnapshot;
+//	}
 	
-	public static com.formationds.apis.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
+	public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
 		
-		com.formationds.apis.Snapshot internalSnapshot = new com.formationds.apis.Snapshot();
+		com.formationds.protocol.Snapshot internalSnapshot = new com.formationds.protocol.Snapshot();
 		
 		internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
 		internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
