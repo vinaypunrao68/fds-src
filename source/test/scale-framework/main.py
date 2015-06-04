@@ -59,6 +59,7 @@ class Operation(object):
 
         # get the inventory file if there is one
         if self.args.inventory is not None:
+            print(self.args.inventory)
             self.inventory_file = self.args.inventory
 
 
