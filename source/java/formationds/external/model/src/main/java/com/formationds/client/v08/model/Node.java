@@ -17,22 +17,27 @@ import java.util.Objects;
 
 public class Node extends AbstractResource<Long> {
 
-    public static enum NodeStatus { UP, DOWN, UNKNOWN }
-    public static class NodeState {
+    // TODO: what are the supported node states.
+    public enum NodeState { UP, DOWN, UNKNOWN }
+
+    /**
+     *
+     */
+    public static class NodeStatus {
         private final Instant timestamp;
-        private final NodeStatus currentStatus;
+        private final NodeState currentState;
 
-        public NodeState( NodeStatus currentStatus ) {
-            this(Instant.now(), currentStatus);
+        public NodeStatus( NodeState currentState ) {
+            this(Instant.now(), currentState);
         }
 
-        public NodeState( Instant timestamp, NodeStatus currentStatus ) {
+        public NodeStatus( Instant timestamp, NodeState currentState ) {
             this.timestamp = timestamp;
-            this.currentStatus = currentStatus;
+            this.currentState = currentState;
         }
 
-        public NodeStatus getCurrentStatus() {
-            return currentStatus;
+        public NodeState getCurrentState() {
+            return currentState;
         }
 
         public Instant getTimestamp() {
@@ -43,14 +48,14 @@ public class Node extends AbstractResource<Long> {
         public boolean equals( Object o ) {
             if ( this == o ) { return true; }
             if ( !(o instanceof NodeState) ) { return false; }
-            final NodeState nodeState = (NodeState) o;
-            return Objects.equals( timestamp, nodeState.timestamp ) &&
-                   Objects.equals( currentStatus, nodeState.currentStatus );
+            final NodeStatus nodeStatus = (NodeStatus) o;
+            return Objects.equals( timestamp, nodeStatus.timestamp ) &&
+                   Objects.equals( currentState, nodeStatus.currentState );
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash( timestamp, currentStatus );
+            return Objects.hash( timestamp, currentState );
         }
     }
 
@@ -58,6 +63,16 @@ public class Node extends AbstractResource<Long> {
      * A node may be addressed by one or both of an IPv4 or IPv6 address.
      */
     public static class NodeAddress {
+
+        /**
+         *
+         * @param addr the host name or address (IPv4 or IPv6)
+         * @return the InetAddress
+         * @throws UnknownHostException if it fails to create an InetAddress based on the address string
+         */
+        public static InetAddress fromString(String addr) throws UnknownHostException {
+            return InetAddress.getByName( addr );
+        }
 
         /**
          * @param ipv4 an IPv4 Address encoded as an integer
@@ -147,11 +162,18 @@ public class Node extends AbstractResource<Long> {
             this.ipv4Address = ipv4;
             this.ipv6Address = ipv6;
         }
-        
+
+        /**
+         * @return the IPv4 address or null if not set
+         */
         public Inet4Address getIpv4Address(){
         	return ipv4Address;
         }
-        
+
+        /**
+         *
+         * @return the IPv6 address or null if not set
+         */
         public Inet6Address getIpv6Address(){
         	return ipv6Address;
         }

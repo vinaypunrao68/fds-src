@@ -92,7 +92,7 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
     }
 
     /**
-     * Set the resource ID.
+     * Set the resource ID.  The id is system generated and should not be modified by clients.
      *
      * @param id the ID
      */

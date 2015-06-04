@@ -6,12 +6,15 @@ package com.formationds.client.v08.model;
 
 import java.util.Objects;
 
+/**
+ * Represent a user in the system
+ */
 public class User extends AbstractResource<Long> {
 
     private final Role roleDescriptor;
     private final Tenant tenant;
 
-    private User(){
+    private User() {
     	this( 0L, "None", Role.ADMIN, null );
     }
     
@@ -28,10 +31,17 @@ public class User extends AbstractResource<Long> {
         this.tenant = tenant;
     }
 
+    /**
+     * @return the users's role descriptors.
+     */
     public Role getRoleDescriptor() {
         return roleDescriptor;
     }
 
+    /**
+     *
+     * @return the tenant the user belongs to.
+     */
     public Tenant getTenant() {
         return tenant;
     }

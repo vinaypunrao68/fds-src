@@ -35,6 +35,7 @@ public class Volume extends AbstractResource<Long> {
         private QosPolicy            qosPolicy;
         private VolumeStatus         status;
         private final Map<String, String> tags = new HashMap<>();
+        private Optional<Instant> creationTime = Optional.empty();
 
         public Builder( String volumeName ) {
             this.volumeName = volumeName;
@@ -46,6 +47,7 @@ public class Volume extends AbstractResource<Long> {
         }
 
         public Builder id(Number id) { this.id = (id != null ? Optional.of( id.longValue() ) : Optional.empty()); return this; }
+        public Builder creationTime(Instant t) { this.creationTime = Optional.of( t ); return this; }
         public Builder tenant(Tenant t) { this.tenant = t; return this; }
         public Builder addTag(String k, String v) { this.tags.put(k, v); return this; }
         public Builder addTags(Map<String,String> tags) { this.tags.putAll(tags); return this; }
@@ -79,7 +81,7 @@ public class Volume extends AbstractResource<Long> {
                               dataProtectionPolicy,
                               accessPolicy,
                               qosPolicy,
-                              null,
+                              creationTime.orElse( null ),
                               tags );
         }
     }
@@ -176,42 +178,79 @@ public class Volume extends AbstractResource<Long> {
     	this( uid, name, null, null, null, null, null, null, null, null, null, null );
     }
 
+    /**
+     *
+     * @return the tenant the volume is assigned to
+     */
     public Tenant getTenant() {
         return tenant;
     }
 
+    /**
+     *
+     * @param tenant the tenant the volume is assigned to
+     */
     public void setTenant( Tenant tenant ) {
         this.tenant = tenant;
     }
 
+    /**
+     *
+     * @return the map of volume metadata tags
+     */
     public Map<String, String> getTags() {
         return tags;
     }
 
+    /**
+     *
+     * @param tag the tag name
+     * @param val the tag value
+     */
     public void addTag( String tag, String val ) {
         this.tags.put( tag, val );
     }
 
+    /**
+     *
+     * @param tag the tag to remove
+     */
     public void removeTag( String tag ) {
         this.tags.remove( tag );
     }
 
+    /**
+     * @return the application this volume is associated with
+     */
     public String getApplication() {
         return application;
     }
 
+    /**
+     * @param application the application name
+     */
     public void setApplication( String application ) {
         this.application = application;
     }
 
+    /**
+     * @return the most-recent snapshot of the volume status
+     */
     public VolumeStatus getStatus() {
         return status;
     }
 
+    /**
+     * @param status the current (most-recent) snapshot of the volume status
+     */
     public void setStatus( VolumeStatus status ) {
         this.status = status;
     }
 
+    /**
+     *
+     * @return the volume settings
+     */
     public VolumeSettings getSettings() {
         return settings;
     }

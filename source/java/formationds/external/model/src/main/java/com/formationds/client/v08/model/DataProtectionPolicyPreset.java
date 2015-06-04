@@ -8,6 +8,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ *
+ */
 public class DataProtectionPolicyPreset extends DataProtectionPolicyBase {
     private Long id;
 
@@ -21,7 +24,15 @@ public class DataProtectionPolicyPreset extends DataProtectionPolicyBase {
         this.id = id;
     }
 
+    /**
+     * @return the preset id
+     */
     public Long getId() { return id; }
+
+    /**
+     *
+     * @param id the preset id
+     */
     public void setId( Long id ) {
         this.id = id;
     }
