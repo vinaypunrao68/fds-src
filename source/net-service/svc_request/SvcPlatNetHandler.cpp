@@ -132,8 +132,7 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
          */
          fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
          asyncReqHandlers_.at(header->msg_type_id) (header, payload);
-    }
-    catch(std::out_of_range &e)
+    } catch(std::out_of_range &e)
     {
         fds_assert(!"Unregistered fdsp message type");
         LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id)
