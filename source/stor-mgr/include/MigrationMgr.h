@@ -238,7 +238,7 @@ class MigrationMgr {
                                                          MigrationType& migrationType,
                                                          bool onePhaseMigration,
                                                          fds_uint32_t uniqueId = 0,
-                                                         fds_uint8_t instanceNum = 1); 
+                                                         fds_uint16_t instanceNum = 1);
     /**
      * Callback function from the metadata snapshot request for a particular SM token
      */

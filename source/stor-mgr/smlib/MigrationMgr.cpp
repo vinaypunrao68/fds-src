@@ -193,7 +193,7 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                       MigrationType& migrationType,
                                       bool onePhaseMigration,
                                       fds_uint32_t uniqueId,
-                                      fds_uint8_t instanceNum) {
+                                      fds_uint16_t instanceNum) {
 
     LOGMIGRATE << "Will create migration executor class";
     fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId,
@@ -220,7 +220,8 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                   migrationTimeoutTimer,
                                   migrationTimeoutSec,
                                   std::bind(&MigrationMgr::timeoutAbortMigration,
-                                            this)));
+                                            this),
+                                  uniqueId, instanceNum));
 }
 
 void
@@ -651,12 +652,12 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                       const Error& error)
 {
     fds_bool_t isFirstRound = (round == 1);
-    
+
     LOGMIGRATE << "Migration executor " << std::hex << executorId << std::dec
                << " smToken=" << smToken
                << " finished migration round " << round << " done? "
                << (round == 2) << error;
-    
+
     MigrationState curState = atomic_load(&migrState);
     if (curState == MIGR_ABORTED) {
         // migration already stopped, don't do anything..
@@ -664,7 +665,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     }
     fds_verify(curState == MIGR_IN_PROGRESS);
 
-    // Currently DTL tokens may become active in the following cases:
+    // Currently DLT tokens may become active in the following cases:
     // 1) DLT token becomes available when source
     // SM declines to be a source (because this SM has higher responsibility for
     // this DLT token, so we declare the DLT token ready on this SM): this is the
@@ -686,12 +687,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         }
     }
 
-    /**
-     * For resync of SM node, round could be 0.
-     */
-    if (!resyncOnRestart) {
-        fds_verify(round > 0);
-    }
+    fds_verify(round > 0);
 
     // beta2: stop the whole migration process on any error
     if (!error.ok()) {
@@ -1220,8 +1216,11 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                                                                                 uniqueId,
                                                                                 curInstanceNum);
                 }
-                // tell migration executor that it is responsible for this DLT token
-                migrExecutors[smToken][srcSmUuid]->addDltToken(dltToken);
+
+                if (migrExecutors[smToken][srcSmUuid]->getUniqueId() == uniqueId) {
+                    // tell migration executor that it is responsible for this DLT token
+                    migrExecutors[smToken][srcSmUuid]->addDltToken(dltToken);
+                }
             }
         }
     }
@@ -1236,7 +1235,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
      * migration executors. To enable that, we will pass a unique restart id along
      * with the smToken for which we are issuing startMigration. This unique id
      * will be checked when snapshot callback tries to handover the newly taken
-     * smToken snapshot to the concerned migration executors.
+     * smToken snapshot to the relevant migration executors.
      */
      startSmTokenMigration(smToken, uniqueId);
 

@@ -29,7 +29,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      uint32_t timeoutDuration,
                                      const std::function<void()>& timeoutHandler,
                                      fds_uint32_t uid,
-                                     fds_uint8_t iNum)
+                                     fds_uint16_t iNum)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
           migrFailedRetryHandler(failedRetryHandler),
@@ -45,6 +45,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           instanceNum(iNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
+    firstFilterSetMesgRespRecvd = ATOMIC_VAR_INIT(false);
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -216,7 +217,8 @@ Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                         leveldb::DB *db)
 {
-    LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec;
+    LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec
+               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId;
     Error err(ERR_OK);
     ObjMetaData omd;
 
@@ -394,7 +396,6 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
     // here we just check for errors
     if (!error.ok()) {
         switch (error.GetErrno()) {
-            case ERR_NODE_NOT_ACTIVE:
             case ERR_SM_RESYNC_SOURCE_DECLINE:
                 // SM declined to be a source for DLT token
                 LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
@@ -405,7 +406,14 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 if (migrDoneHandler) {
                     std::set<fds_token_id> oneTokSet;
                     oneTokSet.insert(dltToken);
-                    migrDoneHandler(executorId, smTokenId, oneTokSet, 0, error);
+                    fds_uint32_t round = 0;
+                    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
+                               << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
+                               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId
+                               << ", SM token " << smTokenId
+                               << " Round " << round
+                               << " isResync? " << onePhaseMigration;
+                    migrDoneHandler(executorId, smTokenId, oneTokSet, round, error);
                 }
                 if (dltTokens.size() == 0) {
                     // resync was declined for all DLT tokens of this executor, we are done
@@ -425,6 +433,11 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
+                bool respReceived = false;
+                if (std::atomic_compare_exchange_strong(&firstFilterSetMesgRespRecvd,
+                                                        &respReceived, true)) {
+                    handleMigrationRoundDone(error);
+                }
         }
     }
 }
@@ -712,8 +725,9 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         }
     }
 
-    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
+    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId 
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
+               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId
                << ", SM token " << smTokenId
                << " Round " << roundNum
                << " isResync? " << onePhaseMigration;

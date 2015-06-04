@@ -49,7 +49,7 @@ class MigrationExecutor {
                       uint32_t timoutDuration,
                       const std::function<void()> &timeoutHandler,
                       fds_uint32_t uniqId = 0,
-                      fds_uint8_t instanceNum = 1);
+                      fds_uint16_t instanceNum = 1);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -72,7 +72,7 @@ class MigrationExecutor {
     inline MigrationExecutorState getState() const {
         return std::atomic_load(&state);
     }
-    inline fds_uint8_t getInstanceNum() const {
+    inline fds_uint16_t getInstanceNum() const {
         return instanceNum;
     }
     inline fds_uint32_t getUniqueId() const {
@@ -182,7 +182,7 @@ class MigrationExecutor {
      * For a given SM token, the instance number of executor
      * created to migrate token data.
      */
-    fds_uint8_t instanceNum;
+    fds_uint16_t instanceNum;
 
     /// state of this migration executor
     std::atomic<MigrationExecutorState> state;
@@ -259,6 +259,11 @@ class MigrationExecutor {
      *              path with mutex ops.
      */
     MigrationTrackIOReqs trackIOReqs;
+
+    /**
+     * Tracks first response for the filter set message sent to the source SM.
+     */
+    std::atomic<bool> firstFilterSetMesgRespRecvd;
 
     /**
      * Will this migration have only one phase?
