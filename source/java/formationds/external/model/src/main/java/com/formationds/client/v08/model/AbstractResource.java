@@ -35,7 +35,9 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
     public static Comparator<AbstractResource> idCompare() { return ( o1, o2 ) -> o1.uid.compareTo( o2.uid );}
 
     private I      uid;
-    private final String name;
+    private String name;
+
+    protected AbstractResource( ) { }
 
     /**
      * Create a resource with the specified unique name
@@ -92,7 +94,15 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
     }
 
     /**
-     * Set the resource ID.
+     *
+     * @param name
+     */
+    public void setName( String name ) {
+        this.name = name;
+    }
+
+    /**
+     * Set the resource ID.  The id is system generated and should not be modified by clients.
      *
      * @param id the ID
      */
@@ -148,5 +158,14 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
     @Override
     public int hashCode() {
         return Objects.hash( uid, name );
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder( "" );
+        if (uid != null ) sb.append( "uid=" ).append( uid );
+        if (uid != null && name != null) sb.append( ":" );
+        if (name != null) sb.append( "name='" ).append( name ).append( '\'' );
+        return sb.toString();
     }
 }

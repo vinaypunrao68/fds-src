@@ -4,6 +4,8 @@
 
 package com.formationds.client.v08.model;
 
+import java.util.Objects;
+
 public class Service extends AbstractResource<Long> {
 
     public static enum ServiceStatus {
@@ -18,12 +20,26 @@ public class Service extends AbstractResource<Long> {
         SHUTTING_DOWN;
     }
 
-    private final ServiceType type;
-    private final int port;
-    private final ServiceStatus status;
+    private ServiceType type;
+    private int port;
 
-    public Service(Long id, ServiceType type,  int port, ServiceStatus status) {
-        super(id, type.getFullName(), Integer.toString( port ));
+    private ServiceStatus status;
+
+    protected Service() {}
+
+    public Service( ServiceType type, int port ) {
+        super( null, type.name(), Integer.toString( port ) );
+    }
+
+    public Service( ServiceType type, int port, ServiceStatus status ) {
+        super( null, type.name() );
+        this.type = type;
+        this.port = port;
+        this.status = status;
+    }
+
+    public Service( Long id, ServiceType type, int port, ServiceStatus status ) {
+        super( id, type.name() );
         this.type = type;
         this.port = port;
         this.status = status;
@@ -41,5 +57,31 @@ public class Service extends AbstractResource<Long> {
         return status;
     }
 
+    public void setStatus( ServiceStatus status ) {
+        this.status = status;
+    }
 
+    public void setPort( int port ) {
+        this.port = port;
+    }
+
+    public void setType( ServiceType type ) {
+        this.type = type;
+    }
+
+    @Override
+    public boolean equals( Object o ) {
+        if ( this == o ) { return true; }
+        if ( !(o instanceof Service) ) { return false; }
+        if ( !super.equals( o ) ) { return false; }
+        final Service service = (Service) o;
+        return Objects.equals( port, service.port ) &&
+               Objects.equals( type, service.type ) &&
+               Objects.equals( status, service.status );
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash( super.hashCode(), type, port, status );
+    }
 }

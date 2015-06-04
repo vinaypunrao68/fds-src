@@ -3,6 +3,7 @@ package com.formationds.client.v08.model;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
+import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import org.junit.Test;
 
@@ -31,7 +32,7 @@ public class VolumeTest {
 
                   rule.setDays( days );
 
-        SnapshotPolicy sPolicy = new SnapshotPolicy( rule, Duration.ofDays( 30 ) );
+        SnapshotPolicy sPolicy = new SnapshotPolicy( SnapshotPolicyType.SYSTEM_TIMELINE, rule, Duration.ofDays( 30 ) );
         List<SnapshotPolicy> sPolicies = new ArrayList<>();
         sPolicies.add( sPolicy );
 

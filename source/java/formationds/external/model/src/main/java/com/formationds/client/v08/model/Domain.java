@@ -11,9 +11,9 @@ public class Domain extends AbstractResource<Long> {
 
     private List<Node> nodes = new ArrayList<>();
     private final String site;
-    
-    private Domain(){
-    	this( 0L, "fds", "local" );
+
+    private Domain() {
+        this( 0L, "fds", "local" );
     }
 
     public Domain( String key, String site ) {
@@ -25,16 +25,19 @@ public class Domain extends AbstractResource<Long> {
         this.site = site;
     }
 
-    public String getSite(){
-    	return site;
+    public String getSite() {
+        return site;
     }
-    
+
+    /**
+     * @return the list of nodes for this domain
+     */
     public List<Node> getNodes() {
-    	
-    	if ( nodes == null ){
-    		nodes = new ArrayList<>();
-    	}
-    	
+
+        if ( nodes == null ) {
+            nodes = new ArrayList<>();
+        }
+
         return nodes;
     }
 

@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
+/**
+ * Standard Role descriptors and their supported feature lists
+ */
 public enum Role implements RoleDescriptor {
 
     ADMIN(Feature.SYS_MGMT, Feature.TENANT_MGMT, Feature.USER_MGMT, Feature.VOL_MGMT),
@@ -19,7 +22,7 @@ public enum Role implements RoleDescriptor {
     private Role(){
     	this( Feature.VOL_MGMT );
     }
-    
+
     Role( Feature f1, Feature... features ) {
         this.features = EnumSet.of( f1, features );
     }

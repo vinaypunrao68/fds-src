@@ -4,11 +4,9 @@
 
 package com.formationds.client.v08.model;
 
-import com.formationds.client.ical.RecurrenceRule;
-
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +33,7 @@ public class Volume extends AbstractResource<Long> {
         private QosPolicy            qosPolicy;
         private VolumeStatus         status;
         private final Map<String, String> tags = new HashMap<>();
+        private Optional<Instant> creationTime = Optional.empty();
 
         public Builder( String volumeName ) {
             this.volumeName = volumeName;
@@ -46,6 +45,7 @@ public class Volume extends AbstractResource<Long> {
         }
 
         public Builder id(Number id) { this.id = (id != null ? Optional.of( id.longValue() ) : Optional.empty()); return this; }
+        public Builder creationTime(Instant t) { this.creationTime = Optional.of( t ); return this; }
         public Builder tenant(Tenant t) { this.tenant = t; return this; }
         public Builder addTag(String k, String v) { this.tags.put(k, v); return this; }
         public Builder addTags(Map<String,String> tags) { this.tags.putAll(tags); return this; }
@@ -60,11 +60,9 @@ public class Volume extends AbstractResource<Long> {
             return dataProtectionPolicy( DataProtectionPolicy.fromPreset( preset ) );
         }
         public Builder dataProtectionPolicy(long commitLogRetention,
-                                            long snapshotRetentionTime,
-                                            RecurrenceRule rr,
-                                            TimeUnit unit ) {
-            List<SnapshotPolicy> sp = new ArrayList<>( );
-            sp.add( new SnapshotPolicy( rr, Duration.of( snapshotRetentionTime, unit ) ) );
+                                            TimeUnit unit,
+                                            SnapshotPolicy... snapshotPolicies) {
+            List<SnapshotPolicy> sp = Arrays.asList( snapshotPolicies );
             return dataProtectionPolicy( new DataProtectionPolicy( Duration.of( commitLogRetention, unit), sp) );
         }
 
@@ -79,7 +77,7 @@ public class Volume extends AbstractResource<Long> {
                               dataProtectionPolicy,
                               accessPolicy,
                               qosPolicy,
-                              null,
+                              creationTime.orElse( null ),
                               tags );
         }
     }
@@ -129,7 +127,7 @@ public class Volume extends AbstractResource<Long> {
 
     /**
      *
-     * @param uid the volume id.  May be null indicating that the volume is not yet saved or loaded
+     * @param id the volume id.  May be null indicating that the volume is not yet saved or loaded
      * @param name the volume name
      * @param tenant the tenant that the volume is assigned to. May be the "system" tenant
      * @param application the name of the application this volume is associated with
@@ -142,7 +140,7 @@ public class Volume extends AbstractResource<Long> {
      * @param created the creation time
      * @param tags volume metadata tags.
      */
-    public Volume( Long uid,
+    public Volume( Long id,
                    String name,
                    Tenant tenant,
                    String application,
@@ -154,7 +152,7 @@ public class Volume extends AbstractResource<Long> {
                    QosPolicy qosPolicy,
                    Instant created,
                    Map<String, String> tags ) {
-        super( uid, name );
+        super( id, name );
         this.tenant = tenant;
         this.tags = tags;
         this.application = application;
@@ -168,50 +166,87 @@ public class Volume extends AbstractResource<Long> {
     }
 
     /**
-     * @param uid the volume id
+     * @param id the volume id
      * @param name the volume name
      */
-    public Volume( Long uid,
+    public Volume( Long id,
                    String name ){
-    	this( uid, name, null, null, null, null, null, null, null, null, null, null );
+    	this( id, name, null, null, null, null, null, null, null, null, null, null );
     }
 
+    /**
+     *
+     * @return the tenant the volume is assigned to
+     */
     public Tenant getTenant() {
         return tenant;
     }
 
+    /**
+     *
+     * @param tenant the tenant the volume is assigned to
+     */
     public void setTenant( Tenant tenant ) {
         this.tenant = tenant;
     }
 
+    /**
+     *
+     * @return the map of volume metadata tags
+     */
     public Map<String, String> getTags() {
         return tags;
     }
 
+    /**
+     *
+     * @param tag the tag name
+     * @param val the tag value
+     */
     public void addTag( String tag, String val ) {
         this.tags.put( tag, val );
     }
 
+    /**
+     *
+     * @param tag the tag to remove
+     */
     public void removeTag( String tag ) {
         this.tags.remove( tag );
     }
 
+    /**
+     * @return the application this volume is associated with
+     */
     public String getApplication() {
         return application;
     }
 
+    /**
+     * @param application the application name
+     */
     public void setApplication( String application ) {
         this.application = application;
     }
 
+    /**
+     * @return the most-recent snapshot of the volume status
+     */
     public VolumeStatus getStatus() {
         return status;
     }
 
+    /**
+     * @param status the current (most-recent) snapshot of the volume status
+     */
     public void setStatus( VolumeStatus status ) {
         this.status = status;
     }
 
+    /**
+     *
+     * @return the volume settings
+     */
     public VolumeSettings getSettings() {
         return settings;
     }

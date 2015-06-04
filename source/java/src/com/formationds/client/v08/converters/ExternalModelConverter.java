@@ -8,6 +8,7 @@ import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.Service.ServiceStatus;
+import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
@@ -435,7 +436,12 @@ public class ExternalModelConverter {
 		
 		Duration extRetention = Duration.ofSeconds( intRetention );
 
-		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, extRule, extRetention );
+        SnapshotPolicyType type = SnapshotPolicyType.USER;
+        if ( internalPolicy.getPolicyName().contains( SnapshotPolicyType.SYSTEM_TIMELINE.name() ) ) {
+            type = SnapshotPolicyType.SYSTEM_TIMELINE;
+        }
+
+		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
 
 		return externalPolicy;
 	}
@@ -443,8 +449,9 @@ public class ExternalModelConverter {
     public static com.formationds.apis.SnapshotPolicy convertToInternalSnapshotPolicy( SnapshotPolicy externalPolicy ) {
         com.formationds.apis.SnapshotPolicy internalPolicy = new com.formationds.apis.SnapshotPolicy();
 
+        String policyName = externalPolicy.getName();
         internalPolicy.setId( externalPolicy.getId() );
-        internalPolicy.setPolicyName( externalPolicy.getId().toString() );
+        internalPolicy.setPolicyName( policyName );
         internalPolicy.setRecurrenceRule( externalPolicy.getRecurrenceRule().toString() );
         internalPolicy.setRetentionTimeSeconds( externalPolicy.getRetentionTime().getSeconds() );
 
@@ -594,7 +601,8 @@ public class ExternalModelConverter {
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
             
             internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
-            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE ).intValue() );
+            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE )
+                                                                   .intValue() );
             
             internalSettings.setVolumeType( VolumeType.BLOCK );
             
@@ -606,7 +614,8 @@ public class ExternalModelConverter {
         }
 
         internalSettings.setMediaPolicy( convertToInternalMediaPolicy( externalVolume.getMediaPolicy() ) );
-        internalSettings.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
+        internalSettings.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+                                                                  .getSeconds() );
 
         internalDescriptor.setPolicy( internalSettings );
 
@@ -617,7 +626,8 @@ public class ExternalModelConverter {
 
         FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
 
-        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
+        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+                                                            .getSeconds() );
         volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
         volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
         volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );

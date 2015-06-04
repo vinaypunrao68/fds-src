@@ -12,8 +12,9 @@ import java.util.Objects;
 abstract class DataProtectionPolicyBase {
 
     private Duration             commitLogRetention;
-    private List<SnapshotPolicy> snapshotPolicies;
+    private List<SnapshotPolicy> snapshotPolicies = new ArrayList<>();
 
+    protected DataProtectionPolicyBase() {}
     public DataProtectionPolicyBase( Duration commitLogRetention,
                                      List<SnapshotPolicy> snapshotPolicies ) {
         this.commitLogRetention = commitLogRetention;
@@ -21,6 +22,7 @@ abstract class DataProtectionPolicyBase {
     }
 
     public Duration getCommitLogRetention() { return commitLogRetention; }
+
     public List<SnapshotPolicy> getSnapshotPolicies() { return snapshotPolicies; }
 
     public void setCommitLogRetention( Duration commitLogRetention ) {
@@ -29,6 +31,11 @@ abstract class DataProtectionPolicyBase {
 
     public void setSnapshotPolicies( List<SnapshotPolicy> snapshotPolicies ) {
         this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
+    }
+
+    public DataProtectionPolicyBase addSnapshotPolicies( SnapshotPolicy snapshotPolicy ) {
+        this.snapshotPolicies.add( snapshotPolicy );
+        return this;
     }
 
     @Override
