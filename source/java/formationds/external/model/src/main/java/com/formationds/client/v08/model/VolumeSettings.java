@@ -6,6 +6,10 @@ package com.formationds.client.v08.model;
 
 import java.util.Objects;
 
+/**
+ * Base volume settings.  At this point this just maintains a VolumeType identifier that can be used
+ * when marshalling JSON to identify the specific subclass to load.
+ */
 abstract public class VolumeSettings {
 
     private final VolumeType type;

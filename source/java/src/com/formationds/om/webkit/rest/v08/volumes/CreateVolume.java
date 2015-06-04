@@ -101,10 +101,11 @@ public class CreateVolume implements RequestHandler {
 	    }
 		
 		long volumeId = getConfigApi().getVolumeId( newVolume.getName() );
+		newVolume.setId( volumeId );
 		
 		// setting the QOS for the volume
 		try {
-			setQosForVolume( volumeId, newVolume );
+			setQosForVolume( newVolume );
 		}
 		catch( ApiException apiException ){
 			logger.error( "CREATE::FAILED::" + apiException.getMessage(), apiException );
@@ -117,7 +118,7 @@ public class CreateVolume implements RequestHandler {
 		
 		// new that we've finished all that - create and attach the snapshot policies to this volume
 		try {
-			createSnapshotPolicies( volumeId, newVolume );
+			createSnapshotPolicies( newVolume );
 		}
 		catch( TException thriftException ){
 			logger.error( "CREATE::FAILED::" + thriftException.getMessage(), thriftException );
@@ -145,17 +146,17 @@ public class CreateVolume implements RequestHandler {
 	 * @throws ApiException
 	 * @throws TException
 	 */
-	private void setQosForVolume( long volumeId, Volume externalVolume ) throws ApiException, TException{
+	private void setQosForVolume( Volume externalVolume ) throws ApiException, TException{
 		
-	    if( volumeId > 0 ) {
+	    if( externalVolume.getId() != null && externalVolume.getId() > 0 ) {
 
 	    	try {
 				Thread.sleep( 200 );
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-	          
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+          
 	    	FDSP_VolumeDescType volumeDescType = ExternalModelConverter.convertToInternalVolumeDescType( externalVolume );
 	          
 	    	getConfigApi().ModifyVol( new FDSP_ModifyVolType( externalVolume.getName(), externalVolume.getId(), volumeDescType ) );    
@@ -170,15 +171,15 @@ public class CreateVolume implements RequestHandler {
 	 * @param externalVolume
 	 * @throws TException 
 	 */
-	private void createSnapshotPolicies( long volumeId, Volume externalVolume ) throws TException{
+	private void createSnapshotPolicies( Volume externalVolume ) throws TException{
 		
 		for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy().getSnapshotPolicies() ){
 			
-			long policyId = getConfigApi().createSnapshotPolicy( volumeId + "_TIMELINE_" + policy.getRecurrenceRule().getFrequency(),
+			long policyId = getConfigApi().createSnapshotPolicy( externalVolume.getId() + "_TIMELINE_" + policy.getRecurrenceRule().getFrequency(),
 																 policy.getRecurrenceRule().toString(),
 																 policy.getRetentionTime().getSeconds(), 
 																 0 );
-			getConfigApi().attachSnapshotPolicy( volumeId, policyId );
+			getConfigApi().attachSnapshotPolicy( externalVolume.getId(), policyId );
 			
 		}
 	}
