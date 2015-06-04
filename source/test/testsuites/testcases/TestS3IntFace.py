@@ -942,15 +942,16 @@ class TestS3DelBucket(TestCase.FDSTestCase):
 
 
 class TestPuts(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, dataset='key', count=10, size='1K'):
+    def __init__(self, parameters=None, bucket=None, dataset=1, count=10, size='1K', fail=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_Puts,
                                              "upload N no.of objects with specified size")
-        self.dataset = dataset
+        self.dataset = str(dataset)
         self.count   = int(count)
         self.size    = size
         self.passedBucket=bucket
+        self.fail    = fail
 
     def test_Puts(self):
         if not self.checkS3Info(self.passedBucket):
@@ -970,22 +971,29 @@ class TestPuts(TestCase.FDSTestCase):
             key = Helper.keyName(self.dataset + str(n))
             value = Helper.genData(self.size,n)
             self.parameters["s3"].verifiers[self.dataset][key] = hash(value)
-            k = s3.bucket1.new_key(key)
             self.log.info('uploading key {} : {}'.format(n, key))
-            k.set_contents_from_string(value)
+            try:
+                k = s3.bucket1.new_key(key)
+                k.set_contents_from_string(value)
+                if self.fail:
+                    self.log.error('Put should have failed but succeeded')
+                    return False
+            except:
+                if not self.fail: raise
 
         return True
 
 class TestGets(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, dataset='key', count=10, size='1K'):
+    def __init__(self, parameters=None, bucket=None, dataset=1, count=10, size='1K', fail=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_Gets,
                                              "fetch N no.of objects with specified size")
-        self.dataset = dataset
+        self.dataset = str(dataset)
         self.count   = int(count)
         self.size    = size
         self.passedBucket=bucket
+        self.fail    = fail
 
     def test_Gets(self):
         if not self.checkS3Info(self.passedBucket):
@@ -1005,24 +1013,30 @@ class TestGets(TestCase.FDSTestCase):
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
             self.log.info('fetching key {} : {}'.format(n, key))
-            value = s3.bucket1.get_key(key).get_contents_as_string()
-            valuehash = hash(value)
-            if self.dataset in self.parameters["s3"].verifiers and key in self.parameters["s3"].verifiers[self.dataset]:
-                if self.parameters["s3"].verifiers[self.dataset][key] != valuehash:
-                    self.log.error('hash mismatch for key {} : {} '.format(n, key))
+            try:
+                value = s3.bucket1.get_key(key).get_contents_as_string()
+                valuehash = hash(value)
+                if self.dataset in self.parameters["s3"].verifiers and key in self.parameters["s3"].verifiers[self.dataset]:
+                    if self.parameters["s3"].verifiers[self.dataset][key] != valuehash:
+                        self.log.error('hash mismatch for key {} : {} '.format(n, key))
+                        return False
+                if self.fail:
+                    self.log.error('Get should have failed but succeeded')
                     return False
-
+            except:
+                if not self.fail: raise
         return True
 
 class TestDeletes(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, dataset='key', count=10):
+    def __init__(self, parameters=None, bucket=None, dataset=1, count=10, fail=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_Deletes,
                                              "check N no.of keys")
-        self.dataset = dataset
+        self.dataset = str(dataset)
         self.count   = int(count)
         self.passedBucket=bucket
+        self.fail    = fail
 
     def test_Deletes(self):
         if not self.checkS3Info(self.passedBucket):
@@ -1039,18 +1053,25 @@ class TestDeletes(TestCase.FDSTestCase):
 
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
-            k = Key(s3.bucket1, key)
-            k.delete()
+            self.log.info('deleting key {} : {}'.format(n, key))
+            try:
+                k = Key(s3.bucket1, key)
+                k.delete()
+                if self.fail:
+                    self.log.error('Delete should have failed but succeeded')
+                    return False
+            except:
+                if not self.fail: raise
 
         return True
 
 class TestKeys(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, dataset='key', count=10, exist=True):
+    def __init__(self, parameters=None, bucket=None, dataset=1, count=10, exist=True):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_Keys,
                                              "delete N no.of objects")
-        self.dataset = dataset
+        self.dataset = str(dataset)
         self.count   = int(count)
         self.exist   = Helper.boolean(exist)
         self.passedBucket=bucket
