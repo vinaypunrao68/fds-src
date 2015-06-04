@@ -674,7 +674,7 @@ TESTNAME=""
 #exit 0
 
 case "${CMD}" in
-    test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
+    kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -694,6 +694,7 @@ case "${CMD}" in
         [[ $APP == "all" ]] && waitForAll
         statusApp $APP
         ;;
+    kill) stopApp  $APP;;
     stop) stopApp  $APP;;
     status) statusApp $APP;;
     clean)
