@@ -5,6 +5,7 @@
 package com.formationds.client.ical;
 
 import com.formationds.client.v08.model.SnapshotPolicy;
+import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.client.v08.model.TimeUnit;
 import com.formationds.rest.v08.model.GSONTest;
 import com.google.gson.Gson;
@@ -172,7 +173,7 @@ public class RecurrenceRuleTest {
         rrule.setDays( BYDAY );
         rrule.setHours( BYHOUR );
 
-        final SnapshotPolicy policy = new SnapshotPolicy(rrule, Duration.of(1234567890L, TimeUnit.SECONDS) );
+        final SnapshotPolicy policy = new SnapshotPolicy( SnapshotPolicyType.SYSTEM_TIMELINE, rrule, Duration.of(1234567890L, TimeUnit.SECONDS) );
         System.out.println( policy );
 
         Gson gson = GSONTest.gson();

@@ -25,6 +25,11 @@ public class DataProtectionPolicy extends DataProtectionPolicyBase {
 
     /**
      *
+     */
+    protected DataProtectionPolicy() {}
+
+    /**
+     *
      * @param commitLogRetention the commit log retention period
      * @param snapshotPolicies the list of snapshot policies for the volume protection
      */

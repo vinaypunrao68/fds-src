@@ -8,31 +8,43 @@ import com.formationds.client.ical.RecurrenceRule;
 
 import java.time.Duration;
 
-public class SnapshotPolicy {
+public class SnapshotPolicy extends AbstractResource<Long> {
 
-    private Long           id;
+
+    public enum SnapshotPolicyType { USER, SYSTEM_TIMELINE }
+
+    private SnapshotPolicyType type;
     private Duration       retentionTime;
     private RecurrenceRule recurrenceRule;
 
-    public SnapshotPolicy( RecurrenceRule recurrenceRule, Duration retentionTime ) {
+    SnapshotPolicy() {}
+
+    public SnapshotPolicy( SnapshotPolicyType type,
+                           RecurrenceRule recurrenceRule,
+                           Duration retentionTime ) {
+        this( null, null, type, recurrenceRule, retentionTime );
+    }
+
+    public SnapshotPolicy( String policyName,
+                           SnapshotPolicyType type,
+                           RecurrenceRule recurrenceRule,
+                           Duration retentionTime ) {
+        this( null, policyName, type, recurrenceRule, retentionTime );
+    }
+
+    public SnapshotPolicy( Long id,
+                           String policyName,
+                           SnapshotPolicyType type,
+                           RecurrenceRule recurrenceRule,
+                           Duration retentionTime ) {
+        super(id, policyName);
+        this.type = type;
         this.retentionTime = retentionTime;
         this.recurrenceRule = recurrenceRule;
     }
 
-    public SnapshotPolicy( Long id, RecurrenceRule recurrenceRule, Duration retentionTime ) {
-        this.id = id;
-        this.retentionTime = retentionTime;
-        this.recurrenceRule = recurrenceRule;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public SnapshotPolicy withId( Long id ) {
-        this.id = id;
-        return this;
-    }
+    public SnapshotPolicyType getType() { return type; }
+    public void setType(SnapshotPolicyType t) { this.type = t; }
 
     public Duration getRetentionTime() {
         return retentionTime;

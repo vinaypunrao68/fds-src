@@ -8,6 +8,7 @@ import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
 import com.formationds.client.v08.model.*;
+import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import org.junit.Assert;
@@ -87,7 +88,7 @@ public class GSONTest {
 
         rule.setDays( days );
 
-        SnapshotPolicy sPolicy = new SnapshotPolicy( rule, Duration.ofDays( 30 ) );
+        SnapshotPolicy sPolicy = new SnapshotPolicy( SnapshotPolicyType.SYSTEM_TIMELINE, rule, Duration.ofDays( 30 ) );
         List<SnapshotPolicy> sPolicies = new ArrayList<>();
         sPolicies.add( sPolicy );
 

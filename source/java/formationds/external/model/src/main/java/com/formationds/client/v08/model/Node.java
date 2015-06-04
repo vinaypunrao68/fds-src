@@ -223,6 +223,8 @@ public class Node extends AbstractResource<Long> {
     private NodeState state;
     private Map<ServiceType, List<Service>> serviceMap;
 
+    protected Node() {}
+
     /**
      * @param address the node address
      * @param state the current node state
@@ -248,6 +250,27 @@ public class Node extends AbstractResource<Long> {
         super( uid, address.getHostAddress() );
         this.address = address;
         this.state = state;
+        this.serviceMap = serviceMap;
+    }
+
+    /**
+     * @param address the node address
+     */
+    public void setAddress( NodeAddress address ) {
+        this.address = address;
+    }
+
+    /**
+     * @param state the node state
+     */
+    public void setState( NodeState state ) {
+        this.state = state;
+    }
+
+    /**
+     * @param serviceMap the current service map
+     */
+    public void setServiceMap( Map<ServiceType, List<Service>> serviceMap ) {
         this.serviceMap = serviceMap;
     }
 

@@ -21,4 +21,10 @@ public class Tenant extends AbstractResource<Long> {
         super( id, name );
     }
 
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder( "Tenant{" );
+        sb.append( super.toString() ).append( '}' );
+        return sb.toString();
+    }
 }

@@ -4,11 +4,9 @@
 
 package com.formationds.client.v08.model;
 
-import com.formationds.client.ical.RecurrenceRule;
-
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,11 +60,9 @@ public class Volume extends AbstractResource<Long> {
             return dataProtectionPolicy( DataProtectionPolicy.fromPreset( preset ) );
         }
         public Builder dataProtectionPolicy(long commitLogRetention,
-                                            long snapshotRetentionTime,
-                                            RecurrenceRule rr,
-                                            TimeUnit unit ) {
-            List<SnapshotPolicy> sp = new ArrayList<>( );
-            sp.add( new SnapshotPolicy( rr, Duration.of( snapshotRetentionTime, unit ) ) );
+                                            TimeUnit unit,
+                                            SnapshotPolicy... snapshotPolicies) {
+            List<SnapshotPolicy> sp = Arrays.asList( snapshotPolicies );
             return dataProtectionPolicy( new DataProtectionPolicy( Duration.of( commitLogRetention, unit), sp) );
         }
 
@@ -131,7 +127,7 @@ public class Volume extends AbstractResource<Long> {
 
     /**
      *
-     * @param uid the volume id.  May be null indicating that the volume is not yet saved or loaded
+     * @param id the volume id.  May be null indicating that the volume is not yet saved or loaded
      * @param name the volume name
      * @param tenant the tenant that the volume is assigned to. May be the "system" tenant
      * @param application the name of the application this volume is associated with
@@ -144,7 +140,7 @@ public class Volume extends AbstractResource<Long> {
      * @param created the creation time
      * @param tags volume metadata tags.
      */
-    public Volume( Long uid,
+    public Volume( Long id,
                    String name,
                    Tenant tenant,
                    String application,
@@ -156,7 +152,7 @@ public class Volume extends AbstractResource<Long> {
                    QosPolicy qosPolicy,
                    Instant created,
                    Map<String, String> tags ) {
-        super( uid, name );
+        super( id, name );
         this.tenant = tenant;
         this.tags = tags;
         this.application = application;
@@ -170,12 +166,12 @@ public class Volume extends AbstractResource<Long> {
     }
 
     /**
-     * @param uid the volume id
+     * @param id the volume id
      * @param name the volume name
      */
-    public Volume( Long uid,
+    public Volume( Long id,
                    String name ){
-    	this( uid, name, null, null, null, null, null, null, null, null, null, null );
+    	this( id, name, null, null, null, null, null, null, null, null, null, null );
     }
 
     /**

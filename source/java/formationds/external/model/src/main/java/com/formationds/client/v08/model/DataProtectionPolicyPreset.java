@@ -14,6 +14,7 @@ import java.util.Objects;
 public class DataProtectionPolicyPreset extends DataProtectionPolicyBase {
     private Long id;
 
+    public DataProtectionPolicyPreset() {}
     public DataProtectionPolicyPreset( Duration commitLogRetention,
                                        List<SnapshotPolicy> snapshotPolicies ) {
         super( commitLogRetention, snapshotPolicies );
