@@ -161,8 +161,7 @@ public class ObjectModelHelper {
      * @return Returns the {@link Type} represented within the JSON
      */
     public static <T> T toObject( final Reader reader, final Type type ) {
-        return new GsonBuilder().create()
-                                .fromJson( reader, type );
+        return gson().fromJson( reader, type );
     }
 
     /**
