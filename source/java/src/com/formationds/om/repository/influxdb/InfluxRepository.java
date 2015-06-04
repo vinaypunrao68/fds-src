@@ -3,10 +3,11 @@
  */
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.crud.AbstractRepository;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Volume;
 import com.formationds.om.repository.query.QueryCriteria;
+
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Database;
 import org.slf4j.Logger;

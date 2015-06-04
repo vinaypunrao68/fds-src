@@ -4,9 +4,8 @@
 
 package com.formationds.om.repository.query.builder;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 

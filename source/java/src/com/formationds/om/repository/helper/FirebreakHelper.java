@@ -5,12 +5,12 @@
 package com.formationds.om.repository.helper;
 
 import com.formationds.apis.VolumeStatus;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
-import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
@@ -25,6 +25,7 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
+
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +100,7 @@ public class FirebreakHelper extends QueryHelper {
         	
         		Volume volume = volIt.next();
         		
-        		String key = volume.getId();
+        		String key = volume.getId().toString();
 
             if( key == null || key.length() == 0 ) {
               continue;
@@ -236,10 +237,7 @@ public class FirebreakHelper extends QueryHelper {
                 // only provide stats for existing volumes
                 if( volumeName != null && volumeName.length() > 0 ) {
                     final Series s =
-                        new SeriesBuilder().withContext(
-                            new VolumeBuilder().withId( key )
-                                               .withName( volumeName )
-                                               .build() )
+                        new SeriesBuilder().withContext( new Volume( Long.parseLong( key ), volumeName ) )
                                            .withDatapoint( firebreakPoints.get( key ) )
                                            .build();
                     /*

@@ -5,25 +5,25 @@ package com.formationds.om.webkit.rest.v08.tenants;
 
 import java.util.Map;
 
-import org.eclipse.jetty.server.Request;
+import javax.servlet.http.HttpServletResponse;
 
-import com.formationds.util.thrift.ConfigurationApi;
+import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
+
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 
 public class MutateTenant implements RequestHandler{
 
-	private final ConfigurationApi config;
-	
-	public MutateTenant( final ConfigurationApi config ){
-		this.config = config;
-	}
+	public MutateTenant(){}
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+
+		return new JsonResource( new JSONObject().put( "message", "Not implemented yet." ), 
+				                 HttpServletResponse.SC_NOT_IMPLEMENTED );
 	}
 
 }

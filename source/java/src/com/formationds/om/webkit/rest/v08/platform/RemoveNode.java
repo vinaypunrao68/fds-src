@@ -42,54 +42,54 @@ public class RemoveNode
     public Resource handle( Request request, Map<String, String> routeParameters )
         throws Exception {
 
-        final Long nodeUuid = requiredLong( routeParameters, "node_uuid" );
-        
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
-        Map<String, Node> nodeMap = (new ListNodes( client )).computeNodeMap(list);
+//        final Long nodeUuid = requiredLong( routeParameters, "node_uuid" );
+//        
+//        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
+//        Map<String, Node> nodeMap = (new ListNodes( client )).computeNodeMap(list);
+//
+//        Node node = nodeMap.get( nodeUuid.toString() );
+//        
+//        if( node == null ) {
+//
+//            throw new Exception( "The specified node uuid " + nodeUuid +
+//                                 " has no matching node name." );
+//
+//        }
+//
+//        logger.debug( "Deactivating {}:{}",
+//                      node.getName(),
+//                      nodeUuid);
+//
+//        //TODO: Have a method to actually remove a node instead of just messing with services
+//        // since we are removing the node, for now we're removing all the services.
+//        int status = 
+//            client.RemoveServices( new FDSP_RemoveServicesType(
+//                                     node.getName(),
+//                                     new FDSP_Uuid( nodeUuid ),
+//                                     true,
+//                                     true,
+//                                     true ) );
+//
+//        int httpCode = HttpServletResponse.SC_OK;
+//        if( status != 0 ) {
+//
+//            status= HttpServletResponse.SC_BAD_REQUEST;
+//            EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+//                                      node.getName(),
+//                                      nodeUuid );
+//            
+//            logger.error("Node removal failed.");
+//
+//        } else {
+//
+//            EventManager.notifyEvent( OmEvents.REMOVE_NODE,
+//                                      node.getName(),
+//                                      nodeUuid );
+//            logger.info( "Node successfully removed from the system.");
+//
+//        }
 
-        Node node = nodeMap.get( nodeUuid.toString() );
-        
-        if( node == null ) {
-
-            throw new Exception( "The specified node uuid " + nodeUuid +
-                                 " has no matching node name." );
-
-        }
-
-        logger.debug( "Deactivating {}:{}",
-                      node.getName(),
-                      nodeUuid);
-
-        //TODO: Have a method to actually remove a node instead of just messing with services
-        // since we are removing the node, for now we're removing all the services.
-        int status = 
-            client.RemoveServices( new FDSP_RemoveServicesType(
-                                     node.getName(),
-                                     new FDSP_Uuid( nodeUuid ),
-                                     true,
-                                     true,
-                                     true ) );
-
-        int httpCode = HttpServletResponse.SC_OK;
-        if( status != 0 ) {
-
-            status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
-                                      node.getName(),
-                                      nodeUuid );
-            
-            logger.error("Node removal failed.");
-
-        } else {
-
-            EventManager.notifyEvent( OmEvents.REMOVE_NODE,
-                                      node.getName(),
-                                      nodeUuid );
-            logger.info( "Node successfully removed from the system.");
-
-        }
-
-        return new JsonResource( new JSONObject().put( "status", status ),
-                                 httpCode );
+        return new JsonResource( new JSONObject().put( "status", 200 ),
+                                 200 );
     }
 }

@@ -6,6 +6,7 @@ package com.formationds.om.webkit.rest.v08;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.webkit.AbstractApiDefinition;
+import com.formationds.om.webkit.rest.v08.domain.ListLocalDomains;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
 import com.formationds.om.webkit.rest.v08.events.QueryEvents;
 import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
@@ -35,6 +36,7 @@ import com.formationds.om.webkit.rest.v08.token.ReissueToken;
 import com.formationds.om.webkit.rest.v08.users.CreateUser;
 import com.formationds.om.webkit.rest.v08.users.CurrentUser;
 import com.formationds.om.webkit.rest.v08.users.ListUsers;
+import com.formationds.om.webkit.rest.v08.users.ListUsersForTenant;
 import com.formationds.om.webkit.rest.v08.users.UpdatePassword;
 import com.formationds.om.webkit.rest.v08.volumes.CloneVolume;
 import com.formationds.om.webkit.rest.v08.volumes.CreateSnapshotPolicy;
@@ -52,7 +54,6 @@ import com.formationds.security.Authorizer;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
-
 import com.formationds.web.toolkit.WebApp;
 
 import org.slf4j.Logger;
@@ -102,6 +103,7 @@ public class ApiDefinition extends AbstractApiDefinition{
         configureTenantEndpoints( configApi );
         configureMetricsEndpoints( configApi );
         configureEventsEndpoints( configApi );
+        configureDomainEndpoints();
         
     }
     
@@ -147,13 +149,13 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing volume endpoints..." );
     	
     	// list volumes
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes() );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes( getAuthorizer(), token ) );
     	
     	// get a specific volume
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume() );
     	
     	// create a volume
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( config, getAuthorizer(), token ) );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( getAuthorizer(), token ) );
     	
     	// clone a volume.  It takes as input either a snapshot ID/obj or a time
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id", (token) -> new CloneVolume( config ) );
@@ -165,13 +167,13 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new ModifyVolume( config ) );
     	
     	// take a snapshot of a volume
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new CreateSnapshot( config ) );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new CreateSnapshot() );
     	
     	// list snapshots for a volume
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshots( config ) );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshots() );
     	
     	// get a specific snapshot
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( config ) );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot() );
     	
     	// delete a snapshot
       // TODO implement delete snapshot
@@ -216,19 +218,22 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing user endpoints..." );
     	
     	// list users
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users", (token) -> new ListUsers() );
+    	
+    	// list users for tenant
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/tenant/:tenant_id", (token) -> new ListUsersForTenant() );
     	
     	// create user
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/users", (token) -> new CreateUser() );
     	
     	// get a specific user
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/users/:user_id", (token) -> new GetUser() );
     	
     	// get current user
     	authenticate( HttpMethod.GET, URL_PREFIX + "/userinfo", (token) -> new CurrentUser( getAuthorizer(), token ) );
     	
     	//edit user
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( config, getAuthorizer(), getSecretKey(), token ) );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/users/:user_id", (token) -> new UpdatePassword( getAuthorizer(), token ) );
     	
     	// delete user  TODO: Not implemented yet
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/users/:user_id", (token) -> new DeleteUser( config ), getAuthorizer() );
@@ -297,24 +302,32 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing tenant endpoints..." );
     	
     	// list the tenants
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants() );
     	
     	// create tenant
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant() );
     	
     	// delete tenant TODO: Not implemented
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ) );
     	
     	// edit tenant TODO: Not implemented
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( config ) );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant() );
     	
     	// assign a user to a tenancy
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant() );
     	
     	// remove a user from a tenancy
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new RevokeUserFromTenant() );
     	
     	logger.trace( "Completed initializing tenant endpoints." );
+    }
+    
+    /**
+     * Setup all the URL's for domains
+     */
+    private void configureDomainEndpoints(){
+    	
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/local_domains", (token) -> new ListLocalDomains() );
     }
     
     /**
