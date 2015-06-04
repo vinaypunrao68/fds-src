@@ -660,7 +660,10 @@ public class ExternalModelConverter {
         }
 
         volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
-        volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+        
+        if ( externalVolume.getTenant() != null ){
+        	volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+        }
 
         return volumeType;
     }
