@@ -155,9 +155,11 @@ struct AmTxManager {
                                size_t const obj_size,
                                std::vector<ObjectID::ptr>& obj_ids);
 
-    Error putOffset(fds_volid_t const volId,
-                    BlobOffsetPair const& blobOff,
-                    std::vector<boost::shared_ptr<ObjectID>> const& objId);
+    Error putOffsets(fds_volid_t const vol_id,
+                     std::string const& blob_name,
+                     fds_uint64_t const blob_offset,
+                     fds_uint32_t const object_size,
+                     std::vector<boost::shared_ptr<ObjectID>> const& object_ids);
 
     void getObjects(GetBlobReq* blobReq);
 

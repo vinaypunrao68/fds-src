@@ -845,6 +845,8 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
             // Fix this when we support unaligned reads.
             // Number of objects required to request given data length
             auto objId = new ObjectID((*it).data_obj_id.digest);
+            GLOGTRACE << "Found object id: " << *objId
+                      << " for offset: 0x" << std::hex << cur_offset << std::dec;
             new_ids.emplace_back(objId);
         }
     }
@@ -863,10 +865,6 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     }
     blobReq->object_ids.swap(new_ids);
     blobReq->object_ids.shrink_to_fit();
-
-    // if we are here, we did not get response for offset we needed!
-    LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
-             << amReq->blob_offset << " not in returned offset list from DM";
     amReq->proc_cb(ERR_OK);
 }
 
