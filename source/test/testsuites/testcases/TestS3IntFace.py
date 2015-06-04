@@ -185,7 +185,7 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
             self.log.error("No S3 connection with which to create a bucket.")
             return False
         else:
-            self.log.info("Create an S3 bucket.")
+            self.log.info("Create an S3 bucket : [{}]".format(self.passedBucket))
             s3 = self.parameters["s3"]
 
             s3.bucket1 = s3.conn.create_bucket(self.passedBucket)
@@ -886,8 +886,8 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
         if not self.checkS3Info(self.passedBucket):
             return False
 
-        self.log.info("Delete all the keys of an S3 bucket.")
         s3 = self.parameters["s3"]
+        self.log.info("Delete all the keys from [{}]".format(s3.bucket1))
 
         for key in s3.bucket1.list():
             key.delete()
@@ -921,10 +921,10 @@ class TestS3DelBucket(TestCase.FDSTestCase):
         if not self.checkS3Info(self.passedBucket):
             return False
         else:
-            self.log.info("Delete an S3 bucket.")
             s3 = self.parameters["s3"]
+            self.log.info("Delete S3 bucket : {}".format(s3.bucket1))
 
-            s3.conn.delete_bucket(self.passedBucket)
+            s3.conn.delete_bucket(self.parameters["s3"].bucket1.name)
 
             if s3.conn.lookup(self.passedBucket) != None:
                 self.log.error("Unexpected bucket: {}".format(self.passedBucket))
@@ -959,20 +959,22 @@ class TestPuts(TestCase.FDSTestCase):
             self.count = s3.verifiers[self.dataset]['count']
             self.size = s3.verifiers[self.dataset]['size']
 
-        self.log.info("uploading {} keys of size: {}".format(self.count, self.size))
+        self.log.info("uploading {} keys of size: {} onto [{}]".format(self.count, self.size, s3.bucket1))
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
+            #self.log.info('uploading key {} : {}'.format(n, key))
             value = Helper.genData(self.size,n)
             self.parameters["s3"].verifiers[self.dataset][key] = hash(value)
-            self.log.info('uploading key {} : {}'.format(n, key))
             try:
                 k = s3.bucket1.new_key(key)
                 k.set_contents_from_string(value)
                 if self.fail:
-                    self.log.error('Put should have failed but succeeded')
+                    self.log.error('Put should have failed but succeeded: {}'.format(key))
                     return False
             except:
-                if not self.fail: raise
+                if not self.fail:
+                    self.log.error('Put failed on : {}'.format(key))
+                    raise
 
         return True
 
@@ -1001,11 +1003,11 @@ class TestGets(TestCase.FDSTestCase):
             self.count = s3.verifiers[self.dataset]['count']
             self.size = s3.verifiers[self.dataset]['size']
 
-        self.log.info("fetching {} keys of size: {}".format(self.count, self.size))
+        self.log.info("fetching {} keys of size: {} from [{}]".format(self.count, self.size, s3.bucket1))
 
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
-            self.log.info('fetching key {} : {}'.format(n, key))
+            #self.log.info('fetching key {} : {}'.format(n, key))
             try:
                 value = s3.bucket1.get_key(key).get_contents_as_string()
                 valuehash = hash(value)
@@ -1014,10 +1016,12 @@ class TestGets(TestCase.FDSTestCase):
                         self.log.error('hash mismatch for key {} : {} '.format(n, key))
                         return False
                 if self.fail:
-                    self.log.error('Get should have failed but succeeded')
+                    self.log.error('Get should have failed but succeeded : {}'.format(key))
                     return False
             except:
-                if not self.fail: raise
+                if not self.fail:
+                    self.log.error('Get failed on : {}'.format(key))
+                    raise
         return True
 
 class TestDeletes(TestCase.FDSTestCase):
@@ -1042,19 +1046,21 @@ class TestDeletes(TestCase.FDSTestCase):
         else:
             self.count = s3.verifiers[self.dataset]['count']
 
-        self.log.info("deleting {} keys".format(self.count))
+        self.log.info("deleting {} keys from [{}]".format(self.count, s3.bucket1))
 
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
-            self.log.info('deleting key {} : {}'.format(n, key))
+            #self.log.info('deleting key {} : {}'.format(n, key))
             try:
                 k = Key(s3.bucket1, key)
                 k.delete()
                 if self.fail:
-                    self.log.error('Delete should have failed but succeeded')
+                    self.log.error('Delete should have failed but succeeded : {}'.format(key))
                     return False
             except:
-                if not self.fail: raise
+                if not self.fail:
+                    self.log.error('Delete failed on : {}'.format(key))
+                    raise
 
         return True
 
@@ -1080,7 +1086,7 @@ class TestKeys(TestCase.FDSTestCase):
         else:
             self.count = s3.verifiers[self.dataset]['count']
 
-        self.log.info("checking {} keys".format(self.count))
+        self.log.info("checking {} keys in [{}]".format(self.count, s3.bucket1))
         bucket_keys = [key.name for key in s3.bucket1.list()]
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
