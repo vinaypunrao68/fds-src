@@ -11,11 +11,16 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
 public class DeleteSnapshotPolicy
   implements RequestHandler {
+
+  private static final Logger logger =
+    LoggerFactory.getLogger( DeleteSnapshotPolicy.class );
 
   private static final String REQ_PARAM_POLICY_ID = "policyId";
   private ConfigurationApi config;
@@ -27,8 +32,12 @@ public class DeleteSnapshotPolicy
   @Override
   public Resource handle(Request request, Map<String, String> routeParameters)
       throws Exception {
-    config.deleteSnapshotPolicy(
-                                   requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
+
+    final long snapshotPolicyId = requiredLong( routeParameters,
+                                                REQ_PARAM_POLICY_ID);
+    logger.trace( "SNAPSHOT POLICY ID: {}", snapshotPolicyId );
+
+    config.deleteSnapshotPolicy( snapshotPolicyId );
 
     return new JsonResource(new JSONObject().put("status", "OK"));
   }

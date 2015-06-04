@@ -30,17 +30,23 @@ public class HttpErrorHandler implements RequestHandler {
             return rh.handle(request, routeParameters);
         } catch (Exception e) {
 
-            logger.error( "Error executing " +
-                          request.getRequestURI() +
-                          " -- " +
-                          e.getMessage() );
-            logger.trace( "Stack Trace::", e );
             if( e.getMessage() != null && e.getMessage().length() > 1 ) {
+
+                logger.error( "Error executing " +
+                              request.getRequestURI() +
+                              " -- " +
+                              e.getMessage() );
+                logger.trace( "Stack Trace::", e );
+
                 return new JsonResource(
                     new JSONObject().put( "message",
                                           e.getMessage() ),
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
             }
+
+            logger.error( "Error executing " +
+                          request.getRequestURI() );
+            logger.trace( "Stack Trace::", e );
 
             return new JsonResource(
                 new JSONObject().put( "message",

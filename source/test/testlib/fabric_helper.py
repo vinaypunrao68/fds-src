@@ -41,7 +41,8 @@ class FabricHelper():
         #with settings(hide('running','commands', 'stdout', 'stderr')):
         with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
             om_url = 'com.formationds.om.Main'
-            if om_url.find(node_service) or node_service == om_url:
+            #if om_url.find(node_service) or node_service == om_url:
+            if node_service == om_url:
                 #service_pid = run("ps auxw | grep {} | grep -v grep | awk '{print $2}'".format(node_service))
                 service_pid = run("ps auxw | grep 'com.formationds.om.Main' | grep -v grep | awk '{print $2}'")
 

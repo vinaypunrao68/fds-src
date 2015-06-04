@@ -197,6 +197,10 @@ AmAsyncXdiResponse::updateMetadataResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
+            ERR_VOL_NOT_FOUND == error) {
+            *errorCode = fpi::MISSING_RESOURCE;
+        }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(updateMetadataResponse(requestId));
@@ -211,6 +215,10 @@ AmAsyncXdiResponse::deleteBlobResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
+            ERR_VOL_NOT_FOUND == error) {
+            *errorCode = fpi::MISSING_RESOURCE;
+        }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(deleteBlobResponse(requestId));
@@ -226,7 +234,8 @@ AmAsyncXdiResponse::statBlobResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
+            ERR_VOL_NOT_FOUND == error) {
             *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
@@ -244,7 +253,7 @@ AmAsyncXdiResponse::volumeStatusResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
             *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
@@ -263,7 +272,7 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
             *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
@@ -280,7 +289,7 @@ AmAsyncXdiResponse::setVolumeMetadataResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
             *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
@@ -298,7 +307,7 @@ AmAsyncXdiResponse::getVolumeMetadataResp(const Error &error,
             boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
             *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
@@ -316,8 +325,12 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
             boost::make_shared<fpi::ErrorCode>());
-        *errorCode = (error == ERR_BLOB_NOT_FOUND ? fpi::MISSING_RESOURCE :
-                                                    fpi::BAD_REQUEST);
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
+            ERR_VOL_NOT_FOUND == error) {
+            *errorCode = fpi::MISSING_RESOURCE;
+        } else {
+            *errorCode = fpi::BAD_REQUEST;
+        }
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
@@ -341,8 +354,12 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
             boost::make_shared<fpi::ErrorCode>());
-        *errorCode = (error == ERR_BLOB_NOT_FOUND ? fpi::MISSING_RESOURCE :
-                                                    fpi::BAD_REQUEST);
+        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
+            ERR_VOL_NOT_FOUND == error) {
+            *errorCode = fpi::MISSING_RESOURCE;
+        } else {
+            *errorCode = fpi::BAD_REQUEST;
+        }
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));

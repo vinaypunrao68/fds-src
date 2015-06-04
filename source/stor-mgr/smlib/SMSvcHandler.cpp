@@ -229,6 +229,7 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     bool fault_enabled = false;
+    bool markObjStoreUnavailable = false;
     LOGDEBUG << "Initiate Object Sync";
 
     // first disable GC and Tier Migration. If this SM is also a destination and
@@ -247,8 +248,11 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // tell migration mgr to start object rebalance
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
-    fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true);
-    if (objStorMgr->objectStore->isUnavailable()) {
+    fiu_do_on("mark.object.store.unavailable", markObjStoreUnavailable = true;\
+              LOGNOTIFY << "mark.object.store.unavailable fault point enabled");
+    fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true;\
+              LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled");
+    if (markObjStoreUnavailable || objStorMgr->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
         // integrity check
         err = ERR_NODE_NOT_ACTIVE;
