@@ -11,6 +11,10 @@ public class Domain extends AbstractResource<Long> {
 
     private List<Node> nodes = new ArrayList<>();
     private final String site;
+    
+    private Domain(){
+    	this( 0L, "fds", "local" );
+    }
 
     public Domain( String key, String site ) {
         this( null, key, site );

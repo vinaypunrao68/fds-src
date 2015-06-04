@@ -338,7 +338,7 @@ public class ExternalModelConverter {
             SingletonRepositoryManager.instance()
                                       .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
 
-        Size extUsage = Size.of(0L, SizeUnit.BYTE);
+        Size extUsage = Size.of( 0L, SizeUnit.BYTE );
 
         if ( optionalStatus.isPresent() ) {
             com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
@@ -366,32 +366,79 @@ public class ExternalModelConverter {
             } );
         }
 
-        VolumeStatus externalStatus = new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+		VolumeStatus externalStatus = new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
 
-        return externalStatus;
-    }
+		return externalStatus;
+	}
 
-    public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ) {
+//	public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
+//
+//		long creation = internalSnapshot.getCreationTimestamp();
+//		long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
+//		long snapshotId = internalSnapshot.getSnapshotId();
+//		String snapshotName = internalSnapshot.getSnapshotName();
+//		long volumeId = internalSnapshot.getVolumeId();
+//
+//		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+//				 								  snapshotName, 
+//				 								  volumeId,
+//				 								  Duration.ofSeconds( retentionInSeconds ), 
+//				 								  Instant.ofEpochMilli( creation ) );
+//
+//		return externalSnapshot;
+//	}
 
-        Long extId = internalPolicy.getId();
-        String intRule = internalPolicy.getRecurrenceRule();
-        Long intRetention = internalPolicy.getRetentionTimeSeconds();
+	public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
+		
+		com.formationds.protocol.Snapshot internalSnapshot = new com.formationds.protocol.Snapshot();
+		
+		internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
+		internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
+		internalSnapshot.setSnapshotId( snapshot.getId() );
+		internalSnapshot.setSnapshotName( snapshot.getName() );
+		internalSnapshot.setVolumeId( snapshot.getVolumeId() );
+		
+		return internalSnapshot;
+	}
+	
+	public static Snapshot convertToExternalSnapshot( com.formationds.protocol.Snapshot protoSnapshot ){
+		
+		long creation = protoSnapshot.getCreationTimestamp();
+		long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
+		long volumeId = protoSnapshot.getVolumeId();
+		String snapshotName = protoSnapshot.getSnapshotName();
+		long snapshotId = protoSnapshot.getSnapshotId();
+		
+		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+												  snapshotName, 
+												  volumeId,
+												  Duration.ofSeconds( retentionInSeconds ),
+												  Instant.ofEpochMilli( creation ) );
+		
+		return externalSnapshot;
+	}
+	
+	public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ){
+		
+		Long extId = internalPolicy.getId();
+		String intRule = internalPolicy.getRecurrenceRule();
+		Long intRetention = internalPolicy.getRetentionTimeSeconds();
+		
+		RecurrenceRule extRule = new RecurrenceRule();
+		
+		try {
+			extRule = extRule.parser( intRule );
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		Duration extRetention = Duration.ofSeconds( intRetention );
 
-        RecurrenceRule extRule = new RecurrenceRule();
+		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, extRule, extRetention );
 
-        try {
-            extRule = extRule.parser( intRule );
-        } catch ( ParseException e ) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-
-        Duration extRetention = Duration.ofSeconds( intRetention );
-
-        SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, extRule, extRetention );
-
-        return externalPolicy;
-    }
+		return externalPolicy;
+	}
 
     public static com.formationds.apis.SnapshotPolicy convertToInternalSnapshotPolicy( SnapshotPolicy externalPolicy ) {
         com.formationds.apis.SnapshotPolicy internalPolicy = new com.formationds.apis.SnapshotPolicy();
