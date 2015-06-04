@@ -1783,6 +1783,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err == ERR_DUPLICATE) {
+        fPrevRegistered = true;
         LOGNOTIFY << "Svc already exists; probably service is re-registering "
                   << " after domain startup (re-activate after shutdown)";
         err = ERR_OK;  // this is ok, still want to continue re-registration

@@ -300,6 +300,12 @@ class MigrationMgr {
     void abortMigration(const Error& error);
 
     /**
+     * Set a given list of DLT tokens to available
+     * for data operations.
+     */
+    void markDltTokensAvailable(const TokenList& tokens);
+
+    /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
      */
@@ -317,14 +323,17 @@ class MigrationMgr {
      * DLT token is available, and false if DLT token is unavailable.
      * Initialization on SM startup:
      *   Case 1: New SM, no previous DLT, so that no migration is necessary.
-     *          SM will receive DLT update from OM and set all DLT tokens that this
-     *          SM owns to available.
+     *           SM will receive DLT update from OM and set all DLT tokens that this
+     *           SM owns to available.
      *   Case 2: New SM added to the domain where there is an existing DLT.
-     *          SM will received StartMigration message from OM. All DLT tokens will
-     *          be initialized to unavailable.
+     *           SM will received StartMigration message from OM. All DLT tokens will
+     *           be initialized to unavailable.
      *   Case 3: SM restarts and it was part of DLT before the shutdown.
-     *          MigrationMgr will be called to start resync. All DLT tokens will be
-     *          initialized to unavailable.
+     *           MigrationMgr will be called to start resync. All DLT tokens will be
+     *           initialized to unavailable.
+     *   Case 4: In one node SM cluster, SM restarts and it was part of DLT before
+     *           shutdown. Since this is the only SM in the domain, mark all DLT
+     *           tokens to available.
      */
     std::vector<fds_bool_t> dltTokenStates;
 
