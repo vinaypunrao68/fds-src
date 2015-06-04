@@ -583,7 +583,9 @@ public class ExternalModelConverter {
             internalDescriptor.setTenantId( externalVolume.getTenant().getId() );
         }
 
-        internalDescriptor.setVolId( externalVolume.getId() );
+        if ( externalVolume.getId() != null ){
+        	internalDescriptor.setVolId( externalVolume.getId() );
+        }
 
         com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
 
