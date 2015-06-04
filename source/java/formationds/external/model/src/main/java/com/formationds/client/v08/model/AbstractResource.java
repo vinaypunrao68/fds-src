@@ -92,11 +92,11 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
     }
 
     /**
-     * Set the resource ID.  This is package-private as it is intended for use only by internal framework.
+     * Set the resource ID.
      *
      * @param id the ID
      */
-    void setId(I id) {
+    public void setId(I id) {
         if (this.uid != null) {
             throw new IllegalStateException( "ID is already set." );
         }

@@ -4,6 +4,9 @@
 
 package com.formationds.client.v08.model;
 
+/**
+ * Represent the set of Volume states
+ */
 // maps to common.thrift ResourceState
 public enum VolumeState {
     Unknown,

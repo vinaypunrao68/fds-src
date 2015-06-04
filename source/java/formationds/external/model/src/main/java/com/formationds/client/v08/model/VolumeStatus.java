@@ -7,8 +7,15 @@ package com.formationds.client.v08.model;
 import java.time.Instant;
 import java.util.Objects;
 
+/**
+ * Represent a snapshot of the status of the volume at a point in time, including current usage and
+ * a timestamp for the last detected capacity and performance firebreak info.  For firebreaks, returns
+ * a value of {@link Instant#EPOCH} indicating no firebreak has been detected.
+ */
 // Immutable/Thread-safe
 public class VolumeStatus {
+
+
     private final Instant     timestamp;
     private final VolumeState state;
     private final Size        currentUsage;
@@ -23,7 +30,7 @@ public class VolumeStatus {
      * @param currentUsage the current space usage
      */
     public VolumeStatus( VolumeState state, Size currentUsage ) {
-        this( Instant.now(), state, currentUsage, Instant.MIN, Instant.MIN);
+        this( Instant.now(), state, currentUsage, Instant.EPOCH, Instant.EPOCH);
     }
 
     /**
@@ -58,26 +65,58 @@ public class VolumeStatus {
         this.lastPerformanceFirebreak = lastPerformanceFirebreak;
     }
 
-    boolean hasCapacityFirebreak() { return !Instant.MIN.equals( lastCapacityFirebreak ); }
-    boolean hasPerformanceFirebreak() { return !Instant.MIN.equals( lastPerformanceFirebreak ); }
+    /**
+     * @return true if there has been a capacity firebreak for the volume
+     */
+    boolean hasCapacityFirebreak() { return !Instant.EPOCH.equals( lastCapacityFirebreak ); }
+
+    /**
+     * @return true if there has been a performance firebreak for the volume.
+     */
+    boolean hasPerformanceFirebreak() { return !Instant.EPOCH.equals( lastPerformanceFirebreak ); }
+
+    /**
+     *
+     * @return true if there has been a performance firebreak for this volume
+     */
     boolean hasFirebreak() { return hasCapacityFirebreak() || hasPerformanceFirebreak(); }
 
+    /**
+     *
+     * @return the timestamp of this volume status snapshot
+     */
     public Instant getTimestamp() {
         return timestamp;
     }
 
+    /**
+     *
+     * @return the current volume state
+     */
     public VolumeState getState() {
         return state;
     }
 
+    /**
+     *
+     * @return the current usage of the volume
+     */
     public Size getCurrentUsage() {
         return currentUsage;
     }
 
+    /**
+     *
+     * @return the timestamp of the last capacity firebreak.  Instant.EPOCH (0) if no firebreak for this volume
+     */
     public Instant getLastCapacityFirebreak() {
         return lastCapacityFirebreak;
     }
 
+    /**
+     *
+     * @return the timestamp of the last performance firebreak.  Is Instant.EPOCH (0) if no firebreak for this volume
+     */
     public Instant getLastPerformanceFirebreak() {
         return lastPerformanceFirebreak;
     }
