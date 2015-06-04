@@ -592,19 +592,21 @@ public class ExternalModelConverter {
         if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {
 
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
-            internalSettings
-                .setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
-            internalSettings
-                .setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE ).intValue() );
+            
+            internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
+            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE ).intValue() );
+            
+            internalSettings.setVolumeType( VolumeType.BLOCK );
+            
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
-            internalSettings
-                .setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+            internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+            
+            internalSettings.setVolumeType( VolumeType.OBJECT );
         }
 
         internalSettings.setMediaPolicy( convertToInternalMediaPolicy( externalVolume.getMediaPolicy() ) );
-        internalSettings
-            .setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
+        internalSettings.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
 
         internalDescriptor.setPolicy( internalSettings );
 
@@ -615,8 +617,7 @@ public class ExternalModelConverter {
 
         FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
 
-        volumeType
-            .setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
+        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention().getSeconds() );
         volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
         volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
         volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
