@@ -119,7 +119,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     if (iter != tokenTbl.end()) return ERR_OK;
 
     // create leveldb
-    std::shared_ptr<osm::ObjectDB> objdb = nullptr;
+    std::shared_ptr<osm::ObjectDB> objdb;
     try
     {
         objdb = std::make_shared<osm::ObjectDB>(filename, syncWrite);
