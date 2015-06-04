@@ -22,7 +22,7 @@ public class VolumeTest {
 
         VolumeSettings settings = new VolumeSettingsBlock( Size.of( 5L, SizeUnit.TERABYTE ),
                                                            Size.of( 1, SizeUnit.KILOBYTE ) );
-
+        
         RecurrenceRule rule = new RecurrenceRule();
         rule.setFrequency( "WEEKLY" );
 
