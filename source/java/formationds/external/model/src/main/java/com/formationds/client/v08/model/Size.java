@@ -6,32 +6,33 @@ package com.formationds.client.v08.model;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Objects;
 
 /**
  * Represent the binary size of an object.  Includes a method to convert into any other unit.
  */
-public class Size<N extends Number> {
+public class Size {
+
+    public static Size of(byte v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
+    public static Size of(short v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
+    public static Size of(int v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
+    public static Size of(long v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
+    public static Size of(float v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
+    public static Size of(double v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
+    public static Size of(BigInteger v, SizeUnit unit) { return new Size(new BigDecimal(v), unit); }
+    public static Size of(BigDecimal v, SizeUnit unit) { return new Size(v, unit); }
+
     // TODO: to represent all possible sizes and units, this probably needs to be represented internally as a BigDecimal.
-    private final N value;
+    private final BigDecimal value;
     private final SizeUnit unit;
 
-    public Size( N value, SizeUnit unit ) {
+    public Size( BigDecimal value, SizeUnit unit ) {
         this.value = value;
         this.unit = unit;
     }
 
-    public N getValue() { return value; }
+    public BigDecimal getValue() { return value; }
     public SizeUnit getUnit() { return unit; }
-
-    /**
-     * @return the value as a BigDecimal
-     */
-    public BigDecimal toBigDecimal() {
-        if (value instanceof BigDecimal) return (BigDecimal)value;
-        else if (value instanceof BigInteger ) return new BigDecimal( (BigInteger)value );
-        else if (value instanceof Double || value instanceof Float) return BigDecimal.valueOf( value.doubleValue() );
-        else return BigDecimal.valueOf( value.longValue() );
-    }
 
     /**
      * The conversion
@@ -39,6 +40,25 @@ public class Size<N extends Number> {
      * @return the value in the specified unit as a BigDecimal.
      */
     public BigDecimal getValue(SizeUnit unit) {
-        return this.unit.convertTo( unit, toBigDecimal() );
+        return this.unit.convertTo( unit, value );
+    }
+
+    @Override
+    public boolean equals( Object o ) {
+        if ( this == o ) { return true; }
+        if ( !(o instanceof Size) ) { return false; }
+        final Size size = (Size) o;
+        return Objects.equals( value, size.value ) &&
+               Objects.equals( unit, size.unit );
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash( value, unit );
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s %s", value, unit.symbol() );
     }
 }

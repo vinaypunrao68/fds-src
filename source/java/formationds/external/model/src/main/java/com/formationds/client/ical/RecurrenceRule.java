@@ -55,7 +55,7 @@ public class RecurrenceRule {
     private String weekStartDay;
 
     @SerializedName("BYDAY")
-    private WeekDays<String> days = null;
+    private WeekDays days = null;
 
     /**
      * default constructor
@@ -168,11 +168,11 @@ public class RecurrenceRule {
         this.monthDays = monthDays;
     }
 
-    public WeekDays<String> getDays() {
+    public WeekDays getDays() {
         return days;
     }
 
-    public void setDays( final WeekDays<String> days ) {
+    public void setDays( final WeekDays days ) {
         this.days = days;
     }
 

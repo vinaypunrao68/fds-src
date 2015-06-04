@@ -11,6 +11,7 @@ import java.util.Objects;
  */
 public class VolumeAccessPolicy {
 
+    public static VolumeAccessPolicy nonExclusivePolicy() { return new VolumeAccessPolicy(false, false); }
     public static VolumeAccessPolicy exclusiveReadPolicy() { return new VolumeAccessPolicy(true, false); }
     public static VolumeAccessPolicy exclusiveWritePolicy() { return new VolumeAccessPolicy(false, true); }
     public static VolumeAccessPolicy exclusiveRWPolicy() { return new VolumeAccessPolicy(true, true); }
