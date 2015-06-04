@@ -1,8 +1,7 @@
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.om.repository.query.QueryCriteria;
 import org.junit.Test;
 
@@ -23,8 +22,8 @@ public class TestInfluxRepository {
 
         QueryCriteria criteria = new QueryCriteria();
 
-        Volume v1 = (new VolumeBuilder()).withId( "0123456" ).withName( "Awesome" ).build();
-        Volume v2 = (new VolumeBuilder()).withId( "7890" ).withName( "Awesome 2" ).build();
+        Volume v1 = (new Volume.Builder("Awesome")).id( 123456L ).create();
+        Volume v2 = (new Volume.Builder("Awesome 2")).id( 7890L ).create();
 
         List<Volume> contexts = new ArrayList<Volume>();
         contexts.add( v1 );
@@ -78,8 +77,8 @@ public class TestInfluxRepository {
     public void testfindLastFirebreakEventQuery() {
         InfluxEventRepository influxEventRepository = new InfluxEventRepository( null, null, "password".toCharArray() );
 
-        Volume v1 = (new VolumeBuilder()).withId( "0123456" ).withName( "Awesome" ).build();
-        Volume v2 = (new VolumeBuilder()).withId( "7890" ).withName( "Awesome 2" ).build();
+        Volume v1 = (new Volume.Builder("Awesome")).id( 123456L ).create();
+        Volume v2 = (new Volume.Builder("Awesome 2")).id( 7890L ).create();
 
         List<Volume> contexts = new ArrayList<Volume>();
         contexts.add( v1 );

@@ -1,9 +1,8 @@
-package com.formationds.client.model;
-
-import org.junit.Assert;
-import org.junit.Test;
+package com.formationds.rest.v08.model;
 
 import com.formationds.client.v08.model.SizeUnit;
+import org.junit.Assert;
+import org.junit.Test;
 
 import java.util.EnumSet;
 

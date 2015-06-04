@@ -6,7 +6,6 @@ package com.formationds.client.ical;
 import java.text.ParseException;
 import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -111,115 +110,115 @@ public enum iCalKeys {
 
     BYDAY {
         public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
-            WeekDays<String> days = rule.getDays();
+            WeekDays days = rule.getDays();
             if (days == null) {
-                days = new WeekDays<String>();
+                days = new WeekDays();
             }
-            
+
             n = n.replaceAll( "(\\[)|(\\])", "" );
-  
+
             days.add( n, "," );
-            
+
             rule.setDays( days );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
-            List<String> s = rule.getDays();
-            return formatKV(this, s);
+        public Optional<String> formatKV( RecurrenceRule rule ) {
+            WeekDays s = rule.getDays();
+            return formatKV( this, s );
         }
     },
 
     BYMONTHDAY {
-        public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
+        public void setRecurrenceRule( RecurrenceRule rule, String n ) throws ParseException {
             Numbers<Integer> monthDays = rule.getMonthDays();
-            if (monthDays == null) {
+            if ( monthDays == null ) {
                 monthDays = new Numbers<>();
-                monthDays.validator(new RRIntegerValidator(1, 31, true));
-                rule.setMonthDays(monthDays);
+                monthDays.validator( new RRIntegerValidator( 1, 31, true ) );
+                rule.setMonthDays( monthDays );
             }
-            monthDays.add(n, ",");
+            monthDays.add( n, "," );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
+        public Optional<String> formatKV( RecurrenceRule rule ) {
             Numbers<?> s = rule.getMonthDays();
-            return formatKV(this, s);
+            return formatKV( this, s );
         }
     },
 
     BYYEARDAY {
-        public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
+        public void setRecurrenceRule( RecurrenceRule rule, String n ) throws ParseException {
             Numbers<Integer> yearDays = rule.getYearDays();
-            if (yearDays == null) {
+            if ( yearDays == null ) {
                 yearDays = new Numbers<>();
-                yearDays.validator(new RRIntegerValidator(1, 366, true));
-                rule.setYearDays(yearDays);
+                yearDays.validator( new RRIntegerValidator( 1, 366, true ) );
+                rule.setYearDays( yearDays );
             }
-            yearDays.add(n, ",");
+            yearDays.add( n, "," );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
+        public Optional<String> formatKV( RecurrenceRule rule ) {
             Numbers<?> s = rule.getYearDays();
-            return formatKV(this, s);
+            return formatKV( this, s );
         }
     },
 
     BYWEEKNO {
-        public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
+        public void setRecurrenceRule( RecurrenceRule rule, String n ) throws ParseException {
             Numbers<Integer> weekNo = rule.getWeekNo();
-            if (weekNo == null) {
+            if ( weekNo == null ) {
                 weekNo = new Numbers<>();
-                weekNo.validator(new RRIntegerValidator(1, 53, true));
-                rule.setWeekNo(weekNo);
+                weekNo.validator( new RRIntegerValidator( 1, 53, true ) );
+                rule.setWeekNo( weekNo );
             }
-            weekNo.add(n, ",");
+            weekNo.add( n, "," );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
+        public Optional<String> formatKV( RecurrenceRule rule ) {
             Numbers<?> s = rule.getWeekNo();
-            return formatKV(this, s);
+            return formatKV( this, s );
         }
     },
 
     BYMONTH {
-        public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
+        public void setRecurrenceRule( RecurrenceRule rule, String n ) throws ParseException {
             Numbers<Integer> months = rule.getMonths();
-            if (months == null) {
+            if ( months == null ) {
                 months = new Numbers<>();
-                months.validator(new RRIntegerValidator(1, 12, false));
-                rule.setMonths(months);
+                months.validator( new RRIntegerValidator( 1, 12, false ) );
+                rule.setMonths( months );
             }
-            months.add(n, ",");
+            months.add( n, "," );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
+        public Optional<String> formatKV( RecurrenceRule rule ) {
             Numbers<?> s = rule.getMonths();
-            return formatKV(this, s);
+            return formatKV( this, s );
         }
     },
 
     BYSETPOS {
-        public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
+        public void setRecurrenceRule( RecurrenceRule rule, String n ) throws ParseException {
             Numbers<Integer> position = rule.getPosition();
-            if (position == null) {
+            if ( position == null ) {
                 position = new Numbers<>();
-                rule.setPosition(position);
+                rule.setPosition( position );
             }
-            position.add(n, ",");
+            position.add( n, "," );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
-            return formatKV(this, rule.getPosition());
+        public Optional<String> formatKV( RecurrenceRule rule ) {
+            return formatKV( this, rule.getPosition() );
         }
     },
 
     WKST {
-        public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
-            rule.setWeekStartDay(n);
+        public void setRecurrenceRule( RecurrenceRule rule, String n ) throws ParseException {
+            rule.setWeekStartDay( n );
         }
 
-        public Optional<String> formatKV(RecurrenceRule rule) {
+        public Optional<String> formatKV( RecurrenceRule rule ) {
             String s = rule.getWeekStartDay();
-            return formatKV(this, s);
+            return formatKV( this, s );
         }
     };
 
