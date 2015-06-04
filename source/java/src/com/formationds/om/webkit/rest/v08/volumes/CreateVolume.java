@@ -169,18 +169,15 @@ public class CreateVolume implements RequestHandler {
 	/**
 	 * Create and attach all the snapshot policies to the newly created volume
 	 * @param externalVolume
-	 * @throws TException 
+	 * @throws Exception 
 	 */
-	private void createSnapshotPolicies( Volume externalVolume ) throws TException{
+	public void createSnapshotPolicies( Volume externalVolume ) throws Exception{
+		
+		CreateSnapshotPolicy createEndpoint = new CreateSnapshotPolicy( getAuthorizer(), getToken() );
 		
 		for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy().getSnapshotPolicies() ){
 			
-			long policyId = getConfigApi().createSnapshotPolicy( externalVolume.getId() + "_TIMELINE_" + policy.getRecurrenceRule().getFrequency(),
-																 policy.getRecurrenceRule().toString(),
-																 policy.getRetentionTime().getSeconds(), 
-																 0 );
-			getConfigApi().attachSnapshotPolicy( externalVolume.getId(), policyId );
-			
+			createEndpoint.createSnapshotPolicy( externalVolume.getId(), policy );			
 		}
 	}
 	

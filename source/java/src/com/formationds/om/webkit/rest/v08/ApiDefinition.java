@@ -38,7 +38,8 @@ import com.formationds.om.webkit.rest.v08.users.CurrentUser;
 import com.formationds.om.webkit.rest.v08.users.ListUsers;
 import com.formationds.om.webkit.rest.v08.users.ListUsersForTenant;
 import com.formationds.om.webkit.rest.v08.users.UpdatePassword;
-import com.formationds.om.webkit.rest.v08.volumes.CloneVolume;
+import com.formationds.om.webkit.rest.v08.volumes.CloneVolumeFromSnapshot;
+import com.formationds.om.webkit.rest.v08.volumes.CloneVolumeFromTime;
 import com.formationds.om.webkit.rest.v08.volumes.CreateSnapshotPolicy;
 import com.formationds.om.webkit.rest.v08.volumes.CreateVolume;
 import com.formationds.om.webkit.rest.v08.volumes.DeleteSnapshotPolicy;
@@ -152,16 +153,19 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes( getAuthorizer(), token ) );
     	
     	// get a specific volume
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume() );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume( this.authorizer, token ) );
     	
     	// create a volume
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( getAuthorizer(), token ) );
     	
-    	// clone a volume.  It takes as input either a snapshot ID/obj or a time
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id", (token) -> new CloneVolume( config ) );
+    	// clone a volume from snapshot ID
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshot/:snapshot_id", (token) -> new CloneVolumeFromSnapshot() );
+
+    	// clone a volume from a time
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/time/:time_in_seconds", (token) -> new CloneVolumeFromTime() );
     	
     	// delete volume
-    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id", (token) -> new DeleteVolume( config, getAuthorizer(), token ) );
+    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id", (token) -> new DeleteVolume( getAuthorizer(), token ) );
     	
     	// modify a volume
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new ModifyVolume( config ) );
@@ -194,16 +198,16 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing snapshot policy endpoints..." );
     	
     	// list the snapshot policies for a volume
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshot_policies", (token) -> new ListSnapshotPoliciesForVolume( config ) );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshot_policies", (token) -> new ListSnapshotPoliciesForVolume() );
     	
     	// add new snapshot policy to a volume
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshot_policies", (token) -> new CreateSnapshotPolicy(config) );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshot_policies", (token) -> new CreateSnapshotPolicy( this.authorizer, token ) );
     	
     	// delete a snapshot policy from a volume
-    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new DeleteSnapshotPolicy( config ) );
+    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new DeleteSnapshotPolicy() );
 
     	// edit a snapshot policy for a volume
-    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new MutateSnapshotPolicy( config ) );
+    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new MutateSnapshotPolicy() );
     	
     	logger.trace( "Completed initializing snapshot policy endpoints." );
     }
