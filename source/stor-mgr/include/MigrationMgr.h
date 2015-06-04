@@ -422,6 +422,8 @@ class MigrationMgr {
     /// to update this map are serialized, and protected by migrState
     MigrExecutorMap migrExecutors;
 
+    fds_rwlock migrExecutorLock;
+
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_rwlock clientLock;
