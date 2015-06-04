@@ -23,7 +23,6 @@ import com.formationds.om.webkit.rest.v08.platform.MutateService;
 import com.formationds.om.webkit.rest.v08.platform.RemoveNode;
 import com.formationds.om.webkit.rest.v08.platform.RemoveService;
 import com.formationds.om.webkit.rest.v08.snapshots.CreateSnapshot;
-import com.formationds.om.webkit.rest.v08.snapshots.DeleteSnapshot;
 import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshots;
 import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
 import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
@@ -175,7 +174,10 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( config ) );
     	
     	// delete a snapshot
-    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new DeleteSnapshot( config ) );
+      // TODO implement delete snapshot
+//    	authenticate( HttpMethod.DELETE,
+//                    URL_PREFIX + "/snapshots/:snapshot_id",
+//                    ( token ) -> new DeleteSnapshot( config ) );
     	
     	logger.trace( "Completed initializing volume endpoints." );
     }
@@ -187,7 +189,7 @@ public class ApiDefinition extends AbstractApiDefinition{
      */
     private void configureSnapshotPolicyEndpoints( ConfigurationApi config ){
     
-    	logger.trace( "Initializing snapshot policy endpionts..." );
+    	logger.trace( "Initializing snapshot policy endpoints..." );
     	
     	// list the snapshot policies for a volume
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshot_policies", (token) -> new ListSnapshotPoliciesForVolume( config ) );
@@ -197,7 +199,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	
     	// delete a snapshot policy from a volume
     	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new DeleteSnapshotPolicy( config ) );
-    	
+
     	// edit a snapshot policy for a volume
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new MutateSnapshotPolicy( config ) );
     	

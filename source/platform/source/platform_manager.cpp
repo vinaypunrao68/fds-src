@@ -459,16 +459,40 @@ namespace fds
                                 }
                             }
 
+                            if (JAVA_AM == appIndex)
+                            {
+                                LOGDEBUG << "Discovered an exited XDI process, also killing bare_am";
+                                stopProcess(BARE_AM);
+                            }
+                            else if (BARE_AM == appIndex)
+                            {
+                                LOGDEBUG << "Discovered an exited bare_am process, also killing XDI";
+                                stopProcess(JAVA_AM);
+                            }
+
                             notifyOmAProcessDied (procName, appIndex, mapIter->second);
 
                             m_appPidMap.erase (mapIter++);
 
                             if (m_autoRestartFailedProcesses)
                             {
+                                // Since ordering matters to the 2 AM process, enqueue a BARE_AM if XDI died and vise versa for the JAVA_AM below.
+                                if (JAVA_AM == appIndex)
+                                {
+                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                    m_startQueue.push_back (BARE_AM);
+                                }
+
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                                     m_startQueue.push_back (appIndex);
+                                }
+
+                                if (BARE_AM == appIndex)
+                                {
+                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                                    m_startQueue.push_back (JAVA_AM);
                                 }
                             }
                         }
