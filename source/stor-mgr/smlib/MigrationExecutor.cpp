@@ -45,7 +45,6 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           instanceNum(iNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
-    firstFilterSetMesgRespRecvd = ATOMIC_VAR_INIT(false);
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -433,11 +432,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
-                bool respReceived = false;
-                if (std::atomic_compare_exchange_strong(&firstFilterSetMesgRespRecvd,
-                                                        &respReceived, true)) {
                     handleMigrationRoundDone(error);
-                }
         }
     }
 }
@@ -711,11 +706,16 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             // we just finished first round and started second round
         }
     } else {
-        // beta2: any error will stop the whole migration process
-        // the error state, which will stop handling any other messages for
-        // this executor
         MigrationExecutorState newState = ME_ERROR;
-        std::atomic_store(&state, newState);
+        if (std::atomic_exchange(&state, newState) == ME_ERROR) {
+            /**
+             * Ignore handling of migration round because migration executor
+             * is already in error state. Error handling would have been done
+             * the first time this executor saw an error and it's state was set
+             * to ME_ERROR.
+             */
+            return;
+        }
 
         if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
             // in case the source started forwarding, we don't want it to continue

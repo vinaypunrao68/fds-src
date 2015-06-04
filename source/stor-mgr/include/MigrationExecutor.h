@@ -261,11 +261,6 @@ class MigrationExecutor {
     MigrationTrackIOReqs trackIOReqs;
 
     /**
-     * Tracks first response for the filter set message sent to the source SM.
-     */
-    std::atomic<bool> firstFilterSetMesgRespRecvd;
-
-    /**
      * Will this migration have only one phase?
      */
     bool onePhaseMigration;
