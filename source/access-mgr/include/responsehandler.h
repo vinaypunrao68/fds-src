@@ -148,7 +148,7 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
 struct GetObjectCallback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
     boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>> return_buffers;
-    fds_uint32_t returnSize;
+    int return_size {0};
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {

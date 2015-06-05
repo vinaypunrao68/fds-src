@@ -52,15 +52,17 @@ NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
         iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
     }
 
-    if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND)) {
+    if ((err == ERR_BLOB_OFFSET_INVALID) ||
+        (err == ERR_BLOB_NOT_FOUND) ||
+        0 == len) {
         // we tried to read unwritten block, fill in zeros
-        bufVec[seqId] = boost::make_shared<std::string>(iLength, 0);
+        bufVec[seqId] = boost::make_shared<std::string>(iLength, '\0');
     } else {
         // Else grab the portion of the string that we need, or the entire
         // thing
-        bufVec[seqId] = (iLength == maxObjectSizeInBytes) ?
-            retBuf :
-            boost::make_shared<std::string>(retBuf->data() + (seqId == 0 ? iOff : 0), iLength);
+        bufVec[seqId] = (iLength < retBuf->size()) ?
+            boost::make_shared<std::string>(retBuf->data() + (seqId == 0 ? iOff : 0), iLength) :
+            retBuf;
     }
     fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
     return ((doneCnt + 1) == objCount);
@@ -82,7 +84,8 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
 
         boost::shared_ptr<std::string> fauxBytes;
         if ((err == ERR_BLOB_OFFSET_INVALID) ||
-            (err == ERR_BLOB_NOT_FOUND)) {
+            (err == ERR_BLOB_NOT_FOUND) ||
+            0 == len) {
             // we tried to read unwritten block, so create
             // an empty block buffer to place the data
             LOGTRACE << "Creating new object and writing at offset: " << iOff << " for length: " << writeBytes->length();  // NOLINT
@@ -340,13 +343,8 @@ void
 NbdOperations::getBlobResp(const Error &error,
                            handle_type& requestId,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
-                           fds_uint32_t& length) {
+                           int& length) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
-    // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
-    // When AmProc supports vectored reads, return the whole vector,
-    // not just the front element. For now assume one object.
-    auto buf = (bufs) ? bufs->front() : empty_buffer;
-
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
@@ -369,6 +367,12 @@ NbdOperations::getBlobResp(const Error &error,
         // get response
         resp = it->second;
     }
+
+    // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
+    // When AmProc supports vectored reads, return the whole vector,
+    // not just the front element. For now assume one object.
+    auto& buf = (0 < length) ? bufs->front() : empty_buffer;
+
 
     fds_verify(resp);
     if (!resp->isRead()) {
