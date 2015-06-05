@@ -65,7 +65,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(84, (long) blobDescriptor.getByteCount());
     }
 
-    @Test
+    @Test //done 7
     public void testVolumeContents() throws Exception {
         List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(0, contents.size());
@@ -76,7 +76,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, contents.size());
     }
 
-    @Test
+    @Test //done 3
     public void testDeleteBlob() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -99,7 +99,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(0, volumeStatus.blobCount);
     }
 
-    @Test
+    @Test //done 9
     public void testUpdateMetadata() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -113,7 +113,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals("panda", blobDescriptor.getMetadata().get("hello"));
     }
 
-    @Test
+    @Test //done 1
     public void testTransactions() throws Exception {
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
                 .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, tx, bigObject, OBJECT_SIZE, new ObjectOffset(0), false).thenApply(x -> tx))
@@ -124,7 +124,7 @@ public class AsyncAmTest extends BaseAmTest {
                 .get();
     }
 
-    @Test
+    @Test //done 5
     public void testTransactionalMetadataUpdate() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -140,7 +140,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(smallObjectLength, blobDescriptor.getByteCount());
     }
 
-    @Test
+    @Test //done 2
     public void testMultipleAsyncUpdates() throws Exception {
         String blobName = UUID.randomUUID().toString();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), Maps.newHashMap()).get();
@@ -171,7 +171,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(smallObjectLength, blobDescriptor.getByteCount());
     }
 
-    @Test
+    @Test //done 6
     public void testAsyncGetNonExistentBlob() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.statBlob(domainName, volumeName, blobName).get());
