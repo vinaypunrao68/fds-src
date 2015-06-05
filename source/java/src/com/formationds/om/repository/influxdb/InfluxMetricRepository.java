@@ -4,7 +4,7 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.commons.model.Volume;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
@@ -177,7 +177,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             Map<String, List<IVolumeDatapoint>> volumeDatapoints = e.getValue();
 
             for ( Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet() ) {
-                String volid = e2.getKey();
+                // TODO: need volume ids as long everywhere
+                Long volid = Long.valueOf( e2.getKey() );
                 String volDomain = "";
 
                 // volName is in the list of volume datapoints
@@ -413,7 +414,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 //        }
 
         // this only works because we know that formulateQueryString uses the volume id in the query.
-        queryCriteria.setContexts( Collections.singletonList( new Volume( 0, volumeId.toString(), "", "" ) ) );
+        queryCriteria.setContexts( Collections.singletonList( new Volume( 0L, volumeId.toString() ) ) );
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
 
         // get the query string

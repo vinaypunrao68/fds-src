@@ -4,12 +4,16 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.client.v08.model.QosPolicy;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
+import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeState;
+import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Usage;
-import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.util.SizeUnit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,47 +23,48 @@ import java.util.List;
 
 public class SeriesBuilderTest {
   private static final String EXPECTED_NAME = "TestVolume %s";
-  private static final long EXPECTED_LIMIT = 100L;
-  private static final long EXPECTED_SLA = 0L;
+  private static final int EXPECTED_LIMIT = 100;
+  private static final int EXPECTED_SLA = 0;
   private static final int EXPECTED_PRIORITY = 10;
 
-  private static final SizeUnit EXPECTED_UNITS = SizeUnit.GB;
-  private static final long EXPECTED_SIZE = 100;
-  private static final String EXPECTED_ID = "91237403";
+  private static final SizeUnit EXPECTED_UNITS = SizeUnit.GIBIBYTE;
+  private static final long     EXPECTED_SIZE  = 100;
+  private static final Long     EXPECTED_ID    = 91237403L;
 
-  private static Volume VOLUME = null;
-  private static Volume VOLUME1 = null;
+    private static final Size EXP_SIZE = Size.of( EXPECTED_SIZE, EXPECTED_UNITS );
+    private static       Volume
+                              VOLUME   = null;
+    private static       Volume
+                              VOLUME1  = null;
 
-  @Before
-  public void setUp() {
-    final Usage usage =
-      new UsageBuilder().withSize( String.valueOf( EXPECTED_SIZE ) )
-                        .withUnit( EXPECTED_UNITS )
-                        .build();
+    @Before
+    public void setUp() {
+        final Usage usage =
+            new UsageBuilder().withSize( String.valueOf( EXPECTED_SIZE ) )
+                              .build();
 
-    VOLUME =
-      new VolumeBuilder().withId( EXPECTED_ID )
-                         .withName( String.format( EXPECTED_NAME, "1" ) )
-                         .withCurrent_usage( usage )
-                         .withPriority( EXPECTED_PRIORITY )
-                         .withLimit( EXPECTED_LIMIT )
-                         .withSla( EXPECTED_SLA )
-                         .build();
-    VOLUME1 =
-      new VolumeBuilder().withId( EXPECTED_ID )
-                         .withName( String.format( EXPECTED_NAME, "2" ) )
-                         .withCurrent_usage( usage )
-                         .withPriority( EXPECTED_PRIORITY )
-                         .withLimit( EXPECTED_LIMIT )
-                         .withSla( EXPECTED_SLA )
-                         .build();
-  }
+        VolumeStatus status = new VolumeStatus( VolumeState.Active, EXP_SIZE );
 
-  @Test
-  public void testWithVolume()
-    throws Exception {
-    Assert.assertTrue( new SeriesBuilder().withContext( VOLUME )
-                                          .build()
+        VOLUME =
+            new Volume.Builder( String.format( EXPECTED_NAME, "1" ) )
+                .id( EXPECTED_ID )
+                .status( status )
+                .qosPolicy( new QosPolicy( EXPECTED_PRIORITY, EXPECTED_SLA, EXPECTED_LIMIT ) )
+                .create();
+
+        VOLUME1 =
+            new Volume.Builder( String.format( EXPECTED_NAME, "2" ) )
+                .id( EXPECTED_ID )
+                .status( status )
+                .qosPolicy( new QosPolicy(EXPECTED_PRIORITY, EXPECTED_SLA, EXPECTED_LIMIT ) )
+                .create();
+    }
+
+    @Test
+    public void testWithVolume()
+        throws Exception {
+        Assert.assertTrue( new SeriesBuilder().withContext( VOLUME )
+                                              .build()
                                           .getContext() != null );
   }
 

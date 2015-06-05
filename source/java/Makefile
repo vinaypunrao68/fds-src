@@ -45,7 +45,8 @@ compile:
 	@rm -rf $(comm_dir_lib)/java
 	@rm -rf $(comm_dir_lib)/admin-webapp
 	@mkdir -p $(comm_dir_lib)/java/
-	@mvn install -f thrift-pom.xml --batch-mode
+#	@mvn install -f thrift-pom.xml --batch-mode
+	@mvn install -Dmaven.test.skip=true -Dproject.build.dir=$(comm_dir_lib)/java/formationds/external/model -f formationds/external/model/pom.xml --batch-mode
 	@mvn -Dmaven.test.skip=true assembly:directory -Dproject.build.dir=$(comm_dir_lib)/java --batch-mode
 	@mkdir $(comm_dir_lib)/admin-webapp
 

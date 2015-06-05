@@ -3,35 +3,62 @@
  */
 package com.formationds.om.webkit.rest.v08.tenants;
 
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.Tenant;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.crypto.SecretKey;
-
-import java.net.URLDecoder;
+import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Map;
 
 public class CreateTenant implements RequestHandler {
-    private ConfigurationApi config;
-    private SecretKey secretKey;
 
-    public CreateTenant(ConfigurationApi config, SecretKey secretKey) {
-        this.config = config;
-        this.secretKey = secretKey;
-    }
+	private static final Logger logger = LoggerFactory
+			.getLogger( CreateTenant.class);
+	
+    private ConfigurationApi configApi;
+
+    public CreateTenant() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String tenantName = requiredString(routeParameters, "tenant");
-        tenantName = URLDecoder.decode( tenantName, "UTF-8" );
-        long tenantId = config.createTenant(tenantName);
-        return new JsonResource(new JSONObject().put("id", Long.toString(tenantId)));
-
-        // returns {"id": "42"}
+        
+    	final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
+    	Tenant tenant = ObjectModelHelper.toObject( reader, Tenant.class );
+    	
+    	long tenantId = getConfigApi().createTenant( tenant.getName() );
+    	
+    	List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants(0);
+    	Tenant newTenant = null;
+    	
+    	for ( com.formationds.apis.Tenant internalTenant : internalTenants ){
+    		
+    		if ( internalTenant.getId() == tenantId ){
+    			newTenant = ExternalModelConverter.convertToExternalTenant( internalTenant );
+    			break;
+    		}
+    	}
+    	
+    	String jsonString = ObjectModelHelper.toJSON( newTenant );
+    	
+    	return new TextResource( jsonString );
+    }
+    
+    private ConfigurationApi getConfigApi(){
+    	
+    	if ( configApi == null ){
+    		configApi = SingletonConfigAPI.instance().api();
+    	}
+    	
+    	return configApi;
     }
 }
