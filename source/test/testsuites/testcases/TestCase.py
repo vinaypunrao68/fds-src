@@ -196,13 +196,17 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitTCFailure
 
         test_passed = True
+        printHeader=True
+        if self.__class__.__name__ == "TestLogMarker":
+            printHeader = False
 
         if pyUnitTCFailure and not self.passTestCaseAlwaysExecute:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
         else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
+            if printHeader:
+                self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.passedTestCaseDriver():
@@ -250,14 +254,20 @@ class FDSTestCase(unittest.TestCase):
         """
         global pyUnitTCFailure
 
+        printFooter=True
+        if self.__class__.__name__ == "TestLogMarker":
+            printFooter = False
+
         if test_passed:
             if failExpected:
                 self.log.warn("Test Case %s passed unexpectedly." % self.__class__.__name__)
             else:
-                self.log.info("Test Case %s passed." % self.__class__.__name__)
+                if printFooter:
+                    self.log.info("Test Case %s passed." % self.__class__.__name__)
         else:
             if failExpected:
-                self.log.info("Test Case %s failed as expected." % self.__class__.__name__)
+                if printFooter:
+                    self.log.info("Test Case %s failed as expected." % self.__class__.__name__)
             else:
                 self.log.error("Test Case %s failed." % self.__class__.__name__)
 

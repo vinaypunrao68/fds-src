@@ -277,7 +277,7 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
-        p->getBlobResp(e, requestId, cb->return_buffers, cb->returnSize);
+        p->getBlobResp(e, requestId, cb->return_buffers, cb->return_size);
     };
 
     auto callback = create_async_handler<GetObjectCallback>(std::move(closure));
@@ -305,11 +305,7 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
     auto closure = [p = responseApi, requestId](GetObjectWithMetadataCallback* cb, Error const& e) mutable -> void {
         typename response_api_type::shared_descriptor_type retBlobDesc = e.ok() ?
             transform_descriptor(cb->blobDesc) : nullptr;
-        p->getBlobWithMetaResp(e,
-                               requestId,
-                               cb->return_buffers,
-                               cb->returnSize,
-                               retBlobDesc);
+        p->getBlobWithMetaResp(e, requestId, cb->return_buffers, cb->return_size, retBlobDesc);
     };
 
     auto callback = create_async_handler<GetObjectWithMetadataCallback>(std::move(closure));

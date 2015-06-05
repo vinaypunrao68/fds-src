@@ -109,7 +109,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                   << " response for handle " << response->handle
                   << " totalOps " << totalOps
                   << " opsDone " << cdone;
-        fds_verify(response->isReady());
         if (response->isRead()) {
             fds_uint32_t context = 0;
             boost::shared_ptr<std::string> dataWritten;

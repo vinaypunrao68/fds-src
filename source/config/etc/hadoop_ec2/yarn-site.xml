@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<configuration>
+<!--Put OM node IP as value, other values remian as it is-->
+  <property>
+    <name>yarn.resourcemanager.hostname</name>
+    <value>10.3.106.253</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+  </property>
+  <property>
+    <name>yarn.application.classpath</name>
+    <value>${java.class.path}</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.vmem-check-enabled</name>
+    <value>false</value>
+  </property>
+</configuration>

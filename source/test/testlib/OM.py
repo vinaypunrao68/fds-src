@@ -79,13 +79,18 @@ class OMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.start_service(node.id, node.services['OM'][0].id)
+		time.sleep(7)
 
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['OM'][0].status !=  'ACTIVE':
-			         log.info('OM service has started on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - OM service has started on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('OM service has NOT started on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - OM service has NOT started on node {}'.format(node.ip_v4_address))
 			         return False 
 
 
@@ -117,13 +122,18 @@ class OMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.stop_service(node.id, node.services['OM'][0].id)
+		time.sleep(7)
 
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['OM'][0].status !=  'ACTIVE':
-			         log.info('OM service is no longer running on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - OM service is no longer running on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('OM service is STILL running on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - OM service is STILL running on node {}'.format(node.ip_v4_address))
 			         return False
 
 
@@ -146,24 +156,28 @@ class OMService(object):
         log.info('Killing FDSP_ORCH_MGR service')
         env.host_string = node_ip
         sudo('kill -9 {}'.format(om_pid))
+	time.sleep(7)
 
         #cmd_output = sudo('service fds-om status')
         #if cmd_output.find('om stop') > 0:
 		#	         log.info('OM service is no longer running on node {}'.format(node_ip))
 		#	         return True
 
-        for node in self.node_list:
+
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
             if node.ip_v4_address == node_ip:
                try:
                     if node.services['OM'][0].status ==  'ACTIVE':
-                        log.warn('Failed to kill FDSP_ORCH_MGR service on node {}'.format(node.ip_v4_address))
+                        log.warn('FAIL - Failed to kill FDSP_ORCH_MGR service on node {}'.format(node.ip_v4_address))
                         return False 
 
                     else:
-                        log.info('killed FDS_ORCH_MGR service on node {}'.format(node.ip_v4_address))
+                        log.info('PASS - killed FDS_ORCH_MGR service on node {}'.format(node.ip_v4_address))
                         return True
 
                except IndexError:
-                    log.info('killed FDS_ORCH_MGR service on node {}'.format(node.ip_v4_address))
+                    log.info('FAIL - killed FDS_ORCH_MGR service on node {}'.format(node.ip_v4_address))
                     return True
 

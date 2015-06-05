@@ -2097,6 +2097,48 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         return False
 
+class TestFaultInjection(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node='random_node', service='sm', faultName=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FaultInjection,
+                                             "Test setting fault injection")
+        self.passedNode = node
+        self.passedService = service
+        self.passedFaultName = faultName
+
+    def test_FaultInjection(self):
+        """
+        Test Case:
+        This testcase sets the fault injection parameter on specific service in a node
+        At the moment only random_node is supported
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode != 'random_node'):
+            self.log.error("Parameter missing values.")
+            raise Exception
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        svc_map = plat_svc.SvcMap(fdscfg.rt_om_node.nd_conf_dict['ip'],
+                                  fdscfg.rt_om_node.nd_conf_dict['fds_port'])
+        svcs = svc_map.list()
+
+        # Svc map will be a list of lists in the form:
+        # [ [uuid, svc_name, ???, ip, port, is_active?] ]
+        svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+
+        self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
+            self.passedFaultName, self.passedService, self.passedNode))
+
+        res = svc_map.client(svc_uuid).setFault('enable name=' + self.passedFaultName)
+        if res:
+            return True
+
+        return False
+
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     unittest.main(testRunner=xmlrunner.XMLTestRunner(output='test-reports'))

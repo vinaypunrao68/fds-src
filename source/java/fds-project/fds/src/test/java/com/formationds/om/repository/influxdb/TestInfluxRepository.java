@@ -1,8 +1,7 @@
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.om.repository.query.QueryCriteria;
 import org.junit.Test;
 
@@ -23,8 +22,8 @@ public class TestInfluxRepository {
 
         QueryCriteria criteria = new QueryCriteria();
 
-        Volume v1 = (new VolumeBuilder()).withId( "0123456" ).withName( "Awesome" ).build();
-        Volume v2 = (new VolumeBuilder()).withId( "7890" ).withName( "Awesome 2" ).build();
+        Volume v1 = (new Volume.Builder("Awesome")).id( 123456L ).create();
+        Volume v2 = (new Volume.Builder("Awesome 2")).id( 7890L ).create();
 
         List<Volume> contexts = new ArrayList<Volume>();
         contexts.add( v1 );
@@ -42,7 +41,7 @@ public class TestInfluxRepository {
                                                          TimeUnit.SECONDS );
 
         String expectation = "select * from volume_metrics where ( time > 0s and time < 123456789s ) " +
-                             "and ( volume_id = '0123456' or volume_id = '7890' )";
+                             "and ( volume_id = 123456 or volume_id = 7890 )";
 
         System.out.println( "Expected: " + expectation );
         System.out.println( "Actual: " + result );
@@ -78,8 +77,8 @@ public class TestInfluxRepository {
     public void testfindLastFirebreakEventQuery() {
         InfluxEventRepository influxEventRepository = new InfluxEventRepository( null, null, "password".toCharArray() );
 
-        Volume v1 = (new VolumeBuilder()).withId( "0123456" ).withName( "Awesome" ).build();
-        Volume v2 = (new VolumeBuilder()).withId( "7890" ).withName( "Awesome 2" ).build();
+        Volume v1 = (new Volume.Builder("Awesome")).id( 123456L ).create();
+        Volume v2 = (new Volume.Builder("Awesome 2")).id( 7890L ).create();
 
         List<Volume> contexts = new ArrayList<Volume>();
         contexts.add( v1 );
@@ -97,9 +96,9 @@ public class TestInfluxRepository {
                                                                     InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME,
                                                                     TimeUnit.MILLISECONDS );
         String expectation = "select * from events where time > " + tsOneDayAgo + "ms" +
-                             " and ( " + InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = '0123456'" +
+                             " and ( " + InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 123456" +
                              " or " +
-                             InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = '7890' )";
+                             InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 7890 )";
         System.out.println( "Expected: " + expectation );
         System.out.println( "Actual:   " + result );
 

@@ -181,10 +181,8 @@ int OrchMgr::run()
 {
     // run server to listen for OMControl messages from
     // SM, DM and SH
-    runConfigService(this);
-
     deleteScheduler.start();
-
+    runConfigService(this);
     return 0;
 }
 

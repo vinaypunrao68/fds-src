@@ -3,9 +3,9 @@
  */
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.crud.AbstractRepository;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Volume;
 import com.formationds.om.repository.query.QueryCriteria;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Database;
@@ -170,7 +170,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
 
                 Volume volume = contextIt.next();
 
-                sb.append( volIdColumnName ).append( " = '" ).append( volume.getId() ).append( "'" );
+                sb.append( volIdColumnName ).append( " = " ).append( volume.getId() );
 
                 if ( contextIt.hasNext() ) {
                     sb.append( OR );

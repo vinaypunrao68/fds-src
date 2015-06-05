@@ -42,84 +42,84 @@ public class RemoveService implements RequestHandler {
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 
-		Long nodeId = requiredLong( routeParameters, "node_uuid" );
-		Long serviceId = requiredLong(routeParameters, "service_uuid");
+//		Long nodeId = requiredLong( routeParameters, "node_uuid" );
+//		Long serviceId = requiredLong(routeParameters, "service_uuid");
+//
+//		logger.debug("Removing service {}", serviceId );
+//		
+//		//TODO:  This is silly.  First of all I shouldn't need the node ID if I have the service ID.
+//		//  Secondly, I shouldn't need the node name if I have the ID!  Now I need to loop through 
+//		// nodes to find a name I shouldn't need.
+//        List<com.formationds.protocol.FDSP_Node_Info_Type> list =
+//                client.ListServices( 0 );
+//        
+//        Map<String, Node> nodeMap = (new ListNodes(client)).computeNodeMap(list);
+//		
+//		Node myNode = nodeMap.get( nodeId.toString() );
+//		int status = 1;
+//		int httpCode = HttpServletResponse.SC_NOT_FOUND;
+//		
+//		if ( myNode != null ){
+//			
+//			Service service = findService( myNode, serviceId );
+//			
+//			if ( service != null ){
+//				
+//				// find out what type it is
+//				Boolean am = false;
+//				Boolean dm = false;
+//				Boolean sm = false;
+//				
+//				switch( service.getType() ){
+//					case FDSP_ACCESS_MGR:
+//						am = true;
+//						break;
+//					case FDSP_DATA_MGR:
+//						dm = true;
+//						break;
+//					case FDSP_STOR_MGR:
+//						sm = true;
+//						break;
+//					default:
+//						break;
+//				}
+//				
+//				FDSP_Uuid uuid = new FDSP_Uuid( nodeId );
+//				
+//				status =  
+//						client.RemoveServices( new FDSP_RemoveServicesType(
+//							myNode.getName(), 
+//							uuid, 
+//							sm, 
+//							dm, 
+//							am ));
+//				
+//				httpCode = HttpServletResponse.SC_OK;
+//
+//			}
+//			else {
+//				logger.warn( "Could not locate the specified service on the specified node.  Remove service failed." );
+//			}
+//		}
+//		else {
+//			logger.warn( "Could not locate the specified node.  The ID " + nodeId + " does not exist." );
+//		}
+//        
+//		if (status != 0) {
+//
+//			status = HttpServletResponse.SC_BAD_REQUEST;
+//			EventManager.notifyEvent(OmEvents.REMOVE_SERVICE_ERROR, serviceId );
+//			logger.error( "An error occurred while trying to removed service: " + serviceId );
+//
+//		} else {
+//
+//			EventManager.notifyEvent(OmEvents.REMOVE_SERVICE, serviceId);
+//			logger.info( "Service " + serviceId + " was successfully removed." );
+//
+//		}					
 
-		logger.debug("Removing service {}", serviceId );
-		
-		//TODO:  This is silly.  First of all I shouldn't need the node ID if I have the service ID.
-		//  Secondly, I shouldn't need the node name if I have the ID!  Now I need to loop through 
-		// nodes to find a name I shouldn't need.
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list =
-                client.ListServices( 0 );
-        
-        Map<String, Node> nodeMap = (new ListNodes(client)).computeNodeMap(list);
-		
-		Node myNode = nodeMap.get( nodeId.toString() );
-		int status = 1;
-		int httpCode = HttpServletResponse.SC_NOT_FOUND;
-		
-		if ( myNode != null ){
-			
-			Service service = findService( myNode, serviceId );
-			
-			if ( service != null ){
-				
-				// find out what type it is
-				Boolean am = false;
-				Boolean dm = false;
-				Boolean sm = false;
-				
-				switch( service.getType() ){
-					case FDSP_ACCESS_MGR:
-						am = true;
-						break;
-					case FDSP_DATA_MGR:
-						dm = true;
-						break;
-					case FDSP_STOR_MGR:
-						sm = true;
-						break;
-					default:
-						break;
-				}
-				
-				FDSP_Uuid uuid = new FDSP_Uuid( nodeId );
-				
-				status =  
-						client.RemoveServices( new FDSP_RemoveServicesType(
-							myNode.getName(), 
-							uuid, 
-							sm, 
-							dm, 
-							am ));
-				
-				httpCode = HttpServletResponse.SC_OK;
-
-			}
-			else {
-				logger.warn( "Could not locate the specified service on the specified node.  Remove service failed." );
-			}
-		}
-		else {
-			logger.warn( "Could not locate the specified node.  The ID " + nodeId + " does not exist." );
-		}
-        
-		if (status != 0) {
-
-			status = HttpServletResponse.SC_BAD_REQUEST;
-			EventManager.notifyEvent(OmEvents.REMOVE_SERVICE_ERROR, serviceId );
-			logger.error( "An error occurred while trying to removed service: " + serviceId );
-
-		} else {
-
-			EventManager.notifyEvent(OmEvents.REMOVE_SERVICE, serviceId);
-			logger.info( "Service " + serviceId + " was successfully removed." );
-
-		}					
-
-		return new JsonResource(new JSONObject().put("status", status),
-				httpCode);
+		return new JsonResource(new JSONObject().put("status", 200),
+				200);
 	}
 	
 	/**

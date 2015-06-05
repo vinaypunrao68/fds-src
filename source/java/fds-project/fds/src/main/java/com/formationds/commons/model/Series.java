@@ -4,7 +4,7 @@
 
 package com.formationds.commons.model;
 
-import com.formationds.commons.model.abs.Context;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.abs.ModelBase;
 import com.google.gson.annotations.SerializedName;
 
@@ -25,7 +25,7 @@ public class Series
   @SerializedName("type")
   private String type;
   @SerializedName("context")
-  private Context context;
+  private Volume context;
   @SerializedName("datapoints")
   private List<Datapoint> datapoints;
 
@@ -57,15 +57,15 @@ public class Series
   /**
    * @return Returns the {@link com.formationds.commons.model.Volume}
    */
-  public Context getContext() {
+  public Volume getContext() {
     return context;
   }
 
   /**
-   * @param context the {@link com.formationds.commons.model.abs.Context}
+   * @param volume the {@link com.formationds.commons.model.abs.Context}
    */
-  public void setContext( final Context context ) {
-    this.context = context;
+  public void setContext( final Volume volume ) {
+    this.context = volume;
   }
 
   /**

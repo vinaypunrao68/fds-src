@@ -4,66 +4,75 @@
 
 package com.formationds.om.webkit.rest.v08.domain;
 
-import com.formationds.apis.ConfigurationService;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
-import com.formationds.web.toolkit.JsonResource;
+import com.formationds.apis.LocalDomain;
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.Domain;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
-import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class ListLocalDomains
-  implements RequestHandler {
-  private static final Logger logger =
-    LoggerFactory.getLogger( ListLocalDomains.class );
+public class ListLocalDomains implements RequestHandler {
+	private static final Logger logger = LoggerFactory
+			.getLogger(ListLocalDomains.class);
 
-  private final Authorizer authorizer;
-  private final ConfigurationService.Iface configApi;
-  private final AuthenticationToken token;
+	private ConfigurationApi configApi;
 
-  public ListLocalDomains( final Authorizer authorizer,
-                          final ConfigurationService.Iface configApi,
-                          final AuthenticationToken token ) {
-    this.authorizer = authorizer;
-    this.configApi = configApi;
-    this.token = token;
-  }
+	public ListLocalDomains(){}
 
-  @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-      throws Exception {
+	@Override
+	public Resource handle(Request request, Map<String, String> routeParameters)
+			throws Exception {
 
-      List<com.formationds.apis.LocalDomain> localDomains;
-      
-      logger.debug( "Listing local domains." );
+		List<Domain> localDomains = Collections.emptyList();
+		
+		try {
+			localDomains = listDomains();
+		} catch (Exception e) {
+			logger.error("GET::FAILED::" + e.getMessage(), e);
 
-      try {
-          localDomains = configApi.listLocalDomains(0);
-      } catch( Exception e ) {
-          logger.error( "GET::FAILED::" + e.getMessage(), e );
+			// allow dispatcher to handle
+			throw e;
+		}
 
-          // allow dispatcher to handle
-          throw e;
-      }
-      
-      JSONArray array = new JSONArray();
+		String jsonString = ObjectModelHelper.toJSON( localDomains );
 
-      for (com.formationds.apis.LocalDomain localDomain : localDomains) {
-          array.put(new JSONObject()
-                          .put("name", localDomain.name)
-                          .put("id", localDomain.id)
-                          .put("site", localDomain.site));
-      }
+		return new TextResource(jsonString);
+	}
+	
+	public List<Domain> listDomains() throws Exception{
+		
+		logger.debug("Listing local domains.");
+		List<LocalDomain> internalDomains = getConfigApi().listLocalDomains( 0 );
+		
+		List<Domain> externalDomains = new ArrayList<Domain>();
+		
+		internalDomains.stream().forEach( internalDomain -> {
+			
+			Domain externalDomain = ExternalModelConverter.convertToExternalDomain( internalDomain );
+			externalDomains.add( externalDomain );
+		});
+		
+		return externalDomains;
+	}
 
-      return new JsonResource(array);
-  }
+	private ConfigurationApi getConfigApi() {
+
+		if (configApi == null) {
+			configApi = SingletonConfigAPI.instance().api();
+		}
+
+		return configApi;
+	}
 }
-

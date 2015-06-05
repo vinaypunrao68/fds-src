@@ -37,8 +37,8 @@ struct AmVolumeTable : public HasLogger {
     ~AmVolumeTable();
     
     /// Registers the callback we make to the transaction layer
-    using tx_callback_type = std::function<void(AmRequest*)>;
-    void registerCallback(tx_callback_type cb);
+    using processor_cb_type = std::function<void(AmRequest*)>;
+    void registerCallback(processor_cb_type cb);
 
     // A volume descriptor from OM means we probably have an attach pending
     Error processAttach(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
