@@ -75,10 +75,10 @@ public class GSONTest {
 
         Tenant tenant = new Tenant( 3L, "Dave" );
         VolumeStatus status = new VolumeStatus( VolumeState.Active,
-                                                Size.of( 3, SizeUnit.GIGABYTE ) );
+                                                Size.of( 3, SizeUnit.GB ) );
 
-        VolumeSettings settings = new VolumeSettingsBlock( Size.of( 5L, SizeUnit.TERABYTE ),
-                                                           Size.of( 1, SizeUnit.KILOBYTE ) );
+        VolumeSettings settings = new VolumeSettingsBlock( Size.of( 5L, SizeUnit.TB ),
+                                                           Size.of( 1, SizeUnit.KB ) );
 
         RecurrenceRule rule = new RecurrenceRule();
         rule.setFrequency( "WEEKLY" );
@@ -193,7 +193,7 @@ public class GSONTest {
 
     @Test
     public void testVolumeSetting() {
-        VolumeSettings v = new VolumeSettingsBlock( Size.of( 1, SizeUnit.YOTTABYTE ), Size.of( 1, SizeUnit.KiB ) );
+        VolumeSettings v = new VolumeSettingsBlock( Size.of( 1, SizeUnit.YB ), Size.of( 1, SizeUnit.KiB ) );
 
         String j = gson.toJson( v );
         Assert.assertNotNull( j );
@@ -202,7 +202,7 @@ public class GSONTest {
         Assert.assertNotNull( v2 );
         Assert.assertEquals( v, v2 );
 
-        v = new VolumeSettingsObject( Size.of( 1, SizeUnit.YOTTABYTE ) );
+        v = new VolumeSettingsObject( Size.of( 1, SizeUnit.YB ) );
 
         j = gson.toJson( v );
         Assert.assertNotNull( j );

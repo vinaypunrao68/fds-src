@@ -9,26 +9,50 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-abstract class DataProtectionPolicyBase {
+/**
+ *
+ */
+abstract class DataProtectionPolicyBase implements Cloneable {
 
     private Duration             commitLogRetention;
     private List<SnapshotPolicy> snapshotPolicies = new ArrayList<>();
 
     protected DataProtectionPolicyBase() {}
-    public DataProtectionPolicyBase( Duration commitLogRetention,
+
+    /**
+     * @param commitLogRetention the commit log retention period
+     * @param snapshotPolicies the snapshot policies
+     */
+    protected DataProtectionPolicyBase( Duration commitLogRetention,
                                      List<SnapshotPolicy> snapshotPolicies ) {
         this.commitLogRetention = commitLogRetention;
         this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
     }
 
+    /**
+     *
+     * @return the commit log retention period
+     */
     public Duration getCommitLogRetention() { return commitLogRetention; }
 
+    /**
+     *
+     * @return the list of snapshot policies
+     */
     public List<SnapshotPolicy> getSnapshotPolicies() { return snapshotPolicies; }
 
+    /**
+     *
+     * @param commitLogRetention the commit log retention period
+     */
     public void setCommitLogRetention( Duration commitLogRetention ) {
         this.commitLogRetention = commitLogRetention;
     }
 
+    /**
+     *
+     * @param snapshotPolicies
+     */
     public void setSnapshotPolicies( List<SnapshotPolicy> snapshotPolicies ) {
         this.snapshotPolicies = new ArrayList<>( snapshotPolicies );
     }

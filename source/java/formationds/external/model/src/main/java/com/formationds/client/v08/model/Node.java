@@ -18,7 +18,7 @@ import java.util.Objects;
 public class Node extends AbstractResource<Long> {
 
     // TODO: what are the supported node states.
-    public enum NodeState { UP, DOWN, DISCOVERED, UNKNOWN }
+    public enum NodeState { UNKNOWN, UP, DOWN, REMOVED, DISCOVERED, MIGRATION  }
 
     /**
      *
@@ -47,7 +47,7 @@ public class Node extends AbstractResource<Long> {
         @Override
         public boolean equals( Object o ) {
             if ( this == o ) { return true; }
-            if ( !(o instanceof NodeState) ) { return false; }
+            if ( !(o instanceof NodeStatus) ) { return false; }
             final NodeStatus nodeStatus = (NodeStatus) o;
             return Objects.equals( timestamp, nodeStatus.timestamp ) &&
                    Objects.equals( currentState, nodeStatus.currentState );

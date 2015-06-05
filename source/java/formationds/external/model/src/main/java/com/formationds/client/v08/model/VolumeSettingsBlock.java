@@ -23,6 +23,14 @@ public class VolumeSettingsBlock extends VolumeSettings {
         this.blockSize = blockSize;
     }
 
+    /**
+     *
+     * @return a copy of the settings
+     */
+    public VolumeSettingsBlock newSettingsFrom() {
+        return new VolumeSettingsBlock( getCapacity(), getBlockSize() );
+    }
+
     public Size getCapacity() {
         return capacity;
     }

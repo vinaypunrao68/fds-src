@@ -5,6 +5,7 @@
 package com.formationds.client.v08.model;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -12,6 +13,7 @@ import java.util.Objects;
  * The data protection policy for commit log retention and snapshot policies.
  */
 public class DataProtectionPolicy extends DataProtectionPolicyBase {
+
     /**
      * Create a DataProtectionPolicy based on the specified preset.
      * @param p the preset
@@ -48,6 +50,17 @@ public class DataProtectionPolicy extends DataProtectionPolicyBase {
                                  List<SnapshotPolicy> snapshotPolicies ) {
         super( commitLogRetention, snapshotPolicies );
         this.presetId = presetId;
+    }
+
+    /**
+     *
+     * @return a copy of this policy and it's snapshot policies.  The snapshot policy names and ids will be null as
+     * they are generated when saved.
+     */
+    public DataProtectionPolicy newPolicyFrom() {
+        List<SnapshotPolicy> spcp = new ArrayList<>();
+        getSnapshotPolicies().forEach( (sp -> { spcp.add( sp.newPolicyFrom() ); }) );
+        return new DataProtectionPolicy( presetId, getCommitLogRetention(), spcp );
     }
 
     /**

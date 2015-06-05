@@ -32,6 +32,7 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
      *
      * @return a resource id-based comparator
      */
+    @SuppressWarnings( "unchecked" )
     public static Comparator<AbstractResource> idCompare() { return ( o1, o2 ) -> o1.uid.compareTo( o2.uid );}
 
     private I      uid;
@@ -95,7 +96,7 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
 
     /**
      *
-     * @param name
+     * @param name the name of the resource
      */
     public void setName( String name ) {
         this.name = name;

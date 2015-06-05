@@ -14,7 +14,6 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.helper.VolumeDatapointHelper;
 import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
-
 import org.apache.thrift.TException;
 import org.influxdb.dto.Serie;
 
@@ -178,7 +177,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             Map<String, List<IVolumeDatapoint>> volumeDatapoints = e.getValue();
 
             for ( Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet() ) {
-                String volid = e2.getKey();
+                // TODO: need volume ids as long everywhere
+                Long volid = Long.valueOf( e2.getKey() );
                 String volDomain = "";
 
                 // volName is in the list of volume datapoints
