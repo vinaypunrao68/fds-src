@@ -2,6 +2,7 @@ package com.formationds.smoketest;
 
 import com.formationds.apis.*;
 import com.formationds.commons.Fds;
+import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -20,13 +21,11 @@ import org.junit.Test;
 
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -161,6 +160,31 @@ public class AsyncAmTest extends BaseAmTest {
     public void testAsyncGetNonExistentBlob() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.statBlob(domainName, volumeName, blobName).get());
+    }
+    @Test //done 4
+    public void testStatAndUpdateBlobData() throws ExecutionException, InterruptedException {
+        String blobName = "key";
+        byte[] buf = new byte[10];
+        new Random().nextBytes(buf);
+
+        asyncAm.updateBlobOnce(FdsFileSystem.DOMAIN, volumeName, blobName, 1, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0), new HashMap<>()).get();
+        ByteBuffer bb = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0)).get();
+        byte[] result = new byte[buf.length];
+        bb.get(result);
+        assertArrayEquals(buf, result);
+        assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
+
+        buf = new byte[42];
+        new Random().nextBytes(buf);
+        TxDescriptor tx = asyncAm.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1).get();
+        asyncAm.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0),false).get();
+        asyncAm.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx).get();
+
+        bb = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0)).get();
+        result = new byte[buf.length];
+        bb.get(result);
+        assertArrayEquals(buf, result);
+        assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
     }
 
     private static ConfigurationService.Iface configService;
