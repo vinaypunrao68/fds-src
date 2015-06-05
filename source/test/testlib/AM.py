@@ -64,15 +64,22 @@ class AMService(object):
         nodeNewState = NodeState()
         nodeNewState.am=True
 
+	#start AM service
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.start_service(node.id, node.services['AM'][0].id)
+		time.sleep(7)
+
+	#check updated node state 
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['AM'][0].status ==  'ACTIVE':
-			         log.info('AM service has started on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - AM service has started on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('AM service has NOT started on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - AM service has NOT started on node {}'.format(node.ip_v4_address))
 			         return False 
 
 
@@ -94,16 +101,22 @@ class AMService(object):
         nodeNewState = NodeState()
         nodeNewState.am=False
 
+	#stop AM service
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.stop_service(node.id, node.services['AM'][0].id)
+		time.sleep(7)
 
+	#check updated node state 
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['AM'][0].status !=  'ACTIVE':
-			         log.info('AM service is no longer running on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - AM service is no longer running on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('AM service is STILL running on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - AM service is STILL running on node {}'.format(node.ip_v4_address))
 			         return False
 
 
@@ -124,15 +137,18 @@ class AMService(object):
         log.info('Killing bare_am service')
         env.host_string = node_ip
         sudo('pkill -9 bare_am')
+	time.sleep(7)
 
-        for node in self.node_list:
+	#Get new node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
             if node.ip_v4_address == node_ip:
-                if node.services['AM'][0].status !=  'ACTIVE':
-		        log.warn('Failed to kill bare_am service on node {}'.format(node.ip_v4_address))
+                if node.services['AM'][0].status ==  'ACTIVE':
+		        log.warn('FAIL - Failed to kill bare_am service on node {}'.format(node.ip_v4_address))
 		        return False 
 
 		else:
-			log.info('killed bare_am service on node {}'.format(node.ip_v4_address))
+			log.info('PASS - bare_am service has been killed on node {}'.format(node.ip_v4_address))
 		        return True
 
     def add(self, node_ip):
@@ -160,13 +176,18 @@ class AMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.add_service(node.id, newNodeService)
+		time.sleep(7)
 
+	#check updated node state 
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['AM'][0].status ==  'ACTIVE':
-			         log.info('Added AM service to node {}'.format(node.ip_v4_address))
+			         log.info('PASS - Added AM service to node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to add AM service to node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - Failed to add AM service to node {}'.format(node.ip_v4_address))
 			         return False 
 
     def remove(self, node_ip):
@@ -190,11 +211,17 @@ class AMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.remove_service(node.id, node.services['AM'][0].id)
+		time.sleep(7)
+
+	#check updated node state 
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['AM'][0].status ==  'INACTIVE':
-			         log.info('Removed AM service from node {}'.format(node.ip_v4_address))
+			         log.info('PASS - Removed AM service from node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to remove AM service from node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - Failed to remove AM service from node {}'.format(node.ip_v4_address))
 			         return False 
 
