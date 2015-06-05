@@ -380,7 +380,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
                                 std::shared_ptr<leveldb::DB> db,
-                                bool retry)> CbType;
+                                bool retry,
+                                fds_uint32_t uid)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 std::string &snapDir,
@@ -388,6 +389,7 @@ class SmIoSnapshotObjectDB : public SmIoReq {
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;
+        unique_id = 0;
         isPersistent = false;
         executorId = SM_INVALID_EXECUTOR_ID;
         snapNum = "";
@@ -396,6 +398,11 @@ class SmIoSnapshotObjectDB : public SmIoReq {
 
     /* In: Token to take snapshot of*/
     fds_token_id token_id;
+
+    /* In: Unique id passed to be checked when
+     * handing over snapshot to migration executors.
+     */
+     fds_uint32_t unique_id;
 
     /* In: Persistant or in-memory snapshot?
      */

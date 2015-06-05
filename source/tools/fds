@@ -58,6 +58,7 @@ declare -A TESTS
 TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
 TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
 TESTS["restart"]="SimpleRestartTest.ini"
+TESTS["smoke"]="BuildSmokeTest_onpr.ini"
 
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
@@ -674,7 +675,7 @@ TESTNAME=""
 #exit 0
 
 case "${CMD}" in
-    test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
+    kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -694,6 +695,7 @@ case "${CMD}" in
         [[ $APP == "all" ]] && waitForAll
         statusApp $APP
         ;;
+    kill) stopApp  $APP;;
     stop) stopApp  $APP;;
     status) statusApp $APP;;
     clean)

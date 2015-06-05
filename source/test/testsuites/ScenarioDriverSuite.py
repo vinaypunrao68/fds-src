@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # test users - most notably, Jenkins - were reporting that XMLTestRunner did not
     # recognize the failfast argument.)
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
-    runner = xmlrunner.XMLTestRunner(output=log_dir)
+    runner = xmlrunner.XMLTestRunner(output=log_dir, verbosity=0)
 
     test_suite = suiteConstruction(self=None)
     runner.run(test_suite)

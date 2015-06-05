@@ -140,7 +140,7 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
     leveldb::ReadOptions options;
 
     err = metaDb_->snapshot(smTokId, db, options);
-    notifFn(err, snapReq, options, db, snapReq->retryReq);
+    notifFn(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
 }
 
 void
