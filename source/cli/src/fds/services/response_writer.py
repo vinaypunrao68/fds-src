@@ -195,8 +195,7 @@ class ResponseWriter():
             ov["ID"] = node.id
             ov["Name"] = node.name
             ov["State"] = node.state
-            ov["IP V4 Address"] = node.ip_v4_address
-            ov["IP V6 Address"] = node.ip_v6_address
+            ov["IP V4 Address"] = node.address.ipv4address
             
             results.append( ov )
         
@@ -223,9 +222,9 @@ class ResponseWriter():
                     ov = OrderedDict()
                     ov["Node ID"] = node.id
                     ov["Node Name"] = node.name
-                    ov["Service Type"] = service.auto_name
+                    ov["Service Type"] = service.name
                     ov["Service ID"] = service.id
-                    ov["Status"] = service.status
+                    ov["State"] = service.status.state
                     
                     results.append( ov )
                     
