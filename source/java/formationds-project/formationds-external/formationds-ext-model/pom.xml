@@ -16,7 +16,7 @@
 
   <properties>
     <formationds.external.name>
-      ${formationds.project.name} external Project POM
+      ${formationds.project.name} external model
     </formationds.external.name>
   </properties>
 
