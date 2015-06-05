@@ -33,6 +33,12 @@ typedef std::function<void (fds_uint64_t executorId,
 
 typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
 
+typedef std::function<void(fds_uint64_t,
+                   fds_uint32_t,
+                   const std::set<fds_uint32_t>&,
+                   fds_uint32_t,
+                   const fds::Error&)> timeoutCbFn;
+
 class MigrationExecutor {
   public:
     MigrationExecutor(SmIoReqHandler *_dataStore,
@@ -47,7 +53,7 @@ class MigrationExecutor {
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
-                      const std::function<void()> &timeoutHandler,
+                      timeoutCbFn timeoutCb,
                       fds_uint32_t uniqId = 0,
                       fds_uint16_t instanceNum = 1);
     ~MigrationExecutor();
@@ -243,6 +249,17 @@ class MigrationExecutor {
      * from source SM has a unique sequence number.
      */
     MigrationDoubleSeqNum seqNumDeltaSet;
+
+    /**
+     * Callback for the seqNumDeltaSet timeout
+     */
+    void handleTimeout();
+
+    /**
+     * Callback for the timeout handler
+     */
+
+   timeoutCbFn timeoutCb;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from
