@@ -259,11 +259,7 @@ class MigrationExecutor {
      * Callback for the timeout handler
      */
 
-   std::function<void(fds_uint64_t,
-                      fds_uint32_t,
-                      const std::set<fds_uint32_t>&,
-                      fds_uint32_t,
-                      const fds::Error&)> timeoutCb;
+   timeoutCbFn timeoutCb;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from
