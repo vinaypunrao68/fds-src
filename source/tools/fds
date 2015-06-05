@@ -58,6 +58,7 @@ declare -A TESTS
 TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
 TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
 TESTS["restart"]="SimpleRestartTest.ini"
+TESTS["smoke"]="BuildSmokeTest_onpr.ini"
 
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
