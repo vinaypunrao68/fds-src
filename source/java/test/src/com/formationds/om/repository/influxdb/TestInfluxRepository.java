@@ -41,7 +41,7 @@ public class TestInfluxRepository {
                                                          TimeUnit.SECONDS );
 
         String expectation = "select * from volume_metrics where ( time > 0s and time < 123456789s ) " +
-                             "and ( volume_id = '0123456' or volume_id = '7890' )";
+                             "and ( volume_id = 123456 or volume_id = 7890 )";
 
         System.out.println( "Expected: " + expectation );
         System.out.println( "Actual: " + result );
@@ -96,9 +96,9 @@ public class TestInfluxRepository {
                                                                     InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME,
                                                                     TimeUnit.MILLISECONDS );
         String expectation = "select * from events where time > " + tsOneDayAgo + "ms" +
-                             " and ( " + InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = '0123456'" +
+                             " and ( " + InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 123456" +
                              " or " +
-                             InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = '7890' )";
+                             InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 7890 )";
         System.out.println( "Expected: " + expectation );
         System.out.println( "Actual:   " + result );
 
