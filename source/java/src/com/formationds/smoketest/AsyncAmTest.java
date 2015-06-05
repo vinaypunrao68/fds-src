@@ -189,6 +189,12 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
     }
 
+    @Test //done 8
+    public void testVolumeContentsOnMissingVolume() throws Exception {
+        assertFdsError(ErrorCode.MISSING_RESOURCE,
+                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,"nonExistingVolume",Integer.MAX_VALUE,0,"",BlobListOrder.LEXICOGRAPHIC,false).get());
+    }
+
     private static ConfigurationService.Iface configService;
     private String volumeName;
     private static final int OBJECT_SIZE = 1024 * 1024 * 2;
