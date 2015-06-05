@@ -17,7 +17,9 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,17 +56,22 @@ public class ListNodes
     	
     	final List<Node> nodes = new ArrayList<>();
     	
-    	groupedServices.keySet().stream().forEach( nodeId -> {
+    	Iterator<Long> nodeIds = groupedServices.keySet().iterator();
+    	
+    	while ( nodeIds.hasNext() ){
+    		Long nodeId = nodeIds.next();
+    		
+    		List<FDSP_Node_Info_Type> services = groupedServices.get( nodeId );
     		
     		try {
-				Node node = PlatformModelConverter.convertToExternalNode( groupedServices.get( nodeId ) );
+				Node node = PlatformModelConverter.convertToExternalNode( services );
 				nodes.add( node );
 				
 			} catch (Exception e) {
 				logger.warn( "Could not create a node object for uuid: " + nodeId, e );
 			}
-    	});
-    	
+    	}
+
     	return nodes;
     }
     
