@@ -27,11 +27,9 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      MigrationExecutorDoneHandler doneHandler,
                                      FdsTimerPtr& timeoutTimer,
                                      uint32_t timeoutDuration,
-                                     std::function<void(fds_uint64_t,
-                                                        fds_uint32_t,
-                                                        const std::set<fds_uint32_t>&,
-                                                        fds_uint32_t,
-                                                        const fds::Error&)> timeoutCb)
+                                     timeoutCbFn timeoutCb,
+                                     fds_uint32_t uid,
+                                     fds_uint16_t iNum)
         : timeoutCb(timeoutCb),
           executorId(executorID),
           migrDoneHandler(doneHandler),
@@ -43,7 +41,9 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           targetDltVersion(targetDltVer),
           migrationType(migrType),
           onePhaseMigration(resync),
-          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this))
+          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this)),
+          uniqueId(uid),
+          instanceNum(iNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
 }
@@ -232,7 +232,8 @@ Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                         leveldb::DB *db)
 {
-    LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec;
+    LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec
+               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId;
     Error err(ERR_OK);
     ObjMetaData omd;
 
@@ -420,7 +421,14 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 if (migrDoneHandler) {
                     std::set<fds_token_id> oneTokSet;
                     oneTokSet.insert(dltToken);
-                    migrDoneHandler(executorId, smTokenId, oneTokSet, 0, error);
+                    fds_uint32_t round = 0;
+                    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
+                               << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
+                               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId
+                               << ", SM token " << smTokenId
+                               << " Round " << round
+                               << " isResync? " << onePhaseMigration;
+                    migrDoneHandler(executorId, smTokenId, oneTokSet, round, error);
                 }
                 if (dltTokens.size() == 0) {
                     // resync was declined for all DLT tokens of this executor, we are done
@@ -440,6 +448,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
+                    handleMigrationRoundDone(error);
         }
     }
 }
@@ -694,8 +703,13 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             // ok, see if we are in the second round of migration
             expect = ME_SECOND_PHASE_APPLYING_DELTA;
             if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
-                // must be a bug somewhere...
-                fds_panic("Unexpected migration executor state!");
+                MigrationExecutorState curState = atomic_load(&state);
+                // check if we are in done with error state for a sm resync
+                if (!((migrationType == SMMigrType::MIGR_SM_RESYNC) &&
+                    (curState == ME_DONE_WITH_ERROR))) {
+                    // must be a bug somewhere...
+                    fds_panic("Unexpected migration executor state!");
+                }            
             }
             // we finished second phase of migration. If this is resync after restart
             // send finish client resync message to the source.
@@ -708,11 +722,16 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             // we just finished first round and started second round
         }
     } else {
-        // beta2: any error will stop the whole migration process
-        // the error state, which will stop handling any other messages for
-        // this executor
         MigrationExecutorState newState = ME_ERROR;
-        std::atomic_store(&state, newState);
+        if (std::atomic_exchange(&state, newState) == ME_ERROR) {
+            /**
+             * Ignore handling of migration round because migration executor
+             * is already in error state. Error handling would have been done
+             * the first time this executor saw an error and it's state was set
+             * to ME_ERROR.
+             */
+            return;
+        }
 
         if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
             // in case the source started forwarding, we don't want it to continue
@@ -722,8 +741,9 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         }
     }
 
-    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
+    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId 
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
+               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId
                << ", SM token " << smTokenId
                << " Round " << roundNum
                << " isResync? " << onePhaseMigration;
