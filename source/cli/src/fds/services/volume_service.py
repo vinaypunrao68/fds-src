@@ -57,6 +57,18 @@ class VolumeService( AbstractService ):
             
         return volumes
     
+    def get_volume(self, volume_id):
+        ''' 
+        get a single volume
+        '''
+        
+        url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id)
+        response = self.rest_helper.get(self.session, url)
+        
+        volume = VolumeConverter.build_volume_from_json(response)
+        
+        return volume
+    
     def create_volume(self, volume):
         '''
         Takes the passed in volume, converts it to JSON and uses the FDS REST
@@ -87,9 +99,12 @@ class VolumeService( AbstractService ):
         to the volume it points to
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", str(volume.id.uuid) )
+        url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", str(volume.id) )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.put( self.session, url, data )
+        j_volume = self.rest_helper.put( self.session, url, data )
+        
+        volume = VolumeConverter.build_volume_from_json(j_volume)
+        return volume
     
     def delete_volume(self, volume_id):
         '''

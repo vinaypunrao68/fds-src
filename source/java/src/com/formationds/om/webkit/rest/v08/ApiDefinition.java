@@ -168,7 +168,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id", (token) -> new DeleteVolume( getAuthorizer(), token ) );
     	
     	// modify a volume
-    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new ModifyVolume( config ) );
+    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new ModifyVolume( getAuthorizer(), token ) );
     	
     	// take a snapshot of a volume
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new CreateSnapshot() );

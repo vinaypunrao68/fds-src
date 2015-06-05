@@ -13,8 +13,8 @@ class AbstractPlugin( object ):
 
     continuous_protection_str = "continuous_protection"
     priority_str = "priority"
-    iops_guarantee_str = "iops_guarantee"
-    iops_limit_str = "iops_limit"
+    iops_guarantee_str = "iops_min"
+    iops_limit_str = "iops_max"
     media_policy_str = "media_policy"
     volume_name_str = "volume_name"
     volume_id_str = "volume_id"

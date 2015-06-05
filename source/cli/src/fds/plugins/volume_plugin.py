@@ -76,10 +76,10 @@ class VolumePlugin( AbstractPlugin):
         __listParser = subparser.add_parser( "list", help="List all the volumes in the system" )
         __listParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         
-        indGroup = __listParser.add_argument_group( "Individual volume queries", "Indicate how to identify the volume that you are looking for." )
-        __listParserGroup = indGroup.add_mutually_exclusive_group()
-        __listParserGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="Specify a particular volume to list by UUID" )
-        __listParserGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="Specify a particular volume to list by name" )
+#         indGroup = __listParser.add_argument_group( "Individual volume queries", "Indicate how to identify the volume that you are looking for." )
+#         __listParserGroup = indGroup.add_mutually_exclusive_group()
+        __listParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="Specify a particular volume to list by UUID" )
+#         __listParserGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="Specify a particular volume to list by name" )
         __listParser.set_defaults( func=self.list_volumes, format="tabular" )
         
 
@@ -214,7 +214,13 @@ class VolumePlugin( AbstractPlugin):
         '''
         Retrieve a list of volumes in accordance with the passed in arguments
         '''
-        response = self.get_volume_service().list_volumes()
+        response = []
+        
+        if args[AbstractPlugin.volume_id_str] is not None:
+            response = self.get_volume_service().get_volume(args[AbstractPlugin.volume_id_str])
+            response = [response]
+        else:
+            response = self.get_volume_service().list_volumes()
         
         if len( response ) == 0:
             print "\nNo volumes found."
@@ -337,7 +343,7 @@ class VolumePlugin( AbstractPlugin):
         if ( isFromData is False and args[AbstractPlugin.volume_name_str] is not None ):
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
         elif ( isFromData is False and args[AbstractPlugin.volume_id_str] is not None ):
-            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
+            volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
                
         if ( volume.id is None ):
             print "Could not find a volume that matched your entry.\n"
