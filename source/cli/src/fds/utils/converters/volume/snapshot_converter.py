@@ -1,4 +1,4 @@
-from model.volume.snapshot import Snapshot
+from fds.model.volume.snapshot import Snapshot
 import json
 
 class SnapshotConverter():

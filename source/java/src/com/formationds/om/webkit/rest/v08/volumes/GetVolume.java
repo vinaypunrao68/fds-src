@@ -6,8 +6,8 @@ package com.formationds.om.webkit.rest.v08.volumes;
 import java.util.List;
 import java.util.Map;
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;

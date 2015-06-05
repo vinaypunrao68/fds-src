@@ -1,7 +1,7 @@
 import json
-from model.platform.service import Service
-from utils.converters.platform.service_status_converter import ServiceStatusConverter
-from utils.converters.fds_id_converter import FdsIdConverter
+from fds.model.platform.service import Service
+from fds.utils.converters.platform.service_status_converter import ServiceStatusConverter
+from fds.utils.converters.fds_id_converter import FdsIdConverter
 
 class ServiceConverter():
     '''

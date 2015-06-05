@@ -1,4 +1,4 @@
-from model.admin.role import Role
+from fds.model.admin.role import Role
 import json
 
 class RoleConverter(object):

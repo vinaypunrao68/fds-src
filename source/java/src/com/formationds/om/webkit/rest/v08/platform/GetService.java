@@ -7,8 +7,8 @@ import java.util.Optional;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.model.Service;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.web.toolkit.RequestHandler;

@@ -1,5 +1,5 @@
-from model.fds_id import FdsId
-from model.platform.service_status import ServiceStatus
+from fds.model.fds_id import FdsId
+from fds.model.platform.service_status import ServiceStatus
 
 class Service(object):
     '''

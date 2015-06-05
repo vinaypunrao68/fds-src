@@ -10,14 +10,14 @@ import java.util.Map;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;

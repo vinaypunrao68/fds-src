@@ -14,8 +14,8 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;

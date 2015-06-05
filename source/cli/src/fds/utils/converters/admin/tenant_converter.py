@@ -1,5 +1,5 @@
-from model.admin.tenant import Tenant
-from utils.converters.fds_id_converter import FdsIdConverter
+from fds.model.admin.tenant import Tenant
+from fds.utils.converters.fds_id_converter import FdsIdConverter
 
 class TenantConverter(object):
     '''

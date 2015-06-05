@@ -1,5 +1,5 @@
-from model.fds_id import FdsId
-from model.admin.role import Role
+from fds.model.fds_id import FdsId
+from fds.model.admin.role import Role
 
 class User(object):
     '''

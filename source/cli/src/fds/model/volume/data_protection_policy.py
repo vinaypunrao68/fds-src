@@ -1,5 +1,5 @@
-from model.common.duration import Duration
-from model.fds_id import FdsId
+from fds.model.common.duration import Duration
+from fds.model.fds_id import FdsId
 
 class DataProtectionPolicy(object):
     '''

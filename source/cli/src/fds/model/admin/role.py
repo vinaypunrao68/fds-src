@@ -1,5 +1,3 @@
-from pyexpat import features
-
 class Role(object):
     '''
     Created on May 29, 2015

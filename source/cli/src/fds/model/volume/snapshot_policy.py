@@ -1,5 +1,5 @@
-from model.volume.recurrence_rule import RecurrenceRule
-from model.fds_id import FdsId
+from fds.model.volume.recurrence_rule import RecurrenceRule
+from fds.model.fds_id import FdsId
 
 class SnapshotPolicy():
     '''

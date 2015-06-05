@@ -1,4 +1,4 @@
-from model.fds_id import FdsId
+from fds.model.fds_id import FdsId
 
 class DataProtectionPolicyPreset(object):
     '''

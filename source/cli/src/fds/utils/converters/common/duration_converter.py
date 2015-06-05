@@ -1,5 +1,5 @@
 import json
-from model.common.duration import Duration
+from fds.model.common.duration import Duration
 class DurationConverter(object):
     '''
     Created on Jun 1, 2015

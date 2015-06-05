@@ -1,5 +1,5 @@
 import time
-from model.fds_id import FdsId
+from fds.model.fds_id import FdsId
 
 class Snapshot( object ):
     '''

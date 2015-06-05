@@ -1,24 +1,23 @@
 import json
-from model.volume.volume import Volume
-
-'''
-Created on Apr 14, 2015
-
-Because we plan on using generated object models we needed a separate mechanism for marshalling
-volume objects between the python class representation and the JSON dictionary objects.  
-
-This is that mechanism
-
-@author: nate
-'''
-from utils.converters.fds_id_converter import FdsIdConverter
-from utils.converters.volume.qos_policy_converter import QosPolicyConverter
-from utils.converters.volume.settings_converter import SettingsConverter
-from utils.converters.volume.volume_status_converter import VolumeStatusConverter
-from utils.converters.volume.data_protection_policy_converter import DataProtectionPolicyConverter
+from fds.model.volume.volume import Volume
+from fds.utils.converters.fds_id_converter import FdsIdConverter
+from fds.utils.converters.volume.qos_policy_converter import QosPolicyConverter
+from fds.utils.converters.volume.settings_converter import SettingsConverter
+from fds.utils.converters.volume.volume_status_converter import VolumeStatusConverter
+from fds.utils.converters.volume.data_protection_policy_converter import DataProtectionPolicyConverter
 
 class VolumeConverter( object ):
+    '''
+    Created on Apr 14, 2015
     
+    Because we plan on using generated object models we needed a separate mechanism for marshalling
+    volume objects between the python class representation and the JSON dictionary objects.  
+    
+    This is that mechanism
+    
+    @author: nate
+    '''
+        
     @staticmethod
     def build_volume_from_json( j_str ):
         '''

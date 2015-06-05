@@ -1,6 +1,6 @@
 import json
-from model.platform.domain import Domain
-from utils.converters.fds_id_converter import FdsIdConverter
+from fds.model.platform.domain import Domain
+from fds.utils.converters.fds_id_converter import FdsIdConverter
 
 class DomainConverter():
     '''

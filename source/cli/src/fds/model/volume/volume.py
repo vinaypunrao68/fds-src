@@ -1,10 +1,10 @@
-from model.fds_id import FdsId
-from model.volume.qos_policy import QosPolicy
-from model.volume.data_protection_policy import DataProtectionPolicy
-from model.volume.settings.object_settings import ObjectSettings
-from model.volume.volume_status import VolumeStatus
-from OpenSSL.rand import status
-from model.volume.settings.volume_settings import VolumeSettings
+from fds.model.fds_id import FdsId
+from fds.model.volume.qos_policy import QosPolicy
+from fds.model.volume.data_protection_policy import DataProtectionPolicy
+from fds.model.volume.settings.object_settings import ObjectSettings
+from fds.model.volume.volume_status import VolumeStatus
+from fds.model.volume.settings.volume_settings import VolumeSettings
+
 class Volume( object ):
     '''
     Created on Apr 3, 2015

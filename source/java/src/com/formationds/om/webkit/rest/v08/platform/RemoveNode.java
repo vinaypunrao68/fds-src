@@ -5,8 +5,8 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import com.formationds.protocol.FDSP_Uuid;
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.commons.model.helper.ObjectModelHelper;

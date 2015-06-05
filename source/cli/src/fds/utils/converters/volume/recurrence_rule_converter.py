@@ -1,5 +1,5 @@
 import json
-from model.volume.recurrence_rule import RecurrenceRule
+from fds.model.volume.recurrence_rule import RecurrenceRule
 
 class RecurrenceRuleConverter(object):
     '''

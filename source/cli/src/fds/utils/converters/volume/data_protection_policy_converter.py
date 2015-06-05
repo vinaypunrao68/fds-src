@@ -1,8 +1,8 @@
-from utils.converters.fds_id_converter import FdsIdConverter
-from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from fds.utils.converters.fds_id_converter import FdsIdConverter
+from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
 import json
-from model.volume.data_protection_policy import DataProtectionPolicy
-from utils.converters.common.duration_converter import DurationConverter
+from fds.model.volume.data_protection_policy import DataProtectionPolicy
+from fds.utils.converters.common.duration_converter import DurationConverter
 
 class DataProtectionPolicyConverter(object):
     '''

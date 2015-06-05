@@ -14,7 +14,7 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.mortbay.jetty.HttpException;
 
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Snapshot;
@@ -111,7 +111,7 @@ public class GetSnapshot implements RequestHandler {
 		}// for each volume
 
 		if ( snapshot == null ){
-			throw new com.formationds.apis.ApiException( "Could not locate snapshot for the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
+			throw new ApiException( "Could not locate snapshot for the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
 		}
 		
 		Snapshot externalSnapshot = ExternalModelConverter.convertToExternalSnapshot( snapshot );
