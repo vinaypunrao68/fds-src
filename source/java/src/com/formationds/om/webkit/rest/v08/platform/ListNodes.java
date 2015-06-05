@@ -52,7 +52,7 @@ public class ListNodes
 
     	Map<Long, List<FDSP_Node_Info_Type>> groupedServices = list.stream().collect( Collectors.groupingBy( FDSP_Node_Info_Type::getNode_uuid) );
     	
-    	List<Node> nodes = new ArrayList<>();
+    	final List<Node> nodes = new ArrayList<>();
     	
     	groupedServices.keySet().stream().forEach( nodeId -> {
     		
