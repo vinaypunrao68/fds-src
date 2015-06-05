@@ -1,11 +1,11 @@
-from fds.model.fds_id import FdsId
 from fds.model.volume.qos_policy import QosPolicy
 from fds.model.volume.data_protection_policy import DataProtectionPolicy
 from fds.model.volume.settings.object_settings import ObjectSettings
 from fds.model.volume.volume_status import VolumeStatus
 from fds.model.volume.settings.volume_settings import VolumeSettings
+from fds.model.base_model import BaseModel
 
-class Volume( object ):
+class Volume( BaseModel ):
     '''
     Created on Apr 3, 2015
     
@@ -14,11 +14,11 @@ class Volume( object ):
     @author: nate
     '''
     
-    def __init__(self, an_id=FdsId(), qos_policy=QosPolicy(), data_protection_policy=DataProtectionPolicy(), 
-                 settings=ObjectSettings(), media_policy="HYBRID_ONLY", tenant_id=FdsId(), application="None",
-                 status=VolumeStatus() ):
+    def __init__(self, an_id=-1, name=None, qos_policy=QosPolicy(), data_protection_policy=DataProtectionPolicy(), 
+                 settings=ObjectSettings(), media_policy="HYBRID", tenant_id=-1, application="None",
+                 status=VolumeStatus(), creation_time=0 ):
         
-        self.id = an_id
+        BaseModel.__init__(self, an_id, name)
         self.media_policy = media_policy
         self.qos_policy = qos_policy
         self.data_protection_policy = data_protection_policy
@@ -26,15 +26,7 @@ class Volume( object ):
         self.status = status
         self.tenant_id = tenant_id
         self.settings = settings
-        
-    
-    @property
-    def id(self):
-        return self.__id;
-    
-    @id.setter
-    def id(self, anId):
-        self.__id = anId
+        self.creation_time = creation_time
         
     @property
     def settings(self):
@@ -98,6 +90,10 @@ class Volume( object ):
     
     @media_policy.setter
     def media_policy(self, aPolicy):
+        
+        if aPolicy not in ("HDD", "SSD", "HYBRID"):
+            raise TypeError()
+                
         self.__media_policy = aPolicy
         
     @property
@@ -107,3 +103,11 @@ class Volume( object ):
     @tenant_id.setter
     def tenant_id(self, anId):
         self.__tenant_id = anId
+        
+    @property
+    def creation_time(self):
+        return self.__creation_time
+    
+    @creation_time.setter
+    def creation_time(self, creation_time):
+        self.__creation_time = creation_time

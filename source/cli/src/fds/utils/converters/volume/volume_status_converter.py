@@ -15,9 +15,18 @@ class VolumeStatusConverter(object):
         j_str = dict()
         
         j_str["state"] = status.state
-        j_str["last_capacity_firebreak"] = status.last_capacity_firebreak
-        j_str["last_performance_firebreak"] = status.last_performance_firebreak
-        j_str["current_usage"] = json.loads(SizeConverter.to_json(status.current_usage))
+        
+        capFb = dict()
+        capFb["seconds"] = status.last_capacity_firebreak
+        capFb["nanos"] = 0
+        
+        perfFb = dict()
+        perfFb["seconds"] = status.last_performance_firebreak
+        perfFb["nanos"] = 0
+        
+#         j_str["lastCapacityFirebreak"] = capFb
+#         j_str["lastPerformanceFirebreak"] = perfFb
+        j_str["currentUsage"] = json.loads(SizeConverter.to_json(status.current_usage))
         
         j_str = json.dumps(j_str)
         
@@ -28,9 +37,12 @@ class VolumeStatusConverter(object):
         
         status = VolumeStatus()
         
-        status.state = j_str.pop("state", status)
-        status.last_capacity_firebreak = j_str.pop("last_capacity_firebreak", status.last_capacity_firebreak)
-        status.last_performance_firebreak = j_str.pop("last_performance_firebreak", status.last_performance_firebreak)
-        status.current_usage = SizeConverter.build_size_from_json(j_str.pop("current_usage"))
+        status.state = j_str.pop("state", status.state)
+        
+        capFb = j_str.pop("lastCapacityFirebreak", status.last_capacity_firebreak)
+        status.last_capacity_firebreak = capFb["seconds"]
+        perfFb = j_str.pop("lastPerformanceFirebreak", status.last_performance_firebreak)
+        status.last_performance_firebreak = perfFb["seconds"]
+        status.current_usage = SizeConverter.build_size_from_json(j_str.pop("currentUsage"))
         
         return status

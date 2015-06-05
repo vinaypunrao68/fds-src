@@ -15,6 +15,7 @@ from fds.model.fds_id import FdsId
 from fds.model.volume.settings.block_settings import BlockSettings
 from fds.model.common.size import Size
 from fds.model.volume.settings.object_settings import ObjectSettings
+from fds.model.common.duration import Duration
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -108,7 +109,7 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.  Default value is 7.", type=VolumeValidator.priority, default=7, metavar="")
         __createParser.add_argument( self.arg_str + AbstractPlugin.type_str, help="The type of volume connector to use for this volume.", choices=["object", "block"], default="object")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID_ONLY", "SSD_ONLY", "HDD_ONLY"], default="HDD_ONLY")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID", "SSD", "HDD"], default="HDD")
         __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
@@ -274,8 +275,7 @@ class VolumePlugin( AbstractPlugin):
         # build the volume object from the arguments
         else:
        
-            volume.id = FdsId()
-            volume.id.name = args[AbstractPlugin.name_str]
+            volume.name = args[AbstractPlugin.name_str]
             
             volume.type = args[AbstractPlugin.type_str]
             volume.media_policy = args[AbstractPlugin.media_policy_str]
@@ -310,9 +310,10 @@ class VolumePlugin( AbstractPlugin):
                 volume.data_protection_policy = t_preset
                 volume.data_protection_policy.preset_id = t_preset.id
             else:
-                volume.data_protection_policy.commit_log_retention = args[AbstractPlugin.continuous_protection_str]
+                duration = Duration( args[AbstractPlugin.continuous_protection_str], "SECONDS" )
+                volume.data_protection_policy.commit_log_retention = duration
         
-        volume = self.get_volume_service().create_volume( volume )
+        response = self.get_volume_service().create_volume( volume )
         
         if ( volume is not None ):
             self.list_volumes(args)

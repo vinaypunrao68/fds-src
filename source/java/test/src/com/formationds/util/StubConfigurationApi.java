@@ -1,7 +1,9 @@
 package com.formationds.util;
 
 import com.formationds.apis.*;
+import com.formationds.apis.FDSP_ModifyVolType;
 import com.formationds.protocol.*;
+import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;

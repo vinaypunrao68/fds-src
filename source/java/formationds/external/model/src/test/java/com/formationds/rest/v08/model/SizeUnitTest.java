@@ -41,7 +41,7 @@ public class SizeUnitTest {
             System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toYotta( 1 ), SizeUnit.YOTTABYTE.symbol() );
 
             System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toBibi( 1 ), SizeUnit.BYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toKibi( 1 ), SizeUnit.KIBIBYTE.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toKibi( 1 ), SizeUnit.KiB.symbol() );
             System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toMebi( 1 ), SizeUnit.MEBIBYTE.symbol() );
             System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toGibi( 1 ), SizeUnit.GIBIBYTE.symbol() );
             System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toTebi( 1 ), SizeUnit.TEBIBYTE.symbol() );

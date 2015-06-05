@@ -20,8 +20,8 @@ class VolumeStatus(object):
     @state.setter
     def state(self, state):
         
-        if state not in ("ACTIVE", "INACTIVE", "AVAILABLE", "NOT_AVAILABLE"):
-            raise TypeError()
+#         if state not in ("ACTIVE", "INACTIVE", "AVAILABLE", "NOT_AVAILABLE"):
+#             raise TypeError()
         
         self.__state = state
         

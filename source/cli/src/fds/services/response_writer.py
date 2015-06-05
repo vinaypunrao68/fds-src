@@ -47,11 +47,11 @@ class ResponseWriter():
         for volume in response:
             
             #figure out what to show for last firebreak occurrence
-            lastFirebreak = volume.last_capacity_firebreak
+            lastFirebreak = int(volume.status.last_capacity_firebreak)
             lastFirebreakType = "Capacity"
             
-            if ( volume.last_performance_firebreak > lastFirebreak ):
-                lastFirebreak = volume.last_performance_firebreak
+            if ( int(volume.status.last_performance_firebreak) > lastFirebreak ):
+                lastFirebreak = int(volume.status.last_performance_firebreak)
                 lastFirebreakType = "Performance"
                 
             if ( lastFirebreak == 0 ):
@@ -62,13 +62,13 @@ class ResponseWriter():
                 lastFirebreak = time.strftime( "%c", lastFirebreak )
             
             #sanitize the IOPs guarantee value
-            iopsMin = volume.iops_guarantee
+            iopsMin = volume.qos_policy.iops_min
             
             if ( iopsMin == 0 ):
                 iopsMin = "None"
                 
             #sanitize the IOPs limit
-            iopsLimit = volume.iops_limit
+            iopsLimit = volume.qos_policy.iops_max
             
             if ( iopsLimit == 0 ):
                 iopsLimit = "Unlimited"
@@ -81,12 +81,12 @@ class ResponseWriter():
             if ( session.is_allowed( "TENANT_MGMT" ) ):
                 ov["Tenant ID"] = volume.tenant_id
                 
-            ov["State"] = volume.state
-            ov["Type"] = volume.type
-            ov["Usage"] = str(volume.current_size) + " " + volume.current_units
+            ov["State"] = volume.status.state
+            ov["Type"] = volume.settings.type
+            ov["Usage"] = str(volume.status.current_usage.size) + " " + volume.status.current_usage.unit
             ov["Last Firebreak Type"] = lastFirebreakType
             ov["Last Firebreak"] = lastFirebreak
-            ov["Priority"] = volume.priority
+            ov["Priority"] = volume.qos_policy.priority
             ov["IOPs Guarantee"] = iopsMin
             ov["IOPs Limit"] = iopsLimit
             ov["Media Policy"] = volume.media_policy

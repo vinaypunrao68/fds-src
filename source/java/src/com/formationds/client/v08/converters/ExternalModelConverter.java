@@ -70,10 +70,10 @@ public class ExternalModelConverter {
 
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
-        Role roleDescriptor = Role.USER;
+        Long roleId = 1L;
 
         if ( internalUser.isFdsAdmin ) {
-            roleDescriptor = Role.ADMIN;
+            roleId = 0L;
         }
 
         Optional<com.formationds.apis.Tenant> tenant = getConfigApi().tenantFor( extId );
@@ -85,7 +85,7 @@ public class ExternalModelConverter {
             externalTenant = convertToExternalTenant( tenant.get() );
         }
 
-        User externalUser = new User( extId, extName, roleDescriptor, externalTenant );
+        User externalUser = new User( extId, extName, roleId, externalTenant );
 
         return externalUser;
     }
@@ -97,7 +97,7 @@ public class ExternalModelConverter {
         internalUser.setId( externalUser.getId() );
         internalUser.setIdentifier( externalUser.getName() );
 
-        if ( externalUser.getRoleDescriptor().name().equals( Role.ADMIN ) ) {
+        if ( externalUser.getRoleId() == 0L ) {
             internalUser.setIsFdsAdmin( true );
         } else {
             internalUser.setIsFdsAdmin( false );
@@ -184,12 +184,12 @@ public class ExternalModelConverter {
             SingletonRepositoryManager.instance()
                                       .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
 
-        Size extUsage = Size.of( 0L, SizeUnit.BYTE );
+        Size extUsage = Size.of( 0L, SizeUnit.B );
 
         if ( optionalStatus.isPresent() ) {
             com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
 
-            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.BYTE );
+            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
         }
 
         Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
@@ -353,12 +353,12 @@ public class ExternalModelConverter {
 
         if ( settings.getVolumeType().equals( VolumeType.BLOCK ) ) {
 
-            Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.BYTE );
-            Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.BYTE );
+            Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+            Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
             extSettings = new VolumeSettingsBlock( capacity, blockSize );
         } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
-            Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.BYTE );
+            Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
             extSettings = new VolumeSettingsObject( maxObjectSize );
         }
@@ -427,9 +427,15 @@ public class ExternalModelConverter {
 
         VolumeDescriptor internalDescriptor = new VolumeDescriptor();
 
-        internalDescriptor.setDateCreated( externalVolume.getCreated().toEpochMilli() );
+        if ( externalVolume.getCreated() != null ){
+        	internalDescriptor.setDateCreated( externalVolume.getCreated().toEpochMilli() );
+        }
+        
         internalDescriptor.setName( externalVolume.getName() );
-        internalDescriptor.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        
+        if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
+        	internalDescriptor.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        }
 
         if ( externalVolume.getTenant() != null ) {
             internalDescriptor.setTenantId( externalVolume.getTenant().getId() );
@@ -445,15 +451,15 @@ public class ExternalModelConverter {
 
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
             
-            internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
-            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE )
+            internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
+            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
                                                                    .intValue() );
             
             internalSettings.setVolumeType( VolumeType.BLOCK );
             
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
-            internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+            internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
             
             internalSettings.setVolumeType( VolumeType.OBJECT );
         }
@@ -473,7 +479,10 @@ public class ExternalModelConverter {
 
         volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
                                                             .getSeconds() );
-        volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
+        
+        if ( externalVolume.getCreated() != null ){
+        	volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
+        }
         volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
         volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
 
@@ -504,17 +513,19 @@ public class ExternalModelConverter {
         if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
 
-            volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE ).intValue() );
-            volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
+            volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+            volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
-            volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+            volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
         }
 
-        volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
+        	volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        }
         
         if ( externalVolume.getTenant() != null ){
         	volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );

@@ -9,7 +9,7 @@ public class UserTest {
 	@Test
 	public void testBasicUserConversion(){
 		
-		User user = new User( 5L, "justin", Role.ADMIN, null );
+		User user = new User( 5L, "justin", 0L, null );
 		
 		String json = ObjectModelHelper.toJSON( user );
 		

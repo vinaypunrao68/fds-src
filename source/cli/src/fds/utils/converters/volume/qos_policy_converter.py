@@ -13,8 +13,8 @@ class QosPolicyConverter(object):
         j_str = dict()
         
         j_str["priority"] = policy.priority
-        j_str["iops_min"] = policy.iops_min
-        j_str["iops_max"] = policy.iops_max
+        j_str["iopsMin"] = policy.iops_min
+        j_str["iopsMax"] = policy.iops_max
         
         j_str = json.dumps( j_str )
         
@@ -26,7 +26,7 @@ class QosPolicyConverter(object):
         qos_policy = QosPolicy()
         
         qos_policy.priority = j_str.pop( "priority", qos_policy.priority )
-        qos_policy.iops_max = j_str.pop( "iops_max", qos_policy.iops_max )
-        qos_policy.iops_min = j_str.pop( "iops_min", qos_policy.iops_min )
+        qos_policy.iops_max = j_str.pop( "iopsMax", qos_policy.iops_max )
+        qos_policy.iops_min = j_str.pop( "iopsMin", qos_policy.iops_min )
         
         return qos_policy

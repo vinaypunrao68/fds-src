@@ -13,7 +13,7 @@ class SizeConverter(object):
         
         j_str = dict()
         
-        j_str["size"] = size.size
+        j_str["value"] = size.size
         j_str["unit"] = size.unit
         
         j_str = json.dumps(j_str)
@@ -29,7 +29,7 @@ class SizeConverter(object):
         
         size = Size()
         
-        size.size = j_str.pop("size", size.size)
+        size.size = j_str.pop("value", size.size)
         size.unit = j_str.pop("unit", size.unit)
         
         return size

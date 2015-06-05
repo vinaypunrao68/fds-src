@@ -19,10 +19,11 @@ public class VolumeTest {
 
         Tenant tenant = new Tenant( 3L, "Dave" );
         VolumeStatus status = new VolumeStatus( VolumeState.Active,
-                                                Size.of( 3, SizeUnit.GIGABYTE ) );
+                                                Size.of( 3, SizeUnit.GB ) );
 
-        VolumeSettings settings = new VolumeSettingsBlock( Size.of( 5L, SizeUnit.TERABYTE ),
-                                                           Size.of( 1, SizeUnit.KILOBYTE ) );
+//        VolumeSettings settings = new VolumeSettingsBlock( Size.of( 5L, SizeUnit.TERABYTE ),
+//                                                           Size.of( 1, SizeUnit.KILOBYTE ) );
+        VolumeSettings settings = new VolumeSettingsObject( Size.of( 1L, SizeUnit.KB ) );
         
         RecurrenceRule rule = new RecurrenceRule();
         rule.setFrequency( "WEEKLY" );

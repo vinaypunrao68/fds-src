@@ -1,5 +1,5 @@
-from model.volume.settings.volume_settings import VolumeSettings
-from model.common.size import Size
+from fds.model.volume.settings.volume_settings import VolumeSettings
+from fds.model.common.size import Size
 
 class BlockSettings(VolumeSettings):
     '''

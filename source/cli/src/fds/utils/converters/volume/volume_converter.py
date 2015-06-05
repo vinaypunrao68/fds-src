@@ -1,6 +1,5 @@
 import json
 from fds.model.volume.volume import Volume
-from fds.utils.converters.fds_id_converter import FdsIdConverter
 from fds.utils.converters.volume.qos_policy_converter import QosPolicyConverter
 from fds.utils.converters.volume.settings_converter import SettingsConverter
 from fds.utils.converters.volume.volume_status_converter import VolumeStatusConverter
@@ -29,13 +28,21 @@ class VolumeConverter( object ):
         if not isinstance( j_str, dict ):
             j_str = json.loads(j_str)
         
-        volume.id = FdsIdConverter.build_id_from_json(j_str.pop("id"))
+        volume.id = j_str.pop( "uid", volume.id )
+        volume.name = j_str.pop( "name", volume.name )
+        
+        ctime = j_str.pop( "created", volume.creation_time )
+        volume.creation_time = ctime["seconds"]
+         
         volume.status = VolumeStatusConverter.build_status_from_json(j_str.pop("status"))
-        volume.media_policy = j_str.pop("media_policy", volume.media_policy)
+        volume.media_policy = j_str.pop("mediaPolicy", volume.media_policy)
         volume.application = j_str.pop("application", volume.application)
-        volume.qos_policy = QosPolicyConverter.build_policy_from_json(j_str.pop("qos_policy"))
-        volume.data_protection_policy = DataProtectionPolicyConverter.build_policy_from_json(j_str.pop("data_protection_policy"))
-        volume.tenant_id = FdsIdConverter.build_id_from_json(j_str.pop("tenant_id"))
+        volume.qos_policy = QosPolicyConverter.build_policy_from_json(j_str.pop("qosPolicy"))
+        volume.data_protection_policy = DataProtectionPolicyConverter.build_policy_from_json(j_str.pop("dataProtectionPolicy"))
+        volume.tenant_id = j_str.pop( "tenantId", volume.tenant_id )
+        tempSettings = j_str.pop( "settings", volume.settings )
+        
+        volume.settings = SettingsConverter.build_settings_from_json( tempSettings )
         
         return volume
     
@@ -48,14 +55,13 @@ class VolumeConverter( object ):
         
         d = dict()
         
-        j_id = FdsIdConverter.to_json( volume.id )
-        
-        d["id"] = json.loads(j_id)
+        d["uid"] = volume.id
+        d["name"] = volume.name
         
         j_qos = QosPolicyConverter.to_json(volume.qos_policy)
         
-        d["qos_policy"] = json.loads(j_qos)
-        d["media_policy"] = volume.media_policy
+        d["qosPolicy"] = json.loads(j_qos)
+        d["mediaPolicy"] = volume.media_policy
 
         j_settings = SettingsConverter.to_json(volume.settings)
         d["settings"] = json.loads(j_settings)
@@ -64,10 +70,16 @@ class VolumeConverter( object ):
         d["status"] = json.loads(j_status)
         
         j_d_policy = DataProtectionPolicyConverter.to_json(volume.data_protection_policy)
-        d["data_protection_policy"] = json.loads(j_d_policy)
+        d["dataProtectionPolicy"] = json.loads(j_d_policy)
         
         d["application"] = volume.application
-        d["tenant_id"] = json.loads(FdsIdConverter.to_json(volume.tenant_id))
+        d["tenantId"] = volume.tenant_id
+        
+        ctime = dict()
+        ctime["seconds"] = volume.creation_time
+        ctime["nanos"] = 0
+        
+        d["created"] = ctime
         
         result = json.dumps( d )
         
