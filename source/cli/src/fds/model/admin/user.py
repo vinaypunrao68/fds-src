@@ -1,30 +1,17 @@
-from fds.model.fds_id import FdsId
-from fds.model.admin.role import Role
+from fds.model.base_model import BaseModel
 
-class User(object):
+class User(BaseModel):
     '''
     Created on May 18, 2015
     
     @author: nate
     '''
     
-    def __init__(self, an_id=FdsId(), tenant_id=FdsId(), role=Role()):
-        self.id = an_id
+    def __init__(self, an_id=-1, name="None", tenant_id=-1, role="USER"):
+        BaseModel.__init__(self, an_id, name)
         self.tenant_id = tenant_id
         self.role = role
-    
-    @property
-    def id(self):
-        return self.__id
-    
-    @id.setter
-    def id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-            return
-        
-        self.__id = an_id
+        self.password = None
         
     @property
     def tenant_id(self):
@@ -32,11 +19,6 @@ class User(object):
     
     @tenant_id.setter
     def tenant_id(self, tenant_id):
-        
-        if not isinstance(tenant_id, FdsId):
-            raise TypeError()
-            return
-        
         self.__tenant_id = tenant_id
         
     @property
@@ -46,9 +28,17 @@ class User(object):
     @role.setter
     def role(self, role):
         
-        if not isinstance(role, Role):
+        if role not in ("ADMIN", "USER"):
             raise TypeError()
         
         self.__role = role
+        
+    @property
+    def password(self):
+        return self.__password
+    
+    @password.setter
+    def password(self, password):
+        self.__password = password
     
     

@@ -38,8 +38,6 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         self.create_edit_parser(self.__subparser)
         self.create_list_parser(self.__subparser)
         self.create_delete_parser(self.__subparser)
-        self.create_attach_parser(self.__subparser)
-        self.create_detach_parser(self.__subparser)
      
     '''
     @see: AbstractPlugin
@@ -121,7 +119,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         self.add_format_arg( __delete_parser )
         
         __delete_parser.add_argument( "-" + AbstractPlugin.policy_id_str, help="The UUID of the snapshot policy you would like to delete.", required=True)
-        __delete_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that this policy is attached to.", requred=True)
+        __delete_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that this policy is attached to.", required=True)
         
         __delete_parser.set_defaults( func=self.delete_snapshot_policy, format="tabular" ) 
         
@@ -248,30 +246,3 @@ class SnapshotPolicyPlugin( AbstractPlugin):
             
         if ( response["status"].lower() == "ok" ):
             self.list_snapshot_policies(args)
-            
-<<<<<<< HEAD:source/cli/fdscli/plugins/snapshot_policy_plugin.py
-        
-=======
-            
-    def attach_snapshot_policy(self, args):
-        ''' 
-        The the arguments and make the attach snapshot policy service call
-        '''
-        
-        response = self.get_snapshot_policy_service().attach_snapshot_policy( args[AbstractPlugin.policy_id_str], args[AbstractPlugin.volume_id_str])
-        
-        if ( response["status"].lower() == "ok" ):
-            self.list_snapshot_policies(args)
-            
-    def detach_snapshot_policy(self, args):
-        '''
-        Takes the arguments and makes the detach snapshot policy service call
-        '''
-        
-        response = self.get_snapshot_policy_service().detach_snapshot_policy( args[AbstractPlugin.policy_id_str], args[AbstractPlugin.volume_id_str])
-        
-        if ( response["status"].lower() == "ok" ):
-            self.list_snapshot_policies(args)
-            
-        
->>>>>>> master:source/cli/src/fds/plugins/snapshot_policy_plugin.py

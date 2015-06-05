@@ -21,9 +21,13 @@ class UserConverter(object):
         
         j_user = dict()
         
-        j_user["id"] = json.loads(FdsIdConverter.to_json( user.id ))
-        j_user["tenant_id"] = json.loads(FdsIdConverter.to_json( user.tenant_id ))
-        j_user["role"] = json.loads(RoleConverter.to_json(user.role))
+        j_user["uid"] = user.id
+        j_user["name"] = user.name
+        j_user["tenant_id"] = user.tenant_id
+        j_user["roleDescriptor"] = user.role
+        
+        if user.password is not None:
+            j_user["password"] = user.password
         
         j_user = json.dumps(j_user)
         
@@ -37,8 +41,10 @@ class UserConverter(object):
         if not isinstance(j_user, dict):
             j_user = json.loads(j_user) 
         
-        user.id = FdsIdConverter.build_id_from_json( j_user.pop("id" ) )
-        user.tenant_id = FdsIdConverter.build_id_from_json( j_user.pop( "tenant_id" ) )
-        user.role = RoleConverter.build_role_from_json( j_user.pop("role") )
+        user.id = j_user.pop( "uid", user.id )
+        user.name = j_user.pop( "name", user.name )
+        
+        user.tenant_id = j_user.pop( "tenant_id", user.tenant_id )
+        user.role = j_user.pop("roleDescriptor", user.role )
         
         return user

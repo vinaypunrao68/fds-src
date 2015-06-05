@@ -10,11 +10,11 @@ import java.util.Map;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
-import com.formationds.protocol.ApiException;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;

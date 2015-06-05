@@ -280,7 +280,7 @@ class ResponseWriter():
             ov = OrderedDict()
             
             ov["ID"] = user.id
-            ov["Username"] = user.username
+            ov["Username"] = user.name
             
             d_users.append( ov )
             

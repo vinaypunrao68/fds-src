@@ -27,21 +27,23 @@ class UsersService( AbstractService ):
             
         return users
     
-    def create_user(self, login, password ):
+    def create_user(self, user ):
         '''
         create a new user
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/users/", login, "/", password )
-        return self.rest_helper.post( self.session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/users" )
+        data = UserConverter.to_json(user)
+        return self.rest_helper.post( self.session, url, data )
     
-    def change_password(self, user_id, password ):
+    def change_password(self, user_id, user ):
         '''
         Change a users password
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/users/", user_id, "/", password )
-        return self.rest_helper.put( self.session, url )
+        url = "{}{}{}".format( self.get_url_preamble(), "/users/", user_id )
+        data = UserConverter.to_json(user)
+        return self.rest_helper.put( self.session, url, data )
     
     def reissue_user_token(self, user_id):
         '''

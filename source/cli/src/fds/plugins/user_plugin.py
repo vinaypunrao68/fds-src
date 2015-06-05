@@ -6,6 +6,7 @@ from fds.utils.converters.admin.user_converter import UserConverter
 import json
 from fds.services.response_writer import ResponseWriter
 from collections import OrderedDict
+from fds.model.admin.user import User
 
 class UserPlugin(AbstractPlugin):    
     '''
@@ -145,10 +146,13 @@ class UserPlugin(AbstractPlugin):
         '''
         Use the arguments to make the create user call
         '''
+        user = User()
         
-        password = getpass.getpass( "Password: " )
+        user.name = args[AbstractPlugin.user_name_str]
+        user.password = getpass.getpass( "Password: " )
+        user.role = "USER"
         
-        result = self.get_user_service().create_user( args[AbstractPlugin.user_name_str], password )
+        result = self.get_user_service().create_user( user )
         
         if result != None:
             self.list_users(args)
@@ -175,17 +179,17 @@ class UserPlugin(AbstractPlugin):
         '''
         make sense of the arguments and call the change password service call
         '''
-        
-        user_id = self.session.get_user_id()
+        user = User()
+        user.id = self.session.get_user_id()
         
         if args[AbstractPlugin.user_id_str] is not None:
-            user_id = args[AbstractPlugin.user_id_str]
+            user.id = args[AbstractPlugin.user_id_str]
             
-        password = getpass.getpass( "New Password: " )
+        user.password = getpass.getpass( "New Password: " )
         
-        response = self.get_user_service().change_password(user_id, password)
+        response = self.get_user_service().change_password(user.id, user)
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             print "\nPassword changed successfully."
             
     def get_token(self, args):

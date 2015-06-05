@@ -1,7 +1,7 @@
 import json
 from fds.model.platform.node import Node
-from fds.service_converter import ServiceConverter
 from fds.utils.converters.fds_id_converter import FdsIdConverter
+from fds.utils.converters.platform.service_converter import ServiceConverter
 
 class NodeConverter():
     '''

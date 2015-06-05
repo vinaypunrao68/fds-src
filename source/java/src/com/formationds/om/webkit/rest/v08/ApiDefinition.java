@@ -136,7 +136,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
     	
     	//re-issue a token for a specific user
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( config, getSecretKey() ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( getSecretKey() ) );
     	
     	logger.trace( "Completed initializing authentication endpoints." );
     }
