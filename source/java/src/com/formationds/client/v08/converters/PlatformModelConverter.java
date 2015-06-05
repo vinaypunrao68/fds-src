@@ -62,7 +62,7 @@ public class PlatformModelConverter {
 		Node node = null;
 		
 		if ( address != null ){
-			new Node( nodeId, address, state, services );
+			node = new Node( nodeId, address, state, services );
 		}
 		
 		return node;

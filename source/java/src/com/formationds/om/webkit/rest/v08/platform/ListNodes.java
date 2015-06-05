@@ -52,14 +52,14 @@ public class ListNodes
     	
     	logger.debug("Size of service list: {}", list.size());
 
-    	Map<Long, List<FDSP_Node_Info_Type>> groupedServices = list.stream().collect( Collectors.groupingBy( FDSP_Node_Info_Type::getNode_uuid) );
+    	Map<Integer, List<FDSP_Node_Info_Type>> groupedServices = list.stream().collect( Collectors.groupingBy( FDSP_Node_Info_Type::getNode_id ) );
     	
     	final List<Node> nodes = new ArrayList<>();
     	
-    	Iterator<Long> nodeIds = groupedServices.keySet().iterator();
+    	Iterator<Integer> nodeIds = groupedServices.keySet().iterator();
     	
     	while ( nodeIds.hasNext() ){
-    		Long nodeId = nodeIds.next();
+    		Integer nodeId = nodeIds.next();
     		
     		List<FDSP_Node_Info_Type> services = groupedServices.get( nodeId );
     		
