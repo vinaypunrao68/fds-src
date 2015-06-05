@@ -19,6 +19,7 @@ import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.client.v08.model.Service.ServiceStatus;
 import com.formationds.client.v08.model.ServiceType;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -70,7 +71,7 @@ public class MutateService implements RequestHandler {
         Boolean sm = isServiceOnAlready( ServiceType.SM, node );
         Boolean dm = isServiceOnAlready( ServiceType.DM, node );
         
-        Boolean myState = convertState( service.getStatus() );
+        Boolean myState = convertState( service.getStatus().getServiceState() );
         
         switch( service.getType() ){
         	case AM:
@@ -132,10 +133,10 @@ public class MutateService implements RequestHandler {
 		
 		Service service = services.get( 0 );
 		
-		return convertState( service.getStatus() );
+		return convertState( service.getStatus().getServiceState() );
 	}
 	
-	private Boolean convertState( ServiceStatus status ){
+	private Boolean convertState( ServiceState status ){
 		
 		switch( status ){
 			case RUNNING:

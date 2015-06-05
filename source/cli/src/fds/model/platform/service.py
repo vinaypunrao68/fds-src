@@ -1,30 +1,18 @@
-from fds.model.fds_id import FdsId
 from fds.model.platform.service_status import ServiceStatus
+from fds.model.base_model import BaseModel
 
-class Service(object):
+class Service(BaseModel):
     '''
     Created on Apr 28, 2015
     
     @author: nate
     '''
 
-    def __init__(self, status=ServiceStatus(), port=0, a_type="FDSP_PLATFORM", an_id=FdsId()):
+    def __init__(self, status=ServiceStatus(), port=0, a_type="PM", an_id=-1, name=None):
+        BaseModel.__init__(self, an_id, name)
         self.status = status
         self.port = port
         self.type = a_type
-        self.id = an_id
-    
-    @property
-    def id(self):
-        return self.__id
-    
-    @id.setter
-    def id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-        
-        self.__id = an_id
         
     @property
     def port(self):
@@ -54,7 +42,7 @@ class Service(object):
     @type.setter
     def type(self, a_type):
         
-        if ( a_type not in ("FDSP_ACCESS_MGR", "FDSP_STOR_MGR", "FDSP_ORCH_MGR", "FDSP_PLATFORM", "FDSP_DATA_MGR")):
+        if ( a_type not in ("AM", "SM", "OM", "PM", "DM")):
             raise TypeError()
             return
         

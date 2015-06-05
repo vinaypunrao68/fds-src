@@ -1,5 +1,5 @@
 import json
-from model.platform.service_status import ServiceStatus
+from fds.model.platform.service_status import ServiceStatus
 
 class ServiceStatusConverter(object):
     '''

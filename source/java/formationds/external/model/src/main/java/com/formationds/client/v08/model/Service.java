@@ -8,7 +8,7 @@ import java.util.Objects;
 
 public class Service extends AbstractResource<Long> {
 
-    public static enum ServiceStatus {
+    public static enum ServiceState {
         RUNNING,
         NOT_RUNNING,
         LIMITED,
@@ -18,6 +18,40 @@ public class Service extends AbstractResource<Long> {
         UNREACHABLE,
         INITIALIZING,
         SHUTTING_DOWN;
+    }
+    
+    public static class ServiceStatus{
+    	
+    	private ServiceState state;
+    	private final String description;
+    	private final int errorCode;
+    	
+    	public ServiceStatus( ServiceState state ){
+    		this( state, "", 0);
+    	}
+    	
+    	public ServiceStatus( ServiceState state, String description, int errorCode ){
+    		this.state = state;
+    		this.description = description;
+    		this.errorCode = errorCode;
+    	}
+    	
+    	public ServiceState getServiceState(){
+    		return state;
+    	}
+    	
+    	public void setServiceState( ServiceState state ){
+    		this.state = state;
+    	}
+    	
+    	public int getErrorCode(){
+    		return errorCode;
+    	}
+    	
+    	public String getDescription(){
+    		return description;
+    	}
+    	
     }
 
     private ServiceType type;

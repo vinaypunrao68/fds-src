@@ -20,7 +20,8 @@ class ServiceConverter():
         
         service.type = j_str.pop("type", service.type)
         service.port = j_str.pop("port", service.port)
-        service.id = FdsIdConverter.build_id_from_json(j_str.pop("id"))
+        service.id = j_str.pop("uid", service.id)
+        service.name = j_str.pop("name", service.name)
         service.status = ServiceStatusConverter.build_status_from_json(j_str.pop("status"))
         
         return service 

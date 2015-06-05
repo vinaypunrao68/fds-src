@@ -2,6 +2,7 @@ import json
 from fds.model.platform.node import Node
 from fds.utils.converters.fds_id_converter import FdsIdConverter
 from fds.utils.converters.platform.service_converter import ServiceConverter
+from fds.utils.converters.platform.address_converter import AddressConverter
 
 class NodeConverter():
     '''
@@ -42,12 +43,12 @@ class NodeConverter():
         if not isinstance( j_str, dict ):
             j_str = json.loads(j_str)
 
-        node.id = FdsIdConverter.build_id_from_json(j_str.pop( "id", node.id ))
+        node.id = j_str.pop("uid", node.id)
+        node.name = j_str.pop("name", node.name)
         node.state = j_str.pop( "state", "UP" )
-        node.ip_v4_address = j_str.pop( "ipV4address", node.ip_v4_address)
-        node.ip_v6_address = j_str.pop( "ipV6address", node.ip_v6_address)
+        node.address = AddressConverter.build_address_from_json(j_str.pop("address", node.address))
         
-        services = j_str.pop( "services", None )
+        services = j_str.pop( "serviceMap", None )
         
         if ( services is not None ):
             for key in ("AM","DM","SM","PM","OM"):

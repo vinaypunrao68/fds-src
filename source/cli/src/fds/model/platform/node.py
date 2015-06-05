@@ -1,15 +1,16 @@
-from fds.model.fds_id import FdsId
-class Node(object):
+from fds.model.platform.address import Address
+from fds.model.base_model import BaseModel
+
+class Node(BaseModel):
     '''
     Created on Apr 27, 2015
     
     @author: nate
     '''
 
-    def __init__(self, an_id=FdsId(), state="UP", ip_v4_address=None):
-        self.ip_v4_address = ip_v4_address
-        self.ip_v6_address = None
-        self.id = an_id
+    def __init__(self, an_id=-1, name=None, state="UP", address=Address()):
+        BaseModel.__init__(self, an_id, name)
+        self.address = address
         self.state = state
         self.services = dict()
         self.services["AM"] = []
@@ -21,33 +22,12 @@ class Node(object):
         return 
     
     @property
-    def id(self):
-        return self.__id
+    def address(self):
+        return self.__address
     
-    @id.setter
-    def id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-            return
-        
-        self.__id = an_id
-    
-    @property
-    def ip_v4_address(self):
-        return self.__ip_v4_address
-    
-    @ip_v4_address.setter
-    def ip_v4_address(self, an_ip):
-        self.__ip_v4_address = an_ip
-        
-    @property
-    def ip_v6_address(self):
-        return self.__ip_v6_address
-    
-    @ip_v6_address.setter
-    def ip_v6_address(self, an_ip):
-        self.__ip_v6_address = an_ip
+    @address.setter
+    def address(self, an_ip):
+        self.__address = an_ip
         
     @property
     def state(self):

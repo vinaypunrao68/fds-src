@@ -14,6 +14,7 @@ import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Node.NodeAddress;
 import com.formationds.client.v08.model.Node.NodeState;
 import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.client.v08.model.ServiceType;
 import com.formationds.client.v08.model.Service.ServiceStatus;
 import com.formationds.protocol.FDSP_MgrIdType;
@@ -108,8 +109,8 @@ public class PlatformModelConverter {
 		Long extId = nodeInfoType.getService_uuid();
 		int extControlPort = nodeInfoType.getControl_port();
 		Optional<ServiceType> optType = convertToExternalServiceType( nodeInfoType.getNode_type() );
-		Optional<ServiceStatus> optStatus = convertToExternalServiceStatus( nodeInfoType.getNode_state() );
-
+		Optional<ServiceState> state = convertToExternalServiceState( nodeInfoType.getNode_state() );
+		
 		ServiceType extType = null;
 		ServiceStatus extStatus = null;
 
@@ -117,8 +118,11 @@ public class PlatformModelConverter {
 			extType = optType.get();
 		}
 
-		if ( optStatus.isPresent() ) {
-			extStatus = optStatus.get();
+		if ( state.isPresent() ) {
+			extStatus = new ServiceStatus(state.get());
+		}
+		else {
+			extStatus = new ServiceStatus( ServiceState.UNREACHABLE );
 		}
 
 		Service externalService = new Service( extId, extType, extControlPort, extStatus );
@@ -135,7 +139,7 @@ public class PlatformModelConverter {
 		nodeInfo.setNode_id( externalNode.getId().intValue() );
 		nodeInfo.setNode_name( externalNode.getName() );
 
-		Optional<FDSP_NodeState> optState = convertToInternalServiceStatus( externalService.getStatus() );
+		Optional<FDSP_NodeState> optState = convertToInternalServiceState( externalService.getStatus().getServiceState() );
 
 		if ( optState.isPresent() ) {
 			nodeInfo.setNode_state( optState.get() );
@@ -206,33 +210,33 @@ public class PlatformModelConverter {
         return internalType;
     }
 
-    public static Optional<ServiceStatus> convertToExternalServiceStatus( FDSP_NodeState internalState ) {
+    public static Optional<ServiceState> convertToExternalServiceState( FDSP_NodeState internalState ) {
 
-        Optional<ServiceStatus> externalStatus;
+        Optional<ServiceState> externalState;
 
         switch ( internalState ) {
             case FDS_Node_Down:
-                externalStatus = Optional.of( ServiceStatus.NOT_RUNNING );
+            	externalState = Optional.of( ServiceState.NOT_RUNNING );
                 break;
             case FDS_Node_Up:
-                externalStatus = Optional.of( ServiceStatus.RUNNING );
+            	externalState = Optional.of( ServiceState.RUNNING );
                 break;
             case FDS_Node_Rmvd:
-                externalStatus = Optional.of( ServiceStatus.UNREACHABLE );
+            	externalState = Optional.of( ServiceState.UNREACHABLE );
                 break;
             case FDS_Start_Migration:
-                externalStatus = Optional.of( ServiceStatus.INITIALIZING );
+            	externalState = Optional.of( ServiceState.INITIALIZING );
                 break;
             case FDS_Node_Discovered:
-                externalStatus = Optional.of( ServiceStatus.NOT_RUNNING );
+            	externalState = Optional.of( ServiceState.NOT_RUNNING );
             default:
-                externalStatus = Optional.of( ServiceStatus.RUNNING );
+            	externalState = Optional.of( ServiceState.RUNNING );
         }
 
-        return externalStatus;
+        return externalState;
     }
 
-    public static Optional<FDSP_NodeState> convertToInternalServiceStatus( ServiceStatus externalStatus ) {
+    public static Optional<FDSP_NodeState> convertToInternalServiceState( ServiceState externalStatus ) {
 
         Optional<FDSP_NodeState> internalState;
 
