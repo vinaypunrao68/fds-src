@@ -732,13 +732,26 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // migrate next SM token or we are done
     if (finished) {
         // If I'm here I have migrated a token, need to find the next token to migrate
-        LOGMIGRATE << "erasing " << smToken;
+        /**
+         * Erase the smToken whose executor received this callback.
+         * TODO:(Gurpreet) Currently for parallel migrations we
+         * are assuming a single executor-per smToken because
+         * # of SM tokens = # of DLT tokens. Parallel migration
+         * logic should be revisited when the above assumption
+         * changes.
+         */
+        LOGMIGRATE << "Erase " << smToken
+                   << " fetch and increment nextExecutor";
+        auto next = nextExecutor.fetch_and_increment_saturating();
         {
             FDSGUARD(smTokenInProgressMutex);
             smTokenInProgress.erase(smToken);
+            if (smTokenInProgress.size() > 0 &&
+                next == migrExecutors.end()) {
+                LOGMIGRATE << "No new executors to start. Exit";
+                return;
+            }
         }
-        LOGMIGRATE << "fetch and increment nextExecutor";
-        auto next = nextExecutor.fetch_and_increment_saturating();
         if (next != migrExecutors.end()) {
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
@@ -756,20 +769,27 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             }
         } else {
             LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
-            // need to make sure all executors have terminated
-            {
-                FDSGUARD(smTokenInProgressMutex);
-                if (smTokenInProgress.size() > 0) {
-                    LOGMIGRATE << "exiting done migrating";
-                    return;
-                }
-            }
             if (isFirstRound && !resyncOnRestart) {
                 // --> start of second round
                 // --> incrememnt counter / marker of second round
                 PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
                 LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
                 LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
+
+                /**
+                 * Making the race window as small as possible. The race being 1 thread executing
+                 * last executor and other thread trying to cleanup and initiate next phase. Another
+                 * way is to keep the whole migrationExecutorDoneCb method under one scoped mutex
+                 * so that only one thread perform done operations at a time, but that could be
+                 * expensive since we do lot's of operations in this method.
+                 */
+                {
+                    FDSGUARD(smTokenInProgressMutex);
+                    if (smTokenInProgress.size() > 0) {
+                        LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
+                        return;
+                    }
+                }
                 nextExecutor.set(migrExecutors.begin());
                 for (uint32_t issued = 0; issued < parallelMigration; ++issued) {
                         auto next = nextExecutor.fetch_and_increment_saturating();
@@ -782,6 +802,17 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                         startSecondRebalanceRound(next->first);
                 }
             } else {
+                /**
+                 * Making the race window between thread executing last executor and another thread
+                 * cleaning up after second phase as small as possible.
+                 */
+                {
+                    FDSGUARD(smTokenInProgressMutex);
+                    if (smTokenInProgress.size() > 0) {
+                        LOGMIGRATE << "Executor(s) still active from second phase. Don't cleanup yet";
+                        return;
+                    }
+                }
                 // done with second round -- all done
                 if (omStartMigrCb) {
                     omStartMigrCb(ERR_OK);
