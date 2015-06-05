@@ -27,6 +27,7 @@
 
   <modules>
     <module>formationds-ext-model</module>
+    <module>formationds-ext-dist</module>
   </modules>
 
 </project>
