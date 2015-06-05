@@ -25,9 +25,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 
 @Ignore
@@ -149,6 +147,21 @@ public class AsyncAmTest extends BaseAmTest {
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(1), Maps.newHashMap()).get();
         BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
         assertEquals(OBJECT_SIZE + smallObjectLength, blobDescriptor.getByteCount());
+
+        byte[] result = new byte[OBJECT_SIZE];
+        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN,volumeName,blobName,OBJECT_SIZE,new ObjectOffset(0)).get();
+        byteBuffer.get(result);
+        byte[] bigObjectByteArray = new byte[OBJECT_SIZE];
+        bigObject.get(bigObjectByteArray);
+        assertArrayEquals(result, bigObjectByteArray);
+
+        byte[] result1 = new byte[smallObjectLength];
+        ByteBuffer bb1 = asyncAm.getBlob(FdsFileSystem.DOMAIN,volumeName,blobName,smallObjectLength,new ObjectOffset(1)).get();
+        bb1.get(result1);
+        byte[] smallObjectByteArray = new byte[smallObjectLength];
+        smallObject.get(smallObjectByteArray);
+        assertArrayEquals(smallObjectByteArray,result1);
+
     }
 
     @Test
