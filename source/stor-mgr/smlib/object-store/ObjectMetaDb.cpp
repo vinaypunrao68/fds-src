@@ -154,7 +154,7 @@ Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            std::shared_ptr<leveldb::DB>& db,
                            leveldb::ReadOptions& opts) {
-    std::shared_ptr<osm::ObjectDB> odb = nullptr;
+    std::shared_ptr<osm::ObjectDB> odb;
 
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
