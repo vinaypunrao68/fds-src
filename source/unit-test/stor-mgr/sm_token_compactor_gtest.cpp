@@ -144,7 +144,7 @@ class TestReqHandler: public SmIoReqHandler {
         leveldb::ReadOptions options;
         leveldb::DB *db = odb->GetDB();
         options.snapshot = db->GetSnapshot();
-        snapReq->smio_snap_resp_cb(ERR_OK, NULL, options, db, false);
+        snapReq->smio_snap_resp_cb(ERR_OK, NULL, options, db, false, 0);
     }
     void compactObjects(SmIoReq* ioReq) {
         SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
