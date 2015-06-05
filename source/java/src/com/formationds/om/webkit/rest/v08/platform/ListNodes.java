@@ -46,7 +46,7 @@ public class ListNodes
     public List<Node> getNodes() throws TException{
         
     	// TODO:  Fix this when there are more domains
-    	List<com.formationds.protocol.FDSP_Node_Info_Type> list = getConfigApi().listLocalDomainServices("");
+    	List<com.formationds.protocol.FDSP_Node_Info_Type> list = getConfigApi().ListServices(0);
     	
     	logger.debug("Size of service list: {}", list.size());
 
