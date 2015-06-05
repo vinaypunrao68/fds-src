@@ -5,66 +5,66 @@ package com.formationds.om.webkit.rest.v08.platform;
 
 import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.apis.FDSP_ActivateOneNodeType;
+import com.formationds.client.v08.model.Node;
+import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.ServiceType;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
-import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
 
+import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Map;
 
 public class AddNode
     implements RequestHandler {
 
+	private static final String NODE_ARG = "node_id";
+	
     private static final Logger logger =
         LoggerFactory.getLogger( AddNode.class );
 
-    private final ConfigurationApi client;
+    private ConfigurationApi configApi;
 
-    public AddNode( final ConfigurationApi client ) {
-
-        this.client = client;
-
-    }
+    public AddNode() {}
 
     @Override
     public Resource handle( final Request request,
                             final Map<String, String> routeParameters)
         throws Exception {
 
-        long nodeUuid = requiredLong(routeParameters, "node_uuid");
+        long nodeUuid = requiredLong(routeParameters, NODE_ARG );
         
-        Long domainId = requiredLong(routeParameters, "domain_id");
-
-        String source = IOUtils.toString(request.getInputStream());
-
-        JSONObject o = new JSONObject(source);
-
-        boolean activateSm = !o.isNull( "sm" ) && o.getBoolean( "sm" );
-        boolean activateAm = !o.isNull( "am" ) && o.getBoolean( "am" );
-        boolean activateDm = !o.isNull( "dm" ) && o.getBoolean( "dm" );
+        final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
+        Node node = ObjectModelHelper.toObject( reader, Node.class );
+        
+        boolean activateSm = activateService( ServiceType.SM, node );
+        boolean activateAm = activateService( ServiceType.AM, node );
+        boolean activateDm = activateService( ServiceType.DM, node );
 
         logger.debug( "Activating {} AM: {} DM: {} SM: {}",
                       nodeUuid, activateAm, activateDm, activateSm );
 
+        // TODO: Fix when we support multiple domains
+        
         int status =
-            client.ActivateNode( new FDSP_ActivateOneNodeType(
-                                     domainId.intValue(),
+            getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
+                                     0,
                                      new FDSP_Uuid( nodeUuid ),
                                      activateSm,
                                      activateDm,
                                      activateAm ) );
-
-        int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {
 
             status= HttpServletResponse.SC_BAD_REQUEST;
@@ -78,7 +78,30 @@ public class AddNode
 
         }
 
-        return new JsonResource( new JSONObject().put( "status", status ),
-                                 httpCode);
+        List<Node> nodes = (new ListNodes()).getNodes();
+        
+        String jsonString = ObjectModelHelper.toJSON( nodes );
+        
+        return new TextResource( jsonString );
+    }
+    
+    private Boolean activateService( ServiceType type, Node node ){
+    	
+    	List<Service> services = node.getServices().get( type );
+    	
+    	if ( services.size() == 0 ){
+    		return false;
+    	}
+    	
+    	return true;
+    }
+    
+    private ConfigurationApi getConfigApi(){
+    	
+    	if ( configApi == null ){
+    		configApi = SingletonConfigAPI.instance().api();
+    	}
+    	
+    	return configApi;
     }
 }

@@ -159,10 +159,10 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes", (token) -> new CreateVolume( getAuthorizer(), token ) );
     	
     	// clone a volume from snapshot ID
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshot/:snapshot_id", (token) -> new CloneVolumeFromSnapshot() );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshot/:snapshot_id", (token) -> new CloneVolumeFromSnapshot( this.authorizer, token ) );
 
     	// clone a volume from a time
-    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/time/:time_in_seconds", (token) -> new CloneVolumeFromTime() );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/time/:time_in_seconds", (token) -> new CloneVolumeFromTime( this.authorizer, token) );
     	
     	// delete volume
     	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id", (token) -> new DeleteVolume( getAuthorizer(), token ) );
@@ -255,19 +255,19 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing node endpoints..." );
     	
     	// list nodes and services
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes", (token) -> new ListNodes( config ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes", (token) -> new ListNodes() );
     	
     	// get one specific node
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id", (token) -> new GetNode( config ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id", (token) -> new GetNode() );
     	
     	// add a node into the system
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id", (token) -> new AddNode( config ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id", (token) -> new AddNode() );
     	
     	// remove a node
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id", (token) -> new RemoveNode( config ) );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id", (token) -> new RemoveNode() );
     	
     	// change a node (includes state)
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id", (token) -> new MutateNode( config ) );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id", (token) -> new MutateNode() );
     	
     	logger.trace( "Completed initializing node endpoints." );
     }
@@ -282,16 +282,16 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing service endpoints..." );
     	
     	// list services on a node
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services", (token) -> new ListServices( config ) );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services", (token) -> new ListServices() );
     	
     	// add a new service to a node
-    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id/services", (token) -> new AddService( config ) );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id/services", (token) -> new AddService() );
     	
     	// remove a service from a node
-    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new RemoveService( config ) );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new RemoveService() );
     	
     	// change a service (primarily used for start/stop)
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new MutateService( config ) );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new MutateService() );
     	
     	logger.trace( "Completed initializing service endpoints." );
     }

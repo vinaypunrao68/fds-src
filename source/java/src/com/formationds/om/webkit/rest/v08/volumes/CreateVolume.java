@@ -146,7 +146,7 @@ public class CreateVolume implements RequestHandler {
 	 * @throws ApiException
 	 * @throws TException
 	 */
-	private void setQosForVolume( Volume externalVolume ) throws ApiException, TException{
+	public void setQosForVolume( Volume externalVolume ) throws ApiException, TException{
 		
 	    if( externalVolume.getId() != null && externalVolume.getId() > 0 ) {
 

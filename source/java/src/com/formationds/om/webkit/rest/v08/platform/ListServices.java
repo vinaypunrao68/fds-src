@@ -3,27 +3,64 @@
  */
 package com.formationds.om.webkit.rest.v08.platform;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
+import com.formationds.apis.ApiException;
+import com.formationds.client.v08.model.Node;
+import com.formationds.client.v08.model.Service;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 public class ListServices implements RequestHandler{
 
-	private final ConfigurationApi configApi;
+	private static final String NODE_ARG = "node_id";
+	private ConfigurationApi configApi;
 	
-	public ListServices( final ConfigurationApi configApi ){
-		this.configApi = configApi;
-	}
+	public ListServices(){}
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		
+		long nodeId = requiredLong( routeParameters, NODE_ARG );
+		
+		List<Service> services = getServicesForNode( nodeId );
+		
+		String jsonString = ObjectModelHelper.toJSON( services );
+		
+		return new TextResource( jsonString );
+	}
+	
+	public List<Service> getServicesForNode( long nodeId ) throws ApiException, TException {
+		
+		// TODO: Make a thrift call so we don't have to get all nodes and find the right one...
+		List<Service> services = Collections.emptyList();
+		
+		Node node = (new GetNode()).getNode( nodeId );
+		
+		node.getServices().keySet().stream().forEach( serviceType -> {
+			services.addAll( node.getServices().get( serviceType ) );
+		});
+		
+		return services;
+	}
+	
+	private ConfigurationApi getConfigApi(){
+		
+		if ( configApi == null ){
+			configApi = SingletonConfigAPI.instance().api();
+		}
+		
+		return configApi;
 	}
 
 }

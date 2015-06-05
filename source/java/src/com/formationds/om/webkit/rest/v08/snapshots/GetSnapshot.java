@@ -10,14 +10,17 @@ import java.util.Optional;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.mortbay.jetty.HttpException;
 
+import com.formationds.apis.ErrorCode;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Snapshot;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -47,6 +50,22 @@ public class GetSnapshot implements RequestHandler {
 				REQ_PARAM_SNAPSHOT_ID);
 		LOG.debug("Looking for a snapshot with ID: " + snapshotId);
 
+		Snapshot snapshot = findSnapshot( snapshotId );
+		
+		if (snapshot != null) {
+			LOG.debug("Snapshot found.");
+
+			String jsonString = ObjectModelHelper.toJSON( snapshot );
+
+			return new TextResource(jsonString);
+		}
+
+		LOG.error("Could not find snapshot with ID: " + snapshotId);
+		throw new HttpException(HttpServletResponse.SC_BAD_REQUEST,
+				"No snapshot was found with the ID: " + snapshotId);
+	}
+	
+	public Snapshot findSnapshot( long snapshotId ) throws ApiException, TException{
 		/**
 		 * There is no easy way to do this at this time... there should be... So
 		 * instead we have to get each volume, get each volumes snapshots and
@@ -91,19 +110,13 @@ public class GetSnapshot implements RequestHandler {
 			}
 		}// for each volume
 
-		if (snapshot != null) {
-			LOG.debug("Snapshot found.");
-			Snapshot mSnapshot = ExternalModelConverter
-					.convertToExternalSnapshot(snapshot);
-
-			String jsonString = ObjectModelHelper.toJSON(mSnapshot);
-
-			return new TextResource(jsonString);
+		if ( snapshot == null ){
+			throw new com.formationds.apis.ApiException( "Could not locate snapshot for the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
 		}
-
-		LOG.error("Could not find snapshot with ID: " + snapshotId);
-		throw new HttpException(HttpServletResponse.SC_BAD_REQUEST,
-				"No snapshot was found with the ID: " + snapshotId);
+		
+		Snapshot externalSnapshot = ExternalModelConverter.convertToExternalSnapshot( snapshot );
+		
+		return externalSnapshot;
 	}
 	
 	private ConfigurationApi getConfigApi(){

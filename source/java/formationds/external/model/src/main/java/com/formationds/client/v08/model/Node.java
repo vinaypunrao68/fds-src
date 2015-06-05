@@ -18,7 +18,7 @@ import java.util.Objects;
 public class Node extends AbstractResource<Long> {
 
     // TODO: what are the supported node states.
-    public enum NodeState { UP, DOWN, UNKNOWN }
+    public enum NodeState { UP, DOWN, DISCOVERED, UNKNOWN }
 
     /**
      *
@@ -243,14 +243,14 @@ public class Node extends AbstractResource<Long> {
      * @param uid the node unique id
      * @param address the node address
      * @param state the current node state
-     * @param serviceMap the node's current service map
+     * @param services the node's current service map
      */
     public Node( Long uid, NodeAddress address, NodeState state,
-                 Map<ServiceType, List<Service>> serviceMap ) {
+                 Map<ServiceType, List<Service>> services ) {
         super( uid, address.getHostAddress() );
         this.address = address;
         this.state = state;
-        this.serviceMap = serviceMap;
+        this.serviceMap = services;
     }
 
     /**
