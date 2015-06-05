@@ -1,7 +1,6 @@
 import json
 from fds.model.volume.snapshot_policy import SnapshotPolicy
 from fds.utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
-from fds.utils.converters.fds_id_converter import FdsIdConverter
 
 class SnapshotPolicyConverter():
     '''
@@ -19,16 +18,16 @@ class SnapshotPolicyConverter():
         
         snapshot_policy.id = j_str.pop( "uid", snapshot_policy.id )
         snapshot_policy.name = j_str.pop( "name", snapshot_policy.name )
+        snapshot_policy.type = j_str.pop( "type", snapshot_policy.type )
         
-        r_str = j_str.pop("retentionTimeInSeconds", snapshot_policy.retention_time_in_seconds)
+        r_str = j_str.pop("retentionTime", snapshot_policy.retention_time_in_seconds)
         
-        snapshot_policy.retention_time_in_seconds = r_str
-        snapshot_policy.timeline_time = j_str.pop( "timelineTime", snapshot_policy.timeline_time )
+        snapshot_policy.retention_time_in_seconds = r_str["seconds"]
         
         preset_id = j_str.pop("presetId", snapshot_policy.preset_id)
         
         if preset_id != "":
-            snapshot_policy.preset_id = FdsIdConverter.build_id_from_json(preset_id)
+            snapshot_policy.preset_id = preset_id
         
         j_recur = j_str.pop( "recurrenceRule", snapshot_policy.recurrence_rule )
         
@@ -47,13 +46,18 @@ class SnapshotPolicyConverter():
         
         d["uid"] = policy.id
         d["name"] = policy.name
+        d["type"] = policy.type
         
         if policy.preset_id is None:
             d["presetId"] = ""
         else:
-            d["presetId"] = json.loads(FdsIdConverter.to_json(policy.preset_id))
+            d["presetId"] = policy.preset_id
             
-        d["retentionTimeInSeconds"] = policy.retention_time_in_seconds
+        retD = dict()
+        retD["seconds"] = policy.retention_time_in_seconds
+        retD["nanos"] = 0
+            
+        d["retentionTime"] = retD
         d["timelineTime"] = policy.timeline_time
         d["recurrenceRule"] = json.loads( RecurrenceRuleConverter.to_json( policy.recurrence_rule ) )
         

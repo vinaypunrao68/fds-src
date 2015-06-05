@@ -129,13 +129,9 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         '''
         List out all the snapshot policies in the system
         '''
-        j_list = []
         
         #means we want only policies attached to this volume
-        if ( AbstractPlugin.volume_id_str in  args and args[AbstractPlugin.volume_id_str] is not None):
-            j_list = self.get_snapshot_policy_service().list_snapshot_policies_by_volume( args[AbstractPlugin.volume_id_str])
-        else:
-            j_list = self.get_snapshot_policy_service().list_snapshot_policies()
+        j_list = self.get_snapshot_policy_service().list_snapshot_policies( args[AbstractPlugin.volume_id_str])
         
         if ( args[AbstractPlugin.format_str] == "json" ):
             j_policies = []
@@ -246,3 +242,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
             
         if ( response["status"].lower() == "ok" ):
             self.list_snapshot_policies(args)
+
+
+
+

@@ -18,7 +18,7 @@ class SnapshotPolicyService( AbstractService ):
         
         policy is the SnapshotPolicy object that defines the policy to create
         '''
-        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot_policies" )
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies" )
         data = SnapshotPolicyConverter.to_json( policy )
         j_policy =  self.rest_helper.post( self.session, url, data )
         policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
@@ -31,7 +31,7 @@ class SnapshotPolicyService( AbstractService ):
         policy_id is the UUID of the policy that you would like to delete
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot_policies", policy_id)
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies/", policy_id)
         return self.rest_helper.delete( self.session, url )
     
     def edit_snapshot_policy(self, volume_id, policy ):
@@ -41,7 +41,7 @@ class SnapshotPolicyService( AbstractService ):
         policy is the SnapshotPolicy object that holds the new settings.  It will replace the policy by matching the UUID in the object with the one in the system
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot_policies", policy.id.uuid )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies/", policy.id.uuid )
         data = SnapshotPolicyConverter.to_json(policy)
         return self.rest_helper.put( self.session, url, data )
     
@@ -50,7 +50,7 @@ class SnapshotPolicyService( AbstractService ):
         Get a list of all the snapshot policies that exist in the system
         '''
         
-        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot_policies")
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies")
         j_policies = self.rest_helper.get( self.session, url )
         
         policies = []

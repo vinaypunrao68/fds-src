@@ -1,7 +1,7 @@
 import time
-from fds.model.fds_id import FdsId
+from fds.model.base_model import BaseModel
 
-class Snapshot( object ):
+class Snapshot( BaseModel ):
     '''
     Created on Apr 20, 2015
     
@@ -10,40 +10,19 @@ class Snapshot( object ):
     @author: nate
     '''
 
-    def __init__(self, expiration=0, timeline_time=0, an_id=FdsId(), volume_id=FdsId()):
-        self.expiration = expiration
-        self.timeline_time = timeline_time
+    def __init__(self, retention=0, an_id=-1, volume_id=-1, name=None):
+        BaseModel.__init__(self, an_id, name)
+        self.retention = retention
         self.volume_id = volume_id
-        self.id = an_id
-        self.created = time.time() * 1000
+        self.created = time.time()
      
     @property
-    def id(self):
-        return self.__id
+    def retention(self):
+        return self.__retention
     
-    @id.setter
-    def id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-        
-        self.__id = an_id     
-        
-    @property
-    def expiration(self):
-        return self.__expiration
-    
-    @expiration.setter
-    def expiration(self, expiration):
-        self.__expiration = expiration
-        
-    @property
-    def timeline_time(self):
-        return self.__timeline_time
-    
-    @timeline_time.setter
-    def timeline_time(self, aTime):
-        self.__timeline_time = aTime
+    @retention.setter
+    def retention(self, retention):
+        self.__retention = retention
         
     @property
     def volume_id(self):
@@ -51,10 +30,6 @@ class Snapshot( object ):
     
     @volume_id.setter
     def volume_id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-        
         self.__volume_id = an_id
         
     @property

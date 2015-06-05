@@ -6,6 +6,7 @@ package com.formationds.om.webkit.rest.v08.volumes;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
@@ -65,12 +66,18 @@ public class CreateSnapshotPolicy implements RequestHandler{
 		else {
 			Volume volume = (new GetVolume( getAuthorizer(), getToken() )).getVolume( volumeId );
 			
-			SnapshotPolicy highestId = 
+			Optional<SnapshotPolicy> highestId = 
 				volume.getDataProtectionPolicy().getSnapshotPolicies().stream().max( (p1, p2) -> {
 					return p1.getId().compareTo( p2.getId() );
-				}).get();
+				});
 			
-			policy.setName( volumeId + "_" + (highestId.getId() + 1) ); 	
+			long suffix = 0;
+			
+			if ( highestId.isPresent() ){
+				suffix = highestId.get().getId() + 1;
+			}
+			
+			policy.setName( volumeId + "_" + suffix ); 	
 		}
 		
 		long policyId = getConfigApi().createSnapshotPolicy( policy.getName(),

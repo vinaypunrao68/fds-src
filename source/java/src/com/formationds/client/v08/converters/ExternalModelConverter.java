@@ -7,7 +7,6 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
-import com.formationds.client.v08.model.Service.ServiceStatus;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
@@ -20,9 +19,6 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.protocol.FDSP_MediaPolicy;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_VolType;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.ResourceState;
@@ -282,6 +278,7 @@ public class ExternalModelConverter {
 		Duration extRetention = Duration.ofSeconds( intRetention );
 
         SnapshotPolicyType type = SnapshotPolicyType.USER;
+        
         if ( internalPolicy.getPolicyName().contains( SnapshotPolicyType.SYSTEM_TIMELINE.name() ) ) {
             type = SnapshotPolicyType.SYSTEM_TIMELINE;
         }

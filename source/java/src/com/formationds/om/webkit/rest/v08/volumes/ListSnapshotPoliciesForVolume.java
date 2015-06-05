@@ -27,7 +27,7 @@ public class ListSnapshotPoliciesForVolume implements RequestHandler {
     
 	private static final Logger logger = LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
 
-    private static final String REQ_PARAM_VOLUME_ID = "volumeId";
+    private static final String REQ_PARAM_VOLUME_ID = "volume_id";
     private ConfigurationApi configApi;
 
     public ListSnapshotPoliciesForVolume() {}

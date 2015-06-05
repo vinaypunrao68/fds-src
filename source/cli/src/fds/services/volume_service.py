@@ -17,18 +17,6 @@ class VolumeService( AbstractService ):
     
     def __init__(self, session):
         AbstractService.__init__(self, session)
-
-    
-    def find_volume_by_id(self, an_id):
-        '''
-        Get a volume by its UUID.  Hopefully this is temporary code only while the REST services
-        don't support taking either the ID or the name.  Currently they only take a name.
-        '''
-        volumes = self.list_volumes()
-        
-        for volume in volumes:
-            if ( volume.id == an_id ):
-                return volume
             
     def find_volume_by_name(self, aName):  
         '''
@@ -114,13 +102,14 @@ class VolumeService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id )
         return self.rest_helper.delete( self.session, url )
     
-    def create_snapshot(self, volume_id ):
+    def create_snapshot(self, snapshot ):
         '''
         Create a snapshot for the volume specified
         '''
         
-        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot" )
-        return self.rest_helper.post( self.session, url )
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", snapshot.volume_id, "/snapshots" )
+        data = SnapshotConverter.to_json(snapshot)
+        return self.rest_helper.post( self.session, url, data )
     
     def delete_snapshot(self, volume_id, snapshot_id):
         '''

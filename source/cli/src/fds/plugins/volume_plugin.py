@@ -78,7 +78,7 @@ class VolumePlugin( AbstractPlugin):
         
 #         indGroup = __listParser.add_argument_group( "Individual volume queries", "Indicate how to identify the volume that you are looking for." )
 #         __listParserGroup = indGroup.add_mutually_exclusive_group()
-        __listParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="Specify a particular volume to list by UUID" )
+        __listParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="Specify a particular volume to list by UUID", default=None )
 #         __listParserGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="Specify a particular volume to list by name" )
         __listParser.set_defaults( func=self.list_volumes, format="tabular" )
         
@@ -216,7 +216,7 @@ class VolumePlugin( AbstractPlugin):
         '''
         response = []
         
-        if args[AbstractPlugin.volume_id_str] is not None:
+        if AbstractPlugin.volume_id_str in args and args[AbstractPlugin.volume_id_str] is not None:
             response = self.get_volume_service().get_volume(args[AbstractPlugin.volume_id_str])
             response = [response]
         else:
@@ -536,7 +536,7 @@ class VolumePlugin( AbstractPlugin):
         if ( args[AbstractPlugin.volume_name_str] is not None ):
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
         else:
-            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
+            volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
             
         if ( volume is None ):
             print "No volume found with the specified identification.\n"
@@ -544,10 +544,9 @@ class VolumePlugin( AbstractPlugin):
         
         snapshot = Snapshot()
         
-        snapshot.id.name = args[AbstractPlugin.name_str]
+        snapshot.name = args[AbstractPlugin.name_str]
         snapshot.retention = args[AbstractPlugin.retention_str]
-        snapshot.timeline_time = 0
-        snapshot.volume_id = volume.id.uuid
+        snapshot.volume_id = volume.id
         
         response = self.get_volume_service().create_snapshot( snapshot )
         

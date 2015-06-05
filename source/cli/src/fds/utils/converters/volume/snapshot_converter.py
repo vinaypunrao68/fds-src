@@ -12,12 +12,16 @@ class SnapshotConverter():
         
         snapshot = Snapshot()
         
-        snapshot.id = jsonData.pop( "id", snapshot.id )
+        snapshot.id = jsonData.pop( "uid", snapshot.id )
         snapshot.name = jsonData.pop( "name", snapshot.name)
-        snapshot.retention = jsonData.pop( "retention", snapshot.retention)
-        snapshot.timeline_time = jsonData.pop( "timelineTime", snapshot.timeline_time)
+        
+        retD = jsonData.pop("retention", snapshot.retention)
+        snapshot.retention = int(retD["seconds"])
+        
         snapshot.volume_id = jsonData.pop( "volumeId", snapshot.volume_id)
-        snapshot.created = jsonData.pop( "created", snapshot.created)
+        
+        createD = jsonData.pop( "creationTime", snapshot.created )
+        snapshot.created = int(createD["seconds"])
         
         return snapshot
     
@@ -28,10 +32,18 @@ class SnapshotConverter():
         
         d["name"] = snapshot.name
         d["id"] = snapshot.id
-        d["retention"] = snapshot.retention
-        d["timelineTime"] = snapshot.timeline_time
+        
+        retD = dict()
+        retD["seconds"] = int(snapshot.retention)
+        retD["nanos"] = 0
+        d["retention"] = retD
+        
         d["volumeId"] = snapshot.volume_id
-        d["created"] = snapshot.created
+        
+        createD = dict()
+        createD["seconds"] = int(snapshot.created)
+        createD["nanos"] = 0
+        d["creationTime"] = createD
         
         result = json.dumps( d )
         

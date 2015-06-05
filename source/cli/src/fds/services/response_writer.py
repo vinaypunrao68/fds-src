@@ -137,7 +137,7 @@ class ResponseWriter():
         
         for policy in response:
             
-            retentionValue = policy.retention
+            retentionValue = policy.retention_time_in_seconds
             
             if ( retentionValue == 0 ):
                 retentionValue = "Forever"
