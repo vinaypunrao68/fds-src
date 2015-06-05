@@ -40,7 +40,9 @@ public class PlatformModelConverter {
 				nodeId = internalService.getNode_uuid();
 				
 				Inet4Address ipv4 = (Inet4Address) InetAddress.getByAddress( htonl( internalService.getIp_lo_addr() ) );
-				Inet6Address ipv6 = (Inet6Address) InetAddress.getByAddress( htonl( internalService.getIp_hi_addr() ) );
+				
+				// TODO: Figure this out
+				Inet6Address ipv6 = null;
 				
 				address = new NodeAddress(ipv4, ipv6);
 			}
