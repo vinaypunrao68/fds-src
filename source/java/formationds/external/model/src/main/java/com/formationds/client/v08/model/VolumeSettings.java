@@ -17,6 +17,12 @@ abstract public class VolumeSettings {
     protected VolumeSettings( VolumeType type ) { this.type = type; }
     public VolumeType getVolumeType() { return this.type; }
 
+    /**
+     * Create a copy of the settings based on the current settings
+     * @return a copy of the settings
+     */
+    abstract public VolumeSettings newSettingsFrom();
+
     public boolean equals( Object o ) {
         if ( this == o ) { return true; }
         if ( !(o instanceof VolumeSettings) ) { return false; }

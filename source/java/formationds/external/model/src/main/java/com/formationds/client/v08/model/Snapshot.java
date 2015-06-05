@@ -4,6 +4,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 
+/**
+ * Represents a volume snapshot.
+ */
 public class Snapshot extends AbstractResource<Long> {
 
     private final Duration retention;
@@ -26,14 +29,25 @@ public class Snapshot extends AbstractResource<Long> {
         this.creationTime = creationTime;
     }
 
+    /**
+     * @return the retention time for the snapshot.
+     */
     public Duration getRetention() {
         return this.retention;
     }
 
+    /**
+     *
+     * @return the id of the volume this is a snapshot of
+     */
     public Long getVolumeId() {
         return this.volumeId;
     }
 
+    /**
+     *
+     * @return the snapshot creation time
+     */
     public Instant getCreationTime() {
         return this.creationTime;
     }
