@@ -132,6 +132,8 @@ public class AsyncAmTest extends BaseAmTest {
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
+        BlobDescriptor bd = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        assertEquals("world",bd.getMetadata().get("hello"));
         metadata.put("animal", "panda");
         asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
         asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
