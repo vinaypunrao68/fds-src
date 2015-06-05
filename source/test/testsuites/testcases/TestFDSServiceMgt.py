@@ -2114,17 +2114,20 @@ class TestFaultInjection(TestCase.FDSTestCase):
         At the moment only random_node is supported
         """
 
-        # We must have all our parameters supplied.
-        if (self.passedNode != 'random_node'):
-            self.log.error("Parameter missing values.")
-            raise Exception
-
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
         svc_map = plat_svc.SvcMap(fdscfg.rt_om_node.nd_conf_dict['ip'],
                                   fdscfg.rt_om_node.nd_conf_dict['fds_port'])
         svcs = svc_map.list()
+
+        if self.passedNode is not None:
+            self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            passed_node_uuid = self.passedNode.nd_uuid
+
+            # First filter out only services belonging to the specified node
+            # Use a little voodoo to match service UUIDs to the node UUID
+            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
 
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
