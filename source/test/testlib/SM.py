@@ -67,12 +67,18 @@ class SMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.start_service(node.id, node.services['SM'][0].id)
+                time.sleep(7)
+
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['SM'][0].status ==  'ACTIVE':
-			         log.info('SM service has started on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - SM service has started on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('SM service has NOT started on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - SM service has NOT started on node {}'.format(node.ip_v4_address))
 			         return False 
 
 
@@ -97,13 +103,18 @@ class SMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.stop_service(node.id, node.services['SM'][0].id)
+                time.sleep(7)
 
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['SM'][0].status !=  'ACTIVE':
-			         log.info('SM service is no longer running on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - SM service is no longer running on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('SM service is STILL running on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - SM service is STILL running on node {}'.format(node.ip_v4_address))
 			         return False
 
 
@@ -124,15 +135,18 @@ class SMService(object):
         log.info('Killing StorMgr service')
         env.host_string = node_ip
         sudo('pkill -9 StorMgr')
-
-        for node in self.node_list:
+	time.sleep(7)
+	
+	#get new node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
             if node.ip_v4_address == node_ip:
-                if node.services['SM'][0].status !=  'ACTIVE':
-		        log.warn('Failed to kill StorMgr service on node {}'.format(node.ip_v4_address))
+                if node.services['SM'][0].status ==  'ACTIVE':
+		        log.warn('FAIL - Failed to kill StorMgr service on node {}'.format(node.ip_v4_address))
 		        return False 
 
 		else:
-			log.info('killed StorMgr service on node {}'.format(node.ip_v4_address))
+			log.info('PASS - StorMgr service has been killed on node {}'.format(node.ip_v4_address))
 		        return True
 
     def add(self, node_ip):
@@ -160,13 +174,18 @@ class SMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.add_service(node.id, newNodeService)
+                time.sleep(7)
 
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['SM'][0].status ==  'ACTIVE':
-			         log.info('Added SM service to node {}'.format(node.ip_v4_address))
+			         log.info('PASS - Added SM service to node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to add SM service to node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - Failed to add SM service to node {}'.format(node.ip_v4_address))
 			         return False 
 
     def remove(self, node_ip):
@@ -190,11 +209,17 @@ class SMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.remove_service(node.id, node.services['SM'][0].id)
+                time.sleep(7)
+
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['SM'][0].status ==  'INACTIVE':
-			         log.info('Removed SM service from node {}'.format(node.ip_v4_address))
+			         log.info('PASS - Removed SM service from node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to remove SM service from node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - Failed to remove SM service from node {}'.format(node.ip_v4_address))
 			         return False 
 

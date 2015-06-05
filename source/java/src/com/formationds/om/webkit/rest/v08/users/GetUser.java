@@ -4,37 +4,52 @@
 package com.formationds.om.webkit.rest.v08.users;
 
 import java.util.Map;
-import java.util.UUID;
-
-import javax.crypto.SecretKey;
-
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 
-import com.formationds.security.HashedPassword;
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.User;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 public class GetUser implements RequestHandler{
 
-    private ConfigurationApi configCache;
-    private SecretKey                                    secretKey;
-
-    public GetUser(ConfigurationApi configCache, SecretKey secretKey) {
-        this.configCache = configCache;
-        this.secretKey = secretKey;
-    }
+	private final static String USER_ARG = "user_id";
+	
+    private ConfigurationApi configApi;
+    
+    public GetUser() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String login = requiredString(routeParameters, "login");
-        String password = requiredString(routeParameters, "password");
+        
+    	long userId = requiredLong( routeParameters, USER_ARG );
 
-        String hashed = new HashedPassword().hash(password);
-        String secret = UUID.randomUUID().toString();
-        long id = configCache.createUser(login, hashed, secret, false);
-        return new JsonResource(new JSONObject().put("id", Long.toString(id)));
+    	User externalUser = getUser( userId );
+    	
+    	String jsonString = ObjectModelHelper.toJSON( externalUser );
+    	
+    	return new TextResource( jsonString );
+    }
+    
+    public User getUser( long userId ){
+    	
+    	com.formationds.apis.User internalUser = getConfigApi().getUser( userId );
+    	
+    	User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
+    	
+    	return externalUser;
+    }
+    
+    private ConfigurationApi getConfigApi(){
+    	
+    	if ( configApi == null ){
+    		configApi = SingletonConfigAPI.instance().api();
+    	}
+    	
+    	return configApi;
     }
 }

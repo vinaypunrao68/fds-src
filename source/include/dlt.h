@@ -113,9 +113,9 @@ namespace fds {
          * whom no source SM could be assigned.
          */
         NodeTokenMap getNewSourceSMs(const NodeUuid& curSrcSM,
-                                     std::vector<fds_token_id>& dlt_tokens,
+                                     const std::set<fds_token_id>& dlt_tokens,
                                      const uint8_t& retryCount,
-                                     std::map<NodeUuid, bool>& failedSMs);
+                                     std::map<NodeUuid, bool>& failedSMs) const;
 
         /**
          * set the node for given token at a given index

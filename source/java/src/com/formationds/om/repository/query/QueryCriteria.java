@@ -4,9 +4,9 @@
 
 package com.formationds.om.repository.query;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.crud.SearchCriteria;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.ModelBase;
 
 import java.util.ArrayList;
