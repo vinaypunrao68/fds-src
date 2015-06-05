@@ -234,6 +234,9 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // rebalanced, start working on next volume
         if (new_dms.size() == 0) continue;
 
+        // TODO(Neil) : I think this is where the algorithm is going to change from
+        // push to pull
+
         // use the first node in the committed column which is not
         // deleted (primary, or if primary was deleted secondary, etc).
         // TODO(xxx) we may improve performance if we sync from
@@ -245,6 +248,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 break;
             }
         }
+        // This is where they do the push from. Will need to change to pull.
         LOGDEBUG << "We will rsync from " << std::hex << src_dm << std::dec;
         // we must have at least one node that we can push meta from!
         fds_verify(src_dm != 0);

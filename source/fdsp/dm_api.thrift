@@ -464,12 +464,10 @@ struct GetDmStatsRespMsg {
 struct CtrlNotifyDMStartMigrationMsg {
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
   2: i64                     DMT_version;
-  3: bool                    dryRun = false;
-
 }
 
 struct CtrlNotifyDMStartMigrationRspMsg {
-  1: list<dm_types.DMVolumeMigrationDiff> diff;
+    // Empty response is fine. Nothing needed.
 }
 
 /* ------------------------------------------------------------

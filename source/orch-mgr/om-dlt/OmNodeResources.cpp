@@ -978,6 +978,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         LOGERROR << "Invalid state";
         return Error(ERR_INVALID_ARG);
     }
+    // WARNING: DMTMigration test depends on log parsing of the following message.
     LOGNORMAL << "OM_PmAgent: will send node activate message to " << get_node_name()
               << "; activate sm: " << activate_sm << "; activate dm: "<< activate_dm
               << "; activate am: " << activate_am;
@@ -2187,6 +2188,7 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
 {
     TRACEFUNC;
     fds_uint32_t count = 0;
+    // WARNING: DMTMigration test depends on the following messages.
     if (svc_type == fpi::FDSP_DATA_MGR) {
         count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " DM services successfully";
