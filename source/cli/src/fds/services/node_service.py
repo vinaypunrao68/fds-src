@@ -26,7 +26,7 @@ class NodeService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/nodes" )
         j_nodes = self.rest_helper.get( self.session, url )
-        j_nodes = j_nodes.pop( "nodes", [] )
+        
         nodes = []
         
         for j_node in j_nodes:

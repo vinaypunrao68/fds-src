@@ -33,8 +33,8 @@ public class PlatformModelConverter {
 			
 			Service externalService = convertToExternalService( internalService );
 			
-			// get the node info from the PM
-			if ( externalService.getType().equals( ServiceType.PM ) ){
+			// get the node info from whomever, but choose the PM if we can
+			if ( address == null || externalService.getType().equals( ServiceType.PM ) ){
 				
 				state = convertToExternalNodeState( internalService.getNode_state() );
 				nodeId = internalService.getNode_uuid();
@@ -59,7 +59,12 @@ public class PlatformModelConverter {
 			
 		}
 		
-		Node node = new Node( nodeId, address, state, services );
+		Node node = null;
+		
+		if ( address != null ){
+			new Node( nodeId, address, state, services );
+		}
+		
 		return node;
 	}
 	
