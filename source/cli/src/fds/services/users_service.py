@@ -52,14 +52,6 @@ class UsersService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/token/", user_id )
         return self.rest_helper.post( self.session, url )
     
-    def get_user_token(self, user_id ):
-        '''
-        Retrieve the token for a specified user
-        '''
-        
-        url = "{}{}{}".format( self.get_url_preamble(), "/token/", user_id )
-        return self.rest_helper.get( self.session, url )
-    
     def who_am_i(self):
         '''
         Retrieve the user associated with this session/token

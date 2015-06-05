@@ -48,7 +48,6 @@ class UserPlugin(AbstractPlugin):
         if self.session.is_allowed( "USER_MGMT" ):
             self.create_create_user_parser( self.__subparser )
             self.create_list_users_parser( self.__subparser )
-            self.create_user_token_parser( self.__subparser )
             self.create_reissue_parser( self.__subparser )
         
         self.create_change_password_parser(self.__subparser)
@@ -95,17 +94,6 @@ class UserPlugin(AbstractPlugin):
             
         __change_parser.set_defaults( func=self.change_password, format="tabular" )
         
-    def create_user_token_parser(self, subparser):
-        '''
-        create the parser for retrieving a user token
-        '''
-        
-        __token_parser = subparser.add_parser( "get_token", help="Get the token for a specified user." )
-        
-        self.add_format_arg( __token_parser )
-        __token_parser.add_argument( "-" + AbstractPlugin.user_id_str, help="The user ID for the user whose token you wish to retrieve.", required=True )
-           
-        __token_parser.set_defaults( func=self.get_token, format="tabular" ) 
     
     def create_reissue_parser(self, subparser):
         '''
@@ -191,24 +179,7 @@ class UserPlugin(AbstractPlugin):
         
         if response is not None:
             print "\nPassword changed successfully."
-            
-    def get_token(self, args):
-        '''
-        logic to retrieve the users token
-        '''
-        
-        response = self.get_user_service().get_user_token(args[AbstractPlugin.user_id_str])
-        
-        if response is None:
-            return
-        
-        if args[AbstractPlugin.format_str] == "json":
-            ResponseWriter.writeJson( response )
-        else:
-            ov = OrderedDict()
-            ov["User ID"] = args[AbstractPlugin.user_id_str]
-            ov["Token"] = response.pop("token", "")
-            ResponseWriter.writeTabularData([ov])
+
             
     def reissue_token(self, args):
         '''
@@ -217,5 +188,5 @@ class UserPlugin(AbstractPlugin):
         
         response = self.get_user_service().reissue_user_token(args[AbstractPlugin.user_id_str])
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             print "\nToken re-issued successfully."

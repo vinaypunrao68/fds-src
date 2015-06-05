@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 
 from fds.utils.converters.admin.tenant_converter import TenantConverter
+from fds.utils.converters.admin.user_converter import UserConverter
 
 class TenantService( AbstractService):
     '''
@@ -25,13 +26,30 @@ class TenantService( AbstractService):
             
         return tenants
     
-    def create_tenant(self, tenant_name):
+    def list_users_for_tenant(self, tenant_id):
+        '''
+        get a list of users that are part of this tenancy
+        '''
+        
+        url = "{}{}{}".format( self.get_url_preamble(), "/users/tenant/", tenant_id )
+        response = self.rest_helper.get( self.session, url )
+        
+        users = []
+        
+        for j_user in response:
+            user = UserConverter.build_user_from_json(j_user)
+            users.append(user)
+            
+        return users
+    
+    def create_tenant(self, tenant):
         '''
         Create a new tenancy in the system
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/tenants/", tenant_name)
-        return self.rest_helper.post( self.session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/tenants" )
+        data = TenantConverter.to_json(tenant)
+        return self.rest_helper.post( self.session, url, data )
     
     def assign_user_to_tenant(self, tenant_id, user_id):
         '''
@@ -39,7 +57,7 @@ class TenantService( AbstractService):
         '''
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/tenants/", tenant_id, "/", user_id)
-        return self.rest_helper.put( self.session, url )
+        return self.rest_helper.post( self.session, url )
     
     def remove_user_from_tenant(self, tenant_id, user_id):
         '''

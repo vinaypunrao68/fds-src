@@ -5,6 +5,7 @@ import json
 from fds.utils.converters.admin.tenant_converter import TenantConverter
 from fds.services.response_writer import ResponseWriter
 from fds.utils.converters.admin.user_converter import UserConverter
+from fds.model.admin.tenant import Tenant
 
 class TenantPlugin( AbstractPlugin):
     '''
@@ -137,26 +138,19 @@ class TenantPlugin( AbstractPlugin):
         List the users for a specific Tenant
         '''
         
-        tenants = self.get_tenant_service().list_tenants()
-        
-        my_tenant = None
-        
-        for tenant in tenants:
-            if tenant.id == int(args[AbstractPlugin.tenant_id_str]):
-                my_tenant = tenant
-                break
+        users = self.get_tenant_service().list_users_for_tenant(args[AbstractPlugin.tenant_id_str])
         
         if args[AbstractPlugin.format_str] == "json":
             j_users = []
             
-            for user in my_tenant.users:
+            for user in users:
                 j_user = UserConverter.to_json(user)
                 j_user = json.loads(j_user)
                 j_users.append(j_user)
                 
             ResponseWriter.writeJson(j_users)
         else:
-            d_users = ResponseWriter.prep_users_for_table(my_tenant.users)
+            d_users = ResponseWriter.prep_users_for_table(users)
             ResponseWriter.writeTabularData(d_users)
             
     def create_tenant(self, args):
@@ -164,7 +158,10 @@ class TenantPlugin( AbstractPlugin):
         Call the create tenant endpoint with the args passed in
         '''
         
-        response = self.get_tenant_service().create_tenant( args[AbstractPlugin.name_str] )
+        tenant = Tenant()
+        tenant.name = args[AbstractPlugin.name_str]
+        
+        response = self.get_tenant_service().create_tenant( tenant )
         
         if response is not None:
             self.list_tenants(args)

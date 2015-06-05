@@ -34,7 +34,7 @@ public class ReissueToken implements RequestHandler {
         
     	long userId = requiredLong(routeParameters, USER_ARG );
         User user = getConfigApi().getUser(userId);
-        
+
         if (user == null) {
             return new JsonResource(new JSONObject().put("status", "not found"), 404);
         }

@@ -133,7 +133,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	
     	// login / get an token using credentials
     	getWebApp().route( HttpMethod.POST, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
-    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/token", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
+//    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/token/:user_id", () -> new GrantToken( config, getAuthenticator(), getAuthorizer(), getSecretKey() ));
     	
     	//re-issue a token for a specific user
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/token/:user_id", (token) -> new ReissueToken( getSecretKey() ) );

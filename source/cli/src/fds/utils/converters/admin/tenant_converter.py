@@ -1,5 +1,5 @@
 from fds.model.admin.tenant import Tenant
-from fds.utils.converters.fds_id_converter import FdsIdConverter
+import json
 
 class TenantConverter(object):
     '''
@@ -17,7 +17,10 @@ class TenantConverter(object):
             raise TypeError()
         
         j_tenant = dict()
-        j_tenant["id"] = FdsIdConverter.to_json(tenant.id)
+        j_tenant["uid"] = tenant.id
+        j_tenant["name"] = tenant.name
+        
+        j_tenant = json.dumps(j_tenant)
         
         return j_tenant
     
@@ -29,7 +32,8 @@ class TenantConverter(object):
         
         tenant = Tenant()
         
-        tenant.id = FdsIdConverter.build_id_from_json(j_tenant.pop("id") )
+        tenant.id = j_tenant.pop( "uid", tenant.id )
+        tenant.name = j_tenant.pop( "name", tenant.name )
         
         return tenant
             
