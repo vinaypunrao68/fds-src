@@ -1,11 +1,10 @@
 package com.formationds.client.v08.model;
 
-import java.time.Duration;
-import java.time.Instant;
-
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import org.junit.Test;
 
-import com.formationds.commons.model.helper.ObjectModelHelper;
+import java.time.Duration;
+import java.time.Instant;
 
 public class SnapshotTest {
 

@@ -33,7 +33,7 @@
   </properties>
 
   <modules>
-    <module>external</module>
+    <module>formationds-external</module>
   </modules>
 
   <dependencyManagement>

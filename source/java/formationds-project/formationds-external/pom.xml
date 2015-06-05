@@ -16,18 +16,17 @@
   </parent>
 
   <name>${formationds.external.project.name} Project POM</name>
-  <artifactId>external</artifactId>
-  <version>2015.06.05</version>
+  <artifactId>formationds-external</artifactId>
   <packaging>pom</packaging>
 
   <properties>
     <formationds.external.project.name>
-      External
+      ${formationds.project.name} external
     </formationds.external.project.name>
   </properties>
 
   <modules>
-    <module>model</module>
+    <module>formationds-ext-model</module>
   </modules>
 
 </project>

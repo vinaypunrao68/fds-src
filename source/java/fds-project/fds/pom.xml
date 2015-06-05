@@ -19,12 +19,21 @@
   <artifactId>fds</artifactId>
   <version>1.0</version>
 
+  <properties>
+    <formationds.ext.model.version>2015.06.19</formationds.ext.model.version>
+  </properties>
+
   <dependencies>
     <!-- project module dependencies -->
     <dependency>
       <groupId>com.formationds</groupId>
       <artifactId>fds-thrift</artifactId>
       <version>${project.parent.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.formationds</groupId>
+      <artifactId>formationds-ext-model</artifactId>
+      <version>${formationds.ext.model.version}</version>
     </dependency>
 
     <!-- third party dependencies -->

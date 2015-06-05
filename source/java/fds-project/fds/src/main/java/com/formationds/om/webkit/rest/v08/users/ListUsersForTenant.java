@@ -1,14 +1,5 @@
 package com.formationds.om.webkit.rest.v08.users;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.User;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -17,6 +8,14 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class ListUsersForTenant implements RequestHandler{
 

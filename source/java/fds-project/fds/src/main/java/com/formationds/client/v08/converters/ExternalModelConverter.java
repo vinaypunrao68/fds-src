@@ -6,9 +6,29 @@ import com.formationds.apis.LocalDomain;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
-import com.formationds.client.v08.model.*;
+import com.formationds.client.v08.model.DataProtectionPolicy;
+import com.formationds.client.v08.model.Domain;
+import com.formationds.client.v08.model.MediaPolicy;
+import com.formationds.client.v08.model.Node;
+import com.formationds.client.v08.model.QosPolicy;
+import com.formationds.client.v08.model.Role;
+import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.Service.ServiceStatus;
+import com.formationds.client.v08.model.ServiceType;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
+import com.formationds.client.v08.model.Snapshot;
+import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.Tenant;
+import com.formationds.client.v08.model.User;
+import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeAccessPolicy;
+import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeSettingsBlock;
+import com.formationds.client.v08.model.VolumeSettingsObject;
+import com.formationds.client.v08.model.VolumeState;
+import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
@@ -40,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+@SuppressWarnings( "unused" )
 public class ExternalModelConverter {
 
     private static ConfigurationApi configApi;
@@ -156,19 +177,19 @@ public class ExternalModelConverter {
         Optional<FDSP_MgrIdType> internalType;
 
         switch ( externalType ) {
-            case ServiceType.AM:
+            case AM:
                 internalType = Optional.of( FDSP_MgrIdType.FDSP_ACCESS_MGR );
                 break;
-            case ServiceType.DM:
+            case DM:
                 internalType = Optional.of( FDSP_MgrIdType.FDSP_DATA_MGR );
                 break;
-            case ServiceType.OM:
+            case OM:
                 internalType = Optional.of( FDSP_MgrIdType.FDSP_ORCH_MGR );
                 break;
-            case ServiceType.PM:
+            case PM:
                 internalType = Optional.of( FDSP_MgrIdType.FDSP_PLATFORM );
                 break;
-            case ServiceType.SM:
+            case SM:
                 internalType = Optional.of( FDSP_MgrIdType.FDSP_STOR_MGR );
                 break;
             default:
@@ -209,17 +230,17 @@ public class ExternalModelConverter {
         Optional<FDSP_NodeState> internalState;
 
         switch ( externalStatus ) {
-            case ServiceStatus.DEGRADED:
-            case ServiceStatus.LIMITED:
-            case ServiceStatus.NOT_RUNNING:
-            case ServiceStatus.ERROR:
-            case ServiceStatus.UNEXPECTED_EXIT:
+            case DEGRADED:
+            case LIMITED:
+            case NOT_RUNNING:
+            case ERROR:
+            case UNEXPECTED_EXIT:
                 internalState = Optional.of( FDSP_NodeState.FDS_Node_Down );
                 break;
-            case ServiceStatus.UNREACHABLE:
+            case UNREACHABLE:
                 internalState = Optional.of( FDSP_NodeState.FDS_Node_Rmvd );
                 break;
-            case ServiceStatus.INITIALIZING:
+            case INITIALIZING:
                 internalState = Optional.of( FDSP_NodeState.FDS_Start_Migration );
                 break;
             default:
@@ -305,13 +326,13 @@ public class ExternalModelConverter {
 
         switch ( externalPolicy ) {
 
-            case MediaPolicy.HDD:
+            case HDD:
                 internalPolicy = com.formationds.apis.MediaPolicy.HDD_ONLY;
                 break;
-            case MediaPolicy.SSD:
+            case SSD:
                 internalPolicy = com.formationds.apis.MediaPolicy.SSD_ONLY;
                 break;
-            case MediaPolicy.HYBRID:
+            case HYBRID:
             default:
                 internalPolicy = com.formationds.apis.MediaPolicy.HYBRID_ONLY;
         }
@@ -635,13 +656,13 @@ public class ExternalModelConverter {
         FDSP_MediaPolicy fdspMediaPolicy;
 
         switch ( externalVolume.getMediaPolicy() ) {
-            case MediaPolicy.HYBRID:
+            case HYBRID:
                 fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HYBRID;
                 break;
-            case MediaPolicy.SSD:
+            case SSD:
                 fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
                 break;
-            case MediaPolicy.HDD:
+            case HDD:
             default:
                 fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD;
                 break;

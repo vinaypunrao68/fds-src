@@ -17,7 +17,7 @@ include $(topdir)/Makefile.incl
 compile:
 	@echo "Building Java components"
 
-	@mvn clean install -f fds-project/pom.xml --batch-mode -Dmaven.test.skip=false
+	@mvn clean install -f pom.xml --batch-mode -Dmaven.test.skip=true
 
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
@@ -27,6 +27,7 @@ compile:
 	@cp -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/tools/* $(main_dir_tools)
 	@chmod 775 $(main_dir_tools)/*
 	@cp -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/lib/java/* $(comm_dir_lib)/java
+	@cp -r formationds/external/model/target/fds-dist-1.0/fds-dist-1.0/lib/java/* $(comm_dir_lib)/java
 
 ifndef SKIP_UI_BUILD
 	@rm -rf $(comm_dir_lib)/admin-webapp

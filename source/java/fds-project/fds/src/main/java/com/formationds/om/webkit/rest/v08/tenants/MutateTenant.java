@@ -3,16 +3,14 @@
  */
 package com.formationds.om.webkit.rest.v08.tenants;
 
-import java.util.Map;
-
-import javax.servlet.http.HttpServletResponse;
-
-import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
-
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
+
+import javax.servlet.http.HttpServletResponse;
+import java.util.Map;
 
 public class MutateTenant implements RequestHandler{
 

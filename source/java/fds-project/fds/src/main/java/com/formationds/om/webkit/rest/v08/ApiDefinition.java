@@ -173,7 +173,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshots() );
     	
     	// get a specific snapshot
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot() );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( config ) );
     	
     	// delete a snapshot
       // TODO implement delete snapshot
@@ -302,7 +302,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	logger.trace( "Initializing tenant endpoints..." );
     	
     	// list the tenants
-    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants() );
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/tenants", (token) -> new ListTenants( ) );
     	
     	// create tenant
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants", (token) -> new CreateTenant() );
@@ -311,7 +311,7 @@ public class ApiDefinition extends AbstractApiDefinition{
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ) );
     	
     	// edit tenant TODO: Not implemented
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( ) );
     	
     	// assign a user to a tenancy
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant() );

@@ -8,18 +8,12 @@ import com.formationds.client.v08.model.Snapshot;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.util.List;
 import java.util.Map;
 

@@ -109,6 +109,7 @@
   </properties>
 
   <modules>
+    <module>formationds-project</module>
     <module>fds-project</module>
   </modules>
 

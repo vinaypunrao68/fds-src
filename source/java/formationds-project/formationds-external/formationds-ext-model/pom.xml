@@ -6,27 +6,21 @@
 
   <parent>
     <groupId>com.formationds</groupId>
-    <artifactId>external</artifactId>
+    <artifactId>formationds-external</artifactId>
     <version>2015.06.19</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <name>${formationds.external.name}</name>
-  <artifactId>formationds-ext-datamodel</artifactId>
+  <artifactId>formationds-ext-model</artifactId>
 
   <properties>
     <formationds.external.name>
-      ${formationds.project.name} External Project POM
+      ${formationds.project.name} external Project POM
     </formationds.external.name>
   </properties>
 
   <dependencies>
-    <!-- internal dependencies -->
-    <dependency>
-      <groupId>com.formationds</groupId>
-      <artifactId>fds-thrift</artifactId>
-    </dependency>
-
     <!-- google dependencies -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
@@ -35,16 +29,6 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-    </dependency>
-
-    <!-- logging -->
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-core</artifactId>
     </dependency>
 
     <dependency>
