@@ -111,6 +111,7 @@ public class AsyncAmTest extends BaseAmTest {
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
         assertEquals("panda", blobDescriptor.getMetadata().get("hello"));
+        assertEquals(1, blobDescriptor.getMetadataSize());
     }
 
     @Test //done 1
@@ -130,14 +131,16 @@ public class AsyncAmTest extends BaseAmTest {
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
-        BlobDescriptor bd = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
-        assertEquals("world",bd.getMetadata().get("hello"));
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        assertEquals("world",bd1.getMetadata().get("hello"));
+
         metadata.put("animal", "panda");
         asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
         asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
-        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
-        assertEquals("panda", blobDescriptor.getMetadata().get("animal"));
-        assertEquals(smallObjectLength, blobDescriptor.getByteCount());
+        BlobDescriptor  bd2= asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals(2, bd2.getMetadataSize());
+        assertEquals("panda", bd2.getMetadata().get("animal"));
+        assertEquals(smallObjectLength, bd2.getByteCount());
     }
 
     @Test //done 2
