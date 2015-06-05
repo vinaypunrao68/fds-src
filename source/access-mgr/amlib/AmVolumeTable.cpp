@@ -251,7 +251,7 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
     wait_queue->remove_if(volDesc.name,
                           [] (AmRequest* amReq) {
                               if (amReq->cb)
-                                  amReq->cb->call(FDSN_StatusEntityDoesNotExist);
+                                  amReq->cb->call(ERR_VOL_NOT_FOUND);
                               delete amReq;
                               return true;
                           });
