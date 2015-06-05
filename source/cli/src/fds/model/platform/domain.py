@@ -1,28 +1,16 @@
-from fds.model.fds_id import FdsId
+from fds.model.base_model import BaseModel
 
-class Domain(object):
+class Domain(BaseModel):
     '''
     Created on Apr 28, 2015
     
     @author: nate
     '''
 
-    def __init__(self, an_id=FdsId(), site="local"):
-        self.id = an_id
+    def __init__(self, an_id=-1, name=None, site="local", state="UNKNOWN"):
+        BaseModel.__init__(self, an_id, name)
         self.site = site
-        
-    @property
-    def id(self):
-        return self.__id
-    
-    @id.setter
-    def id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-            return
-        
-        self.__id = an_id
+        self.state=state
         
     @property
     def site(self):
@@ -31,3 +19,11 @@ class Domain(object):
     @site.setter
     def site(self, site):
         self.__site = site
+        
+    @property
+    def state(self):
+        return self.__state
+    
+    @state.setter
+    def state(self, state):
+        self.__state = state

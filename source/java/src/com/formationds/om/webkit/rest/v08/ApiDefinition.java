@@ -7,6 +7,7 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.webkit.AbstractApiDefinition;
 import com.formationds.om.webkit.rest.v08.domain.ListLocalDomains;
+import com.formationds.om.webkit.rest.v08.domain.MutateLocalDomain;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
 import com.formationds.om.webkit.rest.v08.events.QueryEvents;
 import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
@@ -332,6 +333,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     private void configureDomainEndpoints(){
     	
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/local_domains", (token) -> new ListLocalDomains() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/local_domains/:domain_id", (token) -> new MutateLocalDomain() ); 
     }
     
     /**

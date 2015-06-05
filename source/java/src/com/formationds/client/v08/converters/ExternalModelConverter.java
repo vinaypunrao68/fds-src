@@ -7,6 +7,7 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
+import com.formationds.client.v08.model.Domain.DomainState;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
@@ -23,6 +24,7 @@ import com.formationds.protocol.FDSP_VolType;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
+
 import org.apache.thrift.TException;
 
 import java.text.ParseException;
@@ -46,7 +48,7 @@ public class ExternalModelConverter {
         Long extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
-        Domain externalDomain = new Domain( extId, extName, site );
+        Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
 
         return externalDomain;
     }

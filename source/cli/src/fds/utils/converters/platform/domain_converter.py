@@ -1,6 +1,5 @@
 import json
 from fds.model.platform.domain import Domain
-from fds.utils.converters.fds_id_converter import FdsIdConverter
 
 class DomainConverter():
     '''
@@ -17,8 +16,10 @@ class DomainConverter():
         if not isinstance( j_str, dict ):
             j_str = json.loads( j_str )
         
-        domain.id = FdsIdConverter.build_id_from_json( j_str.pop("id") )
-        domain.site = j_str.pop( "site", j_str.pop("site") )
+        domain.id = j_str.pop("uid", domain.id)
+        domain.name = j_str.pop("name", domain.name)
+        domain.site = j_str.pop( "site", domain.site)
+        domain.state = j_str.pop("state", domain.state)
         
         return domain
     
@@ -27,8 +28,10 @@ class DomainConverter():
         
         j_d = dict()
         
-        j_d["id"] = json.loads(FdsIdConverter.to_json(domain.id))
+        j_d["id"] = domain.id
+        j_d["name"] = domain.name
         j_d["site"] = domain.site
+        j_d["state"] = domain.state
         
         domain_str = json.dumps( j_d )
         

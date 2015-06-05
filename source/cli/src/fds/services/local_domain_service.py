@@ -29,29 +29,21 @@ class LocalDomainService( AbstractService ):
             
         return domains
     
-    def shutdown(self, domain_name):
+    def shutdown(self, domain):
         '''
         Shutdown the specified domain
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain_name )
-        data = dict();
-        data["action"] = "shutdown"
-        
-        data = json.dumps( data )
-        
+        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain.id )
+        data = DomainConverter.to_json(domain)
         return self.rest_helper.put( self.session, url, data )
     
-    def start(self, domain_name):
+    def start(self, domain):
         '''
         start up the specified domain
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain_name )
-        data = dict();
-        data["action"] = "startup"
-        
-        data = json.dumps( data )
-        
+        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain.id )
+        data = DomainConverter.to_json(domain)
         return self.rest_helper.put( self.session, url, data )
         
