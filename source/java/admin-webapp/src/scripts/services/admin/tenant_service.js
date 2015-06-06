@@ -14,12 +14,12 @@ angular.module( 'tenant-management' ).factory( '$tenant_service', ['$http_fds', 
 
     service.attachUser = function( tenant, userId, callback, failure ){
 
-        return $http_fds.post( webPrefix + '/tenants/' + tenant.id + '/' + userId, {}, callback, failure );
+        return $http_fds.post( webPrefix + '/tenants/' + tenant.uid + '/' + userId, {}, callback, failure );
     };
     
     service.revokeUser = function( tenant, userId, callback, failure ){
         
-        return $http_fds.delete( webPrefix + '/tenants/' + tenant.id + '/' + userId, {}, callback, failure );
+        return $http_fds.delete( webPrefix + '/tenants/' + tenant.uid + '/' + userId, callback, failure );
     };
 
     return service;

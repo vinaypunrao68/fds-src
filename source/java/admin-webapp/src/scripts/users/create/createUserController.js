@@ -8,13 +8,13 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
         
         for ( var i = 0; $scope.editing === true && i < $scope.tenants.length; i++ ){
             
-            $scope.tenants[i].name = $scope.tenants[i].id.name;
+            $scope.tenants[i].name = $scope.tenants[i].name;
             
             if ( angular.isDefined( $scope.userVars.selectedUser.tenant ) &&
-                $scope.tenants[i].id.name === $scope.userVars.selectedUser.tenantId.name ){
+                $scope.tenants[i].name === $scope.userVars.selectedUser.tenant.name ){
                 
                 $scope.tenant = $scope.tenants[i];
-                $scope.tenant.name = $scope.tenant.id.name;
+                $scope.tenant.name = $scope.tenant.name;
             }
         }
     };
@@ -35,7 +35,7 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
     $scope.setForEdit = function(){
         
         var user = $scope.userVars.selectedUser;
-        $scope.name = user.id.name;
+        $scope.name = user.name;
         $scope.password = '******';
         $scope.editing = true;
     };
@@ -95,19 +95,19 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
         var user = $scope.userVars.selectedUser;
         
         // check if an edit is necessary
-        if ( angular.isDefined( user.tenant ) && user.tenant.id === $scope.tenant.id ){
+        if ( angular.isDefined( user.tenant ) && user.tenant.uid === $scope.tenant.uid ){
             return;
         }
         
         // right now we only support the user in one tenant so we remove, then add.
         var setTenant = function(){
-            $tenant_api.attachUser( $scope.tenant, user.id, function(){
+            $tenant_api.attachUser( $scope.tenant, user.uid, function(){
                 $scope.cancel();
             });
         };
         
         if ( angular.isDefined( user.tenant ) ){
-            $tenant_api.revokeUser( user.tenant, user.id, function(){
+            $tenant_api.revokeUser( user.tenant, user.uid, function(){
                 setTenant();
             });
         }
@@ -135,6 +135,10 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
             password: $scope.password,
             tenant: $scope.tenant
         };
+        
+        if ( angular.isDefined( $scope.userVars.selectedUser ) ){
+            newUser.uid = $scope.userVars.selectedUser.uid;
+        }
 
         $user_api.createUser( newUser,
             function( item ){
