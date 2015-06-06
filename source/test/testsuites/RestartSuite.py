@@ -29,46 +29,50 @@ def suiteConstruction(self):
     resiliency of a node as components are stopped and started.
     """
     suite = unittest.TestSuite()
+    genericTestCase = testcases.TestCase.FDSTestCase()
+    fdscfg = genericTestCase.parameters["fdscfg"]
+    nodes = [n.nd_conf_dict['node-name'] for n in fdscfg.rt_obj.cfg_nodes]
 
     # -- setup the connection
     tests = [
-        log("setting up base system")               ,
-        TestGetAuthToken()                          ,
-        s3.TestS3GetConn()                          ,
-        s3.TestS3CrtBucket(bucket='volume1')        ,
-        TestWait(delay=10)                          ,
+        log("nodes [{}] : {}".format(len(nodes), nodes))           ,
+        log("setting up base system")                              ,
+        TestGetAuthToken()                                         ,
+        s3.TestS3GetConn()                                         ,
+        s3.TestS3CrtBucket(bucket='volume1')                       ,
+        TestWait(delay=10)                                         ,
 
-        s3.TestPuts()                               ,
-        s3.TestGets()                               ,
+        s3.TestPuts()                                              ,
+        s3.TestGets()                                              ,
 
-        s3.TestPuts(dataset=2 )                     ,
-        s3.TestGets(dataset=2)                      ,
-        s3.TestDeletes(dataset=2)                   ,
-        s3.TestKeys(dataset=2, exist=False)         ,
+        s3.TestPuts(dataset=2 )                                    ,
+        s3.TestGets(dataset=2)                                     ,
+        s3.TestDeletes(dataset=2)                                  ,
+        s3.TestKeys(dataset=2, exist=False)                        ,
     ]
     suite.addTests(tests)
 
-    for svc in ['AM', 'SM', 'DM']:
-        delay=10 if svc != 'AM' else 60
+    for node in nodes:
+        for svc in ['AM', 'SM', 'DM']:
+            delay=10 if svc != 'AM' else 60
+            tests = [
+                log ("restarting {}".format(svc))                  ,
+                eval('service.Test'+ svc + 'Kill(node="'+node+'")'),
+                eval('service.Test'+ svc + 'Wait(node="'+node+'")'),
+                TestWait(delay=delay)                              ,
+                s3.TestS3CrtBucket(bucket='volume1')               ,
+                s3.TestGets()                                      ,
 
-        tests = [
-            log ("restarting {}".format(svc))       ,
-            eval('service.Test'+ svc + 'Kill()')    ,
-            eval('service.Test'+ svc + 'Wait()')    ,
-            TestWait(delay=delay)                   ,
-            s3.TestS3CrtBucket(bucket='volume1')    ,
-            s3.TestGets()                           ,
+                log("create /put /get /del /delbucket")            ,
+                s3.TestS3CrtBucket(bucket='volume2')               ,
+                s3.TestPuts(dataset=2 )                            ,
+                s3.TestGets(dataset=2)                             ,
+                s3.TestDeletes(dataset=2)                          ,
+                s3.TestKeys(dataset=2, exist=False)                ,
+                s3.TestS3DelBucket(bucket='volume2')               ,
+            ]
 
-            log("test - crt/put/get/del/delbucket") ,
-            s3.TestS3CrtBucket(bucket='volume2')    ,
-            s3.TestPuts(dataset=2 )                 ,
-            s3.TestGets(dataset=2)                  ,
-            s3.TestDeletes(dataset=2)               ,
-            s3.TestKeys(dataset=2, exist=False)     ,
-            s3.TestS3DelBucket(bucket='volume2')    ,
-        ]
-
-        suite.addTests(tests)
+            suite.addTests(tests)
 
     return suite
 
