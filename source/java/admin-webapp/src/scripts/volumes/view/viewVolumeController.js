@@ -118,7 +118,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.getSlaLabel = function(){
         
-        if ( $scope.qos.iops_min === 0 ){
+        if ( $scope.qos.iopsMin === 0 ){
             return $filter( 'translate' )( 'common.l_none' );
         }
         
@@ -127,7 +127,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.getLimitLabel = function(){
         
-        if ( $scope.qos.iops_max === 0 ){
+        if ( $scope.qos.iopsMax === 0 ){
             return $filter( 'translate' )( 'volumes.qos.l_unlimited' );
         }
         
@@ -265,7 +265,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var realPolicies = $scope.volumeVars.selectedVolume.dataProtectionPolicy.snapshotPolicies;
 
         for ( var i = 0; i < realPolicies.length; i++ ){
-            if ( realPolicies[i].id.name.indexOf( '_TIMELINE_' ) === -1 ){
+            if ( realPolicies[i].type.indexOf( 'SYSTEM_TIMELINE' ) === -1 ){
                 notTimelinePolicies.push( realPolicies[i] );
             }
             else {
@@ -275,8 +275,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
         $scope.snapshotPolicies = notTimelinePolicies;
         $scope.timelinePolicies = {
-            continuous: $scope.thisVolume.commitLogRetention,
-            policies: timelinePolicies
+            commitLogRetention: $scope.thisVolume.dataProtectionPolicy.commitLogRetention,
+            snapshotPolicies: timelinePolicies
         };
     };
     
@@ -313,7 +313,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.timelinePreset = '';
         
         for ( var tp = 0; tp < timelinePresets.length; tp++ ){
-            var areTheyEqual = $timeline_policy_helper.arePoliciesEqual( timelinePresets[tp].policies, $scope.timelinePolicies.policies );
+            var areTheyEqual = $timeline_policy_helper.arePoliciesEqual( timelinePresets[tp].snapshotPolicies, $scope.timelinePolicies.snapshotPolicies );
             
             if ( areTheyEqual === true ){
                 $scope.timelinePreset = timelinePresets[tp].name;
@@ -329,10 +329,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 //        $scope.timelinePreset = $timeline_policy_helper.convertRawToPreset( $scope.timelinePolicies.policies ).label;
         
         // must be in this order:  continuous = 0, daily = 1, weekly = 2, monthly = 3, yearly = 4
-        for ( var i = 0; i < $scope.timelinePolicies.policies.length; i++ ){
+        for ( var i = 0; i < $scope.timelinePolicies.snapshotPolicies.length; i++ ){
             
-            var policy = $scope.timelinePolicies.policies[i];
-            var value = $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( policy.retention * 1000, 0 ) } ).toLowerCase();
+            var policy = $scope.timelinePolicies.snapshotPolicies[i];
+            var value = $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( policy.retentionTime.seconds * 1000, 0 ) } ).toLowerCase();
             
             switch( policy.recurrenceRule.FREQ ){
                     
@@ -417,7 +417,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.snapshotPolicyDescriptions[0] = {
             label: $filter( 'translate' )( 'volumes.l_continuous' ),
             predicate: $filter( 'translate' )( 'volumes.snapshot.l_kept' ),
-            value: $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( $scope.timelinePolicies.continuous * 1000, 0 ).toLowerCase() } )
+            value: $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( $scope.timelinePolicies.commitLogRetention.seconds * 1000, 0 ).toLowerCase() } )
         };
     };
     
@@ -428,7 +428,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return;
         }
         
-        $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
+        $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.uid, function( data ){ 
             $scope.snapshots = data;
             initTimeline();
         });
@@ -439,7 +439,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
         initQosSettings();
 
-        $volume_api.getSnapshotPolicyPresets( function( presets ){
+        $volume_api.getDataProtectionPolicyPresets( function( presets ){
             
             timelinePresets = presets;
             
