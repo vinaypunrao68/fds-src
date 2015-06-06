@@ -129,15 +129,15 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
             $scope.passwordError = 'Passwords do not match';
             return;
         }
+        
+        var newUser = {
+            name: $scope.name,
+            password: $scope.password,
+            tenant: $scope.tenant
+        };
 
-        $user_api.createUser( $scope.name, $scope.password,
+        $user_api.createUser( newUser,
             function( item ){
-
-                if ( angular.isDefined( $scope.tenant ) ){
-
-                        $tenant_api.attachUser( $scope.tenant, item.id.uuid, function(){
-                    }, function(){} );
-                }
             },
             function( response ){
                 $scope.passwordError = response;
