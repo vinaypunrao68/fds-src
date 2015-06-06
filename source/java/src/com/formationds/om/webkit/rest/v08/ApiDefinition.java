@@ -49,6 +49,7 @@ import com.formationds.om.webkit.rest.v08.volumes.CreateVolume;
 import com.formationds.om.webkit.rest.v08.volumes.DeleteSnapshotPolicy;
 import com.formationds.om.webkit.rest.v08.volumes.DeleteVolume;
 import com.formationds.om.webkit.rest.v08.volumes.GetVolume;
+import com.formationds.om.webkit.rest.v08.volumes.GetVolumeTypes;
 import com.formationds.om.webkit.rest.v08.volumes.ListSnapshotPoliciesForVolume;
 import com.formationds.om.webkit.rest.v08.volumes.ListVolumes;
 import com.formationds.om.webkit.rest.v08.volumes.ModifyVolume;
@@ -156,6 +157,9 @@ public class ApiDefinition extends AbstractApiDefinition{
     	
     	// list volumes
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes( getAuthorizer(), token ) );
+    	
+    	// list the available types
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/types", (token) -> new GetVolumeTypes() );
     	
     	// get a specific volume
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume( this.authorizer, token ) );
