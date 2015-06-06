@@ -16,7 +16,10 @@ class DataProtectionPolicyConverter(object):
         
         j_str = dict()
         
-        j_str["commitLogRetention"] = json.loads(DurationConverter.to_json(policy.commit_log_retention))
+        commitD = dict()
+        commitD["seconds"] = policy.commit_log_retention
+        commitD["nanos"] = 0
+        j_str["commitLogRetention"] = commitD
         
         if policy.preset_id is None:
             j_str["presetId"] = ""
@@ -47,7 +50,8 @@ class DataProtectionPolicyConverter(object):
         else:
             policy.preset_id = preset_id
             
-        policy.commit_log_retention = DurationConverter.build_duration_from_json(j_str.pop("commitLogRetention", policy.commit_log_retention))
+        commitD = j_str.pop( "commitLogRetention", policy.commit_log_retention )
+        policy.commit_log_retention = commitD["seconds"]
         
         j_policies = j_str.pop("snapshotPolicies", policy.snapshot_policies)
         

@@ -19,9 +19,6 @@ class DataProtectionPolicy(object):
     @commit_log_retention.setter
     def commit_log_retention(self, retention):
         
-        if not isinstance(retention, Duration):
-            raise TypeError()
-        
         self.__commit_log_retention = retention
         
     @property

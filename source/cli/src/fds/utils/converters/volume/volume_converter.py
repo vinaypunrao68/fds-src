@@ -32,6 +32,7 @@ class VolumeConverter( object ):
         volume.name = j_str.pop( "name", volume.name )
         
         ctime = j_str.pop( "created", volume.creation_time )
+    
         volume.creation_time = ctime["seconds"]
          
         volume.status = VolumeStatusConverter.build_status_from_json(j_str.pop("status"))

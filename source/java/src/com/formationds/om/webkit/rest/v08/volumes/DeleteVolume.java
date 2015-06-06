@@ -27,6 +27,7 @@ public class DeleteVolume implements RequestHandler {
 	public DeleteVolume( Authorizer authorizer, AuthenticationToken token ) {
 		
 		this.authorizer = authorizer;
+		this.token = token;
 	}
 
 	@Override

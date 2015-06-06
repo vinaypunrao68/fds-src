@@ -80,6 +80,7 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 			
 			Duration months = Duration.ofDays( 90 );
 			RecurrenceRule monthRule = new RecurrenceRule();
+			monthRule.setFrequency( iCalFrequency.MONTHLY.name() );
 			monthRule.setHours( zero );
 			monthRule.setMinutes( zero );
 			monthRule.setMonthDays( one );
@@ -88,6 +89,7 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 			
 			Duration years = Duration.ofDays( 2L * 366L );
 			RecurrenceRule yearRule = new RecurrenceRule();
+			yearRule.setFrequency( iCalFrequency.YEARLY.name() );
 			yearRule.setHours( zero );
 			yearRule.setMinutes( zero );
 			yearRule.setMonths( one );
@@ -140,6 +142,7 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 			
 			Duration months = Duration.ofDays( 180 );
 			RecurrenceRule monthRule = new RecurrenceRule();
+			monthRule.setFrequency( iCalFrequency.MONTHLY.name() );
 			monthRule.setHours( zero );
 			monthRule.setMinutes( zero );
 			monthRule.setMonthDays( one );
@@ -148,6 +151,7 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 			
 			Duration years = Duration.ofDays( 5L * 366L );
 			RecurrenceRule yearRule = new RecurrenceRule();
+			yearRule.setFrequency( iCalFrequency.YEARLY.name() );
 			yearRule.setHours( zero );
 			yearRule.setMinutes( zero );
 			yearRule.setMonths( one );
@@ -201,6 +205,7 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 			
 			Duration months = Duration.ofDays( 2 * 366 );
 			RecurrenceRule monthRule = new RecurrenceRule();
+			monthRule.setFrequency( iCalFrequency.MONTHLY.name() );
 			monthRule.setHours( zero );
 			monthRule.setMinutes( zero );
 			monthRule.setMonthDays( one );
@@ -209,6 +214,7 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 			
 			Duration years = Duration.ofDays( 15L * 366L );
 			RecurrenceRule yearRule = new RecurrenceRule();
+			yearRule.setFrequency( iCalFrequency.YEARLY.name() );
 			yearRule.setHours( zero );
 			yearRule.setMinutes( zero );
 			yearRule.setMonths( one );

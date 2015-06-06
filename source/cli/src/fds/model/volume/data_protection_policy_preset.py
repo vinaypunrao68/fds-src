@@ -1,28 +1,16 @@
-from fds.model.fds_id import FdsId
+from fds.model.base_model import BaseModel
 
-class DataProtectionPolicyPreset(object):
+class DataProtectionPolicyPreset(BaseModel):
     '''
     Created on May 6, 2015
     
     @author: nate
     '''
     
-    def __init__(self, an_id=FdsId(), commit_log_retention=86400, policies=list()):
-        self.id = an_id
+    def __init__(self, an_id=-1, name=None, commit_log_retention=86400, policies=list()):
+        BaseModel.__init__(self, an_id, name)
         self.__commit_log_retention = commit_log_retention
         self.__snapshot_policies = policies
-        
-    @property
-    def id(self):
-        return self.__id
-    
-    @id.setter
-    def id(self, an_id):
-        
-        if not isinstance(an_id, FdsId):
-            raise TypeError()
-        
-        self.__id = an_id
         
     @property
     def commit_log_retention(self):

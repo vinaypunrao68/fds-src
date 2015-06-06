@@ -19,8 +19,8 @@ class PresetConverter(object):
         qos = QosPreset()
         qos.id = jsonString.pop("id", qos.id)
         qos.name = jsonString.pop("name", "UNKNOWN")
-        qos.iops_guarantee = jsonString.pop("iopsMin", qos.iops_guarantee)
-        qos.iops_limit = jsonString.pop("iopsMax", qos.iops_limit)
+        qos.iops_guarantee = jsonString.pop("iopsMin", qos.iops_min)
+        qos.iops_limit = jsonString.pop("iopsMax", qos.iops_max)
         qos.priority = jsonString.pop("priority", qos.priority)
         
         return qos
@@ -34,12 +34,14 @@ class PresetConverter(object):
         timeline = DataProtectionPolicyPreset()
         timeline.id = jsonString.pop("id", timeline.id)
         timeline.name = jsonString.pop("name", "UNKNOWN")
-        timeline.continuous_protection = jsonString.pop("commitLogRetention", timeline.continuous_protection)
+        
+        cD = jsonString.pop( "commitLogRetention" )
+        timeline.continuous_protection = cD["seconds"]
         
         #If I don't do this, the list is still populated with previous list... no idea why
         timeline.policies = list()
         
-        policies = jsonString.pop("policies", [])
+        policies = jsonString.pop("snapshotPolicies", [])
         
         for policy in policies:
             timeline.policies.append( SnapshotPolicyConverter.build_snapshot_policy_from_json( policy ))
@@ -56,8 +58,8 @@ class PresetConverter(object):
         d["id"] = preset.id
         d["name"] = preset.name
         d["priority"] = preset.priority
-        d["iopsMin"] = preset.iops_guarantee
-        d["iopsMax"] = preset.iops_limit
+        d["iopsMin"] = preset.iops_min
+        d["iopsMax"] = preset.iops_max
         
         j_str = json.dumps( d )
         

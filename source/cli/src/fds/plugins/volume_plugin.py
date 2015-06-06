@@ -104,7 +104,7 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.data_str, help="JSON string representing the volume parameters desired for the new volume.  This argument will take precedence over all individual arguments.", default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.name_str, help="The name of the volume", default=None )
         __createParser.add_argument( self.arg_str + AbstractPlugin.qos_preset_str, help="The ID of the quality of service preset you would like applied.  Take precedence over individually set items.", default=None)
-        __createParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the timeline preset you would like applied.  This will cause snapshot policies to be created and attached to this volume.", default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the data protection preset you would like applied.  This will cause snapshot policies to be created and attached to this volume.", default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.", type=VolumeValidator.iops_limit, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.  Default value is 7.", type=VolumeValidator.priority, default=7, metavar="")
@@ -311,7 +311,7 @@ class VolumePlugin( AbstractPlugin):
             # deal with the continuous protection arg in the timeline preset if specified
             t_preset = None
             if args[AbstractPlugin.timeline_preset_str] != None:
-                t_preset = self.get_volume_service().get_timeline_presets(preset_id=args[AbstractPlugin.timeline_preset_str])
+                t_preset = self.get_volume_service().get_data_protection_presets(preset_id=args[AbstractPlugin.timeline_preset_str])[0]
                 
                 volume.data_protection_policy = t_preset
                 volume.data_protection_policy.preset_id = t_preset.id
@@ -515,13 +515,13 @@ class VolumePlugin( AbstractPlugin):
         '''
         vol_id = args[AbstractPlugin.volume_id_str]
         
-        if args[AbstractPlugin.name_str] is not None:
+        if AbstractPlugin.name_str in args and args[AbstractPlugin.name_str] is not None:
             volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.name_str])
             vol_id = volume.id.uuid
         
         response = self.get_volume_service().delete_volume( vol_id )
         
-        if ( response["status"].lower() == "ok" ):
+        if response is not None:
             print 'Deletion request completed successfully.'
             
             self.list_volumes(args)

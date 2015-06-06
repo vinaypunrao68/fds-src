@@ -4,6 +4,7 @@ from fds.model.volume.settings.object_settings import ObjectSettings
 from fds.model.volume.volume_status import VolumeStatus
 from fds.model.volume.settings.volume_settings import VolumeSettings
 from fds.model.base_model import BaseModel
+from fds.model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
 
 class Volume( BaseModel ):
     '''
@@ -59,7 +60,7 @@ class Volume( BaseModel ):
     @data_protection_policy.setter
     def data_protection_policy(self, policy):
         
-        if not isinstance(policy, DataProtectionPolicy):
+        if not isinstance(policy, DataProtectionPolicy) and not isinstance(policy, DataProtectionPolicyPreset):
             raise TypeError()
         
         self.__data_protection_policy = policy
