@@ -1,4 +1,3 @@
-from fds.model.common.duration import Duration
 
 class DataProtectionPolicy(object):
     '''
@@ -7,7 +6,7 @@ class DataProtectionPolicy(object):
     @author: nate
     '''
     
-    def __init__(self, commit_log_retention=Duration(), snapshot_policies=[], preset_id=-1):
+    def __init__(self, commit_log_retention=86400, snapshot_policies=[], preset_id=-1):
         self.commit_log_retention = commit_log_retention
         self.snapshot_policies = snapshot_policies
         self.preset_id = preset_id

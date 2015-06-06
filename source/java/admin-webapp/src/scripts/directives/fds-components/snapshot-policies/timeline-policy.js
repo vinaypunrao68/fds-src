@@ -540,7 +540,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             
             init = function(){
                 
-                $volume_api.getSnapshotPolicyPresets( function( presets ){
+                $volume_api.getDataProtectionPolicyPresets( function( presets ){
                     
                     $scope.presets = presets;
                     $scope.presets.push( { name: $filter( 'translate' )( 'common.l_custom' ) });

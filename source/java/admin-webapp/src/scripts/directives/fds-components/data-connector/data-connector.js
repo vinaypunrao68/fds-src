@@ -9,8 +9,8 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         controller: function( $scope, $data_connector_api ){
             
             $scope.sizes = [{name: 'MB'}, {name:'GB'}, {name:'TB'},{name:'PB'}];
-            $scope.settings = $data_connector_api.connectors;
-            $scope._selectedSize = 1;
+            $scope.connectors = $data_connector_api.connectors;
+            $scope._selectedSize = 10;
             $scope._selectedUnit = $scope.sizes[1];
 
             var findUnit = function(){
@@ -36,10 +36,10 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             
             $scope.$on( 'fds::refresh', refreshSelection );
             
-            $scope.$watch( 'settings', function( newVal ){
+            $scope.$watch( 'connectors', function( newVal ){
                 
                 if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.type ) ){
-                    $scope.setting = $scope.settings[1];
+                    $scope.setting = $scope.connectors[1];
                     return;
                 }
                 
@@ -47,7 +47,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 $scope.$emit( 'change' );
                 
                 if ( $scope.setting.capacity ){
-                    $scope._selectedSize = $scope.settings.capacity.size;
+                    $scope._selectedSize = $scope.connectors.attributes.size;
                     findUnit();
                 }
                 

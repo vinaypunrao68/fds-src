@@ -77,6 +77,19 @@ class NodeService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
         return self.rest_helper.delete( self.session, url )
     
+    def get_node(self, node_id):
+        '''
+        Get a single node by id
+        
+        node_id is the UUID of the node requested
+        '''
+        url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
+        response = self.rest_helper.get(self.session, url)
+        
+        node = NodeConverter.build_node_from_json(response)
+        
+        return node
+    
     def start_service(self, node_id, service_id):
         '''
         Start a specific service on a node.
@@ -111,4 +124,17 @@ class NodeService( AbstractService ):
         url = "{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services" )
         data = ServiceConverter.to_json(service)
         return self.rest_helper.post( self.session, url, data ) 
+    
+    def get_service(self, node_id, service_id):
+        '''
+        Get a specific service 
         
+        node_id is the UUID of the nodethe service is running on
+        service_id is the UUID of the service requested
+        '''
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
+        response = self.rest_helper.get(self.session, url)
+        
+        service = ServiceConverter.build_service_from_json(response)
+        
+        return service

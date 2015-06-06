@@ -18,6 +18,7 @@ import com.formationds.om.webkit.rest.v08.configuration.SystemCapabilities;
 import com.formationds.om.webkit.rest.v08.platform.AddNode;
 import com.formationds.om.webkit.rest.v08.platform.AddService;
 import com.formationds.om.webkit.rest.v08.platform.GetNode;
+import com.formationds.om.webkit.rest.v08.platform.GetService;
 import com.formationds.om.webkit.rest.v08.platform.ListNodes;
 import com.formationds.om.webkit.rest.v08.platform.ListServices;
 import com.formationds.om.webkit.rest.v08.platform.MutateNode;
@@ -299,6 +300,9 @@ public class ApiDefinition extends AbstractApiDefinition{
     	
     	// list services on a node
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services", (token) -> new ListServices() );
+    	
+    	// get a specific service
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/nodes/:node_id/services/:service_id", (token) -> new GetService() );
     	
     	// add a new service to a node
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/nodes/:node_id/services", (token) -> new AddService() );

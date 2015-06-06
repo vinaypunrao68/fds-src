@@ -58,13 +58,13 @@
 -->
 
                             <td class="name primary-color">
-                                {{volume.id.name}}
+                                {{volume.name}}
                             </td>
                             
 <!--                            <td class="application"></td>-->
                             
                             <td class="tenant" ng-show="isAllowed( 'TENANT_MGMT' )">
-                                <span ng-if="volume.tenant">{{ volume.tenant.id.name }}</span>
+                                <span ng-if="volume.tenant">{{ volume.tenant.name }}</span>
                             </td>
                             
                             <td>
@@ -72,7 +72,7 @@
                             </td>
 
                             <td class="consume">
-                                {{volume.status.currentUsage.size}}{{volume.status.currentUsage.unit}}
+                                {{volume.status.currentUsage.value}}{{volume.status.currentUsage.unit}}
 <!--
                                 <span ng-show="volume.data_connector.attributes.size">/</span>
                                 {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}

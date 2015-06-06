@@ -21,7 +21,7 @@ angular.module( 'utility-directives' ).factory( '$media_policy_helper', ['$filte
     
     service.getSystemCapabilities = function( callback ){
         
-        $http_fds.get( '/api/config/system/capabilities', function( capabilities ){
+        $http_fds.get( webPrefix + '/capabilities', function( capabilities ){
                 
                 var tieringCapabilities = capabilities.supportedMediaPolicies;
                 service.availablePolicies = [];
