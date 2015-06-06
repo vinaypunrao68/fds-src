@@ -230,9 +230,9 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     var preset = $scope.presets[p];
                     var allfound = true;
                     
-                    for ( var preI = 0; preI < preset.policies.length; preI++ ){
+                    for ( var preI = 0; preI < preset.snapshotPolicies.length; preI++ ){
                         
-                        doesIt = containsPolicy( preset.policies[preI], $scope.timelinePolicies.policies );
+                        doesIt = containsPolicy( preset.snapshotPolicies[preI], $scope.timelinePolicies.policies );
                         
                         if ( doesIt === false ) {
                             allfound = false;

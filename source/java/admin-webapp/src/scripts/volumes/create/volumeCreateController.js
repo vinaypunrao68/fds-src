@@ -7,53 +7,21 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.enableDc = false;
     
     $scope.timelinePolicies = {};
-    
-//    var creationCallback = function( volume, newVolume ){
-//
-//        //SNAPSHOT SCHEDULES
-//        
-//        // for each time deliniation used we need to create a policy and attach
-//        // it using the volume id in the name so we can identify it easily
-//        for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
-//            volume.snapshotPolicies[i].name =
-//                volume.snapshotPolicies[i].name + '_' + newVolume.id;
-//
-//            $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
-//                // attach the policy to the volume
-//                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-//            });
-//        }
-//
-//        // TIMELINE SCHEDULES
-//        
-//        for ( var j = 0; angular.isDefined( volume.timelinePolicies ) && j < volume.timelinePolicies.length; j++ ){
-//            
-//            var policy = volume.timelinePolicies[j];
-//            
-//            policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
-//            
-//            // create the policy
-//            $snapshot_service.createSnapshotPolicy( policy, function( policy, rtnCode ){
-//                // attach the policy
-//                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-//            });
-//        }
-//        
-//        $scope.cancel();
-//    };
-    
+
     var createVolume = function( volume ){
+        
+        console.log( 'The Volume:\n' + JSON.stringify( volume ) );
         
         /**
         * Because this is a shim the API does not yet have business
         * logic to combine the attachments so we need to do this in many calls
         * TODO:  Replace with server side logic
         **/
-        $volume_api.save( volume, function( newVolume ){ 
-            
-            // this basically just goes back to the list page
-            $scope.cancel();
-        });
+//        $volume_api.save( volume, function( newVolume ){ 
+//            
+//            // this basically just goes back to the list page
+//            $scope.cancel();
+//        });
     };
     
     var cloneVolume = function( volume ){
@@ -102,9 +70,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.$broadcast( 'fds::refresh' );
         
         var volume = {};
-        volume.id = {
-            name: $scope.volumeName
-        };
+        volume.name = $scope.volumeName;
         
         volume.qosPolicy = {
             iops_min: $scope.newQos.sla,
@@ -121,7 +87,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         
         volume.mediaPolicy = $scope.mediaPolicy.value;
         
-        if ( !angular.isDefined( volume.id.name ) || volume.id.name === '' ){
+        if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
             var $event = {
                 text: 'A volume name is required.',

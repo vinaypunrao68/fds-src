@@ -159,7 +159,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes", (token) -> new ListVolumes( getAuthorizer(), token ) );
     	
     	// list the available types
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/types", (token) -> new GetVolumeTypes() );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/volume_types", (token) -> new GetVolumeTypes() );
     	
     	// get a specific volume
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id", (token) -> new GetVolume( this.authorizer, token ) );
