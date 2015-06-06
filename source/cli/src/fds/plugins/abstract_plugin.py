@@ -37,6 +37,7 @@ class AbstractPlugin( object ):
     service_id_str = "service_id"
     state_str = "state"
     domain_name_str = "domain_name"
+    domain_id_str = "domain_id"
     recurrence_rule_str = "recurrence_rule"
     frequency_str = "frequency"
     day_of_month_str = "day_of_month"

@@ -135,19 +135,19 @@ class VolumeService( AbstractService ):
             
         return snapshots
     
-    def get_timeline_presets(self, preset_id=None):
+    def get_data_protection_presets(self, preset_id=None):
         '''
         Get a list of timeline preset policies
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes/presets/timeline")
+        url = "{}{}".format( self.get_url_preamble(), "/presets/data_protection_policies")
         response = self.rest_helper.get( self.session, url )
         
         presets = []
         
         for j_preset in response:
             
-            if preset_id != None and int(j_preset["uuid"]) != int(preset_id):
+            if preset_id != None and int(j_preset["id"]) != int(preset_id):
                 continue
             
             preset = PresetConverter.build_timeline_from_json( j_preset )
@@ -160,14 +160,14 @@ class VolumeService( AbstractService ):
         Get a list of QoS preset policies
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes/presets/qos" )
+        url = "{}{}".format( self.get_url_preamble(), "/presets/quality_of_service_policies" )
         response = self.rest_helper.get( self.session, url )
         
         presets = []
         
         for j_preset in response:
             
-            if preset_id != None and int(j_preset["uuid"]) != int(preset_id):
+            if preset_id != None and int(j_preset["id"]) != int(preset_id):
                 continue
             
             preset = PresetConverter.build_qos_preset_from_json( j_preset )

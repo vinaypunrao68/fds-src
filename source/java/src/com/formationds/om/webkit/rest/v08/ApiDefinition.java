@@ -24,6 +24,8 @@ import com.formationds.om.webkit.rest.v08.platform.MutateNode;
 import com.formationds.om.webkit.rest.v08.platform.MutateService;
 import com.formationds.om.webkit.rest.v08.platform.RemoveNode;
 import com.formationds.om.webkit.rest.v08.platform.RemoveService;
+import com.formationds.om.webkit.rest.v08.presets.GetDataProtectionPolicyPresets;
+import com.formationds.om.webkit.rest.v08.presets.GetQosPolicyPresets;
 import com.formationds.om.webkit.rest.v08.snapshots.CreateSnapshot;
 import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshots;
 import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
@@ -106,6 +108,7 @@ public class ApiDefinition extends AbstractApiDefinition{
         configureMetricsEndpoints( configApi );
         configureEventsEndpoints( configApi );
         configureDomainEndpoints();
+        configurePresetEndpoints();
         
     }
     
@@ -211,6 +214,18 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id/snapshot_policies/:policy_id", (token) -> new MutateSnapshotPolicy() );
     	
     	logger.trace( "Completed initializing snapshot policy endpoints." );
+    }
+    
+    /**
+     * Setup all the endpoints for dealing with presets
+     */
+    private void configurePresetEndpoints(){
+    	
+    	// the list of quality of service preset policies
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/presets/quality_of_service_policies", (token) -> new GetQosPolicyPresets() );
+    	
+    	// the list of data protection policies
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/presets/data_protection_policies", (token) -> new GetDataProtectionPolicyPresets() );
     }
     
     /**

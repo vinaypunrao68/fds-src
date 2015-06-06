@@ -59,8 +59,8 @@ class LocalDomainPlugin( AbstractPlugin):
         '''
         
         __shutdown_parser = subparser.add_parser( "shutdown", help="Shutdown all nodes and services in a given domain" )
-        __shutdown_parser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )        
-        __shutdown_parser.add_argument( "-" + AbstractPlugin.domain_name_str, help="The name of the domain you wish to shutdown.", required=True )
+        self.add_format_arg(__shutdown_parser)        
+        __shutdown_parser.add_argument( "-" + AbstractPlugin.domain_id_str, help="The ID of the domain you wish to shutdown.", required=True )
         
         __shutdown_parser.set_defaults( func=self.shutdown, format="tabular" )
         
@@ -71,7 +71,7 @@ class LocalDomainPlugin( AbstractPlugin):
         
         __startup_parser = subparser.add_parser( "start", help="Start all the nodes and services in a given domain" )
         self.add_format_arg( __startup_parser )
-        __startup_parser.add_argument( "-" + AbstractPlugin.domain_name_str, help="The name of the domain you wish to start.", required=True )
+        __startup_parser.add_argument( "-" + AbstractPlugin.domain_id_str, help="The ID of the domain you wish to start.", required=True )
         
         __startup_parser.set_defaults( func=self.startup, format="tabular")
     #real work
@@ -100,19 +100,20 @@ class LocalDomainPlugin( AbstractPlugin):
         '''
         shutdown a specific domain
         '''
-        response = self.get_local_domain_service().shutdown( args[AbstractPlugin.domain_name_str] )
+        domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
+        response = self.get_local_domain_service().shutdown(domain)
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             self.list_domains(args)
             
     def startup(self, args):
         '''
         start a specific domain gracefully
         '''
+        domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
+        response = self.get_local_domain_service().start(domain)
         
-        response = self.get_local_domain_service().start( args[AbstractPlugin.domain_name_str] )
-        
-        if response["status"].lower() == "ok":
+        if response is not None:
             self.list_domains(args)
             
             

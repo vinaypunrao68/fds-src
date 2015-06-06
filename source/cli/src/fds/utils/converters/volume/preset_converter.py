@@ -17,10 +17,10 @@ class PresetConverter(object):
         '''
         
         qos = QosPreset()
-        qos.id = jsonString.pop("uuid", qos.id)
+        qos.id = jsonString.pop("id", qos.id)
         qos.name = jsonString.pop("name", "UNKNOWN")
-        qos.iops_guarantee = jsonString.pop("sla", qos.iops_guarantee)
-        qos.iops_limit = jsonString.pop("limit", qos.iops_limit)
+        qos.iops_guarantee = jsonString.pop("iopsMin", qos.iops_guarantee)
+        qos.iops_limit = jsonString.pop("iopsMax", qos.iops_limit)
         qos.priority = jsonString.pop("priority", qos.priority)
         
         return qos
@@ -32,7 +32,7 @@ class PresetConverter(object):
         '''
         
         timeline = DataProtectionPolicyPreset()
-        timeline.id = jsonString.pop("uuid", timeline.id)
+        timeline.id = jsonString.pop("id", timeline.id)
         timeline.name = jsonString.pop("name", "UNKNOWN")
         timeline.continuous_protection = jsonString.pop("commitLogRetention", timeline.continuous_protection)
         
@@ -53,11 +53,11 @@ class PresetConverter(object):
         '''
         d = dict()
         
-        d["uuid"] = preset.id
+        d["id"] = preset.id
         d["name"] = preset.name
         d["priority"] = preset.priority
-        d["sla"] = preset.iops_guarantee
-        d["limit"] = preset.iops_limit
+        d["iopsMin"] = preset.iops_guarantee
+        d["iopsMax"] = preset.iops_limit
         
         j_str = json.dumps( d )
         
