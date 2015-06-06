@@ -4,7 +4,7 @@
         <fui-dropdown class="data-connector-dropdown" selected="volumeType" items="types" skinny="true" background="none" border="#CCCCCC" color="black" name-property="type" enabled="enable"></fui-dropdown>
     </div>
 
-    <div class="volume-gray-container" ng-show="dataConnector.capacity">
+    <div class="volume-gray-container" ng-show="volumeType.capacity">
         <div style="color: black;" translate>volumes.l_size_limit</div>
         <div class="flex">
             <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999999999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false"></spinner>

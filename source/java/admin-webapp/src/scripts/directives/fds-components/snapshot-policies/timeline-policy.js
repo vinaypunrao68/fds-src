@@ -215,7 +215,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                         
                         var prePolicy = policies[i];
                         
-                        if ( policy.retention === prePolicy.retention &&
+                        if ( policy.retentionTime === prePolicy.retentionTime &&
                             policy.recurrenceRule.FREQ === prePolicy.recurrenceRule.FREQ ) {
                             
                             return true;
@@ -232,7 +232,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     
                     for ( var preI = 0; preI < preset.snapshotPolicies.length; preI++ ){
                         
-                        doesIt = containsPolicy( preset.snapshotPolicies[preI], $scope.timelinePolicies.policies );
+                        doesIt = containsPolicy( preset.snapshotPolicies[preI], $scope.timelinePolicies.snapshotPolicies );
                         
                         if ( doesIt === false ) {
                             allfound = false;
@@ -302,7 +302,14 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     
                     policy.name = slider.policyName;
                     policy.id = slider.policyId;
-                    policy.retention = convertRangeSelectionToSeconds( slider );
+                    policy.retentionTime = convertRangeSelectionToSeconds( slider );
+                    policy.type = 'SYSTEM_TIMELINE';
+                    
+                    // make it JSON friendly
+                    policy.retentionTime = {
+                        seconds: policy.retentionTime,
+                        nanos: 0
+                    };
                     
                     // set the frequency
                     switch( i ){
@@ -360,12 +367,12 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             var translatePoliciesToScreen = function(){
             
                 // do continuous first... we expect it to always be at least 1 day and no partial days
-                var cDays = $scope.timelinePolicies.commitLogRetention / (60*60*24);
+                var cDays = $scope.timelinePolicies.commitLogRetention.seconds / (60*60*24);
                 setSliderValue( $scope.sliders[0], cDays );
                 
-                for ( var i = 0; angular.isDefined( $scope.timelinePolicies.policies ) && i < $scope.timelinePolicies.policies.length; i++ ){
+                for ( var i = 0; angular.isDefined( $scope.timelinePolicies.snapshotPolicies ) && i < $scope.timelinePolicies.snapshotPolicies.length; i++ ){
                     
-                    var policy = $scope.timelinePolicies.policies[i];
+                    var policy = $scope.timelinePolicies.snapshotPolicies[i];
                     var slider = {};
                     
                     switch( policy.recurrenceRule.FREQ ){
@@ -436,8 +443,13 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                             continue;
                     }
                     
-                    // retention time is in seconds
-                    setSliderValue( slider, Math.round( policy.retention / (60*60*24)) );
+                    // retention time is in seconds and in an object potentially
+                    var retentionInSeconds = policy.retentionTime;
+                    if ( angular.isDefined( policy.retentionTime.seconds ) ){
+                        retentionInSeconds = policy.retentionTime.seconds;
+                    }
+                    
+                    setSliderValue( slider, Math.round( retentionInSeconds / (60*60*24)) );
                     
                     // add some items we'll need late
                     slider.policyId = policy.id;
@@ -467,7 +479,13 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                 
                 $scope.timelinePolicies.commitLogRetention = convertRangeSelectionToSeconds( $scope.sliders[0] );
                 
-                $scope.timelinePolicies.policies = buildPolicies();
+                // JSON stuff
+                $scope.timelinePolicies.commitLogRetention = {
+                    seconds: $scope.timelinePolicies.commitLogRetention,
+                    nanos: 0
+                };
+                
+                $scope.timelinePolicies.snapshotPolicies = buildPolicies();
                 initWatcher();
             };
             
@@ -510,10 +528,10 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     
                     // if they already have an ID or name, we need to keep that in place
                     for ( var j = 0; angular.isDefined( $scope.timelinePolicies ) && 
-                         angular.isDefined( $scope.timelinePolicies.policies ) && 
-                         j < $scope.timelinePolicies.policies.length; j++ ){
+                         angular.isDefined( $scope.timelinePolicies.snapshotPolicies ) && 
+                         j < $scope.timelinePolicies.snapshotPolicies.length; j++ ){
                         
-                        var tPolicy = $scope.timelinePolicies.policies[j];
+                        var tPolicy = $scope.timelinePolicies.snapshotPolicies[j];
                         
                         if ( !angular.isDefined( tPolicy.name ) || tPolicy.name === '' || 
                             tPolicy.name.indexOf( '_TIMELINE_' ) === -1 || 
@@ -522,9 +540,9 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                         }
                         
                         // we've already weeded out any policy that's not a timeline policy so now we only have 1 frequency of each
-                        for ( var i = 0; angular.isDefined( newVal.policies ) && i < newVal.policies.length; i++ ){
+                        for ( var i = 0; angular.isDefined( newVal.snapshotPolicies ) && i < newVal.snapshotPolicies.length; i++ ){
                         
-                            var newPolicy = newVal.policies[i];
+                            var newPolicy = newVal.snapshotPolicies[i];
 
                             if ( newPolicy.recurrenceRule.FREQ === tPolicy.recurrenceRule.FREQ ){
                                 newPolicy.name = tPolicy.name;

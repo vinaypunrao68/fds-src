@@ -9,14 +9,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.timelinePolicies = {};
 
     var createVolume = function( volume ){
-        
-        console.log( 'The Volume:\n' + JSON.stringify( volume ) );
-        
-        /**
-        * Because this is a shim the API does not yet have business
-        * logic to combine the attachments so we need to do this in many calls
-        * TODO:  Replace with server side logic
-        **/
+
+        console.log( JSON.stringify( volume ) );
 //        $volume_api.save( volume, function( newVolume ){ 
 //            
 //            // this basically just goes back to the list page
@@ -73,13 +67,13 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.name = $scope.volumeName;
         
         volume.qosPolicy = {
-            iops_min: $scope.newQos.sla,
-            iops_max: $scope.newQos.limit,
+            iopsMin: $scope.newQos.iopsMin,
+            iopsMax: $scope.newQos.iopsMax,
             priority: $scope.newQos.priority
         };
         
         volume.dataProtectionPolicy = {
-            snapshotPolicies: $scope.timelinePolicies.policies,
+            snapshotPolicies: $scope.timelinePolicies.snapshotPolicies,
             commitLogRetention: $scope.timelinePolicies.commitLogRetention
         };
         
@@ -165,8 +159,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         if ( newVal === true ){
             
             $scope.newQos = {
-                sla: 0,
-                limit: 0,
+                iopsMin: 0,
+                iopsMax: 0,
                 priority: 7
             };
             

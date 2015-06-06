@@ -55,7 +55,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 $scope.$emit( 'fds::data_connector_changed' );
                 $scope.$emit( 'change' );
                 
-                if ( $scope.volumeType.capacity ){
+                if ( angular.isDefined( $scope.volumeType.capacity ) ){
                     $scope._selectedSize = $scope.volumeType.capacity.value;
                     findUnit();
                 }
