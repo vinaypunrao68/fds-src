@@ -10,12 +10,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
 
     var createVolume = function( volume ){
 
-        console.log( JSON.stringify( volume ) );
-//        $volume_api.save( volume, function( newVolume ){ 
-//            
-//            // this basically just goes back to the list page
-//            $scope.cancel();
-//        });
+        $volume_api.save( volume, function( newVolume ){ 
+            
+            // this basically just goes back to the list page
+            $scope.cancel();
+        });
     };
     
     var cloneVolume = function( volume ){

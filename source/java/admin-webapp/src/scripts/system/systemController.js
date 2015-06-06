@@ -48,7 +48,7 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
             service = service[0];
         }
         
-        switch( service.status ){
+        switch( service.status.state ){
             case $node_service.FDS_RUNNING:
                 return 'icon-excellent state-ok';
             case $node_service.FDS_LIMITED:
