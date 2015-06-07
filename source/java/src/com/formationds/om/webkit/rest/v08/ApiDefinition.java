@@ -52,7 +52,7 @@ import com.formationds.om.webkit.rest.v08.volumes.GetVolume;
 import com.formationds.om.webkit.rest.v08.volumes.GetVolumeTypes;
 import com.formationds.om.webkit.rest.v08.volumes.ListSnapshotPoliciesForVolume;
 import com.formationds.om.webkit.rest.v08.volumes.ListVolumes;
-import com.formationds.om.webkit.rest.v08.volumes.ModifyVolume;
+import com.formationds.om.webkit.rest.v08.volumes.MutateVolume;
 import com.formationds.om.webkit.rest.v08.volumes.MutateSnapshotPolicy;
 import com.formationds.om.webkit.rest.v08.users.GetUser;
 import com.formationds.security.Authenticator;
@@ -177,7 +177,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.DELETE, URL_PREFIX + "/volumes/:volume_id", (token) -> new DeleteVolume( getAuthorizer(), token ) );
     	
     	// modify a volume
-    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new ModifyVolume( getAuthorizer(), token ) );
+    	authenticate( HttpMethod.PUT, URL_PREFIX + "/volumes/:volume_id", (token) -> new MutateVolume( getAuthorizer(), token ) );
     	
     	// take a snapshot of a volume
     	authenticate( HttpMethod.POST, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new CreateSnapshot() );

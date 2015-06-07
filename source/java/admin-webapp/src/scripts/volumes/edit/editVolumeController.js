@@ -5,21 +5,21 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     $scope.thisVolume = {};
     
     var initQosSettings = function(){
-        $scope.editQos.capacity = $scope.thisVolume.qosPolicy.iops_min;
-        $scope.editQos.limit = $scope.thisVolume.qosPolicy.iops_max;
+        $scope.editQos.iopsMin = $scope.thisVolume.qosPolicy.iopsMin;
+        $scope.editQos.iopsMax = $scope.thisVolume.qosPolicy.iopsMax;
         $scope.editQos.priority = $scope.thisVolume.qosPolicy.priority;
         $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
     };
     
     var initSnapshotSettings = function(){
 
-        var realPolicies = $scope.thisVolume.dataProtectionPolicysnapshotPolicies;
+        var realPolicies = $scope.thisVolume.dataProtectionPolicy.snapshotPolicies;
 
         var notTimelinePolicies = [];
         var timelinePolicies = [];
 
         for ( var i = 0; i < realPolicies.length; i++ ){
-            if ( realPolicies[i].id.name.indexOf( '_TIMELINE_' ) === -1 ){
+            if ( realPolicies[i].id.name.indexOf( 'SYSTEM_TIMELINE' ) === -1 ){
                 notTimelinePolicies.push( realPolicies[i] );
             }
             else {
@@ -29,8 +29,11 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
 
         $scope.snapshotPolicies = notTimelinePolicies;
         $scope.timelinePolicies = {
-            commitLogRetention: $scope.thisVolume.commit_log_retention,
-            policies: timelinePolicies
+            commitLogRetention: {
+                seconds: $scope.thisVolume.dataProtectionPolicy.commitLogRetention,
+                nanos: 0
+            },
+            snapshotPolicies: timelinePolicies
         };
     };
     
@@ -83,14 +86,13 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         
         $scope.thisVolume.qosPolicy = {
             priority: $scope.editQos.priority,
-            iops_max: $scope.editQos.limit,
-            iops_min: $scope.editQos.sla
+            iopsMax: $scope.editQos.iopsMax,
+            iopsMin: $scope.editQos.iopsMin
         };
         
-        $scope.thisVolume.commitLogRetention = $scope.timelinePolicies.commitLogRetention;
+        $scope.thisVolume.dataProtectionPolicy.commitLogRetention = $scope.timelinePolicies.dataProtectionPolicy.commitLogRetention;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
-//            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
             $scope.volumeVars.selectedVolume = volume;
             $scope.cancel();
         });
