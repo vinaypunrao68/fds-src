@@ -4,6 +4,7 @@ from fds.utils.converters.volume.qos_policy_converter import QosPolicyConverter
 from fds.utils.converters.volume.settings_converter import SettingsConverter
 from fds.utils.converters.volume.volume_status_converter import VolumeStatusConverter
 from fds.utils.converters.volume.data_protection_policy_converter import DataProtectionPolicyConverter
+from fds.utils.converters.admin.tenant_converter import TenantConverter
 
 class VolumeConverter( object ):
     '''
@@ -40,7 +41,10 @@ class VolumeConverter( object ):
         volume.application = j_str.pop("application", volume.application)
         volume.qos_policy = QosPolicyConverter.build_policy_from_json(j_str.pop("qosPolicy"))
         volume.data_protection_policy = DataProtectionPolicyConverter.build_policy_from_json(j_str.pop("dataProtectionPolicy"))
-        volume.tenant_id = j_str.pop( "tenantId", volume.tenant_id )
+        
+        if "tenant" in j_str:
+            volume.tenant = TenantConverter.build_tenant_from_json(j_str.pop( "tenant", volume.tenant ))
+            
         tempSettings = j_str.pop( "settings", volume.settings )
         
         volume.settings = SettingsConverter.build_settings_from_json( tempSettings )
@@ -74,7 +78,9 @@ class VolumeConverter( object ):
         d["dataProtectionPolicy"] = json.loads(j_d_policy)
         
         d["application"] = volume.application
-        d["tenantId"] = volume.tenant_id
+        
+        if volume.tenant is not None:
+            d["tenant"] = json.loads(TenantConverter.to_json(volume.tenant));
         
         ctime = dict()
         ctime["seconds"] = volume.creation_time

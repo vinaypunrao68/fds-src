@@ -9,6 +9,9 @@ from fds.model.platform.domain import Domain
 import time
 from fds.services.response_writer import ResponseWriter
 from fds.model.volume.recurrence_rule import RecurrenceRule
+from fds.model.platform.address import Address
+from fds.model.admin.tenant import Tenant
+from fds.model.platform.service_status import ServiceStatus
 
 class TestResponseWriterPrep(BaseCliTest):
     '''
@@ -26,17 +29,20 @@ class TestResponseWriterPrep(BaseCliTest):
         volume = Volume()
         volume.id = 400
         volume.name = "TestVol"
-        volume.continuous_protection = 100000
-        volume.iops_guarantee = 0
-        volume.iops_limit = 100
-        volume.priority = 9
-        volume.current_size = 30
-        volume.current_units = "GB"
-        volume.media_policy = "SSD_ONLY"
-        volume.last_capacity_firebreak = 0
-        volume.last_performance_firebreak = 0
+        volume.data_protection_policy.commit_log_retention = 100000
+        volume.qos_policy.iops_min = 0
+        volume.qos_policy.iops_max = 100
+        volume.qos_policy.priority = 9
+        volume.status.current_usage.size = 30
+        volume.status.current_usage.unit = "GB"
+        volume.media_policy = "SSD"
+        volume.status.last_capacity_firebreak = 0
+        volume.status.last_performance_firebreak = 0
         volume.state = "ACTIVE"
-        volume.tenant_id = 12
+        tenant = Tenant()
+        tenant.id = 12
+        tenant.name = "MyTenant"
+        volume.tenant = tenant
         volumes.append( volume )
         
         table = ResponseWriter.prep_volume_for_table(self.auth, volumes)
@@ -48,8 +54,8 @@ class TestResponseWriterPrep(BaseCliTest):
         assert row["State"] == volume.state
         assert row["Media Policy"] == volume.media_policy
         assert row["IOPs Guarantee"] == "None"
-        assert row["IOPs Limit"] == volume.iops_limit
-        assert row["Tenant ID"] == volume.tenant_id
+        assert row["IOPs Limit"] == volume.qos_policy.iops_max
+        assert row["Tenant"] == volume.tenant.name
         assert row["Last Firebreak"] == "Never"
         assert row["Last Firebreak Type"] == ""
         assert row["Usage"] == "30 GB"
@@ -60,14 +66,17 @@ class TestResponseWriterPrep(BaseCliTest):
         '''
         node = Node()
         node.name = "FakeNode"
-        node.ip_v4_address = "10.12.14.15"
+        address = Address()
+        address.ipv4address = "10.12.14.15"
+        address.ipv6address = "noclue"
+        node.address = address
         node.id = "21ABC"
-        node.state = "ACTIVE"
+        node.state = "UP"
         
-        node.services["AM"]  = [Service(a_type="FDSP_ACCESS_MGR",auto_name="AM")]
-        node.services["DM"]  = [Service(a_type="FDSP_DATA_MGR",auto_name="DM")]
-        node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM")]
-        node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM")]  
+        node.services["AM"]  = [Service(a_type="AM",name="AM")]
+        node.services["DM"]  = [Service(a_type="DM",name="DM")]
+        node.services["PM"]  = [Service(a_type="PM",name="PM")]
+        node.services["SM"]  = [Service(a_type="SM",name="SM")]  
         
         nodes = [node]
         
@@ -77,7 +86,7 @@ class TestResponseWriterPrep(BaseCliTest):
         assert row["Name"] == node.name
         assert row["ID"] == node.id
         assert row["State"] == node.state
-        assert row["IP V4 Address"] == node.ip_v4_address
+        assert row["IP V4 Address"] == node.address.ipv4address
         
     def test_prep_services(self):
         '''
@@ -85,14 +94,17 @@ class TestResponseWriterPrep(BaseCliTest):
         '''
         node = Node()
         node.name = "FakeNode"
-        node.ip_v4_address = "10.12.14.15"
+        address = Address()
+        address.ipv4address = "10.12.14.15"
+        address.ipv6address = "noclue"
+        node.address = address
         node.id = "21ABC"
-        node.state = "ACTIVE"
+        node.state = "UP"
         
-        node.services["AM"]  = [Service(a_type="FDSP_ACCESS_MGR",auto_name="AM",status="DOWN",an_id=1,port=7000)]
-        node.services["DM"]  = [Service(a_type="FDSP_DATA_MGR",auto_name="DM",status="UP",an_id=2, port=7001)]
-        node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM",status="UP",an_id=3, port=7002)]
-        node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM",an_id=4, port=7003)]  
+        node.services["AM"]  = [Service(a_type="AM",name="AM",status=ServiceStatus(state="NOT_RUNNING"),an_id=1,port=7000)]
+        node.services["DM"]  = [Service(a_type="DM",name="DM",status=ServiceStatus(state="RUNNING"),an_id=2, port=7001)]
+        node.services["PM"]  = [Service(a_type="PM",name="PM",status=ServiceStatus(state="RUNNING"),an_id=3, port=7002)]
+        node.services["SM"]  = [Service(a_type="SM",name="SM",an_id=4, port=7003)]  
         
         nodes = [node]
         
@@ -121,25 +133,25 @@ class TestResponseWriterPrep(BaseCliTest):
         assert am["Service ID"] == 1
         assert am["Node Name"] == node.name
         assert am["Node ID"] == node.id
-        assert am["Status"] == "DOWN"
+        assert am["State"] == "NOT_RUNNING"
         
         assert dm["Service Type"] == "DM"
         assert dm["Service ID"] == 2
         assert dm["Node Name"] == node.name
         assert dm["Node ID"] == node.id
-        assert dm["Status"] == "UP"
+        assert dm["State"] == "RUNNING"
         
         assert pm["Service Type"] == "PM"
         assert pm["Service ID"] == 3
         assert pm["Node Name"] == node.name
         assert pm["Node ID"] == node.id
-        assert pm["Status"] == "UP"
+        assert pm["State"] == "RUNNING"
         
         assert sm["Service Type"] == "SM"
         assert sm["Service ID"] == 4
         assert sm["Node Name"] == node.name
         assert sm["Node ID"] == node.id
-        assert sm["Status"] == "UNKNOWN"        
+        assert sm["State"] == "UNKNOWN"        
         
     def test_prep_snapshot(self):
         '''

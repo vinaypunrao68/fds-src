@@ -19,7 +19,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         var timelinePolicies = [];
 
         for ( var i = 0; i < realPolicies.length; i++ ){
-            if ( realPolicies[i].id.name.indexOf( 'SYSTEM_TIMELINE' ) === -1 ){
+            if ( realPolicies[i].type.indexOf( 'SYSTEM_TIMELINE' ) === -1 ){
                 notTimelinePolicies.push( realPolicies[i] );
             }
             else {
@@ -29,10 +29,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
 
         $scope.snapshotPolicies = notTimelinePolicies;
         $scope.timelinePolicies = {
-            commitLogRetention: {
-                seconds: $scope.thisVolume.dataProtectionPolicy.commitLogRetention,
-                nanos: 0
-            },
+            commitLogRetention: $scope.thisVolume.dataProtectionPolicy.commitLogRetention,
             snapshotPolicies: timelinePolicies
         };
     };
@@ -90,7 +87,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
             iopsMin: $scope.editQos.iopsMin
         };
         
-        $scope.thisVolume.dataProtectionPolicy.commitLogRetention = $scope.timelinePolicies.dataProtectionPolicy.commitLogRetention;
+        $scope.thisVolume.dataProtectionPolicy.commitLogRetention = $scope.timelinePolicies.commitLogRetention;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
             $scope.volumeVars.selectedVolume = volume;

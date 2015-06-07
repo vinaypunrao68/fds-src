@@ -79,7 +79,11 @@ class ResponseWriter():
             ov["Name"] = volume.name
             
             if ( session.is_allowed( "TENANT_MGMT" ) ):
-                ov["Tenant ID"] = volume.tenant_id
+                if volume.tenant is not None:
+                    ov["Tenant"] = volume.tenant.name
+                else:
+                    ov["Tenant"] = ""
+                    
                 
             ov["State"] = volume.status.state
             ov["Type"] = volume.settings.type

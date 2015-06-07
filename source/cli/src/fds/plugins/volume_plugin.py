@@ -522,7 +522,7 @@ class VolumePlugin( AbstractPlugin):
         
         if response is not None:
             print 'Deletion request completed successfully.'
-            
+            args = [args[AbstractPlugin.format_str]]
             self.list_volumes(args)
             
     def create_snapshot(self, args):

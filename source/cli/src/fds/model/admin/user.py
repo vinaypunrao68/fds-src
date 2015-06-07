@@ -7,19 +7,19 @@ class User(BaseModel):
     @author: nate
     '''
     
-    def __init__(self, an_id=-1, name="None", tenant_id=-1, role="USER"):
+    def __init__(self, an_id=-1, name="None", tenant=None, role="USER"):
         BaseModel.__init__(self, an_id, name)
-        self.tenant_id = tenant_id
+        self.tenant = tenant
         self.role = role
         self.password = None
         
     @property
-    def tenant_id(self):
-        return self.__tenant_id
+    def tenant(self):
+        return self.__tenant
     
-    @tenant_id.setter
-    def tenant_id(self, tenant_id):
-        self.__tenant_id = tenant_id
+    @tenant.setter
+    def tenant(self, tenant):
+        self.__tenant = tenant
         
     @property
     def role(self):

@@ -4,6 +4,7 @@ from fds.services.node_service import NodeService
 from fds.services.response_writer import ResponseWriter
 from fds.utils.converters.platform.node_converter import NodeConverter
 import json
+from fds.model.platform.service import Service
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -186,19 +187,31 @@ class NodePlugin( AbstractPlugin ):
         
         if ( args[AbstractPlugin.node_ids_str] is None ):
             for node in d_nodes:
+                
+                #right now we need to make sure each type is added.
+                node.services['AM'] = Service(name="AM", a_type="AM")
+                node.services['DM'] = Service(name="DM", a_type="DM")
+                node.services['SM'] = Service(name="SM", a_type="SM")
+                
                 n_list.append( node )
             #end of for loop
         else:
             for node in d_nodes:
-                if node.id.uuid == args[AbstractPlugin.node_ids_str]:
+                if node.id == args[AbstractPlugin.node_ids_str]:
+                    
+                    #right now we need to make sure each type is added.
+                    node.services['AM'] = Service(name="AM", a_type="AM")
+                    node.services['DM'] = Service(name="DM", a_type="DM")
+                    node.services['SM'] = Service(name="SM", a_type="SM")
+                    
                     n_list.append( node )
         
         failures = []
         
         for node in n_list:
-            result = self.get_node_service().add_node( node.id.uuid, node )
+            result = self.get_node_service().add_node( node.id, node )
             if ( result["status"] != 200 ):
-                failures.append( node.id.uuid )
+                failures.append( node.id )
             
         if ( len( failures ) > 0 ):
             print "The following IDs were not added due to errors: {}\n".format( failures )

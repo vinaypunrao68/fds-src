@@ -49,6 +49,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     var performanceQuery = {};
     var firebreakQuery = {};
     var timelinePresets = [];
+    var qosPreset = [];
     
     $scope.timeRanges = [
         { displayName: '30 Days', value: 1000*60*60*24*30, labels: [translate( 'common.l_30_days' ), translate( 'common.l_15_days' ), translate( 'common.l_today' )] },
@@ -214,7 +215,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
-        $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned );
+        $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned, function(){ $interval.cancel( capacityIntervalId ); } );
     };
     
     var pollPerformance = function(){
@@ -226,7 +227,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
-        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned );
+        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned, function(){ $interval.cancel( performanceIntervalId ); } );
     };
     
     var pollFirebreak = function(){
@@ -241,7 +242,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );        
         
-        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned );
+        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned, function(){ $interval.cancel( firebreakIntervalId ); } );
     };
     
     $scope.$watch( 'capacityTimeChoice', function(){
@@ -302,7 +303,23 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     var initQosSettings = function(){
         $scope.qos = $scope.thisVolume.qosPolicy;
         $scope.mediaPolicy = $media_policy_helper.convertRawToObjects( $scope.thisVolume.mediaPolicy );
-        $scope.mediaPreset = $qos_policy_helper.convertRawToPreset( $scope.qos ).label;
+        $scope.mediaPreset = '';
+        
+        // get the label right
+        for ( var i = 0; i < qosPresets.length; i++ ){
+            var qosPreset = qosPresets[i];
+            
+            if ( qosPreset.iopsMax === $scope.qos.iopsMax &&
+                qosPreset.iopsMin === $scope.qos.iopsMin &&
+                qosPreset.priority === $scope.qos.priority ){
+                $scope.mediaPreset = qosPreset.name;
+                break;
+            }
+        }
+        
+        if ( $scope.mediaPreset === '' ){
+            $scope.mediaPreset = $filter( 'translate' )( 'common.l_custom' );
+        }
     };
     
     /**
@@ -437,8 +454,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
 //        $scope.dataConnector = $scope.thisVolume.data_connector;
 
-        initQosSettings();
-
+        $volume_api.getQosPolicyPresets( function( presets ){
+            
+            qosPresets = presets;
+            
+            initQosSettings();
+        });
+        
         $volume_api.getDataProtectionPolicyPresets( function( presets ){
             
             timelinePresets = presets;

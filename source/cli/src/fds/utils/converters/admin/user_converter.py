@@ -2,6 +2,7 @@ from fds.model.admin.user import User
 import json
 from fds.utils.converters.fds_id_converter import FdsIdConverter
 from fds.utils.converters.admin.role_converter import RoleConverter
+from fds.utils.converters.admin.tenant_converter import TenantConverter
 
 class UserConverter(object):
     '''
@@ -23,7 +24,10 @@ class UserConverter(object):
         
         j_user["uid"] = user.id
         j_user["name"] = user.name
-        j_user["tenant_id"] = user.tenant_id
+        
+        if user.tenant is not None:
+            j_user["tenant"] = TenantConverter.to_json(user.tenant)
+            
         j_user["roleDescriptor"] = user.role
         
         if user.password is not None:
@@ -44,7 +48,9 @@ class UserConverter(object):
         user.id = j_user.pop( "uid", user.id )
         user.name = j_user.pop( "name", user.name )
         
-        user.tenant_id = j_user.pop( "tenant_id", user.tenant_id )
+        if "tenant" in j_user:
+            user.tenant = TenantConverter.build_tenant_from_json( j_user.pop("tenant") )
+        
         user.role = j_user.pop("roleDescriptor", user.role )
         
         return user

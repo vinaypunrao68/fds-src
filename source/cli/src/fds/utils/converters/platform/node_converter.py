@@ -1,6 +1,5 @@
 import json
 from fds.model.platform.node import Node
-from fds.utils.converters.fds_id_converter import FdsIdConverter
 from fds.utils.converters.platform.service_converter import ServiceConverter
 from fds.utils.converters.platform.address_converter import AddressConverter
 
@@ -60,17 +59,18 @@ class NodeConverter():
     def to_json( node ):
         d = dict()
         
-        d["id"] = json.loads(FdsIdConverter.to_json(node.id))
+        d["uid"] = node.id
+        d["name"] = node.name
         d["state"] = node.state
-        d["ipV4address"] = node.ip_v4_address
-        d["ipV6address"] = node.ip_v6_address
+        
+        d["address"] = json.loads(AddressConverter.to_json(node.address))
         
         s_dict = dict()
         
         for key in  ("AM","DM","PM","OM","SM"):
             s_dict[key] = NodeConverter.create_service_from_objects(node, key)
         
-        d["services"] = s_dict
+        d["serviceMap"] = s_dict
         
         result = json.dumps( d )
         

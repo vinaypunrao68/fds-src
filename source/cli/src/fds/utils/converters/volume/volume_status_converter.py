@@ -24,8 +24,8 @@ class VolumeStatusConverter(object):
         perfFb["seconds"] = status.last_performance_firebreak
         perfFb["nanos"] = 0
         
-#         j_str["lastCapacityFirebreak"] = capFb
-#         j_str["lastPerformanceFirebreak"] = perfFb
+        j_str["lastCapacityFirebreak"] = capFb
+        j_str["lastPerformanceFirebreak"] = perfFb
         j_str["currentUsage"] = json.loads(SizeConverter.to_json(status.current_usage))
         
         j_str = json.dumps(j_str)

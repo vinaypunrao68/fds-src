@@ -1,7 +1,6 @@
 import json
 from fds.model.platform.service import Service
 from fds.utils.converters.platform.service_status_converter import ServiceStatusConverter
-from fds.utils.converters.fds_id_converter import FdsIdConverter
 
 class ServiceConverter():
     '''
@@ -32,7 +31,8 @@ class ServiceConverter():
         
         d["port"] = service.port
         d["status"] = json.loads(ServiceStatusConverter.to_json(service.status))
-        d["id"] = json.loads(FdsIdConverter.to_json(service.id))
+        d["uid"] = service.id
+        d["name"] = service.name
         d["type"] = service.type
         
         result = json.dumps( d )

@@ -8,6 +8,7 @@ from fds.model.volume.qos_preset import QosPreset
 from fds.model.admin.user import User
 from fds.model.admin.tenant import Tenant
 from fds.model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
+from fds.model.platform.address import Address
 
 '''
 Created on Apr 22, 2015
@@ -87,14 +88,35 @@ def listSnapshots( volumeName ):
 def listNodes():
     node = Node()
     node.name = "FakeNode"
-    node.ip_v4_address = "10.12.14.15"
+    address = Address()
+    address.ipv4address = "10.12.14.15"
+    address.ipv6address = "Ihavenoidea" 
+    node.address = address
     node.id = "21ABC"
-    node.state = "ACTIVE"
+    node.state = "UP"
     
-    node.services["AM"]  = [Service(a_type="FDSP_ACCESS_MGR",auto_name="AM")]
-    node.services["DM"]  = [Service(a_type="FDSP_DATA_MGR",auto_name="DM")]
-    node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM")]
-    node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM")]                
+    node.services["AM"]  = [Service(a_type="AM",name="AM")]
+    node.services["DM"]  = [Service(a_type="DM",name="DM")]
+    node.services["PM"]  = [Service(a_type="PM",name="PM")]
+    node.services["SM"]  = [Service(a_type="SM",name="SM")]                
+ 
+    nodes = [node]
+    return nodes
+
+def listDiscoveredNodes():
+    node = Node()
+    node.name = "FakeNode"
+    address = Address()
+    address.ipv4address = "10.12.14.15"
+    address.ipv6address = "Ihavenoidea" 
+    node.address = address
+    node.id = "21ABC"
+    node.state = "DISCOVERED"
+    
+    node.services["AM"]  = [Service(a_type="AM",name="AM")]
+    node.services["DM"]  = [Service(a_type="DM",name="DM")]
+    node.services["PM"]  = [Service(a_type="PM",name="PM")]
+    node.services["SM"]  = [Service(a_type="SM",name="SM")]                
  
     nodes = [node]
     return nodes
@@ -137,6 +159,14 @@ def listLocalDomains():
     
     return domains
 
+def findDomainById(an_id):
+    domain = Domain()
+    domain.id = an_id
+    domain.name = "MyDomain"
+    domain.site = "MySite"
+    
+    return domain
+
 def createSnapshotPolicy( policy ):
     policy.id = 100
     return policy
@@ -177,14 +207,14 @@ def listQosPresets(preset_id=None):
     presets = [p]
     return presets
 
-def listUsers():
+def listUsers(tenant_id=1):
     user = User()
     user.username = "jdoe"
     user.id = 23
     
     return [user]
 
-def createUser(username, password):
+def createUser(username):
     return listUsers()
 
 def listTenants():

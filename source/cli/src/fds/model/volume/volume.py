@@ -16,7 +16,7 @@ class Volume( BaseModel ):
     '''
     
     def __init__(self, an_id=-1, name=None, qos_policy=QosPolicy(), data_protection_policy=DataProtectionPolicy(), 
-                 settings=ObjectSettings(), media_policy="HYBRID", tenant_id=-1, application="None",
+                 settings=ObjectSettings(), media_policy="HYBRID", tenant=None, application="None",
                  status=VolumeStatus(), creation_time=0 ):
         
         BaseModel.__init__(self, an_id, name)
@@ -25,7 +25,7 @@ class Volume( BaseModel ):
         self.data_protection_policy = data_protection_policy
         self.application = application
         self.status = status
-        self.tenant_id = tenant_id
+        self.tenant = tenant
         self.settings = settings
         self.creation_time = creation_time
         
@@ -98,12 +98,12 @@ class Volume( BaseModel ):
         self.__media_policy = aPolicy
         
     @property
-    def tenant_id(self):
-        return self.__tenant_id
+    def tenant(self):
+        return self.__tenant
     
-    @tenant_id.setter
-    def tenant_id(self, anId):
-        self.__tenant_id = anId
+    @tenant.setter
+    def tenant(self, tenant):
+        self.__tenant = tenant
         
     @property
     def creation_time(self):

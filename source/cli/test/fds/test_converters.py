@@ -1,27 +1,26 @@
-from test.base_cli_test import BaseCliTest
-from model.fds_id import FdsId
-from model.volume.volume import Volume
-from model.admin.user import User
-from model.admin.role import Role
-from model.admin.tenant import Tenant
-from model.volume.volume_status import VolumeStatus
-from model.common.size import Size
-from model.volume.settings.object_settings import ObjectSettings
-from model.volume.qos_policy import QosPolicy
-from model.volume.data_protection_policy import DataProtectionPolicy
-from model.common.duration import Duration
-from model.volume.snapshot_policy import SnapshotPolicy
-from model.volume.recurrence_rule import RecurrenceRule
-from utils.converters.volume.volume_converter import VolumeConverter
-from utils.converters.admin.user_converter import UserConverter
-from utils.converters.admin.tenant_converter import TenantConverter
-from model.platform.domain import Domain
-from utils.converters.platform.domain_converter import DomainConverter
-from model.platform.service import Service
-from model.platform.service_status import ServiceStatus
-from utils.converters.platform.service_converter import ServiceConverter
-from model.platform.node import Node
-from utils.converters.platform.node_converter import NodeConverter
+from base_cli_test import BaseCliTest
+from fds.model.volume.volume import Volume
+from fds.model.admin.user import User
+from fds.model.admin.role import Role
+from fds.model.admin.tenant import Tenant
+from fds.model.volume.volume_status import VolumeStatus
+from fds.model.common.size import Size
+from fds.model.volume.settings.object_settings import ObjectSettings
+from fds.model.volume.qos_policy import QosPolicy
+from fds.model.volume.data_protection_policy import DataProtectionPolicy
+from fds.model.volume.snapshot_policy import SnapshotPolicy
+from fds.model.volume.recurrence_rule import RecurrenceRule
+from fds.utils.converters.volume.volume_converter import VolumeConverter
+from fds.utils.converters.admin.user_converter import UserConverter
+from fds.utils.converters.admin.tenant_converter import TenantConverter
+from fds.model.platform.domain import Domain
+from fds.utils.converters.platform.domain_converter import DomainConverter
+from fds.model.platform.service import Service
+from fds.model.platform.service_status import ServiceStatus
+from fds.utils.converters.platform.service_converter import ServiceConverter
+from fds.model.platform.node import Node
+from fds.utils.converters.platform.node_converter import NodeConverter
+from fds.model.platform.address import Address
 
 class TestConverters(BaseCliTest):
     '''
@@ -33,11 +32,9 @@ class TestConverters(BaseCliTest):
     def test_volume_conversion(self):
         
         volume = Volume()
-        an_id = FdsId()
-        an_id.uuid = 34
-        an_id.name = "TestVolume"
-        volume.id = an_id  
-        volume.media_policy = "SSD_ONLY"
+        volume.id = 34  
+        volume.name = "TestVolume"
+        volume.media_policy = "SSD"
         
         status = VolumeStatus()
         status.last_capacity_firebreak = 0
@@ -47,10 +44,10 @@ class TestConverters(BaseCliTest):
         volume.status = status
         volume.application = "MS Access"
         
-        tenant_id = FdsId()
-        tenant_id.uuid = 9
-        tenant_id.name = "UNC"
-        volume.tenant_id = tenant_id
+        tenant = Tenant()
+        tenant.id = 9
+        tenant.name = "UNC"
+        volume.tenant = tenant
         
         settings = ObjectSettings()
         settings.max_object_size = Size( 1, "GB" )
@@ -63,7 +60,7 @@ class TestConverters(BaseCliTest):
         volume.qos_policy = qos_policy
         
         p_policy = DataProtectionPolicy()
-        p_policy.commit_log_retention = Duration(1, "DAYS")
+        p_policy.commit_log_retention = 86400
         p_policy.preset_id = None
         
         s_policy = SnapshotPolicy()
@@ -86,9 +83,9 @@ class TestConverters(BaseCliTest):
         
         print j_str
         
-        assert newVolume.id.name == "TestVolume"
-        assert newVolume.id.uuid == 34
-        assert newVolume.media_policy == "SSD_ONLY"
+        assert newVolume.name == "TestVolume"
+        assert newVolume.id == 34
+        assert newVolume.media_policy == "SSD"
         assert newVolume.status.state == "AVAILABLE"
         assert newVolume.status.last_capacity_firebreak == 0
         assert newVolume.status.last_performance_firebreak == 10000
@@ -98,11 +95,10 @@ class TestConverters(BaseCliTest):
         assert newVolume.qos_policy.priority == 6
         assert newVolume.qos_policy.iops_max == 5000
         assert newVolume.qos_policy.iops_min == 3000
-        assert newVolume.data_protection_policy.commit_log_retention.time == 1
-        assert newVolume.data_protection_policy.commit_log_retention.unit == "DAYS"
+        assert newVolume.data_protection_policy.commit_log_retention == 86400
         assert len(newVolume.data_protection_policy.snapshot_policies) == 1
-        assert newVolume.tenant_id.uuid == 9
-        assert newVolume.tenant_id.name == "UNC"
+        assert newVolume.tenant.id == 9
+        assert newVolume.tenant.name == "UNC"
         
         new_s_policy = newVolume.data_protection_policy.snapshot_policies[0]
         
@@ -115,21 +111,16 @@ class TestConverters(BaseCliTest):
     def test_user_conversion(self):
         
         user = User()
-        role = Role()
-        role.name = "USER"
-        role.features = ["VOL_MGMT", "SYSTEM_MGMT"]
+        role = "USER"
 
-        tenant_id = FdsId()
-        tenant_id.name = "TheWorst"
-        tenant_id.uuid = 2
+        tenant = Tenant()
+        tenant.name = "TheWorst"
+        tenant.id = 2
 
-        ident = FdsId()
         
-        ident.name = "jdoe"
-        ident.uuid = "5abc34"
-        
-        user.id = ident
-        user.tenant_id = tenant_id
+        user.id = "5abc34"
+        user.name = "jdoe"
+        user.tenant = tenant
         user.role = role
         
         j_user = UserConverter.to_json(user)
@@ -137,41 +128,34 @@ class TestConverters(BaseCliTest):
         
         new_user = UserConverter.build_user_from_json(j_user)
         
-        assert new_user.id.uuid == "5abc34"
-        assert new_user.id.name == "jdoe"
-        assert new_user.role.name == "USER"
-        assert len(new_user.role.features) == 2
-        assert new_user.tenant_id.name == "TheWorst"
-        assert new_user.tenant_id.uuid == 2
+        assert new_user.id == "5abc34"
+        assert new_user.name == "jdoe"
+        assert new_user.role == "USER"
+        assert new_user.tenant.name == "TheWorst"
+        assert new_user.tenant.id == 2
         
     def test_tenant_conversion(self):
         
         tenant = Tenant()
         
-        ident = FdsId()
-        ident.uuid = 320
-        ident.name = "HisTenant"
-        
-        tenant.id = ident
+        tenant.id = 320
+        tenant.name = "HisTenant"
         
         j_tenant = TenantConverter.to_json(tenant)
         print j_tenant
         
         new_tenant = TenantConverter.build_tenant_from_json(j_tenant)
         
-        assert new_tenant.id.name == "HisTenant"
-        assert new_tenant.id.uuid == 320
+        assert new_tenant.name == "HisTenant"
+        assert new_tenant.id == 320
         
     def test_domain_conversion(self):
         
         domain = Domain()
         domain.site = "boulder"
         
-        ident = FdsId()
-        ident.uuid = 5102
-        ident.name = "terrible.domain"
-        
-        domain.id = ident
+        domain.id = 5102
+        domain.name = "terrible.domain"
         
         j_domain = DomainConverter.to_json(domain)
         print j_domain
@@ -179,21 +163,18 @@ class TestConverters(BaseCliTest):
         new_domain = DomainConverter.build_domain_from_json(j_domain)
         
         assert new_domain.site == "boulder"
-        assert new_domain.id.name == "terrible.domain"
-        assert new_domain.id.uuid == 5102
+        assert new_domain.name == "terrible.domain"
+        assert new_domain.id == 5102
         
     def test_service_conversion(self):
         
         service = Service()
         
-        ident = FdsId()
-        ident.uuid = "qwerty"
-        ident.name = "AM"
-        
-        service.id = ident
+        service.id = "qwerty"
+        service.name = "AM"
         
         service.port = 7004
-        service.type = "FDSP_ACCESS_MGR"
+        service.type = "AM"
         
         status = ServiceStatus()
         status.state = "LIMITED"
@@ -207,9 +188,9 @@ class TestConverters(BaseCliTest):
         
         new_service = ServiceConverter.build_service_from_json(j_service)
         
-        assert new_service.id.uuid == "qwerty"
-        assert new_service.id.name == "AM"
-        assert new_service.type == "FDSP_ACCESS_MGR"
+        assert new_service.id == "qwerty"
+        assert new_service.name == "AM"
+        assert new_service.type == "AM"
         
         new_status = new_service.status
         
@@ -221,25 +202,23 @@ class TestConverters(BaseCliTest):
         
         node  = Node()
         
-        node.ip_v4_address = "10.12.13.14"
-        node.ip_v6_address = "someweirdaddress"
+        address = Address()
         
-        ident = FdsId()
-        ident.uuid = 928
-        ident.name = "CoolNode"
+        address.ipv4address = "10.12.13.14"
+        address.ipv6address = "someweirdaddress"
+        node.address = address
         
-        node.id = ident
+        node.id = 928
+        node.name = "CoolNode"
         
         node.state = "DOWN"
         
         service = Service()
         
-        s_ident = FdsId()
-        s_ident.uuid = 21
-        s_ident.name = "DM"
-        service.id = s_ident
+        service.id = 21
+        service.name = "DM"
         
-        service.type = "FDSP_DATA_MGR"
+        service.type = "DM"
         
         s_status = ServiceStatus()
         s_status.description = "Doing very medium"
@@ -255,10 +234,10 @@ class TestConverters(BaseCliTest):
         
         new_node = NodeConverter.build_node_from_json(j_node)
         
-        assert new_node.ip_v4_address == "10.12.13.14"
-        assert new_node.ip_v6_address == "someweirdaddress"
-        assert new_node.id.uuid == 928
-        assert new_node.id.name == "CoolNode"
+        assert new_node.address.ipv4address == "10.12.13.14"
+        assert new_node.address.ipv6address == "someweirdaddress"
+        assert new_node.id == 928
+        assert new_node.name == "CoolNode"
         assert new_node.state == "DOWN"
         assert len(new_node.services["DM"]) == 1
         
@@ -267,8 +246,8 @@ class TestConverters(BaseCliTest):
         assert new_service.status.state == "DEGRADED"
         assert new_service.status.description == "Doing very medium"
         assert new_service.status.error_code == 201
-        assert new_service.type == "FDSP_DATA_MGR"
-        assert new_service.id.uuid == 21
-        assert new_service.id.name == "DM"
+        assert new_service.type == "DM"
+        assert new_service.id == 21
+        assert new_service.name == "DM"
 
         

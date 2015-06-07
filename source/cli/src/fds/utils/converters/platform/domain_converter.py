@@ -28,7 +28,7 @@ class DomainConverter():
         
         j_d = dict()
         
-        j_d["id"] = domain.id
+        j_d["uid"] = domain.id
         j_d["name"] = domain.name
         j_d["site"] = domain.site
         j_d["state"] = domain.state

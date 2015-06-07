@@ -32,6 +32,9 @@ class TenantConverter(object):
         
         tenant = Tenant()
         
+        if not isinstance(j_tenant, dict):
+            j_tenant = json.loads(j_tenant)
+        
         tenant.id = j_tenant.pop( "uid", tenant.id )
         tenant.name = j_tenant.pop( "name", tenant.name )
         

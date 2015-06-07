@@ -47,7 +47,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     api.save = function( volume, callback, failure ){
 
         // save a new one
-        if ( !angular.isDefined( volume.id ) ){
+        if ( !angular.isDefined( volume.uid ) ){
             return $http_fds.post( webPrefix + '/volumes', volume,
                 function( response ){
 
@@ -61,7 +61,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         }
         // update an existing one
         else {
-            return $http_fds.put( webPrefix + '/volumes/' + volume.id, volume, function( volume ){
+            return $http_fds.put( webPrefix + '/volumes/' + volume.uid, volume, function( volume ){
                 
                 if ( angular.isFunction( callback ) ){
                     callback( volume );
