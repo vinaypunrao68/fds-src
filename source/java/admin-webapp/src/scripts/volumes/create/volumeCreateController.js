@@ -18,7 +18,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     var cloneVolume = function( volume ){
-        volume.id = $scope.volumeVars.cloneFromVolume.id;
+        volume.uid = $scope.volumeVars.cloneFromVolume.uid;
         
         if ( angular.isDate( volume.timelineTime )){
             volume.timelineTime = volume.timelineTime.getTime();

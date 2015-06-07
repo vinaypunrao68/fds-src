@@ -49,6 +49,7 @@ public class CloneVolumeFromTime implements RequestHandler{
 	public Volume cloneFromTime( long volumeId, Volume volume, long timeInSeconds ) throws Exception {
 		
 		long newId = getConfigApi().cloneVolume( volumeId, 0L, volume.getName(), timeInSeconds );
+		volume.setId( newId );
 		
 		CreateVolume volumeEndpoint = new CreateVolume( getAuthorizer(), getToken() );
 		

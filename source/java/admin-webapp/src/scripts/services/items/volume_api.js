@@ -76,8 +76,8 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         
         // the actual volume we try to create should now have an ID yet - but the ID here will be 
         // the original one
-        var id = volume.id;
-        volume.id = '';
+        var id = volume.uid;
+        volume.uid = undefined;
         
         // convert timelineTime from MS to seconds and adding 1 so that it makes sure to get the right snapshot
         var timelineTime = Math.round( volume.timelineTime / 1000 ) + 1;
@@ -96,7 +96,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
     
     api.cloneSnapshot = function( volume, snapshotId, callback, failure ){
-        return $http_fds.post( webPrefix + '/volumes/' + volume.id + '/snapshot/' + snapshotId, volume,
+        return $http_fds.post( webPrefix + '/volumes/' + volume.uid + '/snapshot/' + snapshotId, volume,
             function( response ){
 
                 getVolumes();
@@ -109,7 +109,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
 
     api.delete = function( volume, callback, failure ){
-        return $http_fds.delete( webPrefix + '/volumes/' + volume.id, 
+        return $http_fds.delete( webPrefix + '/volumes/' + volume.uid, 
             function( result ){
                 getVolumes();
             

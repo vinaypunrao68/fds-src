@@ -215,7 +215,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                         
                         var prePolicy = policies[i];
                         
-                        if ( policy.retentionTime === prePolicy.retentionTime &&
+                        if ( policy.retentionTime.seconds === prePolicy.retentionTime.seconds &&
                             policy.recurrenceRule.FREQ === prePolicy.recurrenceRule.FREQ ) {
                             
                             return true;
