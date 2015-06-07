@@ -28,7 +28,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
 //            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
 //        }
 //        else {
-            $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+            $volume_api.clone( volume, function( newVolume ){ 
+                // this basically just goes back to the list page
+                $scope.cancel();
+            });
 //        }
     };
     
@@ -112,10 +115,12 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.enableDc = false;
         
         $scope.newQos = {
-            sla: volume.sla,
-            limit: volume.limit,
-            priority: volume.priority
+            iopsMin: volume.qosPolicy.iopsMin,
+            iopsMax: volume.qosPolicy.iopsMax,
+            priority: volume.qosPolicy.priority
         };
+        
+        $scope.timelinePolicies = volume.dataProtectionPolicy;
         
         $scope.dataSettings = volume.settings;
         
