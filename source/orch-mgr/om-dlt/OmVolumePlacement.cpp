@@ -8,6 +8,7 @@
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
 #include "fdsp/dm_api_types.h"
+#include <fds_module_provider.h>
 
 namespace fds {
 
@@ -17,9 +18,11 @@ VolumePlacement::VolumePlacement()
           prevDmtVersion(DMT_VER_INVALID),
           startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
-          placementMutex("Volume Placement mutex")
+          placementMutex("Volume Placement mutex"),
+		  numOfPrimaryDMs(MODULEPROVIDER()->get_fds_config()->
+				  get<fds_uint32_t>("fds.dm.number_of_primary"))
 {
-    bRebalancing = ATOMIC_VAR_INIT(false);
+	bRebalancing = ATOMIC_VAR_INIT(false);
 }
 
 VolumePlacement::~VolumePlacement()
@@ -172,7 +175,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     fds_verify(dmtMgr->hasTargetDMT());
 
     // find the list of DMT columns whose volumes will be rebalanced
-    // = columns that have at least one different DM uuid
+    // = columns that have at least one different DM uuid.
+    // This is stored as a unordered set of rebalColumns.
     rebalColumns.clear();
     for (fds_uint32_t cix = 0; cix < dmt_columns; ++cix) {
         DmtColumnPtr cmt_col = dmtMgr->getDMT(DMT_COMMITTED)->getNodeGroup(cix);
@@ -197,6 +201,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     VolumeContainer::pointer volumes = loc_domain->om_vol_mgr();
     fds_uint32_t vol_count = volumes->rs_container_snapshot(&vol_ary);
     NodeUuidSet rmNodes = cmap->getRemovedServices(fpi::FDSP_DATA_MGR);
+    // List used for sending DMVolumeMigrationGroup
+    std::list<fpi::FDSP_VolumeDescType> volDescList;
 
     // for each volume, we will get column from committed and
     // target DMT (getting column is cheap operation, so ok to
@@ -207,6 +213,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         fds_uint64_t volid = ((*it)->rs_get_uuid()).uuid_get_val();
         DmtColumnPtr cmt_col = dmtMgr->getCommittedNodeGroup(volid);
         DmtColumnPtr target_col = dmtMgr->getTargetNodeGroup(volid);
+        fpi::FDSP_VolumeDescType vol_desc; // to be added to list
 
         // skip rebalancing of volumes in 'inactive' state -- those
         // are volumes that got delayed because we already set our
@@ -216,6 +223,9 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // also skip rebalancing volumes which are in the process of
         // deleting (passed delete check)
         if (volinfo->isDeletePending()) continue;
+
+        // Populate volume descriptor
+        volinfo->vol_fmt_desc_pkt(&vol_desc);
 
         // for each DM in target column, find all DMs that
         // that got added to that column
@@ -249,6 +259,62 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             }
         }
         // This is where they do the push from. Will need to change to pull.
+
+        fpi::CtrlNotifyDMStartMigrationMsgPtr migrateMsg (new fpi::CtrlNotifyDMStartMigrationMsg());
+        migrateMsg->DMT_version = dmtMgr->getTargetVersion();
+        std::vector<fpi::DMVolumeMigrationGroup> *migrations = &(migrateMsg->migrations);
+        // TODO(Neil): look at PlatformManager::notifyOmAProcessDied for sending this
+        // as a msg.
+        for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
+             cit != new_dms.cend();
+             ++cit) {
+        	bool grp_found = false;
+
+        	/**
+        	 * At this time, the volume descriptor is what the DM doesn't have.
+        	 * Look through DM Migration groups to see if any of the source DMs
+        	 * contain this volume. If so, add this volume to that list.
+        	 * If not, create a new group.
+        	 */
+        	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator grp_iter =
+        			migrations->begin();
+        			grp_iter != migrations->end(); grp_iter++) {
+        		/**
+        		 * If a node in the migration group exists that matches a node
+        		 * in the cmt_col, that means this this current committed node
+        		 * can be a candidate for the dest node to pull from.
+        		 * Do a lookup only from the primary DMs.
+        		 */
+        		fds_verify(cmt_col->getLength() >= getNumOfPrimaryDMs());
+        		for (fds_uint32_t j = 0; j < getNumOfPrimaryDMs(); j++) {
+        			NodeUuid uuid = cmt_col->get(j);
+        			if ((unsigned)(grp_iter->source.svc_uuid) == uuid.uuid_get_val()) {
+        				grp_found = true;
+        				LOGDEBUG << "NEIL DEBUG For volume " << vol_desc.vol_name
+        						<< " found existing group of source " << uuid;
+        				grp_iter->VolDescriptors.push_back(vol_desc);
+        				break;
+        			}
+        		}
+        	} // End for grp_iter
+
+        	if (!grp_found) {
+        		/**
+        		 * Currently, in the migration msg, there's no source node that
+        		 * contains this volume. So we need to find a primary DM node
+        		 * as the source to pull from, since primary DM(s) will be the
+        		 * only ones that are trustworthy.
+        		 */
+        		NodeUuid uuid = cmt_col->get(0);
+        		fpi::DMVolumeMigrationGroup newGroup;
+        		newGroup.source.svc_uuid = uuid.uuid_get_val();
+        		newGroup.VolDescriptors.push_back(vol_desc);
+        		migrations->push_back(newGroup);
+        		LOGDEBUG << "NEIL DEBUG For volume " << vol_desc.vol_name
+        				<< " adding new group of source " << uuid;
+        	}
+        } // End for(NodeUuidSet)
+
         LOGDEBUG << "We will rsync from " << std::hex << src_dm << std::dec;
         // we must have at least one node that we can push meta from!
         fds_verify(src_dm != 0);

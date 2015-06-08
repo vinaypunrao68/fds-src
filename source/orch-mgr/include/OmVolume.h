@@ -170,6 +170,7 @@ class VolumeInfo : public Resource, public HasState
     }
 
     void vol_mk_description(const fpi::FDSP_VolumeDescType &info);
+    // Sets the volume descriptor to have the information of this volume info.
     void vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const;
     void vol_fmt_message(om_vol_msg_t *out);
 
