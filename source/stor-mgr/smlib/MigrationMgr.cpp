@@ -758,10 +758,12 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         // fetch_and_increment_saturating uses a reference to migrExecutors, 
         // so it needs to be protected
         // anticipating this block to prevent nesting with smTokenInProgressMutex
+        MigrExecutorMap::const_iterator next;
+        bool is_end;
         {
             SCOPEDREAD(migrExecutorLock);
-            auto next = nextExecutor.fetch_and_increment_saturating();
-            bool is_end = (next == migrExecutors.end());
+            next = nextExecutor.fetch_and_increment_saturating();
+            is_end = (next == migrExecutors.end());
         }
         /**
          * Erase the smToken whose executor received this callback.
