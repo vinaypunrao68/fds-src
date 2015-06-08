@@ -181,9 +181,10 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     fds_verify(parallelMigration > 0);
     for (uint32_t issued = 0; issued < parallelMigration; issued++) {
 
+        MigrExecutorMap::const_iterator next;
         {   
             SCOPEDREAD(migrExecutorLock);
-            auto next = nextExecutor.fetch_and_increment_saturating(); 
+            next = nextExecutor.fetch_and_increment_saturating(); 
             if (next == migrExecutors.cend())
                 break;
         }
