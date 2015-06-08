@@ -6,6 +6,7 @@ package com.formationds.om.webkit.rest.v08;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.webkit.AbstractApiDefinition;
+import com.formationds.om.webkit.rest.v08.configuration.SystemCapabilities;
 import com.formationds.om.webkit.rest.v08.domain.ListLocalDomains;
 import com.formationds.om.webkit.rest.v08.domain.MutateLocalDomain;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
@@ -14,7 +15,6 @@ import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
 import com.formationds.om.webkit.rest.v08.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.v08.metrics.QueryMetrics;
 import com.formationds.om.webkit.rest.v08.metrics.SystemHealthStatus;
-import com.formationds.om.webkit.rest.v08.configuration.SystemCapabilities;
 import com.formationds.om.webkit.rest.v08.platform.AddNode;
 import com.formationds.om.webkit.rest.v08.platform.AddService;
 import com.formationds.om.webkit.rest.v08.platform.GetNode;
@@ -28,8 +28,8 @@ import com.formationds.om.webkit.rest.v08.platform.RemoveService;
 import com.formationds.om.webkit.rest.v08.presets.GetDataProtectionPolicyPresets;
 import com.formationds.om.webkit.rest.v08.presets.GetQosPolicyPresets;
 import com.formationds.om.webkit.rest.v08.snapshots.CreateSnapshot;
-import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshots;
 import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
+import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshots;
 import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
 import com.formationds.om.webkit.rest.v08.tenants.CreateTenant;
 import com.formationds.om.webkit.rest.v08.tenants.ListTenants;
@@ -39,6 +39,7 @@ import com.formationds.om.webkit.rest.v08.token.GrantToken;
 import com.formationds.om.webkit.rest.v08.token.ReissueToken;
 import com.formationds.om.webkit.rest.v08.users.CreateUser;
 import com.formationds.om.webkit.rest.v08.users.CurrentUser;
+import com.formationds.om.webkit.rest.v08.users.GetUser;
 import com.formationds.om.webkit.rest.v08.users.ListUsers;
 import com.formationds.om.webkit.rest.v08.users.ListUsersForTenant;
 import com.formationds.om.webkit.rest.v08.users.UpdatePassword;
@@ -52,16 +53,14 @@ import com.formationds.om.webkit.rest.v08.volumes.GetVolume;
 import com.formationds.om.webkit.rest.v08.volumes.GetVolumeTypes;
 import com.formationds.om.webkit.rest.v08.volumes.ListSnapshotPoliciesForVolume;
 import com.formationds.om.webkit.rest.v08.volumes.ListVolumes;
-import com.formationds.om.webkit.rest.v08.volumes.MutateVolume;
 import com.formationds.om.webkit.rest.v08.volumes.MutateSnapshotPolicy;
-import com.formationds.om.webkit.rest.v08.users.GetUser;
+import com.formationds.om.webkit.rest.v08.volumes.MutateVolume;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -185,7 +184,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/volumes/:volume_id/snapshots", (token) -> new ListSnapshots() );
     	
     	// get a specific snapshot
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( config ) );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/snapshots/:snapshot_id", (token) -> new GetSnapshot( ) );
     	
     	// delete a snapshot
       // TODO implement delete snapshot

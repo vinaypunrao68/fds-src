@@ -3,28 +3,26 @@
  */
 package com.formationds.om.webkit.rest.v08.snapshots;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.log4j.Logger;
-import org.apache.thrift.TException;
-import org.eclipse.jetty.server.Request;
-import org.mortbay.jetty.HttpException;
-
-import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Snapshot;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
+import org.eclipse.jetty.server.Request;
+
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * REST endpoint to retrieve a specific snapshot by its ID. This should be much

@@ -9,7 +9,7 @@
   <parent>
     <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2015.06.22-SNAPSHOT</version>
+    <version>2015.06.19-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 

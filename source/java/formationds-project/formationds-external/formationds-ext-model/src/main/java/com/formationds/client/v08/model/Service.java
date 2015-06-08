@@ -8,7 +8,7 @@ import java.util.Objects;
 
 public class Service extends AbstractResource<Long> {
 
-    public static enum ServiceState {
+    public enum ServiceState {
         RUNNING,
         NOT_RUNNING,
         LIMITED,

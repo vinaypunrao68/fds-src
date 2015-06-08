@@ -20,7 +20,7 @@
   <version>1.0</version>
 
   <properties>
-    <formationds.ext.model.version>2015.06.19</formationds.ext.model.version>
+    <formationds.ext.model.version>2015.06.19-SNAPSHOT</formationds.ext.model.version>
   </properties>
 
   <dependencies>
