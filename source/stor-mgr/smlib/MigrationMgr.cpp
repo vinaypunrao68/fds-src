@@ -733,37 +733,35 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // migrate next SM token or we are done
     if (finished) {
         // If I'm here I have migrated a token, need to find the next token to migrate
-        LOGMIGRATE << "erasing " << smToken;
-        {
-            FDSGUARD(smTokenInProgressMutex);
-            smTokenInProgress.erase(smToken);
-        }
-        LOGMIGRATE << "fetch and increment nextExecutor";
+        FDSGUARD(smTokenInProgressMutex);
+        /**
+         * Erase the smToken whose executor received this callback.
+         * TODO:(Gurpreet) Currently for parallel migrations we
+         * are assuming a single executor-per smToken because
+         * # of SM tokens = # of DLT tokens. Parallel migration
+         * logic should be revisited when the above assumption
+         * changes.
+         */
+        LOGMIGRATE << "Erase " << smToken
+                   << " and fetch next executor";
+        smTokenInProgress.erase(smToken);
         auto next = nextExecutor.fetch_and_increment_saturating();
         if (next != migrExecutors.end()) {
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
-                FDSGUARD(smTokenInProgressMutex);
                 smTokenInProgress.insert(next->first);
                 LOGMIGRATE << "call startSmTokenMigration for " << next->first;
                 startSmTokenMigration(next->first);
             } else {
                 // coming in here during second phase when calling the ExecutorDone callback
-                {
-                    FDSGUARD(smTokenInProgressMutex);
-                    smTokenInProgress.insert(next->first);
-                }
+                smTokenInProgress.insert(next->first);
                 startSecondRebalanceRound(next->first);
             }
         } else {
             LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
-            // need to make sure all executors have terminated
-            {
-                FDSGUARD(smTokenInProgressMutex);
-                if (smTokenInProgress.size() > 0) {
-                    LOGMIGRATE << "exiting done migrating";
-                    return;
-                }
+            if (smTokenInProgress.size() > 0) {
+                LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
+                return;
             }
             if (isFirstRound && !resyncOnRestart) {
                 // --> start of second round
@@ -774,12 +772,10 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 nextExecutor.set(migrExecutors.begin());
                 for (uint32_t issued = 0; issued < parallelMigration; ++issued) {
                         auto next = nextExecutor.fetch_and_increment_saturating();
-                        if (next == migrExecutors.cend())
+                        if (next == migrExecutors.cend()) {
                             break;
-                        {
-                            FDSGUARD(smTokenInProgressMutex);
-                            smTokenInProgress.insert(next->first);
                         }
+                        smTokenInProgress.insert(next->first);
                         startSecondRebalanceRound(next->first);
                 }
             } else {
