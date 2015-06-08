@@ -1,5 +1,3 @@
-from fds.model.fds_id import FdsId
-
 class QosPolicy(object):
     '''
     Created on May 29, 2015
@@ -7,7 +5,7 @@ class QosPolicy(object):
     @author: nate
     '''
 
-    def __init__(self, priority=7, iops_min=0, iops_max=0, preset_id=FdsId()):
+    def __init__(self, priority=7, iops_min=0, iops_max=0, preset_id=None):
         self.priority = priority
         self.iops_min = iops_min
         self.iops_max = iops_max
