@@ -2057,13 +2057,13 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node='random_node', service='sm', faultName=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_FaultInjection,
+                                             self.test_ServiceFaultInjection,
                                              "Test setting fault injection")
         self.passedNode = node
         self.passedService = service
         self.passedFaultName = faultName
 
-    def test_FaultInjection(self):
+    def test_ServiceFaultInjection(self):
         """
         Test Case:
         This testcase sets the fault injection parameter on specific service in a node
