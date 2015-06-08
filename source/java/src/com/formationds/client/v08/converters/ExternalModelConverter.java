@@ -451,14 +451,20 @@ public class ExternalModelConverter {
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
             
             internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
-            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
+            
+            if ( blockSettings.getBlockSize() != null ){
+            	internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
                                                                    .intValue() );
+            }
             
             internalSettings.setVolumeType( VolumeType.BLOCK );
             
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
-            internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+            
+            if ( objectSettings.getMaxObjectSize() != null ){
+            	internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+            }
             
             internalSettings.setVolumeType( VolumeType.OBJECT );
         }
