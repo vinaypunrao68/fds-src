@@ -1051,9 +1051,9 @@ class TestLogMarker(TestCase.FDSTestCase):
             self.log.warning("Log marker called but parameters missing: scenario name or marker text.")
             self.log.warning("************************************")
         else:
-            self.log.info("************ %s ************" % self.passedScenario)
-            self.log.info("** %s" % self.passedMarker)
-            self.log.info("************************************")
+            self.log.info("{} {} {}".format('*'*12,self.passedScenario, '*' * 12))
+            self.log.info("*** %s" % self.passedMarker)
+            self.log.info("{}".format('*' * (12*2 + 2 + len(self.passedScenario))))
 
         return True
 
