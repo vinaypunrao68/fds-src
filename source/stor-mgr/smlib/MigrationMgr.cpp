@@ -761,7 +761,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         {
             SCOPEDREAD(migrExecutorLock);
             auto next = nextExecutor.fetch_and_increment_saturating();
-            bool is_end = (next == migrExecutors.end())
+            bool is_end = (next == migrExecutors.end());
         }
         /**
          * Erase the smToken whose executor received this callback.
