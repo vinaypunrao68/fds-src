@@ -116,7 +116,7 @@ class ServicePlugin( AbstractPlugin ):
             
         response = self.get_node_service().start_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
             
-        if ( response is not None ):
+        if "message" not in response:
             self.list_services(args)            
                         
     def stop_service(self, args):
@@ -126,7 +126,7 @@ class ServicePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
 
-        if ( response is not None ):
+        if "message" not in response:
             self.list_services(args)  
 
     def add_service(self, args):
@@ -140,7 +140,7 @@ class ServicePlugin( AbstractPlugin ):
         
         response = self.get_node_service().add_service( args[AbstractPlugin.node_id_str], service )
         
-        if ( response is not None ):
+        if "message" not in response:
             self.list_services(args)
         
     def remove_service(self, args):
@@ -149,7 +149,7 @@ class ServicePlugin( AbstractPlugin ):
         '''
         response = self.get_node_service().remove_service(args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
         
-        if ( response is not None ):
+        if "message" not in response:
             self.list_services(args)
 
     def list_services(self, args):
