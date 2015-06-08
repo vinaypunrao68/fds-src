@@ -52,6 +52,9 @@ public class ListNodes
     	
     	logger.debug("Size of service list: {}", list.size());
 
+    	// TODO: DO NOT GROUP BY IP ADDRESS!!!
+    	// We're doing this now because the node uuid for OM is hardcoded as 1024.  We need to actually
+    	// develop an ID that is consistent across services and identifies services as being on the same host.
     	Map<Long, List<FDSP_Node_Info_Type>> groupedServices = 
     			list.stream().collect( Collectors.groupingBy( FDSP_Node_Info_Type::getIp_lo_addr ) );
     	
