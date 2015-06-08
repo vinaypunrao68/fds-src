@@ -24,7 +24,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
         
-        policy = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
         assert policy.name == "MyPolicy"
         assert policy.retention == 0
@@ -47,8 +47,10 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
         
-        policy = mockCreate.call_args[0][0]
+        volume_id = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
+        assert volume_id == "3"
         assert policy.name == "MyPolicy"
         assert policy.recurrence_rule.frequency == "WEEKLY"
         assert policy.recurrence_rule.byhour == [3, 12]
@@ -78,12 +80,12 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
         
-        policy = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
         assert policy.recurrence_rule.byday is None
         
         #make sure month, day of month and day of year don't make it in a weekly
-        args = ["snapshot_policy", "create", "-name=MyPolicy", "-frequency=WEEKLY", "-day_of_month", "15", "-day_of_year", "255", "-month", "2", "5", "-day_of_week", "TH"]
+        args = ["snapshot_policy", "create", "-name=MyPolicy", "-frequency=WEEKLY", "-day_of_month", "15", "-day_of_year", "255", "-month", "2", "5", "-day_of_week", "TH", "-volume_id=3"]
         
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -91,7 +93,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 2
         assert mockList.call_count == 2
         
-        policy = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
         assert policy.recurrence_rule.bymonth is None
         assert policy.recurrence_rule.byyearday is None
@@ -107,7 +109,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 3
         assert mockList.call_count == 3
         
-        policy = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
         assert policy.recurrence_rule.bymonth is None
         assert policy.recurrence_rule.byyearday is None
@@ -123,7 +125,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 4
         assert mockList.call_count == 4
         
-        policy = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
         assert policy.recurrence_rule.bymonth == [2,5]
         assert policy.recurrence_rule.byyearday == [255]
@@ -137,7 +139,7 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         Try to create a snapshot policy using a JSON string instead of arguments
         '''
         
-        jString = "{\"name\":\"MyPolicy\",\"retention\":86400,\"timelineTime\":0,\"recurrenceRule\":{\"FREQ\":\"WEEKLY\",\"BYDAY\":[\"SU\"]}}"
+        jString = "{\"name\":\"MyPolicy\",\"retentionTime\": {\"seconds\":86400,\"nanos\":0},\"timelineTime\":0,\"recurrenceRule\":{\"FREQ\":\"WEEKLY\",\"BYDAY\":[\"SU\"]}}"
         
         args = ["snapshot_policy", "create", "-data=" + jString, "-volume_id=3"]
         self.callMessageFormatter(args)
@@ -146,11 +148,11 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
         
-        policy = mockCreate.call_args[0][0]
+        policy = mockCreate.call_args[0][1]
         
         assert policy.name == "MyPolicy"
         assert policy.recurrence_rule.frequency == "WEEKLY"
-        assert policy.retention == 86400
+        assert policy.retention_time_in_seconds == 86400
         assert policy.timeline_time == 0
         assert policy.recurrence_rule.byday == ["SU"]        
         

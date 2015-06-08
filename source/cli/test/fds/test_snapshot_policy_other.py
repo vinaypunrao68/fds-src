@@ -29,11 +29,21 @@ class TestSnapshotPolicyOther(BaseCliTest):
         self.callMessageFormatter(args)
         self.cli.run(args)
         
+        assert mockDelete.call_count == 0
+        assert mockList.call_count == 0
+        
+        args.append( "-volume_id=3" )
+        
+        self.callMessageFormatter(args)
+        self.cli.run(args)
+        
         assert mockDelete.call_count == 1
         assert mockList.call_count == 1
         
-        policy_id = mockDelete.call_args[0][0]
+        volume_id = mockDelete.call_args[0][0]
+        policy_id = mockDelete.call_args[0][1]
         
+        assert volume_id == "3"
         assert policy_id == "1"
         
         

@@ -97,6 +97,8 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         __edit_group.add_argument( "-" + AbstractPlugin.data_str, help="A JSON formatted string that defines your policy entirely.  If this is present all other arguments will be ignored.", default=None )
         __edit_group.add_argument( "-" + AbstractPlugin.policy_id_str, help="The UUID of the policy you would like to edit.", default=None )
         
+        __edit_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that this policy resides on.", required=True)
+        
         __edit_parser.add_argument( "-" + AbstractPlugin.name_str, help="The name of the policy you are creating.", default=None)
         __edit_parser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that you want to keep snapshots that are created with this policy. 0 = forever", type=int, default=0)
         __edit_parser.add_argument( "-" + AbstractPlugin.recurrence_rule_str, help="The iCal format recurrence rule you would like this policy to follow. http://www.kanzaki.com/docs/ical/rrule.html")

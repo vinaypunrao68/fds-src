@@ -42,13 +42,13 @@ def createVolume(volume):
 def editVolume(volume):
     return volume
 
-def cloneFromTimelineTime( a_time, volume ):
+def cloneFromTimelineTime( volume, a_time ):
     
     volume.id = 354
     volume.timeline_time = a_time
     return volume
 
-def cloneFromSnapshotId( snapshot_id, volume):
+def cloneFromSnapshotId( volume, snapshot_id ):
     volume.id = 789
     return volume
 
@@ -167,7 +167,7 @@ def findDomainById(an_id):
     
     return domain
 
-def createSnapshotPolicy( policy ):
+def createSnapshotPolicy( volume_id, policy ):
     policy.id = 100
     return policy
 
@@ -187,7 +187,7 @@ def attachPolicy( policy_id, volume_id ):
 def detachPolicy( policy_id, volume_id ):
     return responseOk
 
-def deleteSnapshotPolicy( policy_id ):
+def deleteSnapshotPolicy( volume_id, policy_id ):
     return responseOk 
 
 

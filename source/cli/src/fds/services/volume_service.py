@@ -70,12 +70,23 @@ class VolumeService( AbstractService ):
         volume = VolumeConverter.build_volume_from_json( j_volume )
         return volume
     
-    def clone_to_volume(self, volume_id, volume):
+    def clone_from_snapshot_id(self, volume, snapshot_id):
+        ''' 
+        clone from the given volume and snapshot ID
         '''
-        Use a snapshot ID and volume QoS settings to clone a new volume
+        url = "{}{}{}{}".format(self.get_url_preamble(), "/volumes/", volume.id, "/snapshot/", snapshot_id)
+        data = VolumeConverter.to_json(volume)
+        newVolume = self.rest_helper.post(self.session, url, data );
+        newVolume = VolumeConverter.build_volume_from_json(newVolume);
+        
+        return newVolume;
+    
+    def clone_from_timeline(self, volume, fromTime):
+        '''
+        Use a time and volume QoS settings to clone a new volume
         '''
         
-        url = "{}{}{}/{}".format( self.get_url_preamble(), "/volumes/", volume_id )
+        url = "{}{}{}/{}".format( self.get_url_preamble(), "/volumes/", volume.id, "/time/", fromTime )
         data = VolumeConverter.to_json( volume )
         volume = self.rest_helper.post( self.session, url, data )
         volume = VolumeConverter.build_volume_from_json( volume )

@@ -13,73 +13,63 @@ class VolumeCloneTest( BaseCliTest):
     
     @author: nate
     '''
-    
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)    
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.find_volume_from_snapshot_id", side_effect=mock_functions.findVolumeBySnapId)
     @patch( "fds.services.volume_service.VolumeService.clone_from_snapshot_id", side_effect=mock_functions.cloneFromSnapshotId)
-    def test_clone_from_snapshot_id(self, mockCloneSnap, mockFindBySnap, mockList ):
+    def test_clone_from_snapshot_id(self, mockCloneSnap, mockList, mockGet ):
         '''
         Try to create a clone with a snapshot ID
         '''
         
         print "Trying to create a volume clone by snapshot ID and defaults"
         
-        args = ["volume", "clone", "-snapshot_id=35", "-name=CloneVol"]
+        args = ["volume", "clone", "-volume_id=1", "-snapshot_id=35", "-name=CloneVol"]
         
         self.callMessageFormatter(args)
         self.cli.run( args )
         
         assert mockCloneSnap.call_count == 1
-        assert mockFindBySnap.call_count == 1
         assert mockList.call_count == 1
         
-        find_id = mockFindBySnap.call_args[0][0]
-        assert find_id == "35"
-        
-        snap_id = mockCloneSnap.call_args[0][0]
-        volume = mockCloneSnap.call_args[0][1]
+        snap_id = mockCloneSnap.call_args[0][1]
+        volume = mockCloneSnap.call_args[0][0]
         
         assert snap_id == "35"
-        assert volume.id.name == "CloneVol"
+        assert volume.name == "CloneVol"
         
         print "Clone volume by snapshot ID was successful.\n\n"
 
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
-    def test_clone_from_timeline_name(self, mockClone, mockList, mockName, mockId ):
+    def test_clone_from_timeline_name(self, mockClone, mockList, mockId ):
         '''
         Test creating a clone from the timeline with a volume name
         '''
         
         print "Trying to clone a volume from a timeline time and a volume name"
         
-        args = ["volume", "clone", "-time=123456789", "-volume_name=MyVol", "-name=ClonedVol"]
+        args = ["volume", "clone", "-time=123456789", "-volume_id=MyVol", "-name=ClonedVol"]
         
         self.callMessageFormatter(args)
         self.cli.run( args )
         
         assert mockClone.call_count == 1
         assert mockList.call_count == 1
-        assert mockName.call_count == 1
-        assert mockId.call_count == 0
+
+        assert mockId.call_count == 1
         
-        name = mockName.call_args[0][0]
-        assert name == "MyVol"
-        
-        a_time = mockClone.call_args[0][0]
+        a_time = mockClone.call_args[0][1]
         assert a_time == 123456789
-        volume = mockClone.call_args[0][1]
-        assert volume.id.name == "ClonedVol"
+        volume = mockClone.call_args[0][0]
+        assert volume.name == "ClonedVol"
         
         print "Cloning from timeline time and volume name was successful.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
-    def test_clone_from_timeline_id(self, mockClone, mockList, mockName, mockId ):
+    def test_clone_from_timeline_id(self, mockClone, mockList, mockId ):
         '''
         Test creating a clone from the timeline with a volume ID
         '''
@@ -93,30 +83,29 @@ class VolumeCloneTest( BaseCliTest):
         
         assert mockClone.call_count == 1
         assert mockList.call_count == 1
-        assert mockName.call_count == 0
         assert mockId.call_count == 1
         
         an_id = mockId.call_args[0][0]
         assert an_id == "13"
         
-        a_time = mockClone.call_args[0][0]
+        a_time = mockClone.call_args[0][1]
         assert a_time == 123456789
-        volume = mockClone.call_args[0][1]
-        assert volume.id.name == "ClonedVol2"
+        volume = mockClone.call_args[0][0]
+        assert volume.name == "ClonedVol2"
         
         print "Cloning from timeline time and volume name was successful.\n\n" 
       
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)      
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )        
-    def test_clone_from_args(self, mockClone, mockList, mockName ):
+    def test_clone_from_args(self, mockClone, mockList, mockGet ):
         '''
         Test to see if new QoS items are passed through from the arg list
         '''
         
         print "Trying to create a clone with different QoS settings"
         
-        args = ["volume", "clone", "-volume_name=FirstVol", "-name=ClonedVol", "-priority=9", "-iops_guarantee=5000", "-iops_limit=3000", "-continuous_protection=86500"]
+        args = ["volume", "clone", "-volume_id=FirstVol", "-name=ClonedVol", "-priority=9", "-iops_min=5000", "-iops_max=3000", "-continuous_protection=86500"]
         
         now = int(time.time())
         
@@ -125,23 +114,22 @@ class VolumeCloneTest( BaseCliTest):
         
         assert mockClone.call_count == 1
         assert mockList.call_count == 1
-        assert mockName.call_count == 1
         
-        a_time = mockClone.call_args[0][0]
-        volume = mockClone.call_args[0][1]
+        a_time = mockClone.call_args[0][1]
+        volume = mockClone.call_args[0][0]
                
         assert volume.qos_policy.priority == 9
         assert volume.qos_policy.iops_min == 5000
         assert volume.qos_policy.iops_max == 3000
-        assert volume.data_protection_policy.commit_log_retention.time == 86500
+        assert volume.data_protection_policy.commit_log_retention == 86500
         assert a_time >= now
         
         print "Cloning volume with new QoS settings from args was successful.\n\n"
-        
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName)
+
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )        
-    def test_clone_from_data(self, mockClone, mockList, mockName ):
+    def test_clone_from_data(self, mockClone, mockList, mockGet ):
         '''
         Test to see if new QoS settings are accepted from a JSON data string
         '''
@@ -154,32 +142,32 @@ class VolumeCloneTest( BaseCliTest):
         volume.qos_policy.iops_min = 30000
         volume.qos_policy.iops_max = 100500
         volume.qos_policy.priority = 1
-        volume.data_protection_policy.commit_log_retention.time = 90000
+        volume.data_protection_policy.commit_log_retention = 90000
         
         volStr = VolumeConverter.to_json( volume )
         
-        args = ["volume", "clone", "-volume_name=MyVol", "-data=" + volStr, "-name=ClonedVol7"]
+        args = ["volume", "clone", "-volume_id=MyVol", "-data=" + volStr, "-name=ClonedVol7"]
         self.callMessageFormatter(args)
         self.cli.run( args )
         
         assert mockClone.call_count == 1
-        assert mockName.call_count == 1
         assert mockList.call_count == 1
         
-        a_time = mockClone.call_args[0][0]
-        volume = mockClone.call_args[0][1]
+        a_time = mockClone.call_args[0][1]
+        volume = mockClone.call_args[0][0]
         
         assert a_time >= now
         assert volume.qos_policy.iops_min == 30000
         assert volume.qos_policy.iops_max == 100500
         assert volume.qos_policy.priority == 1
-        assert volume.data_protection_policy.commit_log_retention.time == 90000
+        assert volume.data_protection_policy.commit_log_retention["seconds"] == 90000
         
         print "Cloning volume with new QoS setting from a JSON string was successful."
         
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
     @patch( "fds.services.volume_service.VolumeService.clone_from_timeline", side_effect=mock_functions.cloneFromTimelineTime )
     @patch( "fds.services.volume_service.VolumeService.clone_from_snapshot_id", side_effect=mock_functions.cloneFromSnapshotId)
-    def test_boundary_conditions(self, mockSnap, mockTime):
+    def test_boundary_conditions(self, mockSnap, mockTime, mockGet):
         '''
         Test the expected failure cases if arguments are out of bounds
         '''
@@ -194,17 +182,7 @@ class VolumeCloneTest( BaseCliTest):
         assert mockSnap.call_count == 0
         assert mockTime.call_count == 0
         
-        print "Testing that only one can be specified"
-        args.append( "-volume_name=SomeVol")
         args.append( "-volume_id=35")
-        self.callMessageFormatter(args)
-        self.cli.run( args )
-        assert mockSnap.call_count == 0
-        assert mockTime.call_count == 0
-        
-        print "Testing the name requirement"
-        args.remove( args[8])
-        args.remove( args[6])
         self.callMessageFormatter(args)
         self.cli.run( args )
         assert mockSnap.call_count == 0

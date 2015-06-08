@@ -134,15 +134,9 @@ class ServicePlugin( AbstractPlugin ):
         use the arguments to make the correct add service call
         '''
         s_type = args[AbstractPlugin.service_str]
-        auto_name = s_type.upper()
-        fdsp_type = "FDSP_ACCESS_MGR"
-        
-        if auto_name == "DM":
-            fdsp_type = "FDSP_DATA_MGR"
-        elif auto_name == "SM":
-            fdsp_type = "FDSP_STOR_MGR"
+        name = s_type.upper()
             
-        service = Service( auto_name=auto_name, a_type=fdsp_type )
+        service = Service( name=name, a_type=name )
         
         response = self.get_node_service().add_service( args[AbstractPlugin.node_id_str], service )
         
