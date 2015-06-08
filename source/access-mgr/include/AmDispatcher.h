@@ -256,9 +256,9 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Callback for catalog query error checks from service layer.
      */
-    fds_bool_t getQueryCatalogAppStatusCb(AmRequest* amReq,
-                                          const Error& error,
-                                          boost::shared_ptr<std::string> payload);
+    fds_bool_t missingBlobStatusCb(AmRequest* amReq,
+                                   const Error& error,
+                                   boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for set metadata on blob responses.
