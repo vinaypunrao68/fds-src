@@ -41,6 +41,8 @@ import java.util.concurrent.TimeUnit;
 public class ExternalModelConverter {
 
     private static ConfigurationApi configApi;
+    private static final Integer DEF_BLOCK_SIZE = ( 1024 * 128 );
+    private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
 
     public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
 
@@ -446,6 +448,7 @@ public class ExternalModelConverter {
 
         com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
 
+        // block volume
         if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {
 
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
@@ -456,14 +459,21 @@ public class ExternalModelConverter {
             	internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
                                                                    .intValue() );
             }
+            else {
+            	internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
+            }
             
             internalSettings.setVolumeType( VolumeType.BLOCK );
             
+        // object volume
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
             
             if ( objectSettings.getMaxObjectSize() != null ){
             	internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+            }
+            else {
+            	internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
             }
             
             internalSettings.setVolumeType( VolumeType.OBJECT );
