@@ -63,9 +63,13 @@ ObjectDB::ObjectDB(const std::string& filename,
     env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
     options.env = env.get();
 
-    leveldb::DB* ptr = nullptr;
-    leveldb::Status status = leveldb::DB::Open(options, file, &ptr);
-    db.reset(ptr);
+    leveldb::Status status;
+    LOGDEBUG << "opening leveldb";
+    {
+        leveldb::DB* ptr;
+        status = leveldb::DB::Open(options, file, &ptr);
+        db.reset(ptr);
+    }
 
     /* Open has to succeed */
     if (!status.ok())
