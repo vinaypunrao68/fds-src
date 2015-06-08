@@ -43,7 +43,7 @@ public class ListServices implements RequestHandler{
 	public List<Service> getServicesForNode( long nodeId ) throws ApiException, TException {
 		
 		// TODO: Make a thrift call so we don't have to get all nodes and find the right one...
-		List<Service> services = Collections.emptyList();
+		List<Service> services = new ArrayList<>();
 		
 		Node node = (new GetNode()).getNode( nodeId );
 		

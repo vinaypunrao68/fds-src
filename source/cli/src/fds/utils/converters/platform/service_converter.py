@@ -21,7 +21,9 @@ class ServiceConverter():
         service.port = j_str.pop("port", service.port)
         service.id = j_str.pop("uid", service.id)
         service.name = j_str.pop("name", service.name)
-        service.status = ServiceStatusConverter.build_status_from_json(j_str.pop("status"))
+        
+        status = j_str.pop("status", service.status)
+        service.status = ServiceStatusConverter.build_status_from_json(status)
         
         return service 
     

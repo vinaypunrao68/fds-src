@@ -94,7 +94,8 @@ class NodeService( AbstractService ):
         '''
         Start a specific service on a node.
         '''
-        service = Service(an_id=service_id,status="ACTIVE")
+        service = self.get_service(node_id, service_id)
+        service.status.state = "RUNNING"
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
         return self.rest_helper.put( self.session, url, data )
@@ -103,7 +104,8 @@ class NodeService( AbstractService ):
         '''
         Start a specific service on a node.
         '''
-        service = Service(an_id=service_id,status="INACTIVE")
+        service = self.get_service(node_id, service_id)
+        service.status.state = "NOT_RUNNING"
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
         return self.rest_helper.put( self.session, url, data )   
