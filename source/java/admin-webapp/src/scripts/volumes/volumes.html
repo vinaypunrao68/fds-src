@@ -64,15 +64,15 @@
 <!--                            <td class="application"></td>-->
                             
                             <td class="tenant" ng-show="isAllowed( 'TENANT_MGMT' )">
-                                {{ volume.tenant_name }}
+                                <span ng-if="volume.tenant">{{ volume.tenant.name }}</span>
                             </td>
                             
                             <td>
-                                {{volume.data_connector.type}}
+                                {{volume.settings.type}}
                             </td>
 
                             <td class="consume">
-                                {{volume.current_usage.size}}{{volume.current_usage.unit}}
+                                {{volume.status.currentUsage.value}}{{volume.status.currentUsage.unit}}
 <!--
                                 <span ng-show="volume.data_connector.attributes.size">/</span>
                                 {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
@@ -85,7 +85,7 @@
 
                             <td class="priority">
                                 <em>
-                                    {{volume.priority}}
+                                    {{volume.qosPolicy.priority}}
                                 </em>
                             </td>
 <!--

@@ -48,13 +48,18 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
             service = service[0];
         }
         
-        switch( service.status ){
-            case $node_service.FDS_ACTIVE:
+        switch( service.status.state ){
+            case $node_service.FDS_RUNNING:
                 return 'icon-excellent state-ok';
-            case $node_service.FDS_INACTIVE:
+            case $node_service.FDS_LIMITED:
+            case $node_service.FDS_DEGRADED:
+            case $node_service.FDS_INITIALIZING:
+            case $node_service.FDS_SHUTTING_DOWN:
                 return 'icon-issues state-issues';
             case $node_service.FDS_ERROR:
+            case $node_service.FDS_UNEXPECTED_EXIT:
                 return 'icon-warning state-down';
+            case $node_service.FDS_UNREACHABLE:
             default:
                 return 'icon-nothing state-unknown';
         }

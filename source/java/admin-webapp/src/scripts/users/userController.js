@@ -19,7 +19,7 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     };
 
     $scope.usersReturned = function( response ){
-        $scope.users = eval( response );
+        $scope.users = response;
     };
 
     $scope.isAllowed = function( permission ){

@@ -130,8 +130,8 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         
         if ( angular.isDefined( volume.firebreak ) ){
             
-            now.getTime() - volume.firebreak.capacity;
-            now.getTime() - volume.firebreak.performance;
+            now.getTime() - volume.status.lastCapacityFirebreak.seconds*1000;
+            now.getTime() - volume.status.lastPerformanceFirebreak.seconds*1000;
         }
         
         if ( capacityFirebreak < performanceFirebreak ){

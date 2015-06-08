@@ -1,7 +1,7 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
-from fds.utils.node_converter import NodeConverter
+from fds.utils.converters.platform.node_converter import NodeConverter
 
 class TestServices(BaseCliTest):
     '''
@@ -145,8 +145,8 @@ class TestServices(BaseCliTest):
         service = mockAdd.call_args[0][1]
         
         assert node_id == "21ABC"
-        assert service.type == "FDSP_DATA_MGR"
-        assert service.auto_name == "DM"    
+        assert service.type == "DM"
+        assert service.name == "DM"    
         
         args[3] = "-service=am"
         self.callMessageFormatter(args)
@@ -159,8 +159,8 @@ class TestServices(BaseCliTest):
         service = mockAdd.call_args[0][1]
         
         assert node_id == "21ABC"
-        assert service.type == "FDSP_ACCESS_MGR"
-        assert service.auto_name == "AM"   
+        assert service.type == "AM"
+        assert service.name == "AM"   
         
         args[3] = "-service=sm"
         self.callMessageFormatter(args)
@@ -173,8 +173,8 @@ class TestServices(BaseCliTest):
         service = mockAdd.call_args[0][1]
         
         assert node_id == "21ABC"
-        assert service.type == "FDSP_STOR_MGR"
-        assert service.auto_name == "SM"
+        assert service.type == "SM"
+        assert service.name == "SM"
 
     @patch( "fds.services.response_writer.ResponseWriter.writeJson", side_effect=mock_functions.writeJson)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)

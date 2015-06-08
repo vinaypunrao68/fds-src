@@ -11,6 +11,7 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.eclipse.jetty.server.Request;
 
 import java.io.InputStreamReader;

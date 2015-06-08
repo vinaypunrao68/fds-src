@@ -4,12 +4,13 @@
 
 package com.formationds.om.webkit.rest.v08.configuration;
 
-import com.formationds.apis.MediaPolicy;
+import com.formationds.client.v08.model.MediaPolicy;
 import com.formationds.commons.model.SystemCapability;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -37,12 +38,12 @@ public class SystemCapabilities
         throws Exception {
 
         final List<String> mediaPolicies = new ArrayList<>( );
-        mediaPolicies.add( MediaPolicy.SSD_ONLY.name() );
+        mediaPolicies.add( MediaPolicy.SSD.name() );
         if( !parsedConfig.defaultBoolean( "fds.feature_toggle.common.all_ssd",
                                           false ) ) {
         	
-        	mediaPolicies.add( MediaPolicy.HYBRID_ONLY.name() );
-            mediaPolicies.add( MediaPolicy.HDD_ONLY.name() );
+        	mediaPolicies.add( MediaPolicy.HYBRID.name() );
+            mediaPolicies.add( MediaPolicy.HDD.name() );
 
         }
 

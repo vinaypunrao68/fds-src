@@ -27,7 +27,7 @@ public class SeriesBuilderTest {
   private static final int EXPECTED_SLA = 0;
   private static final int EXPECTED_PRIORITY = 10;
 
-  private static final SizeUnit EXPECTED_UNITS = SizeUnit.GIBIBYTE;
+  private static final SizeUnit EXPECTED_UNITS = SizeUnit.GB;
   private static final long     EXPECTED_SIZE  = 100;
   private static final Long     EXPECTED_ID    = 91237403L;
 

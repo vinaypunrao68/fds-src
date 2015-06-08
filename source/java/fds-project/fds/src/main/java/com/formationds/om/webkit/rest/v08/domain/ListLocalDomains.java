@@ -55,7 +55,7 @@ public class ListLocalDomains implements RequestHandler {
 		
 		logger.debug("Listing local domains.");
 		List<LocalDomain> internalDomains = getConfigApi().listLocalDomains( 0 );
-		
+
 		List<Domain> externalDomains = new ArrayList<Domain>();
 		
 		internalDomains.stream().forEach( internalDomain -> {

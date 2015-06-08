@@ -1,71 +1,24 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', '$filter', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds, $filter ){
 
     $scope.snapshotPolicies = [];
-    $scope.dataConnector = {};
+    $scope.dataSettings = {};
     $scope.volumeName = '';
     $scope.mediaPolicy = 0;
     $scope.enableDc = false;
     
     $scope.timelinePolicies = {};
-    
-    var creationCallback = function( volume, newVolume ){
 
-        //SNAPSHOT SCHEDULES
-        
-        // for each time deliniation used we need to create a policy and attach
-        // it using the volume id in the name so we can identify it easily
-        for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
-            volume.snapshotPolicies[i].name =
-                volume.snapshotPolicies[i].name + '_' + newVolume.id;
-
-            $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
-                // attach the policy to the volume
-                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-            });
-        }
-
-        // TIMELINE SCHEDULES
-        
-        for ( var j = 0; angular.isDefined( volume.timelinePolicies ) && j < volume.timelinePolicies.length; j++ ){
-            
-            var policy = volume.timelinePolicies[j];
-            
-            policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
-            
-            // create the policy
-            $snapshot_service.createSnapshotPolicy( policy, function( policy, rtnCode ){
-                // attach the policy
-                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-            });
-        }
-        
-        $scope.cancel();
-    };
-    
     var createVolume = function( volume ){
-        
-        /**
-        *  TODO:  Put real value here
-        *  Because the tiering option is not present yet, we will set it to the default here
-        *
-        **/
-//        volume.mediaPolicy = 'HDD_ONLY';
-        
-        /**
-        * Because this is a shim the API does not yet have business
-        * logic to combine the attachments so we need to do this in many calls
-        * TODO:  Replace with server side logic
-        **/
-        $volume_api.save( volume, function( newVolume ){ creationCallback( volume, newVolume ); },
-            function( response, code ){
-                
-                $http_fds.genericFailure( response, code );
+
+        $volume_api.save( volume, function( newVolume ){ 
             
-            });
+            // this basically just goes back to the list page
+            $scope.cancel();
+        });
     };
     
     var cloneVolume = function( volume ){
-        volume.id = $scope.volumeVars.cloneFromVolume.id;
+        volume.uid = $scope.volumeVars.cloneFromVolume.uid;
         
         if ( angular.isDate( volume.timelineTime )){
             volume.timelineTime = volume.timelineTime.getTime();
@@ -75,7 +28,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
 //            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
 //        }
 //        else {
-            $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+            $volume_api.clone( volume, function( newVolume ){ 
+                // this basically just goes back to the list page
+                $scope.cancel();
+            });
 //        }
     };
     
@@ -110,14 +66,21 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.$broadcast( 'fds::refresh' );
         
         var volume = {};
-        volume.sla = $scope.newQos.sla;
-        volume.limit = $scope.newQos.limit;
-        volume.priority = $scope.newQos.priority;
-        volume.snapshotPolicies = $scope.snapshotPolicies;
-        volume.timelinePolicies = $scope.timelinePolicies.policies;
-        volume.commit_log_retention = $scope.timelinePolicies.commitLogRetention;
-        volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
+        
+        volume.qosPolicy = {
+            iopsMin: $scope.newQos.iopsMin,
+            iopsMax: $scope.newQos.iopsMax,
+            priority: $scope.newQos.priority
+        };
+        
+        volume.dataProtectionPolicy = {
+            snapshotPolicies: $scope.timelinePolicies.snapshotPolicies,
+            commitLogRetention: $scope.timelinePolicies.commitLogRetention
+        };
+        
+        volume.settings = $scope.dataSettings;
+        
         volume.mediaPolicy = $scope.mediaPolicy.value;
         
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
@@ -152,12 +115,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.enableDc = false;
         
         $scope.newQos = {
-            sla: volume.sla,
-            limit: volume.limit,
-            priority: volume.priority
+            iopsMin: volume.qosPolicy.iopsMin,
+            iopsMax: volume.qosPolicy.iopsMax,
+            priority: volume.qosPolicy.priority
         };
         
-        $scope.dataConnector = volume.data_connector;
+        $scope.timelinePolicies = volume.dataProtectionPolicy;
+        
+        $scope.dataSettings = volume.settings;
         
         $scope.$broadcast( 'fds::tiering-choice-refresh' );
         $scope.$broadcast('fds::fui-slider-refresh' );
@@ -198,8 +163,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         if ( newVal === true ){
             
             $scope.newQos = {
-                sla: 0,
-                limit: 0,
+                iopsMin: 0,
+                iopsMax: 0,
                 priority: 7
             };
             
