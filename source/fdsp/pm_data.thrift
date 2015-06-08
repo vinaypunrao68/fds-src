@@ -10,10 +10,15 @@ namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.pm.types
 
 struct NodeInfo {
-  1: i64 uuid,
-  2: bool fHasAm,
-  3: bool fHasDm,
-  4: bool fHasOm,
-  5: bool fHasSm,
+  1: required i64 uuid,
+  2: required bool fHasAm,
+  3: required bool fHasDm,
+  4: required bool fHasOm,
+  5: required bool fHasSm,
+  6: required i32  bareAMPid
+  7: required i32  javaAMPid
+  8: required i32  dmPid
+  9: required i32  smPid
 }
+
 #endif __platformtypes_h__
