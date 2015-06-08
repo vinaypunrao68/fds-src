@@ -528,13 +528,25 @@ public class ExternalModelConverter {
         if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
 
-            volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+            if ( blockSettings.getBlockSize() != null ){
+            	volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+            }
+            else {
+            	volumeType.setMaxObjSizeInBytes( DEF_BLOCK_SIZE );
+            }
+            
             volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
-            volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+            if ( objectSettings.getMaxObjectSize() != null ){
+            	volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+            }
+            else {
+            	volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
+            }
+            
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
         }
 
