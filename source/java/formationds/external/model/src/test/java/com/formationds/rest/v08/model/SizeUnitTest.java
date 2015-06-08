@@ -17,38 +17,38 @@ public class SizeUnitTest {
 
     @Test
     public void printConversions() {
-        System.out.println( SizeUnit.BYTE.toMega( 1048576 ) );
-        System.out.printf( "1 B = %s B\n", SizeUnit.BYTE.toBytes( 1 ) );
-        System.out.printf( "1 KB = %s B\n", SizeUnit.KILOBYTE.toBytes( 1 ) );
-        System.out.printf( "1 MB = %s B\n", SizeUnit.MEGABYTE.toBytes( 1 ) );
-        System.out.printf( "1 GB = %s B\n", SizeUnit.GIGABYTE.toBytes( 1 ) );
-        System.out.printf( "1 TB = %s B\n", SizeUnit.TERABYTE.toBytes( 1 ) );
-        System.out.printf( "1 PB = %s B\n", SizeUnit.PETABYTE.toBytes( 1 ) );
-        System.out.printf( "1 XB = %s B\n", SizeUnit.EXABYTE.toBytes( 1 ) );
-        System.out.printf( "1 ZB = %s B\n", SizeUnit.ZETTABYTE.toBytes( 1 ) );
-        System.out.printf( "1 YB = %s B\n", SizeUnit.YOTTABYTE.toBytes( 1 ) );
+        System.out.println( SizeUnit.B.toMega( 1048576 ) );
+        System.out.printf( "1 B = %s B\n", SizeUnit.B.toBytes( 1 ) );
+        System.out.printf( "1 KB = %s B\n", SizeUnit.KB.toBytes( 1 ) );
+        System.out.printf( "1 MB = %s B\n", SizeUnit.MB.toBytes( 1 ) );
+        System.out.printf( "1 GB = %s B\n", SizeUnit.GB.toBytes( 1 ) );
+        System.out.printf( "1 TB = %s B\n", SizeUnit.TB.toBytes( 1 ) );
+        System.out.printf( "1 PB = %s B\n", SizeUnit.PB.toBytes( 1 ) );
+        System.out.printf( "1 XB = %s B\n", SizeUnit.EB.toBytes( 1 ) );
+        System.out.printf( "1 ZB = %s B\n", SizeUnit.ZB.toBytes( 1 ) );
+        System.out.printf( "1 YB = %s B\n", SizeUnit.YB.toBytes( 1 ) );
 
         EnumSet<SizeUnit> bsus = EnumSet.allOf( SizeUnit.class );
         for ( SizeUnit bsu : bsus ) {
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toBytes( 1 ), SizeUnit.BYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toKilo( 1 ), SizeUnit.KILOBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toMega( 1 ), SizeUnit.MEGABYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toGiga( 1 ), SizeUnit.GIGABYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toTera( 1 ), SizeUnit.TERABYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toPeta( 1 ), SizeUnit.PETABYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toExa( 1 ), SizeUnit.EXABYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toZetta( 1 ), SizeUnit.ZETTABYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toYotta( 1 ), SizeUnit.YOTTABYTE.symbol() );
-
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toBibi( 1 ), SizeUnit.BYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toKibi( 1 ), SizeUnit.KIBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toMebi( 1 ), SizeUnit.MEBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toGibi( 1 ), SizeUnit.GIBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toTebi( 1 ), SizeUnit.TEBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toPebi( 1 ), SizeUnit.PEBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toExbi( 1 ), SizeUnit.EXBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toZebi( 1 ), SizeUnit.ZEBIBYTE.symbol() );
-            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toYibi( 1 ), SizeUnit.YIBIBYTE.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toBytes( 1 ), SizeUnit.B.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toKilo( 1 ), SizeUnit.KB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toMega( 1 ), SizeUnit.MB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toGiga( 1 ), SizeUnit.GB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toTera( 1 ), SizeUnit.TB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toPeta( 1 ), SizeUnit.PB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toExa( 1 ), SizeUnit.EB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toZetta( 1 ), SizeUnit.ZB.symbol() );
+            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toYotta( 1 ), SizeUnit.YB.symbol() );
+//
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toBibi( 1 ), SizeUnit.B.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toKibi( 1 ), SizeUnit.KiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toMebi( 1 ), SizeUnit.MiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toGibi( 1 ), SizeUnit.GiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toTebi( 1 ), SizeUnit.TiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toPebi( 1 ), SizeUnit.PiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toExbi( 1 ), SizeUnit.EiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toZebi( 1 ), SizeUnit.ZiB.symbol() );
+//            System.out.printf( "1 %s = %s %s\n", bsu.symbol(), bsu.toYibi( 1 ), SizeUnit.YiB.symbol() );
 
         }
     }
@@ -58,7 +58,7 @@ public class SizeUnitTest {
      */
     @Test
     public void testLookup() throws Exception {
-        Assert.assertNotNull( SizeUnit.lookup( "BYTE" ) );
+        Assert.assertNotNull( SizeUnit.lookup( "B" ) );
         Assert.assertNotNull( SizeUnit.lookup( "byte" ) );
         Assert.assertNotNull( SizeUnit.lookup( "Byte" ) );
         Assert.assertNotNull( SizeUnit.lookup( "B" ) );

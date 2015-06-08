@@ -171,14 +171,22 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     LOGMIGRATE << "Number of executors: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0);
-    SCOPEDREAD(migrExecutorLock);
-    nextExecutor.set(migrExecutors.begin());
-    auto end_it = migrExecutors.cend();
+    // (Matteo) Breaking it up this way to avoid the nesting between migrExecutorLock 
+    // and smTokenInProgressMutex
+    {
+        SCOPEDREAD(migrExecutorLock);
+        nextExecutor.set(migrExecutors.begin());
+        auto end_it = migrExecutors.cend();
+    }
     fds_verify(parallelMigration > 0);
     for (uint32_t issued = 0; issued < parallelMigration; issued++) {
-        auto next = nextExecutor.fetch_and_increment_saturating(); 
-        if (next == migrExecutors.cend())
-            break;
+
+        {   
+            SCOPEDREAD(migrExecutorLock);
+            auto next = nextExecutor.fetch_and_increment_saturating(); 
+            if (next == migrExecutors.cend())
+                break;
+        }
         FDSGUARD(smTokenInProgressMutex);
         smTokenInProgress.insert(next->first);
         startSmTokenMigration(next->first);
@@ -413,6 +421,7 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
                                    const DLT* dlt)
 {
     Error err(ERR_OK);
+
     fds_bool_t srcAccepted = false;
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
                << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID
@@ -743,44 +752,44 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // migrate next SM token or we are done
     if (finished) {
         // If I'm here I have migrated a token, need to find the next token to migrate
-        LOGMIGRATE << "erasing " << smToken;
-        {
-            FDSGUARD(smTokenInProgressMutex);
-            smTokenInProgress.erase(smToken);
-        }
-        // Matteo: I'm snapshotting is_end to avoid the nested migrExecutorLock
+        // Matteo: I'm snapshotting is_end to avoid the nested migrExecutorLock,
+        // unsure if this might create a race if "abort" clears migrExecutors
         // fetch_and_increment_saturating uses a reference to migrExecutors, 
         // so it needs to be protected
-        LOGMIGRATE << "fetch and increment nextExecutor";
+        // anticipating this block to prevent nesting with smTokenInProgressMutex
         {
             SCOPEDREAD(migrExecutorLock);
             auto next = nextExecutor.fetch_and_increment_saturating();
-            bool is_end = (next == migrExecutors.end());
+            bool is_end = (next == migrExecutors.end())
         }
+        /**
+         * Erase the smToken whose executor received this callback.
+         * TODO:(Gurpreet) Currently for parallel migrations we
+         * are assuming a single executor-per smToken because
+         * # of SM tokens = # of DLT tokens. Parallel migration
+         * logic should be revisited when the above assumption
+         * changes.
+         */
+        LOGMIGRATE << "Erase " << smToken
+                   << " and fetch next executor";
+        FDSGUARD(smTokenInProgressMutex);
+        smTokenInProgress.erase(smToken);
         if (!is_end) {
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
-                FDSGUARD(smTokenInProgressMutex);
                 smTokenInProgress.insert(next->first);
                 LOGMIGRATE << "call startSmTokenMigration for " << next->first;
                 startSmTokenMigration(next->first);
             } else {
                 // coming in here during second phase when calling the ExecutorDone callback
-                {
-                    FDSGUARD(smTokenInProgressMutex);
-                    smTokenInProgress.insert(next->first);
-                }
+                smTokenInProgress.insert(next->first);
                 startSecondRebalanceRound(next->first);
             }
         } else {
             LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
-            // need to make sure all executors have terminated
-            {
-                FDSGUARD(smTokenInProgressMutex);
-                if (smTokenInProgress.size() > 0) {
-                    LOGMIGRATE << "exiting done migrating";
-                    return;
-                }
+            if (smTokenInProgress.size() > 0) {
+                LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
+                return;
             }
             if (isFirstRound && !resyncOnRestart) {
                 // --> start of second round
@@ -792,12 +801,10 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 nextExecutor.set(migrExecutors.begin());
                 for (uint32_t issued = 0; issued < parallelMigration; ++issued) {
                         auto next = nextExecutor.fetch_and_increment_saturating();
-                        if (next == migrExecutors.cend())
+                        if (next == migrExecutors.cend()) {
                             break;
-                        {
-                            FDSGUARD(smTokenInProgressMutex);
-                            smTokenInProgress.insert(next->first);
                         }
+                        smTokenInProgress.insert(next->first);
                         startSecondRebalanceRound(next->first);
                 }
             } else {

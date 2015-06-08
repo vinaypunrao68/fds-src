@@ -1,39 +1,16 @@
-angular.module( 'volume-management' ).factory( '$data_connector_api', ['$http', function(){
+angular.module( 'volume-management' ).factory( '$data_connector_api', ['$http_fds', function( $http_fds ){
 
     var api = {};
-    api.connectors = [];
 
-    var getConnectorTypes = function(){
-//        return $http.get( '/api/config/data_connectors' )
-//            .success( function( data ){
-//                api.connectors = data;
-//            });
-
-        api.connectors = [{
-            type: 'BLOCK',
-            api: 'Basic, Cinder',
-            options: {
-                max_size: '100',
-                unit: ['GB', 'TB', 'PB']
-            },
-            attributes: {
-                size: '10',
-                unit: 'GB'
-            }
-        },
-        {
-            type: 'OBJECT',
-            api: 'S3, Swift'
-        }];
-    }();
-
-    api.editConnector = function( connector ){
-
-        api.connectors.forEach( function( realConnector ){
-            if ( connector.type === realConnector.type ){
-                realConnector = connector;
-            }
-        });
+    api.getVolumeTypes = function( callback ){
+        return $http_fds.get( webPrefix + '/volume_types' )
+            .success( function( data ){
+                api.types = data;
+            
+                if ( angular.isFunction( callback ) ){
+                    callback( api.types );
+                }
+            });
     };
 
     return api;

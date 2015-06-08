@@ -4,25 +4,24 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.HealthState;
+import com.formationds.client.v08.model.Node;
+import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.Service.ServiceState;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
+import com.formationds.client.v08.model.SystemHealth;
+import com.formationds.client.v08.model.SystemStatus;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Service;
-import com.formationds.commons.model.SystemHealth;
-import com.formationds.commons.model.SystemStatus;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.type.HealthState;
-import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.commons.model.type.ServiceStatus;
-import com.formationds.commons.model.type.ServiceType;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -30,9 +29,9 @@ import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
+import com.formationds.om.webkit.rest.v08.platform.ListNodes;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.util.SizeUnit;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -44,6 +43,7 @@ import org.eclipse.jetty.server.Request;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -69,6 +69,8 @@ public class SystemHealthStatus implements RequestHandler {
     private final String FIREBREAK_OKAY = "l_firebreak_not_good";
     private final String FIREBREAK_BAD = "l_firebreak_bad";
 
+    public enum CATEGORY{ CAPACITY, FIREBREAK, SERVICES };
+    
     public SystemHealthStatus(ConfigurationApi configApi,
                               Authorizer authorizer, AuthenticationToken token) {
 
@@ -81,8 +83,6 @@ public class SystemHealthStatus implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
 
-        List<FDSP_Node_Info_Type> services = configApi.ListServices(0);
-
         List<VolumeDescriptor> allVolumes = configApi.listVolumes("")
                 .stream()
                 .collect(Collectors.toList());
@@ -92,7 +92,7 @@ public class SystemHealthStatus implements RequestHandler {
                 .filter(v -> authorizer.ownsVolume(token, v.getName()))
                 .collect(Collectors.toList());
 
-        SystemHealth serviceHealth = getServiceStatus(services);
+        SystemHealth serviceHealth = getServiceStatus();
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
         SystemHealth firebreakHealth = getFirebreakStatus(filteredVolumes);
 
@@ -180,7 +180,7 @@ public class SystemHealthStatus implements RequestHandler {
     private SystemHealth getFirebreakStatus(List<VolumeDescriptor> volDescs) {
 
         SystemHealth status = new SystemHealth();
-        status.setCategory(SystemHealth.CATEGORY.FIREBREAK);
+        status.setCategory(CATEGORY.FIREBREAK.name());
 
         // convert descriptors into volume objects
         List<Volume> volumes = convertVolDescriptors(volDescs);
@@ -261,7 +261,7 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private SystemHealth getCapacityStatus(List<VolumeDescriptor> volDescs) {
         SystemHealth status = new SystemHealth();
-        status.setCategory(SystemHealth.CATEGORY.CAPACITY);
+        status.setCategory(CATEGORY.CAPACITY.name());
 
         // convert descriptors into volume objects
         List<Volume> volumes = convertVolDescriptors(volDescs);
@@ -286,8 +286,7 @@ public class SystemHealthStatus implements RequestHandler {
         QueryHelper qh = new QueryHelper();
 
         // TODO:  Replace this with the correct call to get real capacity
-        final Double systemCapacity = Long.valueOf(SizeUnit.TB.totalBytes(1))
-                .doubleValue();
+        final Double systemCapacity = Size.of( 1, SizeUnit.TB ).getValue( SizeUnit.B ).doubleValue();
 
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal(SingletonRepositoryManager.instance()
@@ -327,82 +326,83 @@ public class SystemHealthStatus implements RequestHandler {
      *
      * @param rawServices
      * @return the system service status
+     * @throws TException 
      */
-    private SystemHealth getServiceStatus(final List<FDSP_Node_Info_Type> rawServices) {
+    private SystemHealth getServiceStatus() throws TException {
 
         SystemHealth status = new SystemHealth();
-        status.setCategory(SystemHealth.CATEGORY.SERVICES);
+        status.setCategory(CATEGORY.SERVICES.name());
 
-        List<Service> services = new ArrayList<Service>();
+        List<Node> nodes = (new ListNodes()).getNodes();
         
-        /**
-         * We need to remove all services that are in the discovered state before we continue 
-         * because they do not inform the state of the system health.
-         * 
-         * We are creating a new list here because we need the size to reflect the 
-         * reduced version of this list.
-         */
-        final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
-        	.filter( (s) -> {
-	        	
-	        	if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
-	        		return false;
-	        	}
-	        	
-	        	return true;
-	        })
-	        .collect( Collectors.toList() );
+        List<Service> downServices = new ArrayList<>();
+        Map<String, Boolean> criteria = new HashMap<String, Boolean>();
         
-        // converting from the thrift type to our type
-        filteredList.stream()
-        	.forEach( service -> {
-        		services.add( ServiceType.find( service ).get() );
+        String ONE_OM = "ONE_OM";
+        String ONE_AM = "ONE_AM";
+        String ALL_PMS = "ALL_PMS";
+        String ALL_SMS = "ALL_SMS";
+        String ALL_DMS = "ALL_DMS";
+        
+        criteria.put( ONE_AM, false );
+        criteria.put( ONE_OM, false );
+        criteria.put( ALL_DMS, true );
+        criteria.put( ALL_SMS,  true );
+        criteria.put( ALL_PMS, true );
+        
+        nodes.stream().forEach( (node) -> {
+        	
+        	node.getServices().keySet().stream().forEach( (serviceType) -> {
+        		
+        		node.getServices().get( serviceType ).stream().forEach( (service) -> {
+        			
+        			if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ){
+        				downServices.add( service );
+        				
+        				switch( service.getType() ){
+        					case PM:
+        						criteria.put( ALL_PMS, false );
+        						break;
+        					case SM:
+        						criteria.put( ALL_SMS, false );
+        						break;
+        					case DM:
+        						criteria.put( ALL_DMS, false );
+        						break;
+        					default:
+        						break;
+        				}
+        			}
+        			else {
+        				
+        				switch ( service.getType() ){
+        					case OM:
+        						criteria.put( ONE_OM, true );
+        						break;
+        					case AM: 
+        						criteria.put( ONE_AM, true );
+        					default:
+        						break;
+        				}
+        			}
+        		});
         	});
-        
-        // first, if all the services are up, we're good.
-        long servicesUp = services.stream()
-                .filter((s) -> {
-                    boolean up = s.getStatus().equals(ServiceStatus.ACTIVE);
-                    return up;
-                })
-                .count();
+        });
 
         // if every service we know about is up, then we're going to report good to go
-        if (servicesUp == services.size()) {
+        if ( downServices.size() == 0 ) {
             status.setState(HealthState.GOOD);
             status.setMessage(SERVICES_GOOD);
-            return status;
         }
-
-        // No we will report okay if there is at least 1 om, 1 am in the system
-        // and an sm,dm,pm running on each node.
-
-        // first we do 2 groupings.  One into nodes, one into services
-        Map<ManagerType, List<Service>> byService = services.stream()
-                .collect(Collectors.groupingBy(Service::getType));
-        
-        int nodes = rawServices.stream()
-                .collect(Collectors.groupingBy(FDSP_Node_Info_Type::getNode_uuid))
-                .keySet()
-                .size();
-
-        // get a list of the services so we can use their counts
-        List<Service> oms = byService.get(ManagerType.FDSP_ORCH_MGR);
-        List<Service> ams = byService.get(ManagerType.FDSP_ACCESS_MGR);
-        List<Service> pms = byService.get(ManagerType.FDSP_PLATFORM);
-        List<Service> dms = byService.get(ManagerType.FDSP_DATA_MGR);
-        List<Service> sms = byService.get(ManagerType.FDSP_STOR_MGR);
-
-        if (oms != null && oms.size() > 0 &&
-                ams != null && ams.size() > 0 &&
-                pms != null && dms != null && sms != null &&
-                pms.size() == nodes && sms.size() == nodes &&
-                dms.size() == nodes) {
-            status.setState(HealthState.OKAY);
-            status.setMessage(SERVICES_OKAY);
-        } else {
-            status.setState(HealthState.BAD);
-            status.setMessage(SERVICES_BAD);
+        else if ( criteria.get( ONE_AM ) == true && criteria.get( ONE_OM ) == true &&
+        		criteria.get( ALL_DMS ) == true && criteria.get( ALL_PMS ) == true &&
+        		criteria.get( ALL_SMS ) == true ){
+        	status.setState(HealthState.OKAY);
+        	status.setMessage(SERVICES_OKAY);
+        }
+        else {
+        	status.setState(HealthState.BAD);
+        	status.setMessage(SERVICES_BAD);
         }
 
         return status;
@@ -417,14 +417,12 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private List<Volume> convertVolDescriptors(List<VolumeDescriptor> volDescs) {
 
-        List<Volume> volumes = volDescs.stream().map((vd) -> {
-            VolumeBuilder vBuilder = new VolumeBuilder();
+        List<Volume> volumes = volDescs.stream().map( (vd) -> {
 
-            Volume volume = new Volume( vd.getVolId(), vd.getName() );
-
-            return volume;
-        })
-                .collect(Collectors.toList());
+        	Volume volume = ExternalModelConverter.convertToExternalVolume( vd );
+        	return volume;
+        	
+        }).collect(Collectors.toList());
 
         return volumes;
     }

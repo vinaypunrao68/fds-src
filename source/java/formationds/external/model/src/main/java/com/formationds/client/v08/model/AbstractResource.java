@@ -108,9 +108,7 @@ public abstract class AbstractResource<I extends Comparable<I>> implements Compa
      * @param id the ID
      */
     public void setId(I id) {
-        if (this.uid != null) {
-            throw new IllegalStateException( "ID is already set." );
-        }
+
         this.uid = id;
     }
 

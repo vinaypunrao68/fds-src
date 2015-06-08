@@ -7,7 +7,7 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
-import com.formationds.client.v08.model.Service.ServiceStatus;
+import com.formationds.client.v08.model.Domain.DomainState;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
@@ -20,13 +20,11 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.protocol.FDSP_MediaPolicy;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_VolType;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
+
 import org.apache.thrift.TException;
 
 import java.text.ParseException;
@@ -50,7 +48,7 @@ public class ExternalModelConverter {
         Long extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
-        Domain externalDomain = new Domain( extId, extName, site );
+        Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
 
         return externalDomain;
     }
@@ -70,10 +68,10 @@ public class ExternalModelConverter {
 
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
-        Role roleDescriptor = Role.USER;
+        Long roleId = 1L;
 
         if ( internalUser.isFdsAdmin ) {
-            roleDescriptor = Role.ADMIN;
+            roleId = 0L;
         }
 
         Optional<com.formationds.apis.Tenant> tenant = getConfigApi().tenantFor( extId );
@@ -85,7 +83,7 @@ public class ExternalModelConverter {
             externalTenant = convertToExternalTenant( tenant.get() );
         }
 
-        User externalUser = new User( extId, extName, roleDescriptor, externalTenant );
+        User externalUser = new User( extId, extName, roleId, externalTenant );
 
         return externalUser;
     }
@@ -97,7 +95,7 @@ public class ExternalModelConverter {
         internalUser.setId( externalUser.getId() );
         internalUser.setIdentifier( externalUser.getName() );
 
-        if ( externalUser.getRoleDescriptor().name().equals( Role.ADMIN ) ) {
+        if ( externalUser.getRoleId() == 0L ) {
             internalUser.setIsFdsAdmin( true );
         } else {
             internalUser.setIsFdsAdmin( false );
@@ -122,161 +120,6 @@ public class ExternalModelConverter {
         internalTenant.setIdentifier( externalTenant.getName() );
 
         return internalTenant;
-    }
-
-    public static Optional<ServiceType> convertToExternalServiceType( FDSP_MgrIdType type ) {
-
-        Optional<ServiceType> externalType;
-
-        switch ( type ) {
-            case FDSP_ACCESS_MGR:
-                externalType = Optional.of( ServiceType.AM );
-                break;
-            case FDSP_DATA_MGR:
-                externalType = Optional.of( ServiceType.DM );
-                break;
-            case FDSP_ORCH_MGR:
-                externalType = Optional.of( ServiceType.OM );
-                break;
-            case FDSP_PLATFORM:
-                externalType = Optional.of( ServiceType.PM );
-                break;
-            case FDSP_STOR_MGR:
-                externalType = Optional.of( ServiceType.SM );
-                break;
-            default:
-                externalType = Optional.empty();
-        }
-
-        return externalType;
-    }
-
-    public static Optional<FDSP_MgrIdType> convertToInternalServiceType( ServiceType externalType ) {
-
-        Optional<FDSP_MgrIdType> internalType;
-
-        switch ( externalType ) {
-            case AM:
-                internalType = Optional.of( FDSP_MgrIdType.FDSP_ACCESS_MGR );
-                break;
-            case DM:
-                internalType = Optional.of( FDSP_MgrIdType.FDSP_DATA_MGR );
-                break;
-            case OM:
-                internalType = Optional.of( FDSP_MgrIdType.FDSP_ORCH_MGR );
-                break;
-            case PM:
-                internalType = Optional.of( FDSP_MgrIdType.FDSP_PLATFORM );
-                break;
-            case SM:
-                internalType = Optional.of( FDSP_MgrIdType.FDSP_STOR_MGR );
-                break;
-            default:
-                internalType = Optional.empty();
-        }
-
-        return internalType;
-    }
-
-    public static Optional<ServiceStatus> convertToExternalServiceStatus( FDSP_NodeState internalState ) {
-
-        Optional<ServiceStatus> externalStatus;
-
-        switch ( internalState ) {
-            case FDS_Node_Down:
-                externalStatus = Optional.of( ServiceStatus.NOT_RUNNING );
-                break;
-            case FDS_Node_Up:
-                externalStatus = Optional.of( ServiceStatus.RUNNING );
-                break;
-            case FDS_Node_Rmvd:
-                externalStatus = Optional.of( ServiceStatus.UNREACHABLE );
-                break;
-            case FDS_Start_Migration:
-                externalStatus = Optional.of( ServiceStatus.INITIALIZING );
-                break;
-            case FDS_Node_Discovered:
-                externalStatus = Optional.of( ServiceStatus.NOT_RUNNING );
-            default:
-                externalStatus = Optional.of( ServiceStatus.RUNNING );
-        }
-
-        return externalStatus;
-    }
-
-    public static Optional<FDSP_NodeState> convertToInternalServiceStatus( ServiceStatus externalStatus ) {
-
-        Optional<FDSP_NodeState> internalState;
-
-        switch ( externalStatus ) {
-            case DEGRADED:
-            case LIMITED:
-            case NOT_RUNNING:
-            case ERROR:
-            case UNEXPECTED_EXIT:
-                internalState = Optional.of( FDSP_NodeState.FDS_Node_Down );
-                break;
-            case UNREACHABLE:
-                internalState = Optional.of( FDSP_NodeState.FDS_Node_Rmvd );
-                break;
-            case INITIALIZING:
-                internalState = Optional.of( FDSP_NodeState.FDS_Start_Migration );
-                break;
-            default:
-                internalState = Optional.of( FDSP_NodeState.FDS_Node_Up );
-                break;
-        }
-
-        return internalState;
-    }
-
-    public static Service convertToExternalService( FDSP_Node_Info_Type nodeInfoType ) {
-
-        Long extId = nodeInfoType.getService_uuid();
-        int extControlPort = nodeInfoType.getControl_port();
-        Optional<ServiceType> optType = convertToExternalServiceType( nodeInfoType.getNode_type() );
-        Optional<ServiceStatus> optStatus = convertToExternalServiceStatus( nodeInfoType.getNode_state() );
-
-        ServiceType extType = null;
-        ServiceStatus extStatus = null;
-
-        if ( optType.isPresent() ) {
-            extType = optType.get();
-        }
-
-        if ( optStatus.isPresent() ) {
-            extStatus = optStatus.get();
-        }
-
-        Service externalService = new Service( extId, extType, extControlPort, extStatus );
-
-        return externalService;
-    }
-
-    public static FDSP_Node_Info_Type convertToInternalService( Node externalNode, Service externalService ) {
-
-        FDSP_Node_Info_Type nodeInfo = new FDSP_Node_Info_Type();
-
-        nodeInfo.setControl_port( externalService.getPort() );
-        nodeInfo.setNode_uuid( externalService.getId() );
-        nodeInfo.setNode_id( externalNode.getId().intValue() );
-        nodeInfo.setNode_name( externalNode.getName() );
-
-        Optional<FDSP_NodeState> optState = convertToInternalServiceStatus( externalService.getStatus() );
-
-        if ( optState.isPresent() ) {
-            nodeInfo.setNode_state( optState.get() );
-        }
-
-        Optional<FDSP_MgrIdType> optType = convertToInternalServiceType( externalService.getType() );
-
-        if ( optType.isPresent() ) {
-            nodeInfo.setNode_type( optType.get() );
-        }
-
-        //TODO:  The IP addresses
-
-        return nodeInfo;
     }
 
     public static MediaPolicy convertToExternalMediaPolicy( com.formationds.apis.MediaPolicy internalPolicy ) {
@@ -339,12 +182,12 @@ public class ExternalModelConverter {
             SingletonRepositoryManager.instance()
                                       .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
 
-        Size extUsage = Size.of( 0L, SizeUnit.BYTE );
+        Size extUsage = Size.of( 0L, SizeUnit.B );
 
         if ( optionalStatus.isPresent() ) {
             com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
 
-            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.BYTE );
+            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
         }
 
         Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
@@ -437,6 +280,7 @@ public class ExternalModelConverter {
 		Duration extRetention = Duration.ofSeconds( intRetention );
 
         SnapshotPolicyType type = SnapshotPolicyType.USER;
+        
         if ( internalPolicy.getPolicyName().contains( SnapshotPolicyType.SYSTEM_TIMELINE.name() ) ) {
             type = SnapshotPolicyType.SYSTEM_TIMELINE;
         }
@@ -508,12 +352,12 @@ public class ExternalModelConverter {
 
         if ( settings.getVolumeType().equals( VolumeType.BLOCK ) ) {
 
-            Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.BYTE );
-            Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.BYTE );
+            Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+            Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
             extSettings = new VolumeSettingsBlock( capacity, blockSize );
         } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
-            Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.BYTE );
+            Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
             extSettings = new VolumeSettingsObject( maxObjectSize );
         }
@@ -582,9 +426,15 @@ public class ExternalModelConverter {
 
         VolumeDescriptor internalDescriptor = new VolumeDescriptor();
 
-        internalDescriptor.setDateCreated( externalVolume.getCreated().toEpochMilli() );
+        if ( externalVolume.getCreated() != null ){
+        	internalDescriptor.setDateCreated( externalVolume.getCreated().toEpochMilli() );
+        }
+        
         internalDescriptor.setName( externalVolume.getName() );
-        internalDescriptor.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        
+        if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
+        	internalDescriptor.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        }
 
         if ( externalVolume.getTenant() != null ) {
             internalDescriptor.setTenantId( externalVolume.getTenant().getId() );
@@ -600,15 +450,15 @@ public class ExternalModelConverter {
 
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
             
-            internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
-            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE )
+            internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
+            internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
                                                                    .intValue() );
             
             internalSettings.setVolumeType( VolumeType.BLOCK );
             
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
-            internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+            internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
             
             internalSettings.setVolumeType( VolumeType.OBJECT );
         }
@@ -628,7 +478,10 @@ public class ExternalModelConverter {
 
         volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
                                                             .getSeconds() );
-        volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
+        
+        if ( externalVolume.getCreated() != null ){
+        	volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
+        }
         volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
         volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
 
@@ -659,18 +512,23 @@ public class ExternalModelConverter {
         if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
 
-            volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.BYTE ).intValue() );
-            volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.BYTE ).longValue() );
+            volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+            volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
-            volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.BYTE ).intValue() );
+            volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
         }
 
-        volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
-        volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+        if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
+        	volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        }
+        
+        if ( externalVolume.getTenant() != null ){
+        	volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+        }
 
         return volumeType;
     }

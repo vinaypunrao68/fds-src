@@ -462,6 +462,9 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, amReq));
     auto asyncReq = createQuorumRequest(amReq->io_vol_id, message,respCb);
+    asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
+                                        this, amReq, std::placeholders::_1,
+                                        std::placeholders::_2));
 
     asyncReq->invoke();
 }
@@ -774,7 +777,7 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
                                                respCb,
                                                message_timeout_io);
 
-    asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::getQueryCatalogAppStatusCb,
+    asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
                                              this, amReq, std::placeholders::_1,
                                              std::placeholders::_2));
     asyncQueryReq->invoke();
@@ -782,9 +785,9 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
 }
 
 fds_bool_t
-AmDispatcher::getQueryCatalogAppStatusCb(AmRequest* amReq,
-                                         const Error& error,
-                                         boost::shared_ptr<std::string> payload) {
+AmDispatcher::missingBlobStatusCb(AmRequest* amReq,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload) {
     // Tell service layer that it's OK to see these errors. These
     // could mean we're just reading something we haven't written
     // before.
@@ -884,6 +887,9 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, amReq));
     auto asyncReq = createFailoverRequest(amReq->io_vol_id, message, respCb);
+    asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
+                                        this, amReq, std::placeholders::_1,
+                                        std::placeholders::_2));
     asyncReq->invoke();
 }
 
