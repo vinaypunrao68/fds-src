@@ -103,10 +103,13 @@ AmVolumeTable::~AmVolumeTable() {
     volume_map.clear();
 }
 
-void AmVolumeTable::registerCallback(tx_callback_type cb) {
+void AmVolumeTable::registerCallback(processor_cb_type cb) {
     /** Create a closure for the QoS Controller to call when it wants to
      * process a request. I just find this cleaner than function pointers. */
-    auto closure = [cb](AmRequest* amReq) mutable -> void { cb(amReq); };
+    auto closure = [cb](AmRequest* amReq) mutable -> void {
+        fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+        cb(amReq);
+    };
     qos_ctrl->runScheduler(std::move(closure));
 }
 

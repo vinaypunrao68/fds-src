@@ -407,6 +407,7 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
                                    const DLT* dlt)
 {
     Error err(ERR_OK);
+
     fds_bool_t srcAccepted = false;
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
                << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID

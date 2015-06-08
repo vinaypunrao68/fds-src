@@ -320,7 +320,7 @@ void
 AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 boost::shared_ptr<apis::RequestId>& requestId,
                                 const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
-                                fds_uint32_t& length) {
+                                int& length) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
@@ -335,14 +335,11 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
-        auto buf = empty_buffer;
-        if (bufs) {
-            // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
-            // When Xdi and AmProc support vectored reads, return the whole
-            // vector, not just the front element. For now assume one object.
-            buf = bufs->front()->size() > length ? boost::make_shared<std::string>(*bufs->front(), 0, length)
-                : bufs->front();
-        }
+        // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
+        // When Xdi and AmProc support vectored reads, return the whole
+        // vector, not just the front element. For now assume one object.
+        // A nullptr (with ERR_OK), indicates a zero'd out object
+        auto& buf = (bufs && !bufs->empty()) ? bufs->front() : empty_buffer;
         XDICLIENTCALL(getBlobResponse(requestId, buf));
     }
 }
@@ -351,7 +348,7 @@ void
 AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<apis::RequestId>& requestId,
                                         const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
-                                        fds_uint32_t& length,
+                                        int& length,
                                         boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if (!error.ok()) {
@@ -367,11 +364,11 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
             boost::make_shared<std::string>());
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
-        auto buf = empty_buffer;
-        if (bufs) {
-            buf = bufs->front()->size() > length ? boost::make_shared<std::string>(*bufs->front(), 0, length)
-                : bufs->front();
-        }
+        // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
+        // When Xdi and AmProc support vectored reads, return the whole
+        // vector, not just the front element. For now assume one object.
+        // A nullptr (with ERR_OK), indicates a zero'd out object
+        auto& buf = (bufs && !bufs->empty()) ? bufs->front() : empty_buffer;
         XDICLIENTCALL(getBlobWithMetaResponse(requestId, buf, blobDesc));
     }
 }

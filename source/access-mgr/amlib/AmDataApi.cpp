@@ -340,9 +340,8 @@ AmDataApi::getBlob(std::string& _return,
     if (getHandler->return_buffers) {
         buf = getHandler->return_buffers->front();
     }
-    _return = buf->size() > getHandler->returnSize ?
-        std::string(*buf, 0, getHandler->returnSize)
-        : *buf;
+    // A nullptr (with ERR_OK), indicates a zero'd out object
+    _return = buf ? *buf : std::string(*length, '\0');
 }
 
 void

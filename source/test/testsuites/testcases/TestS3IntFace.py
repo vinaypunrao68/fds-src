@@ -166,12 +166,12 @@ class TestS3CloseConn(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn. See TestS3IntFace.TestS3GetConn.
 class TestS3CrtBucket(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, bucket='bucket1'):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3CrtBucket,
                                              "Creating an S3 bucket")
-
+        self.passedBucket = bucket
     def test_S3CrtBucket(self):
         """
         Test Case:
@@ -185,10 +185,10 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
             self.log.error("No S3 connection with which to create a bucket.")
             return False
         else:
-            self.log.info("Create an S3 bucket.")
+            self.log.info("Create an S3 bucket : [{}]".format(self.passedBucket))
             s3 = self.parameters["s3"]
 
-            s3.bucket1 = s3.conn.create_bucket('bucket1')
+            s3.bucket1 = s3.conn.create_bucket(self.passedBucket)
 
             if not s3.bucket1:
                 self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
@@ -870,36 +870,33 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3DelBucketKeys(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, bucket=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3DelBucketKeys,
                                              "Deleting all the keys of an S3 bucket")
 
+        self.passedBucket = bucket;
     def test_S3DelBucketKeys(self):
         """
         Test Case:
         Attempt to delete all the keys of an S3 Bucket.
         """
 
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to load a BLOB.")
+        if not self.checkS3Info(self.passedBucket):
             return False
-        elif not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to load a BLOB.")
+
+        s3 = self.parameters["s3"]
+        self.log.info("Delete all the keys from [{}]".format(s3.bucket1))
+
+        for key in s3.bucket1.list():
+            key.delete()
+
+        for key in s3.bucket1.list():
+            self.log.error("Unexpected keys remaining in bucket: %s" % key.name)
             return False
-        else:
-            self.log.info("Delete all the keys of an S3 bucket.")
-            s3 = self.parameters["s3"]
 
-            for key in s3.bucket1.list():
-                key.delete()
-
-            for key in s3.bucket1.list():
-                self.log.error("Unexpected keys remaining in bucket: %s" % key.name)
-                return False
-
-            return True
+        return True
 
 
 # This class contains the attributes and methods to test
@@ -909,32 +906,28 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3DelBucket(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, bucket=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3DelBucket,
                                              "Deleting an S3 bucket")
-
+        self.passedBucket = bucket
     def test_S3DelBucket(self):
         """
         Test Case:
         Attempt to delete an S3 Bucket.
         """
 
-        if not ("s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to load a BLOB.")
-            return False
-        elif not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to load a BLOB.")
+        if not self.checkS3Info(self.passedBucket):
             return False
         else:
-            self.log.info("Delete an S3 bucket.")
             s3 = self.parameters["s3"]
+            self.log.info("Delete S3 bucket : {}".format(s3.bucket1))
 
-            s3.conn.delete_bucket('bucket1')
+            s3.conn.delete_bucket(self.parameters["s3"].bucket1.name)
 
-            if s3.conn.lookup('bucket1') != None:
-                self.log.error("Unexpected bucket: bucket1")
+            if s3.conn.lookup(self.passedBucket) != None:
+                self.log.error("Unexpected bucket: {}".format(self.passedBucket))
                 return False
 
             s3.bucket1 = None
@@ -966,20 +959,22 @@ class TestPuts(TestCase.FDSTestCase):
             self.count = s3.verifiers[self.dataset]['count']
             self.size = s3.verifiers[self.dataset]['size']
 
-        self.log.info("uploading {} keys of size: {}".format(self.count, self.size))
+        self.log.info("uploading {} keys of size: {} onto [{}]".format(self.count, self.size, s3.bucket1))
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
+            #self.log.info('uploading key {} : {}'.format(n, key))
             value = Helper.genData(self.size,n)
             self.parameters["s3"].verifiers[self.dataset][key] = hash(value)
-            self.log.info('uploading key {} : {}'.format(n, key))
             try:
                 k = s3.bucket1.new_key(key)
                 k.set_contents_from_string(value)
                 if self.fail:
-                    self.log.error('Put should have failed but succeeded')
+                    self.log.error('Put should have failed but succeeded: {}'.format(key))
                     return False
             except:
-                if not self.fail: raise
+                if not self.fail:
+                    self.log.error('Put failed on : {}'.format(key))
+                    raise
 
         return True
 
@@ -1008,11 +1003,11 @@ class TestGets(TestCase.FDSTestCase):
             self.count = s3.verifiers[self.dataset]['count']
             self.size = s3.verifiers[self.dataset]['size']
 
-        self.log.info("fetching {} keys of size: {}".format(self.count, self.size))
+        self.log.info("fetching {} keys of size: {} from [{}]".format(self.count, self.size, s3.bucket1))
 
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
-            self.log.info('fetching key {} : {}'.format(n, key))
+            #self.log.info('fetching key {} : {}'.format(n, key))
             try:
                 value = s3.bucket1.get_key(key).get_contents_as_string()
                 valuehash = hash(value)
@@ -1021,10 +1016,12 @@ class TestGets(TestCase.FDSTestCase):
                         self.log.error('hash mismatch for key {} : {} '.format(n, key))
                         return False
                 if self.fail:
-                    self.log.error('Get should have failed but succeeded')
+                    self.log.error('Get should have failed but succeeded : {}'.format(key))
                     return False
             except:
-                if not self.fail: raise
+                if not self.fail:
+                    self.log.error('Get failed on : {}'.format(key))
+                    raise
         return True
 
 class TestDeletes(TestCase.FDSTestCase):
@@ -1049,19 +1046,21 @@ class TestDeletes(TestCase.FDSTestCase):
         else:
             self.count = s3.verifiers[self.dataset]['count']
 
-        self.log.info("deleting {} keys".format(self.count))
+        self.log.info("deleting {} keys from [{}]".format(self.count, s3.bucket1))
 
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))
-            self.log.info('deleting key {} : {}'.format(n, key))
+            #self.log.info('deleting key {} : {}'.format(n, key))
             try:
                 k = Key(s3.bucket1, key)
                 k.delete()
                 if self.fail:
-                    self.log.error('Delete should have failed but succeeded')
+                    self.log.error('Delete should have failed but succeeded : {}'.format(key))
                     return False
             except:
-                if not self.fail: raise
+                if not self.fail:
+                    self.log.error('Delete failed on : {}'.format(key))
+                    raise
 
         return True
 
@@ -1087,7 +1086,7 @@ class TestKeys(TestCase.FDSTestCase):
         else:
             self.count = s3.verifiers[self.dataset]['count']
 
-        self.log.info("checking {} keys".format(self.count))
+        self.log.info("checking {} keys in [{}]".format(self.count, s3.bucket1))
         bucket_keys = [key.name for key in s3.bucket1.list()]
         for n in range(0, self.count):
             key = Helper.keyName(self.dataset + str(n))

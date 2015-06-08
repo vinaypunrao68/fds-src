@@ -7,6 +7,8 @@
 #include "AmTxManager.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
+#include "requests/GetBlobReq.h"
+#include "requests/GetObjectReq.h"
 
 namespace fds {
 
@@ -20,7 +22,9 @@ AmTxManager::AmTxManager()
 
 AmTxManager::~AmTxManager() = default;
 
-void AmTxManager::init() {
+void AmTxManager::init(processor_cb_type cb) {
+    // This funtion is used to enqueue requests to AmProcessor
+    processor_enqueue = cb;
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
     // This is in terms of MiB
@@ -165,7 +169,7 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
     auto num_cached_objs = (0 < volDesc.maxObjSizeInBytes) ?
         (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
 
-    // A duplicate is ok, though strange that we got another register call
+    // A duplicate is ok, renewal's of a token cause this
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
     if (ERR_VOL_DUPLICATE == err) {
         err = ERR_OK;
@@ -200,21 +204,65 @@ BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
 { return amCache->getBlobDescriptor(volId, blobName, error); }
 
-ObjectID::ptr
-AmTxManager::getBlobOffsetObject(fds_volid_t volId, const std::string &blobName, fds_uint64_t blobOffset, Error &error)
-{ return amCache->getBlobOffsetObject(volId, blobName, blobOffset, error); }
+Error
+AmTxManager::getBlobOffsetObjects(fds_volid_t volId, const std::string &blobName, fds_uint64_t const obj_offset, fds_uint64_t const obj_offset_end, size_t const obj_size, std::vector<ObjectID::ptr>& obj_ids)
+{ return amCache->getBlobOffsetObjects(volId, blobName, obj_offset, obj_offset_end, obj_size, obj_ids); }
+
+void
+AmTxManager::getObjects(GetBlobReq* blobReq) {
+    LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
+    cb->return_buffers->assign(blobReq->object_ids.size(), nullptr);
+    cb->return_buffers->shrink_to_fit();
+
+    size_t hit_cnt, miss_cnt;
+    std::tie(hit_cnt, miss_cnt) = amCache->getObjects(blobReq->io_vol_id,
+                                                      blobReq->object_ids,
+                                                      *cb->return_buffers);
+    if (0 == miss_cnt) {
+        // Data was found in cache, done
+        LOGTRACE << "Data found in cache!";
+        blobReq->proc_cb(ERR_OK);
+        return;
+    }
+
+    // We did not find all the data, so create some GetObjectReqs and defer to
+    // SM for the rest by iterating and checking if the buffer is valid, if
+    // not use the object to create a new GetObjectReq
+    LOGDEBUG << "Found: " << hit_cnt << "/" << (hit_cnt + miss_cnt) << " objects";
+    blobReq->setResponseCount(miss_cnt);
+    auto obj_it = blobReq->object_ids.cbegin();
+    auto buf_it = cb->return_buffers->begin();
+    for (auto end = cb->return_buffers->cend(); end != buf_it; ++obj_it, ++buf_it) {
+        if (!*buf_it) {
+            LOGDEBUG << "Instantiating GetObject for object: " << *obj_it;
+            auto objReq = new GetObjectReq(blobReq->io_vol_id, *obj_it);
+            objReq->proc_cb =  [this, &buf = *buf_it, blobReq, objReq] (Error const& error) {
+                if (error.ok()) {
+                    // Put the newly found object in cache
+                    amCache->putObject(objReq->io_vol_id, *objReq->obj_id, objReq->obj_data);
+                    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
+                    // set the return buffer
+                    buf = std::move(objReq->obj_data);
+                }
+                blobReq->notifyResponse(error);
+                delete objReq;
+            };
+            processor_enqueue(objReq);
+        }
+    }
+}
 
 Error
-AmTxManager::putObject(fds_volid_t const volId, ObjectID const& objId, boost::shared_ptr<std::string> const obj)
-{ return amCache->putObject(volId, objId, obj); }
-
-boost::shared_ptr<std::string>
-AmTxManager::getBlobObject(fds_volid_t volId, const ObjectID &objectId, Error &error)
-{ return amCache->getBlobObject(volId, objectId, error); }
-
-Error
-AmTxManager::putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, boost::shared_ptr<ObjectID> const objId)
-{ return amCache->putOffset(volId, blobOff, objId); }
+AmTxManager::putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, std::vector<boost::shared_ptr<ObjectID>> const& object_ids)
+{
+    for (auto const& obj_id : object_ids) {
+        auto err = amCache->putOffset(volId, blobOff, obj_id);
+        if (!err.ok())
+            { return err; }
+    }
+    return ERR_OK;
+}
 
 Error
 AmTxManager::putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc)
