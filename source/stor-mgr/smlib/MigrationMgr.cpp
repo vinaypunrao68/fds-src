@@ -748,10 +748,16 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             FDSGUARD(smTokenInProgressMutex);
             smTokenInProgress.erase(smToken);
         }
+        // Matteo: I'm snapshotting is_end to avoid the nested migrExecutorLock
+        // fetch_and_increment_saturating uses a reference to migrExecutors, 
+        // so it needs to be protected
         LOGMIGRATE << "fetch and increment nextExecutor";
-        auto next = nextExecutor.fetch_and_increment_saturating();
-        SCOPEDREAD(migrExecutorLock);
-        if (next != migrExecutors.end()) {
+        {
+            SCOPEDREAD(migrExecutorLock);
+            auto next = nextExecutor.fetch_and_increment_saturating();
+            bool is_end = (next == migrExecutors.end());
+        }
+        if (!is_end) {
             // we have more SM tokens to migrate
             if (isFirstRound || resyncOnRestart) {
                 FDSGUARD(smTokenInProgressMutex);
@@ -1227,7 +1233,6 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
         (error == ERR_SVC_REQUEST_INVOCATION) ||
         /// we get this error from source SM which failed to start
         (error == ERR_NODE_NOT_ACTIVE)) {
-        SCOPEDWRITE(migrExecutorLock);
         LOGMIGRATE << "Executor " << std::hex << executorId
                    << " failed to sync DLT tokens from source SM "
                    << sourceSmUuid.uuid_get_val() << std::dec << " " << error
@@ -1247,6 +1252,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                 fds_token_id smToken = SmDiskMap::smTokenId(dltToken);
                 LOGNOTIFY << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                            << " DLT token " << dltToken << " SM token " << smToken;
+                SCOPEDWRITE(migrExecutorLock);
                 if ((migrExecutors.count(smToken) == 0) ||
                     (migrExecutors.count(smToken) > 0 && migrExecutors[smToken].count(srcSmUuid) == 0)) {
                     fds_uint8_t curInstanceNum = migrExecutor->getInstanceNum() + 1;
