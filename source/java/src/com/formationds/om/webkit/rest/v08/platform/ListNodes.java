@@ -52,23 +52,24 @@ public class ListNodes
     	
     	logger.debug("Size of service list: {}", list.size());
 
-    	Map<Integer, List<FDSP_Node_Info_Type>> groupedServices = list.stream().collect( Collectors.groupingBy( FDSP_Node_Info_Type::getNode_id ) );
+    	Map<Long, List<FDSP_Node_Info_Type>> groupedServices = 
+    			list.stream().collect( Collectors.groupingBy( FDSP_Node_Info_Type::getIp_lo_addr ) );
     	
     	final List<Node> nodes = new ArrayList<>();
     	
-    	Iterator<Integer> nodeIds = groupedServices.keySet().iterator();
+    	Iterator<Long> nodeIps = groupedServices.keySet().iterator();
     	
-    	while ( nodeIds.hasNext() ){
-    		Integer nodeId = nodeIds.next();
+    	while ( nodeIps.hasNext() ){
+    		Long nodeIp = nodeIps.next();
     		
-    		List<FDSP_Node_Info_Type> services = groupedServices.get( nodeId );
+    		List<FDSP_Node_Info_Type> services = groupedServices.get( nodeIp );
     		
     		try {
 				Node node = PlatformModelConverter.convertToExternalNode( services );
 				nodes.add( node );
 				
 			} catch (Exception e) {
-				logger.warn( "Could not create a node object for uuid: " + nodeId, e );
+				logger.warn( "Could not create a node object for IP: " + nodeIp, e );
 			}
     	}
 
