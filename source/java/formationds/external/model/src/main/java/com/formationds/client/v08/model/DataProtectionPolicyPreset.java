@@ -13,16 +13,18 @@ import java.util.Objects;
  */
 public class DataProtectionPolicyPreset extends DataProtectionPolicyBase {
     private Long id;
+    private String name;
 
     public DataProtectionPolicyPreset() {}
     public DataProtectionPolicyPreset( Duration commitLogRetention,
                                        List<SnapshotPolicy> snapshotPolicies ) {
         super( commitLogRetention, snapshotPolicies );
     }
-    public DataProtectionPolicyPreset( Long id, Duration commitLogRetention,
+    public DataProtectionPolicyPreset( Long id, String name, Duration commitLogRetention,
                                        List<SnapshotPolicy> snapshotPolicies ) {
         super( commitLogRetention, snapshotPolicies );
         this.id = id;
+        this.name = name;
     }
 
     /**
@@ -36,6 +38,16 @@ public class DataProtectionPolicyPreset extends DataProtectionPolicyBase {
      */
     public void setId( Long id ) {
         this.id = id;
+    }
+    
+    public String getName(){ return name; }
+    
+    /**
+     * 
+     * @param name the preset name
+     */
+    public void setName( String name ){
+    	this.name = name;
     }
 
     @Override

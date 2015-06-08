@@ -43,10 +43,10 @@ class TestTenants(BaseCliTest):
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
         
-        t_name = mockCreate.call_args[0][0]
-        assert t_name == "Awesome"
+        tenant = mockCreate.call_args[0][0]
+        assert tenant.name == "Awesome"
         
-    @patch( "fds.services.tenant_service.TenantService.list_tenants", side_effect=mock_functions.listTenants)
+    @patch( "fds.services.tenant_service.TenantService.list_users_for_tenant", side_effect=mock_functions.listUsers)
     @patch( "fds.services.tenant_service.TenantService.assign_user_to_tenant", side_effect=mock_functions.assignUser)
     def test_assign_user(self, mockAssign, mockList):
         '''
@@ -81,7 +81,7 @@ class TestTenants(BaseCliTest):
         assert tenant_id == "1"
         assert user_id == "2"
         
-    @patch( "fds.services.tenant_service.TenantService.list_tenants", side_effect=mock_functions.listTenants)
+    @patch( "fds.services.tenant_service.TenantService.list_users_for_tenant", side_effect=mock_functions.listUsers)
     @patch( "fds.services.tenant_service.TenantService.remove_user_from_tenant", side_effect=mock_functions.removeUser)        
     def test_remove_user(self, mockRemove, mockList):
         '''

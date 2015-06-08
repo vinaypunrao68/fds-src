@@ -80,7 +80,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                         }
                     }
                     
-                    if ( parseInt( rule.retention ) !== parseInt( rule2.retention ) ){
+                    if ( parseInt( rule.retentionTime.seconds ) !== parseInt( rule2.retentionTime.seconds ) ){
                         match = false;
                     }
                 }// match found

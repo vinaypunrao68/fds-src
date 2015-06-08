@@ -10,38 +10,37 @@ import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.formationds.apis.FDSP_ActivateOneNodeType;
-import com.formationds.commons.model.Node;
+import com.formationds.client.v08.model.Node;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 public class MutateNode implements RequestHandler {
 
+	private static final String NODE_ARG = "node_id";
+	
     private static final Logger logger =
             LoggerFactory.getLogger( AddNode.class );
 
-    private ConfigurationApi client;
+    private ConfigurationApi configApi;
 	
-	public MutateNode( final ConfigurationApi client ){
-		
-		this.client = client;
-	}
+	public MutateNode(){}
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 		
-        Long nodeUuid = requiredLong(routeParameters, "node_uuid");
+        Long nodeUuid = requiredLong(routeParameters, NODE_ARG );
 		
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         Node node = ObjectModelHelper.toObject( reader, Node.class );
@@ -66,14 +65,13 @@ public class MutateNode implements RequestHandler {
         
         //TODO:  Have a call that changes the node's state!
         int status = 
-        		client.ActivateNode( new FDSP_ActivateOneNodeType(
+        		getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
                                           1,
                                           new FDSP_Uuid( nodeUuid ),
                                           activateSm,
                                           activateDm,
                                           activateAm ) );
 
-        int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {
 
             status= HttpServletResponse.SC_BAD_REQUEST;
@@ -90,8 +88,20 @@ public class MutateNode implements RequestHandler {
 
         }
 
-        return new JsonResource( new JSONObject().put( "status", status ),
-                                 httpCode);
+        Node newNode = (new GetNode()).getNode( nodeUuid );
+        
+        String jsonString = ObjectModelHelper.toJSON( newNode );
+        
+        return new TextResource( jsonString );
 	}
 
+	private ConfigurationApi getConfigApi(){
+		
+		if ( configApi == null ){
+			configApi = SingletonConfigAPI.instance().api();
+		}
+		
+		return configApi;
+	}
+	
 }

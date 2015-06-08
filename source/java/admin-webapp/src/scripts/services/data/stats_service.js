@@ -4,7 +4,7 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 
     service.getFirebreakSummary = function( filter, callback ){
         
-        return $http_fds.put( '/api/stats/volumes/firebreak', filter, 
+        return $http_fds.put( webPrefix + '/stats/volumes/firebreak', filter, 
             function( response ){
                 if ( angular.isFunction( callback ) ){
                     callback( response );
@@ -21,7 +21,7 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
     
     service.getPerformanceBreakdownSummary = function( filter, callback ){
         
-        $http_fds.put( '/api/stats/volumes', filter, 
+        $http_fds.put( webPrefix + '/stats/volumes', filter, 
             function( response ){
             
                 if ( angular.isFunction( callback ) ){
@@ -67,7 +67,7 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 //        
 //        callback( data );
         
-        return $http_fds.put( '/api/stats/volumes', filter, 
+        return $http_fds.put( webPrefix + '/stats/volumes', filter, 
             function( response ){
                 if ( angular.isFunction( callback ) ){
                     callback( response );
@@ -111,7 +111,7 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 //        };
 //        
 //        callback( data );
-        return $http_fds.put( '/api/stats/volumes', filter, 
+        return $http_fds.put( webPrefix + '/stats/volumes', filter, 
             function( response ){
                 if ( angular.isFunction( callback ) ){
                     callback( response );

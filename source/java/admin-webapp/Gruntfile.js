@@ -205,7 +205,7 @@ module.exports = function( grunt ){
                 hostname: 'localhost',
             },
             proxies: [{
-                context: '/api',
+                context: '/fds',
                 host: proxySetting.host,
                 port: proxySetting.port,
                 https: false,

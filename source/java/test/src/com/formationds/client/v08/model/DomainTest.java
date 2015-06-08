@@ -2,6 +2,7 @@ package com.formationds.client.v08.model;
 
 import org.junit.Test;
 
+import com.formationds.client.v08.model.Domain.DomainState;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 
 public class DomainTest {
@@ -9,7 +10,7 @@ public class DomainTest {
 	@Test
 	public void testDomainConversion(){
 		
-		Domain domain = new Domain( 9L, "FDS", "Boulder" );
+		Domain domain = new Domain( 9L, "FDS", "Boulder", DomainState.UP );
 		
 		String jsonString = ObjectModelHelper.toJSON( domain );
 		

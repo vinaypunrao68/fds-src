@@ -7,7 +7,8 @@ import tabulate
 import json
 import time
 from collections import OrderedDict
-from fds.utils.recurrence_rule_converter import RecurrenceRuleConverter
+
+from fds.utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
     
@@ -46,11 +47,11 @@ class ResponseWriter():
         for volume in response:
             
             #figure out what to show for last firebreak occurrence
-            lastFirebreak = volume.last_capacity_firebreak
+            lastFirebreak = int(volume.status.last_capacity_firebreak)
             lastFirebreakType = "Capacity"
             
-            if ( volume.last_performance_firebreak > lastFirebreak ):
-                lastFirebreak = volume.last_performance_firebreak
+            if ( int(volume.status.last_performance_firebreak) > lastFirebreak ):
+                lastFirebreak = int(volume.status.last_performance_firebreak)
                 lastFirebreakType = "Performance"
                 
             if ( lastFirebreak == 0 ):
@@ -61,13 +62,13 @@ class ResponseWriter():
                 lastFirebreak = time.strftime( "%c", lastFirebreak )
             
             #sanitize the IOPs guarantee value
-            iopsMin = volume.iops_guarantee
+            iopsMin = volume.qos_policy.iops_min
             
             if ( iopsMin == 0 ):
                 iopsMin = "None"
                 
             #sanitize the IOPs limit
-            iopsLimit = volume.iops_limit
+            iopsLimit = volume.qos_policy.iops_max
             
             if ( iopsLimit == 0 ):
                 iopsLimit = "Unlimited"
@@ -78,14 +79,18 @@ class ResponseWriter():
             ov["Name"] = volume.name
             
             if ( session.is_allowed( "TENANT_MGMT" ) ):
-                ov["Tenant ID"] = volume.tenant_id
+                if volume.tenant is not None:
+                    ov["Tenant"] = volume.tenant.name
+                else:
+                    ov["Tenant"] = ""
+                    
                 
-            ov["State"] = volume.state
-            ov["Type"] = volume.type
-            ov["Usage"] = str(volume.current_size) + " " + volume.current_units
+            ov["State"] = volume.status.state
+            ov["Type"] = volume.settings.type
+            ov["Usage"] = str(volume.status.current_usage.size) + " " + volume.status.current_usage.unit
             ov["Last Firebreak Type"] = lastFirebreakType
             ov["Last Firebreak"] = lastFirebreak
-            ov["Priority"] = volume.priority
+            ov["Priority"] = volume.qos_policy.priority
             ov["IOPs Guarantee"] = iopsMin
             ov["IOPs Limit"] = iopsLimit
             ov["Media Policy"] = volume.media_policy
@@ -136,7 +141,7 @@ class ResponseWriter():
         
         for policy in response:
             
-            retentionValue = policy.retention
+            retentionValue = policy.retention_time_in_seconds
             
             if ( retentionValue == 0 ):
                 retentionValue = "Forever"
@@ -194,8 +199,7 @@ class ResponseWriter():
             ov["ID"] = node.id
             ov["Name"] = node.name
             ov["State"] = node.state
-            ov["IP V4 Address"] = node.ip_v4_address
-            ov["IP V6 Address"] = node.ip_v6_address
+            ov["IP V4 Address"] = node.address.ipv4address
             
             results.append( ov )
         
@@ -222,9 +226,9 @@ class ResponseWriter():
                     ov = OrderedDict()
                     ov["Node ID"] = node.id
                     ov["Node Name"] = node.name
-                    ov["Service Type"] = service.auto_name
+                    ov["Service Type"] = service.name
                     ov["Service ID"] = service.id
-                    ov["Status"] = service.status
+                    ov["State"] = service.status.state
                     
                     results.append( ov )
                     
@@ -279,7 +283,7 @@ class ResponseWriter():
             ov = OrderedDict()
             
             ov["ID"] = user.id
-            ov["Username"] = user.username
+            ov["Username"] = user.name
             
             d_users.append( ov )
             
