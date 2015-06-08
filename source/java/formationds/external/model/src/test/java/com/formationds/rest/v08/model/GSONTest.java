@@ -182,7 +182,7 @@ public class GSONTest {
 
     @Test
     public void testSize() {
-        Size s1 = Size.of( 1L, SizeUnit.KiB );
+        Size s1 = Size.of( 1L, SizeUnit.KB );
         String j = gson.toJson( s1 );
 
         TypeToken.get( s1.getClass() );
@@ -193,7 +193,7 @@ public class GSONTest {
 
     @Test
     public void testVolumeSetting() {
-        VolumeSettings v = new VolumeSettingsBlock( Size.of( 1, SizeUnit.YB ), Size.of( 1, SizeUnit.KiB ) );
+        VolumeSettings v = new VolumeSettingsBlock( Size.of( 1, SizeUnit.YB ), Size.of( 1, SizeUnit.KB ) );
 
         String j = gson.toJson( v );
         Assert.assertNotNull( j );
