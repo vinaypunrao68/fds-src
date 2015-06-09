@@ -45,7 +45,7 @@ struct HybridTierCtrlr {
     void snapTokenCb(const Error& err,
                      SmIoSnapshotObjectDB* snapReq,
                      leveldb::ReadOptions& options,
-                     leveldb::DB* db);
+                     std::shared_ptr<leveldb::DB> db);
     void moveObjsToTierCb(const Error& e,
                           SmIoMoveObjsToTier *req);
  protected:

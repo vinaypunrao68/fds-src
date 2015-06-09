@@ -139,7 +139,7 @@ ObjectID SMCheckOffline::hash_data(boost::shared_ptr<const std::string> dataPtr,
 }
 
 bool SMCheckOffline::consistency_check(fds_token_id token) {
-    leveldb::DB *ldb;
+    std::shared_ptr<leveldb::DB> ldb;
     leveldb::Iterator *it;
     leveldb::ReadOptions options;
 
@@ -180,7 +180,6 @@ bool SMCheckOffline::consistency_check(fds_token_id token) {
     ldb->ReleaseSnapshot(options.snapshot);
     // Delete ldb and it
     delete it;
-    delete ldb;
 
     if (error_count > 0) {
         GLOGNORMAL << "WARNING: " << error_count << " errors were found.\n";
@@ -328,7 +327,6 @@ void SMCheckOffline::MetadataIterator::next() {
         if (end()) { return; }
 
         delete ldb_it;
-        delete ldb;
 
         // Create new from new token
         GLOGNORMAL << "Reading metadata db for SM token " << *token_it << "\n";
@@ -517,7 +515,7 @@ void
 SMCheckOnline::SMCheckSnapshotCB(const Error& error,
                                 SmIoSnapshotObjectDB* snapReq,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db)
+                                std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
 

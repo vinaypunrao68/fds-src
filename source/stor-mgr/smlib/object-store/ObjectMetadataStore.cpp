@@ -136,7 +136,7 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
                               SmIoSnapshotObjectDB::CbType notifFn,
                               SmIoSnapshotObjectDB* snapReq) {
     Error err(ERR_OK);
-    leveldb::DB *db;
+    std::shared_ptr<leveldb::DB> db;
     leveldb::ReadOptions options;
 
     err = metaDb_->snapshot(smTokId, db, options);

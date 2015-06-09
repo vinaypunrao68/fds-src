@@ -90,7 +90,7 @@ class SMCheckOffline {
         SmTokenSet::iterator token_it;
 
         leveldb::ReadOptions options;
-        leveldb::DB *ldb;
+        std::shared_ptr<leveldb::DB> ldb;
         leveldb::Iterator *ldb_it;
 
         MdPtr omd;
@@ -110,7 +110,7 @@ class SMCheckOnline {
     void SMCheckSnapshotCB(const Error& error,
                            SmIoSnapshotObjectDB* snapReq,
                            leveldb::ReadOptions& options,
-                           leveldb::DB* db);
+                           std::shared_ptr<leveldb::DB> db);
 
     void updateDLT(const DLT *latestDLT);
 
