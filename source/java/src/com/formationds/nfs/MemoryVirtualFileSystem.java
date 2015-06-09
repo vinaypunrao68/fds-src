@@ -1,6 +1,8 @@
 package com.formationds.nfs;
 
 import com.google.common.collect.Lists;
+import org.apache.hadoop.fs.Path;
+import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.v4.NfsIdMapping;
 import org.dcache.nfs.v4.SimpleIdMap;
@@ -13,327 +15,210 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 class MemoryVirtualFileSystem implements VirtualFileSystem {
-    AtomicInteger curId;
-    Map<Integer, Node> idMap;
 
-    abstract class Node {
-        String name;
-        Node parent;
-        int id;
-        int mode;
-        int ctime;
-        int atime;
-        int mtime;
-        int uid;
-        int gid;
+    private SimpleIdMap idMap;
 
-        public Node(Node parent, String name, int mode, int uid, int gid) {
-            this.name = name;
-            this.mode = mode;
-            id = curId.incrementAndGet();
-            idMap.put(id, this);
-            int now = (int)(System.currentTimeMillis() / 1000);
-            ctime = now;
-            atime = now;
-            mtime = now;
-            this.uid = uid;
-            this.gid = gid;
-            this.parent = parent;
+    private static class Entry {
+        private static final AtomicInteger ID_WELL = new AtomicInteger(10000);
+        private final AtomicInteger generation;
+        private final long id;
+        Stat.Type type;
+        String path;
+
+        public Entry(Stat.Type type, String path) {
+            this.type = type;
+            this.path = path;
+            this.id = ID_WELL.incrementAndGet();
+            this.generation = new AtomicInteger(0);
         }
-
-        boolean isDirectory() {
-            return (mode & Stat.S_IFDIR) != 0;
-        }
-
-        public abstract FileHandle asFileHandle();
-        public abstract Stat stat();
-        public abstract Node lookup(List<String> path) throws IOException;
 
         public Inode asInode() {
-            return new Inode(asFileHandle());
+            return new Inode(new FileHandle(0, 0, 0, path.getBytes()));
         }
 
-        public DirectoryEntry asDirectoryEntry(String localName) {
-            return new DirectoryEntry(localName, asInode(), stat());
+        public void incrementGeneration() {
+            generation.incrementAndGet();
         }
 
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            if (parent != null) {
-                sb.append(parent.toString());
-                sb.append("/");
-                sb.append(name);
-            }
-
-            return sb.toString();
-        }
-    }
-
-    class Directory extends Node {
-        Map<String, Node> entries;
-
-        public Directory(Node parent, String name, int uid, int gid) {
-            super(parent, name, Stat.S_IFDIR, uid, gid);
-            entries = new HashMap<>();
-        }
-
-        @Override
-        public Node lookup(List<String> path) throws IOException{
-            if(path.size() == 0)
-                return this;
-
-            String name = path.get(0);
-            if(entries.containsKey(name)) {
-                return entries.get(name).lookup(path.subList(1, path.size()));
-            }
-
-            throw new NoEntException();
-        }
-
-
-        public Stat stat() {
-            Stat stat = new Stat();
-            stat.setMode(Stat.S_IFDIR | 0755);
-            stat.setGeneration(0);
-            stat.setSize(0);
-            stat.setFileid(id);
-            stat.setNlink(1); // FIXME: implement linking
-            stat.setUid(uid);
-            stat.setGid(gid);
-            stat.setATime(ctime);
-            stat.setCTime(atime);
-            stat.setMTime(mtime);
-            return stat;
-        }
-
-        @Override
-        public FileHandle asFileHandle() {
-            return new FileHandle(0, 0, Stat.S_IFDIR, ByteBuffer.allocate(4).putInt(id).array());
-        }
-
-        public synchronized void add(String name, Node node) throws IOException {
-            if(entries.containsKey(name))
-                throw new IOException("A file or directory with that name already exists");
-
-            entries.put(name, node);
-        }
-
-        public synchronized void remove(String name) {
-            // FIXME: adjust number of links when linking is implemented
-            entries.remove(name);
-        }
-    }
-
-    class File extends Node {
-        ByteBuffer content;
-
-        public File(Node parent, String name, int uid, int gid, ByteBuffer data) {
-            super(parent, name, Stat.S_IFREG, uid, gid);
-            this.content = data;
-        }
-
-        @Override
-        public FileHandle asFileHandle() {
-            return new FileHandle(0, 0, Stat.S_IFREG, ByteBuffer.allocate(4).putInt(id).array());
-        }
-
-        @Override
-        public Node lookup(List<String> path) throws IOException {
-            if(path.size() == 0)
-                return this;
-            throw new FileNotFoundException();
-        }
-
-        @Override
-        public Stat stat() {
-            Stat stat = new Stat();
-            stat.setMode(Stat.S_IFREG | 0644);
-            stat.setGeneration(0);
-            stat.setSize(content.remaining());
-            stat.setFileid(id);
-            stat.setNlink(1); // FIXME: implement linking
-            stat.setUid(uid);
-            stat.setGid(gid);
-            stat.setATime(ctime);
-            stat.setCTime(atime);
-            stat.setMTime(mtime);
-            return stat;
-        }
-
-        public int write(byte[] data, int offset, int length) {
-            if(offset + length > content.remaining()) {
-                ByteBuffer buf = ByteBuffer.allocate(offset + length);
-                buf.put(content);
-                buf.put(data, offset, length);
-                buf.position(0);
-                content = buf;
+        public int getMode() {
+            int mode = type.toMode();
+            if (type.equals(Stat.Type.DIRECTORY)) {
+                mode |= 0755;
             } else {
-                ByteBuffer view = content.duplicate();
-                view.put(data, offset, length);
+                mode |= 0644;
             }
-
-            return length;
+            return mode;
         }
 
-        public int read(byte[] buf, int offset, int length) {
-            ByteBuffer view = content.duplicate();
-            view.position(offset);
-            int readAmount = Math.min(view.remaining(), length);
-            view.get(buf, 0, readAmount);
-            return readAmount == 0 ? -1 : readAmount;
+        public Stat stat() {
+            Stat stat = new Stat();
+            stat.setMode(getMode());
+            stat.setGeneration(generation.get());
+            if (type.equals(Stat.Type.DIRECTORY)) {
+                stat.setSize(512);
+            } else {
+                stat.setSize(0);
+            }
+            stat.setFileid(id);
+            stat.setIno((int) id);
+            stat.setRdev(13);
+            stat.setDev(17);
+            stat.setNlink(1);
+            stat.setUid(0);
+            stat.setGid(0);
+            stat.setATime(System.currentTimeMillis());
+            stat.setCTime(System.currentTimeMillis());
+            stat.setMTime(System.currentTimeMillis());
+            return stat;
         }
     }
 
-    private Directory root;
+    private Map<String, Entry> entries;
 
     public MemoryVirtualFileSystem() {
-        curId = new AtomicInteger(0);
-        idMap = new HashMap<>();
-        root = new Directory(null, "", 0, 0);
-    }
-
-    private Node nodeFromInode(Inode inode) throws IOException {
-        int id = getId(inode);
-        if(!idMap.containsKey(id))
-            throw new NoEntException();
-
-        return idMap.get(id);
-    }
-
-    private int getId(Inode inode) {
-        return ByteBuffer.wrap(inode.getFileId()).getInt();
-    }
-
-    private File fileFromInode(Inode inode) throws IOException {
-        Node n = nodeFromInode(inode);
-        if(n.isDirectory())
-            throw new IOException("Expecting node to be a file, but it is not");
-        return (File)n;
-    }
-
-    private Directory directoryFromInode(Inode inode) throws IOException {
-        Node n = nodeFromInode(inode);
-        if(!n.isDirectory())
-            throw new IOException("Expecting node to be a file, but it is not");
-        return (Directory)n;
+        entries = new HashMap<>();
+        idMap = new SimpleIdMap();
+        entries.put("", new Entry(Stat.Type.DIRECTORY, ""));
+        entries.put("/exports", new Entry(Stat.Type.DIRECTORY, "/exports"));
     }
 
     @Override
     public int access(Inode inode, int mode) throws IOException {
-        Node node = nodeFromInode(inode);
-        idMap.containsKey(getId(inode));
-        System.out.println("Node: " + node);
+        String path = readPath(inode);
+        if (!entries.keySet().contains(path)) {
+            throw new NoEntException();
+        }
+
         return mode;
+    }
+
+    public String readPath(Inode inode) {
+        return new String(inode.getFileId());
     }
 
     @Override
     public Inode create(Inode parent, Stat.Type type, String path, Subject subject, int mode) throws IOException {
-        // FIXME: we are ignoring subject
-        // we should do something like ChimeraVFS: eg
-        // int uid = (int)Subjects.getUid(subject);
-        // int gid = (int)Subjects.getPrimaryGid(subject);
+        String parentPath = readPath(parent);
+        Entry parentEntry = entries.get(parentPath);
 
-        Directory parentDir = directoryFromInode(parent);
-        if(type == Stat.Type.DIRECTORY) {
-            Directory directory = new Directory(parentDir, path, 0, 0);
-            parentDir.add(path, directory);
-            return directory.asInode();
-        } else if(type == Stat.Type.REGULAR) {
-            File file = new File(parentDir, path, 0, 0, ByteBuffer.allocate(0));
-            parentDir.add(path, file);
-                return file.asInode();
+        if (parentEntry == null) {
+            throw new NoEntException();
         }
 
-        throw new IOException("Don't know how to make type " + type.toString());
+        String child = new Path(parentPath, path).toString();
+        if (entries.keySet().contains(child)) {
+            throw new ExistException();
+        }
+
+        Entry entry = new Entry(type, child);
+        entries.put(child, entry);
+        parentEntry.incrementGeneration();
+        return entry.asInode();
     }
 
     @Override
     public FsStat getFsStat() throws IOException {
-        // FIXME: implement
-        return new FsStat(1024 * 1024 * 1024, 1024, 1024, 1024);
+        return new FsStat(10 * 1024 * 1024, 0, 0, 0);
     }
 
     @Override
     public Inode getRootInode() throws IOException {
-         return new Inode(root.asFileHandle());
+        return entries.get("").asInode();
     }
 
     @Override
     public Inode lookup(Inode parent, String path) throws IOException {
-        List<String> pathList = Lists.newArrayList(path.split("/"));
-        Directory directory = directoryFromInode(parent);
-        Node lookup = directory.lookup(pathList);
-        if (lookup == null) {
-            throw new NoEntException("File not found");
+        String parentPath = readPath(parent);
+        if ("".equals(parentPath)) {
+            parentPath = "/";
         }
-        return lookup.asInode();
-    }
-
-    @Override
-    public List<DirectoryEntry> list(Inode inode) throws IOException {
-        ArrayList<DirectoryEntry> entries = new ArrayList<>();
-        Directory dir = directoryFromInode(inode);
-        for(Map.Entry<String, Node> entry : dir.entries.entrySet()) {
-            entries.add(entry.getValue().asDirectoryEntry(entry.getKey()));
+        String childPath = new Path(parentPath, path).toString();
+        if (!entries.keySet().contains(childPath)) {
+            throw new NoEntException();
         }
-        return entries;
-    }
 
-    @Override
-    public Inode mkdir(Inode parent, String path, Subject subject, int mode) throws IOException {
-        return create(parent, Stat.Type.DIRECTORY, path, subject, mode);
-    }
-
-    @Override
-    public boolean move(Inode src, String oldName, Inode dest, String newName) throws IOException {
-        Directory sourceDir = directoryFromInode(src);
-        Directory destDir = directoryFromInode(dest);
-        Node node = sourceDir.lookup(Collections.singletonList(oldName));
-        destDir.add(newName, node);
-        sourceDir.remove(oldName);
-        return true;
-    }
-
-    @Override
-    public void remove(Inode parent, String path) throws IOException {
-        Inode node = lookup(parent, path);
-        directoryFromInode(parent).remove(path);
-        idMap.remove(getId(node));
-    }
-
-    @Override
-    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        int writeLength = fileFromInode(inode).write(data, (int)offset, count);
-        return new WriteResult(stabilityLevel, writeLength);
-    }
-
-    @Override
-    public Inode parentOf(Inode inode) throws IOException {
-        return nodeFromInode(inode).parent.asInode();
-    }
-
-    @Override
-    public int read(Inode inode, byte[] data, long offset, int count) throws IOException {
-        return fileFromInode(inode).read(data, (int)offset, count);
-    }
-
-    @Override
-    public String readlink(Inode inode) throws IOException {
-        return null;
-    }
-
-
-    @Override
-    public Inode symlink(Inode parent, String path, String link, Subject subject, int mode) throws IOException {
-        return null;
+        return entries.get(childPath).asInode();
     }
 
     @Override
     public Inode link(Inode parent, Inode link, String path, Subject subject) throws IOException {
         return null;
+    }
+
+    @Override
+    public List<DirectoryEntry> list(Inode inode) throws IOException {
+        String parentPath = readPath(inode);
+        if (!entries.keySet().contains(parentPath)) {
+            throw new NoEntException();
+        }
+        return entries.values().stream()
+                .filter(e -> !e.path.equals(parentPath))
+                .filter(e -> e.path.startsWith(parentPath))
+                .map(e -> new DirectoryEntry(new Path(e.path).getName(), e.asInode(), e.stat()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Inode mkdir(Inode parent, String path, Subject subject, int mode) throws IOException {
+        String parentPath = readPath(parent);
+        Entry parentEntry = entries.get(parentPath);
+        if (parentEntry == null) {
+            throw new NoEntException();
+        }
+
+        String childPath = new Path(parentPath, path).toString();
+        Entry entry = new Entry(Stat.Type.DIRECTORY, childPath);
+        entries.put(childPath, entry);
+        parentEntry.incrementGeneration();
+        return entry.asInode();
+    }
+
+    @Override
+    public boolean move(Inode src, String oldName, Inode dest, String newName) throws IOException {
+        throw new RuntimeException();
+    }
+
+    @Override
+    public Inode parentOf(Inode inode) throws IOException {
+        throw new RuntimeException();
+    }
+
+    @Override
+    public int read(Inode inode, byte[] data, long offset, int count) throws IOException {
+        throw new RuntimeException();
+    }
+
+    @Override
+    public String readlink(Inode inode) throws IOException {
+        throw new RuntimeException();
+    }
+
+    @Override
+    public void remove(Inode parent, String path) throws IOException {
+        String parentPath = readPath(parent);
+        if (!entries.keySet().contains(parentPath)) {
+            throw new NoEntException();
+        }
+
+        String childPath = new Path(parentPath, path).toString();
+        if (!entries.keySet().contains(childPath)) {
+            throw new NoEntException();
+        }
+
+        entries.remove(childPath);
+    }
+
+    @Override
+    public Inode symlink(Inode parent, String path, String link, Subject subject, int mode) throws IOException {
+        throw new RuntimeException();
+    }
+
+    @Override
+    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
+        throw new RuntimeException();
     }
 
     @Override
@@ -343,8 +228,12 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
 
     @Override
     public Stat getattr(Inode inode) throws IOException {
-
-        return nodeFromInode(inode).stat();
+        String path = readPath(inode);
+        Entry entry = entries.get(path);
+        if (entry == null) {
+            throw new NoEntException();
+        }
+        return entry.stat();
     }
 
     @Override
@@ -359,7 +248,7 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
 
     @Override
     public void setAcl(Inode inode, nfsace4[] acl) throws IOException {
-        System.out.println("SetAcl");
+
     }
 
     @Override
@@ -374,6 +263,6 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
 
     @Override
     public NfsIdMapping getIdMapper() {
-        return new SimpleIdMap();
+        return idMap;
     }
 }

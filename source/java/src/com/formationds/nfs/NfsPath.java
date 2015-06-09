@@ -73,13 +73,15 @@ public class NfsPath {
         return path.toString();
     }
 
-    public Inode asInode(Stat.Type type) {
+    public Inode asInode(Stat.Type type, ExportResolver resolver) {
         StringBuilder sb = new StringBuilder("/");
+        int exportId = 0;
         if (volume != null) {
             sb.append(volume);
             sb.append(blobName());
+            exportId = resolver.exportId(volume);
         }
-        return new Inode(new FileHandle(0, 0, type.toMode(), sb.toString().getBytes()));
+        return new Inode(new FileHandle(0, exportId, type.toMode(), sb.toString().getBytes()));
     }
 
     public String fileName() {

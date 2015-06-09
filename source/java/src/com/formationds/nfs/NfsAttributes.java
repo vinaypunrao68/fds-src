@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.protocol.BlobDescriptor;
 import org.dcache.auth.Subjects;
 import org.dcache.nfs.vfs.Stat;
 
@@ -16,13 +17,12 @@ public class NfsAttributes {
     public static final String NFS_ATIME = "NFS_ATIME";
     public static final String NFS_CTIME = "NFS_CTIME";
     public static final String NFS_MTIME = "NFS_MTIME";
-    public static final String NFS_FILEHANDLE = "NFS_FILEHANDLE";
     public static final String NFS_SIZE = "NFS_SIZE";
     public static final String NFS_GENERATION = "NFS_GENERATION";
     public static final String NFS_NLINK = "NFS_NLINK";
     private Map<String, String> metadata;
 
-    public NfsAttributes(Stat.Type type, Subject subject, int mode, long fileId) {
+    public NfsAttributes(Stat.Type type, Subject subject, int mode, long fileId, long byteCount) {
         metadata = new HashMap<>();
         metadata.put(NFS_TYPE, type.name());
         int uid = (int) Subjects.getUid(subject);
@@ -36,13 +36,14 @@ public class NfsAttributes {
         metadata.put(NFS_ATIME, Long.toString(now));
         metadata.put(NFS_CTIME, Long.toString(now));
         metadata.put(NFS_MTIME, Long.toString(now));
-        metadata.put(NFS_SIZE, Long.toString(0));
+        metadata.put(NFS_SIZE, Long.toString(byteCount));
         metadata.put(NFS_GENERATION, Long.toString(0));
         metadata.put(NFS_NLINK, Long.toString(1));
     }
 
-    public NfsAttributes(Map<String, String> metadata) {
-        this.metadata = metadata;
+    public NfsAttributes(BlobDescriptor blobDescriptor) {
+        this.metadata = blobDescriptor.metadata;
+        this.metadata.put(NFS_SIZE, Long.toString(blobDescriptor.getByteCount()));
     }
 
     public Map<String, String> asMetadata() {
@@ -55,7 +56,7 @@ public class NfsAttributes {
         int mode = Integer.parseInt(metadata.get(NFS_MODE));
         stat.setMode(type.toMode() | mode);
         stat.setGeneration(0);
-        stat.setSize(0);
+        stat.setSize(Long.parseLong(metadata.get(NFS_SIZE)));
         stat.setFileid(Long.parseLong(metadata.get(NFS_FILE_ID)));
         stat.setNlink(1); // FIXME: implement linking
         stat.setUid(Integer.parseInt(metadata.get(NFS_UID)));

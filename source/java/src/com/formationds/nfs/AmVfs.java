@@ -6,6 +6,7 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 import org.dcache.auth.GidPrincipal;
@@ -31,10 +32,16 @@ import static com.formationds.hadoop.FdsFileSystem.*;
 public class AmVfs implements VirtualFileSystem {
     private static final Logger LOG = Logger.getLogger(AmVfs.class);
     private AsyncAm asyncAm;
+    private XdiConfigurationApi config;
+    private ExportResolver resolver;
     private static final String DOMAIN = "nfs";
+    private SimpleIdMap idMap;
 
-    public AmVfs(AsyncAm asyncAm) {
+    public AmVfs(AsyncAm asyncAm, XdiConfigurationApi config, ExportResolver resolver) {
         this.asyncAm = asyncAm;
+        this.config = config;
+        this.resolver = resolver;
+        idMap = new SimpleIdMap();
     }
 
     @Override
@@ -80,7 +87,7 @@ public class AmVfs implements VirtualFileSystem {
         if (!attributes.isPresent()) {
             throw new NoEntException();
         }
-        return child.asInode(attributes.get().getType());
+        return child.asInode(attributes.get().getType(), resolver);
     }
 
     @Override
@@ -117,17 +124,18 @@ public class AmVfs implements VirtualFileSystem {
                             BlobListOrder.UNSPECIFIED,
                             false).
                             get());
-            return blobDescriptors
+            List<DirectoryEntry> list = blobDescriptors
                     .stream()
                     .map(bd -> {
                         NfsPath childPath = new NfsPath(path, bd.getName());
-                        NfsAttributes childAttributes = new NfsAttributes(bd.getMetadata());
+                        NfsAttributes childAttributes = new NfsAttributes(bd);
                         return new DirectoryEntry(
                                 childPath.fileName(),
-                                childPath.asInode(childAttributes.getType()),
+                                childPath.asInode(childAttributes.getType(), resolver),
                                 childAttributes.asStat());
                     })
                     .collect(Collectors.toList());
+            return list;
         } catch (Exception e) {
             throw new IOException(e);
         }
@@ -155,8 +163,24 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public int read(Inode inode, byte[] bytes, long l, int i) throws IOException {
-        return 0;
+    public int read(Inode inode, byte[] bytes, long offset, int len) throws IOException {
+        NfsPath path = new NfsPath(inode);
+        Optional<NfsAttributes> metadata = load(path);
+        if (!metadata.isPresent()) {
+            throw new NoEntException();
+        }
+
+        if (! metadata.get().getType().equals(Stat.Type.REGULAR)) {
+            throw new NoEntException();
+        }
+        try {
+            ByteBuffer byteBuffer = asyncAm.getBlob(DOMAIN, path.getVolume(), path.blobName(), (int) offset + len, new ObjectOffset(0)).get();
+            byteBuffer.get(bytes, (int) offset, len);
+            return len;
+        } catch (Exception e) {
+            logError("getBlob()", path, e);
+            throw new IOException(e);
+        }
     }
 
     @Override
@@ -165,8 +189,19 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public void remove(Inode inode, String s) throws IOException {
+    public void remove(Inode parent, String name) throws IOException {
+        NfsPath path = new NfsPath(new NfsPath(parent), name);
+        Optional<NfsAttributes> attrs = load(path);
+        if (!attrs.isPresent()) {
+            throw new NoEntException();
+        }
 
+        // TODO
+        try {
+            unwindExceptions(() -> asyncAm.deleteBlob(DOMAIN, path.getVolume(), path.blobName()).get());
+        } catch (Exception e) {
+            logError("deleteBlob()", path, e);
+        }
     }
 
     @Override
@@ -175,13 +210,35 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public WriteResult write(Inode inode, byte[] bytes, long l, int i, StabilityLevel stabilityLevel) throws IOException {
-        return null;
+    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
+        NfsPath path = new NfsPath(inode);
+        Optional<NfsAttributes> attrs = load(path);
+        if (!attrs.isPresent()) {
+            throw new NoEntException();
+        }
+
+        ByteBuffer byteBuffer = ByteBuffer.allocate((int) offset + count);
+        byteBuffer.put(data, (int) offset, count);
+        try {
+            asyncAm.updateBlobOnce(
+                    DOMAIN,
+                    path.getVolume(),
+                    path.blobName(),
+                    1,
+                    ByteBuffer.wrap(data),
+                    (int) offset + count,
+                    new ObjectOffset(0),
+                    attrs.get().asMetadata()).get();
+            return new WriteResult(stabilityLevel, count);
+        } catch (Exception e) {
+            LOG.error("updateBlobOnce(), e");
+            throw new IOException(e);
+        }
     }
 
     @Override
-    public void commit(Inode inode, long l, int i) throws IOException {
-
+    public void commit(Inode inode, long offset, int count) throws IOException {
+        System.out.println("Commit");
     }
 
     @Override
@@ -221,20 +278,20 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public NfsIdMapping getIdMapper() {
-        return new SimpleIdMap();
+        return idMap;
     }
 
-    public void logCreationError(NfsPath path, Exception e) {
-        LOG.error("Error creating blob [volume:" + path.getVolume() + "]" + path.blobName(), e);
+    public void logError(String operation, NfsPath path, Exception e) {
+        LOG.error(operation + " failed on blob [volume:" + path.getVolume() + "]" + path.blobName(), e);
     }
 
     private Optional<NfsAttributes> load(NfsPath path) throws IOException {
         if (path.isRoot()) {
-            return Optional.of(new NfsAttributes(Stat.Type.DIRECTORY, new Subject(), Stat.S_IFDIR | 0755, 0));
+            return Optional.of(new NfsAttributes(Stat.Type.DIRECTORY, new Subject(), Stat.S_IFDIR | 0755, 0, 0));
         }
         try {
             BlobDescriptor blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(DOMAIN, path.getVolume(), path.blobName()).get());
-            return Optional.of(new NfsAttributes(blobDescriptor.getMetadata()));
+            return Optional.of(new NfsAttributes(blobDescriptor));
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 if (path.blobName().equals("/")) {
@@ -254,8 +311,8 @@ public class AmVfs implements VirtualFileSystem {
 
 
     public Inode createInode(Stat.Type type, Subject subject, int mode, NfsPath path) throws IOException {
-        Inode childInode = path.asInode(type);
-        NfsAttributes attributes = new NfsAttributes(type, subject, mode, nextFileId());
+        Inode childInode = path.asInode(type, resolver);
+        NfsAttributes attributes = new NfsAttributes(type, subject, mode, nextFileId(), 0);
 
         try {
             unwindExceptions(() -> asyncAm.updateBlobOnce(DOMAIN,
@@ -264,11 +321,11 @@ public class AmVfs implements VirtualFileSystem {
                     1,
                     ByteBuffer.allocate(0),
                     0,
-                    new ObjectOffset(),
+                    new ObjectOffset(0),
                     attributes.asMetadata())
                     .get());
         } catch (Exception e) {
-            logCreationError(path, e);
+            logError("updateBlobOnce()", path, e);
             throw new IOException(e);
         }
         return childInode;
@@ -281,7 +338,7 @@ public class AmVfs implements VirtualFileSystem {
                 Sets.newHashSet(),
                 Sets.newHashSet());
 
-         createInode(Stat.Type.DIRECTORY, unixRootUser, 0755, new NfsPath(volume, "/"));
+        createInode(Stat.Type.DIRECTORY, unixRootUser, 0755, new NfsPath(volume, "/"));
     }
 
     private long nextFileId() {

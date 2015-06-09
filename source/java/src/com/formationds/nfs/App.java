@@ -6,8 +6,12 @@ import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.collect.Lists;
+import org.apache.hadoop.fs.Path;
 import org.apache.log4j.PropertyConfigurator;
 import org.dcache.nfs.ExportFile;
+import org.dcache.nfs.FsExport;
 import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.v3.MountServer;
 import org.dcache.nfs.v3.NfsServerV3;
@@ -24,6 +28,8 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -31,13 +37,22 @@ import java.util.Properties;
  */
 public class App {
     public static void main(String[] args) throws Exception {
-        Configuration config = new Configuration("NFS", new String[] {"--console"});
-        // create an instance of a filesystem to be exported
-        AsyncXdiServiceRequest.Iface iface = new XdiClientFactory().remoteOnewayAm("localhost", 8899);
+        new Configuration("NFS", new String[] {"--console"});
+        XdiClientFactory clientFactory = new XdiClientFactory();
+        AsyncXdiServiceRequest.Iface iface = clientFactory.remoteOnewayAm("localhost", 8899);
+
+        XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
+        config.startCacheUpdaterThread(1000);
+
         AsyncAm asyncAm = new RealAsyncAm(iface, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
-//        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem vfs = new AmVfs(asyncAm);
+
+        // specify file with export entries
+        ExportFile exportFile = new ExportFile(new File("./exports"));
+        ExportResolver resolver = new ExportResolver(exportFile);
+
+        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
+        //VirtualFileSystem vfs = new VfsCache(new AmVfs(asyncAm, config, resolver), new VfsCacheConfig());
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
@@ -47,8 +62,7 @@ public class App {
                 .withWorkerThreadIoStrategy()
                 .build();
 
-        // specify file with export entries
-        ExportFile exportFile = new ExportFile(new File("./exports"));
+
 
         // create NFS v4.1 server
         NFSServerV41 nfs4 = new NFSServerV41(

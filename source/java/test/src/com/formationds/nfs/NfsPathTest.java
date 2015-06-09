@@ -6,6 +6,8 @@ import org.dcache.nfs.vfs.Stat;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class NfsPathTest {
     @Test
@@ -34,10 +36,13 @@ public class NfsPathTest {
 
     @Test
     public void testAsInode() throws Exception {
-        NfsPath parent = new NfsPath(new Inode(new FileHandle(0, 0, 0, "/panda/foo".getBytes())));
+        ExportResolver resolver = mock(ExportResolver.class);
+        when(resolver.exportId("panda")).thenReturn(42);
+
+        NfsPath parent = new NfsPath(new Inode(new FileHandle(0, 42, 0, "/panda/foo".getBytes())));
         NfsPath child = new NfsPath(parent, "bar");
 
-        Inode childInode = child.asInode(Stat.Type.REGULAR);
+        Inode childInode = child.asInode(Stat.Type.REGULAR, resolver);
         NfsPath thawed = new NfsPath(childInode);
         assertEquals(child, thawed);
     }
