@@ -16,7 +16,6 @@ namespace fds {
 
 typedef fds_int64_t fds_volid_t;  // FIXME(matteo): this is ugly, needed to
                                   // break header file circular dependency
-
 class FdsBaseCounter;
 
 DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
@@ -60,67 +59,67 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (SM_OBJ_DATA_SSD_READ)        /* persistent layer read object data from SSD (SSD hits) */
     (SM_OBJ_MARK_DELETED)         /* mark object deleted in obj metadata */
     (SM_APPLY_OBJECT_METADATA)    /* Time applyObjectMetaData on the migration path*/
-    (SM_READ_OBJ_DELTA_SET)
-    (SM_MIGRATION_SECOND_PHASE)
+    (SM_READ_OBJ_DELTA_SET)       /* Migration's readObjDeltaSet latency (debug) */
+    (SM_MIGRATION_SECOND_PHASE)   /* Numeric counter incremented when the second phase of 
+                                     migration is entered (debug) */
 
     // Access Manager
-    (AM_PUT_OBJ_REQ)
-    (AM_PUT_QOS)
-    (AM_PUT_HASH)
-    (AM_PUT_SM)
-    (AM_PUT_DM)
+    (AM_GET_OBJ_REQ)            /* End2end GET latency */
+    (AM_GET_QOS)                /* Latency GET operations spend in QOS */
+    (AM_GET_SM)                 /* End2end SM latency from AM */
+    (AM_GET_DM)                 /* End2end DM latency from AM */
+    (AM_GET_HASH)               /* */
 
-    (AM_GET_OBJ_REQ)
-    (AM_GET_QOS)
-    (AM_GET_HASH)
-    (AM_GET_SM)
-    (AM_GET_DM)
+    (AM_PUT_OBJ_REQ)            /* End2end PUT latency */
+    (AM_PUT_QOS)                /* Latency PUT operations spend in QOS */
+    (AM_PUT_SM)                 /* End2end SM latency from AM */
+    (AM_PUT_DM)                 /* End2end DM latency from AM */
+    (AM_PUT_HASH)               /* */
 
-    (AM_DELETE_OBJ_REQ)
-    (AM_DELETE_QOS)
-    (AM_DELETE_HASH)
-    (AM_DELETE_SM)
-    (AM_DELETE_DM)
+    (AM_DELETE_OBJ_REQ)         /* End2end latency for DELETE */
+    (AM_DELETE_QOS)             /* Latency DELETE operations spend in QOS */
+    (AM_DELETE_SM)              /* End2end SM latency from AM */
+    (AM_DELETE_DM)              /* End2end DM latency from AM */
+    (AM_DELETE_HASH)            /* */
 
-    (AM_STAT_BLOB_OBJ_REQ)
-    (AM_SET_BLOB_META_OBJ_REQ)
-    (AM_GET_BLOB_META_OBJ_REQ)
-    (AM_START_BLOB_OBJ_REQ)
-    (AM_COMMIT_BLOB_OBJ_REQ)
-    (AM_ABORT_BLOB_OBJ_REQ)
-    (AM_VOLUME_ATTACH_REQ)
-    (AM_VOLUME_DETACH_REQ)
-    (AM_VOLUME_CONTENTS_REQ)
-    (AM_VOLUME_STATS_REQ)
-    (AM_STAT_VOLUME_REQ)
-    (AM_SET_VOLUME_METADATA_REQ)
-    (AM_GET_VOLUME_METADATA_REQ)
+    (AM_STAT_BLOB_OBJ_REQ)      /* End2end stat_blob latency */
+    (AM_SET_BLOB_META_OBJ_REQ)  /* End2end set_blob_meta latency */
+    (AM_GET_BLOB_META_OBJ_REQ)  /* End2end get_blob_meta latency */
+    (AM_START_BLOB_OBJ_REQ)     /* End2end start_blob */
+    (AM_COMMIT_BLOB_OBJ_REQ)    /* End2end commit_blob */
+    (AM_ABORT_BLOB_OBJ_REQ)     /* End2end abort_blob */
+    (AM_VOLUME_ATTACH_REQ)      /* End2end volume_attach */
+    (AM_VOLUME_DETACH_REQ)      /* End2end volume_detach */
+    (AM_VOLUME_CONTENTS_REQ)    /* End2end volume_contents */
+    (AM_STAT_VOLUME_REQ)        /* End2end stat_volume*/
+    (AM_SET_VOLUME_METADATA_REQ)/* End2end set_volume_matadata */
+    (AM_GET_VOLUME_METADATA_REQ)/* End2end get_volume_metadata*/
 
-    (AM_QOS_QUEUE_SIZE)
+    (AM_QOS_QUEUE_SIZE)         /* Histogram of AM QoS size */
 
-    (AM_DESC_CACHE_HIT)
-    (AM_OFFSET_CACHE_HIT)
-    (AM_OBJECT_CACHE_HIT)
+    (AM_DESC_CACHE_HIT)         /* AM descriptor cache hits */
+    (AM_OFFSET_CACHE_HIT)       /* AM offset cache hits */
+    (AM_OBJECT_CACHE_HIT)       /* AM object cache hits */
 
     // Data Manager
-    (DM_TX_OP)
-    (DM_TX_OP_ERR)
-    (DM_TX_OP_REQ)
-    (DM_TX_OP_REQ_ERR)
+    (DM_TX_OP)                  /* DM IO latency */
+    (DM_TX_OP_ERR)              /* DM IO number of errors */
+    (DM_TX_OP_REQ)              /* End2end latency of DM transactions */
+    (DM_TX_OP_REQ_ERR)          /* Number of errors for DM transactions */
 
-    (DM_TX_STARTED)
-    (DM_TX_COMMITTED)
-    (DM_TX_COMMIT_REQ)
-    (DM_TX_COMMIT_REQ_ERR)
-    (DM_VOL_CAT_WRITE)
-    (DM_TX_QOS_WAIT)
+    (DM_TX_STARTED)             /* Number of started transactions */
+    (DM_TX_COMMITTED)           /* Number of committed transactions */
+    (DM_TX_COMMIT_REQ)          /* Latency DM commit */
+    (DM_TX_COMMIT_REQ_ERR)      /* NUmber of DM commit errors */
+    (DM_VOL_CAT_WRITE)          /* Latency of volume catalog write */
+    (DM_TX_QOS_WAIT)            /* QoS wait of a DM transaction*/
 
-    (DM_QUERY_REQ)
-    (DM_QUERY_REQ_ERR)
-    (DM_VOL_CAT_READ)
-    (DM_QUERY_QOS_WAIT)
+    (DM_QUERY_REQ)              /* DM query request latency */
+    (DM_QUERY_REQ_ERR)          /* DM query request #errors */
+    (DM_VOL_CAT_READ)           /* Volume catalog read latency*/
+    (DM_QUERY_QOS_WAIT)         /* DM query QoS wait */
 
-    (DM_CACHE_HIT)
+    (DM_CACHE_HIT)              /* Number of DM cache hits*/
 )
 
 class PerfEventHash {
