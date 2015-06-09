@@ -60,8 +60,8 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (SM_OBJ_MARK_DELETED)         /* mark object deleted in obj metadata */
     (SM_APPLY_OBJECT_METADATA)    /* Time applyObjectMetaData on the migration path*/
     (SM_READ_OBJ_DELTA_SET)       /* Migration's readObjDeltaSet latency (debug) */
-    (SM_MIGRATION_SECOND_PHASE)   /* Numeric counter incremented when the second phase of 
-                                     migration is entered (debug) */
+    (SM_MIGRATION_SECOND_PHASE)   /* Numeric counter incremented when the second phase of */
+                                  /* migration is entered (debug) */
 
     // Access Manager
     (AM_GET_OBJ_REQ)            /* End2end GET latency */
