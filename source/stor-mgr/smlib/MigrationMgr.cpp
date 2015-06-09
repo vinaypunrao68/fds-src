@@ -171,23 +171,17 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     LOGMIGRATE << "Number of executors: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0);
-    // (Matteo) Breaking it up this way to avoid the nesting between migrExecutorLock 
-    // and smTokenInProgressMutex
-    {
-        SCOPEDREAD(migrExecutorLock);
-        nextExecutor.set(migrExecutors.begin());
-        auto end_it = migrExecutors.cend();
-    }
+    // (Matteo) migrExecutorLock and smTokenInProgressMutex
+    // are nested here. Please, mantain the order
+    SCOPEDREAD(migrExecutorLock);
+    nextExecutor.set(migrExecutors.begin());
     fds_verify(parallelMigration > 0);
     for (uint32_t issued = 0; issued < parallelMigration; issued++) {
 
-        MigrExecutorMap::const_iterator next;
-        {   
-            SCOPEDREAD(migrExecutorLock);
-            next = nextExecutor.fetch_and_increment_saturating(); 
-            if (next == migrExecutors.cend())
-                break;
-        }
+        MigrExecutorMap::const_iterator next = 
+            nextExecutor.fetch_and_increment_saturating(); 
+        if (next == migrExecutors.cend())
+            break;
         FDSGUARD(smTokenInProgressMutex);
         smTokenInProgress.insert(next->first);
         startSmTokenMigration(next->first);
@@ -753,18 +747,15 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // migrate next SM token or we are done
     if (finished) {
         // If I'm here I have migrated a token, need to find the next token to migrate
-        // Matteo: I'm snapshotting is_end to avoid the nested migrExecutorLock,
-        // unsure if this might create a race if "abort" clears migrExecutors
+
+        // Matteo: migrExecutorLock is nested with smTokenInProgressMutex, 
+        // please be consistent with the ordering
         // fetch_and_increment_saturating uses a reference to migrExecutors, 
         // so it needs to be protected
-        // anticipating this block to prevent nesting with smTokenInProgressMutex
-        MigrExecutorMap::const_iterator next;
-        bool is_end;
-        {
-            SCOPEDREAD(migrExecutorLock);
-            next = nextExecutor.fetch_and_increment_saturating();
-            is_end = (next == migrExecutors.end());
-        }
+        // migrExecutorLock is taken as upgradable lock, then upgraded when needed
+        migrExecutorLock.cond_write_lock();
+        auto next = nextExecutor.fetch_and_increment_saturating();
+        bool is_end = (next == migrExecutors.end());
         /**
          * Erase the smToken whose executor received this callback.
          * TODO:(Gurpreet) Currently for parallel migrations we
@@ -792,6 +783,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
             if (smTokenInProgress.size() > 0) {
                 LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
+                migrExecutorLock.cond_write_unlock();
                 return;
             }
             if (isFirstRound && !resyncOnRestart) {
@@ -821,15 +813,14 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                     // requests before clearing executors.  At this point, there shouldn't
                     // be any.
                     coalesceExecutors();
-                    {
-                        SCOPEDWRITE(migrExecutorLock);
-                        migrExecutors.clear();
-                    }
+                    migrExecutorLock.upgrade();
+                    migrExecutors.clear();
                     // see if clients are also done so we can cleanup
                     checkResyncDoneAndCleanup();
                 }
             }
         }
+        migrExecutorLock.cond_write_unlock();
     }
 }
 
