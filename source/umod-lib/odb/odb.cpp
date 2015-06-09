@@ -88,6 +88,7 @@ ObjectDB::ObjectDB(const std::string& filename,
  */
 ObjectDB::~ObjectDB() {
     delete options.filter_policy;
+    db.reset();
 }
 
 /**
