@@ -51,8 +51,8 @@ public class App {
         ExportFile exportFile = new ExportFile(new File("./exports"));
         ExportResolver resolver = new ExportResolver(exportFile);
 
-        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        //VirtualFileSystem vfs = new VfsCache(new AmVfs(asyncAm, config, resolver), new VfsCacheConfig());
+//        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
+        VirtualFileSystem vfs = new AmVfs(asyncAm, config, resolver);
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()

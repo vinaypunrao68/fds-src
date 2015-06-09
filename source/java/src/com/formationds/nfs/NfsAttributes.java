@@ -50,12 +50,17 @@ public class NfsAttributes {
         return metadata;
     }
 
+    public void incrementGeneration() {
+        long generation = Long.parseLong(metadata.get(NFS_GENERATION));
+        metadata.put(NFS_GENERATION, Long.toString(generation + 1l));
+    }
+
     public Stat asStat() {
         Stat stat = new Stat();
         Stat.Type type = getType();
         int mode = Integer.parseInt(metadata.get(NFS_MODE));
         stat.setMode(type.toMode() | mode);
-        stat.setGeneration(0);
+        stat.setGeneration(Long.parseLong(metadata.get(NFS_GENERATION)));
         stat.setSize(Long.parseLong(metadata.get(NFS_SIZE)));
         stat.setFileid(Long.parseLong(metadata.get(NFS_FILE_ID)));
         stat.setNlink(1); // FIXME: implement linking

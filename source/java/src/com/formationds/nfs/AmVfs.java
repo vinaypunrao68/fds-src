@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static com.formationds.hadoop.FdsFileSystem.*;
@@ -66,6 +67,7 @@ public class AmVfs implements VirtualFileSystem {
             throw new ExistException();
         }
 
+        incrementGeneration(parent);
         return createInode(type, subject, mode, childPath);
     }
 
@@ -149,6 +151,7 @@ public class AmVfs implements VirtualFileSystem {
             throw new ExistException();
         }
 
+        incrementGeneration(parent);
         return createInode(Stat.Type.DIRECTORY, subject, mode, path);
     }
 
@@ -190,14 +193,16 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public void remove(Inode parent, String name) throws IOException {
-        NfsPath path = new NfsPath(new NfsPath(parent), name);
+        NfsPath parentPath = new NfsPath(parent);
+        NfsPath path = new NfsPath(parentPath, name);
         Optional<NfsAttributes> attrs = load(path);
         if (!attrs.isPresent()) {
             throw new NoEntException();
         }
 
-        // TODO
+
         try {
+            incrementGeneration(parentPath);
             unwindExceptions(() -> asyncAm.deleteBlob(DOMAIN, path.getVolume(), path.blobName()).get());
         } catch (Exception e) {
             logError("deleteBlob()", path, e);
@@ -309,11 +314,32 @@ public class AmVfs implements VirtualFileSystem {
         }
     }
 
+    private void incrementGeneration(NfsPath nfsPath) throws IOException {
+        BlobDescriptor blobDescriptor = null;
+        try {
+            blobDescriptor = asyncAm.statBlob(DOMAIN, nfsPath.getVolume(), nfsPath.blobName()).get();
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+        NfsAttributes attributes = new NfsAttributes(blobDescriptor);
+        attributes.incrementGeneration();
+        updateMetadata(nfsPath, attributes);
+    }
 
     public Inode createInode(Stat.Type type, Subject subject, int mode, NfsPath path) throws IOException {
         Inode childInode = path.asInode(type, resolver);
         NfsAttributes attributes = new NfsAttributes(type, subject, mode, nextFileId(), 0);
 
+        try {
+            updateMetadata(path, attributes);
+        } catch (Exception e) {
+            logError("updateBlobOnce()", path, e);
+            throw new IOException(e);
+        }
+        return childInode;
+    }
+
+    public void updateMetadata(NfsPath path, NfsAttributes attributes) throws IOException {
         try {
             unwindExceptions(() -> asyncAm.updateBlobOnce(DOMAIN,
                     path.getVolume(),
@@ -325,10 +351,8 @@ public class AmVfs implements VirtualFileSystem {
                     attributes.asMetadata())
                     .get());
         } catch (Exception e) {
-            logError("updateBlobOnce()", path, e);
             throw new IOException(e);
         }
-        return childInode;
     }
 
     private void createExportRoot(String volume) throws IOException {
