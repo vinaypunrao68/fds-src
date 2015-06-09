@@ -1,0 +1,38 @@
+#!/bin/bash
+
+args=$*
+
+JAVA_OPTS="-Xmx1024M -Xms20M"
+
+for i in "$@"
+do
+  key="$1"
+
+  FDS_ROOT=/fds
+  FDS_OM_HOST=localhost
+
+  case $i in
+    --fds-root=)
+    FDS_ROOT="${i#*=}"
+    shift # past argument
+    ;;
+    *)
+    # unknown option
+    ;;
+  esac
+  shift # past argument or value
+done
+
+export CLASSPATH=$FDS_ROOT/etc/
+export CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
+export CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
+
+for i in $FDS_ROOT/lib/java/*.jar;
+do
+   export CLASSPATH="$CLASSPATH:$i"
+done 
+
+echo "FDS_ROOT  = $FDS_ROOT"
+echo "CLASSPATH = $CLASSPATH"
+
+java $JAVA_OPTS -classpath $CLASSPATH com.formationds.om.Main $args
