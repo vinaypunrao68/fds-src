@@ -1,7 +1,7 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
-from fds.utils.node_converter import NodeConverter
+from fds.utils.converters.platform.node_converter import NodeConverter
 
 def filter_for_discovered(nodes):
     return nodes
@@ -52,7 +52,7 @@ class TestNodes( BaseCliTest ):
         assert mockAdd.call_count == 1
         
     @patch( "fds.services.node_service.NodeService.add_node", side_effect=mock_functions.addNode)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listDiscoveredNodes)
     def test_add_node(self, mockList, mockAdd):
         '''
         Test that activate is called with all three services set to true
@@ -63,25 +63,13 @@ class TestNodes( BaseCliTest ):
         self.callMessageFormatter(args)
         self.cli.run(args)
          
-        assert mockAdd.call_count == 0
+        assert mockAdd.call_count == 1
         
         args = ["node", "add", "-node_ids", "1", "2", "3"]
         self.callMessageFormatter(args)
         self.cli.run(args)
         
-        assert mockAdd.call_count == 3
-        
-        first = mockAdd.call_args_list[0]
-        second = mockAdd.call_args_list[1]
-        third = mockAdd.call_args_list[2]
-        
-        assert first[0][0] == "1"
-        assert second[0][0] == "2"
-        assert third[0][0] == "3"
-        
-        assert first[0][1].am == second[0][1].am == third[0][1].am
-        assert first[0][1].dm == second[0][1].dm == third[0][1].dm
-        assert first[0][1].sm == second[0][1].sm == third[0][1].sm
+        assert mockAdd.call_count == 1
         
     @patch( "fds.services.node_service.NodeService.remove_node", side_effect=mock_functions.removeNode)
     @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)

@@ -1,8 +1,9 @@
 from abstract_plugin import AbstractPlugin
+
 from fds.services.node_service import NodeService
-from fds.utils.node_converter import NodeConverter
+from fds.utils.converters.platform.node_converter import NodeConverter
 from fds.services.response_writer import ResponseWriter
-from fds.model.service import Service
+from fds.model.platform.service import Service
 
 import json
 
@@ -115,7 +116,7 @@ class ServicePlugin( AbstractPlugin ):
             
         response = self.get_node_service().start_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
             
-        if ( response["status"] == 200 ):
+        if ( response is not None ):
             self.list_services(args)            
                         
     def stop_service(self, args):
@@ -125,7 +126,7 @@ class ServicePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
 
-        if ( response["status"] == 200 ):
+        if ( response is not None ):
             self.list_services(args)  
 
     def add_service(self, args):
@@ -133,19 +134,13 @@ class ServicePlugin( AbstractPlugin ):
         use the arguments to make the correct add service call
         '''
         s_type = args[AbstractPlugin.service_str]
-        auto_name = s_type.upper()
-        fdsp_type = "FDSP_ACCESS_MGR"
-        
-        if auto_name == "DM":
-            fdsp_type = "FDSP_DATA_MGR"
-        elif auto_name == "SM":
-            fdsp_type = "FDSP_STOR_MGR"
+        name = s_type.upper()
             
-        service = Service( auto_name=auto_name, a_type=fdsp_type )
+        service = Service( name=name, a_type=name )
         
         response = self.get_node_service().add_service( args[AbstractPlugin.node_id_str], service )
         
-        if ( response["status"] == 200 ):
+        if ( response is not None ):
             self.list_services(args)
         
     def remove_service(self, args):
@@ -154,7 +149,7 @@ class ServicePlugin( AbstractPlugin ):
         '''
         response = self.get_node_service().remove_service(args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
         
-        if ( response["status"] == 200 ):
+        if ( response is not None ):
             self.list_services(args)
 
     def list_services(self, args):

@@ -9,24 +9,32 @@ import java.util.List;
 
 public class Domain extends AbstractResource<Long> {
 
+	public enum DomainState { UP, DOWN, UNKNOWN };
+	
     private List<Node> nodes = new ArrayList<>();
     private final String site;
+    private DomainState state;
 
     private Domain() {
-        this( 0L, "fds", "local" );
+        this( 0L, "fds", "local", DomainState.UNKNOWN );
     }
 
     public Domain( String key, String site ) {
-        this( null, key, site );
+        this( null, key, site, DomainState.UNKNOWN );
     }
 
-    public Domain( Long id, String key, String site ) {
+    public Domain( Long id, String key, String site, DomainState state ) {
         super( id, key );
         this.site = site;
+        this.state = state;
     }
 
     public String getSite() {
         return site;
+    }
+    
+    public DomainState getState() {
+    	return this.state;
     }
 
     /**

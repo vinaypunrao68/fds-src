@@ -56,7 +56,7 @@ public class UpdatePassword implements RequestHandler {
         }
         // no id... let's make one.
         catch( JSONException jException ){
-        	inputUser = new User( userId, inputUser.getName(), inputUser.getRoleDescriptor(), inputUser.getTenant() );
+        	inputUser = new User( userId, inputUser.getName(), inputUser.getRoleId(), inputUser.getTenant() );
         }
         
         com.formationds.apis.User currentUser = getAuthorizer().userFor( getToken() );

@@ -8,6 +8,7 @@ import java.util.Objects;
 
 public class QosPolicyPreset extends QosPolicyBase {
     private Long id;
+    private String name;
 
     /**
      *
@@ -16,9 +17,10 @@ public class QosPolicyPreset extends QosPolicyBase {
      * @param iopsMin the minimum iops setting
      * @param iopsMax the maximum iops setting
      */
-    QosPolicyPreset( Long id, int priority, int iopsMin, int iopsMax ) {
+    public QosPolicyPreset( Long id, String name, int priority, int iopsMin, int iopsMax ) {
         super(priority, iopsMin, iopsMax );
         this.id = id;
+        this.name = name;
     }
 
     /**
@@ -31,7 +33,15 @@ public class QosPolicyPreset extends QosPolicyBase {
         super(priority, iopsMin, iopsMax );
     }
 
-    public boolean idEquals( Object o ) {
+    public String getName(){
+    	return this.name;
+    }
+    
+    public void setName( String name ){
+    	this.name = name;
+    }
+    
+    public boolean isEquals( Object o ) {
         if ( this == o ) { return true; }
         if ( !(o instanceof QosPolicyBase) ) { return false; }
         final QosPolicyPreset that = (QosPolicyPreset) o;

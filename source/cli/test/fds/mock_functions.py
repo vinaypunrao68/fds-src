@@ -1,13 +1,14 @@
-from fds.model.volume import Volume
-from fds.model.snapshot import Snapshot
-from fds.model.node import Node
-from fds.model.service import Service
-from fds.model.domain import Domain
-from fds.model.snapshot_policy import SnapshotPolicy
-from fds.model.timeline_preset import TimelinePreset
-from fds.model.qos_preset import QosPreset
-from fds.model.user import User
-from fds.model.tenant import Tenant
+from fds.model.volume.volume import Volume
+from fds.model.volume.snapshot import Snapshot
+from fds.model.platform.node import Node
+from fds.model.platform.service import Service
+from fds.model.platform.domain import Domain
+from fds.model.volume.snapshot_policy import SnapshotPolicy
+from fds.model.volume.qos_preset import QosPreset
+from fds.model.admin.user import User
+from fds.model.admin.tenant import Tenant
+from fds.model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
+from fds.model.platform.address import Address
 
 '''
 Created on Apr 22, 2015
@@ -41,13 +42,13 @@ def createVolume(volume):
 def editVolume(volume):
     return volume
 
-def cloneFromTimelineTime( a_time, volume ):
+def cloneFromTimelineTime( volume, a_time ):
     
     volume.id = 354
     volume.timeline_time = a_time
     return volume
 
-def cloneFromSnapshotId( snapshot_id, volume):
+def cloneFromSnapshotId( volume, snapshot_id ):
     volume.id = 789
     return volume
 
@@ -87,14 +88,35 @@ def listSnapshots( volumeName ):
 def listNodes():
     node = Node()
     node.name = "FakeNode"
-    node.ip_v4_address = "10.12.14.15"
+    address = Address()
+    address.ipv4address = "10.12.14.15"
+    address.ipv6address = "Ihavenoidea" 
+    node.address = address
     node.id = "21ABC"
-    node.state = "ACTIVE"
+    node.state = "UP"
     
-    node.services["AM"]  = [Service(a_type="FDSP_ACCESS_MGR",auto_name="AM")]
-    node.services["DM"]  = [Service(a_type="FDSP_DATA_MGR",auto_name="DM")]
-    node.services["PM"]  = [Service(a_type="FDSP_PLATFORM",auto_name="PM")]
-    node.services["SM"]  = [Service(a_type="FDSP_STOR_MGR",auto_name="SM")]                
+    node.services["AM"]  = [Service(a_type="AM",name="AM")]
+    node.services["DM"]  = [Service(a_type="DM",name="DM")]
+    node.services["PM"]  = [Service(a_type="PM",name="PM")]
+    node.services["SM"]  = [Service(a_type="SM",name="SM")]                
+ 
+    nodes = [node]
+    return nodes
+
+def listDiscoveredNodes():
+    node = Node()
+    node.name = "FakeNode"
+    address = Address()
+    address.ipv4address = "10.12.14.15"
+    address.ipv6address = "Ihavenoidea" 
+    node.address = address
+    node.id = "21ABC"
+    node.state = "DISCOVERED"
+    
+    node.services["AM"]  = [Service(a_type="AM",name="AM")]
+    node.services["DM"]  = [Service(a_type="DM",name="DM")]
+    node.services["PM"]  = [Service(a_type="PM",name="PM")]
+    node.services["SM"]  = [Service(a_type="SM",name="SM")]                
  
     nodes = [node]
     return nodes
@@ -137,7 +159,15 @@ def listLocalDomains():
     
     return domains
 
-def createSnapshotPolicy( policy ):
+def findDomainById(an_id):
+    domain = Domain()
+    domain.id = an_id
+    domain.name = "MyDomain"
+    domain.site = "MySite"
+    
+    return domain
+
+def createSnapshotPolicy( volume_id, policy ):
     policy.id = 100
     return policy
 
@@ -157,12 +187,12 @@ def attachPolicy( policy_id, volume_id ):
 def detachPolicy( policy_id, volume_id ):
     return responseOk
 
-def deleteSnapshotPolicy( policy_id ):
+def deleteSnapshotPolicy( volume_id, policy_id ):
     return responseOk 
 
 
 def listTimelinePresets(preset_id=None):
-    p = TimelinePreset()
+    p = DataProtectionPolicyPreset()
     p.id = 1
     p.policies = [SnapshotPolicy()]
     presets = [p]
@@ -177,14 +207,14 @@ def listQosPresets(preset_id=None):
     presets = [p]
     return presets
 
-def listUsers():
+def listUsers(tenant_id=1):
     user = User()
     user.username = "jdoe"
     user.id = 23
     
     return [user]
 
-def createUser(username, password):
+def createUser(username):
     return listUsers()
 
 def listTenants():

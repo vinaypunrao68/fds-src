@@ -17,7 +17,7 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
             $rootScope.$broadcast( 'fds::authentication_failure' );
         };
         
-        $http.post( '/api/auth/token?login=' + username + '&' + 'password=' + password, {} )
+        $http.post( webPrefix + '/token?login=' + username + '&' + 'password=' + password, {} )
             .success( function( response, code ){
                 
                 if ( code === 401 ){

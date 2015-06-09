@@ -18,20 +18,23 @@ import com.formationds.web.toolkit.Resource;
 
 public class AddService implements RequestHandler {
 
+	private static final String NODE_ARG = "node_id";
+	
     private static final Logger logger =
             LoggerFactory.getLogger( AddService.class );
 
     private ConfigurationApi client;
 	
-	public AddService( final ConfigurationApi client ){
-		
-		this.client = client;
-	}
+	public AddService(){}
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 
+		long nodeId = requiredLong( routeParameters, NODE_ARG );
+		
+		
+		
         return new JsonResource( new JSONObject().put( "status", 200 ), 200);
 	}
 

@@ -182,4 +182,4 @@ class FDSNBDDriver(driver.VolumeDriver):
                 image_id,
                 temp_filename,
                 size=volume["size"])
-            self._execute('dd', 'if=' + temp_filename, 'of=' + dev, 'bs=4096', 'oflag=sync', run_as_root=True)
+            self._execute('dd', 'if=' + temp_filename, 'of=' + dev, 'bs=131072', 'oflag=sync', run_as_root=True)

@@ -27,9 +27,9 @@ angular.module( 'utility-directives' ).factory( '$qos_policy_helper', ['$filter'
             
             var preset = service.presets[i];
             
-            if ( qos.priority === preset.value.priority &&
-                qos.sla === preset.value.sla &&
-                qos.limit === preset.value.limit ){
+            if ( qos.priority === preset.priority &&
+                qos.iopsMin === preset.iopsMin &&
+                qos.iopsMax === preset.iopsMax ){
                 
                 return preset;
             }

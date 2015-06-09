@@ -100,7 +100,7 @@ class SmObjDb : public HasLogger {
      osm::ObjectDB *getObjectDB(fds_token_id tokId);
 
      void snapshot(const fds_token_id& tokId,
-                   leveldb::DB*& db, leveldb::ReadOptions& options);
+                   std::shared_ptr<leveldb::DB>& db, leveldb::ReadOptions& options);
      void lock(const ObjectID& objId);
      void unlock(const ObjectID& objId);
 

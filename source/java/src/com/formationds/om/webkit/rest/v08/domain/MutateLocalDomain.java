@@ -4,112 +4,104 @@
 
 package com.formationds.om.webkit.rest.v08.domain;
 
-import com.formationds.apis.ConfigurationService;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
-import com.formationds.web.toolkit.JsonResource;
+import com.formationds.apis.LocalDomain;
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.Domain;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.UsageException;
-import org.apache.commons.io.IOUtils;
+import com.formationds.web.toolkit.TextResource;
+
+import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.http.HttpServletResponse;
+import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Map;
 
 public class MutateLocalDomain
-  implements RequestHandler {
-  private static final Logger logger =
-    LoggerFactory.getLogger( MutateLocalDomain.class );
+implements RequestHandler {
+	
+	private static final String DOMAIN_ARG = "domain_id";
+	
+	private static final Logger logger =
+			LoggerFactory.getLogger( MutateLocalDomain.class );
 
-  private final Authorizer authorizer;
-  private final ConfigurationService.Iface configApi;
-  private final AuthenticationToken token;
+	private ConfigurationApi configApi;
 
-  public MutateLocalDomain( final Authorizer authorizer,
-                         final ConfigurationService.Iface configApi,
-                         final AuthenticationToken token ) {
-    this.authorizer = authorizer;
-    this.configApi = configApi;
-    this.token = token;
-  }
+	public MutateLocalDomain() {}
 
-  @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-      throws Exception {
+	@Override
+	public Resource handle( Request request, Map<String, String> routeParameters )
+			throws Exception {
 
-      String domainName = "";
-      String action = "";
-      
-      try {
-          domainName = requiredString(routeParameters, "local_domain");
-      } catch(UsageException e) {
-          return new JsonResource(
-                  new JSONObject().put( "message", "Missing Local Domain name." ),
-                  HttpServletResponse.SC_BAD_REQUEST );
-      }
+		long domainId = requiredLong( routeParameters, DOMAIN_ARG );
+		
+		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
+		Domain domain = ObjectModelHelper.toObject( reader, Domain.class );
+		domain.setId( domainId );
 
-      /**
-       * What PUT action do we have?
-       */
-      String source = IOUtils.toString(request.getInputStream());
-      try {
-          JSONObject o = new JSONObject(source);
-          action = o.getString( "action" );
-      } catch(JSONException e) {
-          return new JsonResource(
-                  new JSONObject().put( "message", "Missing Local Domain action to PUT." ),
-                  HttpServletResponse.SC_BAD_REQUEST );
-      }
-
-      try {
-          if (action.equals("rename")) {
-              // Look up the new name.
-              String newDomainName = "";
-              try {
-                  JSONObject o = new JSONObject(source);
-                  newDomainName = o.getString( "new_domain_name" );
-              } catch(JSONException e) {
-                  return new JsonResource(
-                          new JSONObject().put( "message", "Missing new Local Domain name." ),
-                          HttpServletResponse.SC_BAD_REQUEST );
-              }
-
-              logger.debug( "Rename Local Domain {} to {}.", domainName, newDomainName );
-              configApi.updateLocalDomainName(domainName, newDomainName);
-          } else if (action.equals("change_site")) {
-              // Look up the new site name.
-              String newSiteName = "";
-              try {
-                  JSONObject o = new JSONObject(source);
-                  newSiteName = o.getString( "new_site_name" );
-              } catch(JSONException e) {
-                  return new JsonResource(
-                          new JSONObject().put( "message", "Missing new site name." ),
-                          HttpServletResponse.SC_BAD_REQUEST );
-              }
-
-              logger.debug( "Rename Local Domain {} site to {}.", domainName, newSiteName );
-              configApi.updateLocalDomainSite(domainName, newSiteName);
-          } else if (action.equals("startup")) {
-              logger.debug( "Startup Local Domain {}.", domainName );
-              configApi.startupLocalDomain(domainName);
-          } else if (action.equals("shutdown")) {
-              logger.debug( "Shutdown Local Domain {}.", domainName );
-              configApi.shutdownLocalDomain(domainName);
-          }
-      } catch( Exception e ) {
-          logger.error( "PUT::{}::FAILED::" + e.getMessage(), action, e );
-
-          // allow dispatcher to handle
-          throw e;
-      }
-
-      return new JsonResource(new JSONObject().put("status", "OK"));
-  }
+		switch( domain.getState() ){
+			case DOWN:
+				shutdownDomain( domain );
+				break;
+			case UP:
+				startDomain( domain );
+				break;
+			default:
+				throw new ApiException( "A domain state must be provided.", ErrorCode.BAD_REQUEST );
+		}
+		
+		Domain newDomain = getDomain( domain.getId() );
+		
+		String jsonString = ObjectModelHelper.toJSON( newDomain );
+		
+		return new TextResource( jsonString );
+	}
+	
+	public Domain getDomain( long domainId ) throws ApiException, TException{
+		
+		List<LocalDomain> localDomains = getConfigApi().listLocalDomains( 0 );
+		
+		for ( LocalDomain localDomain : localDomains ){
+			
+			if ( localDomain.getId() == domainId ){
+				
+				Domain domain = ExternalModelConverter.convertToExternalDomain( localDomain );
+				return domain;
+			}
+		}
+		
+		throw new ApiException( "No domain found by ID: " + domainId, ErrorCode.MISSING_RESOURCE );
+	}
+	
+	public void shutdownDomain( Domain domain ) throws ApiException, TException{
+		
+		logger.info( "Shutting down domain: " + domain.getName() );
+		
+		getConfigApi().shutdownLocalDomain( domain.getName() );
+	}
+	
+	public void startDomain( Domain domain ) throws ApiException, TException {
+		
+		logger.info( "Starting domain: " + domain.getName() );
+		
+		getConfigApi().startupLocalDomain( domain.getName() );
+	}
+	
+	private ConfigurationApi getConfigApi(){
+		
+		if ( configApi == null ){
+			configApi = SingletonConfigAPI.instance().api();
+		}
+		
+		return configApi;
+	}
 }
 

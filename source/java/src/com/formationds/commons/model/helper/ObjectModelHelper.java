@@ -5,8 +5,11 @@
 package com.formationds.commons.model.helper;
 
 import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeSettingsBlock;
+import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,38 +39,33 @@ public class ObjectModelHelper {
     /**
      * Implements a GSON Serializer/Deserializer for the v08 VolumeSettings model
      */
-    public static class VolumeSettingsAdapter implements JsonSerializer<VolumeSettings>,
-                                                         JsonDeserializer<VolumeSettings> {
+    public static class VolumeSettingsAdapter implements JsonDeserializer<VolumeSettings>, JsonSerializer<VolumeSettings> {
 
-        private static final String CLASSNAME = "CLASSNAME";
-        private static final String INSTANCE  = "INSTANCE";
 
         @Override
         public JsonElement serialize( VolumeSettings src, Type typeOfSrc,
                                       JsonSerializationContext context ) {
 
-            JsonObject retValue = new JsonObject();
-            String className = src.getClass().getCanonicalName();
-            retValue.addProperty( CLASSNAME, className );
             JsonElement elem = context.serialize( src );
-            retValue.add( INSTANCE, elem );
-            return retValue;
+            return elem;
         }
 
         @Override
         public VolumeSettings deserialize( JsonElement json, Type typeOfT,
                                            JsonDeserializationContext context ) throws JsonParseException {
             JsonObject jsonObject = json.getAsJsonObject();
-            JsonPrimitive prim = (JsonPrimitive) jsonObject.get( CLASSNAME );
-            String className = prim.getAsString();
 
             Class<?> klass = null;
-            try {
-                klass = Class.forName( className );
-            } catch ( ClassNotFoundException e ) {
-                throw new JsonParseException( e.getMessage() );
+            String type = jsonObject.get( "type" ).getAsString();
+            
+            if ( type.equalsIgnoreCase( "BLOCK" ) ){
+            	klass = VolumeSettingsBlock.class;
             }
-            return context.deserialize( jsonObject.get( INSTANCE ), klass );
+            else {
+            	klass = VolumeSettingsObject.class;
+            }
+            
+            return context.deserialize( jsonObject, klass );
         }
     }
 
