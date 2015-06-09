@@ -254,12 +254,18 @@ AmTxManager::getObjects(GetBlobReq* blobReq) {
 }
 
 Error
-AmTxManager::putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, std::vector<boost::shared_ptr<ObjectID>> const& object_ids)
-{
+AmTxManager::putOffsets(fds_volid_t const vol_id,
+                        std::string const& blob_name,
+                        fds_uint64_t const blob_offset,
+                        fds_uint32_t const object_size,
+                        std::vector<boost::shared_ptr<ObjectID>> const& object_ids) {
+    auto iOff = blob_offset;
     for (auto const& obj_id : object_ids) {
-        auto err = amCache->putOffset(volId, blobOff, obj_id);
+        auto blob_pair = BlobOffsetPair(blob_name, iOff);
+        auto err = amCache->putOffset(vol_id, blob_pair, obj_id);
         if (!err.ok())
             { return err; }
+        iOff += object_size;
     }
     return ERR_OK;
 }
