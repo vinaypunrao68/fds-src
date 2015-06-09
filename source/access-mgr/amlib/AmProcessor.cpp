@@ -944,10 +944,13 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
         cb->return_size = std::min(amReq->data_len, vector_size);
 
         // If we have a cache token, we can stash this metadata
-        if (!blobReq->metadata_cached && haveCacheToken(getVolume(amReq, true))) {
-            txMgr->putOffset(amReq->io_vol_id,
-                             BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                             blobReq->object_ids);
+        auto shVol = getVolume(amReq);
+        if (!blobReq->metadata_cached && haveCacheToken(shVol)) {
+            txMgr->putOffsets(amReq->io_vol_id,
+                              amReq->getBlobName(),
+                              amReq->blob_offset,
+                              shVol->voldesc->maxObjSizeInBytes,
+                              blobReq->object_ids);
             if (blobReq->get_metadata) {
                 auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
                 if (cbm->blobDesc)

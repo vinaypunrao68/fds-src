@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <artifactId>company-pom</artifactId>
+    <groupId>com.formationds</groupId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <name>${formationds.project.name} Project POM</name>
+  <artifactId>formationds</artifactId>
+  <version>2015.06.19-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <!-- formationds scoped project properties -->
+  <properties>
+    <formationds.project.name>formationds</formationds.project.name>
+
+    <!-- Sprint -->
+    <sprint.name>Sprint ${sprint.version}</sprint.name>
+    <sprint.start.date>2015-06-08 00:00:00.1 AM</sprint.start.date>
+    <sprint.version>2015.06.19</sprint.version>
+
+    <formationds.thrift.version>1.0</formationds.thrift.version>
+  </properties>
+
+  <modules>
+    <module>formationds-external</module>
+  </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>fds-thrift</artifactId>
+        <version>${formationds.thrift.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+</project>
