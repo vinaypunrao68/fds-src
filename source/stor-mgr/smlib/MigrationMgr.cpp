@@ -754,6 +754,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         // so it needs to be protected
         // migrExecutorLock is taken as upgradable lock, then upgraded when needed
         migrExecutorLock.cond_write_lock();
+        bool rw_lock_upgraded = false;
         auto next = nextExecutor.fetch_and_increment_saturating();
         bool is_end = (next == migrExecutors.end());
         /**
@@ -783,6 +784,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
             if (smTokenInProgress.size() > 0) {
                 LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
+                // I know here it can only be a read lock
                 migrExecutorLock.cond_write_unlock();
                 return;
             }
@@ -813,13 +815,17 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                     // be any.
                     coalesceExecutors();
                     migrExecutorLock.upgrade();
+                    rw_lock_upgraded = true;
                     migrExecutors.clear();
                     // see if clients are also done so we can cleanup
                     checkResyncDoneAndCleanup();
                 }
             }
         }
-        migrExecutorLock.cond_write_unlock();
+        if (rw_lock_upgraded)
+            migrExecutorLock.write_unlock();
+        else
+            migrExecutorLock.cond_write_unlock();
     }
 }
 
@@ -1076,6 +1082,7 @@ MigrationMgr::checkResyncDoneAndCleanup()
         // not resync case
         return;
     }
+    // Matteo: lock ordering between migrExecutorLock and clientLock
     SCOPEDREAD(migrExecutorLock);
     if (migrExecutors.size() == 0) {
         // we are done with executors
