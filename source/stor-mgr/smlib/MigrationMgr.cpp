@@ -245,7 +245,7 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
             // for now, we are failing the whole migration on any error
-            abortMigration(err);
+            abortMigrationForSMToken(retrySmTokenInProgress, err);
         }
     }
 }
@@ -293,7 +293,7 @@ MigrationMgr::startResync(const fds::DLT *dlt,
             numBitsPerDltToken = bitsPerDltToken;
             fds_uint32_t numTokens = pow(2, bitsPerDltToken);
             dltTokenStates.assign(numTokens, false);
-            markDltTokensAvailable(tokens);
+            changeDltTokensAvailability(tokens, true);
         } else {
             resyncMsg->migrations.push_back(grp);
         }
@@ -316,10 +316,12 @@ MigrationMgr::startSmTokenMigration(fds_token_id smToken,
     snapshotRequests[smToken].unique_id = uid;
     snapshotRequests[smToken].retryReq = false;
     Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[smToken]);
+    fiu_do_on("abort.sm.migration.at.start",
+        LOGDEBUG << "fault abort.sm.migration.at.start enabled"; \
+        if (smToken % 2) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
-        // for now, we are failing the whole migration on any error
-        abortMigration(err);
+        abortMigrationForSMToken(smToken, err);
     }
 }
 
@@ -349,10 +351,13 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     }
     LOGMIGRATE << "smTokenMetadataSnapshotCb - current token: " << curSmTokenInProgress;
 
+    fiu_do_on("abort.sm.migration.at.snap.cb",
+        LOGDEBUG << "fault abort.sm.migration.at.snap.cb enabled"; \
+        if (curSmTokenInProgress % 2) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     // on error, we just stop the whole migration process
     if (!error.ok()) {
         LOGERROR << "Failed to get index db snapshot for SM token: " << curSmTokenInProgress;
-        abortMigration(error);
+        abortMigrationForSMToken(curSmTokenInProgress, error);
         return;
     }
 
@@ -386,7 +391,7 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     db->ReleaseSnapshot(options.snapshot);
 
     if (!err.ok()) {
-        abortMigration(err);
+        abortMigrationForSMToken(curSmTokenInProgress, err);
     }
 
     // At this point this SM (destination) sent rebalance set msgs to source SMs
@@ -720,8 +725,8 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         } else {
             // for token migration, we cannot get source SMs from the current
             // commited DLT, because we are migrating for the target DLT
-            // TODO(Anna) need to be able to fail per-token migration instead of abort
-            abortMigration(error);
+            //const TokenList tokens(dltTokens.begin(),dltTokens.end());
+            changeDltTokensAvailability(dltTokens, false);
             return;
         }
     }
@@ -851,7 +856,7 @@ MigrationMgr::startSecondRebalanceRound(fds_token_id smToken)
     }
 
     if (!err.ok()) {
-        abortMigration(err);
+        abortMigrationForSMToken(smToken, err);
     }
 }
 
@@ -1055,23 +1060,24 @@ MigrationMgr::notifyDltUpdate(const DLT *dlt,
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);
         numBitsPerDltToken = bitsPerDltToken;
-        if (dltTokenStates.size() == 0) {
+        if (dltTokenStates.size() == 0  && dlt->getVersion() == 1) {
             // The case where SM starts up and there was no DLT before,
             // so this SM is up and does not resync or migration
             // Initialize DLT tokens that this SM owns to ready
             fds_uint32_t numTokens = pow(2, bitsPerDltToken);
             const TokenList& tokens = dlt->getTokens(mySvcUuid);
             dltTokenStates.assign(numTokens, false);
-            markDltTokensAvailable(tokens);
+            changeDltTokensAvailability(tokens, true);
         }
     }
 }
 
+template<typename T>
 void
-MigrationMgr::markDltTokensAvailable(const TokenList& tokens) {
+MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
     for (auto token : tokens) {
-        dltTokenStates[token] = true;
-        LOGTRACE << "DLT token " << token << " is available";
+        dltTokenStates[token] = availability;
+        LOGTRACE << "DLT token " << token << " availability = " << availability;
     }
 }
 
@@ -1109,6 +1115,18 @@ MigrationMgr::timeoutAbortMigration()
 {
     LOGNOTIFY << "Will abort tokenmigration due to timeout";
     abortMigration(ERR_SM_TOK_MIGRATION_TIMEOUT);
+}
+
+Error
+MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken,const Error &err)
+{
+    LOGNOTIFY <<"Will abort all migrations for SM Token " << smToken;
+    for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
+         cit != migrExecutors[smToken].cend(); ++cit) {
+        //Abort migration for this executor.
+        cit->second->abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
+    }
+    return err;
 }
 
 /**

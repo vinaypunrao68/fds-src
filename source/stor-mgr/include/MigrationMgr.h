@@ -108,6 +108,13 @@ class MigrationMgr {
     Error abortMigration();
 
     /**
+     * Abort migration for a given SM token. Currently
+     * this is used in case of errors seen during
+     * migration on the destination side.
+     */
+    Error abortMigrationForSMToken(fds_token_id &smToken, const Error &err);
+
+    /**
      * Handle a timeout error from executor or client.
      */
     void timeoutAbortMigration();
@@ -325,7 +332,8 @@ class MigrationMgr {
      * Set a given list of DLT tokens to available
      * for data operations.
      */
-    void markDltTokensAvailable(const TokenList& tokens);
+    template<typename T>
+    void changeDltTokensAvailability(const T& tokens, bool availability);
 
     /**
      * If all executors and clients are done, moves migration to IDLE state

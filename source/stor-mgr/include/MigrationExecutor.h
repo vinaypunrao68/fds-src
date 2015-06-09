@@ -146,6 +146,11 @@ class MigrationExecutor {
      */
     void waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid);
 
+    /**
+     * Abort migration for this executor.
+     */
+     void abortMigration(const Error &err);
+
   private:
     /**
      * Callback when apply delta set QoS message execution is completed

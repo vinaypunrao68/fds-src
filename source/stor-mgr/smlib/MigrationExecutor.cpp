@@ -89,6 +89,9 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     Error err(ERR_OK);
     ObjMetaData omd;
 
+    fiu_do_on("abort.sm.migration.at.start.rebalance",
+              LOGDEBUG << "fault abort.sm.migration.at.start.rebalance enabled"; \
+              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
     // If we can't start trakcing IO request, then terminate this request.
@@ -237,6 +240,9 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     Error err(ERR_OK);
     ObjMetaData omd;
 
+    fiu_do_on("abort.sm.migration.at.start.rebalance",
+              LOGDEBUG << "fault abort.sm.migration.at.start.rebalance enabled"; \
+              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
     // If we can't start trakcing IO request, then terminate this request.
@@ -376,7 +382,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // failure handling for migration.
         fiu_do_on("fail.sm.migration.sending.filter.set",
                   LOGDEBUG << "fault fail.sm.migration.sending.filter.set enabled"; \
-                  return ERR_SM_TOK_MIGRATION_ABORTED;);
+                  if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -618,6 +624,9 @@ Error
 MigrationExecutor::startSecondObjectRebalanceRound() {
     Error err(ERR_OK);
 
+    fiu_do_on("abort.sm.migration.at.start.second.rebalance",
+              LOGDEBUG << "fault abort.sm.migration.at.start.second.rebalance enabled"; \
+              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     // send message to source SM to request second delta set
     // just one message containing executor ID
     LOGMIGRATE << "Sending request for second delta set to source SM "
@@ -630,11 +639,21 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // move to the next state before sending the message, in case we get the reply
     // while still in this method
     MigrationExecutorState expectState = ME_SECOND_PHASE_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_SECOND_PHASE_APPLYING_DELTA)) {
-        // this must not happen
-        LOGERROR << "Executor " << std::hex << executorId << std::dec
-                 << ": Unexpected migration executor state " << state;
-        fds_panic("Unexpected migration executor state!");
+    bool stateChanged = std::atomic_compare_exchange_strong(&state,
+                                                            &expectState,
+                                                            ME_SECOND_PHASE_APPLYING_DELTA);
+    if (!stateChanged) {
+        //on error expectState now has the current state of Migration Executor.
+        if (expectState != ME_ERROR) {
+            // this must not happen
+            LOGERROR << "Executor " << std::hex << executorId << std::dec
+                     << ": Unexpected migration executor state " << state;
+            fds_panic("Unexpected migration executor state!");
+        } else {
+            LOGNOTIFY << "Executor " << std::hex << executorId << std::dec
+                      << " is in error state. Do not start it's second phase.";
+            return err;
+        }
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " ME_SECOND_PHASE_REBALANCE_START --> ME_SECOND_PHASE_APPLYING_DELTA state";
@@ -654,7 +673,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // failure handling for migration.
     fiu_do_on("fail.sm.migration.second.rebalance.req",
               LOGDEBUG << "fault fail.sm.migration.second.rebalance.req enabled"; \
-              return ERR_SM_TOK_MIGRATION_ABORTED;);
+              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
 
     return err;
 }
@@ -807,6 +826,11 @@ MigrationExecutor::waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid)
     LOGMIGRATE << "Completed all pending requests: "
                << " tok=" << tok
                << " NodeUuid=" << std::hex << nodeUuid.uuid_get_val() << std::dec;
+}
+
+void
+MigrationExecutor::abortMigration(const Error &err) {
+    return handleMigrationRoundDone(err);
 }
 
 }  // namespace fds
