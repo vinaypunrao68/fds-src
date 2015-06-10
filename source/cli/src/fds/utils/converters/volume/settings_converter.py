@@ -19,7 +19,7 @@ class SettingsConverter(object):
         
         if ( settings.type is "BLOCK" ):
             
-            j_settings["capacity"] = json.loads(SizeConverter.to_json(settings.size))
+            j_settings["capacity"] = json.loads(SizeConverter.to_json(settings.capacity))
             
             if settings.block_size is not None:
                 j_settings["blockSize"] = json.loads(SizeConverter.to_json(settings.block_size))
