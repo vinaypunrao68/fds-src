@@ -71,7 +71,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
     const std::string destDir = nodeRoot + "sys-repo/dm-names/" + getVolIdStr() + "/";
-    const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r " + snapDir +
+    const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r --rsh='ssh -o StrictHostKeyChecking=no' " + snapDir +
             " " + rsyncUser + "@" + destIP + ":" + destDir;
 
     // make local copy of catalog
