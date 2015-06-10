@@ -597,7 +597,6 @@ bool DLT::loadFromFile(std::string filename) {
 }
 
 bool DLT::storeToFile(std::string filename) {
-    LOGNOTIFY << "storing dltmgr to file : " << filename;
     serialize::Serializer *s= serialize::getFileSerializer(filename);
     write(s);
     delete s;

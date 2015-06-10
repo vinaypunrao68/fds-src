@@ -7,12 +7,11 @@
 #include <fds_assert.h>
 #include <fds_process.h>
 #include "platform/platform.h"
+#include <StorMgr.h>
 
 #include <ObjectId.h>
-#include <StorMgr.h>
 #include <boost/program_options.hpp>
 #include <net/SvcMgr.h>
-
 
 #include <SMCheck.h>
 
@@ -434,13 +433,8 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
     // Reset all stats.
     resetStats();
 
-#if THIS_SUCKS
-    // TODO(Sean):
-    // Can't compile with these lines.  It causes compilation error.
-    // So, for now, we are updating (or cloning) closed DLT from SMSvcHandler.
     latestClosedDLT = const_cast<DLT *>(objStorMgr->getDLT());
-    SMCheckUuid = objStorMgr->getUuid();
-#endif
+
     // Get UUID of the SM.
     SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
