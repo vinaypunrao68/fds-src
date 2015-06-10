@@ -8,7 +8,8 @@
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
 #include "fdsp/dm_api_types.h"
-#include <fds_module_provider.h>
+#include <net/SvcMgr.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
@@ -19,8 +20,7 @@ VolumePlacement::VolumePlacement()
           startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex"),
-		  numOfPrimaryDMs(MODULEPROVIDER()->get_fds_config()->
-				  get<fds_uint32_t>("fds.dm.number_of_primary"))
+		  numOfPrimaryDMs(1)
 {
 	bRebalancing = ATOMIC_VAR_INIT(false);
 }
@@ -58,6 +58,8 @@ VolumePlacement::mod_init(SysParams const *const param)
               << ", algorithm " << algo_type_str;
 
     setAlgorithm(type);
+    setNumOfPrimaryDMs(MODULEPROVIDER()->get_fds_config()->
+				  get<int>("fds.dm.number_of_primary"));
 
     return 0;
 }
@@ -150,6 +152,7 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 /**
  * Finds which nodes to send PushMeta message and which volumes
  * to push. Returns a set of uuids of DMs to which PushMeta was sent
+ * TODO(Neil): update the comment above once push is changed to pull.
  */
 Error
 VolumePlacement::beginRebalance(const ClusterMap* cmap,
@@ -203,6 +206,22 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     NodeUuidSet rmNodes = cmap->getRemovedServices(fpi::FDSP_DATA_MGR);
     // List used for sending DMVolumeMigrationGroup
     std::list<fpi::FDSP_VolumeDescType> volDescList;
+    /**
+     * What we have here:
+     * 1. A unordered_map of NewDMs -> CtrlNotifyDMStartMigrationMsgs
+     * 2. Each CtrlNotifyMDStartMsgs contains a list of migrations.
+     * 3. Each migration contains a map of srcNodes -> list of volumes to pull.
+     * The for loop below:
+     * a. Goes through each volume.
+     * b. Finds the new DMs that need to pull this volume.
+     * c. Look through the map of new DMs, appends if it's not in the list.
+     * d. Goes through the NewDM's of ctrlNotifymsgs, finds if a source
+     * 		exists there that matches this volume's DMT primary DM. If so, adds
+     * 		the volume to that list. Otherwise, create a new source-> vol mapping.
+     */
+    using migrateMsgs = fpi::CtrlNotifyDMStartMigrationMsg;
+    using pull_msgs = std::unordered_map<fds_uint64_t, migrateMsgs>;
+    pull_msgs pull_msg;
 
     // for each volume, we will get column from committed and
     // target DMT (getting column is cheap operation, so ok to
@@ -244,9 +263,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // rebalanced, start working on next volume
         if (new_dms.size() == 0) continue;
 
-        // TODO(Neil) : I think this is where the algorithm is going to change from
-        // push to pull
-
         // use the first node in the committed column which is not
         // deleted (primary, or if primary was deleted secondary, etc).
         // TODO(xxx) we may improve performance if we sync from
@@ -258,46 +274,67 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 break;
             }
         }
-        // This is where they do the push from. Will need to change to pull.
+        // TODO(Neil): Above is used for push, remove later.
 
-        fpi::CtrlNotifyDMStartMigrationMsgPtr migrateMsg (new fpi::CtrlNotifyDMStartMigrationMsg());
-        migrateMsg->DMT_version = dmtMgr->getTargetVersion();
-        std::vector<fpi::DMVolumeMigrationGroup> *migrations = &(migrateMsg->migrations);
-        // TODO(Neil): look at PlatformManager::notifyOmAProcessDied for sending this
-        // as a msg.
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
              cit != new_dms.cend();
              ++cit) {
-        	bool grp_found = false;
+
+        	migrateMsgs *srcDMMigrateMsg = nullptr;
+        	/**
+        	 * First go through the existing pull_msg. See if this new DM
+        	 * exists in the map already. If not, create an entry.
+        	 */
+        	pull_msgs::iterator got = pull_msg.find(cit->uuid_get_val());
+        	if (got == pull_msg.end()) {
+        		/**
+        		 * Not found. First DestinationDM instance in map.
+        		 * Store this new (destination) DM UUID as the key,
+        		 * and the actual msg as the value.
+        		 */
+        		srcDMMigrateMsg = new migrateMsgs();
+        		pull_msg[cit->uuid_get_val()] = *srcDMMigrateMsg;
+        		srcDMMigrateMsg->DMT_version = dmtMgr->getTargetVersion();
+        	} else {
+        		srcDMMigrateMsg = &(got->second);
+        	}
 
         	/**
         	 * At this time, the volume descriptor is what the DM doesn't have.
         	 * Look through DM Migration groups to see if any of the source DMs
         	 * contain this volume. If so, add this volume to that list.
         	 * If not, create a new group.
-        	 */
-        	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator grp_iter =
-        			migrations->begin();
-        			grp_iter != migrations->end(); grp_iter++) {
-        		/**
-        		 * If a node in the migration group exists that matches a node
-        		 * in the cmt_col, that means this this current committed node
-        		 * can be a candidate for the dest node to pull from.
-        		 * Do a lookup only from the primary DMs.
-        		 */
-        		fds_verify(cmt_col->getLength() >= getNumOfPrimaryDMs());
-        		for (fds_uint32_t j = 0; j < getNumOfPrimaryDMs(); j++) {
-        			NodeUuid uuid = cmt_col->get(j);
-        			if ((unsigned)(grp_iter->source.svc_uuid) == uuid.uuid_get_val()) {
-        				grp_found = true;
-        				LOGDEBUG << "NEIL DEBUG For volume " << vol_desc.vol_name
-        						<< " found existing group of source " << uuid;
-        				grp_iter->VolDescriptors.push_back(vol_desc);
-        				break;
-        			}
-        		}
-        	} // End for grp_iter
-
+			 * If a node in the migration group exists that matches a node
+			 * in the cmt_col, that means this this current committed node
+			 * can be a candidate for the dest node to pull from.
+			 * Do a lookup only from the primary DMs.
+			 */
+			using MiGrIter = std::vector<fpi::DMVolumeMigrationGroup>::iterator;
+			NodeUuid uuid;
+			bool grp_found = false;
+			for (MiGrIter migrationGrpIter = srcDMMigrateMsg->migrations.begin();
+					migrationGrpIter != srcDMMigrateMsg->migrations.end();
+					migrationGrpIter++) {
+				/**
+				 * Go through this CtrlNotifyDMStartMigrationMsg's migrations
+				 * and see if we can find an existing source to append this volume
+				 * to that source.
+				 */
+				for (fds_uint32_t j = 0; j < getNumOfPrimaryDMs(); j++) {
+					if (j >= cmt_col->getLength()) break;
+					// Go through the commit DMT column to find a primary
+					uuid = cmt_col->get(j);
+					if ((unsigned)migrationGrpIter->source.svc_uuid ==
+							uuid.uuid_get_val()) {
+						grp_found = true;
+						migrationGrpIter->VolDescriptors.push_back(vol_desc);
+						break;
+					}
+				}
+				if (grp_found) {
+					break;
+				}
+			}
         	if (!grp_found) {
         		/**
         		 * Currently, in the migration msg, there's no source node that
@@ -305,13 +342,11 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         		 * as the source to pull from, since primary DM(s) will be the
         		 * only ones that are trustworthy.
         		 */
-        		NodeUuid uuid = cmt_col->get(0);
+        		uuid = cmt_col->get(0);
         		fpi::DMVolumeMigrationGroup newGroup;
         		newGroup.source.svc_uuid = uuid.uuid_get_val();
         		newGroup.VolDescriptors.push_back(vol_desc);
-        		migrations->push_back(newGroup);
-        		LOGDEBUG << "NEIL DEBUG For volume " << vol_desc.vol_name
-        				<< " adding new group of source " << uuid;
+        		srcDMMigrateMsg->migrations.push_back(newGroup);
         	}
         } // End for(NodeUuidSet)
 
@@ -347,6 +382,26 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 ((push_meta_msgs[src_dm])->metaVol).push_back(meta);
             }
         }
+    }
+
+    // Send pull messages to the new DMs
+    for (pull_msgs::iterator pmiter = pull_msg.begin();
+    		pmiter != pull_msg.end(); pmiter++) {
+    	LOGDEBUG << "NEIL DEBUG mock sending message for new DM" << pmiter->first;
+
+    	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
+    	NodeUuid node (pmiter->first);
+
+    	auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    	auto request = svcMgr->newEPSvcRequest(node.toSvcUuid());
+
+    	/**
+    	 * TODO(Neil) Current DM does not have the message type registered yet.
+    	 * DO NOT REMOVE. Comment out once done. And remove any traces of
+    	 * push_msgs.
+    	 */
+    	// request->setPayload (FDSP_MSG_TYPEID (fpi::CtrlNotifyDMStartMigrationMsg), message);
+    	// request->invoke();
     }
 
     // send msgs

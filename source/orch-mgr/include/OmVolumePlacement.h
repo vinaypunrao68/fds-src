@@ -16,6 +16,8 @@
 #include <concurrency/Mutex.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
+#include <fds_module_provider.h>
+#include <fds_process.h>
 
 
 namespace fds {
