@@ -18,20 +18,38 @@ namespace dm {
 DmMigrationHandler::DmMigrationHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
+    if (!dataManager.features.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyDMStartMigrationMsg, handleRequest);
+    }
 }
 
 void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    auto dmReq = new DmIoMigration(FdsDmSysTaskId, message);
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationHandler::handleResponse, asyncHdr, message);
+
+    addToQueue(dmReq);
+
 }
 
 void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
+
 }
 
 void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
+
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    asyncHdr->msg_code = e.GetErrno();
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationMsgTypeId, *message);
+
+    delete dmRequest;
 }
 
 }  // namespace dm
