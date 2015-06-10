@@ -107,7 +107,7 @@
       <properties>
         <!-- thrift properties -->
         <!-- MAKE SURE THE MAC OS VERSION MATCHES OUR BUILT TREE VERSION -->
-        <thrift.binary>/usr/local/bin/thrift</thrift.binary>
+        <thrift.binary>/usr/local/bin/thrift-0.9.0</thrift.binary>
       </properties>
     </profile>
     <profile>

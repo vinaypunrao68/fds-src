@@ -8,7 +8,7 @@ class BlockSettings(VolumeSettings):
     @author: nate
     '''
 
-    def __init__(self, capacity=Size(10, "GB"), block_size=Size(128, "KB")):
+    def __init__(self, capacity=Size(10, "GB"), block_size=None):
         self.type = "BLOCK"
         self.capacity = capacity
         self.block_size = block_size
@@ -32,7 +32,7 @@ class BlockSettings(VolumeSettings):
     @block_size.setter
     def block_size(self, size):
         
-        if not isinstance(size, Size):
+        if size is not None and not isinstance(size, Size):
             raise TypeError()
         
         self.__block_size = size

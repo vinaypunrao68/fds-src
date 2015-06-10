@@ -14,6 +14,11 @@ public class VolumeSettingsBlock extends VolumeSettings {
     private Size blockSize;
 
     public VolumeSettingsBlock() { super(VolumeType.BLOCK); }
+    
+    public VolumeSettingsBlock( Size capacity ) {
+    	this( capacity, null );
+    }
+    
     public VolumeSettingsBlock( long capacity, long blockSize, SizeUnit unit ) {
         this( Size.of( capacity, unit ), Size.of( blockSize, unit ));
     }

@@ -8,7 +8,7 @@ class ObjectSettings(VolumeSettings):
     @author: nate
     '''
 
-    def __init__(self, max_object_size=Size(1, "GB")):
+    def __init__(self, max_object_size=None):
         self.type = "OBJECT"
         self.max_object_size = max_object_size
         
@@ -19,7 +19,7 @@ class ObjectSettings(VolumeSettings):
     @max_object_size.setter
     def max_object_size(self, size):
         
-        if not isinstance(size, Size):
+        if size is not None and not isinstance(size, Size):
             raise TypeError()
         
         self.__max_object_size = size

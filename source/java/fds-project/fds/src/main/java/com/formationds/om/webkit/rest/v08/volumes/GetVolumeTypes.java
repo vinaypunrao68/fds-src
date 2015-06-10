@@ -36,12 +36,9 @@ public class GetVolumeTypes implements RequestHandler{
 			
 			volumeTypes = new ArrayList<>();
 			
-			VolumeSettings blockType = new VolumeSettingsBlock( 
-					new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ), 
-					new Size( BigDecimal.valueOf( 1 ), SizeUnit.KB ) );
+			VolumeSettings blockType = new VolumeSettingsBlock(new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ));
 			
-			VolumeSettings objectType = new VolumeSettingsObject(
-					new Size( BigDecimal.valueOf( 1 ), SizeUnit.GB ) );
+			VolumeSettings objectType = new VolumeSettingsObject();
 			
 			volumeTypes.add( objectType );
 			volumeTypes.add( blockType );
