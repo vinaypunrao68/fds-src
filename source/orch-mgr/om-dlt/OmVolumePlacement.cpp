@@ -150,9 +150,10 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 }
 
 /**
- * Finds which nodes to send PushMeta message and which volumes
- * to push. Returns a set of uuids of DMs to which PushMeta was sent
- * TODO(Neil): update the comment above once push is changed to pull.
+ * Finds the new DMs joining the domain, figure out the source DMs
+ * and the volumes belonging to those source DMs from which the new
+ * DMs can pull.
+ * Returns a set of uuids of DMs to which Pull message was sent
  */
 Error
 VolumePlacement::beginRebalance(const ClusterMap* cmap,
@@ -162,10 +163,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     fds_bool_t expect_rebal = false;
     fds_uint64_t dmt_columns = pow(2, curDmtWidth);
     fds_verify(dm_set != NULL);
-
-    // node to send the push meta msg -> push_meta message
-    typedef std::map<fds_uint64_t, fpi::CtrlDMMigrateMetaPtr> pm_msgs_t;
-    pm_msgs_t push_meta_msgs;
     RsArray vol_ary;
 
     // If we do not have any committed DMT, means that this is
@@ -177,22 +174,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     }
     fds_verify(dmtMgr->hasTargetDMT());
 
-    // find the list of DMT columns whose volumes will be rebalanced
-    // = columns that have at least one different DM uuid.
-    // This is stored as a unordered set of rebalColumns.
-    rebalColumns.clear();
-    for (fds_uint32_t cix = 0; cix < dmt_columns; ++cix) {
-        DmtColumnPtr cmt_col = dmtMgr->getDMT(DMT_COMMITTED)->getNodeGroup(cix);
-        DmtColumnPtr target_col = dmtMgr->getDMT(DMT_TARGET)->getNodeGroup(cix);
-        for (fds_uint32_t j = 0; j < target_col->getLength(); ++j) {
-            NodeUuid uuid = target_col->get(j);
-            if (cmt_col->find(uuid) < 0) {
-                // we have a new DM uuid in this column in target DMT
-                rebalColumns.insert(cix);
-                break;  // at least one, so no need to search remaining in col
-            }
-        }
-    }
     // set rebalancing flag
     if (!std::atomic_compare_exchange_strong(&bRebalancing, &expect_rebal, true)) {
         fds_panic("VolumePlacement must not be in balancing state");
@@ -263,19 +244,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // rebalanced, start working on next volume
         if (new_dms.size() == 0) continue;
 
-        // use the first node in the committed column which is not
-        // deleted (primary, or if primary was deleted secondary, etc).
-        // TODO(xxx) we may improve performance if we sync from
-        // multiple sources (i.e. find > 1 node)
-        fds_uint64_t src_dm;
-        for (fds_uint32_t j = 0; j < cmt_col->getLength(); ++j) {
-            if (rmNodes.count(cmt_col->get(j)) == 0) {
-                src_dm = (cmt_col->get(j)).uuid_get_val();
-                break;
-            }
-        }
-        // TODO(Neil): Above is used for push, remove later.
-
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
              cit != new_dms.cend();
              ++cit) {
@@ -311,6 +279,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 			 */
 			using MiGrIter = std::vector<fpi::DMVolumeMigrationGroup>::iterator;
 			NodeUuid uuid;
+			fds_verify(uuid.uuid_get_val() == 0); // 0 means not found yet.
 			bool grp_found = false;
 			for (MiGrIter migrationGrpIter = srcDMMigrateMsg->migrations.begin();
 					migrationGrpIter != srcDMMigrateMsg->migrations.end();
@@ -324,10 +293,18 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 					if (j >= cmt_col->getLength()) break;
 					// Go through the commit DMT column to find a primary
 					uuid = cmt_col->get(j);
+					if (rmNodes.count(uuid) > 0) {
+						LOGDEBUG << "Node is being removed: " << uuid.uuid_get_val();
+						// This primary is being removed. Look for another primary.
+						continue;
+					}
 					if ((unsigned)migrationGrpIter->source.svc_uuid ==
 							uuid.uuid_get_val()) {
 						grp_found = true;
 						migrationGrpIter->VolDescriptors.push_back(vol_desc);
+						LOGDEBUG << "DM: " << cit->uuid_get_val() << " will pull from: "
+								<< migrationGrpIter->source.svc_uuid << " for volume ("
+								<< vol_desc.volUUID << ") " << vol_desc.vol_name;
 						break;
 					}
 				}
@@ -342,94 +319,57 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         		 * as the source to pull from, since primary DM(s) will be the
         		 * only ones that are trustworthy.
         		 */
-        		uuid = cmt_col->get(0);
-        		fpi::DMVolumeMigrationGroup newGroup;
-        		newGroup.source.svc_uuid = uuid.uuid_get_val();
-        		newGroup.VolDescriptors.push_back(vol_desc);
-        		srcDMMigrateMsg->migrations.push_back(newGroup);
+				for (fds_uint32_t j = 0; j < getNumOfPrimaryDMs(); j++) {
+					if (j >= cmt_col->getLength()) break;
+					// Go through the commit DMT column to find a primary
+					uuid = cmt_col->get(j);
+					if (rmNodes.count(uuid) > 0) {
+						LOGDEBUG << "Node is being removed: " << uuid.uuid_get_val();
+						// This primary is being removed. Look for another primary.
+						continue;
+					}
+					uuid = cmt_col->get(j);
+					fpi::DMVolumeMigrationGroup newGroup;
+					newGroup.source.svc_uuid = uuid.uuid_get_val();
+					newGroup.VolDescriptors.push_back(vol_desc);
+					srcDMMigrateMsg->migrations.push_back(newGroup);
+					LOGDEBUG << "DM: " << cit->uuid_get_val() << " will pull from: "
+							<< newGroup.source.svc_uuid << " for volume ("
+							<< vol_desc.volUUID << ") " << vol_desc.vol_name;
+					grp_found = true;
+					break;
+				}
+        	}
+        	if (!grp_found) {
+        		/**
+        		 * Primaries are all being removed. Unable to rebalance.
+        		 * This is really bad and should be addressed in future error
+        		 * handling cases.
+        		 */
+        		LOGERROR << "Primary DM(s) are being removed in target DMT";
+        		err = ERR_DM_MIGRATION_ABORTED;
+        		return (err);
         	}
         } // End for(NodeUuidSet)
-
-        LOGDEBUG << "We will rsync from " << std::hex << src_dm << std::dec;
-        // we must have at least one node that we can push meta from!
-        fds_verify(src_dm != 0);
-
-        if (push_meta_msgs.count(src_dm) == 0) {
-            fpi::CtrlDMMigrateMetaPtr meta_msg(new fpi::CtrlDMMigrateMeta());
-            push_meta_msgs[src_dm] = meta_msg;
-        }
-        for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
-             cit != new_dms.cend();
-             ++cit) {
-            // search meta list if we already have item with same
-            // destination uuid
-            fds_bool_t found = false;
-            for (fds_uint32_t idx = 0;
-                 idx < ((push_meta_msgs[src_dm])->metaVol).size();
-                 ++idx) {
-                fds_uint64_t uuid_val;
-                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.svc_uuid;
-                if (uuid_val == (*cit).uuid_get_val()) {
-                    ((push_meta_msgs[src_dm])->metaVol)[idx].volList.push_back(volid);
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                fpi::FDSP_metaData meta;
-                meta.node_uuid = (*cit).toSvcUuid();
-                meta.volList.push_back(volid);
-                ((push_meta_msgs[src_dm])->metaVol).push_back(meta);
-            }
-        }
     }
 
     // Send pull messages to the new DMs
     for (pull_msgs::iterator pmiter = pull_msg.begin();
     		pmiter != pull_msg.end(); pmiter++) {
-    	LOGDEBUG << "NEIL DEBUG mock sending message for new DM" << pmiter->first;
-
+    	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
+    	(*dm_set).insert(node);
 
     	auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     	auto request = svcMgr->newEPSvcRequest(node.toSvcUuid());
 
     	/**
-    	 * TODO(Neil) Current DM does not have the message type registered yet.
-    	 * DO NOT REMOVE. Comment out once done. And remove any traces of
-    	 * push_msgs.
+    	 * Awaiting PR 1988 to go in the master.
     	 */
     	// request->setPayload (FDSP_MSG_TYPEID (fpi::CtrlNotifyDMStartMigrationMsg), message);
     	// request->invoke();
     }
-
-    // send msgs
-    for (pm_msgs_t::iterator it = push_meta_msgs.begin();
-         it != push_meta_msgs.end();
-         ++it) {
-        for (auto metavol : (it->second)->metaVol) {
-            std::string volid_str;
-            for (auto vol : metavol.volList) {
-                volid_str.append(std::to_string(vol));
-                volid_str.append(",");
-            }
-            LOGDEBUG << "Src node " << std::hex << it->first << ", Dst node "
-                     << metavol.node_uuid.svc_uuid << std::dec << " volumes " << volid_str;
-        }
-        if (OM_NodeDomainMod::om_in_test_mode()) {
-            LOGDEBUG << "IN TEST MODE: not sending push meta messages";
-            continue;
-        }
-        // send message
-        OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(it->first));
-        fds_verify(agent != NULL);
-        err = agent->om_send_pushmeta(it->second);
-        if (err.ok()) {
-            (*dm_set).insert(it->first);
-        }
-    }
-
     return err;
 }
 
