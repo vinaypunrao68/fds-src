@@ -94,33 +94,28 @@ class NbdResponseVector {
         WRITE = 1
     };
 
-    explicit NbdResponseVector(int64_t hdl, NbdOperation op,
-                               uint64_t off, uint32_t len, uint32_t maxOSize,
-                               uint32_t objCnt)
+    NbdResponseVector(int64_t hdl, NbdOperation op,
+                      uint64_t off, uint32_t len, uint32_t maxOSize,
+                      uint32_t objCnt = 1)
       : handle(hdl), operation(op), doneCount(0), offset(off), length(len),
         maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK) {
-        if (op == READ) {
-            bufVec.resize(objCnt, NULL);
-        } else {
+        if (op != READ) {
             bufVec.resize(2, NULL);
         }
     }
     ~NbdResponseVector() {}
     typedef boost::shared_ptr<NbdResponseVector> shared_ptr;
 
-    fds_bool_t isReady() const {
-        fds_uint32_t doneCnt = doneCount.load();
-        return (doneCnt == objCount);
-    }
     fds_bool_t isRead() const { return (operation == READ); }
     inline fds_int64_t getHandle() const { return handle; }
     inline Error getError() const { return opError; }
     inline fds_uint64_t getOffset() const { return offset; }
     inline fds_uint32_t getLength() const { return length; }
     inline fds_uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
+
     boost::shared_ptr<std::string> getNextReadBuffer(fds_uint32_t& context) {
-        if (context >= objCount) {
-            return NULL;
+        if (context >= bufVec.size()) {
+            return nullptr;
         }
         return bufVec[context++];
     }
@@ -152,9 +147,8 @@ class NbdResponseVector {
     /**
      * \return true if all responses were received or operation error
      */
-    fds_bool_t handleReadResponse(boost::shared_ptr<std::string> retBuf,
+    fds_bool_t handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
                                   fds_uint32_t len,
-                                  fds_uint32_t seqId,
                                   const Error& err);
 
     /**

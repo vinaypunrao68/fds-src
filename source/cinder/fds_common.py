@@ -75,7 +75,7 @@ class FDSServices(object):
             # FIXME: Hack for now
             self.cs.createVolume(domain,
                                  volume['name'],
-                                 VolumeSettings(4096,
+                                 VolumeSettings(131072,
                                                 VolumeType.BLOCK,
                                                 volume['size'] * (1024 ** 3),
                                                 0), # cont Commit Log Retention, wtf?

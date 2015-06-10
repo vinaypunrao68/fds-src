@@ -10,6 +10,7 @@ import os
 import random
 import re
 import requests
+import s3
 import socket
 import shutil
 import struct

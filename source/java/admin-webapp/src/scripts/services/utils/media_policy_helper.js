@@ -21,7 +21,7 @@ angular.module( 'utility-directives' ).factory( '$media_policy_helper', ['$filte
     
     service.getSystemCapabilities = function( callback ){
         
-        $http_fds.get( '/api/config/system/capabilities', function( capabilities ){
+        $http_fds.get( webPrefix + '/capabilities', function( capabilities ){
                 
                 var tieringCapabilities = capabilities.supportedMediaPolicies;
                 service.availablePolicies = [];
@@ -31,14 +31,14 @@ angular.module( 'utility-directives' ).factory( '$media_policy_helper', ['$filte
                     var type = tieringCapabilities[i];
                     
                     switch( type ){
-                        case 'SSD_ONLY':
-                            service.availablePolicies.push( { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_only' ), value: 'SSD_ONLY' } );
+                        case 'SSD':
+                            service.availablePolicies.push( { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_only' ), value: 'SSD' } );
                             break;
-                        case 'HDD_ONLY':
-                            service.availablePolicies.push( { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'HDD_ONLY' } );
+                        case 'HDD':
+                            service.availablePolicies.push( { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'HDD' } );
                             break;
-                        case 'HYBRID_ONLY':
-                            service.availablePolicies.push( { label: $filter( 'translate' )( 'volumes.tiering.l_hybrid' ), value: 'HYBRID_ONLY' } );
+                        case 'HYBRID':
+                            service.availablePolicies.push( { label: $filter( 'translate' )( 'volumes.tiering.l_hybrid' ), value: 'HYBRID' } );
                             break;
                     } // switch
                 }// for

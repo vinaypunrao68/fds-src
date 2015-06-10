@@ -15,7 +15,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
             startPoller();
         }
         
-        return $http_fds.get( '/api/config/volumes',
+        return $http_fds.get( webPrefix + '/volumes',
             function( data ){
                 errCount = 0;
                 api.volumes = data;
@@ -47,8 +47,8 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     api.save = function( volume, callback, failure ){
 
         // save a new one
-        if ( !angular.isDefined( volume.id ) ){
-            return $http_fds.post( '/api/config/volumes', volume,
+        if ( !angular.isDefined( volume.uid ) ){
+            return $http_fds.post( webPrefix + '/volumes', volume,
                 function( response ){
 
                     getVolumes();
@@ -61,7 +61,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         }
         // update an existing one
         else {
-            return $http_fds.put( '/api/config/volumes/' + volume.id, volume, function( volume ){
+            return $http_fds.put( webPrefix + '/volumes/' + volume.uid, volume, function( volume ){
                 
                 if ( angular.isFunction( callback ) ){
                     callback( volume );
@@ -76,14 +76,14 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         
         // the actual volume we try to create should now have an ID yet - but the ID here will be 
         // the original one
-        var id = volume.id;
-        volume.id = '';
+        var id = volume.uid;
+        volume.uid = undefined;
         
         // convert timelineTime from MS to seconds and adding 1 so that it makes sure to get the right snapshot
         var timelineTime = Math.round( volume.timelineTime / 1000 ) + 1;
         volume.timelineTime = timelineTime;
         
-        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name + '/' + volume.timelineTime, volume,
+        return $http_fds.post( webPrefix + '/volumes/' + id + '/time/' + volume.timelineTime, volume,
             function( response ){
 
                 getVolumes();
@@ -95,8 +95,8 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
             failure );
     };
     
-    api.cloneSnapshot = function( volume, callback, failure ){
-        return $http_fds.post( '/api/config/snapshot/clone/' + volume.id + '/' + volume.name, volume,
+    api.cloneSnapshot = function( volume, snapshotId, callback, failure ){
+        return $http_fds.post( webPrefix + '/volumes/' + volume.uid + '/snapshot/' + snapshotId, volume,
             function( response ){
 
                 getVolumes();
@@ -109,7 +109,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
 
     api.delete = function( volume, callback, failure ){
-        return $http_fds.delete( '/api/config/volumes/' + volume.name, 
+        return $http_fds.delete( webPrefix + '/volumes/' + volume.uid, 
             function( result ){
                 getVolumes();
             
@@ -122,16 +122,16 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     
     api.createSnapshot = function( volumeId, newName, callback, failure ){
         
-        return $http_fds.post( '/api/config/volumes/' + volumeId + '/snapshot', {volumeId: volumeId, name: newName, retention: 0}, callback, failure );
+        return $http_fds.post( webPrefix + '/volumes/' + volumeId + '/snapshots', {volumeId: volumeId, name: newName, retention: 0}, callback, failure );
     };
     
     api.deleteSnapshot = function( volumeId, snapshotId, callback, failure ){
-        $http_fds.delete( '/api/config/snapshot/' + volumeId + '/' + snapshotId, callback, failure );
+        $http_fds.delete( webPrefix + '/volumes/' + volumeId + '/snapshots/' + snapshotId, callback, failure );
     };
 
     api.getSnapshots = function( volumeId, callback, failure ){
 
-        return $http_fds.get( '/api/config/volumes/' + volumeId + '/snapshots', callback, failure );
+        return $http_fds.get( webPrefix + '/volumes/' + volumeId + '/snapshots', callback, failure );
     };
 
     api.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
@@ -145,7 +145,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
 //            retentionTime: 3885906383
 //        }];
 
-        return $http_fds.get( '/api/config/volumes/' + volumeId + '/snapshot/policies', callback, failure );
+        return $http_fds.get( webPrefix + '/volumes/' + volumeId + '/snapshot_policies', callback, failure );
     };
 
     api.refresh = function( callback ){
@@ -153,12 +153,12 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
     
     api.getQosPolicyPresets = function( callback, failure ){
-        return $http_fds.get( '/api/config/volumes/presets/qos', callback, failure );
+        return $http_fds.get( webPrefix + '/presets/quality_of_service_policies', callback, failure );
     };
     
-    api.getSnapshotPolicyPresets = function( callback, failure ) {
+    api.getDataProtectionPolicyPresets = function( callback, failure ) {
         
-        return $http_fds.get( '/api/config/volumes/presets/timeline', callback, failure );
+        return $http_fds.get( webPrefix + '/presets/data_protection_policies', callback, failure );
     };
 
     api.volumes = [];

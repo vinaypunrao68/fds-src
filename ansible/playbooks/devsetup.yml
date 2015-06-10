@@ -213,7 +213,7 @@
     - name: install fdscli from Artifactory
       pip: name=fdscli
         state=present
-        extra_args="--index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
+        extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

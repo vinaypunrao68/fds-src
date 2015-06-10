@@ -163,7 +163,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
 void TokenCompactor::snapDoneCb(const Error& error,
                                 SmIoSnapshotObjectDB* snap_req,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB *db)
+                                std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
     ObjMetaData omd;

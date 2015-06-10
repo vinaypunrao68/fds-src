@@ -15,7 +15,7 @@ mockTenant = function(){
 
         service.createTenant = function( tenant, callback, failure ){
 
-            tenant.id = (new Date()).getTime();
+            tenant.id.uuid = (new Date()).getTime();
             service.tenants.push( tenant );
 
             if ( angular.isDefined( callback ) ){
@@ -29,9 +29,13 @@ mockTenant = function(){
 
                 for ( var i = 0; i < users.length; i++ ){
                     
-                    if ( users[i].id === userId ){
+                    if ( users[i].id.uuid === userId ){
 
-                        users[i].tenant = tenant;
+                        users[i].tenantId = {
+                            uuid: tenant.id.uuid,
+                            name: tenant.id.name
+                        };
+                        
                         break;
                     }
                 }
@@ -51,8 +55,8 @@ mockTenant = function(){
             var revoke = function( users ){
                 
                 for ( var i = 0; i < users.length; i++ ){
-                    if ( users[i].identifier === userId ){
-                        users[i].tenant = undefined;
+                    if ( users[i].id.uuid === userId ){
+                        users[i].tenantId = undefined;
                     }
                 }
                 

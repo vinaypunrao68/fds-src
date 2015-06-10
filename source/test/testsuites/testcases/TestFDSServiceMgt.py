@@ -2054,25 +2054,21 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 #It randomly chooses a fault to inject from a given set of faults passed
 #as parameter to the testcase in the system test.
 class TestServiceInjectFault(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, faultNames=None):
+    def __init__(self, parameters=None, node='random_node', service='sm', faultName=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_ServiceInjectFault,
-                                             "Setting fault injection for SM token migration retry")
+                                             self.test_ServiceFaultInjection,
+                                             "Test setting fault injection")
         self.passedNode = node
-        self.passedFaultNames = faultNames.split(' ')
+        self.passedService = service
+        self.passedFaultName = faultName
 
-    def test_ServiceInjectFault(self):
+    def test_ServiceFaultInjection(self):
         """
         Test Case:
-        This testcase sets the fault injection parameter on the source SM before starting of a
-        SM token migration
+        This testcase sets the fault injection parameter on specific service in a node
+        At the moment only random_node is supported
         """
-
-        # We must have all our parameters supplied.
-        if (self.passedNode is None):
-            self.log.error("Parameter missing values.")
-            raise Exception
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
@@ -2081,17 +2077,22 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
                                   fdscfg.rt_om_node.nd_conf_dict['fds_port'])
         svcs = svc_map.list()
 
+        if self.passedNode is not None and self.passedNode != "random_node":
+            self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            passed_node_uuid = self.passedNode.nd_uuid
+
+            # First filter out only services belonging to the specified node
+            # Use a little voodoo to match service UUIDs to the node UUID
+            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
-        sm_uuid = filter(lambda x: 'sm' in x, svcs)[0][0]
+        svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
 
-        '''
-        Randomly choose a fault to inject
-        '''
-        chosenFault = random.choice(self.passedFaultNames)
-        self.log.info("Selected {} as random fault to inject for SM on node {} ".format(chosenFault, self.passedNode))
+        self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
+            self.passedFaultName, self.passedService, self.passedNode))
 
-        res = svc_map.client(sm_uuid).setFault('enable name=' + chosenFault)
+        res = svc_map.client(svc_uuid).setFault('enable name=' + self.passedFaultName)
         if res:
             return True
 

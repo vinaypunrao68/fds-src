@@ -1,5 +1,6 @@
 from abstract_service import AbstractService
-from fds.utils.snapshot_converter import SnapshotConverter
+
+from fds.utils.converters.volume.snapshot_converter import SnapshotConverter
 
 class SnapshotService( AbstractService ):
 

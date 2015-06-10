@@ -56,7 +56,6 @@ class MigrationMgr {
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
 
     typedef std::set<fds_token_id> RetrySmTokenSet;
-
     /**
      * Matches OM state, just for sanity checks that we are getting
      * messages from OM/SMs in the correct state...
@@ -71,6 +70,8 @@ class MigrationMgr {
         MIGR_SM_ADD_NODE,
         MIGR_SM_RESYNC
     };
+
+    const fds_uint8_t MAX_RETRIES_WITH_DIFFERENT_SRCS = 3;
 
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
@@ -217,14 +218,35 @@ class MigrationMgr {
      */
     void coalesceClients();
 
+    /**
+     * Unique restart id that will be used to restart migration
+     * with new source SMs.
+     */
+     fds_uint32_t getUniqueRestartId()
+     { return std::atomic_fetch_add(&uniqRestartId, (fds_uint32_t)1); }
+
   private:
+
+    /**
+     * Create Migration executor for token migration.
+     */
+   MigrationExecutor::unique_ptr createMigrationExecutor(NodeUuid& srcSmUuid,
+                                                         const NodeUuid& mySvcUuid,
+                                                         fds_uint32_t bitsPerDltToken,
+                                                         fds_token_id& smTok,
+                                                         fds_uint64_t& targetDltVersion,
+                                                         MigrationType& migrationType,
+                                                         bool onePhaseMigration,
+                                                         fds_uint32_t uniqueId = 0,
+                                                         fds_uint16_t instanceNum = 1);
     /**
      * Callback function from the metadata snapshot request for a particular SM token
      */
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db, bool retry);
+                                   std::shared_ptr<leveldb::DB> db, bool retry,
+                                   fds_uint32_t uniqueId);
 
     /**
      * Callback for a migration executor that it finished migration
@@ -251,7 +273,7 @@ class MigrationMgr {
     void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
 
     /// enqueues snapshot message to qos
-    void startSmTokenMigration(fds_token_id smToken);
+    void startSmTokenMigration(fds_token_id smToken, fds_uint32_t uid=0);
 
     // send msg to source SM to send second round of delta sets
     void startSecondRebalanceRound(fds_token_id smToken);
@@ -399,6 +421,13 @@ class MigrationMgr {
     SmIoReqHandler *smReqHandler;
 
     /**
+     * Uuid of object Store Manager's for which this migration manager is created.
+     * TODO(Gurpreet): Replace all the places in migration code where we pass mySvcUuid
+     * as parameter and use objStoreMgrUuid instead.
+     */
+    NodeUuid objStoreMgrUuid;
+
+    /**
      * Vector of requests (static). Equals to the number of tokens. 
      * TODO(matteo): it seems I cannot create this dynamically and destroy it
      * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
@@ -422,6 +451,8 @@ class MigrationMgr {
     /// to update this map are serialized, and protected by migrState
     MigrExecutorMap migrExecutors;
 
+    fds_rwlock migrExecutorLock;
+
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_rwlock clientLock;
@@ -437,7 +468,17 @@ class MigrationMgr {
      */
      RetrySmTokenSet retryMigrSmTokenSet;
 
-     // For synchronization between the timer thread and token migration thread.
+    /**
+     * Source SMs which are marked as failed for some executors during migration.
+     * TODO(Gurpreet) Still has to figure out how to mark a SM as failed. It could depend
+     * upon the type of error encountered. If the error seen when this SM was a source
+     * is fatal error(SM is down or something of that severity), it can be marked as
+     * failed. Using this will stop us from choosing failed SMs as newly elected
+     * source. Basically a small optimization.
+     */
+    std::map<NodeUuid, bool> failedSMsAsSource;
+
+    // For synchronization between the timer thread and token migration thread.
      fds_mutex migrSmTokenLock;
 
     /**
@@ -446,6 +487,12 @@ class MigrationMgr {
      * was not ready.
      */
      FdsTimer mTimer;
+
+    /**
+     * Unique ID that will be used to identify what migrations to restart
+     * in case of an election of new source SMs.
+     */
+     std::atomic<fds_uint32_t>  uniqRestartId;
 };
 
 typedef MigrationMgr::MigrationType SMMigrType;

@@ -912,8 +912,6 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     objDeltaSet->seqNum = readDeltaSetReq->seqNum;
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
 
-    // PerfTracer::incr(PerfEventType::SM_READ_OBJ_DELTA_SET_LOOP_SIZE, 0, (readDeltaSetReq->deltaSet).size(), 1);
-
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
         fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;

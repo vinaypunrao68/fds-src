@@ -152,8 +152,9 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         } else {
             asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(am->getProcessor(), shared_from_this());
         }
-        am->getProcessor()->registerVolume(
-            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
+        auto desc = VolumeDesc(*volumeName, 5, 0, 0, 1);
+        desc.maxObjSizeInBytes = 4096;
+        am->getProcessor()->registerVolume(desc);
     }
 
     enum TaskOps {
@@ -320,7 +321,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
                      const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
-                     fds_uint32_t& length) override {
+                     int& length) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -331,7 +332,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void getBlobWithMetaResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
                              const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
-                             fds_uint32_t& length,
+                             int& length,
                              boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override {
         verifyResponse(error);
         if (totalOps == ++opsDone) {

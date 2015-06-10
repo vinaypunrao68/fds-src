@@ -11,7 +11,7 @@ class SnapshotTest(BaseCliTest):
     @author: nate
     '''
         
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName )        
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById )        
     @patch( "fds.services.volume_service.VolumeService.list_snapshots", side_effect=mock_functions.listSnapshots )
     def test_list_snapshots_by_id(self, mockList, mockFind ):
         '''
@@ -34,31 +34,6 @@ class SnapshotTest(BaseCliTest):
         
         print "List snapshots by volume ID was successful."   
         
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName )        
-    @patch( "fds.services.volume_service.VolumeService.list_snapshots", side_effect=mock_functions.listSnapshots )
-    def test_list_snapshots_by_name(self, mockList, mockFind ):
-        '''
-        list the snapshots for a given volume
-        '''
-        
-        print "Trying to list snapshots for a volume"
-        
-        args = ["volume", "list_snapshots", "-volume_name=MyVol"]
-        
-        self.callMessageFormatter(args)
-        self.cli.run( args )
-        
-        volId = mockList.call_args[0][0]
-        name = mockFind.call_args[0][0]
-        
-        assert mockList.call_count == 1
-        assert mockFind.call_count == 1
-        
-        assert volId == 100
-        assert name == "MyVol"
-        
-        print "List snapshots by volume name was successful."
-        
     @patch( "fds.services.volume_service.VolumeService.list_snapshots", side_effect=mock_functions.listSnapshots )        
     def test_list_snapshot_failure(self, mockList):
         '''
@@ -75,18 +50,17 @@ class SnapshotTest(BaseCliTest):
         assert mockList.call_count == 0
         
         print "Failed successfully."
-    
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName )    
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById )
+      
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById )
     @patch( "fds.services.volume_service.VolumeService.list_snapshots", side_effect=mock_functions.listSnapshots )
     @patch( "fds.services.volume_service.VolumeService.create_snapshot", side_effect=mock_functions.createSnapshot)
-    def test_create_snapshots(self, mockCreate, mockList, mockFindId, mockFindName ):
+    def test_create_snapshots(self, mockCreate, mockList, mockFindId ):
         '''
         basic snapshot creation
         '''
         print "Trying to create a snapshot from a volume by volume name"
         
-        args = ["volume", "create_snapshot", "-name=MySnap", "-volume_name=Mine"]
+        args = ["volume", "create_snapshot", "-name=MySnap", "-volume_id=100"]
         
         self.callMessageFormatter(args)
         
@@ -94,19 +68,16 @@ class SnapshotTest(BaseCliTest):
         
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
-        assert mockFindId.call_count == 0
-        assert mockFindName.call_count == 2
+        assert mockFindId.call_count == 1
         
         snapshot = mockCreate.call_args[0][0]
-        name = mockFindName.call_args[0][0]
         
-        assert name == "Mine"
-        assert snapshot.volume_id == 100
+        assert snapshot.volume_id == "100"
         assert snapshot.name == "MySnap"
         
         print "Snapshot created successfully."
         
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById )
+    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById )
     @patch( "fds.services.volume_service.VolumeService.list_snapshots", side_effect=mock_functions.listSnapshots )
     @patch( "fds.services.volume_service.VolumeService.create_snapshot", side_effect=mock_functions.createSnapshot)
     def test_create_snapshots_by_id(self, mockCreate, mockList, mockFind ):

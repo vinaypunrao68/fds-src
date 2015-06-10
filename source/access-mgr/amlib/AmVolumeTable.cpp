@@ -35,7 +35,6 @@ class WaitQueue {
     void remove_if(std::string const&, Cb&&);
     Error delay(AmRequest*);
     bool empty() const;
-    void pop(AmRequest*);
 };
 
 template<typename Cb>
@@ -43,10 +42,11 @@ void WaitQueue::remove_if(std::string const& vol_name, Cb&& cb) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
-        wait_it->second.erase(
-            std::remove_if(wait_it->second.begin(),
-                           wait_it->second.end(),
-                           cb));
+        auto& vol_queue = wait_it->second;
+        auto new_end = std::remove_if(vol_queue.begin(),
+                                      vol_queue.end(),
+                                      std::forward<Cb>(cb));
+        vol_queue.erase(new_end, vol_queue.end());
         if (wait_it->second.empty()) {
             queue.erase(wait_it);
         }
@@ -68,17 +68,6 @@ Error WaitQueue::delay(AmRequest* amReq) {
 bool WaitQueue::empty() const {
     std::lock_guard<std::mutex> l(wait_lock);
     return queue.empty();
-}
-
-void WaitQueue::pop(AmRequest* amReq) {
-    std::lock_guard<std::mutex> l(wait_lock);
-    auto wait_it = queue.find(amReq->volume_name);
-    if (queue.end() != wait_it) {
-        auto& queue = wait_it->second;
-        auto queue_it = std::find(queue.begin(), queue.end(), amReq);
-        if (queue.end() != queue_it)
-        { queue.erase(queue_it); }
-    }
 }
 
 /***** AmVolumeTable methods ******/
@@ -103,10 +92,13 @@ AmVolumeTable::~AmVolumeTable() {
     volume_map.clear();
 }
 
-void AmVolumeTable::registerCallback(tx_callback_type cb) {
+void AmVolumeTable::registerCallback(processor_cb_type cb) {
     /** Create a closure for the QoS Controller to call when it wants to
      * process a request. I just find this cleaner than function pointers. */
-    auto closure = [cb](AmRequest* amReq) mutable -> void { cb(amReq); };
+    auto closure = [cb](AmRequest* amReq) mutable -> void {
+        fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+        cb(amReq);
+    };
     qos_ctrl->runScheduler(std::move(closure));
 }
 
@@ -251,7 +243,7 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
     wait_queue->remove_if(volDesc.name,
                           [] (AmRequest* amReq) {
                               if (amReq->cb)
-                                  amReq->cb->call(FDSN_StatusEntityDoesNotExist);
+                                  amReq->cb->call(ERR_VOL_NOT_FOUND);
                               delete amReq;
                               return true;
                           });
@@ -344,14 +336,6 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
 
 Error
 AmVolumeTable::markIODone(AmRequest* amReq) {
-    if (invalid_vol_id == amReq->io_vol_id) {
-        /**
-         * Must have failed to dispatch attach, expect to find this request in
-         * the wait queue.
-         */
-        wait_queue->pop(amReq);
-        return ERR_OK;
-    }
     return qos_ctrl->markIODone(amReq);
 }
 

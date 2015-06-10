@@ -16,7 +16,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         Test that a snapshot policy edited with the minimal set of data fills in the correct defaults
         '''
         
-        args = ["snapshot_policy", "edit", "-name=MyPolicy", "-policy_id=1"]
+        args = ["snapshot_policy", "edit", "-volume_id=3", "-name=MyPolicy", "-policy_id=1"]
         
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -40,7 +40,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         Test policy edit with command line arguments
         '''
         
-        args = ["snapshot_policy", "edit", "-policy_id=1", "-name=MyPolicy", "-frequency=WEEKLY", "-hour", "3", "12", "-day_of_week", "SU", "WE", "-minute", "15", "30", "45"]
+        args = ["snapshot_policy", "edit", "-volume_id=3", "-policy_id=1", "-name=MyPolicy", "-frequency=WEEKLY", "-hour", "3", "12", "-day_of_week", "SU", "WE", "-minute", "15", "30", "45"]
         
         self.callMessageFormatter(args)
         self.cli.run(args)        
@@ -63,7 +63,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         test policy edit and check the restrictions are being enforced
         '''
         #no id
-        args = [ "snapshot_policy", "edit", "-frequency=DAILY", "-day_of_week", "SU", "MO", "-name=MyPolicy" ]
+        args = [ "snapshot_policy", "edit", "-volume_id=3", "-frequency=DAILY", "-day_of_week", "SU", "MO", "-name=MyPolicy" ]
         
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -84,7 +84,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         assert policy.recurrence_rule.byday is None
         
         #make sure month, day of month and day of year don't make it in a weekly
-        args = ["snapshot_policy", "edit", "-policy_id=1", "-name=MyPolicy", "-frequency=WEEKLY", "-day_of_month", "15", "-day_of_year", "255", "-month", "2", "5", "-day_of_week", "TH"]
+        args = ["snapshot_policy", "edit", "-volume_id=3", "-policy_id=1", "-name=MyPolicy", "-frequency=WEEKLY", "-day_of_month", "15", "-day_of_year", "255", "-month", "2", "5", "-day_of_week", "TH"]
         
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -100,7 +100,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         assert policy.recurrence_rule.byday == ["TH"]
         
         #make sure month and day of the year dont' make it in the monthly
-        args[4] = "-frequency=MONTHLY"
+        args[5] = "-frequency=MONTHLY"
         
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -116,7 +116,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         assert policy.recurrence_rule.byday == ["TH"]
         
         #make sure everything gets in if its yearly
-        args[4] = "-frequency=YEARLY"
+        args[5] = "-frequency=YEARLY"
         
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -138,9 +138,9 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         Try to create a snapshot policy using a JSON string instead of arguments
         '''
         
-        jString = "{\"id\":1,\"name\":\"MyPolicy\",\"retention\":86400,\"timelineTime\":0,\"recurrenceRule\":{\"FREQ\":\"WEEKLY\",\"BYDAY\":[\"SU\"]}}"
+        jString = "{\"uid\":1,\"name\":\"MyPolicy\",\"retentionTime\": {\"seconds\":86400, \"nanos\":0},\"timelineTime\":0,\"recurrenceRule\":{\"FREQ\":\"WEEKLY\",\"BYDAY\":[\"SU\"]}}"
         
-        args = ["snapshot_policy", "edit", "-data=" + jString]
+        args = ["snapshot_policy", "edit", "-volume_id=3", "-data=" + jString]
         self.callMessageFormatter(args)
         self.cli.run(args)
         
@@ -152,7 +152,7 @@ class TestSnapshotPolicyEdit(BaseCliTest):
         assert policy.name == "MyPolicy"
         assert policy.id == 1
         assert policy.recurrence_rule.frequency == "WEEKLY"
-        assert policy.retention == 86400
+        assert policy.retention_time_in_seconds == 86400
         assert policy.timeline_time == 0
         assert policy.recurrence_rule.byday == ["SU"]        
         

@@ -33,6 +33,12 @@ typedef std::function<void (fds_uint64_t executorId,
 
 typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
 
+typedef std::function<void(fds_uint64_t,
+                   fds_uint32_t,
+                   const std::set<fds_uint32_t>&,
+                   fds_uint32_t,
+                   const fds::Error&)> timeoutCbFn;
+
 class MigrationExecutor {
   public:
     MigrationExecutor(SmIoReqHandler *_dataStore,
@@ -47,7 +53,9 @@ class MigrationExecutor {
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
-                      const std::function<void()> &timeoutHandler);
+                      timeoutCbFn timeoutCb,
+                      fds_uint32_t uniqId = 0,
+                      fds_uint16_t instanceNum = 1);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -70,6 +78,13 @@ class MigrationExecutor {
     inline MigrationExecutorState getState() const {
         return std::atomic_load(&state);
     }
+    inline fds_uint16_t getInstanceNum() const {
+        return instanceNum;
+    }
+    inline fds_uint32_t getUniqueId() const {
+        return uniqueId;
+    }
+
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
         if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
             return true;
@@ -110,7 +125,7 @@ class MigrationExecutor {
      * destination SM.
      */
     Error startObjectRebalance(leveldb::ReadOptions& options,
-                               leveldb::DB *db);
+                               std::shared_ptr<leveldb::DB> db);
 
     Error startSecondObjectRebalanceRound();
 
@@ -120,7 +135,7 @@ class MigrationExecutor {
      * not ready to become source.
      */
     Error startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                    leveldb::DB *db);
+                                    std::shared_ptr<leveldb::DB> db);
     /**
      * Handles message from Source SM to apply delta set to this SM
      */
@@ -169,6 +184,12 @@ class MigrationExecutor {
     /// Id of this executor, used for communicating with source SM
     fds_uint64_t executorId;
 
+    /**
+     * For a given SM token, the instance number of executor
+     * created to migrate token data.
+     */
+    fds_uint16_t instanceNum;
+
     /// state of this migration executor
     std::atomic<MigrationExecutorState> state;
 
@@ -187,6 +208,13 @@ class MigrationExecutor {
      * Source SM id
      */
     NodeUuid sourceSmUuid;
+
+    /**
+     * Unique id for the executor. This will be used to identify
+     * migration executors for which to restart migration from a
+     * new source SM.
+     */
+     fds_uint32_t uniqueId;
 
     /**
      * Migration Type: Is it a add new SM node or a SM resync?
@@ -221,6 +249,17 @@ class MigrationExecutor {
      * from source SM has a unique sequence number.
      */
     MigrationDoubleSeqNum seqNumDeltaSet;
+
+    /**
+     * Callback for the seqNumDeltaSet timeout
+     */
+    void handleTimeout();
+
+    /**
+     * Callback for the timeout handler
+     */
+
+   timeoutCbFn timeoutCb;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from
