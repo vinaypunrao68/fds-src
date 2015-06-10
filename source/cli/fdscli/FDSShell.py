@@ -65,13 +65,14 @@ class FDSShell( cmd.Cmd ):
 
         mydir = os.path.dirname( os.path.abspath( __file__ ) )
         modules = pkgutil.iter_modules([os.path.join( mydir, "plugins" )] )
+        sys.path.append(mydir)
         
         for loader, mod_name, ispkg in modules:
             
             if ( mod_name == "abstract_plugin" ):
                 continue
             
-            loadedModule = __import__( "fds.plugins." + mod_name, fromlist=[mod_name] )
+            loadedModule = __import__( "plugins." + mod_name, globals=globals(), fromlist=[mod_name] )
 
             clazzName = self.formatClassName( mod_name )
             clazz = getattr( loadedModule, clazzName )

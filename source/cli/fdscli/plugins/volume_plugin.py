@@ -1,18 +1,18 @@
-from fds.services import volume_service
-from fds.services import response_writer
-from fds.model.volume.volume import Volume
-from fds.model.volume.snapshot import Snapshot
-from fds.utils.converters.volume.volume_converter import VolumeConverter
+from services import volume_service
+from services import response_writer
+from model.volume.volume import Volume
+from model.volume.snapshot import Snapshot
+from utils.converters.volume.volume_converter import VolumeConverter
 from abstract_plugin import AbstractPlugin
 import json
 import time
-from fds.utils.volume_validator import VolumeValidator
-from fds.utils.converters.volume.snapshot_converter import SnapshotConverter
-from fds.services.snapshot_policy_service import SnapshotPolicyService
-from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
-from fds.model.volume.settings.block_settings import BlockSettings
-from fds.model.common.size import Size
-from fds.model.volume.settings.object_settings import ObjectSettings
+from utils.volume_validator import VolumeValidator
+from utils.converters.volume.snapshot_converter import SnapshotConverter
+from services.snapshot_policy_service import SnapshotPolicyService
+from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from model.volume.settings.block_settings import BlockSettings
+from model.common.size import Size
+from model.volume.settings.object_settings import ObjectSettings
 
 class VolumePlugin( AbstractPlugin):
     '''

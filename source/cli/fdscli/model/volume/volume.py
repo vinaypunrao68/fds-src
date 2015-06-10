@@ -1,10 +1,10 @@
-from fds.model.volume.qos_policy import QosPolicy
-from fds.model.volume.data_protection_policy import DataProtectionPolicy
-from fds.model.volume.settings.object_settings import ObjectSettings
-from fds.model.volume.volume_status import VolumeStatus
-from fds.model.volume.settings.volume_settings import VolumeSettings
-from fds.model.base_model import BaseModel
-from fds.model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
+from model.volume.qos_policy import QosPolicy
+from model.volume.data_protection_policy import DataProtectionPolicy
+from model.volume.settings.object_settings import ObjectSettings
+from model.volume.volume_status import VolumeStatus
+from model.volume.settings.volume_settings import VolumeSettings
+from model.base_model import BaseModel
+from model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
 
 class Volume( BaseModel ):
     '''

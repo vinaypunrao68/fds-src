@@ -1,4 +1,4 @@
-from fds.model.platform.address import Address
+from model.platform.address import Address
 import json
 class AddressConverter(object):
     '''

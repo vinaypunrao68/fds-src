@@ -1,11 +1,11 @@
 from abstract_plugin import AbstractPlugin
 
-from fds.services.tenant_service import TenantService
+from services.tenant_service import TenantService
 import json
-from fds.utils.converters.admin.tenant_converter import TenantConverter
-from fds.services.response_writer import ResponseWriter
-from fds.utils.converters.admin.user_converter import UserConverter
-from fds.model.admin.tenant import Tenant
+from utils.converters.admin.tenant_converter import TenantConverter
+from services.response_writer import ResponseWriter
+from utils.converters.admin.user_converter import UserConverter
+from model.admin.tenant import Tenant
 
 class TenantPlugin( AbstractPlugin):
     '''

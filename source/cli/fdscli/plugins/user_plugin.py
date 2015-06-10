@@ -1,11 +1,12 @@
 from abstract_plugin import AbstractPlugin
 import getpass
 
-from fds.services.users_service import UsersService
-from fds.utils.converters.admin.user_converter import UserConverter
+from services.users_service import UsersService
+from utils.converters.admin.user_converter import UserConverter
 import json
-from fds.services.response_writer import ResponseWriter
-from fds.model.admin.user import User
+from services.response_writer import ResponseWriter
+from collections import OrderedDict
+from model.admin.user import User
 
 class UserPlugin(AbstractPlugin):    
     '''

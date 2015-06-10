@@ -1,4 +1,4 @@
-from fds.model.fds_id import FdsId
+from model.fds_id import FdsId
 import json
 
 class FdsIdConverter(object):

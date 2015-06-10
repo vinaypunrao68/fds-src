@@ -1,17 +1,17 @@
 from base_cli_test import BaseCliTest
 
-from fds.model.volume.volume import Volume
-from fds.model.platform.node import Node
-from fds.model.platform.service import Service
-from fds.model.volume.snapshot import Snapshot
-from fds.model.volume.snapshot_policy import SnapshotPolicy
-from fds.model.platform.domain import Domain
+from model.volume.volume import Volume
+from model.platform.node import Node
+from model.platform.service import Service
+from model.volume.snapshot import Snapshot
+from model.volume.snapshot_policy import SnapshotPolicy
+from model.platform.domain import Domain
 import time
-from fds.services.response_writer import ResponseWriter
-from fds.model.volume.recurrence_rule import RecurrenceRule
-from fds.model.platform.address import Address
-from fds.model.admin.tenant import Tenant
-from fds.model.platform.service_status import ServiceStatus
+from services.response_writer import ResponseWriter
+from model.volume.recurrence_rule import RecurrenceRule
+from model.platform.address import Address
+from model.admin.tenant import Tenant
+from model.platform.service_status import ServiceStatus
 
 class TestResponseWriterPrep(BaseCliTest):
     '''

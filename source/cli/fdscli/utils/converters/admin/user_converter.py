@@ -1,8 +1,8 @@
-from fds.model.admin.user import User
+from model.admin.user import User
 import json
-from fds.utils.converters.fds_id_converter import FdsIdConverter
-from fds.utils.converters.admin.role_converter import RoleConverter
-from fds.utils.converters.admin.tenant_converter import TenantConverter
+from utils.converters.fds_id_converter import FdsIdConverter
+from utils.converters.admin.role_converter import RoleConverter
+from utils.converters.admin.tenant_converter import TenantConverter
 
 class UserConverter(object):
     '''

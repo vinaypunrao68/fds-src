@@ -1,6 +1,6 @@
 import json
-from fds.model.volume.snapshot_policy import SnapshotPolicy
-from fds.utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
+from model.volume.snapshot_policy import SnapshotPolicy
+from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
 
 class SnapshotPolicyConverter():
     '''

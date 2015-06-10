@@ -1,7 +1,7 @@
 import json
-from fds.model.platform.node import Node
-from fds.utils.converters.platform.service_converter import ServiceConverter
-from fds.utils.converters.platform.address_converter import AddressConverter
+from model.platform.node import Node
+from utils.converters.platform.service_converter import ServiceConverter
+from utils.converters.platform.address_converter import AddressConverter
 
 class NodeConverter():
     '''

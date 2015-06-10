@@ -8,7 +8,7 @@ import json
 import time
 from collections import OrderedDict
 
-from fds.utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
+from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
 
 class ResponseWriter():
     

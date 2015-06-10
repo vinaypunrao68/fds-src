@@ -1,4 +1,4 @@
-from fds.model.admin.tenant import Tenant
+from model.admin.tenant import Tenant
 import json
 
 class TenantConverter(object):

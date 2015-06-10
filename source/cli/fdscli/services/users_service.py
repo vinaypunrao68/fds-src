@@ -1,6 +1,6 @@
 from abstract_service import AbstractService
 
-from fds.utils.converters.admin.user_converter import UserConverter
+from utils.converters.admin.user_converter import UserConverter
 
 class UsersService( AbstractService ):
     '''

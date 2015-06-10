@@ -1,5 +1,5 @@
-from fds.model.platform.address import Address
-from fds.model.base_model import BaseModel
+from model.platform.address import Address
+from model.base_model import BaseModel
 
 class Node(BaseModel):
     '''

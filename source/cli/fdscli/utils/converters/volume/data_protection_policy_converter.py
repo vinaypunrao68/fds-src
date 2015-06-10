@@ -1,6 +1,6 @@
-from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
 import json
-from fds.model.volume.data_protection_policy import DataProtectionPolicy
+from model.volume.data_protection_policy import DataProtectionPolicy
 
 class DataProtectionPolicyConverter(object):
     '''

@@ -1,9 +1,9 @@
 from abstract_service import AbstractService
 
-from fds.utils.converters.platform.node_converter import NodeConverter
-from fds.utils.converters.platform.service_converter import ServiceConverter
-from fds.model.platform.node import Node
-from fds.model.platform.service import Service
+from utils.converters.platform.node_converter import NodeConverter
+from utils.converters.platform.service_converter import ServiceConverter
+from model.platform.node import Node
+from model.platform.service import Service
 
 class NodeService( AbstractService ):
     '''

@@ -1,7 +1,7 @@
 import json
-from fds.model.volume.settings.block_settings import BlockSettings
-from fds.utils.converters.common.size_converter import SizeConverter
-from fds.model.volume.settings.object_settings import ObjectSettings
+from model.volume.settings.block_settings import BlockSettings
+from utils.converters.common.size_converter import SizeConverter
+from model.volume.settings.object_settings import ObjectSettings
 
 class SettingsConverter(object):
     '''

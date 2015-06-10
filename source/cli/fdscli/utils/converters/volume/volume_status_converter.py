@@ -1,6 +1,6 @@
-from fds.utils.converters.common.size_converter import SizeConverter
+from utils.converters.common.size_converter import SizeConverter
 import json
-from fds.model.volume.volume_status import VolumeStatus
+from model.volume.volume_status import VolumeStatus
 
 class VolumeStatusConverter(object):
     '''

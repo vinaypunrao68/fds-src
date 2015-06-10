@@ -1,5 +1,5 @@
-from fds.model.volume.recurrence_rule import RecurrenceRule
-from fds.model.base_model import BaseModel
+from model.volume.recurrence_rule import RecurrenceRule
+from model.base_model import BaseModel
 
 class SnapshotPolicy(BaseModel):
     '''

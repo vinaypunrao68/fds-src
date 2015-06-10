@@ -3,7 +3,7 @@ Created on Apr 9, 2015
 
 @author: nate
 '''
-from fds.services.fds_auth import FdsAuth
+from services.fds_auth import FdsAuth
 
 class MockFdsAuth(FdsAuth):
     

@@ -1,6 +1,6 @@
-from fds.plugins.abstract_plugin import AbstractPlugin
-from fds.services.volume_service import VolumeService
-from fds.services.response_writer import ResponseWriter
+from plugins.abstract_plugin import AbstractPlugin
+from services.volume_service import VolumeService
+from services.response_writer import ResponseWriter
 from collections import OrderedDict
 
 class PresetPlugin(AbstractPlugin):

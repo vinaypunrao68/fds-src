@@ -1,7 +1,7 @@
 from abstract_service import AbstractService
 
-from fds.utils.converters.admin.tenant_converter import TenantConverter
-from fds.utils.converters.admin.user_converter import UserConverter
+from utils.converters.admin.tenant_converter import TenantConverter
+from utils.converters.admin.user_converter import UserConverter
 
 class TenantService( AbstractService):
     '''

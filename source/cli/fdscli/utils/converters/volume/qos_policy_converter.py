@@ -1,5 +1,5 @@
 import json
-from fds.model.volume.qos_policy import QosPolicy
+from model.volume.qos_policy import QosPolicy
 class QosPolicyConverter(object):
     '''
     Created on Jun 1, 2015

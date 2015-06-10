@@ -1,13 +1,13 @@
 import json
 
-from fds.model.volume.snapshot_policy import SnapshotPolicy
-from fds.model.volume.recurrence_rule import RecurrenceRule
-from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
-from fds.utils.snapshot_policy_validator import SnapshotPolicyValidator
-from fds.utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
-from fds.services.snapshot_policy_service import SnapshotPolicyService
-from fds.services.response_writer import ResponseWriter
-from fds.plugins.abstract_plugin import AbstractPlugin
+from model.volume.snapshot_policy import SnapshotPolicy
+from model.volume.recurrence_rule import RecurrenceRule
+from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from utils.snapshot_policy_validator import SnapshotPolicyValidator
+from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
+from services.snapshot_policy_service import SnapshotPolicyService
+from services.response_writer import ResponseWriter
+from plugins.abstract_plugin import AbstractPlugin
 
 
 class SnapshotPolicyPlugin( AbstractPlugin):

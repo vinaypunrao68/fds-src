@@ -1,6 +1,6 @@
 from abstract_service import AbstractService
 
-from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
 
 class SnapshotPolicyService( AbstractService ):
     '''

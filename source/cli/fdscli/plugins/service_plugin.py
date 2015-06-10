@@ -1,9 +1,9 @@
 from abstract_plugin import AbstractPlugin
 
-from fds.services.node_service import NodeService
-from fds.utils.converters.platform.node_converter import NodeConverter
-from fds.services.response_writer import ResponseWriter
-from fds.model.platform.service import Service
+from services.node_service import NodeService
+from utils.converters.platform.node_converter import NodeConverter
+from services.response_writer import ResponseWriter
+from model.platform.service import Service
 
 import json
 

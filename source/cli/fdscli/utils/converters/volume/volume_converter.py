@@ -1,10 +1,10 @@
 import json
-from fds.model.volume.volume import Volume
-from fds.utils.converters.volume.qos_policy_converter import QosPolicyConverter
-from fds.utils.converters.volume.settings_converter import SettingsConverter
-from fds.utils.converters.volume.volume_status_converter import VolumeStatusConverter
-from fds.utils.converters.volume.data_protection_policy_converter import DataProtectionPolicyConverter
-from fds.utils.converters.admin.tenant_converter import TenantConverter
+from model.volume.volume import Volume
+from utils.converters.volume.qos_policy_converter import QosPolicyConverter
+from utils.converters.volume.settings_converter import SettingsConverter
+from utils.converters.volume.volume_status_converter import VolumeStatusConverter
+from utils.converters.volume.data_protection_policy_converter import DataProtectionPolicyConverter
+from utils.converters.admin.tenant_converter import TenantConverter
 
 class VolumeConverter( object ):
     '''

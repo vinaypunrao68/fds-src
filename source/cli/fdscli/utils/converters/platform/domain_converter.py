@@ -1,5 +1,5 @@
 import json
-from fds.model.platform.domain import Domain
+from model.platform.domain import Domain
 
 class DomainConverter():
     '''

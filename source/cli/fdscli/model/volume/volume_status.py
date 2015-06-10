@@ -1,4 +1,4 @@
-from fds.model.common.size import Size
+from model.common.size import Size
 
 class VolumeStatus(object):
     '''

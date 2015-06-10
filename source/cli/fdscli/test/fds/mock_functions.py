@@ -1,14 +1,14 @@
-from fds.model.volume.volume import Volume
-from fds.model.volume.snapshot import Snapshot
-from fds.model.platform.node import Node
-from fds.model.platform.service import Service
-from fds.model.platform.domain import Domain
-from fds.model.volume.snapshot_policy import SnapshotPolicy
-from fds.model.volume.qos_preset import QosPreset
-from fds.model.admin.user import User
-from fds.model.admin.tenant import Tenant
-from fds.model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
-from fds.model.platform.address import Address
+from model.volume.volume import Volume
+from model.volume.snapshot import Snapshot
+from model.platform.node import Node
+from model.platform.service import Service
+from model.platform.domain import Domain
+from model.volume.snapshot_policy import SnapshotPolicy
+from model.volume.qos_preset import QosPreset
+from model.admin.user import User
+from model.admin.tenant import Tenant
+from model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
+from model.platform.address import Address
 
 '''
 Created on Apr 22, 2015

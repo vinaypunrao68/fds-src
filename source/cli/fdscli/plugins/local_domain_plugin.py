@@ -1,7 +1,7 @@
 from abstract_plugin import AbstractPlugin
-from fds.services.local_domain_service import LocalDomainService
-from fds.services.response_writer import ResponseWriter
-from fds.utils.converters.platform.domain_converter import DomainConverter
+from services.local_domain_service import LocalDomainService
+from services.response_writer import ResponseWriter
+from utils.converters.platform.domain_converter import DomainConverter
 
 import json
 

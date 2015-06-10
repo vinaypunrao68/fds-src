@@ -1,6 +1,6 @@
-from fds.model.volume.qos_preset import QosPreset
-from fds.model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
-from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from model.volume.qos_preset import QosPreset
+from model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
+from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
 import json
 
 class PresetConverter(object):

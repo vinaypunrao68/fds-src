@@ -1,5 +1,5 @@
-from fds.model.platform.service_status import ServiceStatus
-from fds.model.base_model import BaseModel
+from model.platform.service_status import ServiceStatus
+from model.base_model import BaseModel
 
 class Service(BaseModel):
     '''
