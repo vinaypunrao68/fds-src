@@ -9,8 +9,8 @@ class TestSnapshotPolicyCreate(BaseCliTest):
     @author: nate
     '''
     
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
     def test_policy_create_defaults(self, mockCreate, mockList):
         '''
         Test that a snapshot policy created with the minimal set of data fills in the correct defaults
@@ -32,8 +32,8 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert policy.recurrence_rule.byhour == [0]
         assert policy.recurrence_rule.byminute == [0]
         
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
     def test_policy_create(self, mockCreate, mockList):
         '''
         Test policy creation with command line arguments
@@ -57,8 +57,8 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert policy.recurrence_rule.byminute == [15,30,45]
         assert policy.recurrence_rule.byday == ["SU", "WE" ]
         
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
     def test_policy_create_restrictions(self, mockCreate, mockList):  
         '''
         test policy creation and check the restrictions are being enforced
@@ -132,8 +132,8 @@ class TestSnapshotPolicyCreate(BaseCliTest):
         assert policy.recurrence_rule.bymonthday == [15]
         assert policy.recurrence_rule.byday == ["TH"]  
         
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.create_snapshot_policy", side_effect=mock_functions.createSnapshotPolicy)
     def test_policy_create_data(self, mockCreate, mockList):
         '''
         Try to create a snapshot policy using a JSON string instead of arguments

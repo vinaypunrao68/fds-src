@@ -9,8 +9,8 @@ class TestServices(BaseCliTest):
     
     @author: nate
     '''
-    @patch( "fds.services.node_service.NodeService.start_service", side_effect=mock_functions.startService)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.start_service", side_effect=mock_functions.startService)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_start_service(self, mockList, mockStart):
         '''
         Test trying to start a specific service
@@ -45,8 +45,8 @@ class TestServices(BaseCliTest):
         assert node_id == "21ABC"
         assert service_id == "1"
         
-    @patch( "fds.services.node_service.NodeService.stop_service", side_effect=mock_functions.stopService)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.stop_service", side_effect=mock_functions.stopService)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_stop_service(self, mockList, mockStop):
         '''
         Test trying to start a specific service
@@ -81,8 +81,8 @@ class TestServices(BaseCliTest):
         assert node_id == "21ABC"
         assert service_id == "1"   
         
-    @patch( "fds.services.node_service.NodeService.remove_service", side_effect=mock_functions.removeService)        
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.remove_service", side_effect=mock_functions.removeService)        
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_remove_service(self, mockList, mockRemove):
         '''
         Test the removal of a specific service
@@ -114,8 +114,8 @@ class TestServices(BaseCliTest):
         assert node_id == "21ABC"
         assert service_id == "1"
         
-    @patch( "fds.services.node_service.NodeService.add_service", side_effect=mock_functions.addService)        
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.node_service.NodeService.add_service", side_effect=mock_functions.addService)        
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_add_service(self, mockList, mockAdd):
         '''
         Test the removal of a specific service
@@ -176,8 +176,8 @@ class TestServices(BaseCliTest):
         assert service.type == "SM"
         assert service.name == "SM"
 
-    @patch( "fds.services.response_writer.ResponseWriter.writeJson", side_effect=mock_functions.writeJson)
-    @patch( "fds.services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
+    @patch( "services.response_writer.ResponseWriter.writeJson", side_effect=mock_functions.writeJson)
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
     def test_list_services(self, mockList, mockWriteJson):
         '''
         Test the list services functionality.  This one is a little more intense because

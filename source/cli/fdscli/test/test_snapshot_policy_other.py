@@ -9,8 +9,8 @@ class TestSnapshotPolicyOther(BaseCliTest):
     @author: nate
     ''' 
 
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
-    @patch( "fds.services.snapshot_policy_service.SnapshotPolicyService.delete_snapshot_policy", side_effect=mock_functions.deleteSnapshotPolicy )
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.list_snapshot_policies", side_effect=mock_functions.listSnapshotPolicies)
+    @patch( "services.snapshot_policy_service.SnapshotPolicyService.delete_snapshot_policy", side_effect=mock_functions.deleteSnapshotPolicy )
     def test_delete_snapshot_policy(self, mockDelete, mockList):            
         '''
         Test the deletion of a snapshot policy

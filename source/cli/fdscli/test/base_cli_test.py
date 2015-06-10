@@ -1,6 +1,12 @@
 import unittest
+import os
+import sys
+
+here = os.path.dirname( os.path.abspath( __file__ ) )
+sys.path.append( os.path.abspath( os.path.join( here, ".." ) ) )
+
 from mock_auth import MockFdsAuth
-from fds import fdscli
+from FDSShell import FDSShell
 
 class BaseCliTest( unittest.TestCase ):
     '''
@@ -19,7 +25,7 @@ class BaseCliTest( unittest.TestCase ):
         auth = MockFdsAuth()
         auth.login()
         self.__auth = auth
-        self.__cli = fdscli.FDSShell( auth ) 
+        self.__cli = FDSShell( auth ) 
         print "Done with setup\n\n"
         
     def callMessageFormatter(self, args):

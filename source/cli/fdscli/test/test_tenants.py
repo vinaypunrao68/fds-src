@@ -9,7 +9,7 @@ class TestTenants(BaseCliTest):
     @author: nate
     '''
 
-    @patch( "fds.services.tenant_service.TenantService.list_tenants", side_effect=mock_functions.listTenants)
+    @patch( "services.tenant_service.TenantService.list_tenants", side_effect=mock_functions.listTenants)
     def test_list_tenants(self, mockList):
         '''
         Make sure we're calling list correctly
@@ -21,8 +21,8 @@ class TestTenants(BaseCliTest):
         
         assert mockList.call_count == 1
     
-    @patch( "fds.services.tenant_service.TenantService.list_tenants", side_effect=mock_functions.listTenants)
-    @patch( "fds.services.tenant_service.TenantService.create_tenant", side_effect=mock_functions.createTenant)
+    @patch( "services.tenant_service.TenantService.list_tenants", side_effect=mock_functions.listTenants)
+    @patch( "services.tenant_service.TenantService.create_tenant", side_effect=mock_functions.createTenant)
     def test_create_tenant(self, mockCreate, mockList):
         '''
         Make sure we're calling the tenant creation correctly
@@ -46,8 +46,8 @@ class TestTenants(BaseCliTest):
         tenant = mockCreate.call_args[0][0]
         assert tenant.name == "Awesome"
         
-    @patch( "fds.services.tenant_service.TenantService.list_users_for_tenant", side_effect=mock_functions.listUsers)
-    @patch( "fds.services.tenant_service.TenantService.assign_user_to_tenant", side_effect=mock_functions.assignUser)
+    @patch( "services.tenant_service.TenantService.list_users_for_tenant", side_effect=mock_functions.listUsers)
+    @patch( "services.tenant_service.TenantService.assign_user_to_tenant", side_effect=mock_functions.assignUser)
     def test_assign_user(self, mockAssign, mockList):
         '''
         Test that the assign function is called properly
@@ -81,8 +81,8 @@ class TestTenants(BaseCliTest):
         assert tenant_id == "1"
         assert user_id == "2"
         
-    @patch( "fds.services.tenant_service.TenantService.list_users_for_tenant", side_effect=mock_functions.listUsers)
-    @patch( "fds.services.tenant_service.TenantService.remove_user_from_tenant", side_effect=mock_functions.removeUser)        
+    @patch( "services.tenant_service.TenantService.list_users_for_tenant", side_effect=mock_functions.listUsers)
+    @patch( "services.tenant_service.TenantService.remove_user_from_tenant", side_effect=mock_functions.removeUser)        
     def test_remove_user(self, mockRemove, mockList):
         '''
         Test that we are calling the remove function properly

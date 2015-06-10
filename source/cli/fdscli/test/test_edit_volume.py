@@ -12,9 +12,9 @@ class VolumeEditTest( BaseCliTest ):
     
     @author: nate
     '''
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
-    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)    
-    @patch( "fds.services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)
+    @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)    
+    @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
     def test_edit_by_name_by_args(self, mockEdit, mockFindByName, mockList ):
         '''
         Testing a basic volume edit with argument data
@@ -43,9 +43,9 @@ class VolumeEditTest( BaseCliTest ):
         
         print "Edit volume by name was successful.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)         
-    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)         
+    @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
+    @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
     def test_edit_by_id_by_args(self, mockEdit, mockFindById, mockList ):
         '''
         Testing a basic volume edit by ID with argument data
@@ -74,9 +74,9 @@ class VolumeEditTest( BaseCliTest ):
         
         print "Edit volume by ID was successful.\n\n"    
         
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)         
-    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
-    @patch( "fds.services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)         
+    @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
+    @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
     def test_edit_by_data(self, mockEdit, mockFindById, mockList ):
         '''
         Testing a basic volume edit with JSON data
@@ -111,8 +111,8 @@ class VolumeEditTest( BaseCliTest ):
         
         print "Edit volume by JSON string was successful.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
-    @patch( "fds.services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
+    @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
+    @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
     def test_edit_by_data_and_id(self, mockEdit, mockGet ):
         '''
         Test that it fails if you include data and an ID or Name
@@ -136,8 +136,8 @@ class VolumeEditTest( BaseCliTest ):
         
         print "Edit volume by JSON string and ID successfully failed.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
-    @patch( "fds.services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume) 
+    @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
+    @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume) 
     def test_edit_boundaries(self, mockEdit, mockGet):
         '''
         Testing that all the boundary conditions are enforce

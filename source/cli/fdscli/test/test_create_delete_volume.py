@@ -12,7 +12,7 @@ class VolumeTest1( BaseCliTest ):
     This test class handles listing volumes and creating/deleting volumes
     '''
     
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     def test_listVolumes(self, mockService ):
         
         args = ["volume", "list", "-format=json"]
@@ -27,8 +27,8 @@ class VolumeTest1( BaseCliTest ):
         
         print "test_listVolumes passed.\n\n"
         
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
     def test_deleteVolume_by_id(self, mockDelete, listCall ):
         
         args = ["volume", "delete", "-volume_id=3" ]
@@ -46,8 +46,8 @@ class VolumeTest1( BaseCliTest ):
         assert v_id == "3"
 
 
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
     def test_create_with_defaults(self, volumeCreateMethod, listCall):
 
         args = ["volume", "create", "-name=Franklin"]
@@ -73,8 +73,8 @@ class VolumeTest1( BaseCliTest ):
         
         print "test_create_with_defaults passed.\n\n"
 
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
     def test_create_with_args(self, volumeCreate, listCall):
          
         args = ["volume", "create", "-name=Franklin2", "-priority=1", "-iops_min=30", "-iops_max=30", "-continuous_protection=86400",
@@ -100,8 +100,8 @@ class VolumeTest1( BaseCliTest ):
          
         print "test_create_with_args passed.\n\n"  
         
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )        
-    @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )        
+    @patch( "services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
     def test_create_boundary_checking(self, volumeCreate, listCall ):
         
         args = ["volume", "create", "-name=Franklin2", "-priority=11", "-iops_min=30", "-iops_max=30", "-continuous_protection=86400",
