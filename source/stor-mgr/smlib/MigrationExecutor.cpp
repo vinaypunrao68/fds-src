@@ -440,7 +440,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
-                    handleMigrationRoundDone(error);
+                handleMigrationRoundDone(error);
         }
     }
 }
@@ -725,9 +725,9 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             // we just finished first round and started second round
         }
     } else {
-        MigrationExecutorState newState = ME_DONE_WITH_ERROR;
+        MigrationExecutorState newState = ME_ERROR;
         roundNum = migrationRound();
-        if (std::atomic_exchange(&state, newState) == ME_DONE_WITH_ERROR) {
+        if (std::atomic_exchange(&state, newState) == ME_ERROR) {
             /**
              * Ignore handling of migration round because migration executor
              * is already in error state. Error handling would have been done

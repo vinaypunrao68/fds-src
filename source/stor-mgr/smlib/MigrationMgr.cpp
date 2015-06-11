@@ -1131,14 +1131,19 @@ MigrationMgr::timeoutAbortMigration()
     abortMigration(ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
+/**
+ * Abort migration for a given SM token.
+ * Currently this is called when any error is seen on destination
+ * of SM migration.
+ */
 Error
 MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken, const Error &err)
 {
-    LOGNOTIFY <<"Will abort all migrations for SM Token " << smToken;
+    LOGNOTIFY <<"Aborting migrations for SM Token " << smToken;
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
          cit != migrExecutors[smToken].cend(); ++cit) {
         bool isFirstRound = !(cit->second->migrationRound() == 2);
-        cit->second->abortMigration();
+        cit->second->abortMigration(err);
         changeDltTokensAvailability(cit->second->getTokens(), false);
         startNextSMTokenMigration(smToken, isFirstRound);
     }
