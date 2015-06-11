@@ -33,7 +33,7 @@ enum EventCategory {
   VOLUMES,
   STORAGE,
   SYSTEM,
-  PERFOMRANCE;
+  PERFORMANCE;
 }
 
 union MessageArgs {
