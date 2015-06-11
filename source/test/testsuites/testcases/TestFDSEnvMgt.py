@@ -885,12 +885,12 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         return True
 
 class TestModifyPlatformConf(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, current_string=None, replace_string=None, node=None):
+    def __init__(self, parameters=None, node=None, **kwargs):
         '''
         Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
         :param parameters: Params filled in by .ini file
-        :current_string: String in platform.conf to repalce e.g. authentication=true
-        :replace_string: String to replace current_string with. e.g. authentication=false
+        :current*: String in platform.conf to repalce e.g. authentication=true
+        :replace*: String to replace current_string with. e.g. authentication=false
         :node: FDS node
         '''
 
@@ -899,17 +899,28 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
                                              self.test_TestModifyPlatformConf,
                                              "Modify Platform.conf")
 
-        self.current_string = current_string
-        self.replace_string = replace_string
+        self.replace = []
+        for key, value in kwargs.iteritems():
+            if key.startswith('current'):
+                replace_key = 'replace' + key[7:]
+                replace_value = kwargs.get(replace_key, None)
+                if replace_value == None:
+                    err = 'no replacement value found for [{}:{}]'.format(key, value)
+                    self.log.error(err)
+                    raise Exception(err)
+                self.replace.append((value, replace_value))
         self.passedNode = node
 
     def test_TestModifyPlatformConf(self):
 
         def doit(node):
             plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+            errcode = 0
+            for mods in self.replace:
+                errcode += node.nd_agent.exec_wait(
+                    'sed -ir "s/{}/{}/g" {}'.format(mods[0], mods[1], plat_file))
 
-            return node.nd_agent.exec_wait(
-                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file))
+            return errcode
 
         fdscfg = self.parameters['fdscfg']
         status = []

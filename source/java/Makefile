@@ -17,17 +17,15 @@ include $(topdir)/Makefile.incl
 compile:
 	@echo "Building Java components"
 
-	@mvn clean install -f pom.xml
+	@mvn clean install -f pom.xml -Dosdep.target=$(osdep_target)
 
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
 
-	@cp -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/bin/* $(main_dir_bin)
-	@chmod 775 $(main_dir_bin)/*
-	@cp -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/tools/* $(main_dir_tools)
-	@chmod 775 $(main_dir_tools)/*
-	@cp -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/lib/java/* $(comm_dir_lib)/java
-	@cp -r formationds-project/formationds-external/formationds-ext-dist/target/formationds-ext-dist-*/formationds-ext-dist-*/lib/java/* $(comm_dir_lib)/java
+	@cp -p -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/bin/* $(main_dir_bin)
+	@cp -p -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/tools/* $(main_dir_tools)
+	@cp -p -r fds-project/fds-dist/target/fds-dist-1.0/fds-dist-1.0/lib/java/* $(comm_dir_lib)/java
+	@cp -p -r formationds-project/formationds-external/formationds-ext-dist/target/formationds-ext-dist-*/formationds-ext-dist-*/lib/java/* $(comm_dir_lib)/java
 
 ifndef SKIP_UI_BUILD
 	@rm -rf $(comm_dir_lib)/admin-webapp

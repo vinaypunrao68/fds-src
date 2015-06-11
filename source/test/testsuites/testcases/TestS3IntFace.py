@@ -1011,6 +1011,11 @@ class TestGets(TestCase.FDSTestCase):
             try:
                 value = s3.bucket1.get_key(key).get_contents_as_string()
                 valuehash = hash(value)
+                if self.dataset in self.parameters["s3"].verifiers and key not in self.parameters["s3"].verifiers[self.dataset]:
+                    # key hash is missing .. will get the hash
+                    expectedvalue = Helper.genData(self.size,n)
+                    self.parameters["s3"].verifiers[self.dataset][key] = hash(expectedvalue)
+
                 if self.dataset in self.parameters["s3"].verifiers and key in self.parameters["s3"].verifiers[self.dataset]:
                     if self.parameters["s3"].verifiers[self.dataset][key] != valuehash:
                         self.log.error('hash mismatch for key {} : {} '.format(n, key))
