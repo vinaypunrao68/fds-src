@@ -115,6 +115,12 @@ class MigrationMgr {
     Error abortMigrationForSMToken(fds_token_id &smToken, const Error &err);
 
     /**
+     * Start migration for the next executor or if none found
+     * move on to the next phase.
+     */
+    void startNextSMTokenMigration(fds_token_id &smToken, bool isFirstRound);
+
+    /**
      * Handle a timeout error from executor or client.
      */
     void timeoutAbortMigration();
@@ -231,6 +237,12 @@ class MigrationMgr {
      */
      fds_uint32_t getUniqueRestartId()
      { return std::atomic_fetch_add(&uniqRestartId, (fds_uint32_t)1); }
+
+    /**
+     * Check if all the Migration Executors for a given sm token
+     * are is error state.
+     */
+     bool allExecutorsInErrorState(const fds_token_id &sm_token);
 
   private:
 

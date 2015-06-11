@@ -53,18 +53,9 @@ MigrationExecutor::~MigrationExecutor()
 }
 
 void MigrationExecutor::handleTimeout() {
-
-    int round = 0;
-
-    if (this->state.load() == ME_FIRST_PHASE_APPLYING_DELTA ||
-        this->state.load() == ME_FIRST_PHASE_REBALANCE_START) {
-        round = 1;
-    } else if (this->state.load() == ME_SECOND_PHASE_APPLYING_DELTA ||
-               this->state.load() == ME_SECOND_PHASE_REBALANCE_START) {
-        round = 2;
-    }
-
-    this->timeoutCb(this->executorId, this->smTokenId, this->dltTokens, round, ERR_SM_TOK_MIGRATION_TIMEOUT);
+    this->timeoutCb(this->executorId, this->smTokenId,
+                    this->dltTokens, migrationRound(),
+                    ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
 void
@@ -89,9 +80,6 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     Error err(ERR_OK);
     ObjMetaData omd;
 
-    fiu_do_on("abort.sm.migration.at.start.rebalance",
-              LOGDEBUG << "fault abort.sm.migration.at.start.rebalance enabled"; \
-              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
     // If we can't start trakcing IO request, then terminate this request.
@@ -240,9 +228,6 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     Error err(ERR_OK);
     ObjMetaData omd;
 
-    fiu_do_on("abort.sm.migration.at.start.rebalance",
-              LOGDEBUG << "fault abort.sm.migration.at.start.rebalance enabled"; \
-              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
     // If we can't start trakcing IO request, then terminate this request.
@@ -382,7 +367,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // failure handling for migration.
         fiu_do_on("fail.sm.migration.sending.filter.set",
                   LOGDEBUG << "fault fail.sm.migration.sending.filter.set enabled"; \
-                  if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
+                  if (executorId % 20 == 0) { trackIOReqs.finishTrackIOReqs(); \
+                                              return ERR_SM_TOK_MIGRATION_ABORTED;});
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -624,9 +610,6 @@ Error
 MigrationExecutor::startSecondObjectRebalanceRound() {
     Error err(ERR_OK);
 
-    fiu_do_on("abort.sm.migration.at.start.second.rebalance",
-              LOGDEBUG << "fault abort.sm.migration.at.start.second.rebalance enabled"; \
-              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
     // send message to source SM to request second delta set
     // just one message containing executor ID
     LOGMIGRATE << "Sending request for second delta set to source SM "
@@ -643,8 +626,8 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                                                             &expectState,
                                                             ME_SECOND_PHASE_APPLYING_DELTA);
     if (!stateChanged) {
-        //on error expectState now has the current state of Migration Executor.
-        if (expectState != ME_ERROR) {
+        //On error, expectState now has the current state of Migration Executor.
+        if (expectState != ME_ERROR && expectState != ME_DONE_WITH_ERROR) {
             // this must not happen
             LOGERROR << "Executor " << std::hex << executorId << std::dec
                      << ": Unexpected migration executor state " << state;
@@ -652,6 +635,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
         } else {
             LOGNOTIFY << "Executor " << std::hex << executorId << std::dec
                       << " is in error state. Do not start it's second phase.";
+            handleMigrationRoundDone(ERR_SM_TOK_MIGRATION_ABORTED);
             return err;
         }
     }
@@ -673,7 +657,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // failure handling for migration.
     fiu_do_on("fail.sm.migration.second.rebalance.req",
               LOGDEBUG << "fault fail.sm.migration.second.rebalance.req enabled"; \
-              if (executorId % 2) return ERR_SM_TOK_MIGRATION_ABORTED;);
+              if (executorId % 20 == 0) return ERR_SM_TOK_MIGRATION_ABORTED;);
 
     return err;
 }
@@ -741,13 +725,14 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             // we just finished first round and started second round
         }
     } else {
-        MigrationExecutorState newState = ME_ERROR;
-        if (std::atomic_exchange(&state, newState) == ME_ERROR) {
+        MigrationExecutorState newState = ME_DONE_WITH_ERROR;
+        roundNum = migrationRound();
+        if (std::atomic_exchange(&state, newState) == ME_DONE_WITH_ERROR) {
             /**
              * Ignore handling of migration round because migration executor
              * is already in error state. Error handling would have been done
              * the first time this executor saw an error and it's state was set
-             * to ME_ERROR.
+             * to ME_DONE_WITH_ERROR.
              */
             return;
         }
@@ -830,7 +815,10 @@ MigrationExecutor::waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid)
 
 void
 MigrationExecutor::abortMigration(const Error &err) {
-    return handleMigrationRoundDone(err);
+    setDoneWithError();
+    if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
+        sendFinishResyncToClient();
+    }
 }
 
 }  // namespace fds

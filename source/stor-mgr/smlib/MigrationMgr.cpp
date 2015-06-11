@@ -309,16 +309,19 @@ MigrationMgr::startResync(const fds::DLT *dlt,
 void
 MigrationMgr::startSmTokenMigration(fds_token_id smToken,
                                     fds_uint32_t uid) {
+    Error err(ERR_OK);
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
     snapshotRequests[smToken].token_id = smToken;
     snapshotRequests[smToken].unique_id = uid;
     snapshotRequests[smToken].retryReq = false;
-    Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[smToken]);
     fiu_do_on("abort.sm.migration.at.start",
-        LOGDEBUG << "fault abort.sm.migration.at.start enabled"; \
-        if (smToken % 2) err = ERR_SM_TOK_MIGRATION_ABORTED;);
+        LOGDEBUG << "fault abort.sm.migration.at.start enabled for SM token " << smToken; \
+        if (smToken % 20 == 0) err = ERR_SM_TOK_MIGRATION_ABORTED;);
+    if (err.ok()) {
+        err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[smToken]);
+    }
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
         abortMigrationForSMToken(smToken, err);
@@ -353,9 +356,9 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
 
     fiu_do_on("abort.sm.migration.at.snap.cb",
         LOGDEBUG << "fault abort.sm.migration.at.snap.cb enabled"; \
-        if (curSmTokenInProgress % 2) err = ERR_SM_TOK_MIGRATION_ABORTED;);
+        if (curSmTokenInProgress % 20 == 0) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     // on error, we just stop the whole migration process
-    if (!error.ok()) {
+    if (!error.ok() || !err.ok()) {
         LOGERROR << "Failed to get index db snapshot for SM token: " << curSmTokenInProgress;
         abortMigrationForSMToken(curSmTokenInProgress, error);
         return;
@@ -727,7 +730,6 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // commited DLT, because we are migrating for the target DLT
             //const TokenList tokens(dltTokens.begin(),dltTokens.end());
             changeDltTokensAvailability(dltTokens, false);
-            return;
         }
     }
 
@@ -752,79 +754,77 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     // migrate next SM token or we are done
     if (finished) {
         // If I'm here I have migrated a token, need to find the next token to migrate
-
-        // Matteo: migrExecutorLock is nested with smTokenInProgressMutex, 
-        // please be consistent with the ordering
-        // fetch_and_increment_saturating uses a reference to migrExecutors, 
-        // so it needs to be protected
-        // migrExecutorLock is taken as upgradable lock, then upgraded when needed
-        migrExecutorLock.cond_write_lock();
-        bool rw_lock_upgraded = false;
-        auto next = nextExecutor.fetch_and_increment_saturating();
-        bool is_end = (next == migrExecutors.end());
-        /**
-         * Erase the smToken whose executor received this callback.
-         * TODO:(Gurpreet) Currently for parallel migrations we
-         * are assuming a single executor-per smToken because
-         * # of SM tokens = # of DLT tokens. Parallel migration
-         * logic should be revisited when the above assumption
-         * changes.
-         */
-        LOGMIGRATE << "Erase " << smToken
-                   << " and fetch next executor";
         FDSGUARD(smTokenInProgressMutex);
-        smTokenInProgress.erase(smToken);
-        if (!is_end) {
-            // we have more SM tokens to migrate
-            if (isFirstRound || resyncOnRestart) {
-                smTokenInProgress.insert(next->first);
-                LOGMIGRATE << "call startSmTokenMigration for " << next->first;
-                startSmTokenMigration(next->first);
-            } else {
-                // coming in here during second phase when calling the ExecutorDone callback
+        startNextSMTokenMigration(smToken, isFirstRound);
+    }
+}
+
+void
+MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
+                                        bool isFirstRound) {
+    /**
+     * Erase the smToken whose executor received this callback.
+     * TODO:(Gurpreet) Currently for parallel migrations we
+     * are assuming a single executor-per smToken because
+     * # of SM tokens = # of DLT tokens. Parallel migration
+     * logic should be revisited when the above assumption
+     * changes.
+     */
+    LOGMIGRATE << "Erase " << smToken
+               << " and fetch next executor for first round? " << isFirstRound;
+    smTokenInProgress.erase(smToken);
+    auto next = nextExecutor.fetch_and_increment_saturating();
+    if (next != migrExecutors.end()) {
+        // we have more SM tokens to migrate
+        if (isFirstRound || resyncOnRestart) {
+            smTokenInProgress.insert(next->first);
+            LOGMIGRATE << "call startSmTokenMigration for " << next->first;
+            startSmTokenMigration(next->first);
+        } else {
+            // coming in here during second phase when calling the ExecutorDone callback
+            LOGMIGRATE << "starting second round for " << (next->first);
+            if (!allExecutorsInErrorState(next->first)) {
                 smTokenInProgress.insert(next->first);
                 startSecondRebalanceRound(next->first);
             }
-        } else {
-            LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
-            if (smTokenInProgress.size() > 0) {
-                LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
-                // I know here it can only be a read lock
-                migrExecutorLock.cond_write_unlock();
-                return;
-            }
-            if (isFirstRound && !resyncOnRestart) {
-                // --> start of second round
-                // --> incrememnt counter / marker of second round
-                PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
-                LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
-                LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
-                nextExecutor.set(migrExecutors.begin());
-                for (uint32_t issued = 0; issued < parallelMigration; ++issued) {
-                        auto next = nextExecutor.fetch_and_increment_saturating();
-                        if (next == migrExecutors.cend()) {
-                            break;
-                        }
+        }
+    } else {
+        LOGMIGRATE << "done migrating first phase - smTokenInProgress.size()=" << smTokenInProgress.size();
+        if (smTokenInProgress.size() > 0) {
+            LOGMIGRATE << "Executor(s) still active from first phase. Don't start second phase";
+            return;
+        }
+        if (isFirstRound && !resyncOnRestart) {
+            // --> start of second round
+            // --> incrememnt counter / marker of second round
+            PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
+            LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
+            LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
+            nextExecutor.set(migrExecutors.begin());
+            for (uint32_t issued = 0; issued < parallelMigration; ++issued) {
+                    auto next = nextExecutor.fetch_and_increment_saturating();
+                    if (next == migrExecutors.cend()) {
+                        break;
+                    }
+                    if (!allExecutorsInErrorState(next->first)) {
                         smTokenInProgress.insert(next->first);
                         startSecondRebalanceRound(next->first);
-                }
-            } else {
-                // done with second round -- all done
-                if (omStartMigrCb) {
-                    omStartMigrCb(ERR_OK);
-                    omStartMigrCb = NULL;  // we replied, so reset
-                }
-                if (resyncOnRestart) {
-                    // done with executors.  First check if there is any pending migration
-                    // requests before clearing executors.  At this point, there shouldn't
-                    // be any.
-                    coalesceExecutors();
-                    migrExecutorLock.upgrade();
-                    rw_lock_upgraded = true;
-                    migrExecutors.clear();
-                    // see if clients are also done so we can cleanup
-                    checkResyncDoneAndCleanup();
-                }
+                    }
+            }
+        } else {
+            // done with second round -- all done
+            if (omStartMigrCb) {
+                omStartMigrCb(ERR_OK);
+                omStartMigrCb = NULL;  // we replied, so reset
+            }
+            if (resyncOnRestart) {
+                // done with executors.  First check if there is any pending migration
+                // requests before clearing executors.  At this point, there shouldn't
+                // be any.
+                coalesceExecutors();
+                migrExecutors.clear();
+                // see if clients are also done so we can cleanup
+                checkResyncDoneAndCleanup();
             }
         }
         if (rw_lock_upgraded)
@@ -832,6 +832,18 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         else
             migrExecutorLock.cond_write_unlock();
     }
+}
+
+bool
+MigrationMgr::allExecutorsInErrorState(const fds_token_id &smToken) {
+    for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
+         cit != migrExecutors[smToken].cend();
+         ++cit) {
+         if (!cit->second->inErrorState()) {
+            return false;
+         }
+    }
+    return true;
 }
 
 void
@@ -846,12 +858,14 @@ MigrationMgr::startSecondRebalanceRound(fds_token_id smToken)
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
          cit != migrExecutors[smToken].cend();
          ++cit) {
-        err = cit->second->startSecondObjectRebalanceRound();
-        if (!err.ok()) {
-            LOGERROR << "Failed to start second round of object rebalance for SM token "
-                     << smToken << ", source SM " << std::hex
-                     << (cit->first).uuid_get_val() << std::dec << " " << err;
-            break;  // we are going to abort migration
+        if (!cit->second->inErrorState()) {
+            err = cit->second->startSecondObjectRebalanceRound();
+            if (!err.ok()) {
+                LOGERROR << "Failed to start second round of object rebalance for SM token "
+                         << smToken << ", source SM " << std::hex
+                         << (cit->first).uuid_get_val() << std::dec << " " << err;
+                break;  // we are going to abort migration
+            }
         }
     }
 
@@ -1118,13 +1132,15 @@ MigrationMgr::timeoutAbortMigration()
 }
 
 Error
-MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken,const Error &err)
+MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken, const Error &err)
 {
     LOGNOTIFY <<"Will abort all migrations for SM Token " << smToken;
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
          cit != migrExecutors[smToken].cend(); ++cit) {
-        //Abort migration for this executor.
-        cit->second->abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
+        bool isFirstRound = !(cit->second->migrationRound() == 2);
+        cit->second->abortMigration();
+        changeDltTokensAvailability(cit->second->getTokens(), false);
+        startNextSMTokenMigration(smToken, isFirstRound);
     }
     return err;
 }
