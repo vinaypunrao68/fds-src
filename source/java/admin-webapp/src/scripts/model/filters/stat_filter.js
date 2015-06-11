@@ -23,7 +23,7 @@ var StatQueryFilter = {
         
         if ( angular.isDefined( contextList ) && 
             contextList.length > 0 &&
-            angular.isDefined( contextList[0].id ) ){
+            angular.isDefined( contextList[0].uid ) ){
             
             val.contexts = contextList;
         }

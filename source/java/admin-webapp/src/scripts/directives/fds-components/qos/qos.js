@@ -18,7 +18,7 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
 
             var rationalizeWithPresets = function(){
                 
-                if ( !angular.isDefined( $scope.qos ) || !angular.isDefined( $scope.qos.sla ) ){
+                if ( !angular.isDefined( $scope.qos ) || !angular.isDefined( $scope.qos.iopsMin ) ){
                     $scope.qos = $scope.presets[1];
                     return;
                 }
@@ -30,8 +30,8 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                     var preset = $scope.presets[i];
                     
                     if ( $scope.qos.priority === preset.priority &&
-                        $scope.qos.sla === preset.sla &&
-                        $scope.qos.limit === preset.limit ){
+                        $scope.qos.iopsMin === preset.iopsMin &&
+                        $scope.qos.iopsMax === preset.iopsMax ){
 
                         $scope.qosPreset = preset;
                     }

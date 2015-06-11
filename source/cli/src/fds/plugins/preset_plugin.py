@@ -78,7 +78,7 @@ class PresetPlugin(AbstractPlugin):
         
         #not qos means we want timeline included
         if args[AbstractPlugin.type_str] != "qos":
-            timeline_presets = self.get_volume_service().get_timeline_presets()
+            timeline_presets = self.get_volume_service().get_data_protection_presets()
             
         # not timeline means we want qos policies included
         if args[AbstractPlugin.type_str] != "timeline":

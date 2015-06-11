@@ -27,10 +27,11 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      MigrationExecutorDoneHandler doneHandler,
                                      FdsTimerPtr& timeoutTimer,
                                      uint32_t timeoutDuration,
-                                     const std::function<void()>& timeoutHandler,
+                                     timeoutCbFn timeoutCb,
                                      fds_uint32_t uid,
                                      fds_uint16_t iNum)
-        : executorId(executorID),
+        : timeoutCb(timeoutCb),
+          executorId(executorID),
           migrDoneHandler(doneHandler),
           migrFailedRetryHandler(failedRetryHandler),
           dataStore(_dataStore),
@@ -40,7 +41,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           targetDltVersion(targetDltVer),
           migrationType(migrType),
           onePhaseMigration(resync),
-          seqNumDeltaSet(timeoutTimer, timeoutDuration, timeoutHandler),
+          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this)),
           uniqueId(uid),
           instanceNum(iNum)
 {
@@ -49,6 +50,21 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
 
 MigrationExecutor::~MigrationExecutor()
 {
+}
+
+void MigrationExecutor::handleTimeout() {
+
+    int round = 0;
+
+    if (this->state.load() == ME_FIRST_PHASE_APPLYING_DELTA ||
+        this->state.load() == ME_FIRST_PHASE_REBALANCE_START) {
+        round = 1;
+    } else if (this->state.load() == ME_SECOND_PHASE_APPLYING_DELTA ||
+               this->state.load() == ME_SECOND_PHASE_REBALANCE_START) {
+        round = 2;
+    }
+
+    this->timeoutCb(this->executorId, this->smTokenId, this->dltTokens, round, ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
 void
@@ -68,7 +84,7 @@ MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
 // migration executors
 Error
 MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                             leveldb::DB *db)
+                                             std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
     ObjMetaData omd;
@@ -214,7 +230,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 // migration executors
 Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
-                                        leveldb::DB *db)
+                                        std::shared_ptr<leveldb::DB> db)
 {
     LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec
                << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId;

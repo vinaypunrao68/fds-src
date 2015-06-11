@@ -1,10 +1,12 @@
 from abstract_plugin import AbstractPlugin
 import getpass
+
 from fds.services.users_service import UsersService
-from fds.utils.user_converter import UserConverter
+from fds.utils.converters.admin.user_converter import UserConverter
 import json
 from fds.services.response_writer import ResponseWriter
 from collections import OrderedDict
+from fds.model.admin.user import User
 
 class UserPlugin(AbstractPlugin):    
     '''
@@ -46,7 +48,6 @@ class UserPlugin(AbstractPlugin):
         if self.session.is_allowed( "USER_MGMT" ):
             self.create_create_user_parser( self.__subparser )
             self.create_list_users_parser( self.__subparser )
-            self.create_user_token_parser( self.__subparser )
             self.create_reissue_parser( self.__subparser )
         
         self.create_change_password_parser(self.__subparser)
@@ -93,17 +94,6 @@ class UserPlugin(AbstractPlugin):
             
         __change_parser.set_defaults( func=self.change_password, format="tabular" )
         
-    def create_user_token_parser(self, subparser):
-        '''
-        create the parser for retrieving a user token
-        '''
-        
-        __token_parser = subparser.add_parser( "get_token", help="Get the token for a specified user." )
-        
-        self.add_format_arg( __token_parser )
-        __token_parser.add_argument( "-" + AbstractPlugin.user_id_str, help="The user ID for the user whose token you wish to retrieve.", required=True )
-           
-        __token_parser.set_defaults( func=self.get_token, format="tabular" ) 
     
     def create_reissue_parser(self, subparser):
         '''
@@ -144,10 +134,13 @@ class UserPlugin(AbstractPlugin):
         '''
         Use the arguments to make the create user call
         '''
+        user = User()
         
-        password = getpass.getpass( "Password: " )
+        user.name = args[AbstractPlugin.user_name_str]
+        user.password = getpass.getpass( "Password: " )
+        user.role = "USER"
         
-        result = self.get_user_service().create_user( args[AbstractPlugin.user_name_str], password )
+        result = self.get_user_service().create_user( user )
         
         if result != None:
             self.list_users(args)
@@ -174,36 +167,19 @@ class UserPlugin(AbstractPlugin):
         '''
         make sense of the arguments and call the change password service call
         '''
-        
-        user_id = self.session.get_user_id()
+        user = User()
+        user.id = self.session.get_user_id()
         
         if args[AbstractPlugin.user_id_str] is not None:
-            user_id = args[AbstractPlugin.user_id_str]
+            user.id = args[AbstractPlugin.user_id_str]
             
-        password = getpass.getpass( "New Password: " )
+        user.password = getpass.getpass( "New Password: " )
         
-        response = self.get_user_service().change_password(user_id, password)
+        response = self.get_user_service().change_password(user.id, user)
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             print "\nPassword changed successfully."
-            
-    def get_token(self, args):
-        '''
-        logic to retrieve the users token
-        '''
-        
-        response = self.get_user_service().get_user_token(args[AbstractPlugin.user_id_str])
-        
-        if response is None:
-            return
-        
-        if args[AbstractPlugin.format_str] == "json":
-            ResponseWriter.writeJson( response )
-        else:
-            ov = OrderedDict()
-            ov["User ID"] = args[AbstractPlugin.user_id_str]
-            ov["Token"] = response.pop("token", "")
-            ResponseWriter.writeTabularData([ov])
+
             
     def reissue_token(self, args):
         '''
@@ -212,5 +188,5 @@ class UserPlugin(AbstractPlugin):
         
         response = self.get_user_service().reissue_user_token(args[AbstractPlugin.user_id_str])
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             print "\nToken re-issued successfully."

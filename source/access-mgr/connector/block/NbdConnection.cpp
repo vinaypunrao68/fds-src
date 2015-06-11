@@ -351,8 +351,8 @@ NbdConnection::io_reply(ev::io &watcher) {
             boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
             while (buf != NULL) {
                 LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
-                         << "...Buffer # " << context
-                         << "...Size " << std::dec << buf->length() << "B";
+                         << "...Size 0x" << buf->length() << "B"
+                         << "...Buffer # " << std::dec << context;
                 response[total_blocks].iov_base = to_iovec(buf->c_str());
                 response[total_blocks].iov_len = buf->length();
                 ++total_blocks;

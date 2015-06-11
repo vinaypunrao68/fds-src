@@ -245,7 +245,7 @@ class MigrationMgr {
     void smTokenMetadataSnapshotCb(const Error& error,
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
-                                   leveldb::DB *db, bool retry,
+                                   std::shared_ptr<leveldb::DB> db, bool retry,
                                    fds_uint32_t uniqueId);
 
     /**
@@ -450,6 +450,8 @@ class MigrationMgr {
     /// so far we don't need a lock for the migrExecutors, because the actions
     /// to update this map are serialized, and protected by migrState
     MigrExecutorMap migrExecutors;
+
+    fds_rwlock migrExecutorLock;
 
     /// executorId -> MigrationClient
     MigrClientMap migrClients;

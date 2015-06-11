@@ -63,7 +63,13 @@ ObjectDB::ObjectDB(const std::string& filename,
     env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
     options.env = env.get();
 
-    leveldb::Status status = leveldb::DB::Open(options, file, &db);
+    leveldb::Status status;
+    LOGDEBUG << "opening leveldb";
+    {
+        leveldb::DB* ptr;
+        status = leveldb::DB::Open(options, file, &ptr);
+        db.reset(ptr);
+    }
 
     /* Open has to succeed */
     if (!status.ok())
@@ -82,7 +88,7 @@ ObjectDB::ObjectDB(const std::string& filename,
  */
 ObjectDB::~ObjectDB() {
     delete options.filter_policy;
-    delete db;
+    db.reset();
 }
 
 /**
@@ -92,7 +98,6 @@ ObjectDB::~ObjectDB() {
 void ObjectDB::closeAndDestroy() {
     delete options.filter_policy;
     options.filter_policy = nullptr;
-    delete db;
     db = nullptr;
     leveldb::DestroyDB(file, leveldb::Options());
 }

@@ -1062,6 +1062,9 @@ void DataMgr::mod_enable_service() {
             std::bind(&DataMgr::handleLocalStatStream, this,
                       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         statStreamAggr_->mod_startup();
+
+        // get DMT from OM if DMT already exist
+        MODULEPROVIDER()->getSvcMgr()->getDMT();
     }
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
@@ -1090,7 +1093,7 @@ void DataMgr::shutdown()
     mod_shutdown();
 }
 
-//   Block new IO's  and flush queued IO's 
+//   Block new IO's  and flush queued IO's
 void DataMgr::flushIO()
 {
     shuttingDown = true;

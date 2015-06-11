@@ -122,7 +122,7 @@ mockStats = function(){
             for ( var i = 0; volumes!== null && i < volumes.length; i++ ){
                 
                 var fbEvent = JSON.parse( window.localStorage.getItem( volumes[i].id + '_fb' ) );
-                var point = { x: volumes[i].current_usage.size, y: 3600*24 };
+                var point = { x: volumes[i].status.currentUsage.size, y: 3600*24 };
                 
                 if ( angular.isDefined( fbEvent ) && fbEvent !== null ){
                     point.y = fbEvent.time;

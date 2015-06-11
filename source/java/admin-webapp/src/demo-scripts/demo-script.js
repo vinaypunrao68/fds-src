@@ -30,7 +30,7 @@ var updateVolume = function( vol ){
 **/
 var createNewStat = function( vol ){
     
-    var limit = parseInt( vol.limit );
+    var limit = parseInt( vol.qosPolicy.iops_max );
     
     if ( limit === 0 ){
         limit = 10000;
@@ -55,15 +55,15 @@ var createNewStat = function( vol ){
     }
     
     // rationalize usage to correct values
-    vol.current_usage.size = parseInt( vol.current_usage.size ) + parseInt((vol.rate / 60).toFixed( 0 ));
+    vol.status.currentUsage.size = parseInt( vol.status.currentUsage.size ) + parseInt((vol.rate / 60).toFixed( 0 ));
 
     var minute = {
         time: (new Date()).getTime(),
         PUTS: puts,
         GETS: gets,
         SSD_GETS: ssd,
-        LBYTES: vol.current_usage.size,
-        PBYTES: Math.round( vol.current_usage.size * 0.4),
+        LBYTES: vol.status.currentUsage.size,
+        PBYTES: Math.round( vol.status.currentUsage.size * 0.4),
         ROLLPOINT: true
     };
     
@@ -139,7 +139,7 @@ var computeStats = function(){
     for ( var i = 0; vols != null && i < vols.length; i++ ){
         
         var volume = vols[i];
-        var stat = JSON.parse( window.localStorage.getItem( volume.id + '_stats' ) );
+        var stat = JSON.parse( window.localStorage.getItem( volume.id.uuid + '_stats' ) );
         
         if ( !angular.isDefined( stat ) || stat === null ){
             
@@ -153,7 +153,7 @@ var computeStats = function(){
             stat = addStats( volume, stat );
         }
         
-        window.localStorage.setItem( volume.id + '_stats', JSON.stringify( stat ) );
+        window.localStorage.setItem( volume.id.uuid + '_stats', JSON.stringify( stat ) );
     }
 };
 

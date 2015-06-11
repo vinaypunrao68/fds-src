@@ -168,7 +168,7 @@ void HybridTierCtrlr::snapToken()
 void HybridTierCtrlr::snapTokenCb(const Error& err,
                               SmIoSnapshotObjectDB* snapReq,
                               leveldb::ReadOptions& options,
-                              leveldb::DB* db)
+                              std::shared_ptr<leveldb::DB> db)
 {
     GLOGDEBUG << "token id: " << *nextToken_;
 

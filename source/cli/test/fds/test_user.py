@@ -44,9 +44,9 @@ class TestUsers( BaseCliTest):
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
         
-        username = mockCreate.call_args[0][0]
+        user = mockCreate.call_args[0][0]
         
-        assert username == "joe"
+        assert user.name == "joe"
         
     @patch( "fds.services.users_service.UsersService.change_password", side_effect=mock_functions.changePassword )
     @patch( "getpass.getpass", side_effect=mock_functions.passwordGetter)
@@ -78,29 +78,6 @@ class TestUsers( BaseCliTest):
         
         user_id = mockChange.call_args[0][0]
         assert user_id == "3"
-        
-    @patch( "fds.services.users_service.UsersService.get_user_token", side_effect=mock_functions.get_token)
-    def test_get_token(self, mockToken):
-        '''
-        Test that we request the right token
-        '''
-        
-        #no user ID
-        args = ["user", "get_token"]
-        
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockToken.call_count == 0
-        
-        args.append( "-user_id=1")
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockToken.call_count == 1
-        user_id = mockToken.call_args[0][0]
-        
-        assert user_id == "1"
         
     @patch( "fds.services.users_service.UsersService.reissue_user_token", side_effect=mock_functions.reissueToken)
     def test_reissue_token(self, mockReissue):

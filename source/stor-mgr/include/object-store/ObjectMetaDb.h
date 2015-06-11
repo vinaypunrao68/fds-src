@@ -108,7 +108,7 @@ class ObjectMetadataDb {
      * Returns snapshot of metadata DB for a given SM token
      */
     Error snapshot(fds_token_id smTokId,
-                   leveldb::DB*& db,
+                   std::shared_ptr<leveldb::DB>& db,
                    leveldb::ReadOptions& opts);
 
     /**
