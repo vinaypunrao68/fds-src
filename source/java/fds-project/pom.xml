@@ -119,7 +119,7 @@
       </activation>
       <properties>
         <!-- thrift properties -->
-        <thrift.binary>${basedir}/../../../../Build/linux-x86_64.debug/bin/thrift</thrift.binary>
+        <thrift.binary>${basedir}/../../../../Build/linux-x86_64.${build_type}/bin/thrift</thrift.binary>
       </properties>
     </profile>
   </profiles>
