@@ -844,7 +844,7 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     // the extra objects required.
     if (maxObjSize < amReq->data_len) {
         auto const extra_objects = (amReq->data_len / maxObjSize) - 1
-                                 + (0 != amReq->data_len % maxObjSize) ? 1 : 0;
+                                 + ((0 != amReq->data_len % maxObjSize) ? 1 : 0);
         blobReq->blob_offset_end += extra_objects * maxObjSize;
     }
 
