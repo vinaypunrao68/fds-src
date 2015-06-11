@@ -61,8 +61,26 @@
     tags:
         - install-deps
 
--   name: add Artifactory fds nightly platform repo
-    when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
+-   name: remove all artifactory repos for a clean slate
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform {{ item }}"
+        state=absent
+    with_items:
+      - nightly
+      - beta
+    tags:
+      - install-deps
+
+-   name: add specified Artifactory fds platform repo
+    when: deploy_artifact != "local" and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform {{ deploy_artifact }}"
+        state=present
+        update_cache=yes
+    tags:
+      - install-deps
+
+
+-   name: add nightly Artifactory fds platform repo when installing from local fds-platorm deb
+    when: deploy_artifact == "local" and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
     apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
         state=present
         update_cache=yes
