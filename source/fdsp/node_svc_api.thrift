@@ -11,13 +11,13 @@ namespace java com.formationds.protocol.pm
  *****************************************************************************
  * NOTE:
  *
- * NotifyStartNode only starts well known services. The PM and OM will not be
+ * NotifyStartNodeMsg only starts well known services. The PM and OM will not be
  * started.
  *
- * NotifyStopNode only stops well known services. The PM and OM will not be
+ * NotifyStopNodeMsg only stops well known services. The PM and OM will not be
  * stopped.
  *
- * Neither of the NofityNode(Start|Stop) will have any effect on the host
+ * Neither of the NofityNode(Start|Stop)Msg will have any effect on the host
  * operating system.
  *****************************************************************************
  */
@@ -27,7 +27,7 @@ namespace java com.formationds.protocol.pm
  *
  * @return nothing
  */
-struct NotifyStartNode {
+struct NotifyStartNodeMsg {
     1: list<svc_types.SvcInfo> nodes;
 }
 
@@ -36,7 +36,7 @@ struct NotifyStartNode {
  *
  * @return nothing
  */
-struct NotifyStopNode {
+struct NotifyStopNodeMsg {
     1: list<svc_types.SvcInfo> nodes;
 }
 
@@ -45,7 +45,7 @@ struct NotifyStopNode {
  *
  * @return nothing
  */
-struct NotifyAddNode {
+struct NotifyAddNodeMsg {
     1: list<svc_types.SvcInfo> nodes;
 }
 
@@ -54,7 +54,7 @@ struct NotifyAddNode {
  *
  * @return nothing
  */
-struct NotifyRemoveNode {
+struct NotifyRemoveNodeMsg {
     1: list<svc_types.SvcInfo> nodes;
 }
 
@@ -63,7 +63,7 @@ struct NotifyRemoveNode {
  *
  * @return nothing
  */
-struct NotifyStartService {
+struct NotifyStartServiceMsg {
     1: list<svc_types.SvcInfo> services;
 }
 
@@ -72,7 +72,7 @@ struct NotifyStartService {
  *
  * @return nothing
  */
-struct NotifyStopService {
+struct NotifyStopServiceMsg {
     1: list<svc_types.SvcInfo> services;
 }
 
@@ -81,7 +81,7 @@ struct NotifyStopService {
  *
  * @return nothing
  */
-struct NotifyAddService {
+struct NotifyAddServiceMsg {
     1: list<svc_types.SvcInfo> services;
 }
 
@@ -90,6 +90,6 @@ struct NotifyAddService {
  *
  * @return nothing
  */
-struct NotifyRemoveService {
+struct NotifyRemoveServiceMsg {
     1: list<svc_types.SvcInfo> services;
 }
