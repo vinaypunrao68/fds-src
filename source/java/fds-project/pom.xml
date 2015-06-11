@@ -24,6 +24,9 @@
   <properties>
     <fds.project.name>FDS</fds.project.name>
 
+    <!-- set a default build type -->
+    <build_type>debug</build_type>
+    
     <thrift.idl.source>../../../fdsp</thrift.idl.source>
 
     <!-- project scope dependencies version -->
