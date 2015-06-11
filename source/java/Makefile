@@ -17,7 +17,7 @@ include $(topdir)/Makefile.incl
 compile:
 	@echo "Building Java components"
 
-	@mvn clean install -f pom.xml -Dbuild_type=$(BUILD)
+	@mvn clean install -f pom.xml -Dosdep.target=$(osdep_target)
 
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
