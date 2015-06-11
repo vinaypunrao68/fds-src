@@ -98,7 +98,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
                                     const std::string &blobName,
                                     fds_uint64_t blobOffset,
                                     const ObjectID &objectId) {
-    SCOPEDWRITE(txMapLock);
+    SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
         return ERR_NOT_FOUND;
@@ -122,7 +122,7 @@ Error
 AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
                                     const ObjectID &objectId,
                                     boost::shared_ptr<std::string> objectData) {
-    SCOPEDWRITE(txMapLock);
+    SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
         return ERR_NOT_FOUND;
@@ -145,7 +145,7 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
 Error
 AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
                                   fpi::FDSP_MetaDataList const& metaDataList) {
-    SCOPEDWRITE(txMapLock);
+    SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
         return ERR_NOT_FOUND;
