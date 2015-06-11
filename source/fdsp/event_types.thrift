@@ -36,6 +36,13 @@ enum EventCategory {
   PERFOMRANCE;
 }
 
+union MessageArgs {
+ 1: i32 int32;
+ 2: i64 int64;
+ 3: double dbl;
+ 4: string str;
+}
+
 /**
  * @param type the event type
  * @param category the event category
@@ -51,4 +58,17 @@ struct EventDescriptor {
   4: required string defaultMessage;
   5: required list<string> argumentNames;
   6: required string key;
+}
+
+struct Event {
+  1: required EventType type;
+  2: required EventCategory category;
+  3: required EventSeverity severity;
+  4: required EventState state;
+  5: required i64 initialTimestamp;
+  6: required i64 modifiedTimestamp;
+  7: required string messageKey;
+  8: required list<MessageArgs> messageArgs;
+  9: required string messageFormat;
+ 10: required string defaultMessage;
 }
