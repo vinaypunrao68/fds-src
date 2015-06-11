@@ -9,5 +9,5 @@ namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om.event
 
 struct NotifyEvent {
- 1: event_types.EventDescriptor event;
+ 1: event_types.Event event;
 }
