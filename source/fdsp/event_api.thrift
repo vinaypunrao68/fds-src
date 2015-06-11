@@ -8,6 +8,6 @@ include "event_types.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om.event
 
-struct NotifyEvent {
+struct NotifyEventMsg {
  1: event_types.Event event;
 }
