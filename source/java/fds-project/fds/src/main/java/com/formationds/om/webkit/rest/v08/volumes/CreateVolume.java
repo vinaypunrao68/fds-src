@@ -64,8 +64,7 @@ public class CreateVolume implements RequestHandler {
 		}
 		catch( Exception e ){
 			logger.error( "Unable to convet the body to a valid Volume object.", e );
-			return new JsonResource(
-					new JSONObject().put( "message", "Invalid input parameters" ), HttpServletResponse.SC_BAD_REQUEST );
+			throw new ApiException( "Invalid input parameters", ErrorCode.BAD_REQUEST );
 		}
 		
 		VolumeDescriptor internalVolume = ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
@@ -83,8 +82,7 @@ public class CreateVolume implements RequestHandler {
 	
 	        if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
 
-	            return new JsonResource( new JSONObject().put( "message", "A volume with this name already exists." ), 
-	            		                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
+	        	throw new ApiException( "A volume with this name already exists.", ErrorCode.RESOURCE_ALREADY_EXISTS );
 	        }
 	
 	        logger.error( "CREATE::FAILED::" + e.getMessage(), e );
