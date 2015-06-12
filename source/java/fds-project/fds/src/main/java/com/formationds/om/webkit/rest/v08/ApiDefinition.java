@@ -30,6 +30,9 @@ import com.formationds.om.webkit.rest.v08.presets.GetQosPolicyPresets;
 import com.formationds.om.webkit.rest.v08.snapshots.CreateSnapshot;
 import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
 import com.formationds.om.webkit.rest.v08.snapshots.ListSnapshots;
+import com.formationds.om.webkit.rest.v08.stream.DeregisterStream;
+import com.formationds.om.webkit.rest.v08.stream.ListStreams;
+import com.formationds.om.webkit.rest.v08.stream.RegisterStream;
 import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
 import com.formationds.om.webkit.rest.v08.tenants.CreateTenant;
 import com.formationds.om.webkit.rest.v08.tenants.ListTenants;
@@ -61,6 +64,7 @@ import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -365,6 +369,15 @@ public class ApiDefinition extends AbstractApiDefinition{
     private void configureMetricsEndpoints( ConfigurationApi config ){
     	
     	logger.trace( "Initializing metrics endpoints..." );
+    	
+    	// register a stats stream
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/stats/streams", (token) -> new RegisterStream() );
+    	
+    	// De-register a stats stream
+    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/stats/streams", (token) -> new DeregisterStream() );
+    	
+    	// get a list of registered stream
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/stats/streams", (token) -> new ListStreams() );
     	
     	// get volume activity statistics
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/stats/volumes", (token) -> new QueryMetrics( getAuthorizer(), token ) );
