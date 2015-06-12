@@ -93,16 +93,6 @@ namespace fds
             return 0;
         }
 
-        void PlatformManager::mod_startup()
-        {
-//LOGDEBUG << "In PlatformManager::mod_startup:()";
-        }
-
-        void PlatformManager::mod_shutdown()
-        {
-
-        }
-
         void PlatformManager::checkPidsDuringRestart()
         {
 LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
@@ -120,7 +110,6 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    //notifyOmAProcessDied (procName, BARE_AM, m_nodeInfo.bareAMPid);
                     updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
                 }
             }
@@ -135,7 +124,6 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    //notifyOmAProcessDied (procName, JAVA_AM, m_nodeInfo.javaAMPid);
                     updateNodeInfoDbPid (JAVA_AM, EMPTY_PID);
                 }
             }
@@ -150,7 +138,6 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    //notifyOmAProcessDied (procName, DATA_MANAGER, m_nodeInfo.dmPid);
                     updateNodeInfoDbPid (DATA_MANAGER, EMPTY_PID);
                 }
             }
@@ -165,7 +152,6 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    //notifyOmAProcessDied (procName, STORAGE_MANAGER, m_nodeInfo.smPid);
                     updateNodeInfoDbPid (STORAGE_MANAGER, EMPTY_PID);
                 }
             }
@@ -212,6 +198,7 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                    // The contents of cmdline are null separated, this seems to always read the full line in the file.
                    // There might be a case where a while is needed.
                    commandLineFile >> arg;
+
                    // If the java class name was NOT found in the command line arguments
                    // Otherwise we fall through to the return true
                    if (std::string::npos == arg.find (procName))
