@@ -588,19 +588,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     Error err {error};
     auto shVol = getVolume(amReq);
     auto& vol_desc = *shVol->voldesc;
-    if (!err.ok()) {
-        LOGDEBUG << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
-            << ") write(" << volReq->mode.can_write << "), trying R/O.";
-        if (volReq->mode.can_write || volReq->mode.can_cache) {
-            // TODO(bszmyd): Tue 26 May 2015 11:11:53 AM MDT
-            // This should be controlled by the connector
-            // Retry open with r/o mode
-            volReq->mode.can_cache = false;
-            volReq->mode.can_write = false;
-            txMgr->invalidateMetaCache(vol_desc);
-            return attachVolume(amReq);
-        }
-    } else {
+    if (err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
                   << ", received access token: 0x" << std::hex << volReq->token << std::dec;
 
@@ -642,7 +630,9 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     }
 
     if (ERR_OK != err) {
-        LOGNOTIFY << "Failed to register volume, error: " << err;
+        LOGNOTIFY << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
+                  << ") write(" << volReq->mode.can_write
+                  << ") error(" << err << ")";
         // Flush the volume's wait queue and return errors for pending requests
         volTable->removeVolume(vol_desc);
     }
