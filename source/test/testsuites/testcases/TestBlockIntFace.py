@@ -41,22 +41,12 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        cmd = "volume create  volume1 --vol-type block --blk-dev-size 104857600"
+        cmd = "volume create  nbd_vol --vol-type block --blk-dev-size 104857600"
         status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
                                             fds_tools=True)
         if status != 0:
             self.log.error("Failed to create block volume")
             return False
-        time.sleep(5)
-
-        cmd = "volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
-                                            fds_tools=True)
-        if status != 0:
-            self.log.error("Failed to modify block volume")
-            return False
-
-        time.sleep(5)
 
         return True
 
@@ -114,7 +104,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        volume = 'volume1'
+        volume = 'nbd_vol'
 
 	#Per FS-1368, make use of --lockfile /tmp/nbdadm/nbdadm.lock
 	nbdadm_tmp = '/tmp/nbdadm'
@@ -229,8 +219,7 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
                     break
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        #fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-128k " \
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
                  "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
                  (nbd_device, verify_fatal)
 
@@ -259,8 +248,7 @@ class TestBlockFioRandW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        #fioCmd = "sudo fio --name=rand-writers --readwrite=randwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
-        fioCmd = "sudo fio --name=rand-writers --readwrite=randwrite --ioengine=posixaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
+        fioCmd = "sudo fio --name=rand-writers --readwrite=randwrite --ioengine=posixaio --direct=1 --bsrange=512-1M --iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run write workload")
@@ -286,8 +274,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        #fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
-        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=posixaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
+        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=posixaio --direct=1 --bsrange=512-1M --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run read/write workload")
@@ -313,8 +300,7 @@ class TestBlockFioRandRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        #fioCmd = "sudo fio --name=rand-rw --readwrite=randrw --ioengine=libaio --direct=1 --bs=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
-        fioCmd = "sudo fio --name=rand-rw --readwrite=randrw --ioengine=posixaio --direct=1 --bs=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
+        fioCmd = "sudo fio --name=rand-rw --readwrite=randrw --ioengine=posixaio --direct=1 --bs=512-1M --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run random read/write workload")

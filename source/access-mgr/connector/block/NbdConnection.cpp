@@ -303,8 +303,8 @@ bool NbdConnection::io_request(ev::io &watcher) {
 
     LOGIO << " op " << io_to_string[request.header.opType]
           << " handle 0x" << std::hex << request.header.handle
-          << " offset 0x" << request.header.offset << std::dec
-          << " length " << request.header.length
+          << " offset 0x" << request.header.offset
+          << " length 0x" << request.header.length << std::dec
           << " ahead of you: " <<  resp_needed++;
 
     Error err = dispatchOp();
