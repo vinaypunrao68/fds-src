@@ -205,6 +205,9 @@ void ObjectStorMgr::mod_enable_service()
             if (err.ok()) {
                 // got a DLT, ignore it if SM is not in it
                 const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // Store the current DLT to the presistent storage to be used
+                // by offline smcheck.
+                objStorMgr->storeCurrentDLT();
                 if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
                     LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
                 } else {

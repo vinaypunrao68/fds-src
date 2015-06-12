@@ -58,8 +58,10 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings( "unused" )
 public class ExternalModelConverter {
 
-	private static final Logger logger = LoggerFactory.getLogger( ExternalModelConverter.class );
 	private static ConfigurationApi configApi;
+	private static final Integer DEF_BLOCK_SIZE = ( 1024 * 128 );
+	private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
+	private static final Logger logger = LoggerFactory.getLogger( ExternalModelConverter.class );
 
 	public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
 
@@ -67,7 +69,9 @@ public class ExternalModelConverter {
 		Long extId = internalDomain.getId();
 		String site = internalDomain.getSite();
 
-		return new Domain( extId, extName, site, DomainState.UP );
+		Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
+
+		return externalDomain;
 	}
 
 	public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
@@ -100,7 +104,9 @@ public class ExternalModelConverter {
 			externalTenant = convertToExternalTenant( tenant.get() );
 		}
 
-		return new User( extId, extName, roleId, externalTenant );
+		User externalUser = new User( extId, extName, roleId, externalTenant );
+
+		return externalUser;
 	}
 
 	public static com.formationds.apis.User convertToInternalUser( User externalUser ) {
@@ -124,7 +130,8 @@ public class ExternalModelConverter {
 		Long id = internalTenant.getId();
 		String name = internalTenant.getIdentifier();
 
-		return new Tenant( id, name );
+		Tenant externalTenant = new Tenant( id, name );
+		return externalTenant;
 	}
 
 	public static com.formationds.apis.Tenant convertToInternalTenant( Tenant externalTenant ) {
@@ -178,7 +185,9 @@ public class ExternalModelConverter {
 
 	public static VolumeState convertToExternalVolumeState( ResourceState internalState ) {
 
-		return VolumeState.valueOf( internalState.name() );
+		VolumeState state = VolumeState.valueOf( internalState.name() );
+
+		return state;
 	}
 
 	public static ResourceState convertToInternalVolumeState( VolumeState externalState ) {
@@ -222,25 +231,27 @@ public class ExternalModelConverter {
 			} );
 		}
 
-		return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+		VolumeStatus externalStatus = new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+
+		return externalStatus;
 	}
 
-	//	public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
+	//		public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
+		//
+		//			long creation = internalSnapshot.getCreationTimestamp();
+		//			long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
+		//			long snapshotId = internalSnapshot.getSnapshotId();
+		//			String snapshotName = internalSnapshot.getSnapshotName();
+	//			long volumeId = internalSnapshot.getVolumeId();
 	//
-	//		long creation = internalSnapshot.getCreationTimestamp();
-	//		long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
-	//		long snapshotId = internalSnapshot.getSnapshotId();
-	//		String snapshotName = internalSnapshot.getSnapshotName();
-	//		long volumeId = internalSnapshot.getVolumeId();
+	//			Snapshot externalSnapshot = new Snapshot( snapshotId, 
+	//					 								  snapshotName, 
+	//					 								  volumeId,
+	//					 								  Duration.ofSeconds( retentionInSeconds ), 
+	//					 								  Instant.ofEpochMilli( creation ) );
 	//
-	//		Snapshot externalSnapshot = new Snapshot( snapshotId,
-	//				 								  snapshotName,
-	//				 								  volumeId,
-	//				 								  Duration.ofSeconds( retentionInSeconds ),
-	//				 								  Instant.ofEpochMilli( creation ) );
-	//
-	//		return externalSnapshot;
-	//	}
+	//			return externalSnapshot;
+	//		}
 
 	public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
 
@@ -263,11 +274,13 @@ public class ExternalModelConverter {
 		String snapshotName = protoSnapshot.getSnapshotName();
 		long snapshotId = protoSnapshot.getSnapshotId();
 
-		return new Snapshot( snapshotId,
-				snapshotName,
+		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+				snapshotName, 
 				volumeId,
 				Duration.ofSeconds( retentionInSeconds ),
 				Instant.ofEpochMilli( creation ) );
+
+		return externalSnapshot;
 	}
 
 	public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ){
@@ -281,8 +294,8 @@ public class ExternalModelConverter {
 		try {
 			extRule = extRule.parser( intRule );
 		} catch (ParseException e) {
-			logger.warn( "Could not parse the recurrence rule." );
-			logger.debug( intRule, e );
+			logger.warn( "Could not parse the retention rule: " + intRule );
+			logger.debug( e.getMessage(), e );
 		}
 
 		Duration extRetention = Duration.ofSeconds( intRetention );
@@ -293,7 +306,9 @@ public class ExternalModelConverter {
 			type = SnapshotPolicyType.SYSTEM_TIMELINE;
 		}
 
-		return new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
+		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
+
+		return externalPolicy;
 	}
 
 	public static com.formationds.apis.SnapshotPolicy convertToInternalSnapshotPolicy( SnapshotPolicy externalPolicy ) {
@@ -321,7 +336,9 @@ public class ExternalModelConverter {
 			extCommitRetention = Duration.ofSeconds( clRetention );
 		} catch ( TException e ) {
 			
-			logger.warn( "Error trying to retrieve the volume info for this descriptor: " + internalVolume.getVolId(), e );
+			logger.warn( "Error occurred while trying to retrieve volume: " + internalVolume.getVolId() );
+			logger.debug( "Exception: ", e );
+			
 		}
 
 		// snapshot policies
@@ -338,10 +355,13 @@ public class ExternalModelConverter {
 			}
 		} catch ( TException e ) {
 			
-			logger.warn( "Error trying to retrieve snapshot policies for volume: " + internalVolume.getVolId(), e );
+			logger.warn( "Error occurred while trying to retrieve snapshot policies for volume: " + internalVolume.getVolId() );
+			logger.debug("Exception: ", e);
 		}
 
-		return new DataProtectionPolicy( extCommitRetention, extPolicies );
+		DataProtectionPolicy extProtectionPolicy = new DataProtectionPolicy( extCommitRetention, extPolicies );
+
+		return extProtectionPolicy;
 	}
 
 	public static Volume convertToExternalVolume( VolumeDescriptor internalVolume ) {
@@ -377,10 +397,10 @@ public class ExternalModelConverter {
 			extQosPolicy = new QosPolicy( volDescType.getRel_prio(),
 					(int) volDescType.getIops_assured(),
 					(int) volDescType.getIops_throttle() );
-		}
-		catch ( TException e ) {
-
-			logger.warn( "Error trying to get the volume desc type for volume: " + extName, e );
+		} catch ( Exception e ) {
+			
+			logger.warn( "Error occurred while trying to get VolInfo type for volume: " + internalVolume.getVolId() );
+			logger.debug( "Exception: ", e );
 		}
 
 		Tenant extTenant = null;
@@ -397,7 +417,8 @@ public class ExternalModelConverter {
 			}
 		} catch ( TException e ) {
 			
-			logger.warn( "Could not get the list of tenants to find who this volume belongs to.  Volume: " + extName, e );
+			logger.warn( "Error occurred while trying to retrieve a list of tenants." );
+			logger.debug( "Exception: ", e );
 		}
 
 		VolumeStatus extStatus = convertToExternalVolumeStatus( internalVolume );
@@ -408,7 +429,7 @@ public class ExternalModelConverter {
 
 		Instant extCreation = Instant.ofEpochMilli( internalVolume.dateCreated );
 
-		return new Volume( volumeId,
+		Volume externalVolume = new Volume( volumeId,
 				extName,
 				extTenant,
 				"Application",
@@ -420,6 +441,8 @@ public class ExternalModelConverter {
 				extQosPolicy,
 				extCreation,
 				null );
+
+		return externalVolume;
 	}
 
 	public static VolumeDescriptor convertToInternalVolumeDescriptor( Volume externalVolume ) {
@@ -446,19 +469,33 @@ public class ExternalModelConverter {
 
 		com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
 
+		// block volume
 		if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {
 
 			VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
 
 			internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
-			internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
-					.intValue() );
+
+			if ( blockSettings.getBlockSize() != null ){
+				internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
+						.intValue() );
+			}
+			else {
+				internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
+			}
 
 			internalSettings.setVolumeType( VolumeType.BLOCK );
 
+			// object volume
 		} else {
 			VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
-			internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+
+			if ( objectSettings.getMaxObjectSize() != null ){
+				internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+			}
+			else {
+				internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+			}
 
 			internalSettings.setVolumeType( VolumeType.OBJECT );
 		}
@@ -512,13 +549,25 @@ public class ExternalModelConverter {
 		if ( settings instanceof VolumeSettingsBlock ) {
 			VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
 
-			volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+			if ( blockSettings.getBlockSize() != null ){
+				volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+			}
+			else {
+				volumeType.setMaxObjSizeInBytes( DEF_BLOCK_SIZE );
+			}
+
 			volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
 			volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
 		} else {
 			VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
-			volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+			if ( objectSettings.getMaxObjectSize() != null ){
+				volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+			}
+			else {
+				volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
+			}
+
 			volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
 		}
 
@@ -559,12 +608,10 @@ public class ExternalModelConverter {
 		EnumMap<FirebreakType, VolumeDatapointPair> map = null;
 
 		try {
-			// TODO examine the correct fix
-			//noinspection SuspiciousMethodCalls
 			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
 		} catch ( TException e ) {
 			
-			logger.warn( "Error trying to get firebreak events for volume: " + v.getId(), e );
+			logger.error( "Error occurred while trying to retrieve firebreak events.", e );
 		}
 
 		return map;

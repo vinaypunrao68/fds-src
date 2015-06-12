@@ -8,6 +8,7 @@ user_thrift      := \
 	FDSP.thrift \
 	common.thrift \
 	svc_types.thrift \
+	node_svc_api.thrift \
 	am_types.thrift \
 	dm_types.thrift \
 	om_types.thrift \

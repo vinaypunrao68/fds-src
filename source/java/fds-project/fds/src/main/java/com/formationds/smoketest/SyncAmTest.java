@@ -20,7 +20,7 @@ import static org.junit.Assert.assertEquals;
 
 @Ignore
 public class SyncAmTest extends BaseAmTest {
-    @Test
+    @Test //1
     public void testTransaction() throws Exception {
         String blobName = "key";
         byte[] first = new byte[OBJECT_SIZE];
@@ -40,7 +40,7 @@ public class SyncAmTest extends BaseAmTest {
         assertArrayEquals(second, result);
     }
 
-    @Test
+    @Test //2
     public void testUpdateOnceSeveralTimes() throws Exception {
         String blobName = "key";
         byte[] first = new byte[OBJECT_SIZE];
@@ -62,7 +62,7 @@ public class SyncAmTest extends BaseAmTest {
         assertArrayEquals(second, result);
     }
 
-    @Test
+    @Test //3
     public void testDeleteBlob() throws Exception {
         String blobName = "key";
         byte[] buf = new byte[10];
@@ -76,7 +76,7 @@ public class SyncAmTest extends BaseAmTest {
                 () -> amService.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName));
     }
 
-    @Test
+    @Test //4
     public void testStatAndUpdateBlobData() throws Exception {
         String blobName = "key";
         byte[] buf = new byte[10];
@@ -102,7 +102,7 @@ public class SyncAmTest extends BaseAmTest {
         assertEquals(buf.length, (int) amService.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).getByteCount());
     }
 
-    @Test
+    @Test //5
     public void testStatAndUpdateBlobMetadata() throws Exception {
         String blobName = "key";
         HashMap<String, String> metadata = new HashMap<>();
@@ -123,13 +123,13 @@ public class SyncAmTest extends BaseAmTest {
         assertEquals("world", bd.getMetadata().get("hello"));
     }
 
-    @Test
+    @Test //6
     public void testStatInexistentBlob() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> amService.statBlob(FdsFileSystem.DOMAIN, volumeName, "nonExistent"));
     }
 
-    @Test
+    @Test //7
     public void testVolumeContents() throws Exception {
         List<BlobDescriptor> result = amService.volumeContents(FdsFileSystem.DOMAIN, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.LEXICOGRAPHIC, false);
         assertEquals(0, result.size());
@@ -138,13 +138,13 @@ public class SyncAmTest extends BaseAmTest {
         assertEquals(1, result.size());
     }
 
-    @Test
+    @Test //8
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> amService.volumeContents(FdsFileSystem.DOMAIN, "nonExistent", Integer.MAX_VALUE, 0, "", BlobListOrder.LEXICOGRAPHIC, false));
     }
 
-    @Test
+    @Test //9
     public void testUpdateMetadata() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("first", "firstValue");

@@ -269,6 +269,7 @@ struct SvcInfo {
 
 /**
  * Activate Service
+ * @deprecated 06/09/2015
  */
 struct ActivateServicesMsg {
   1: FDSP.FDSP_ActivateNodeType info;
