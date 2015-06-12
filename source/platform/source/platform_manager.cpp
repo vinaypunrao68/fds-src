@@ -84,11 +84,18 @@ namespace fds
                 LOGNOTIFY << "Using stored nodeInfo record for this node:  " << m_nodeInfo.uuid;
             }
 
+            checkPidsDuringRestart();
+
             m_autoRestartFailedProcesses = fdsConfig->get_abs <bool> ("fds.feature_toggle.pm.restart_failed_children_processes");
 
             determineDiskCapability();
 
             return 0;
+        }
+
+        void PlatformManager::mod_startup()
+        {
+//LOGDEBUG << "In PlatformManager::mod_startup:()";
         }
 
         void PlatformManager::mod_shutdown()
@@ -98,6 +105,7 @@ namespace fds
 
         void PlatformManager::checkPidsDuringRestart()
         {
+LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
             std::string procName;
 
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
@@ -794,7 +802,6 @@ namespace fds
 
         void PlatformManager::run()
         {
-            checkPidsDuringRestart();
             std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
             startQueueMonitorThread.detach();
 

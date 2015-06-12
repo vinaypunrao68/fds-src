@@ -58,10 +58,7 @@ namespace fds
 
                 /* Overrides from Module */
                 virtual int  mod_init (SysParams const *const param) override;
-                virtual void mod_startup() override
-                {
-                }
-
+                virtual void mod_startup() override;
                 virtual void mod_shutdown() override;
 
                 void run();
