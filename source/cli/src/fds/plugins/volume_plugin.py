@@ -318,7 +318,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().create_volume( volume )
         
-        if "message" not in response:
+        if isinstance(response, Volume):
             self.list_volumes(args)
             
         return
@@ -396,7 +396,7 @@ class VolumePlugin( AbstractPlugin):
             
         response = self.get_volume_service().edit_volume( volume );
         
-        if "message" not in response:
+        if isinstance(response, Volume):
             args = [ args[AbstractPlugin.format_str]]
             self.list_volumes( args )                 
             
@@ -485,7 +485,7 @@ class VolumePlugin( AbstractPlugin):
         else:
             new_volume = self.get_volume_service().clone_from_timeline( volume, fromTime )
             
-        if "message" not in new_volume and isinstance(new_volume, Volume):
+        if isinstance(new_volume, Volume):
             
             #if there was a timeline preset included, create and attach those policies now
             if t_preset is not None:
@@ -511,7 +511,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().delete_volume( vol_id )
         
-        if "message" not in response:
+        if response is not None:
             print 'Deletion request completed successfully.'
             args = [args[AbstractPlugin.format_str]]
             self.list_volumes(args)
@@ -535,7 +535,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().create_snapshot( snapshot )
         
-        if "message" not in response:
+        if isinstance(response, Snapshot):
             self.list_snapshots(args)
          
     def list_snapshots(self, args):

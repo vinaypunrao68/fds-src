@@ -7,11 +7,12 @@ import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.User;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.security.HashedPassword;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -22,7 +23,6 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import javax.servlet.http.HttpServletResponse;
 
 import java.util.Map;
 
@@ -67,7 +67,7 @@ public class UpdatePassword implements RequestHandler {
     public Resource execute( com.formationds.apis.User currentUser, User inputUser, String password ) throws TException {
         
     	if (!currentUser.isFdsAdmin && inputUser.getId() != currentUser.getId()) {
-            return new JsonResource(new JSONObject().put("message", "Access denied"), HttpServletResponse.SC_UNAUTHORIZED);
+    		throw new ApiException( "Access denied.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
 
         String hashedPassword = new HashedPassword().hash(password);

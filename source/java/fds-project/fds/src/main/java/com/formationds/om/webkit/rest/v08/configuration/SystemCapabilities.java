@@ -13,6 +13,8 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +26,8 @@ import java.util.Map;
 public class SystemCapabilities
     implements RequestHandler {
 
+	private Logger logger = LoggerFactory.getLogger( SystemCapabilities.class );
+	
     private final ParsedConfig parsedConfig;
 
     public SystemCapabilities( final ParsedConfig parsedConfig ) {
@@ -46,11 +50,12 @@ public class SystemCapabilities
             mediaPolicies.add( MediaPolicy.HDD.name() );
 
         }
+        
+        JSONObject capabilities = new JSONObject(
+                new SystemCapability( mediaPolicies.toArray( new String[mediaPolicies.size()] ) ) );
 
-        return new JsonResource(
-            new JSONObject(
-                new SystemCapability(
-                    mediaPolicies.toArray(
-                        new String[ mediaPolicies.size() ] )  ) ) );
+        logger.debug( "Capabilities return: " + capabilities.toString() );
+        
+        return new JsonResource( capabilities );
     }
 }

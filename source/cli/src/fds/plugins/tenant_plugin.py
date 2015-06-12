@@ -163,7 +163,7 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().create_tenant( tenant )
         
-        if response is not None:
+        if isinstance(response, Tenant):
             self.list_tenants(args)
             
     def assign_user(self, args):
@@ -173,7 +173,7 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().assign_user_to_tenant( args[AbstractPlugin.tenant_id_str], args[AbstractPlugin.user_id_str] )
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             self.list_users(args)
             
     def remove_user(self, args):
@@ -183,6 +183,6 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().remove_user_from_tenant( args[AbstractPlugin.tenant_id_str], args[AbstractPlugin.user_id_str] )
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             self.list_users(args)
         

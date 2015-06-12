@@ -4,106 +4,78 @@
 
 package com.formationds.om.webkit.rest.v08.domain;
 
+import com.formationds.client.v08.model.Domain;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.apis.ConfigurationService;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
-import com.formationds.web.toolkit.JsonResource;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.UsageException;
+import com.formationds.web.toolkit.TextResource;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
-import org.json.JSONException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.http.HttpServletResponse;
-
+import java.io.InputStreamReader;
 import java.util.Map;
 
-public class CreateLocalDomain
-  implements RequestHandler {
-  private static final Logger logger =
-    LoggerFactory.getLogger( CreateLocalDomain.class );
+public class CreateLocalDomain implements RequestHandler {
+	
+	private static final Logger logger =
+			LoggerFactory.getLogger( CreateLocalDomain.class );
 
-  private final Authorizer authorizer;
-  private final ConfigurationService.Iface configApi;
-  private final AuthenticationToken token;
+	private ConfigurationApi configApi;
 
-  public CreateLocalDomain( final Authorizer authorizer,
-                            final ConfigurationService.Iface configApi,
-                            final AuthenticationToken token ) {
-    this.authorizer = authorizer;
-    this.configApi = configApi;
-    this.token = token;
-  }
+	public CreateLocalDomain( final ConfigurationApi configApi, final AuthenticationToken token ) {
+		this.configApi = configApi;
+	}
 
-  @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-      throws Exception {
+	@Override
+	public Resource handle( Request request, Map<String, String> routeParameters )
+			throws Exception {
 
-      String domainName = "";
-      String domainSite = "";
-      long domainId = -1;
-      
-      try {
-          domainName = requiredString(routeParameters, "local_domain");
-      } catch(UsageException e) {
-          return new JsonResource(
-                  new JSONObject().put( "message", "Missing new Local Domain name." ),
-                  HttpServletResponse.SC_BAD_REQUEST );
-      }
+		final InputStreamReader reader = new InputStreamReader( request.getInputStream() ); 
+		Domain domain = ObjectModelHelper.toObject( reader, Domain.class );
 
-      String source = IOUtils.toString(request.getInputStream());
-      try {
-          JSONObject o = new JSONObject(source);
-          domainSite = o.getString( "site" );
-      } catch(JSONException e) {
-          return new JsonResource(
-                  new JSONObject().put( "message", "Missing new Local Domain site." ),
-                  HttpServletResponse.SC_BAD_REQUEST );
-      }
+		logger.debug( "Creating local domain {} at site {}.", domain.getName(), domain.getSite() );
 
-      logger.debug( "Creating local domain {} at site {}.", domainName, domainSite );
+		long domainId = -1;
+		
+		try {
+			domainId = getConfigApi().createLocalDomain( domain.getName(), domain.getSite() );
+		} catch( ApiException e ) {
 
-      try {
-          domainId = configApi.createLocalDomain(domainName, domainSite);
-      } catch( ApiException e ) {
+			logger.error( "POST::FAILED::" + e.getMessage(), e );
 
-          if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
-              JSONObject o = new JSONObject();
-              o.put("status", "already_exists");
-              o.put("domainName", domainName);
-              o.put("domainId", domainId);
-              return new JsonResource(o);
-          }
+			// allow dispatcher to handle
+			throw e;
+			
+		} catch ( TException | SecurityException se ) {
+			
+			logger.error( "POST::FAILED::" + se.getMessage(), se );
 
-          logger.error( "POST::FAILED::" + e.getMessage(), e );
+			// allow dispatcher to handle
+			throw se;
+		}
 
-          // allow dispatcher to handle
-          throw e;
-      } catch ( TException | SecurityException se ) {
-          logger.error( "POST::FAILED::" + se.getMessage(), se );
+		Domain newDomain = (new GetLocalDomain()).getDomain( domainId );
 
-          // allow dispatcher to handle
-          throw se;
-      }
-
-      if( domainId > 0 ) {
-          JSONObject o = new JSONObject();
-          o.put("status", "success");
-          o.put("domainName", domainName);
-          o.put("domainId", domainId);
-          o.put("domainSite", domainSite);
-          return new JsonResource(o);
-      }
-
-      throw new Exception( "No domain id after createLocalDomain call!" );
-  }
+		String jsonString = ObjectModelHelper.toJSON( newDomain );
+		
+		return new TextResource( jsonString );
+	}
+	
+	private ConfigurationApi getConfigApi(){
+		
+		if ( configApi == null ){
+			
+			configApi = SingletonConfigAPI.instance().api();
+		}
+		
+		return configApi;
+	}
 }
 

@@ -10,10 +10,8 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -28,7 +26,6 @@ public class GetVolume  implements RequestHandler {
 
     private Authorizer authorizer;
     private AuthenticationToken token;
-    private ConfigurationApi configApi;
    
     public GetVolume( Authorizer authorizer, AuthenticationToken token ){
     	this.authorizer = authorizer;
@@ -66,14 +63,5 @@ public class GetVolume  implements RequestHandler {
 	
 	private AuthenticationToken getToken(){
 		return this.token;
-	}
-	
-	private ConfigurationApi getConfigApi(){
-		
-		if ( configApi == null ){
-			configApi = SingletonConfigAPI.instance().api();
-		}
-		
-		return configApi;
 	}
 }

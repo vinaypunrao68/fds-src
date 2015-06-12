@@ -24,6 +24,9 @@ class SnapshotService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/", an_id )
         response = self.rest_helper.get( self.session, url )
         
+        if response is None:
+            return
+        
         snapshot = SnapshotConverter.build_snapshot_from_json( response )
         
         return snapshot        

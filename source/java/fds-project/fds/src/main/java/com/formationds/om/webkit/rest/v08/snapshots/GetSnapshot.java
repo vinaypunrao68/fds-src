@@ -59,8 +59,7 @@ public class GetSnapshot implements RequestHandler {
 		}
 
 		LOG.error("Could not find snapshot with ID: " + snapshotId);
-		throw new HttpException(HttpServletResponse.SC_BAD_REQUEST,
-				"No snapshot was found with the ID: " + snapshotId);
+		throw new ApiException( "No snapshot was found with the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
 	}
 	
 	public Snapshot findSnapshot( long snapshotId ) throws ApiException, TException{

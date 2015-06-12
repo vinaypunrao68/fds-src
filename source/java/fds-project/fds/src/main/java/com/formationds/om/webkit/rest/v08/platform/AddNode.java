@@ -78,9 +78,9 @@ public class AddNode
 
         }
 
-        List<Node> nodes = (new ListNodes()).getNodes();
+        Node newNode = (new GetNode()).getNode( nodeUuid );
         
-        String jsonString = ObjectModelHelper.toJSON( nodes );
+        String jsonString = ObjectModelHelper.toJSON( newNode );
         
         return new TextResource( jsonString );
     }
