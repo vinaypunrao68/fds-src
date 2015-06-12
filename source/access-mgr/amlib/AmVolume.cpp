@@ -34,8 +34,8 @@ AmVolume::getMode() const {
 }
 
 void
-AmVolume::setVersion(fds_uint64_t const version) {
-    vol_version.store(version, std::memory_order_relaxed);
+AmVolume::setSequenceId(fds_uint64_t const sequence_id) {
+    vol_sequence_id.store(sequence_id, std::memory_order_relaxed);
 }
 
 }  // namespace fds
