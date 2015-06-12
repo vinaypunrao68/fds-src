@@ -71,7 +71,6 @@ class TestStressRun(testcase.FDSTestCase):
                 sleep(30)
 
             #tell threads to finish
-            print("Awww, my for loop ended.")
             self.should_be_running = False
 
             #wait for threads to finish
@@ -98,7 +97,6 @@ class TestStressRun(testcase.FDSTestCase):
     def still_running(self):
         running = False
         if(datetime.now() < self.endtime):
-            print("running")
             running = True
         return running
 
@@ -131,7 +129,6 @@ class TestStressRun(testcase.FDSTestCase):
                 try:
                     write_count = write_count + 1
                     volume = s3_vols.get_bucket(volume_name)
-                    print(volume.name)
                     s3_vols.store_file_to_volume(volume, file_name, volume.name + "_key")
                 except:
                     write_failed = write_failed + 1
