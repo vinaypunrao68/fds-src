@@ -7,7 +7,6 @@ import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.User;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
 import com.formationds.security.HashedPassword;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;

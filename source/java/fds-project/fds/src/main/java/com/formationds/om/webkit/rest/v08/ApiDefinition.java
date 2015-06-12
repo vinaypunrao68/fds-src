@@ -36,7 +36,6 @@ import com.formationds.om.webkit.rest.v08.stream.RegisterStream;
 import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
 import com.formationds.om.webkit.rest.v08.tenants.CreateTenant;
 import com.formationds.om.webkit.rest.v08.tenants.ListTenants;
-import com.formationds.om.webkit.rest.v08.tenants.MutateTenant;
 import com.formationds.om.webkit.rest.v08.tenants.RevokeUserFromTenant;
 import com.formationds.om.webkit.rest.v08.token.GrantToken;
 import com.formationds.om.webkit.rest.v08.token.ReissueToken;
@@ -341,7 +340,7 @@ public class ApiDefinition extends AbstractApiDefinition{
 //    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/tenants/:tenant_id", (token) -> new DeleteTenant( config ) );
     	
     	// edit tenant TODO: Not implemented
-    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( ) );
+//    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/tenants/:tenant_id", (token) -> new MutateTenant( ) );
     	
     	// assign a user to a tenancy
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/tenants/:tenant_id/:user_id", (token) -> new AssignUserToTenant() );
