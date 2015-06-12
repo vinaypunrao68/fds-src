@@ -34,8 +34,8 @@ AmVolume::getMode() const {
 }
 
 void
-AmVolume::setToken(fds_int64_t const _token) {
-    access_token->setToken(_token);
+AmVolume::setVersion(fds_uint64_t const version) {
+    vol_version.store(version, std::memory_order_relaxed);
 }
 
 }  // namespace fds

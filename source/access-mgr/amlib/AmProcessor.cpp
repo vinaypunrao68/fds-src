@@ -537,6 +537,8 @@ AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
+    auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
+    volReq->vol_sequence = shVol->getNextVersion();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchSetVolumeMetadata(amReq);
 }
@@ -762,7 +764,8 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
-        blobReq->setTxId(BlobTxId(randNumGen->genNumSafe()));
+        blobReq->setTxId(randNumGen->genNumSafe());
+        blobReq->vol_sequence = shVol->getNextVersion();
         amDispatcher->dispatchUpdateCatalogOnce(amReq);
     } else {
         amDispatcher->dispatchUpdateCatalog(amReq);
@@ -1046,6 +1049,13 @@ AmProcessor_impl::volumeContents(AmRequest *amReq) {
 
 void
 AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
+    auto shVol = getVolume(amReq, false);
+    if (!haveWriteToken(shVol)) {
+        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
+        return;
+    }
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    blobReq->vol_sequence = shVol->getNextVersion();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
 }
