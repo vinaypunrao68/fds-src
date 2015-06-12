@@ -30,10 +30,10 @@ struct NodeInfo {
   3: required bool fHasDm,
   4: required bool fHasOm,
   5: required bool fHasSm,
-  6: i32  bareAMPid
-  7: i32  javaAMPid
-  8: i32  dmPid
-  9: i32  smPid
+  6: i32  bareAMPid = -1,
+  7: i32  javaAMPid = -1,
+  8: i32  dmPid = -1,
+  9: i32  smPid = -1,
 }
 
 #endif __platformtypes_h__

@@ -181,6 +181,8 @@ namespace fds
 
            commandNameFile >> commandName;
 
+           // If the process namne we are looking for (procName) does NOT equal the command name found, do additional verification, as java processes are an exception.
+           // Should they be equal, our work is done, no else clause is needed and we call out to the return true
            if (procName != commandName)
            {
                // Now check for java and com.formationds.am.Main
@@ -202,6 +204,8 @@ namespace fds
                    // The contents of cmdline are null separated, this seems to always read the full line in the file.
                    // There might be a case where a while is needed.
                    commandLineFile >> arg;
+                   // If the java class name was NOT found in the command line arguments
+                   // Otherwise we fall through to the return true
                    if (std::string::npos == arg.find (procName))
                    {
                        // TODO (donavan) Need a decent way to test this...
