@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fdsp/PlatNetSvc.h>
+#include <fdsp/health_monitoring_api_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/OMSvc.h>
 #include <net/fdssocket.h>
@@ -115,6 +116,9 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
+
+    // TODO(Rao): Get this from config
+    notifyOMOnSvcDown = false;
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -541,6 +545,21 @@ void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
 	omSvcRpc->getDLT(fdsp_dlt, nullarg);
 }
 
+void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)
+{
+    auto svcDownMsg = boost::make_shared<fds::apis::NotifyHealthReport>();
+    svcDownMsg->healthReport.serviceID = svcInfo_.svc_id;
+    svcDownMsg->healthReport.serviceState = fds::apis::UNREACHABLE; 
+
+    // TODO(Rao/Paul): Uncomment once NotifyHealthReport is made part of fpi and
+    // added to thrift definition
+#if 0
+    auto asyncReq = getSvcRequestMgr()->newEPSvcRequest(getOmSvcUuid());
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::NotifyHealthReport), svcDownMsg);
+    asyncReq->invoke();
+#endif
+}
+
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
 : HasModuleProvider(moduleProvider)
@@ -678,6 +697,12 @@ void SvcHandle::markSvcDown_()
     svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
     svcClient_.reset();
     GLOGDEBUG << logString();
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+    if (svcMgr->notifyOMOnSvcDown &&
+        svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
+        svcMgr->notifyOMSvcIsDown(svcInfo_);
+    }
 }
 
 

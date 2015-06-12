@@ -195,6 +195,17 @@ QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr ep
     return req;
 }
 
+MultiPrimarySvcRequestPtr SvcRequestPool::neMultiPrimarySvcRequest(
+    const std::vector<fpi::SvcUuid>& primarySvcs,
+    const std::vector<fpi::SvcUuid>& optionalSvcs)
+{
+    auto reqId = getNextAsyncReqId_();
+    MultiPrimarySvcRequestPtr req(new MultiPrimarySvcRequest(MODULEPROVIDER(), reqId, selfUuid_, primarySvcs, optionalSvcs));
+    asyncSvcRequestInitCommon_(req);
+
+    return req;
+}
+
 
 /**
 * @brief Common method for posting errors typically encountered in invocation code paths

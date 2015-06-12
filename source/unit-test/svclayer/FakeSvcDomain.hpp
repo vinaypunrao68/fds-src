@@ -31,12 +31,20 @@ struct FakeSvcDomain {
 
     virtual bool checkSvcInfoAgainstDomain(int svcIdx);
 
-    virtual void sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
+    virtual EPSvcRequestPtr sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
                         SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
-    virtual void sendGetStatusFailoverSvcRequest(int srcIdx, const std::vector<int> &destIdxs,
-                        SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
-    virtual void sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<int> &destIdxs,
-                        SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+    virtual FailoverSvcRequestPtr sendGetStatusFailoverSvcRequest(
+        int srcIdx,
+        const std::vector<int> &destIdxs,
+        SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+    virtual QuorumSvcRequestPtr sendGetStatusQuorumSvcRequest(
+        int srcIdx, const std::vector<int> &destIdxs,
+        SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+    virtual MultiPrimarySvcRequestPtr sendGetStatusMultiPrimarySvcRequest(
+        int srcIdx,
+        const std::vector<int> &primaryIdxs,
+        const std::vector<int> &optionalIdxs,
+        MultiPrimarySvcRequestCbTask &cbHandle);
 
     FakeSvc*& operator[](int idx) {return svcs_[idx];}
 
@@ -121,7 +129,7 @@ bool FakeSvcDomain::checkSvcInfoAgainstDomain(int svcIdx) {
     return true;
 }
 
-void FakeSvcDomain::sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
+EPSvcRequestPtr FakeSvcDomain::sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
                     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
 {
 
@@ -132,9 +140,10 @@ void FakeSvcDomain::sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(cbHandle.cb);
     asyncReq->invoke();
+    return asyncReq;
 }
 
-void FakeSvcDomain::sendGetStatusFailoverSvcRequest(int srcIdx,
+FailoverSvcRequestPtr FakeSvcDomain::sendGetStatusFailoverSvcRequest(int srcIdx,
                     const std::vector<int> &destIdxs,
                     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
 {
@@ -153,10 +162,13 @@ void FakeSvcDomain::sendGetStatusFailoverSvcRequest(int srcIdx,
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(cbHandle.cb);
     asyncReq->invoke();
+    return asyncReq;
 }
 
-void FakeSvcDomain::sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<int> &destIdxs,
-                    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
+QuorumSvcRequestPtr FakeSvcDomain::sendGetStatusQuorumSvcRequest(
+    int srcIdx,
+    const std::vector<int> &destIdxs,
+    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
 {
     auto srcMgr = svcs_[srcIdx]->getSvcMgr();
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(destIdxs.size());
@@ -173,6 +185,37 @@ void FakeSvcDomain::sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(cbHandle.cb);
     asyncReq->invoke();
+    return asyncReq;
+}
+
+MultiPrimarySvcRequestPtr FakeSvcDomain::sendGetStatusMultiPrimarySvcRequest(int srcIdx,
+                                                        const std::vector<int> &primaryIdxs,
+                                                        const std::vector<int> &optionalIdxs,
+                                                        MultiPrimarySvcRequestCbTask &cbHandle)
+{
+    std::vector<fpi::SvcUuid> primarySvcs;
+    std::vector<fpi::SvcUuid> optionalSvcs;
+    for (auto &idx : primaryIdxs) {
+        primarySvcs.push_back(getFakeSvcUuid(idx));
+    }
+    for (auto &idx : optionalIdxs) {
+        optionalSvcs.push_back(getFakeSvcUuid(idx));
+    }
+
+    auto srcMgr = svcs_[srcIdx]->getSvcMgr();
+
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = srcMgr->getSvcRequestMgr()->neMultiPrimarySvcRequest(
+        primarySvcs, optionalSvcs);
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onPrimariesResponsdedCb(
+        /* We only care once all endpoints respond*/ 
+        [](MultiPrimarySvcRequest*, const Error&) {}
+        );
+    asyncReq->onAllRespondedCb(cbHandle.cb);
+    asyncReq->invoke();
+    return asyncReq;
 }
 
 FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs, const std::string &configFile)
