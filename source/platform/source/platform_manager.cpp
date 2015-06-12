@@ -120,7 +120,7 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    notifyOmAProcessDied (procName, BARE_AM, m_nodeInfo.bareAMPid);
+                    //notifyOmAProcessDied (procName, BARE_AM, m_nodeInfo.bareAMPid);
                     updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
                 }
             }
@@ -135,7 +135,7 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    notifyOmAProcessDied (procName, JAVA_AM, m_nodeInfo.javaAMPid);
+                    //notifyOmAProcessDied (procName, JAVA_AM, m_nodeInfo.javaAMPid);
                     updateNodeInfoDbPid (JAVA_AM, EMPTY_PID);
                 }
             }
@@ -150,7 +150,7 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    notifyOmAProcessDied (procName, DATA_MANAGER, m_nodeInfo.dmPid);
+                    //notifyOmAProcessDied (procName, DATA_MANAGER, m_nodeInfo.dmPid);
                     updateNodeInfoDbPid (DATA_MANAGER, EMPTY_PID);
                 }
             }
@@ -165,7 +165,7 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 }
                 else
                 {
-                    notifyOmAProcessDied (procName, STORAGE_MANAGER, m_nodeInfo.smPid);
+                    //notifyOmAProcessDied (procName, STORAGE_MANAGER, m_nodeInfo.smPid);
                     updateNodeInfoDbPid (STORAGE_MANAGER, EMPTY_PID);
                 }
             }
