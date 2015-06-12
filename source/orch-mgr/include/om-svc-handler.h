@@ -81,7 +81,7 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
     void setConfigDB(kvstore::ConfigDB* configDB);
     
     void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-    						boost::shared_ptr<fpi::NotifyHealthReport> &msg);
+    		boost::shared_ptr<fpi::NotifyHealthReport> &msg);
 
   protected:
     OM_NodeDomainMod         *om_mod;

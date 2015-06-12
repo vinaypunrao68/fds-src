@@ -566,34 +566,37 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& r
 }
 
 Error
-OM_NodeAgent::om_send_pushmeta(fpi::CtrlDMMigrateMetaPtr& meta_msg)
+OM_NodeAgent::om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg)
 {
     Error err(ERR_OK);
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
-    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlDMMigrateMeta), meta_msg);
-    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pushmeta_resp, this,
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMStartMigrationMsg), meta_msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pullmeta_resp, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     om_req->setTimeoutMs(60000);
     om_req->invoke();
 
-    LOGNORMAL << "OM: send CtrlDMMigrateMeta to " << get_node_name() << " uuid 0x"
+    LOGNORMAL << "OM: send CtrlNotifyDMStartMigrationMsg to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
     return err;
 }
 
 void
-OM_NodeAgent::om_pushmeta_resp(EPSvcRequest* req,
+OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
                                const Error& error,
                                boost::shared_ptr<std::string> payload)
 {
-    LOGDEBUG << "OM received response for CtrlDmMigrateMeta from node "
+    LOGDEBUG << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " " << error;
 
+
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
-    domain->om_recv_push_meta_resp(node_uuid, error);
+    // For now override error code to OK. Need to ask Rao.
+    // domain->om_recv_pull_meta_resp(node_uuid, error);
+    domain->om_recv_pull_meta_resp(node_uuid, ERR_OK);
 }
 
 Error
@@ -2203,11 +2206,6 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
     } else {
         LOGERROR << "Received request to bcast DMT to invalid svc type.";
     }
-#ifdef LLIU_WORK_IN_PROGRESS
-    //   the following is to test for PM to receive dmt
-    LOGNORMAL << " try to send out dmt to pm to shared memory see see ";
-    dc_pm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt_x);
-#endif
     return count;
 }
 
@@ -2276,12 +2274,6 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
         count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
         LOGDEBUG << "Sent dlt to SM nodes successfully";
     }
-
-#ifdef LLIU_WORK_IN_PROGRESS
-    //   the following is to test for PM to receive dlt
-    LOGNORMAL << " try to send out dlt to pm to shared memory see see ";
-    dc_pm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
-#endif
 
     if (to_dm) {
         count += dc_dm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);

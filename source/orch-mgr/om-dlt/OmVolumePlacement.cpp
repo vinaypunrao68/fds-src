@@ -356,19 +356,17 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     // Send pull messages to the new DMs
     for (pull_msgs::iterator pmiter = pull_msg.begin();
     		pmiter != pull_msg.end(); pmiter++) {
+    	OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(pmiter->first));
+    	fds_verify(agent != nullptr);
+
     	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
-    	(*dm_set).insert(node);
 
-    	auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    	auto request = svcMgr->newEPSvcRequest(node.toSvcUuid());
-
-    	/**
-    	 * Awaiting PR 1988 to go in the master.
-    	 */
-    	// request->setPayload (FDSP_MSG_TYPEID (fpi::CtrlNotifyDMStartMigrationMsg), message);
-    	// request->invoke();
+    	err = agent->om_send_pullmeta(message);
+    	if (err.ok()) {
+    		(*dm_set).insert(node);
+    	}
     }
     return err;
 }

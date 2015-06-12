@@ -466,6 +466,9 @@ struct CtrlNotifyDMStartMigrationMsg {
   2: i64                     DMT_version;
 }
 
+/**
+ * ACK to the OM from DM of receiving a migration msg.
+ */
 struct CtrlNotifyDMStartMigrationRspMsg {
     // Empty response is fine. Nothing needed.
 }
