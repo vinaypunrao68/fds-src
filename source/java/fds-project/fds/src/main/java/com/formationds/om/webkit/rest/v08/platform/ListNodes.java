@@ -47,6 +47,8 @@ public class ListNodes
     
     public List<Node> getNodes() throws TException{
         
+    	logger.debug( "Getting a list of nodes." );
+    	
     	// TODO:  Fix this when there are more domains
     	List<com.formationds.protocol.FDSP_Node_Info_Type> list = getConfigApi().ListServices(0);
     	

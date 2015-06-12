@@ -22,7 +22,8 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONException;
 import org.json.JSONObject;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
@@ -30,6 +31,7 @@ public class UpdatePassword implements RequestHandler {
     
 	private static final String USER_ARG = "user_id";
 	
+	private static final Logger logger = LoggerFactory.getLogger( UpdatePassword.class );
 	private AuthenticationToken token;
     private ConfigurationApi configApi;
     private Authorizer authorizer;
@@ -48,6 +50,8 @@ public class UpdatePassword implements RequestHandler {
         
         long userId = requiredLong( routeParameters, USER_ARG );
         String password = o.getString( "password" );
+        
+        logger.info( "Changing password for user: {}.", userId );
         
         User inputUser = ObjectModelHelper.toObject( source, User.class );
         

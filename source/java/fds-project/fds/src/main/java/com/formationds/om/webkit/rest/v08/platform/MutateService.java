@@ -20,7 +20,6 @@ import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.Service.ServiceState;
-import com.formationds.client.v08.model.Service.ServiceStatus;
 import com.formationds.client.v08.model.ServiceType;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
@@ -60,6 +59,8 @@ public class MutateService implements RequestHandler {
         Long nodeId = requiredLong(routeParameters, NODE_ARG );        
         Long serviceId = requiredLong(routeParameters, SERVICE_ARG);
 
+        logger.debug( "Trying to change service: " + serviceId + " on node: " + nodeId );
+        
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         
         Service service = ObjectModelHelper.toObject( reader, Service.class );
@@ -86,6 +87,8 @@ public class MutateService implements RequestHandler {
         	default:
         		break;
         }
+        
+        logger.debug( "Desired state of services is AM: " + am + " SM: " + sm + " DM: " + dm );
         
         int status = getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
         		0, 

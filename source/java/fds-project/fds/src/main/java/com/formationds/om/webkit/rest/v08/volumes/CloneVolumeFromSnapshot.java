@@ -16,6 +16,8 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.util.Map;
@@ -24,6 +26,7 @@ import javax.servlet.http.HttpServletResponse;
 
 public class CloneVolumeFromSnapshot implements RequestHandler {
 
+	private static final Logger logger = LoggerFactory.getLogger( CloneVolumeFromSnapshot.class );
 	private static final String VOLUME_ARG = "volume_id";
 	private static final String SNAPSHOT_ARG = "snapshot_id";
 
@@ -42,10 +45,14 @@ public class CloneVolumeFromSnapshot implements RequestHandler {
 		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 		long snapshotId = requiredLong( routeParameters, SNAPSHOT_ARG );
 		
+		logger.debug( "Cloning volume: {} from snapshot: {}.", volumeId, snapshotId );
+		
 		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
 		Volume newVolume = ObjectModelHelper.toObject( reader, Volume.class );
 		
 		Snapshot snapshot = (new GetSnapshot()).findSnapshot( snapshotId );
+		
+		logger.debug( "Snapshot time was {}(sec), using that to instigate cloning operation.", snapshot.getCreationTime().getEpochSecond() );
 		
 		(new CloneVolumeFromTime( getAuthorizer(), getToken() )).cloneFromTime( volumeId, newVolume, snapshot.getCreationTime().getEpochSecond() );
 		

@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -18,6 +20,7 @@ import com.formationds.web.toolkit.Resource;
 
 public class DeleteSnapshotPolicy implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( DeleteSnapshotPolicy.class );
 	private static final String VOLUME_ARG = "volume_id";
 	private static final String POLICY_ARG = "policy_id";
 	
@@ -32,7 +35,11 @@ public class DeleteSnapshotPolicy implements RequestHandler{
 		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 		long policyId = requiredLong( routeParameters, POLICY_ARG );
 		
+		logger.debug( "Detaching snapshot policy: {} from volume: {}.", policyId, volumeId );
+		
 		getConfigApi().detachSnapshotPolicy( volumeId, policyId );
+		
+		logger.debug( "Deleting snapshot policy: {}.", policyId );
 		
 		getConfigApi().deleteSnapshotPolicy( policyId );
 		

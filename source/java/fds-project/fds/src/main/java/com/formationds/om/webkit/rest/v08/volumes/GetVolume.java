@@ -16,14 +16,14 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
-import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GetVolume  implements RequestHandler {
 	
 	public static final String VOLUME_ARG = "volume_id";
-    private static final Logger LOG = Logger.getLogger(ListVolumes.class);
-
+    private static final Logger logger = LoggerFactory.getLogger(ListVolumes.class);
     private Authorizer authorizer;
     private AuthenticationToken token;
    
@@ -45,6 +45,8 @@ public class GetVolume  implements RequestHandler {
 	}
 	
 	public Volume getVolume( long volumeId ) throws Exception{
+		
+		logger.debug( "Retrieving volume: {}.", volumeId );
 		
 		List<Volume> volumes = (new ListVolumes( getAuthorizer(), getToken() )).listVolumes();
 		

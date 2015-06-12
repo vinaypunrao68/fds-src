@@ -41,6 +41,8 @@ public class MutateNode implements RequestHandler {
 			throws Exception {
 		
         Long nodeUuid = requiredLong(routeParameters, NODE_ARG );
+        
+        logger.debug( "Changing something about node: " + nodeUuid );
 		
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         Node node = ObjectModelHelper.toObject( reader, Node.class );
@@ -62,6 +64,8 @@ public class MutateNode implements RequestHandler {
         		event = OmEvents.START_NODE;
         		break;
         }
+        
+        logger.debug( "Attempting state change - AM: " + activateAm + " SM: " + activateSm + " DM: " + activateDm );
         
         //TODO:  Have a call that changes the node's state!
         int status = 

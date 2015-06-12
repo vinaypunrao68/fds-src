@@ -41,6 +41,8 @@ public class RemoveService implements RequestHandler {
 		long nodeId = requiredLong( routeParameters, NODE_ID );
 		long serviceId = requiredLong( routeParameters, SERVICE_ID );
 		
+		logger.debug( "Removing servive {} from node {}.", nodeId, serviceId );
+		
 		Node node = (new GetNode()).getNode( nodeId );
 		
 		// TODO: Yes, this is redundant but it's easy.  We should fix the thrift part of this insanity

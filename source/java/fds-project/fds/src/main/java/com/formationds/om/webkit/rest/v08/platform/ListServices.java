@@ -4,27 +4,26 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.protocol.ApiException;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 public class ListServices implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( ListServices.class );
 	private static final String NODE_ARG = "node_id";
-	private ConfigurationApi configApi;
 	
 	public ListServices(){}
 	
@@ -43,6 +42,8 @@ public class ListServices implements RequestHandler{
 	
 	public List<Service> getServicesForNode( long nodeId ) throws ApiException, TException {
 		
+		logger.debug( "Listing service for node: " + nodeId );
+		
 		// TODO: Make a thrift call so we don't have to get all nodes and find the right one...
 		List<Service> services = new ArrayList<>();
 		
@@ -52,16 +53,8 @@ public class ListServices implements RequestHandler{
 			services.addAll( node.getServices().get( serviceType ) );
 		});
 		
+		logger.debug( "Found " + services.size() + " services." );
+		
 		return services;
 	}
-	
-	private ConfigurationApi getConfigApi(){
-		
-		if ( configApi == null ){
-			configApi = SingletonConfigAPI.instance().api();
-		}
-		
-		return configApi;
-	}
-
 }

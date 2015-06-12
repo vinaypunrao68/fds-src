@@ -39,6 +39,8 @@ import com.formationds.web.toolkit.TextResource;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,6 +53,7 @@ import java.util.stream.Collectors;
 
 public class SystemHealthStatus implements RequestHandler {
 
+	private static final Logger logger = LoggerFactory.getLogger( SystemHealth.class );
     private final ConfigurationApi configApi;
     private final Authorizer authorizer;
     private final AuthenticationToken token;
@@ -83,6 +86,8 @@ public class SystemHealthStatus implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
 
+    	logger.debug( "Retrieving the system health." );
+    	
         List<VolumeDescriptor> allVolumes = configApi.listVolumes("")
                 .stream()
                 .collect(Collectors.toList());
@@ -143,6 +148,8 @@ public class SystemHealthStatus implements RequestHandler {
         } else {
             overallHealth = HealthState.LIMITED;
         }
+        
+        logger.debug( "Overall health is: {}.", overallHealth.name() );
 
         return overallHealth;
     }
@@ -179,6 +186,8 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private SystemHealth getFirebreakStatus(List<VolumeDescriptor> volDescs) {
 
+    	logger.debug( "Retrieving firebreak system status." );
+    	
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.FIREBREAK.name());
 
@@ -253,6 +262,8 @@ public class SystemHealthStatus implements RequestHandler {
             status.setState(HealthState.UNKNOWN);
         }
 
+        logger.debug( "Firebreak status is: {}:{}.", status.getState().name(), status.getMessage() );
+        
         return status;
     }
 
@@ -260,6 +271,8 @@ public class SystemHealthStatus implements RequestHandler {
      * Generate a status object to rollup system capacity status
      */
     private SystemHealth getCapacityStatus(List<VolumeDescriptor> volDescs) {
+    	logger.debug( "Getting system capacity status." );
+    	
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.CAPACITY.name());
 
@@ -318,6 +331,8 @@ public class SystemHealthStatus implements RequestHandler {
             status.setMessage(CAPACITY_GOOD);
         }
 
+        logger.debug( "Capacity status is: {}:{}.", status.getState().name(), status.getMessage() );
+        
         return status;
     }
 
@@ -330,6 +345,8 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private SystemHealth getServiceStatus() throws TException {
 
+    	logger.debug( "Getting the system service status." );
+    	
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.SERVICES.name());
 
@@ -405,6 +422,8 @@ public class SystemHealthStatus implements RequestHandler {
         	status.setMessage(SERVICES_BAD);
         }
 
+        logger.debug( "Service status is: {}:{}.", status.getState().name(), status.getMessage() );
+        
         return status;
     }
 

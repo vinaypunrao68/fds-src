@@ -41,6 +41,8 @@ public class SystemCapabilities
     public Resource handle( final Request request, final Map<String, String> routeParameters )
         throws Exception {
 
+    	logger.debug( "Requesting system capabilities" );
+    	
         final List<String> mediaPolicies = new ArrayList<>( );
         mediaPolicies.add( MediaPolicy.SSD.name() );
         if( !parsedConfig.defaultBoolean( "fds.feature_toggle.common.all_ssd",
@@ -54,8 +56,6 @@ public class SystemCapabilities
         JSONObject capabilities = new JSONObject(
                 new SystemCapability( mediaPolicies.toArray( new String[mediaPolicies.size()] ) ) );
 
-        logger.debug( "Capabilities return: " + capabilities.toString() );
-        
         return new JsonResource( capabilities );
     }
 }
