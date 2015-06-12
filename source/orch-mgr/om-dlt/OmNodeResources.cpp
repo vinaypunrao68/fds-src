@@ -594,9 +594,12 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
 
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
-    // For now override error code to OK. Need to ask Rao.
-    // domain->om_recv_pull_meta_resp(node_uuid, error);
+    /**
+     * For now override error code to OK. Removde this hard code once
+     * FS-2214 is fixed.
+     */
     domain->om_recv_pull_meta_resp(node_uuid, ERR_OK);
+    // domain->om_recv_pull_meta_resp(node_uuid, error);
 }
 
 Error
