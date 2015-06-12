@@ -46,15 +46,6 @@ namespace fds
 
         PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false)
         {
-            m_nodeInfo.uuid = 0;
-            m_nodeInfo.fHasAm = false;
-            m_nodeInfo.fHasDm = false;
-            m_nodeInfo.fHasOm = false;
-            m_nodeInfo.fHasSm = false;
-            m_nodeInfo.bareAMPid = -1;
-            m_nodeInfo.javaAMPid = -1;
-            m_nodeInfo.dmPid = -1;
-            m_nodeInfo.smPid = -1;
         }
 
         int PlatformManager::mod_init (SysParams const *const param)
@@ -77,6 +68,16 @@ namespace fds
 
                 m_nodeInfo.uuid = uuid.uuid_get_val();
                 m_nodeInfo.uuid = getNodeUUID (fpi::FDSP_PLATFORM);
+
+                m_nodeInfo.fHasAm = false;
+                m_nodeInfo.fHasDm = false;
+                m_nodeInfo.fHasOm = false;
+                m_nodeInfo.fHasSm = false;
+                m_nodeInfo.bareAMPid = EMPTY_PID;
+                m_nodeInfo.javaAMPid = EMPTY_PID;
+                m_nodeInfo.dmPid = EMPTY_PID;
+                m_nodeInfo.smPid = EMPTY_PID;
+
                 LOGNOTIFY << "generated a new uuid for this node:  " << m_nodeInfo.uuid;
                 m_db->setNodeInfo (m_nodeInfo);
             } else {
@@ -112,7 +113,7 @@ namespace fds
                 else
                 {
                     notifyOmAProcessDied (procName, BARE_AM, m_nodeInfo.bareAMPid);
-                    updateNodeInfoDbPid (BARE_AM, -1);
+                    updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
                 }
             }
 
@@ -127,7 +128,7 @@ namespace fds
                 else
                 {
                     notifyOmAProcessDied (procName, JAVA_AM, m_nodeInfo.javaAMPid);
-                    updateNodeInfoDbPid (JAVA_AM, -1);
+                    updateNodeInfoDbPid (JAVA_AM, EMPTY_PID);
                 }
             }
 
@@ -142,7 +143,7 @@ namespace fds
                 else
                 {
                     notifyOmAProcessDied (procName, DATA_MANAGER, m_nodeInfo.dmPid);
-                    updateNodeInfoDbPid (DATA_MANAGER, -1);
+                    updateNodeInfoDbPid (DATA_MANAGER, EMPTY_PID);
                 }
             }
 
@@ -157,7 +158,7 @@ namespace fds
                 else
                 {
                     notifyOmAProcessDied (procName, STORAGE_MANAGER, m_nodeInfo.smPid);
-                    updateNodeInfoDbPid (STORAGE_MANAGER, -1);
+                    updateNodeInfoDbPid (STORAGE_MANAGER, EMPTY_PID);
                 }
             }
             m_startupAuditComplete = true;
@@ -442,7 +443,7 @@ namespace fds
             }
 
             m_appPidMap.erase (mapIter);
-            updateNodeInfoDbPid (procIndex, -1);
+            updateNodeInfoDbPid (procIndex, EMPTY_PID);
         }
 
 
@@ -677,7 +678,7 @@ namespace fds
 
                             notifyOmAProcessDied (procName, appIndex, mapIter->second);
                             m_appPidMap.erase (mapIter++);
-                            updateNodeInfoDbPid (appIndex, -1);
+                            updateNodeInfoDbPid (appIndex, EMPTY_PID);
 
                             if (m_autoRestartFailedProcesses)
                             {

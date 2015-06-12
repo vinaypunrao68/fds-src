@@ -45,6 +45,8 @@ namespace fds
         // inherited by initd  and they must be monitored via the /proc file system rather than as children since they are orphans.
         constexpr pid_t PROC_CHECK_BITMASK = (1 << (sizeof (pid_t) * 8 - 2));
 
+        constexpr pid_t EMPTY_PID = -1;
+
 #ifdef DEBUG
         const std::string JAVA_DEBUGGER_OPTIONS       = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=";             // No spaces in this value
 #endif // DEBUG
