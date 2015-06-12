@@ -75,16 +75,15 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
                                  fds_uint32_t seqId,
                                  const Error& err) {
     fds_assert(operation == WRITE);
-    fds_uint32_t index = (seqId == 0) ? 0 : 1;
     if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
                      (err != ERR_BLOB_NOT_FOUND)) {
         opError = err;
         LOGERROR << "Error: " << err << " for: 0x" << std::hex << handle;
-        return std::make_pair(offVec[index], boost::shared_ptr<std::string>());
+        return std::make_pair(offVec[seqId], boost::shared_ptr<std::string>());
     }
 
     fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
-    boost::shared_ptr<std::string>& writeBytes = bufVec[index];
+    boost::shared_ptr<std::string>& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
     if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND) ||
         0 == len || retBuf->empty()) {
@@ -102,7 +101,7 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
         fauxBytes->replace(iOff, writeBytes->length(),
                            writeBytes->c_str(), writeBytes->length());
     }
-    return std::make_pair(offVec[index], fauxBytes);
+    return std::make_pair(offVec[seqId], fauxBytes);
 }
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
@@ -252,19 +251,22 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         // request id is 64 bit of handle + 32 bit of sequence Id
         handle_type reqId{handle, seqId};
 
-        // For objects that we are only updating a part of, we need to perform
-        // a Read-Modify-Write operation. To prevent a race condition we lock
-        // that sector (4k object) for the duration of the operation and queue
-        // other requests to that offset behind it. When the operation finishes
-        // it pull the next op off the queue and enqueue it to QoS
-        if (iLength != maxObjectSizeInBytes) {
-            LOGDEBUG << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
-            // keep the data for the update to the first and last object in the response
-            // so that we can apply the update to the object on read response
-            resp->keepBufferForWrite(seqId, objectOff, objBuf);
+        // if we are here, we don't need to read this object first; will do write
+        LOGTRACE  << "Will write offset: 0x" << std::hex << curOffset
+                  << " for length: 0x" << iLength;
 
-            if (sector_type::QueueResult::FirstEntry ==
-                    sector_map.queue_rmw(objectOff, reqId)) {
+        // To prevent a race condition we lock the sector (object) for the
+        // duration of the operation and queue other requests to that offset
+        // behind it. When the operation finishes it pull the next op off the
+        // queue and enqueue it to QoS
+        resp->keepBufferForWrite(seqId, objectOff, objBuf);
+        if (sector_type::QueueResult::FirstEntry ==
+                sector_map.queue_update(objectOff, reqId)) {
+            if (iLength != maxObjectSizeInBytes) {
+                // For objects that we are only updating a part of, we need to
+                // perform a Read-Modify-Write operation, keep the data for the
+                // update to the first and last object in the response so that
+                // we can apply the update to the object on read response
                 amAsyncDataApi->getBlob(reqId,
                                         domainName,
                                         volumeName,
@@ -272,23 +274,16 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
                                         objLength,
                                         off);
             } else {
-                LOGDEBUG << "RMW queued: " << handle << ":" << seqId;
+                amAsyncDataApi->updateBlobOnce(reqId,
+                                               domainName,
+                                               volumeName,
+                                               blobName,
+                                               blobMode,
+                                               objBuf,
+                                               objLength,
+                                               off,
+                                               emptyMeta);
             }
-        } else {
-            // if we are here, we don't need to read this object first; will do write
-            LOGDEBUG << "putBlob length " << maxObjectSizeInBytes << " offset " << curOffset
-                     << " object offset " << objectOff
-                     << " volume " << volumeName
-                     << " reqId " << reqId.handle << ":" << reqId.seq;
-            amAsyncDataApi->updateBlobOnce(reqId,
-                                           domainName,
-                                           volumeName,
-                                           blobName,
-                                           blobMode,
-                                           objBuf,
-                                           objLength,
-                                           off,
-                                           emptyMeta);
         }
         amBytesWritten += iLength;
         ++seqId;
@@ -379,7 +374,7 @@ NbdOperations::getBlobResp(const Error &error,
 void
 NbdOperations::updateBlobResp(const Error &error,
                               handle_type& requestId) {
-    NbdResponseVector* resp = NULL;
+    NbdResponseVector* resp = nullptr;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
@@ -401,23 +396,46 @@ NbdOperations::updateBlobResp(const Error &error,
         resp = it->second;
     }
 
-    // Unblock other RMW on the same offset if they exist
-    auto rmw = resp->wasRMW(seqId);
-    if (rmw.first) {
-        LOGDEBUG << "RMW finished offset: " << rmw.second;
-        auto e = sector_map.pop_and_delete(rmw.second);
-        if (e.first) {
-            LOGDEBUG << "RMW queuing: " << e.second.handle << ":" << e.second.seq;
+    // Unblock other updates on the same object if they exist
+    auto offset = resp->getOffset(seqId);
+    bool update_queued;
+    handle_type queued_handle;
+    std::tie(update_queued, queued_handle) = sector_map.pop_and_delete(offset);
+    if (update_queued) {
+        NbdResponseVector* queued_resp = nullptr;
+        {
+            fds_mutex::scoped_lock l(respLock);
+            auto it = responses.find(queued_handle.handle);
+            if (responses.end() != it) {
+                queued_resp = it->second;
+            }
+        }
+        if (queued_resp) {
+            auto buffer = queued_resp->getBuffer(queued_handle.seq);
+            boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
+            off->value = offset;
             boost::shared_ptr<int32_t> objLength =
                 boost::make_shared<int32_t>(maxObjectSizeInBytes);
-            boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-            off->value = rmw.second;
-            amAsyncDataApi->getBlob(e.second,
-                                    domainName,
-                                    volumeName,
-                                    blobName,
-                                    objLength,
-                                    off);
+            if (maxObjectSizeInBytes != buffer->length()) {
+                amAsyncDataApi->getBlob(queued_handle,
+                                        domainName,
+                                        volumeName,
+                                        blobName,
+                                        objLength,
+                                        off);
+            } else {
+                amAsyncDataApi->updateBlobOnce(queued_handle,
+                                               domainName,
+                                               volumeName,
+                                               blobName,
+                                               blobMode,
+                                               buffer,
+                                               objLength,
+                                               off,
+                                               emptyMeta);
+            }
+        } else {
+            fds_panic("Missing response vector for update!");
         }
     }
 
