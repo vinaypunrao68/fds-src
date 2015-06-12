@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -155,6 +156,29 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
             BlobMetaDesc blobMeta;
             fds_verify(blobMeta.loadSerialized(dbIt->value().ToString()) == ERR_OK);
             blobMetaList.push_back(blobMeta);
+        }
+    }
+    fds_assert(dbIt->status().ok());  // check for any errors during the scan
+
+    return ERR_OK;
+}
+
+Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
+    Catalog::catalog_roptions_t opts;
+    auto dbIt = getSnapshotIter(opts);
+    fds_assert(dbIt);
+
+    max = 0;
+
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record dbKey = dbIt->key();
+        if (reinterpret_cast<const BlobObjKey *>(dbKey.data())->objIndex == BLOB_META_INDEX) {
+            BlobMetaDesc blobMeta;
+            fds_verify(blobMeta.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+
+            if (max < blobMeta.desc.version) {
+                max = blobMeta.desc.version;
+            }
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
