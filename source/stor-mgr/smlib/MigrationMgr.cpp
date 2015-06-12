@@ -876,10 +876,6 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 migrExecutorLock.cond_write_unlock();
             }
         }
-        if (rw_lock_upgraded)
-            migrExecutorLock.write_unlock();
-        else
-            migrExecutorLock.cond_write_unlock();
     }
 }
 
