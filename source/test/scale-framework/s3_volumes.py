@@ -89,6 +89,9 @@ class S3Volumes(object):
         '''
         return self.s3conn.conn.get_all_buckets()
 
+    def get_bucket(self, volume_name):
+        return self.s3conn.conn.get_bucket(volume_name)
+
     def download_files(self, bucket, dest):
         '''
         Download all the files present in a S3 volume
@@ -106,7 +109,7 @@ class S3Volumes(object):
                 self.log.info("Downloading %s" % path)
                 l.get_contents_to_filename(path)
 
-    def store_file_to_volume(self, bucket, filepath):
+    def store_file_to_volume(self, bucket, filepath, key_name):
         '''
         Given the list of files to be uploaded, presented in sample_files list,
         upload them to the corresponding volume
@@ -117,9 +120,17 @@ class S3Volumes(object):
             the S3 bucket (volume) where the data files will to uploaded to.
         '''
         # add the data files to the bucket.
-        k = Key(bucket)
+        print("bucket name is {}".format(bucket.name))
+        print("file is {}".format(filepath))
+        k = None
+        try:
+            k = bucket.get_key(key_name)
+        except:
+            pass
+        if k is None:
+            k = bucket.new_key(key_name)
         if os.path.exists(filepath):
-            k.key = filepath
+            print("key is {}".format(k.key))
             k.set_contents_from_filename(filepath,
                                          cb=utils.percent_cb,
                                          num_cb=10)
