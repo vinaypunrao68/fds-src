@@ -171,15 +171,18 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
 
     // A duplicate is ok, renewal's of a token cause this
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
-    if (ERR_VOL_DUPLICATE == err) {
-        err = ERR_OK;
+    switch (err.GetErrno()) {
+        case ERR_OK:
+            LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
+            break;;
+        case ERR_VOL_DUPLICATE:
+            err = ERR_OK;
+            break;;
+        default:
+            LOGERROR << "Failed to register volume: " << err;
+            break;;
     }
 
-    if (!err.ok()) {
-        LOGERROR << "Failed to register volume: " << err;
-    } else {
-        LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-    }
     return err;
 }
 

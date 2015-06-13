@@ -27,6 +27,8 @@ struct SetVolumeMetadataReq :
         e2e_req_perf_ctx.type = PerfEventType::AM_SET_VOLUME_METADATA_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
+
+    fds_uint64_t vol_sequence {0};
 };
 
 }  // namespace fds
