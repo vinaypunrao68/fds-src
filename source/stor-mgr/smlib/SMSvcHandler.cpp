@@ -586,7 +586,15 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
-        fds_assert(!"Hit an error in enqueing");
+    	if (err != fds::ERR_VOL_NOT_FOUND) {
+    		/**
+    		 * Race cond: SM may not have the vol descriptors
+    		 * ready yet even though it's finished pulling the DLT.
+    		 * TODO(Neil): Ask Rao why there's an assert here if it's worth
+    		 * removing.
+    		 */
+    		fds_assert(!"Hit an error in enqueing");
+    	}
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                  << err;
         putObjectCb(asyncHdr, err, putReq);
