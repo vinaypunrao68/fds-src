@@ -858,14 +858,12 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     // We can only read from the cache if we have an access token managing it
     Error err = ERR_OK;
     if (haveCacheToken(vol)) {
-        BlobDescriptor::ptr cachedBlobDesc = txMgr->getBlobDescriptor(volId,
-                                                                      amReq->getBlobName(),
-                                                                      err);
-        // If we have a descriptor for this blob, and it covers the request
-        // range, otherwise we need to read from DM to double check
-        if (ERR_OK == err && cachedBlobDesc->getBlobSize() > (amReq->blob_offset + amReq->data_len)) {
-            // If we need to return metadata, check the cache
-            if (blobReq->get_metadata) {
+        // If we need to return metadata, check the cache
+        if (blobReq->get_metadata) {
+            auto cachedBlobDesc = txMgr->getBlobDescriptor(volId,
+                                                           amReq->getBlobName(),
+                                                           err);
+            if (err.ok()) {
                 LOGTRACE << "Found cached blob descriptor for " << std::hex
                          << volId << std::dec << " blob " << amReq->getBlobName();
                 blobReq->metadata_cached = true;
@@ -873,21 +871,24 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
                 // Fill in the data here
                 cb->blobDesc = cachedBlobDesc;
             }
+        }
 
-            // Check cache for object IDs
+        // Check cache for object IDs
+        if (err.ok()) {
             err = txMgr->getBlobOffsetObjects(volId,
                                               amReq->getBlobName(),
                                               amReq->blob_offset,
                                               amReq->blob_offset_end,
                                               maxObjSize,
                                               blobReq->object_ids);
-            // ObjectIDs were found in the cache
-            if ((ERR_OK == err) && (blobReq->metadata_cached == blobReq->get_metadata)) {
-                // Found all metadata, just need object data
-                blobReq->metadata_cached = true;
-                amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
-                return txMgr->getObjects(blobReq);
-            }
+        }
+
+        // ObjectIDs were found in the cache
+        if (err.ok() && (blobReq->metadata_cached == blobReq->get_metadata)) {
+            // Found all metadata, just need object data
+            blobReq->metadata_cached = true;
+            amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+            return txMgr->getObjects(blobReq);
         }
     } else {
         LOGDEBUG << "Can't read from cache, dispatching to DM.";
