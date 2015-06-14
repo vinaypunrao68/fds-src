@@ -131,7 +131,6 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
             global nbd_device
             nbd_device = stdout.rstrip()
 
-        time.sleep(5)
         self.log.info("Attached block device %s" % (nbd_device))
 
         return True
@@ -174,8 +173,6 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
         if status != 0:
             self.log.error("Failed to detach block volume with status %s." % status)
             return False
-
-        time.sleep(5)
 
         return True
 
@@ -222,11 +219,10 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
                  "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
                  (nbd_device, verify_fatal)
+        result = subprocess.call(fioCmd, shell=True)
 
-        status = om_node.nd_agent.exec_wait(fioCmd)
-
-        if status != 0:
-            self.log.error("Failed to run write workload with status %s." % status)
+        if result != 0:
+            self.log.error("Failed to run write workload with status %s." % result)
             return False
 
         return True
@@ -253,7 +249,6 @@ class TestBlockFioRandW(TestCase.FDSTestCase):
         if result != 0:
             self.log.error("Failed to run write workload")
             return False
-        time.sleep(5)
 
         return True
 
@@ -279,7 +274,6 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         if result != 0:
             self.log.error("Failed to run read/write workload")
             return False
-        time.sleep(5)
 
         return True
 
@@ -305,7 +299,6 @@ class TestBlockFioRandRW(TestCase.FDSTestCase):
         if result != 0:
             self.log.error("Failed to run random read/write workload")
             return False
-        time.sleep(5)
 
         return True
 
