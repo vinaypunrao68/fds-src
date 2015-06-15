@@ -50,8 +50,19 @@ enum  FDSPMsgTypeId {
   GetSvcMapRespMsgTypeId                    = 1017;
   GetSvcStatusMsgTypeId                     = 1018;
   GetSvcStatusRespMsgTypeId                 = 1019;
+  /* @Deprecated by Node & Service control messages */
   ActivateServicesMsgTypeId                 = 1020;
   DeactivateServicesMsgTypeId               = 1021;
+  /* Node & Service control messages */
+  NotifyEventMsgTypeId                      = 1022;
+  NotifyStartNodeMsgTypeId                  = 1023;
+  NotifyStopNodeMsgTypeId                   = 1024;
+  NotifyAddNodeMsgTypeId                    = 1025;
+  NotifyRemoveNodeMsgTypeId                 = 1026;
+  NotifyStartServiceMsgTypeId               = 1027;
+  NotifyStopServiceMsgTypeId                = 1028;
+  NotifyAddServiceMsgTypeId                 = 1029;
+  NotifyRemoveServiceMsgTypeId              = 1030;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
