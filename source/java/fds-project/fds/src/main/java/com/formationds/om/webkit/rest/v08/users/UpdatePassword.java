@@ -3,7 +3,6 @@
  */
 package com.formationds.om.webkit.rest.v08.users;
 
-import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.User;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -15,7 +14,6 @@ import com.formationds.security.HashedPassword;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.TException;
@@ -79,12 +77,8 @@ public class UpdatePassword implements RequestHandler {
         com.formationds.apis.User iUser = getConfigApi().getUser( inputUser.getId() );
         
         getConfigApi().updateUser( iUser.getId(), iUser.getIdentifier(), hashedPassword, iUser.getSecret(), iUser.isIsFdsAdmin());
-       
-        User externalUser = ExternalModelConverter.convertToExternalUser( iUser );
         
-        String jsonString = ObjectModelHelper.toJSON( externalUser );
-        
-        return new TextResource( jsonString );
+        return new JsonResource( (new JSONObject()).put( "status", "ok" ), HttpServletResponse.SC_OK );
     }
     
     private ConfigurationApi getConfigApi(){
