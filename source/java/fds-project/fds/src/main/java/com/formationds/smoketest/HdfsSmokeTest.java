@@ -27,15 +27,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
 
 
 @Ignore
-public class HdfsSmokeTest {
+public class HdfsSmokeTest{
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
     private FdsFileSystem fileSystem;
 
@@ -84,7 +82,12 @@ public class HdfsSmokeTest {
     @Test
     public void testDeleteInexistentFile() throws Exception {
         Path f = new Path("/foo");
-        assertFalse(fileSystem.delete(f, false));
+        try{
+            fileSystem.delete(f, false);
+            fail("File does not exists to delete");
+        } catch (FileNotFoundException e) {
+
+        }
     }
 
     @Test

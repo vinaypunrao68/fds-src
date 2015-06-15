@@ -248,7 +248,7 @@ public class FdsFileSystem extends FileSystem {
         try {
             status = getFileStatus(path);
         } catch (FileNotFoundException e) {
-            return false;
+                  throw new FileNotFoundException("Trying to delete non existing object");
         }
 
         try {
