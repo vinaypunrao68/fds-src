@@ -107,13 +107,16 @@ struct FDSP_DMT_Type {
 }
 
 /**
- * Used for volume migration between DMs
+ * Used for OM to tell DM to pull volume descriptors from other DMs.
  */
 struct DMVolumeMigrationGroup {
   1:  common.SvcUuid          source,
   2:  list<common.FDSP_VolumeDescType> VolDescriptors,
 }
 
+/**
+ * Used for volume migration between DMs
+ */
 enum DMVolumeMigrationDiffType {
   FDSP_BLOB_MODIFIED,  // Blob is modified
   FDSP_BLOB_ADDED,     // Blob is added into source but missing on destination

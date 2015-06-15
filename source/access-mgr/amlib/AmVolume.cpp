@@ -34,8 +34,8 @@ AmVolume::getMode() const {
 }
 
 void
-AmVolume::setToken(fds_int64_t const _token) {
-    access_token->setToken(_token);
+AmVolume::setSequenceId(fds_uint64_t const sequence_id) {
+    vol_sequence_id.store(sequence_id, std::memory_order_relaxed);
 }
 
 }  // namespace fds
