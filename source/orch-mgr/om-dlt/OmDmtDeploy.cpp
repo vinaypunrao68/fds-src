@@ -150,7 +150,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         }
 
         // DMs that we send push_meta command and waiting for response from them
-        NodeUuidSet push_meta_dms;
+        NodeUuidSet pull_meta_dms;
     };
     struct DST_BcastAM : public msm::front::state<>
     {
@@ -573,6 +573,7 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
          cit != addDms.cend();
          ++cit) {
         OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
+        LOGDEBUG << "bcasting vol on dmt deploy: ";
         fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
         if (count > 0) {
             dst.dms_to_ack.insert(*cit);
@@ -654,17 +655,17 @@ DmtDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     vp->computeDMT(cm);
 
     // send push meta messages to appropriate DMs
-    dst.push_meta_dms.clear();
-    err = vp->beginRebalance(cm, &dst.push_meta_dms);
+    dst.pull_meta_dms.clear();
+    err = vp->beginRebalance(cm, &dst.pull_meta_dms);
     // TODO(xxx) need to handle this error
     fds_verify(err.ok());
 
     // it's possible that we didn't need to send push meta msg,
     // eg. there are no volumes or we removed a node and no-one got promoted
-    if (dst.push_meta_dms.size() < 1) {
+    if (dst.pull_meta_dms.size() < 1) {
         fsm.process_event(DmtPushMetaAckEvt(NodeUuid()));
     }
-    LOGDEBUG << "Will wait for " << dst.push_meta_dms.size() << " push_meta acks";
+    LOGDEBUG << "Will wait for " << dst.pull_meta_dms.size() << " push_meta acks";
 }
 
 /**
@@ -680,12 +681,12 @@ DmtDplyFSM::GRD_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     if (evt.dm_uuid.uuid_get_val() > 0) {
         // we must never receive ack for push meta from node we didn't send
         // push_meta command to
-        fds_verify(src.push_meta_dms.count(evt.dm_uuid) > 0);
-        src.push_meta_dms.erase(evt.dm_uuid);
+        fds_verify(src.pull_meta_dms.count(evt.dm_uuid) > 0);
+        src.pull_meta_dms.erase(evt.dm_uuid);
     }
 
-    bool bret = (src.push_meta_dms.size() == 0);
-    LOGDEBUG << "Meta acks to wait " << src.push_meta_dms.size()
+    bool bret = (src.pull_meta_dms.size() == 0);
+    LOGDEBUG << "Meta acks to wait " << src.pull_meta_dms.size()
              << "; returning " << bret;
     return bret;
 }

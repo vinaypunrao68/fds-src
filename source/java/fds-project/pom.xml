@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <artifactId>company-pom</artifactId>
+    <groupId>com.formationds</groupId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <name>${fds.project.name} Project POM</name>
+  <artifactId>fds-project</artifactId>
+  <version>1.0</version>
+  <packaging>pom</packaging>
+
+  <!-- FDS scoped project properties -->
+  <properties>
+    <fds.project.name>FDS</fds.project.name>
+
+    <!-- set a default build type -->
+    <osdep.target>linux-x86_64.debug</osdep.target>
+    
+    <thrift.idl.source>../../../fdsp</thrift.idl.source>
+
+    <!-- project scope dependencies version -->
+    <io.netty.version>5.0.0.Alpha2</io.netty.version>
+    <log4j.version>1.2.17</log4j.version>
+    <jetty.version>9.2.9.v20150224</jetty.version>
+    <jode.time.version>2.7</jode.time.version>
+    <jopt.simple.version>4.8</jopt.simple.version>
+    <stax.api.version>1.0-2</stax.api.version>
+  </properties>
+
+  <modules>
+    <module>fds-thrift</module>
+    <module>fds</module>
+    <module>fds-dist</module>
+  </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-all</artifactId>
+        <version>${io.netty.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>joda-time</groupId>
+        <artifactId>joda-time</artifactId>
+        <version>${jode.time.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>javax.xml.stream</groupId>
+        <artifactId>stax-api</artifactId>
+        <version>${stax.api.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>log4j</groupId>
+        <artifactId>log4j</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>net.sf.jopt-simple</groupId>
+        <artifactId>jopt-simple</artifactId>
+        <version>${jopt.simple.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-io</artifactId>
+        <version>${jetty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-http</artifactId>
+        <version>${jetty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-server</artifactId>
+        <version>${jetty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-util</artifactId>
+        <version>${jetty.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <profiles>
+    <profile>
+      <id>mac_os</id>
+      <activation>
+        <os>
+          <name>mac os x</name>
+        </os>
+      </activation>
+      <properties>
+        <!-- thrift properties -->
+        <!-- MAKE SURE THE MAC OS VERSION MATCHES OUR BUILT TREE VERSION -->
+        <thrift.binary>/usr/local/bin/thrift-0.9.0</thrift.binary>
+      </properties>
+    </profile>
+    <profile>
+      <id>linux_os</id>
+      <activation>
+        <os>
+          <name>linux</name>
+        </os>
+      </activation>
+      <properties>
+        <!-- thrift properties -->
+        <!-- thrift.binary>${basedir}/../../../../Build/linux-x86_64.${build_type}/bin/thrift</thrift.binary -->
+        <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary>
+      </properties>
+    </profile>
+  </profiles>
+</project>

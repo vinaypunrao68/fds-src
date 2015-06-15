@@ -8,6 +8,7 @@ user_thrift      := \
 	FDSP.thrift \
 	common.thrift \
 	svc_types.thrift \
+	node_svc_api.thrift \
 	am_types.thrift \
 	dm_types.thrift \
 	om_types.thrift \
@@ -23,6 +24,8 @@ user_thrift      := \
 	sm_api.thrift \
 	config_api.thrift \
 	xdi.thrift \
+        health_monitoring_types.thrift \
+        health_monitoring_api.thrift \
 	svc_test.thrift
 
 user_thrift_loc  := $(topdir)/include/fdsp

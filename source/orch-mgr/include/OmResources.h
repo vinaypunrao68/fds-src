@@ -14,7 +14,6 @@
 #include <fds_error.h>
 #include <OmVolume.h>
 
-#include "NetSession.h"
 #include "platform/agent_container.h"
 #include "platform/domain_container.h"
 
@@ -30,12 +29,15 @@ namespace FDS_ProtocolInterface {
     struct CtrlNotifyDLTClose;
     struct CtrlNotifyDMTUpdate;
     struct CtrlDMMigrateMeta;
+    struct CtrlNotifyDMStartMigrationMsg;
     using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
     using CtrlNotifySMAbortMigrationPtr = boost::shared_ptr<CtrlNotifySMAbortMigration>;
     using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
     using CtrlNotifyDLTClosePtr = boost::shared_ptr<CtrlNotifyDLTClose>;
     using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
     using CtrlDMMigrateMetaPtr = boost::shared_ptr<CtrlDMMigrateMeta>;
+    using CtrlNotifyDMStartMigrationMsgPtr =
+    		boost::shared_ptr<CtrlNotifyDMStartMigrationMsg>;
 }  // namespace FDS_ProtocolInterface
 
 namespace fds {
@@ -52,7 +54,7 @@ typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
  *
- * It's normal that the node agent is there but the transport may not be availble.
+ * It's normal that the node agent is there but the transport may not be available.
  * We'll provide methods to establish the transport in the background and error
  * handling model when the transport is broken.
  */
@@ -88,7 +90,6 @@ class OM_NodeAgent : public NodeAgent
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
 
-    virtual void om_send_reg_resp(const Error &err);
     // this is the new function we shall try on using service layer
     virtual void om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
@@ -138,8 +139,8 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
-    virtual Error om_send_pushmeta(fpi::CtrlDMMigrateMetaPtr& meta_msg);
-    void om_pushmeta_resp(EPSvcRequest* req,
+    virtual Error om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg);
+    void om_pullmeta_resp(EPSvcRequest* req,
                           const Error& error,
                           boost::shared_ptr<std::string> payload);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
@@ -168,6 +169,20 @@ typedef OM_NodeAgent                    OM_DmAgent;
 typedef OM_NodeAgent                    OM_AmAgent;
 typedef std::list<OM_NodeAgent::pointer>  NodeList;
 
+struct NodeSvcEntity {
+	NodeSvcEntity() {};
+	NodeSvcEntity(const std::basic_string<char> &in_name,
+			const fds::ResourceUUID &in_uid, const FdspNodeType &in_type) :
+		node_uuid(in_uid),
+		node_name(in_name),
+		svc_type(in_type)
+		{}
+	~NodeSvcEntity() {};
+    NodeUuid node_uuid;
+    std::string node_name;
+    FdspNodeType svc_type;
+};
+
 /**
  * Agent interface to communicate with the platform service on the remote node.
  * This is the communication end-point to the node.
@@ -188,6 +203,7 @@ class OM_PmAgent : public OM_NodeAgent
      * Allowing only one type of service per Platform
      */
     fds_bool_t service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const;
+    fds_bool_t hasRegistered(const FdspNodeRegPtr  msg);
     /**
      * Send 'activate services' message to Platform
      */
@@ -201,6 +217,12 @@ class OM_PmAgent : public OM_NodeAgent
                                    fds_bool_t deactivate_dm,
                                    fds_bool_t deactivate_am);
 
+    void send_deactivate_services_resp(fds_bool_t deactivate_sm,
+                                       fds_bool_t deactivate_dm,
+                                       fds_bool_t deactivate_am,
+                                       EPSvcRequest* req,
+                                       const Error& error,
+                                       boost::shared_ptr<std::string> payload);
     /**
      * Tell platform Agent about new active service
      * Platform Agent keeps a pointer to active services node agents
@@ -227,6 +249,13 @@ class OM_PmAgent : public OM_NodeAgent
      * handle its deregister
      */
     void handle_unregister_service(const NodeUuid& svc_uuid);
+
+    /**
+     * Deactivates service on this platform
+     * This method just updates local info, does not actually send msg to platform
+     * to deactivate; should be called when de-active is sent to platform
+     */
+    void handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
     inline OM_SmAgent::pointer get_sm_service() {
         return activeSmAgent;
@@ -279,6 +308,17 @@ class OM_AgentContainer : public AgentContainer
     virtual void agent_deactivate(NodeAgent::pointer agent);
 
     /**
+     * For derived classes, this would allow them to return the correct type.
+     */
+    virtual FDS_ProtocolInterface::FDSP_MgrIdType container_type() const = 0;
+
+    /**
+     * Returns a list of nodes that are currently in the container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<fds::NodeSvcEntity> &container_nodes);
+
+    /**
      * Move all pending nodes to addNodes and rmNodes
      * The second function only moves nodes that are in 'filter_nodes'
      * set and leaves other pending nodes pending
@@ -318,12 +358,25 @@ class OM_PmContainer : public OM_AgentContainer
      */
     fds_bool_t check_new_service(const NodeUuid& pm_uuid,
                                  FDS_ProtocolInterface::FDSP_MgrIdType svc_role);
+
+    fds_bool_t hasRegistered(const FdspNodeRegPtr  msg);
     /**
      * Tell platform agent with uuid 'pm_uuid' about new service registered
      */
     Error handle_register_service(const NodeUuid& pm_uuid,
                                   FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
                                   NodeAgent::pointer svc_agent);
+
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_PLATFORM;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
+
+
     /**
      * Makes sure Platform agents do not point on unregistered services
      * Will search all Platform agents for a service with uuid 'uuid'
@@ -353,6 +406,15 @@ class OM_SmContainer : public OM_AgentContainer
     OM_SmContainer();
     virtual ~OM_SmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
+
     static inline OM_SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_SmContainer *>(get_pointer(ptr));
     }
@@ -371,6 +433,15 @@ class OM_DmContainer : public OM_AgentContainer
     OM_DmContainer();
     virtual ~OM_DmContainer() {}
 
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
+
     static inline OM_DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_DmContainer *>(get_pointer(ptr));
     }
@@ -386,6 +457,15 @@ class OM_AmContainer : public OM_AgentContainer
   public:
     OM_AmContainer();
     virtual ~OM_AmContainer() {}
+
+    inline FDS_ProtocolInterface::FDSP_MgrIdType container_type() const override {
+    	return FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR;
+    }
+    /**
+     * Returns a list of nodes that are currently in the PM container.
+     * The method will clear the vector being passed in and populate it.
+     */
+    const Error populate_nodes_in_container(std::list<NodeSvcEntity> &container_nodes);
 
     static inline OM_AmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_AmContainer *>(get_pointer(ptr));
@@ -446,34 +526,17 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspCrtVolPtr           &creat_msg,
-                               const boost::shared_ptr<fpi::AsyncHdr> &hdrz) {
-        return om_volumes->om_create_vol(hdr, creat_msg, hdrz);
-    }
 
     inline Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                              const FdspCrtVolPtr      &snap_msg) {
         return om_volumes->om_snap_vol(hdr, snap_msg);
     }
-    inline Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspDelVolPtr &del_msg) {
-        return om_volumes->om_delete_vol(hdr, del_msg);
-    }
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline Error om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr   &attach) {
-        return om_volumes->om_attach_vol(hdr, attach);
-    }
-    inline Error om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr   &detach) {
-        return om_volumes->om_detach_vol(hdr, detach);
-    }
-    inline void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                               const fpi::FDSP_TestBucket *req) {
-        return om_volumes->om_test_bucket(hdr, req);
+    inline void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                                         const std::string& vol_name) {
+        return om_volumes->om_get_volume_descriptor(hdr, vol_name);
     }
 
     inline bool addVolume(const VolumeDesc& desc) {
@@ -483,6 +546,7 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_set_throttle_lvl(float level);
 
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
+    virtual void om_bcast_vol_list_to_services(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
@@ -529,9 +593,9 @@ class OM_NodeContainer : public DomainContainer
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
 
     // broadcast "deactivate services" message to all PMs in the domain
-    virtual void om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
-                                                   fds_bool_t deactivate_dm,
-                                                   fds_bool_t deactivate_am);
+    virtual fds_uint32_t om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
+                                                           fds_bool_t deactivate_dm,
+                                                           fds_bool_t deactivate_am);
 
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
@@ -584,7 +648,8 @@ class OM_NodeContainer : public DomainContainer
 class WaitNdsEvt
 {
  public:
-    explicit WaitNdsEvt(const NodeUuidSet& sms, const NodeUuidSet& dms)
+    WaitNdsEvt(const NodeUuidSet& sms,
+               const NodeUuidSet& dms)
             : sm_services(sms.begin(), sms.end()),
             dm_services(dms.begin(), dms.end())
             {}
@@ -674,6 +739,18 @@ struct ShutAckEvt
     Error error;  // error that came with ack
 };
 
+struct DeactAckEvt
+{
+    explicit DeactAckEvt(const Error& err) {
+        error = err;
+    }
+    std::string logString() const {
+        return "DeactAckEvt";
+    }
+
+    Error error;  // error that came with ack
+};
+
 class OM_NodeDomainMod : public Module
 {
   public:
@@ -696,6 +773,13 @@ class OM_NodeDomainMod : public Module
      * node events are put on hold until local domain is up.
      */
     static fds_bool_t om_local_domain_up();
+    /**
+     * Returns true when domain shutdown process finishes.
+     * Domain can be re-activated only when domain is in down
+     * state; When domain us up, and shutdown process starts,
+     * domain is not 'up' anymore but also in not 'down' state.
+     */
+    static fds_bool_t om_local_domain_down();
 
     /**
      * Accessors methods to retreive the local node domain.  Retyping it here to avoid
@@ -721,11 +805,11 @@ class OM_NodeDomainMod : public Module
     }
     inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
         switch (uuid.uuid_get_val() & 0x0F) {
-        case FDSP_ACCESS_MGR:
+            case fpi::FDSP_ACCESS_MGR:
             return om_am_agent(uuid);
-        case FDSP_STOR_MGR:
+            case fpi::FDSP_STOR_MGR:
             return om_sm_agent(uuid);
-        case FDSP_DATA_MGR:
+            case fpi::FDSP_DATA_MGR:
             return om_dm_agent(uuid);
         default:
             break;
@@ -754,15 +838,16 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
-    Error setupNewNode(const NodeUuid&      uuid,
+    void setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
                        NodeAgent::pointer   newNode,
-                       fds_uint32_t delayTime );
+                      fds_uint32_t delayTime,
+                      bool fPrevRegistered);
 
     /**
      * Activate well known service on an node
      */
-    Error om_activate_known_services( fpi::SvcInfo pm,
+    void om_activate_known_services( const NodeUuid& node_uuid,
                                       fds_uint32_t delayTime );
 
     /**
@@ -794,6 +879,14 @@ class OM_NodeDomainMod : public Module
                                   fds_bool_t remove_dm,
                                   fds_bool_t remove_am);
 
+    /**
+     * This will set domain up by calling Domain state machine to move
+     * to UP state. Noop if domain is already up.
+     * Domain state machine will wait for all services currently
+     * in the cluster map to come up, before moving to UP state
+     */
+    virtual Error om_startup_domain();
+    
     /**
      * This will set domain down so that DLT and DMT state machine
      * will not try to add/remove services and send shutdown message
@@ -827,10 +920,10 @@ class OM_NodeDomainMod : public Module
                                           const Error& respError);
 
     /**
-     * Notification that OM received push meta response from
+     * Notification that OM received pull meta response from
      * node with uuid 'uuid'
      */
-    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid,
+    virtual Error om_recv_pull_meta_resp(const NodeUuid& uuid,
                                          const Error& respError);
 
     /**
@@ -858,12 +951,6 @@ class OM_NodeDomainMod : public Module
     virtual void om_dlt_waiting_timeout();
 
     /**
-     * Domain support.
-     */
-    virtual int om_create_domain(const FdspCrtDomPtr &crt_domain);
-    virtual int om_delete_domain(const FdspCrtDomPtr &crt_domain);
-
-    /**
      * Module methods
      */
     virtual int  mod_init(SysParams const *const param);
@@ -880,6 +967,7 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(NoPersistEvt const &evt);
     void local_domain_event(ShutdownEvt const &evt);
     void local_domain_event(ShutAckEvt const &evt);
+    void local_domain_event(DeactAckEvt const &evt);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);

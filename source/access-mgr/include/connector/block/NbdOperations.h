@@ -29,7 +29,7 @@ template <typename E, size_t N>
 struct SectorLockMap {
     typedef E entry_type;
     static constexpr size_t size = N;
-    typedef fds::fds_rwlock lock_type;
+    typedef std::mutex lock_type;
     typedef int64_t key_type;
     typedef boost::lockfree::spsc_queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
     typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
@@ -42,20 +42,17 @@ struct SectorLockMap {
     {}
     ~SectorLockMap() {}
 
-    QueueResult queue_rmw(key_type const& k, entry_type e) {
+    QueueResult queue_update(key_type const& k, entry_type e) {
         QueueResult result = QueueResult::Failure;
-        map_lock.cond_write_lock();
+        std::lock_guard<lock_type> g(map_lock);
         map_it it = sector_map.find(k);
         if (sector_map.end() != it) {
             if ((*it).second->push(e)) result = QueueResult::AddedEntry;
-            map_lock.cond_write_unlock();
         } else {
-            map_lock.upgrade();
             auto r = sector_map.insert(
                 std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type()))));
             fds_assert(r.second);
             result = QueueResult::FirstEntry;
-            map_lock.write_unlock();
         }
         return result;
     }
@@ -63,7 +60,7 @@ struct SectorLockMap {
     std::pair<bool, entry_type> pop_and_delete(key_type const& k)
     {
         static std::pair<bool, entry_type> const no = {false, entry_type()};
-        WriteGuard wg(map_lock);
+        std::lock_guard<lock_type> g(map_lock);
         map_it it = sector_map.find(k);
         if (sector_map.end() != it) {
             entry_type entry;
@@ -94,67 +91,54 @@ class NbdResponseVector {
         WRITE = 1
     };
 
-    explicit NbdResponseVector(int64_t hdl, NbdOperation op,
-                               uint64_t off, uint32_t len, uint32_t maxOSize,
-                               uint32_t objCnt)
+    NbdResponseVector(int64_t hdl, NbdOperation op,
+                      uint64_t off, uint32_t len, uint32_t maxOSize,
+                      uint32_t objCnt = 1)
       : handle(hdl), operation(op), doneCount(0), offset(off), length(len),
-        maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK) {
-        if (op == READ) {
-            bufVec.resize(objCnt, NULL);
-        } else {
-            bufVec.resize(2, NULL);
-        }
+        maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK)
+    {
+        bufVec.reserve(objCount);
+        offVec.reserve(objCount);
     }
+
     ~NbdResponseVector() {}
     typedef boost::shared_ptr<NbdResponseVector> shared_ptr;
 
-    fds_bool_t isReady() const {
-        fds_uint32_t doneCnt = doneCount.load();
-        return (doneCnt == objCount);
-    }
     fds_bool_t isRead() const { return (operation == READ); }
     inline fds_int64_t getHandle() const { return handle; }
     inline Error getError() const { return opError; }
     inline fds_uint64_t getOffset() const { return offset; }
     inline fds_uint32_t getLength() const { return length; }
     inline fds_uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
+
     boost::shared_ptr<std::string> getNextReadBuffer(fds_uint32_t& context) {
-        if (context >= objCount) {
-            return NULL;
+        if (context >= bufVec.size()) {
+            return nullptr;
         }
         return bufVec[context++];
     }
 
-    void keepBufferForWrite(fds_uint32_t seqId,
-                            fds_uint64_t objectOff,
-                            boost::shared_ptr<std::string> buf) {
-        fds_verify(operation == WRITE);
-        fds_verify((seqId == 0) || (seqId == (objCount - 1)));
-        if (seqId == 0) {
-            bufVec[0] = buf;
-            offVec[0] = objectOff;
-        } else {
-            bufVec[1] = buf;
-            offVec[1] = objectOff;
-        }
+    void keepBufferForWrite(fds_uint32_t const seqId,
+                            fds_uint64_t const objectOff,
+                            boost::shared_ptr<std::string>& buf) {
+        fds_assert(WRITE == operation);
+        bufVec.emplace_back(buf);
+        offVec.emplace_back(objectOff);
     }
 
-    std::pair<bool, fds_uint64_t> wasRMW(fds_uint32_t seqId) {
-        static std::pair<bool, fds_uint64_t> const no = {false, 0};
-        if (seqId == 0 && bufVec[0]) {
-            return std::make_pair(true, offVec[0]);
-        } else if (seqId == (objCount - 1) && bufVec[1]) {
-            return std::make_pair(true, offVec[1]);
-        }
-        return no;
+    fds_uint64_t getOffset(fds_uint32_t const seqId) const {
+        return offVec[seqId];
+    }
+
+    boost::shared_ptr<std::string> getBuffer(fds_uint32_t const seqId) const {
+        return bufVec[seqId];
     }
 
     /**
      * \return true if all responses were received or operation error
      */
-    fds_bool_t handleReadResponse(boost::shared_ptr<std::string> retBuf,
+    fds_bool_t handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
                                   fds_uint32_t len,
-                                  fds_uint32_t seqId,
                                   const Error& err);
 
     /**
@@ -195,7 +179,7 @@ class NbdResponseVector {
     // to collect read responses or first and last buffer for write op
     std::vector<boost::shared_ptr<std::string>> bufVec;
     // when writing, we need to remember the object offsets for rwm buffers
-    std::array<fds_uint64_t, 2> offVec;
+    std::vector<fds_uint64_t> offVec;
 
     // offset
     fds_uint64_t offset;
@@ -244,7 +228,8 @@ class NbdOperations
 
     void attachVolumeResp(const resp_api_type::error_type &error,
                           handle_type& requestId,
-                          resp_api_type::shared_vol_descriptor_type& volDesc) override;
+                          resp_api_type::shared_vol_descriptor_type& volDesc,
+                          resp_api_type::shared_vol_mode_type& mode) override;
 
     // The two response types we do support
     void getBlobResp(const resp_api_type::error_type &error,

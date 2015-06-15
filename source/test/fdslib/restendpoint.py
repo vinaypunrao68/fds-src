@@ -137,10 +137,10 @@ class ServiceEndpoint:
 
     def __init__(self, rest):
         self.rest = rest
-        self.rest_path = self.rest.base_path + '/api/config/services'
+        self.rest_path = self.rest.base_path + '/api/config/nodes'
 
     def toggleServices(self, node_uuid, service_map):
-        path = '{}/{}'.format(self.rest_path, str(node_uuid))
+        path = '{}/{}/1'.format(self.rest_path, str(node_uuid))
         res = self.rest.post(path, data=json.dumps(service_map))
         res = self.rest.parse_result(res)
 
@@ -179,7 +179,7 @@ class ServiceEndpoint:
             return []
 
     def startService(self, nodeUuid, svcs):
-        rest_path = '{}/{}'.format(self.rest_path, nodeUuid)
+        rest_path = '{}/{}/1'.format(self.rest_path, nodeUuid)
 
         res = self.rest.post(rest_path, data=json.dumps(svcs))
         if res is not None:
@@ -723,6 +723,31 @@ class DomainEndpoint():
         }
 
         res = self.rest.put(path, data=json.dumps(scavenger_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def startupLocalDomain(self, domain_name):
+        '''
+        Startuo the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain to be started
+        Returns:
+           True success, False otherwise
+        '''
+
+        path = '{}/{}'.format(self.rest_path, domain_name)
+
+        domain_info = {
+            'action': 'startup',
+            }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':

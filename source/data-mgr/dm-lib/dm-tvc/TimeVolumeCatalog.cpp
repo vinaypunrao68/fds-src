@@ -129,7 +129,7 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fds_int64_t& token,
-                             fpi::VolumeAccessPolicy const& policy) {
+                             fpi::VolumeAccessMode const& mode) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -140,12 +140,12 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
             auto table = new DmVolumeAccessTable(volId);
-            table->getToken(token, policy, vol_tok_lease_time);
+            table->getToken(token, mode, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
             // Table already exists, check if we can attach again or
             // renew the existing token.
-            err = it->second->getToken(token, policy, vol_tok_lease_time);
+            err = it->second->getToken(token, mode, vol_tok_lease_time);
         }
     }
 
@@ -210,13 +210,10 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
             return rc;
         }
 
-        OMgrClient * omClient = dataManager_.omClient;
-        fds_verify(omClient);
-
         std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
                 tokenOidMap;
         for (auto oid : objIds) {
-            const DLT * dlt = omClient->getCurrentDLT();
+            const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
             fds_verify(dlt);
 
             fds_token_id token = dlt->getToken(oid);
@@ -253,11 +250,8 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     // 2. what if call to increment ref count fails
     // 3. whether to do it in background/ foreground thread
 
-    OMgrClient * omClient = dataManager_.omClient;
-    fds_verify(omClient);
-
     // Create message
-    fpi::AddObjectRefMsgPtr addObjReq(new AddObjectRefMsg());
+    fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
     addObjReq->srcVolId = srcVolId;
     addObjReq->destVolId = destVolId;
     addObjReq->objIds = *objIds;
@@ -266,7 +260,7 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     //     addObjReq->objIds.push_back(it);
     // }
 
-    const DLT * dlt = omClient->getCurrentDLT();
+    const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     fds_verify(dlt);
 
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(

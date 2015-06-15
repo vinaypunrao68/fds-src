@@ -246,6 +246,8 @@ typedef enum {
     FDS_SM_TIER_PROMOTE_OBJECTS,
     FDS_SM_READ_DELTA_SET,
     FDS_SM_APPLY_DELTA_SET,
+    FDS_SM_MIGRATION_ABORT,
+    FDS_SM_NOTIFY_DLT_CLOSE,
     FDS_DM_SNAP_VOLCAT,
     FDS_DM_SNAPDELTA_VOLCAT,
     FDS_DM_FWD_CAT_UPD,
@@ -256,7 +258,8 @@ typedef enum {
     FDS_DM_SYS_STATS,
     FDS_DM_RELOAD_VOLUME,
     FDS_OP_INVALID,
-    FDS_DM_LIST_BLOBS_BY_PATTERN
+    FDS_DM_LIST_BLOBS_BY_PATTERN,
+    FDS_DM_MIGRATION
 } fds_io_op_t;
 
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);

@@ -71,7 +71,8 @@ void ReloadVolumeHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     asyncHdr->msg_code = e.GetErrno();
     LOGDEBUG << "Reload volume completed " << e << " " << logString(*asyncHdr);
 
-    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(ReloadVolumeRspMsg), fpi::ReloadVolumeRspMsg());
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::ReloadVolumeRspMsg),
+                       fpi::ReloadVolumeRspMsg());
 
     delete dmRequest;
 }

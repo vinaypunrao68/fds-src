@@ -89,7 +89,7 @@ class ObjectDB {
       std::cout << "Microseconds per get op:" << std::endl
                 << histo_get.ToString() << std::endl;
     }
-    leveldb::DB *GetDB() { 
+    std::shared_ptr<leveldb::DB> GetDB() { 
        return db;
     }
     leveldb::ReadOptions GetReadOptions() { 
@@ -123,7 +123,7 @@ class ObjectDB {
      * storing objects. This will likey move to
      * a different structure in the future.
      */
-    leveldb::DB* db;
+    std::shared_ptr<leveldb::DB> db;
 
     /*
      * leveldb file system interface

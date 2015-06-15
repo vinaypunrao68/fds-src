@@ -3,17 +3,27 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
-        identifier: 'admin',
-        id: 0,
-        username: 'admin',
-        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']
+        id: {
+            uuid: 0,
+            name: 'admin'
+        },
+        tenantId: undefined,
+        role: {
+            name: 'ADMIN',
+            features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']   
+        }
     };
 
     var goldman = {
-        identifier: 'goldman',
-        id: '1',
-        username: 'goldman',
-        features: ['Volume Management','User Management']
+        id: {
+            uuid: '1',
+            name: 'goldman',
+        },
+        tenantId: undefined,
+        role: {
+            name: 'USER',
+            features: ['Volume Management','User Management']   
+        }
     };
 
     var user = {};
@@ -118,7 +128,7 @@ mockAuth = function() {
         service.getUsername = function(){
 
             if ( user !== null ){
-                return user.identifier;
+                return user.id.name;
             }
             else {
                 return undefined;
@@ -129,8 +139,8 @@ mockAuth = function() {
         // if the current user should have access to something
         service.isAllowed = function( feature ){
 
-            for ( var i = 0; user !== null && angular.isDefined( user ) && angular.isDefined( user.features ) && i < user.features.length; i++ ){
-                if ( user.features[i] === feature ){
+            for ( var i = 0; user !== null && angular.isDefined( user ) && angular.isDefined( user.role ) && i < user.role.features.length; i++ ){
+                if ( user.role.features[i] === feature ){
                     return true;
                 }
             }
@@ -141,7 +151,7 @@ mockAuth = function() {
         service.validateUserToken = function( success, failure ){
 
             if ( angular.isFunction( success ) ){
-                success( user.id );
+                success( user.id.uuid );
             }
         };
 
@@ -167,7 +177,15 @@ mockAuth = function() {
 
         service.createUser = function( username, password, success, failure ){
 
-            var user = { identifier: username, password: password, id: (new Date()).getTime() };
+            var user = { 
+                id: {
+                    uuid: (new Date()).getTime(),
+                    name: username
+                },
+                tenantId: undefined,
+                password: password
+            };
+            
             users.push( user );
 
             var deferred = $q.defer();

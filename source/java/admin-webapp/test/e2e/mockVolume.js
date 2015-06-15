@@ -58,7 +58,7 @@ mockVolume = function(){
             var temp = [];
 
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if( volService.volumes[i].name !== volume.name ){
+                if( volService.volumes[i].id.name !== volume.id.name ){
                     temp.push( volService.volumes[i] );
                 }
             }
@@ -77,7 +77,7 @@ mockVolume = function(){
             for ( var i = 0; i < volService.volumes.length; i++ ){
                 var thisVol = volService.volumes[i];
 
-                if ( thisVol.name === volume.name ){
+                if ( thisVol.id.name === volume.id.name ){
                     // edit
                     volService.volumes[i] = volume;
 
@@ -91,14 +91,29 @@ mockVolume = function(){
                 }
             }
 
-            volume.id = (new Date()).getTime();
-            volume.current_usage = {
-                size: 0,
-                unit: 'B'
+            volume.id.uuid = (new Date()).getTime();
+            volume.status = {
+                currentUsage: {
+                    size: 0,
+                    unit: 'B'
+                },
+                lastCapacityFirebreak: 0,
+                lastPerformanceFirebreak: 0
             };
             
             volume.rate = 10000;
             volume.snapshots = [];
+            
+            // re-name the policies
+            for ( var polIndex = 0; polIndex < volume.snapshotPolicies.length; polIndex++ ){
+                var policy = volume.snapshotPolicies[polIndex];
+                
+                policy.id = {
+                    uuid: (new Date()).getTime() - polIndex,
+                    name: volume.id.uuid + '_TIMELINE_' + policy.recurrenceRule.FREQ
+                };
+            }
+            
             volService.volumes.push( volume );
             saveVolumeEvent( volume );
             
@@ -122,7 +137,7 @@ mockVolume = function(){
             var volume;
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id === volumeId ){
+                if ( volService.volumes[i].id.uuid === volumeId ){
                     volume = volService.volumes[i];
                     break;
                 }
@@ -133,7 +148,7 @@ mockVolume = function(){
             }
             
             var id = (new Date()).getTime();
-            volume.snapshots.push( { id: id, name: id, creation: id } );
+            volume.snapshots.push( { id: { uuid: id, name: id }, creation: id } );
             
             callback();
         };
@@ -146,7 +161,7 @@ mockVolume = function(){
             //callback( [] );
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id === volumeId ){
+                if ( volService.volumes[i].id.uuid === volumeId ){
                     
                     if ( angular.isFunction( callback ) ){
                         callback( volService.volumes[i].snapshots );
@@ -159,26 +174,186 @@ mockVolume = function(){
 
         volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
         //                callback( [] );
-            var ps = $snapshot_service.getPolicies();
-            var rtn = [];
-
-            for ( var i = 0; i < ps.length; i++ ){
+            var policies = [];
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                var volume = volService.volumes[i];
                 
-                if ( ps[i].name.indexOf( volumeId ) != -1 ){
-                    rtn.push( ps[i] );
+                if ( volume.id.uuid === volumeId ){
+                    policies = volume.snapshotPolicies;
+                    break;
                 }
             }
             
             if ( angular.isFunction( callback ) ){
-                callback( rtn );
+                callback( policies );
             }
             
             return {
                 then: function( cb ){
                     if ( angular.isFunction( cb ) ){
-                        cb( rtn );
+                        cb( policies );
                     }
                 }
+            };
+        };
+        
+        volService.getQosPolicyPresets = function( callback, failure ){
+            
+            var presets = [
+                {
+                    priority: 10,
+                    sla: 0,
+                    limit: 0,
+                    uuid: -1,
+                    name: 'Least Important'
+                },
+                {
+                    priority: 7,
+                    sla: 0,
+                    limit: 0,
+                    uuid: -1,
+                    name: 'Standard'
+                },
+                {
+                    priority: 1,
+                    sla: 0,
+                    limit: 0,
+                    uuid: -1,
+                    name: 'Most Important'
+                }
+            ];
+                
+            if ( angular.isFunction( callback ) ){
+                callback( presets );
+            }
+        };
+        
+        volService.getSnapshotPolicyPresets = function( callback, failure ){
+            
+            var presets = [{
+                commitLogRetention: 86400,
+                name: 'Sparse Coverage',
+                policies: [{
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retention: 172800
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retention: 604800
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retention: 7776000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retention: 63244800
+                }]
+            },
+            {
+                commitLogRetention: 86400,
+                name: 'Standard',
+                policies: [{
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retention: 604800
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retention: 7776000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retention: 15552000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retention: 158112000
+                }]
+            },
+            {
+                commitLogRetention: 172800,
+                name: 'Dense Coverage',
+                policies: [{
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retention: 2592000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retention: 18144000
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retention: 63244800
+                },
+                {
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retention: 474336000
+                }]
+            }];
+            
+            if ( angular.isFunction( callback ) ) {
+                callback( presets );
             }
         };
 
@@ -214,19 +389,21 @@ mockVolume = function(){
 
             api.connectors = [{
                 type: 'Block',
-                api: 'Basic, Cinder',
-                options: {
-                    max_size: '100',
-                    unit: ['GB', 'TB', 'PB']
-                },
-                attributes: {
-                    size: '10',
+                capacity: {
+                    size: 10,
                     unit: 'GB'
+                },
+                blockSize: {
+                    size: 128,
+                    unit: 'KB'
                 }
             },
             {
                 type: 'Object',
-                api: 'S3, Swift'
+                maxObjectSize: {
+                    size: 1,
+                    unit: 'GB'
+                }
             }];
         }();
 

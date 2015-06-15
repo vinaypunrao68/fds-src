@@ -16,7 +16,7 @@
             <span class="sub-header" translate>volumes.l_volume_name</span>
         </div>
         
-        <div class="main-value volume-name">{{thisVolume.name}}</div>
+        <div class="main-value volume-name">{{thisVolume.id.name}}</div>
     </section>
     
     <!-- The capacity charting -->
@@ -137,52 +137,7 @@
             <span ng-show="dataConnector.attributes">, {{ dataConnector.attributes.size }} {{ dataConnector.attributes.unit }}</span>
         </div>
     </section>
-    
-    <section>
-        <div class="flex">
-            <span class="icon-delete delete delete-volume vertical-middle" ng-click="deleteVolume()"></span>
-            <a class="delete" ng-click="deleteVolume()" translate>volumes.l_delete_volume</a>
-        </div>
-    </section>
-    
-<!--
-    <section class="block-section">
-        <div class="section-header">
-            <span class="header" translate>volumes.l_snapshots</span>
-        </div>
-        
-        <div class="flex">
-            <div style="position: relative;width: 100%;">
-                <table class="default">
-                    <thead>
-                        <tr>
-                            <th translate>common.th_date</th>
-                            <th translate>volumes.th_expiration</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr ng-repeat="snapshot in snapshots" class="snapshot-row">
-                            <td>{{formatDate( snapshot.creation );}}</td>
-                            <td>{{snapshot.expiration}}</td>
-                            <td>
-                                <span class="fui-exit icon" title="Clone to new volume" ng-click="clone( snapshot )"></span>
-                                <span class="fui-cross icon" title="Delete" ng-click="deleteSnapshot( snapshot )"></span>
-                            </td>
-                        </tr>
-                        <tr ng-show="snapshots.length === 0">
-                            <td colspan="3">
-                                <div translate>volumes.snapshot.l_no_snapshots</div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="gutter"></div>
-        </div>
-    </section>
--->
 
-    <div class="page-vertical-spacer view-volume-bottom-element"></div>
+    <div class="page-vertical-spacer view-volume-bottom-element" style="height: 100px;"></div>
     
 </div>

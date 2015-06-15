@@ -12,8 +12,8 @@
 
 namespace fds {
 
-FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log)
-        : parent_log(om_log), num_nodes(0) {
+FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix)
+        : num_nodes(0) {
     /* init the disk  resource  variable */
     initDiskCapabilities();
 }
@@ -118,6 +118,15 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
     fds_uint32_t replication_factor = REPLICATION_FACTOR;
+
+    // quick hack to allow system volumes
+    if (pVolDesc->isSystemVolume()) {
+        pVolDesc->iops_assured = 0;
+        LOGWARN << "system volume : "
+                << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
+                << " admitted unconditionally";
+        return err;
+    }
 
     fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
     if (replication_factor > num_nodes) {

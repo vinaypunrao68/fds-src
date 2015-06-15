@@ -374,12 +374,12 @@ if __name__ == "__main__":
 
     index_device_list = []
 
-    # copy all the SSDs into the index_device_list
-    while len (ssd_device_list) > 0:
+    # copy one SSD into the index device list
+    while len (index_device_list) < 1 and len (ssd_device_list) > 0:
         index_device_list.append (ssd_device_list.pop())
 
-    # add enough HDDs to ensure two drives are marked as index drives
-    while len (index_device_list) < 2:
+    # add enough HDDs to ensure one drive is marked as an index
+    while len (index_device_list) < 1:
         index_device_list.append (hdd_device_list.pop())
 
     for disk in dev_list:

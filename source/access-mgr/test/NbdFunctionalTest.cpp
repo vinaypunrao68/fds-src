@@ -109,7 +109,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                   << " response for handle " << response->handle
                   << " totalOps " << totalOps
                   << " opsDone " << cdone;
-        fds_verify(response->isReady());
         if (response->isRead()) {
             fds_uint32_t context = 0;
             boost::shared_ptr<std::string> dataWritten;
@@ -261,9 +260,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     std::atomic<fds_uint32_t> opCount;
     /// to count number of ops completed
     std::atomic<fds_uint32_t> opsDone;
-
-    /// total latency observed by each thread
-    std::atomic<fds_uint64_t> avgLatencyTotal;
 
     /// Latency for async ops
     fds_uint64_t asyncStartNano;

@@ -16,7 +16,7 @@
    Shared across several sections
 #}
 {% set om_host = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
-{% set om_ip = hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_om_host is defined and fds_default_nic is defined else '127.0.0.1' %}
+{% set om_ip = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
 {% set perf_tracing = fds_perf_tracing if fds_perf_tracing is defined else 'true' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
@@ -27,6 +27,7 @@
 {% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'false' %}
 {% set svc_plat_thrift_message_timeout = fds_svc_plat_timeout_thrift_message if fds_svc_plat_timeout_thrift_message is defined else '5000' %}
 {% set force_disk_simulation = fds_force_disk_simulation if fds_force_disk_simulation is defined else 'false' %}
+{% set use_new_superblock = fds_use_new_superblock if ft_platform_use_new_superblock is defined else 'false' %}
 {#
    fds.dm. specific entries
 #}
@@ -83,13 +84,14 @@
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
 {% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}
+{% set ft_platform_use_new_superblock             = fds_ft_platform_use_new_superblock             if fds_ft_platform_use_new_superblock             is defined else 'false' %}
+{% set ft_restart_failed_children_processes       = fds_ft_restart_failed_children_processes       if fds_ft_restart_failed_children_processes       is defined else 'false' %}
+{% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'false' %}
 
 {#
    Java fds-feature.conf deployment configurations
 #}
 {% set fds_feature_web_tool_kit = fds_web_tool_kit_feature if fds_web_tool_kit_feature is defined else 'true' %}
 {% set fds_snmp_feature = fds_snmp_feature if fds_snmp_feature is defined else 'true' %}
-{% set fds_persist_objectdb = fds_persist_objectdb if fds_persist_objectdb is defined else 'true' %}
-{% set fds_persist_influxdb = fds_persist_influxdb if fds_persist_influxdb is defined else 'true' %}
-{% set fds_query_influxdb = fds_query_influxdb if fds_query_influxdb is defined else 'true' %}
+{% set fds_rest_08_feature = fds_rest_08_feature if fds_rest_08_feature is defined else 'true' %}
 {% block content %}{% endblock %}

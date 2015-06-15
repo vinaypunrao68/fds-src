@@ -9,6 +9,7 @@
 #include <set>
 #include <mutex>
 #include <condition_variable>
+#include <random>
 
 #include <persistent-layer/dm_io.h>
 
@@ -40,7 +41,7 @@ class RandomRankPolicy : public RankEngine {
     void getPromotionObjectIds(const Error& error,
                                SmIoSnapshotObjectDB* snapReq,
                                leveldb::ReadOptions& options,
-                               leveldb::DB *db);
+                               std::shared_ptr<leveldb::DB> db);
 
     /**
      * Choose set of object ids in this token id.

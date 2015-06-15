@@ -152,9 +152,8 @@ var setCustomQos = function( pageEl, qos ){
 
     browser.actions().mouseMove( pageEl.element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( qos.priority - 1 ) ).click().perform();
 
-    browser.actions().mouseMove( pageEl.element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( qos.capacity/10 ) ).click().perform();
-
     var limitSegment = 0;
+    var guaranteeSegment = 0;
 
     switch( qos.limit ){
         case 100:
@@ -166,30 +165,70 @@ var setCustomQos = function( pageEl, qos ){
         case 300:
             limitSegment = 2;
             break;
-        case 400:
+        case 500:
+            limitSegment = 3;
+            break;
+        case 1000:
+            limitSegment = 4;
+            break;
+        case 2000:
+            limitSegment = 5;
+            break;
+        case 3000:
+            limitSegment = 6;
+            break;
+        case 5000:
+            limitSegment = 7;
+            break;
+        case 7500:
+            limitSegment = 8;
+            break;
+        case 10000: 
+            limitSegment = 9;
+            break;
+        default:
+            limitSegment = 10;
+            break;
+    }
+    
+    switch( qos.sla ){
+        case 0:
+            limitSegment = 0;
+            break;
+        case 100:
+            limitSegment = 1;
+            break;
+        case 200:
+            limitSegment = 2;
+            break;
+        case 300:
             limitSegment = 3;
             break;
         case 500:
             limitSegment = 4;
             break;
-        case 750:
+        case 1000:
             limitSegment = 5;
             break;
-        case 1000:
+        case 2000:
             limitSegment = 6;
             break;
-        case 2000:
+        case 3000:
             limitSegment = 7;
             break;
-        case 3000: 
+        case 5000:
             limitSegment = 8;
             break;
-        default:
+        case 7500: 
             limitSegment = 9;
             break;
+        default:
+            limitSegment = 10;
+            break;
     }
-
-    browser.actions().mouseMove( pageEl.element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( limitSegment ) ).click().perform();  
+    
+    browser.actions().mouseMove( pageEl.element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment-label' )).get( guaranteeSegment ) ).click().perform();
+    browser.actions().mouseMove( pageEl.element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment-label' )).get( limitSegment ) ).click().perform();  
 };
 
 var setVolumeValues = function( pageEl, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
@@ -312,23 +351,40 @@ editVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStar
     
     viewEl.element( by.css( '.edit-volume-button' )).click();
     
-    browser.sleep( 220 );
+    browser.sleep( 320 );
     
     var editEl = element( by.css( '.edit-panel' ));
     
     setVolumeValues( editEl, data_type, qos, undefined, timeline, timelineStartTimes );
     
-    element( by.css( '.submit-changes-button' )).click();
+    browser.sleep( 300 );
+    editEl.element( by.css( '.submit-changes-button' )).click();
     browser.sleep( 300 );
 };
 
-deleteVolume = function( row ){
-    element.all( by.css( '.volume-row' ) ).get( row ).click();
+deleteVolume = function( name ){
+    //assume that you are on the volume list page
+    var mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
+    
+    mainEl.all( by.css( '.volume-row td.name' )).each( function( elem ){
+        elem.getText().then( function( text ){
+            if ( text === name ){
+                elem.click();
+            }
+        });
+    });
+    
+    browser.sleep( 200 );
+    
+    editButton = element( by.css( '.view-volume-screen' ) );
+    editButton = editButton.element( by.css( '.edit-volume-button' ) );
+    editButton.click();
 
-    browser.sleep( 500 );
+    browser.sleep( 300 );
 
-    var viewEl = element( by.css( '.view-volume-screen' ) );
-    viewEl.element( by.css( '.delete-volume' ) ).click();
+    var viewEl = element( by.css( '.edit-panel' ) );
+    deleteButton = viewEl.element( by.css( '.delete-volume' ) );
+    deleteButton.click();
 
     browser.sleep( 200 );
 

@@ -13,32 +13,26 @@
 #include <fds_module.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <fdsp/PlatNetSvc.h>
-/*
- * Use this macro for registering FDSP message handlers
- * @param FDSPMsgT - fdsp message type
- * @param func - Name of the function to invoke
- */
-#define REGISTER_FDSP_MSG_HANDLER(FDSPMsgT, func) \
-    asyncReqHandlers_[FDSP_MSG_TYPEID(FDSPMsgT)] = \
-    [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
-        boost::shared_ptr<std::string>& payloadBuf) \
-    { \
-        boost::shared_ptr<FDSPMsgT> payload; \
-        fds::deserializeFdspMsg(payloadBuf, payload); \
-        SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
-        func(header, payload); \
-    }
 
 #define REGISTER_FDSP_MSG_HANDLER_GENERIC(platsvc, FDSPMsgT, func)  \
     platsvc->asyncReqHandlers_[FDSP_MSG_TYPEID(FDSPMsgT)] = \
     [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
         boost::shared_ptr<std::string>& payloadBuf) \
     { \
+        DBG(fiu_do_on("svc.dropincoming."#FDSPMsgT, return;)); \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
         SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
     }
+/*
+ * Use this macro for registering FDSP message handlers
+ * @param FDSPMsgT - fdsp message type
+ * @param func - Name of the function to invoke
+ */
+#define REGISTER_FDSP_MSG_HANDLER(FDSPMsgT, func) \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(this, FDSPMsgT, func)
+
 
 // note : CALLBACK & CALLBACK2 are same
 #define BIND_MSG_CALLBACK(func, header , ...) \
@@ -156,41 +150,41 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void allUuidBinding(const fpi::UuidBindMsg& mine);
     virtual void allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine);  // NOLINT
 
-    virtual void notifyNodeActive(const fpi::FDSP_ActivateNodeType &info);
-    virtual void notifyNodeActive(boost::shared_ptr<fpi::FDSP_ActivateNodeType> &);
+    virtual void notifyNodeActive(const fpi::FDSP_ActivateNodeType &info) override;
+    virtual void notifyNodeActive(boost::shared_ptr<fpi::FDSP_ActivateNodeType> &) override;
 
     virtual void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
-                        const fpi::NodeInfoMsg& info, const bool bcast);
+                        const fpi::NodeInfoMsg& info, const bool bcast) override;
     virtual void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
                         boost::shared_ptr<fpi::NodeInfoMsg>& info,  // NOLINT
-                        boost::shared_ptr<bool>& bcast);
+                        boost::shared_ptr<bool>& bcast) override;
 
-    virtual void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d);
-    virtual void getDomainNodes(fpi::DomainNodes &ret, fpi::DomainNodesPtr &d);
+    virtual void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d) override;
+    virtual void getDomainNodes(fpi::DomainNodes &ret, fpi::DomainNodesPtr &d) override;
 
-    virtual fpi::ServiceStatus getStatus(const int32_t nullarg);
-    virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+    virtual fpi::ServiceStatus getStatus(const int32_t nullarg) override;
+    virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg) override;  // NOLINT
 
-    virtual void getCounters(std::map<std::string, int64_t> &, const std::string &);
+    virtual void getCounters(std::map<std::string, int64_t> &, const std::string &) override;
     virtual void getCounters(std::map<std::string, int64_t> & _return,
-                             boost::shared_ptr<std::string>& id);
+                             boost::shared_ptr<std::string>& id) override;
 
-    virtual void resetCounters(const std::string& id);
-    virtual void resetCounters(boost::shared_ptr<std::string>& id);
+    virtual void resetCounters(const std::string& id) override;
+    virtual void resetCounters(boost::shared_ptr<std::string>& id) override;
 
-    virtual void setConfigVal(const std::string& id, const int64_t val);
+    virtual void setConfigVal(const std::string& id, const int64_t val) override;
     virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-                              boost::shared_ptr<int64_t>& val);
+                              boost::shared_ptr<int64_t>& val) override;
 
-    virtual void setFlag(const std::string& id, const int64_t value);
+    virtual void setFlag(const std::string& id, const int64_t value) override;
     virtual void setFlag(boost::shared_ptr<std::string>& id,
-                 boost::shared_ptr<int64_t>& value);  // NOLINT
+                 boost::shared_ptr<int64_t>& value) override;  // NOLINT
 
-    virtual int64_t getFlag(const std::string& id);
-    virtual int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
+    virtual int64_t getFlag(const std::string& id) override;
+    virtual int64_t getFlag(boost::shared_ptr<std::string>& id) override;  // NOLINT
 
-    virtual void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
-    virtual void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+    virtual void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg) override;  // NOLINT
+    virtual void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg) override;  // NOLINT
 
     virtual void getProperty(std::string& _return, const std::string& name);
     virtual void getProperty(std::string& _return, boost::shared_ptr<std::string>& name);
@@ -198,8 +192,8 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void getProperties(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
 
-    virtual bool setFault(const std::string& command);
-    virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
+    virtual bool setFault(const std::string& command) override;
+    virtual bool setFault(boost::shared_ptr<std::string>& command) override;  // NOLINT
     void getStatus(fpi::AsyncHdrPtr &header,
                    fpi::GetSvcStatusMsgPtr &statusMsg);
     virtual void updateSvcMap(fpi::AsyncHdrPtr &header,

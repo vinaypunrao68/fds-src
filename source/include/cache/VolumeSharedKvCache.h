@@ -94,16 +94,18 @@ struct VolumeSharedCacheManager
     /**
      * Adds a key-value pair to a volume's cache.
      */
-    value_type add(fds_volid_t volId, const key_type &key, const value_type value) {
+    std::pair<bool, value_type> add(fds_volid_t volId, const key_type &key, const value_type value) {
+        static const std::pair<bool, value_type> nil {false, nullptr};
+
         SCOPEDREAD(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
-        // TODO(Andrew): For now just panic if the volume
-        // isn't in the manager. Fix later, but the interface
-        // needs a bit of change then since we need to return
-        // an error code
-        fds_verify(mapIt != vol_cache_map.end());
+        if (vol_cache_map.end() == mapIt) {
+            LOGDEBUG << "Failed to find volume: " << volId
+                     << " to insert element [" << key << "]";
+            return nil;
+        }
 
-        return mapIt->second->add(key, value);
+        return std::make_pair(true, mapIt->second->add(key, value));
     }
 
     Error clear(fds_volid_t volId) {

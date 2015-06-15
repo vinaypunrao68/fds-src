@@ -27,7 +27,7 @@ FSTAB_PATH_AND_FILENAME = "/etc/fstab"
 
 # Thes semi-arbitrary looking numbers are documented in the google doc titled:  "DM and SM Partition Size"
 DM_INDEX_BYTES_PER_OBJECT = 32
-SM_INDEX_BYTES_PER_OBJECT = 603
+#SM_INDEX_BYTES_PER_OBJECT = 603
 
 OBJECT_SIZE = 16384
 
@@ -43,8 +43,8 @@ FDS_SUPERBLOCK_SIZE_IN_MB = 10
 
 PARTITION_TYPE = "xfs"
 
-DM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo/dm"
-SM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo/sm"
+DM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo"
+#SM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo/sm"
 
 BASE_SSD_MOUNT_POINT = DEFAULT_FDS_ROOT + "dev/ssd-"
 BASE_HDD_MOUNT_POINT = DEFAULT_FDS_ROOT + "dev/hdd-"
@@ -133,11 +133,11 @@ class Base (object):
 class BaseDisk (object):
     ''' Base class to other "disk" type objects. '''
 
-
     GET_UUID_COMMAND = ['blkid', '-s', 'UUID', '-o', 'value']
 
     def get_uuid (self, device):
-        call_list = BaseDisk.GET_UUID_COMMAND
+       
+        call_list = copy.deepcopy (self.GET_UUID_COMMAND)
         call_list.append (device)
         output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
 
@@ -181,7 +181,7 @@ class Disk (Base):
         self.index_disk = index_disk
         self.interface = interface
         self.capacity = capacity
-        self.sm_flag = False
+#        self.sm_flag = False
         self.dm_flag = False
         self.marker = None
 
@@ -220,8 +220,8 @@ class Disk (Base):
         return self.os_disk
 
 
-    def set_sm_flag (self):
-        self.sm_flag = True
+#    def set_sm_flag (self):
+#        self.sm_flag = True
 
 
     def set_dm_flag (self):
@@ -267,8 +267,8 @@ class Disk (Base):
 
             if self.dm_flag:
                 part_end = part_start + dm_size
-            elif self.sm_flag:
-                part_end = part_start + sm_size
+#            elif self.sm_flag:
+#                part_end = part_start + sm_size
             else:
                 self.system_exit ('Found an Index disk without a dm or sm flag set. ')
 
@@ -348,92 +348,92 @@ class Disk (Base):
         self.dbg_print ("%s %s %s %s %s" % (self.path, self.os_disk, self.index_disk, self.disk_type, self.capacity))
 
 
-class RaidDevice (Base, BaseDisk):
-
-    MDADM_CREATE_1 = ['mdadm', '--create', '--quiet', '--metadata=1.2']
-    MDADM_CREATE_2 = ['--level=0', '--raid-devices=2']
-
-    MDADM_STOP_RAID_1 = ['mdadm', '--stop', '--quiet']
-    MDADM_ZERO_SB_1 = ['mdadm', '--zero-superblock']
-    UMOUNT_COMMAND_1 = ['umount', '-f']
-
-    def reset_raid_components (self, raid_device, raid_partitions):
-        ''' Stop running raid device and clear the raid superblock '''
-
-        self.dbg_print ("Removing raid_device:  %s" % (raid_device))
-        call_list = self.MDADM_STOP_RAID_1 + raid_device.split()
-        self.call_subproc (call_list)
-
-        call_list = self.MDADM_ZERO_SB_1
-        for part in raid_partitions:
-            call_list.append (part)
-        self.call_subproc (call_list)
-
-
-    def cleanup_raid_if_in_use (self, partition_list, fstab, disk_utils):
-        ''' Check all existing raid arrays to see if any items in partition_list are in use as part of a raid array '''
-        self.dbg_print ("Checking for raid arrays")
-        for id in range (MD_COUNT_RANGE_END):
-            md_test_dev = '/dev/md' + str (id)
-            if os.path.exists (md_test_dev):
-                self.dbg_print ("    found raid arrays:  " + md_test_dev)
-                call_list = ['mdadm', '--detail', md_test_dev]
-                #sys.exit(88)
-                output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
-                for line in output:
-                    for part in partition_list:
-                        if part in line:
-                            # Should force use of a --reformat type CLI here.
-                            self.dbg_print ("    found raid component:  " + part)
-                            mounts = disk_utils.find_mounts (md_test_dev)
-                            for mount in mounts:
-                                call_list = self.UMOUNT_COMMAND_1 + mount.split()
-                                self.call_subproc (call_list)
-                            file_sys_uuid = self.get_uuid (md_test_dev)
-                            fstab.remove_mount_point_by_uuid (file_sys_uuid)
-                            self.reset_raid_components (md_test_dev, partition_list)
-                            return True
-        return False
-
-
-    def create_index_raid (self, partition_list):
-        ''' Creates a shinny new raid array and formats the file system '''
-        if len (partition_list) < 2:
-            return None
-
-        md_dev = None
-
-        #find next free /dev/mdX device
-        for id in range (MD_COUNT_RANGE_END):
-            md_test_dev = '/dev/md' + str (id)
-            if os.path.exists (md_test_dev):
-                continue
-            md_dev = md_test_dev
-            break;
-
-        if md_dev is None:
-            self.system_exit ('Unable to find a suitable /dev/md slot');
-
-        output = ""
-        # Build printable partition list
-        for part in partition_list:
-            output += " "
-            output += part
-
-        self.dbg_print ("Preparing to assemble raid array %s using %s" % (md_dev, output))
-
-        # Assemble a raid array from partition 2 on each device
-        call_list = self.MDADM_CREATE_1 + md_dev.split() + self.MDADM_CREATE_2
-        for part in partition_list:
-            call_list.append (part);
-
-        self.call_subproc (call_list)
-
-        # Create the array
-        call_list = Disk.MKFS_PART_1 + md_test_dev.split() + Disk.MKFS_PART_2
-        self.call_subproc (call_list)
-
-        return self.get_uuid (md_dev)
+#class RaidDevice (Base, BaseDisk):
+#
+#    MDADM_CREATE_1 = ['mdadm', '--create', '--quiet', '--metadata=1.2']
+#    MDADM_CREATE_2 = ['--level=0', '--raid-devices=2']
+#
+#    MDADM_STOP_RAID_1 = ['mdadm', '--stop', '--quiet']
+#    MDADM_ZERO_SB_1 = ['mdadm', '--zero-superblock']
+#    UMOUNT_COMMAND_1 = ['umount', '-f']
+#
+#    def reset_raid_components (self, raid_device, raid_partitions):
+#        ''' Stop running raid device and clear the raid superblock '''
+#
+#        self.dbg_print ("Removing raid_device:  %s" % (raid_device))
+#        call_list = self.MDADM_STOP_RAID_1 + raid_device.split()
+#        self.call_subproc (call_list)
+#
+#        call_list = self.MDADM_ZERO_SB_1
+#        for part in raid_partitions:
+#            call_list.append (part)
+#        self.call_subproc (call_list)
+#
+#
+#    def cleanup_raid_if_in_use (self, partition_list, fstab, disk_utils):
+#        ''' Check all existing raid arrays to see if any items in partition_list are in use as part of a raid array '''
+#        self.dbg_print ("Checking for raid arrays")
+#        for id in range (MD_COUNT_RANGE_END):
+#            md_test_dev = '/dev/md' + str (id)
+#            if os.path.exists (md_test_dev):
+#                self.dbg_print ("    found raid arrays:  " + md_test_dev)
+#                call_list = ['mdadm', '--detail', md_test_dev]
+#                #sys.exit(88)
+#                output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+#                for line in output:
+#                    for part in partition_list:
+#                        if part in line:
+#                            # Should force use of a --reformat type CLI here.
+#                            self.dbg_print ("    found raid component:  " + part)
+#                            mounts = disk_utils.find_mounts (md_test_dev)
+#                            for mount in mounts:
+#                                call_list = self.UMOUNT_COMMAND_1 + mount.split()
+#                                self.call_subproc (call_list)
+#                            file_sys_uuid = self.get_uuid (md_test_dev)
+#                            fstab.remove_mount_point_by_uuid (file_sys_uuid)
+#                            self.reset_raid_components (md_test_dev, partition_list)
+#                            return True
+#        return False
+#
+#
+#    def create_index_raid (self, partition_list):
+#        ''' Creates a shinny new raid array and formats the file system '''
+#        if len (partition_list) < 2:
+#            return None
+#
+#        md_dev = None
+#
+#        #find next free /dev/mdX device
+#        for id in range (MD_COUNT_RANGE_END):
+#            md_test_dev = '/dev/md' + str (id)
+#            if os.path.exists (md_test_dev):
+#                continue
+#            md_dev = md_test_dev
+#            break;
+#
+#        if md_dev is None:
+#            self.system_exit ('Unable to find a suitable /dev/md slot');
+#
+#        output = ""
+#        # Build printable partition list
+#        for part in partition_list:
+#            output += " "
+#            output += part
+#
+#        self.dbg_print ("Preparing to assemble raid array %s using %s" % (md_dev, output))
+#
+#        # Assemble a raid array from partition 2 on each device
+#        call_list = self.MDADM_CREATE_1 + md_dev.split() + self.MDADM_CREATE_2
+#        for part in partition_list:
+#            call_list.append (part);
+#
+#        self.call_subproc (call_list)
+#
+#        # Create the array
+#        call_list = Disk.MKFS_PART_1 + md_test_dev.split() + Disk.MKFS_PART_2
+#        self.call_subproc (call_list)
+#
+#        return self.get_uuid (md_dev)
 
 
 class DiskUtils (Base, BaseDisk):
@@ -489,18 +489,18 @@ class DiskManager (Base):
 
         self.disk_list = []
         self.dm_index_MB = 0
-        self.sm_index_MB = 0
+#        self.sm_index_MB = 0
 
         self.fstab = extendedFstab()
 
         # Partition lists
-        self.sm_index_partition_list = []         # Storage manager index partitions
+#        self.sm_index_partition_list = []         # Storage manager index partitions
         self.dm_index_partition_list = []         # Data manager index partitions
         self.data_partition_list = []             # Object storage paritions
 
         self.umount_list = []                     # List of partitions that may need to be unmounted
 
-        self.raid_manager = None
+#        self.raid_manager = None
         self.disk_utils = DiskUtils()
 
 
@@ -652,14 +652,14 @@ class DiskManager (Base):
         blob_count = usable_capacity_bytes / OBJECT_SIZE
 
         self.dm_index_MB = int (math.ceil (1.0 * blob_count * DM_INDEX_BYTES_PER_OBJECT / 1024 / 1024))
-        self.sm_index_MB = int (math.ceil (1.0 * blob_count * SM_INDEX_BYTES_PER_OBJECT / 1024 / 1024))
+#        self.sm_index_MB = int (math.ceil (1.0 * blob_count * SM_INDEX_BYTES_PER_OBJECT / 1024 / 1024))
 
         self.dbg_print ("Index capacity = " + str (index_capacity))
         self.dbg_print ("total_capacity= " + str (total_capacity))
         self.dbg_print ("usable_capacity_bytes = " + str (usable_capacity_bytes))
         self.dbg_print ("object_count = " + str (blob_count))
         self.dbg_print ("dm_index_MB = " + str (self.dm_index_MB))
-        self.dbg_print ("sm_index_MB = " + str (self.sm_index_MB))
+#        self.dbg_print ("sm_index_MB = " + str (self.sm_index_MB))
 
 
     def build_partition_lists (self):
@@ -672,18 +672,15 @@ class DiskManager (Base):
                 if len (self.dm_index_partition_list) < 1:
                     self.dm_index_partition_list.append (disk.get_path() + '2')
                     disk.set_dm_flag()
-                else:
-                    self.sm_index_partition_list.append (disk.get_path() + '2')
-                    disk.set_sm_flag()
+#                else:
+#                    self.sm_index_partition_list.append (disk.get_path() + '2')
+#                    disk.set_sm_flag()
                 self.data_partition_list.append (disk.get_path() + '3')
             else:
                 self.data_partition_list.append (disk.get_path() + '2')
 
         # Build a list of partitions that may need to be unmounted
         self.umount_list = self.data_partition_list + self.dm_index_partition_list
-
-        #print "=========================================================="
-        #print "=========================================================="
 
 
     def partition_and_format_disks (self):
@@ -692,28 +689,30 @@ class DiskManager (Base):
         for disk in self.disk_list:
             if disk.get_os_usage():
                 continue
-            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
+#            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
+            disk.partition (self.dm_index_MB, 0)
             disk.format()
 
 
     def add_mount_point (self, uuid, mount_point):
+        self.dbg_print ("add mount point %s" % (mount_point))
 
         self.fstab.add_mount_point ('UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
 
 
-    def add_sm_mount_point (self):
-        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
-
-        sm_uuid = None
-
-        # See if there are enough SSD present to create a raid array for Data manager index storage
-        if len (self.sm_index_partition_list) > 1:
-            sm_uuid = self.raid_manager.create_index_raid (self.sm_index_partition_list)
-        else:
-            sm_uuid = self.disk_utils.get_uuid (self.sm_index_partition_list[0])
-
-        # Add mount points to the fstab for Formation file systems
-        self.add_mount_point (sm_uuid, SM_INDEX_MOUNT_POINT)
+#    def add_sm_mount_point (self):
+#        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
+#
+#        sm_uuid = None
+#
+#        # See if there are enough SSD present to create a raid array for Data manager index storage
+#        if len (self.sm_index_partition_list) > 1:
+#            sm_uuid = self.raid_manager.create_index_raid (self.sm_index_partition_list)
+#        else:
+#            sm_uuid = self.disk_utils.get_uuid (self.sm_index_partition_list[0])
+#
+#        # Add mount points to the fstab for Formation file systems
+#        self.add_mount_point (sm_uuid, SM_INDEX_MOUNT_POINT)
 
 
     def add_dm_mount_point (self):
@@ -759,16 +758,17 @@ class DiskManager (Base):
         fstab_file = self.options.fstab
         self.fstab.read (fstab_file)
 
-        self.raid_manager = RaidDevice()
+#        self.raid_manager = RaidDevice()
 
-        if not self.raid_manager.cleanup_raid_if_in_use (self.sm_index_partition_list, self.fstab, self.disk_utils):
-            self.umount_list += self.sm_index_partition_list
+#         if not self.raid_manager.cleanup_raid_if_in_use (self.sm_index_partition_list, self.fstab, self.disk_utils):
+#             self.umount_list += self.sm_index_partition_list
 
         self.disk_utils.cleanup_mounted_file_systems (self.fstab, self.umount_list)
 
         self.partition_and_format_disks()
-        self.add_sm_mount_point()
+#        self.add_sm_mount_point()
         self.add_dm_mount_point()
+        self.add_data_mount_points()
 
         # Replace the fstab
         if self.fstab.backup_if_altered (fstab_file):

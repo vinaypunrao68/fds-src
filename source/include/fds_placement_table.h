@@ -44,6 +44,10 @@ namespace fds {
             return p[index];
         }
 
+        /**
+         * Returns the row # of the column of which the Node resides.
+         * Returns -1 if not found.
+         */
         int find(const NodeUuid &uid) const {
             for (uint32_t i = 0; i < length; i++) {
                 if (p[i] == uid) {

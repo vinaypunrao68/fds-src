@@ -3,6 +3,7 @@ from svc_api.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
+import pdb
 
 
 class SMDebugContext(Context):
@@ -41,7 +42,7 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help="-Uuid of the SM to send the command to", type=long)
     @arg('--targetTokens', help="-List of tokens to check", type=str)
     def startSmchk(self, sm, targetTokens=None):
         """
@@ -54,7 +55,7 @@ class SMDebugContext(Context):
 
             startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
             self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
-        except Exception, e:
+        except Exception as e:
             log.exception(e)
             print e.message
             print "msg = {}".format(startSmchk)

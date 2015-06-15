@@ -16,6 +16,8 @@
 #include <concurrency/Mutex.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
+#include <fds_module_provider.h>
+#include <fds_process.h>
 
 
 namespace fds {
@@ -197,6 +199,26 @@ namespace fds {
 
         Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
 
+        /**
+         * Validate that commited DMT has all given DMs and no other DMs
+         * Called on domain re-activate. DMT is already loaded at this point.
+         */
+        Error validateDmtOnDomainActivate(const NodeUuidSet& dm_services);
+
+        /**
+         * Returns the number of primary DMs in this current setup.
+         */
+        inline fds_uint32_t getNumOfPrimaryDMs() const {
+        	return numOfPrimaryDMs;
+        }
+
+        /**
+         * Sets the number of primary DMs in this current setup.
+         */
+        inline void setNumOfPrimaryDMs(fds_uint32_t num) {
+        	numOfPrimaryDMs = num;
+        }
+
   private:
         /**
          * Config db object
@@ -254,7 +276,18 @@ namespace fds {
          * by both DMT state machine and other OM code.
          */
         std::atomic<fds_bool_t> bRebalancing;  // true if vol meta is rebalancing
+
+        /**
+         * Set of DMT columns that needs to be considered to be rebalanced.
+         * Each of these column ID means that there is a new Node added and
+         * the new node needs to know to PULL from a source.
+         */
         std::unordered_set<fds_uint32_t> rebalColumns;  // set of DMT cols rebalancing
+
+        /**
+         * Number of primary DMs for a volume.
+         */
+        fds_uint32_t numOfPrimaryDMs;
     };
 }  // namespace fds
 

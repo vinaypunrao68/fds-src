@@ -23,7 +23,7 @@ AccessMgr::AccessMgr(const std::string &modName,
           modProvider_(modProvider),
           stop_signal(),
           shutting_down(false),
-          amProcessor(std::make_shared<fds::AmProcessor>()),
+          amProcessor(std::make_shared<fds::AmProcessor>(modProvider)),
           standalone_mode{false}
 {
 }
@@ -51,6 +51,15 @@ AccessMgr::mod_shutdown() {
 void AccessMgr::mod_enable_service()
 {
     LOGNOTIFY << "Enabling services ";
+    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
+
+    /**
+     * Before being able to serve I/O requests, must first pull DMT
+     * and DLT information. At this time, we've already done the registration
+     * with the OM so anything here is post-registration.
+     */
+    getDMT();
+    getDLT();
 
     /**
      * Initialize the old synchronous Xdi interface
@@ -70,7 +79,6 @@ void AccessMgr::mod_enable_service()
     /**
      * Initialize the async server
      */
-    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
     asyncServer.reset(new AsyncDataServer(weakProcessor, pmPort));
     asyncServer->start();
 
@@ -102,6 +110,16 @@ AccessMgr::stop() {
     std::unique_lock<std::mutex> lk {stop_lock};
     shutting_down = true;
     stop_signal.notify_one();
+}
+
+void
+AccessMgr::getDMT() {
+	getProcessor()->getDMT();
+}
+
+void
+AccessMgr::getDLT() {
+	getProcessor()->getDLT();
 }
 
 }  // namespace fds

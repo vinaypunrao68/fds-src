@@ -34,7 +34,6 @@ class FDSTrace:
             (7003, 'am'),
             (7004, 'om'),
             (9090, 'om.config.api'),
-            (8903, 'om.cfg.path'),
             (8904, 'om.ctrl.path'),
             (7777, 'om.ui'),
             (7443, 'om.ui.ssl'),
@@ -277,7 +276,6 @@ if __name__ == "__main__":
     if args.om:
         f.addPort("om")
         f.addPort("om.config.api")
-        f.addPort("om.cfg.path")
         f.addPort("om.ctrl.path")
         f.addPort("om.ui")
         if args.ssl:

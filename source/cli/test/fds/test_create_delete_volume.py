@@ -29,24 +29,7 @@ class VolumeTest1( BaseCliTest ):
         
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     @patch( "fds.services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
-    def test_deleteVolume(self, mockCall, listCall ):
-        
-        args = ["volume", "delete", "-volume_name=NewOne"]
-        
-        self.callMessageFormatter(args)
-        
-        self.cli.run( args )
-        
-        assert mockCall.call_count == 1
-        
-        name = mockCall.call_args[0][0]
-        
-        assert name == "NewOne"
-        
-    @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
-    @patch( "fds.services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
-    @patch( "fds.services.volume_service.VolumeService.find_volume_by_id", side_effect=mock_functions.findVolumeById )
-    def test_deleteVolume_by_id(self, mockFind, mockDelete, listCall ):
+    def test_deleteVolume_by_id(self, mockDelete, listCall ):
         
         args = ["volume", "delete", "-volume_id=3" ]
         
@@ -55,15 +38,13 @@ class VolumeTest1( BaseCliTest ):
         self.cli.run( args )
         
         assert mockDelete.call_count == 1
-        assert mockFind.call_count == 1
         
-        name = mockDelete.call_args[0][0]
-        an_id = mockFind.call_args[0][0]
+        v_id = mockDelete.call_args[0][0]
         
         print "Making sure we call the find method with the ID and get a certain name to the delete call."
         
-        assert name == "VolumeName"
-        assert an_id == "3"
+        assert v_id == "3"
+
 
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
@@ -81,14 +62,14 @@ class VolumeTest1( BaseCliTest ):
         
         print "Checking the call stack to make sure it went to the right place"
         
-        assert volume.continuous_protection == 86400
+        assert volume.data_protection_policy.commit_log_retention == 86400
         assert volume.id == -1
         assert volume.name == "Franklin"
-        assert volume.iops_guarantee == 0
-        assert volume.iops_limit == 0
-        assert volume.media_policy == "HDD_ONLY"
-        assert volume.priority == 7
-        assert volume.type == "object"
+        assert volume.qos_policy.iops_min == 0
+        assert volume.qos_policy.iops_max == 0
+        assert volume.media_policy == "HDD"
+        assert volume.qos_policy.priority == 7
+        assert volume.settings.type == "OBJECT"
         
         print "test_create_with_defaults passed.\n\n"
 
@@ -96,8 +77,8 @@ class VolumeTest1( BaseCliTest ):
     @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
     def test_create_with_args(self, volumeCreate, listCall):
          
-        args = ["volume", "create", "-name=Franklin2", "-priority=1", "-iops_guarantee=30", "-iops_limit=30", "-continuous_protection=86400",
-                "-media_policy=SSD_ONLY", "-type=block", "-size=2", "-size_unit=MB"]
+        args = ["volume", "create", "-name=Franklin2", "-priority=1", "-iops_min=30", "-iops_max=30", "-continuous_protection=86400",
+                "-media_policy=SSD", "-type=block", "-size=2", "-size_unit=MB"]
          
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -106,16 +87,16 @@ class VolumeTest1( BaseCliTest ):
          
         print "Checking the parameters made it through"
          
-        assert volume.continuous_protection == 86400
+        assert volume.data_protection_policy.commit_log_retention == 86400
         assert volume.id == -1
         assert volume.name == "Franklin2"
-        assert volume.iops_guarantee == 30
-        assert volume.iops_limit == 30
-        assert volume.media_policy == "SSD_ONLY"
-        assert volume.priority == 1
-        assert volume.type == "block"
-        assert volume.current_size == 2
-        assert volume.current_units == "MB"   
+        assert volume.qos_policy.iops_min == 30
+        assert volume.qos_policy.iops_max == 30
+        assert volume.media_policy == "SSD"
+        assert volume.qos_policy.priority == 1
+        assert volume.settings.type == "BLOCK"
+        assert volume.status.current_usage.size == 0
+        assert volume.status.current_usage.unit == "GB"   
          
         print "test_create_with_args passed.\n\n"  
         
@@ -123,8 +104,8 @@ class VolumeTest1( BaseCliTest ):
     @patch( "fds.services.volume_service.VolumeService.create_volume", side_effect=mock_functions.createVolume )
     def test_create_boundary_checking(self, volumeCreate, listCall ):
         
-        args = ["volume", "create", "-name=Franklin2", "-priority=11", "-iops_guarantee=30", "-iops_limit=30", "-continuous_protection=86400",
-                "-media_policy=SSD_ONLY", "-type=block", "-size=2", "-size_unit=MB"]
+        args = ["volume", "create", "-name=Franklin2", "-priority=11", "-iops_min=30", "-iops_max=30", "-continuous_protection=86400",
+                "-media_policy=SSD", "-type=block", "-size=2", "-size_unit=MB"]
         
         self.callMessageFormatter(args)
         
@@ -134,20 +115,20 @@ class VolumeTest1( BaseCliTest ):
         
         print "Testing bad iops_guarantee"
         args[3] = "-priority=1"
-        args[4] = "-iops_guarantee=-1"
+        args[4] = "-iops_min=-1"
         
         self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad iops_limit"
-        args[4] = "-iops_guarantee=4000"
-        args[5] = "-iops_limit=100000"
+        args[4] = "-iops_min=4000"
+        args[5] = "-iops_max=100000"
         
         self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad continuous protection"
-        args[5] = "-iops_limit=1000"
+        args[5] = "-iops_max=1000"
         args[6] = "-continuous_protection=1000"
         
         self.cli.run( args )
@@ -161,7 +142,7 @@ class VolumeTest1( BaseCliTest ):
         assert volumeCreate.call_count == 0
         
         print "Testing bad volume type"
-        args[7] = "-media_policy=SSD_ONLY"
+        args[7] = "-media_policy=SSD"
         args[8] = "-type=NFS"
         
         self.cli.run( args )
@@ -169,7 +150,7 @@ class VolumeTest1( BaseCliTest ):
         
         print "Testing bad block size"
         args[8] = "-type=block"
-        args[9] = "-size=1025"
+        args[9] = "-size=-1"
         
         self.cli.run( args )
         assert volumeCreate.call_count == 0

@@ -21,9 +21,10 @@ class TestDomains(BaseCliTest):
         
         assert mockList.call_count == 1
         
+    @patch( "fds.services.local_domain_service.LocalDomainService.find_domain_by_id", side_effect=mock_functions.findDomainById)
     @patch( "fds.services.local_domain_service.LocalDomainService.shutdown", side_effect=mock_functions.shutdownDomain)
     @patch( "fds.services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
-    def test_shutdown(self, mockList, mockShutdown):
+    def test_shutdown(self, mockList, mockShutdown, mockFind):
         '''
         Testing that shutdown gets called
         '''
@@ -37,7 +38,7 @@ class TestDomains(BaseCliTest):
         assert mockShutdown.call_count == 0
         assert mockList.call_count == 0
         
-        args.append( "-domain_name=local" )
+        args.append( "-domain_id=1" )
         
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -45,6 +46,35 @@ class TestDomains(BaseCliTest):
         assert mockShutdown.call_count == 1
         assert mockList.call_count == 1
         
-        name = mockShutdown.call_args[0][0]
+        domain = mockShutdown.call_args[0][0]
         
-        assert name == "local"
+        assert domain.id == "1"
+        
+    @patch( "fds.services.local_domain_service.LocalDomainService.find_domain_by_id", side_effect=mock_functions.findDomainById) 
+    @patch( "fds.services.local_domain_service.LocalDomainService.start", side_effect=mock_functions.startDomain)
+    @patch( "fds.services.local_domain_service.LocalDomainService.get_local_domains", side_effect=mock_functions.listLocalDomains)
+    def test_startup(self, mockList, mockStart, mockFind):
+        '''
+        Testing that shutdown gets called
+        '''
+        
+        # first test the requirement of the domain name
+        args = ["local_domain", "start"]
+        
+        self.callMessageFormatter(args)
+        self.cli.run(args)
+        
+        assert mockStart.call_count == 0
+        assert mockList.call_count == 0
+        
+        args.append( "-domain_id=1" )
+        
+        self.callMessageFormatter(args)
+        self.cli.run(args)
+        
+        assert mockStart.call_count == 1
+        assert mockList.call_count == 1
+        
+        domain = mockStart.call_args[0][0]
+        
+        assert domain.id == "1"        

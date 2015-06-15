@@ -108,6 +108,16 @@ namespace fds {
                                        SourceNodeMap &srcNodeMap) const;
 
         /**
+         * Get source SM(s) for a given <current source SM - dlt tokens>
+         * NodeTokenMap[INVALID_RESOURCE_UUID] holds all dlt tokens for
+         * whom no source SM could be assigned.
+         */
+        NodeTokenMap getNewSourceSMs(const NodeUuid& curSrcSM,
+                                     const std::set<fds_token_id>& dlt_tokens,
+                                     const uint8_t& retryCount,
+                                     std::map<NodeUuid, bool>& failedSMs) const;
+
+        /**
          * set the node for given token at a given index
          * index range [0..MAX_REPLICA_FACTOR-1]
          * index[0] is the primary Node for that token

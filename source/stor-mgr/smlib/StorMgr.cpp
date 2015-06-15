@@ -10,6 +10,8 @@
 #include <thread>
 #include <functional>
 
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <PerfTrace.h>
 #include <ObjMeta.h>
 #include <StorMgr.h>
@@ -18,7 +20,7 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
-#include "lib/OMgrClient.h"
+#include "PerfTypes.h"
 
 using diskio::DataTier;
 
@@ -46,7 +48,6 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosOutNum(10),
       volTbl(nullptr),
       qosCtrl(nullptr),
-      omClient(nullptr),
       shuttingDown(false)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
@@ -82,14 +83,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    fds_verify(omClient == nullptr);
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog());
-    }
-
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -124,7 +118,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 void ObjectStorMgr::mod_startup()
 {
     // Init token migration manager
-    migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
+    migrationMgr = MigrationMgr::unique_ptr(new MigrationMgr(this));
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
@@ -156,6 +150,8 @@ void ObjectStorMgr::mod_startup()
 //
 void ObjectStorMgr::mod_enable_service()
 {
+    fiu_do_on("sm.exit.on.bringup", exit(1));
+
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
@@ -188,8 +184,43 @@ void ObjectStorMgr::mod_enable_service()
                             sysTaskQueue);
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
+
+        /**
+         * This is post service registration. Check if object store passed the initial
+         * superblock validation.
+         */
+        if (objectStore->isUnavailable()) {
+            LOGCRITICAL << "First phase of object store initialization failed; "
+                        << "SM service is marked unavailable";
+            // TODO(Anna) we should at some point try to recover from this
+            // for now SM service will remain unavailable, until someone restarts it
+        } else {
+            LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
+                      << " starting the second phase";
+            // get DMT from OM if DMT already exist
+            MODULEPROVIDER()->getSvcMgr()->getDMT();
+            // get DLT from OM
+            Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
+            if (err.ok()) {
+                // got a DLT, ignore it if SM is not in it
+                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // Store the current DLT to the presistent storage to be used
+                // by offline smcheck.
+                objStorMgr->storeCurrentDLT();
+                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
+                } else {
+                    // if second phase of start up failes, object store will set the state
+                    // during validating token ownership in the superblock
+                    handleDltUpdate();
+                }
+            }
+            // else ok if no DLT yet
+        }
+
         // Enable stats collection in SM for stats streaming
-        StatsCollector::singleton()->registerOmClient(omClient);
+        StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
         StatsCollector::singleton()->startStreaming(
             std::bind(&ObjectStorMgr::sampleSMStats, this, std::placeholders::_1), NULL);
     }
@@ -238,7 +269,7 @@ void ObjectStorMgr::mod_enable_service()
     }
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
     Module::mod_enable_service();
@@ -298,24 +329,6 @@ int ObjectStorMgr::run()
     return 0;
 }
 
-const TokenList&
-ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
-    return omClient->getTokensForNode(uuid);
-}
-
-void
-ObjectStorMgr::getTokensForNode(TokenList *tl,
-                                const NodeUuid &uuid,
-                                fds_uint32_t index) {
-    return omClient->getCurrentDLT()->getTokens(tl,
-                                                uuid,
-                                                index);
-}
-
-fds_uint32_t
-ObjectStorMgr::getTotalNumTokens() const {
-    return omClient->getCurrentDLT()->getNumTokens();
-}
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
@@ -327,15 +340,14 @@ const DLT* ObjectStorMgr::getDLT() {
     if (testStandalone == true) {
         return standaloneTestDlt;
     }
-    if (!omClient) { return nullptr; }
-    return omClient->getCurrentDLT();
+    return MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 }
 
 fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     if (testStandalone == true) {
         return true;  // TODO(Anna) add test DLT and use my svc uuid = 1
     }
-    DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
+    DltTokenGroupPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
     return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
@@ -344,7 +356,7 @@ Error ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
-    const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
         LOGNORMAL << "SM received first DLT after restart, which matched "
@@ -353,16 +365,23 @@ Error ObjectStorMgr::handleDltUpdate() {
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        objStorMgr->getUuid(),
+                                                        getUuid(),
                                                         curDlt->getNumBitsForToken());
         } else {
             // not doing resync, making all DLT tokens ready
-            objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
+            // pretend we successfully started resync, return success
+            err = ERR_OK;
         }
-        // for now pretend we successfully started resync, return success
-        err = ERR_OK;
     } else if (err.ok()) {
-        objStorMgr->migrationMgr->notifyDltUpdate(curDlt->getNumBitsForToken());
+        if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+            // we only care about DLT which contains this SM
+            migrationMgr->notifyDltUpdate(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
+        }
     }
 
     return err;
@@ -465,7 +484,7 @@ ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
  * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
 
-Error
+void
 ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 {
     Error err(ERR_OK);
@@ -509,10 +528,9 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     }
 
     putReq->response_cb(err, putReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 {
     Error err(ERR_OK);
@@ -556,10 +574,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     }
 
     delReq->response_cb(err, delReq);
-    return err;
 }
 
-Error
+void
 ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 {
     fds_assert(0 != addObjRefReq);
@@ -569,7 +586,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     Error rc = ERR_OK;
 
     if (addObjRefReq->objIds().empty()) {
-        return rc;
+        return;
     }
 
     uint64_t origNumObjIds = addObjRefReq->objIds().size();
@@ -630,11 +647,9 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
     }
 
     addObjRefReq->response_cb(rc, addObjRefReq);
-
-    return rc;
 }
 
-Error
+void
 ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 {
     Error err(ERR_OK);
@@ -669,7 +684,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
 
     getReq->response_cb(err, getReq);
-    return err;
 }
 
 /**
@@ -693,6 +707,8 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_APPLY_DELTA_SET:
         case FDS_SM_READ_DELTA_SET:
         case FDS_SM_SNAPSHOT_TOKEN:
+        case FDS_SM_MIGRATION_ABORT:
+        case FDS_SM_NOTIFY_DLT_CLOSE:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
@@ -747,7 +763,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
-    LOGDEBUG << *snapReq;
 
     // When this lock is held, any put/delete request in that
     // object id range will block
@@ -856,6 +871,7 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
         LOGMIGRATE << "Applying DeltaSet element: " << objId;
 
         err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+
         if (!err.ok()) {
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
@@ -878,6 +894,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 {
     Error err(ERR_OK);
 
+    fiu_do_on("sm.exit.sending.delta.set", exit(1));
+
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     fds_verify(NULL != readDeltaSetReq);
 
@@ -887,6 +905,9 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
                << " seqNum=" << readDeltaSetReq->seqNum
                << " lastSet=" << readDeltaSetReq->lastSet
                << " delta set size=" << readDeltaSetReq->deltaSet.size();
+
+    PerfContext tmp_pctx(PerfEventType::SM_READ_OBJ_DELTA_SET, 0);
+    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
 
     fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
     NodeUuid destSmId = readDeltaSetReq->destinationSmId;
@@ -931,11 +952,20 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
                    << " reconcileFlag=" << reconcileFlag;
     }
 
-    auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
-    asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
-                                 objDeltaSet);
-    asyncDeltaSetReq->setTimeoutMs(0);
-    asyncDeltaSetReq->invoke();
+    // Inject fault (if set) that source silently failed to send delta set msg
+    fds_bool_t failToSendDeltaSet = false;
+    fiu_do_on("sm.faults.senddeltaset", failToSendDeltaSet = true; );
+
+    if (!failToSendDeltaSet) {
+        auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
+        asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
+                                     objDeltaSet);
+        asyncDeltaSetReq->setTimeoutMs(0);
+        asyncDeltaSetReq->invoke();
+    } else {
+        LOGNOTIFY << "Injected fault: SM silently failed to send delta set to destination";
+        fiu_disable("sm.faults.senddeltaset");
+    }
 
     // mark request as complete
     qosCtrl->markIODone(*readDeltaSetReq, diskio::diskTier);
@@ -947,8 +977,96 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     delete readDeltaSetReq;
 }
 
+
 void
-ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
+ObjectStorMgr::abortMigration(SmIoReq *ioReq)
+{
+    Error err(ERR_OK);
+
+    SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
+    fds_verify(abortMigrationReq != NULL);
+
+    LOGDEBUG << "Abort Migration request";
+
+    // tell migration mgr to abort migration
+    err = objStorMgr->migrationMgr->abortMigration();
+
+    // revert to DLT version provided in abort message
+    if (abortMigrationReq->abortMigrationDLTVersion > 0) {
+        // will ignore error from setCurrent -- if this SM does not know
+        // about DLT with given version, then it did not have a DLT previously..
+        MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+    }
+
+    qosCtrl->markIODone(*abortMigrationReq);
+
+    if (abortMigrationReq->abortMigrationCb) {
+        abortMigrationReq->abortMigrationCb(err, abortMigrationReq);
+    }
+
+    delete abortMigrationReq;
+}
+
+void
+ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
+{
+    Error err(ERR_OK);
+
+    SmIoNotifyDLTClose *closeDLTReq = static_cast<SmIoNotifyDLTClose *>(ioReq);
+    fds_verify(closeDLTReq != NULL);
+
+    LOGDEBUG << "Executing DLT close request";
+
+
+    // Store the current DLT to the presistent storage to be used
+    // by offline smcheck.
+    objStorMgr->storeCurrentDLT();
+
+    // tell superblock that DLT is closed, so that it will invalidate
+    // appropriate SM tokens -- however, it is possible that this SM
+    // got DLT update and close for the DLT version this SM does not belong
+    // to, that should only happen on initial start; but for not notifying
+    // superblock about DLT this SM does not belong to
+    const DLT *curDlt = objStorMgr->getDLT();
+    if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+        err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
+    }
+
+    // re-enable GC and Tier Migration
+    // If this SM did not receive start migration or rebalance
+    // message and GC and TierMigration were not disabled, this operation
+    // will be a noop
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+
+    // Update the DLT information for the SM checker when migration
+    // is complete.
+    // Strangely, compilation has some issues when trying to acquire the latest
+    // DLT in the SMCheckOnline class.  So, decided to update the DLT
+    // here.
+    // TODO(Sean):  This is a bit of a hack.  Access to DLT from SMCheck is
+    //              causing compilation issues, so make couple layers of
+    //              indirect call to update the
+    objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
+
+    // notify token migration manager
+    err = migrationMgr->handleDltClose(getDLT(), getUuid());
+
+    qosCtrl->markIODone(*closeDLTReq);
+
+    if (closeDLTReq->closeDLTCb) {
+        closeDLTReq->closeDLTCb(err, closeDLTReq);
+    }
+
+    delete closeDLTReq;
+}
+
+void
+ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
+{
     Error err(ERR_OK);
     SmIoMoveObjsToTier *moveReq = static_cast<SmIoMoveObjsToTier*>(ioReq);
     fds_verify(moveReq != NULL);
@@ -994,7 +1112,7 @@ ObjectStorMgr::storeCurrentDLT()
     // verify dlt ownership.
     //
     // TODO(Sean):  cleanup when going moving to online smcheck
-    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    DLT *currentDLT = const_cast<DLT *>(MODULEPROVIDER()->getSvcMgr()->getCurrentDLT());
     std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
 
     // Must remove pre-existing file.  Otherwise, it will append a new version to the
@@ -1021,26 +1139,34 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     switch (io->io_type) {
         case FDS_IO_READ:
         case FDS_IO_WRITE:
+        {
             fds_panic("must not get here!");
             break;
+        }
         case FDS_SM_DELETE_OBJECT:
+        {
             LOGDEBUG << "Processing a Delete request";
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
             break;
+        }
         case FDS_SM_GET_OBJECT:
+        {
             LOGDEBUG << "Processing a get request";
             threadPool->schedule(&ObjectStorMgr::getObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoGetObjectReq *>(io));
             break;
+        }
         case FDS_SM_PUT_OBJECT:
+        {
             LOGDEBUG << "Processing a put request";
             threadPool->schedule(&ObjectStorMgr::putObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoPutObjectReq *>(io));
             break;
+        }
         case FDS_SM_ADD_OBJECT_REF:
         {
             LOGDEBUG << "Processing and add object reference request";
@@ -1062,14 +1188,30 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
+        {
             threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
             break;
+        }
         case FDS_SM_APPLY_DELTA_SET:
+        {
             threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
             break;
+        }
         case FDS_SM_READ_DELTA_SET:
+        {
             threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
             break;
+        }
+        case FDS_SM_MIGRATION_ABORT:
+        {
+            threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_NOTIFY_DLT_CLOSE:
+        {
+            threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
+            break;
+        }
         default:
             fds_assert(!"Unknown message");
             break;

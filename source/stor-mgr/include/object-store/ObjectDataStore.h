@@ -7,7 +7,6 @@
 #include <string>
 #include <fds_module.h>
 #include <fds_types.h>
-#include <fds_counters.h>
 #include <ObjMeta.h>
 #include <object-store/ObjectDataCache.h>
 #include <persistent-layer/dm_io.h>
@@ -16,15 +15,6 @@
 namespace fds {
 
 class SmScavengerCmd;
-
-struct ObjectDataStoreCounters : FdsCounters {
-    explicit ObjectDataStoreCounters(const std::string &id);
-
-    NumericCounter ssd_reads;
-    NumericCounter ssd_writes;
-    NumericCounter hdd_reads;
-    NumericCounter hdd_writes;
-};
 
 /**
  * Class that manages storage of object data. The class persistetnly stores
@@ -39,8 +29,6 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     /// Object data cache manager
     ObjectDataCache::unique_ptr dataCache;
 
-    ObjectDataStoreCounters odsCntrs;
-
     // TODO(Andrew): Add some private GC interfaces here?
 
   public:
@@ -51,11 +39,26 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     typedef std::shared_ptr<ObjectDataStore> ptr;
 
     /**
-     * Opens object data store
+     * Opens object data store for all SM tokens that this SM owns
+     * Token ownership is specified in the disk map
      * @param[in] map of SM tokens to disks
      * @param[in] true if SM comes up for the first time
      */
     Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+                        fds_bool_t pristineState);
+
+    /**
+     * Opens object data store for given SM tokens; the tokens
+     * may not be in a disk map;
+     * This method is called when SM needs to open data store for
+     * SM tokens for which it is gaining ownership, but migration
+     * may fail, so disk map is updated only on successful migration
+     * @param[in] diskMap map of SM tokens to disks
+     * @param[in] smToks set of SM tokens to open data store for
+     * @param[in] true if SM comes up for the first time
+     */
+    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+                        const SmTokenSet& smToks,
                         fds_bool_t pristineState);
 
     /**

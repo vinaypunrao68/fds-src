@@ -498,7 +498,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
         // all actions were successful now rsync it to other DMs
-        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(vdesc->srcVolumeId);
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
@@ -593,10 +593,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
-            volmeta->vol_desc->setState(Active);
+            volmeta->vol_desc->setState(fpi::Active);
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
-            volmeta->vol_desc->setState(InError);
+            volmeta->vol_desc->setState(fpi::InError);
         }
 
         // we registered queue and shadow queue if needed
@@ -615,6 +615,17 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     if (vdesc->isSnapshot()) {
         return err;
+    }
+
+    // Primary is responsible for persisting the latest seq number.
+    // latest seq_number is provided to AM on volume open.
+    if (fPrimary) {
+        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid,
+                                                             volmeta->seq_id);
+
+        if (!err.ok()) {
+            return err;
+        }
     }
 
     /*
@@ -654,7 +665,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             desc->volUUID = snapId;
             desc->contCommitlogRetention = 0;
             desc->timelineTime = 0;
-            desc->setState(Active);
+            desc->setState(fpi::Active);
             desc->name = util::strformat("snaphot_%ld_%ld", vol_uuid, snapId);
             VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
                                                             snapId,
@@ -942,22 +953,6 @@ int DataMgr::mod_init(SysParams const *const param)
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
-    /*
-     * Comm with OM will be setup during run()
-     */
-    omClient = NULL;
-    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
-    if (!standalone) {
-        LOGDEBUG << " Initialising the OM client ";
-        /*
-         * Setup communication with OM.
-         */
-        omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog());
-        omClient->setNoNetwork(false);
-    }
-
     return 0;
 }
 
@@ -982,6 +977,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
+    handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1068,7 +1064,7 @@ void DataMgr::mod_enable_service() {
                                                                *this));
 
     // enable collection of local stats in DM
-    StatsCollector::singleton()->registerOmClient(omClient);
+    StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
     if (!features.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
         // local aggregator, we just directly stream to aggregator (not over network)
@@ -1077,6 +1073,9 @@ void DataMgr::mod_enable_service() {
             std::bind(&DataMgr::handleLocalStatStream, this,
                       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         statStreamAggr_->mod_startup();
+
+        // get DMT from OM if DMT already exist
+        MODULEPROVIDER()->getSvcMgr()->getDMT();
     }
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
@@ -1095,11 +1094,17 @@ void DataMgr::mod_enable_service() {
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
     if (!features.isTestMode()) {
-        gSvcRequestPool->setDltManager(omClient->getDltManager());
+        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 }
 
-//   Block new IO's  and flush queued IO's 
+void DataMgr::shutdown()
+{
+    flushIO();
+    mod_shutdown();
+}
+
+//   Block new IO's  and flush queued IO's
 void DataMgr::flushIO()
 {
     shuttingDown = true;
@@ -1114,7 +1119,18 @@ void DataMgr::flushIO()
 
 void DataMgr::mod_shutdown()
 {
-    shuttingDown = true;
+    // Don't double-free.
+    {
+        // The expected goofiness is due to c_e_s() setting "expected" to the current value if it
+        // is not equal to expected. Which makes "expected" a misnomer as it's an in/out variable.
+        // We don't care (or rather, we already know) what the current value is if it's not equal
+        // to expected though, so we ignore it.
+        bool expected = false;
+        if (!shuttingDown.compare_exchange_strong(expected, true))
+        {
+            return;
+        }
+    }
 
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();
@@ -1140,7 +1156,6 @@ void DataMgr::mod_shutdown()
 
     qosCtrl->deregisterVolume(FdsDmSysTaskId);
     delete sysTaskQueue;
-    delete omClient;
     delete vol_map_mtx;
     delete qosCtrl;
 
@@ -1205,8 +1220,8 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    if (omClient->hasCommittedDMT()) {
-        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+    if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
         fds_verify(nodes->getLength() > 0);
 
         return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
@@ -1273,7 +1288,7 @@ DataMgr::snapVolCat(dmCatReq *io) {
  * @param[in] Ptr to msg header to modify
  */
 void
-DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
+DataMgr::initSmMsgHdr(fpi::FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->minor_ver = 0;
     msgHdr->msg_id    = 1;
 
@@ -1287,8 +1302,8 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->tennant_id      = 0;
     msgHdr->local_domain_id = 0;
 
-    msgHdr->src_id = FDSP_DATA_MGR;
-    msgHdr->dst_id = FDSP_STOR_MGR;
+    msgHdr->src_id = fpi::FDSP_DATA_MGR;
+    msgHdr->dst_id = fpi::FDSP_STOR_MGR;
 
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     msgHdr->src_node_name = svcmgr->getSelfSvcName();
@@ -1296,7 +1311,7 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 
     msgHdr->err_code = ERR_OK;
-    msgHdr->result   = FDSP_ERR_OK;
+    msgHdr->result   = fpi::FDSP_ERR_OK;
 }
 
 /**
@@ -1334,14 +1349,14 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     Error err(ERR_OK);
 
     // Create message
-    DeleteObjectMsgPtr expReq(new DeleteObjectMsg());
+    fpi::DeleteObjectMsgPtr expReq(new fpi::DeleteObjectMsg());
 
     // Set message parameters
     expReq->volId = volId;
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
-    DLTManagerPtr dltMgr = omClient->getDltManager();
+    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
     const DLT* dlt = dltMgr->getAndLockCurrentDLT();
@@ -1365,14 +1380,14 @@ DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-    DLTManagerPtr dltMgr = omClient->getDltManager();
+    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
 }
 
-void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
+void DataMgr::InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr)
 {
     msg_hdr->minor_ver = 0;
-    msg_hdr->msg_code = FDSP_MSG_PUT_OBJ_REQ;
+    msg_hdr->msg_code = fpi::FDSP_MSG_PUT_OBJ_REQ;
     msg_hdr->msg_id =  1;
 
     msg_hdr->major_ver = 0xa5;
@@ -1385,13 +1400,13 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     msg_hdr->tennant_id = 0;
     msg_hdr->local_domain_id = 0;
 
-    msg_hdr->src_id = FDSP_DATA_MGR;
-    msg_hdr->dst_id = FDSP_STOR_MGR;
+    msg_hdr->src_id = fpi::FDSP_DATA_MGR;
+    msg_hdr->dst_id = fpi::FDSP_STOR_MGR;
 
     msg_hdr->src_node_name = "";
 
     msg_hdr->err_code = ERR_OK;
-    msg_hdr->result = FDSP_ERR_OK;
+    msg_hdr->result = fpi::FDSP_ERR_OK;
 }
 
 void CloseDMTTimerTask::runTimerTask() {

@@ -127,6 +127,15 @@ void FdsProcess::init(int argc, char *argv[],
 
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
+        /* Check if config file exists */
+        struct stat buf;
+        if (stat(cfgfile.c_str(), &buf) == -1) {
+        	// LOGGER isn't ready at this point yet.
+        	std::cerr << "Configuration file " << cfgfile << " not found. Exiting."
+        			<< std::endl;
+        	exit(ERR_DISK_READ_FAILED);
+        }
+
         setup_config(argc, argv, cfgfile, base_path);
         /*
          * Create a global logger.  Logger is created here because we need the file
@@ -207,9 +216,12 @@ FdsProcess::~FdsProcess()
     /* Terminate signal handling thread */
     if (sig_tid_) {
         int rc = pthread_kill(*sig_tid_, SIGTERM);
-        fds_assert(rc == 0);
-        rc = pthread_join(*sig_tid_, NULL);
-        fds_assert(rc == 0);
+        if (0 != rc) {
+            LOGERROR << "thread kill returned error:" << rc;
+        } else {
+            rc = pthread_join(*sig_tid_, NULL);
+            if ( 0 != rc) LOGERROR << "thread join returned error : " << rc;
+        }
     }
 
     if (proc_thrp) delete proc_thrp;
@@ -517,9 +529,16 @@ util::Properties* FdsProcess::getProperties() {
 }
 
 fds_log* HasLogger::GetLog() const {
-    if (logptr != NULL) return logptr;
-    if (g_fdslog) return g_fdslog;
-    logptr = new fds_log("log");
+    // if neither the class logger nor the global logger are initialized,
+    // something is wrong with the init sequence.  Make sure logging is
+    // properly initialized before attempting to access the log
+    fds_verify(logptr != nullptr || g_fdslog != nullptr);
+
+    if (logptr == NULL && g_fdslog) return g_fdslog;
+
+    // Don't default the log initialization.  This could result in problems
+    // if not handled properly by callers, but I think that is preferable to
+    // returning a default that is wrong.
     return logptr;
 }
 

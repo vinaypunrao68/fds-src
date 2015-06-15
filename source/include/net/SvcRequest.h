@@ -228,8 +228,6 @@ struct SvcRequestIf : HasModuleProvider {
 
     virtual void invoke();
 
-    virtual void invoke2() = 0;
-
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload);
 
@@ -287,6 +285,8 @@ struct SvcRequestIf : HasModuleProvider {
     boost::shared_ptr<std::string> payloadBuf_;
     /* Completion cb */
     SvcRequestCompletionCb completionCb_;
+    /* Where the request is fire and forget or not */
+    bool fireAndForget_;
     /* Minor version */
     int minor_version;
 
@@ -309,7 +309,7 @@ struct EPSvcRequest : SvcRequestIf {
 
     ~EPSvcRequest();
 
-    virtual void invoke2() override;
+    virtual void invoke() override;
 
     virtual std::string logString() override;
 
@@ -380,7 +380,7 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     ~FailoverSvcRequest();
 
-    virtual void invoke2() override;
+    virtual void invoke() override;
 
     virtual std::string logString() override;
 
@@ -425,7 +425,7 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
 
     ~QuorumSvcRequest();
 
-    virtual void invoke2() override;
+    virtual void invoke() override;
 
     virtual std::string logString() override;
 

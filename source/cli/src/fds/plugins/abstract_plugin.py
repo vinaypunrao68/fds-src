@@ -13,8 +13,8 @@ class AbstractPlugin( object ):
 
     continuous_protection_str = "continuous_protection"
     priority_str = "priority"
-    iops_guarantee_str = "iops_guarantee"
-    iops_limit_str = "iops_limit"
+    iops_guarantee_str = "iops_min"
+    iops_limit_str = "iops_max"
     media_policy_str = "media_policy"
     volume_name_str = "volume_name"
     volume_id_str = "volume_id"
@@ -33,8 +33,11 @@ class AbstractPlugin( object ):
     added_str = "added"
     all_str = "all"
     services_str = "services"
+    service_str = "service"
+    service_id_str = "service_id"
     state_str = "state"
     domain_name_str = "domain_name"
+    domain_id_str = "domain_id"
     recurrence_rule_str = "recurrence_rule"
     frequency_str = "frequency"
     day_of_month_str = "day_of_month"
@@ -45,6 +48,11 @@ class AbstractPlugin( object ):
     hour_str = "hour"
     minute_str = "minute"
     policy_id_str = "policy_id"    
+    timeline_preset_str = "data_protection_preset_id"
+    qos_preset_str = "qos_preset_id"
+    user_name_str = "username"
+    user_id_str = "user_id"
+    tenant_id_str = "tenant_id"
 
     def __init__(self, session):
         self.__session = session
@@ -54,6 +62,10 @@ class AbstractPlugin( object ):
     
     def detect_shortcut(self, args):
         raise NotImplementedError( "Required method for an FDS CLI plugin.")
+    
+    @property
+    def arg_str(self):
+        return "-"
     
     @property
     def session(self):

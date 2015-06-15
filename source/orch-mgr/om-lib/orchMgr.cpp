@@ -11,7 +11,6 @@
 #include <lib/Catalog.h>
 #include <map>
 #include <util/Log.h>
-#include <NetSession.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
@@ -27,8 +26,6 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     : conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
-      omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
       deleteScheduler(this),
       enableSnapshotSchedule(true)
 {
@@ -60,14 +57,13 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     /*
      * Testing code for loading test info from disk.
      */
-    LOGNORMAL << "Constructing the Orchestration  Manager";
+    LOGDEBUG << "Constructor of Orchestration Manager ( called )";
 }
 
 OrchMgr::~OrchMgr()
 {
-    LOGNORMAL << "Destructing the Orchestration  Manager";
+    LOGDEBUG << "Destructor for Orchestration Manager ( called )";
 
-    cfg_session_tbl->endAllSessions();
     cfgserver_thread->join();
 
     if (policy_mgr) {
@@ -81,10 +77,8 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
-    SvcProcess::proc_pre_startup();
-
     argv = mod_vectors_->mod_argv(&argc);
-
+    
     /*
      * Process the cmdline args.
      */
@@ -99,9 +93,6 @@ void OrchMgr::proc_pre_startup()
             test_mode = true;
         }
     }
-
-    GetLog()->setSeverityFilter(
-        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
 
     my_node_name = stor_prefix + std::string("OrchMgr");
 
@@ -119,64 +110,18 @@ void OrchMgr::proc_pre_startup()
         control_portnum = conf_helper_.get<int>("control_port");
     }
     ip_address = conf_helper_.get<std::string>("ip_address");
+    
+    LOGDEBUG << "Orchestration Manager using config port " << config_portnum
+             << " control port " << control_portnum;
 
-    LOGNOTIFY << "Orchestration Manager using config port " << config_portnum
-              << " control port " << control_portnum;
-
-    // check the config db port (default is 0 for now)
-    // if the port is NOT set explicitly , do not use it .
-    // reason : mutiple folks might use the same instance.
-    // whoever decides to use it will have to set the port
-    // properly
-    // But we still need to instantiate as the object might be used .
-
-    configDB = new kvstore::ConfigDB(
-        conf_helper_.get<std::string>("configdb.host", "localhost"),
-        conf_helper_.get<int>("configdb.port", 0),
-        conf_helper_.get<int>("configdb.poolsize", 10));
-
-    policy_mgr = new VolPolicyMgr(configDB, GetLog());
+    policy_mgr = new VolPolicyMgr(getConfigDB(), GetLog());
 
     defaultS3BucketPolicy();
 
-    /*
-     * Setup server session to listen to OMControl path messages from
-     * DM, SM, and SH
-     */
-    omcp_session_tbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(my_node_name,
-                          netSession::ipString2Addr(ip_address),
-                          control_portnum,
-                          10,
-                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
-
-    omc_server_session = omcp_session_tbl->\
-            createServerSession<netOMControlPathServerSession>(
-                netSession::ipString2Addr(ip_address),
-                control_portnum,
-                my_node_name,
-                FDS_ProtocolInterface::FDSP_OMCLIENT_MGR,
-                omcp_req_handler);
-
-    /*
-     * Setup server session to listen to config path messages from fdscli
-     */
-    cfg_session_tbl = boost::shared_ptr<netSessionTbl>(
-        new netSessionTbl(my_node_name,
-                          netSession::ipString2Addr(ip_address),
-                          config_portnum,
-                          10,
-                          FDS_ProtocolInterface::FDSP_ORCH_MGR));
-
-    cfg_server_session = cfg_session_tbl->\
-            createServerSession<netConfigPathServerSession>(
-                netSession::ipString2Addr(ip_address),
-                config_portnum,
-                my_node_name,
-                FDS_ProtocolInterface::FDSP_CLI_MGR,
-                cfg_req_handler);
-
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
+    
+    LOGDEBUG << "Orchestration Manager is starting service layer";
+    SvcProcess::proc_pre_startup();
 }
 
 void OrchMgr::proc_pre_service()
@@ -187,25 +132,46 @@ void OrchMgr::proc_pre_service()
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
-    local_domain->om_load_state(config_db_up ? configDB : NULL);
+    local_domain->om_load_state(config_db_up ? getConfigDB() : NULL);
+}
+
+void OrchMgr::setupConfigDb_()
+{
+    /*
+     * no need to call this, service layer doesn't need to do any configdb
+     * setup. We should remove this from service layer 05/22/2015 (Tinius )
+     */
+//    SvcProcess::setupConfigDb_();
+    
+    configDB = new kvstore::ConfigDB(
+        conf_helper_.get<std::string>( "configdb.host", "localhost" ),
+        conf_helper_.get<int>( "configdb.port", 0 ),
+        conf_helper_.get<int>( "configdb.poolsize", 10 ) );
+        
+    LOGDEBUG << "ConfigDB Initialized";
 }
 
 void OrchMgr::setupSvcInfo_()
 {
+    /*
+     * without this we see the following error during startup
+     * '/fds/bin/liborchmgr.so: /fds/bin/liborchmgr.so: undefined symbol: _ZTVN3fds7OrchMgrE'
+     */
     SvcProcess::setupSvcInfo_();
-
-    auto config = MODULEPROVIDER()->get_conf_helper();
-    svcInfo_.ip = config.get_abs<std::string>("fds.common.om_ip_list");
-    svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port");
-    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
-        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
-
-    LOGNOTIFY << "Service info(After overriding): " << fds::logString(svcInfo_);
+    
+    /*
+     * need to populate the om node UUID with the platform UUID
+     */
+     
+    /*
+     * TODO(Tinius) handle more than one OM IP address
+     */
+    
 }
 
 void OrchMgr::registerSvcProcess()
 {
-    LOGNOTIFY << "register service process";
+    LOGDEBUG << "Registering OM service: " << fds::logString(svcInfo_);
 
     /* Add om information to service map */
     svcMgr_->updateSvcMap({svcInfo_});
@@ -215,26 +181,20 @@ int OrchMgr::run()
 {
     // run server to listen for OMControl messages from
     // SM, DM and SH
+    deleteScheduler.start();
     runConfigService(this);
-    if (omc_server_session) {
-        omcp_session_tbl->listenServer(omc_server_session);
-    }
     return 0;
 }
 
 void OrchMgr::start_cfgpath_server()
 {
-    if (cfg_server_session) {
-        cfg_session_tbl->listenServer(cfg_server_session);
-    }
 }
 
 void OrchMgr::interrupt_cb(int signum)
 {
-    LOGNORMAL << "OrchMgr: Shutting down communicator";
+    LOGDEBUG << "OrchMgr: Shutting down communicator";
 
     omcp_session_tbl.reset();
-    cfg_session_tbl.reset();
     exit(0);
 }
 
@@ -248,107 +208,6 @@ const std::string &
 OrchMgr::om_stor_prefix()
 {
     return orchMgr->stor_prefix;
-}
-
-int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                          const FdspCrtPolPtr& crt_pol_req)
-{
-    Error err(ERR_OK);
-    int policy_id = (crt_pol_req->policy_info).policy_id;
-
-    LOGNOTIFY << "Received CreatePolicy  Msg for policy "
-              << (crt_pol_req->policy_info).policy_name
-              << ", id" << policy_id;
-
-    om_mutex->lock();
-    err = policy_mgr->createPolicy(crt_pol_req->policy_info);
-    om_mutex->unlock();
-    return err.GetErrno();
-}
-
-int OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
-                          const FdspDelPolPtr& del_pol_req)
-{
-    Error err(ERR_OK);
-    int policy_id = del_pol_req->policy_id;
-    std::string policy_name = del_pol_req->policy_name;
-    LOGNOTIFY << "Received DeletePolicy  Msg for policy "
-              << policy_name << ", id " << policy_id;
-
-    om_mutex->lock();
-    err = policy_mgr->deletePolicy(policy_id, policy_name);
-    if (err.ok()) {
-        /* removed policy from policy catalog or policy didn't exist 
-         * TODO: what do we do with volumes that use policy we deleted ? */
-    }
-    om_mutex->unlock();
-    return err.GetErrno();
-}
-
-int OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
-                          const FdspModPolPtr& mod_pol_req)
-{
-    Error err(ERR_OK);
-    int policy_id = (mod_pol_req->policy_info).policy_id;
-    LOGNOTIFY
-            << "Received ModifyPolicy  Msg for policy "
-            << (mod_pol_req->policy_info).policy_name
-            << ", id " << policy_id;
-
-    om_mutex->lock();
-    err = policy_mgr->modifyPolicy(mod_pol_req->policy_info);
-    if (err.ok()) {
-        /* modified policy in the policy catalog 
-         * TODO: we probably should send modify volume messages to SH/DM, etc.  O */
-    }
-    om_mutex->unlock();
-    return err.GetErrno();
-}
-
-void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                              const FDSP_NotifyQueueStateTypePtr& queue_state_req) {
-    // Use some simple logic for now to come up with the throttle level
-    // based on the queue_depth for queues of various pririty
-
-    om_mutex->lock();
-    FDSP_QueueStateListType& que_st_list = queue_state_req->queue_state_list;
-    int min_priority = que_st_list[0].priority;
-    int min_p_q_depth = que_st_list[0].queue_depth;
-
-    for (uint i = 0; i < que_st_list.size(); i++) {
-        LOGNOTIFY << "Received queue full for volume "
-                  << que_st_list[i].vol_uuid
-                  << ", priority - " << que_st_list[i].priority
-                  << " queue_depth - " << que_st_list[i].queue_depth;
-
-        assert((que_st_list[i].priority >= 0) && (que_st_list[i].priority <= 10));
-        assert((que_st_list[i].queue_depth >= 0.5) && (que_st_list[i].queue_depth <= 1));
-        if (que_st_list[i].priority < min_priority) {
-            min_priority = que_st_list[i].priority;
-            min_p_q_depth = que_st_list[i].queue_depth;
-        }
-    }
-
-    float throttle_level = static_cast<float>(min_priority) +
-            static_cast<float>(1-min_p_q_depth)/0.5;
-
-    // For now we will ignore if the calculated throttle level is greater than
-    // the current throttle level. But it will have to be more complicated than this.
-    // Every time we set a throttle level, we need to fire off a timer and
-    // bring back to the normal throttle level (may be gradually) unless
-    // we get more of these QueueFull messages, in which case, we will have to
-    // extend the throttle period.
-    om_mutex->unlock();
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    if (throttle_level < local->om_get_cur_throttle_level()) {
-        local->om_set_throttle_lvl(throttle_level);
-    } else {
-        LOGNORMAL << "Calculated throttle level " << throttle_level
-                  << " less than current throttle level of "
-                  << local->om_get_cur_throttle_level()
-                  << ". Ignoring.";
-    }
 }
 
 void OrchMgr::defaultS3BucketPolicy()
@@ -370,49 +229,55 @@ void OrchMgr::defaultS3BucketPolicy()
 }
 
 bool OrchMgr::loadFromConfigDB() {
-    LOGNORMAL << "loading data from configdb...";
+    LOGDEBUG << "loading data from ConfigDB ...";
 
     // check connection
-    if (!configDB->isConnected()) {
-        LOGCRITICAL << "unable to talk to config db ";
+    if (!getConfigDB()->isConnected()) {
+        LOGCRITICAL << "unable to talk to ConfigDB ";
         return false;
     }
 
     // get global domain info
-    std::string globalDomain = configDB->getGlobalDomain();
+    std::string globalDomain = getConfigDB()->getGlobalDomain();
     if (globalDomain.empty()) {
         LOGWARN << "global.domain not configured.. setting a default [fds]";
-        configDB->setGlobalDomain("fds");
+        getConfigDB()->setGlobalDomain("fds");
     }
 
     // get local domains
     std::vector<fds::apis::LocalDomain> localDomains;
-    configDB->listLocalDomains(localDomains);
+    getConfigDB()->listLocalDomains(localDomains);
 
     if (localDomains.empty())  {
         LOGWARN << "No Local Domains stored in the system. "
                 << "Setting a default Local Domain.";
-        int64_t id = configDB->createLocalDomain();
+        int64_t id = getConfigDB()->createLocalDomain();
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation. ";
             return false;
         } else {
-            LOGNOTIFY << "Default Local Domain creation succeded. ID: " << id;
+            LOGNOTIFY << "Default Local Domain creation succeeded. ID: " << id;
         }
-        configDB->listLocalDomains(localDomains);
+        getConfigDB()->listLocalDomains(localDomains);
     }
 
     if (localDomains.empty()) {
-        LOGCRITICAL << "Something wrong with the configdb. "
+        LOGCRITICAL << "Something wrong with the ConfigDB. "
                     << " -- not loading data.";
         return false;
     }
 
+    // load/create system volumes
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volContainer = local->om_vol_mgr();
+    volContainer->createSystemVolume();
+    volContainer->createSystemVolume(0);
+
     // keep the pointer in data placement module
     DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
-    dp->setConfigDB(configDB);
+    dp->setConfigDB(getConfigDB());
 
-    OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
+    OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
     if (enableSnapshotSchedule) {

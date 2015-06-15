@@ -17,6 +17,8 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcServer.h>
 #include <net/SvcMgr.h>
+#include <dlt.h>
+#include <fds_dmt.h>
 
 namespace fds {
 
@@ -110,6 +112,9 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), handler);
     gSvcRequestPool = svcRequestMgr_;
+
+    dltMgr_.reset(new DLTManager());
+    dmtMgr_.reset(new DMTManager());
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -437,6 +442,103 @@ bool SvcMgr::isSvcActionableError(const Error &e)
 void SvcMgr::handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e)
 {
     // TODO(Rao): Implement
+}
+
+DltTokenGroupPtr SvcMgr::getDLTNodesForDoidKey(const ObjectID &objId) {
+    return dltMgr_->getDLT()->getNodes(objId);
+}
+
+DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id) {
+    return dmtMgr_->getCommittedNodeGroup(vol_id);  // thread-safe, do not hold lock
+}
+
+DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id,
+                                          fds_uint64_t dmt_version) {
+    return dmtMgr_->getVersionNodeGroup(vol_id, dmt_version);  // thread-safe, do not hold lock
+}
+
+Error SvcMgr::getDLT() {
+	Error err(ERR_OK);
+	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
+	getDLTData(fdsp_dlt);
+
+	if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
+		err = ERR_NOT_FOUND;
+	} else {
+		err = updateDlt(true, fdsp_dlt.dlt_data.dlt_data, NULL);
+	}
+	return err;
+}
+
+Error SvcMgr::getDMT() {
+	Error err(ERR_OK);
+	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
+	getDMTData(fdsp_dmt);
+
+	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
+		err = ERR_NOT_FOUND;
+	} else {
+		err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+	}
+	return err;
+}
+
+const DLT* SvcMgr::getCurrentDLT() {
+    return dltMgr_->getDLT();
+}
+
+bool SvcMgr::hasCommittedDMT() const {
+    return dmtMgr_->hasCommittedDMT();
+}
+
+fds_uint64_t SvcMgr::getDMTVersion() {
+    return dmtMgr_->getCommittedVersion();
+}
+
+Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Received new DLT version  " << dlt_type;
+
+    // dltMgr is threadsafe
+    err = dltMgr_->addSerializedDLT(dlt_data, cb, dlt_type);
+    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+        dltMgr_->dump();
+    } else if (ERR_DUPLICATE != err) {
+        LOGERROR << "Failed to update DLT! check dlt_data was set " << err;
+    }
+
+    return err;
+}
+
+Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Received new DMT version  " << dmt_type;
+
+    err = dmtMgr_->addSerializedDMT(dmt_data, DMT_COMMITTED);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set";
+    }
+
+    return err;
+}
+
+
+void SvcMgr::getDMTData(::FDS_ProtocolInterface::CtrlNotifyDMTUpdate &fdsp_dmt)
+{
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDMT(fdsp_dmt, nullarg);
+}
+
+void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
+{
+	int64_t nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getDLT(fdsp_dlt, nullarg);
 }
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,

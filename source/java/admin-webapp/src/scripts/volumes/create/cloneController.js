@@ -34,7 +34,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         
         // create teh continuous range
         $scope.now = (new Date()).getTime();
-        $scope.ranges.push( { min: ($scope.now - $scope.volumeVars.cloneFromVolume.commit_log_retention*1000), max: $scope.now, pwidth: 15 } );
+        $scope.ranges.push( { min: ($scope.now - $scope.volumeVars.cloneFromVolume.dataProtectionPolicy.commitLogRetention.seconds*1000), max: $scope.now, pwidth: 15 } );
         $scope.volumeVars.cloneFromVolume.timelineTime = $scope.now;
     };
     
@@ -59,11 +59,11 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     // combo changed - need to refresh the timeline
     $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal ){
         
-        if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.id ) ){
+        if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.uid ) ){
             return;
         }
         
-        $volume_api.getSnapshots( newVal.id, snapshotsReturned );
+        $volume_api.getSnapshots( newVal.uid, snapshotsReturned );
     });
     
     $scope.$watch( 'volumeVars.toClone', function( newVal ){

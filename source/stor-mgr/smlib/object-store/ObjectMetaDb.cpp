@@ -15,14 +15,6 @@ ObjectMetadataDb::ObjectMetadataDb()
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
-    std::unordered_map<fds_token_id, osm::ObjectDB *>::iterator it;
-    for (it = tokenTbl.begin();
-         it != tokenTbl.end();
-         ++it) {
-        osm::ObjectDB * objDb = it->second;
-        delete objDb;
-        it->second = NULL;
-    }
 }
 
 void ObjectMetadataDb::setNumBitsPerToken(fds_uint32_t nbits) {
@@ -31,22 +23,23 @@ void ObjectMetadataDb::setNumBitsPerToken(fds_uint32_t nbits) {
 
 void
 ObjectMetadataDb::closeMetadataDb() {
-    std::unordered_map<fds_token_id, osm::ObjectDB *>::iterator it;
     LOGDEBUG << "Will close all open Metadata DBs";
 
     SCOPEDWRITE(dbmapLock_);
-    for (it = tokenTbl.begin();
-         it != tokenTbl.end();
-         ++it) {
-        osm::ObjectDB * objDb = it->second;
-        delete objDb;
-        it->second = NULL;
-    }
     tokenTbl.clear();
 }
 
 Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
+    // open object metadata DB for each token that this SM owns
+    // if metadata DB already open, no error
+    SmTokenSet smToks = diskMap->getSmTokens();
+    return openMetadataDb(diskMap, smToks);
+}
+
+Error
+ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
+                                 const SmTokenSet& smToks) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
     fds_uint32_t ssdCount = diskMap->getTotalDisks(diskio::flashTier);
@@ -78,9 +71,8 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     fds_bool_t syncW = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.syncMetaWrite");
     LOGDEBUG << "Will do sync? " << syncW << " (metadata) writes to object DB";
 
-    // open object metadata DB for each token that this SM owns
+    // open object metadata DB for each token in the set
     // if metadata DB already open, no error
-    SmTokenSet smToks = diskMap->getSmTokens();
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
@@ -117,7 +109,6 @@ Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
-    osm::ObjectDB *objdb = NULL;
     std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
     // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
@@ -127,9 +118,10 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     if (iter != tokenTbl.end()) return ERR_OK;
 
     // create leveldb
+    std::shared_ptr<osm::ObjectDB> objdb;
     try
     {
-        objdb = new osm::ObjectDB(filename, syncWrite);
+        objdb = std::make_shared<osm::ObjectDB>(filename, syncWrite);
     }
     catch(const osm::OsmException& e)
     {
@@ -145,7 +137,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
 //
 // returns object metadata DB, if it does not exist, creates it
 //
-osm::ObjectDB *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
+std::shared_ptr<osm::ObjectDB> ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
     fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
 
     SCOPEDREAD(dbmapLock_);
@@ -155,14 +147,14 @@ osm::ObjectDB *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
     }
 
     // else did not find it
-    return NULL;
+    return nullptr;
 }
 
 Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
-                           leveldb::DB*& db,
+                           std::shared_ptr<leveldb::DB>& db,
                            leveldb::ReadOptions& opts) {
-    osm::ObjectDB* odb = nullptr;
+    std::shared_ptr<osm::ObjectDB> odb;
 
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
@@ -183,7 +175,7 @@ Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            std::string &snapDir,
                            leveldb::CopyEnv **env) {
-    osm::ObjectDB *odb = nullptr;
+    std::shared_ptr<osm::ObjectDB> odb = nullptr;
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
         if (iter != tokenTbl.end()) {
@@ -200,7 +192,7 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
 
 Error ObjectMetadataDb::closeObjectDB(fds_token_id smTokId,
                                       fds_bool_t destroy) {
-    osm::ObjectDB *objdb = nullptr;
+    std::shared_ptr<osm::ObjectDB> objdb = nullptr;
 
     SCOPEDWRITE(dbmapLock_);
     TokenTblIter iter = tokenTbl.find(smTokId);
@@ -210,7 +202,6 @@ Error ObjectMetadataDb::closeObjectDB(fds_token_id smTokId,
     if (destroy) {
         objdb->closeAndDestroy();
     }
-    delete objdb;
     return ERR_OK;
 }
 
@@ -225,7 +216,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
     err = ERR_OK;
     ObjectBuf buf;
 
-    osm::ObjectDB *odb = getObjectDB(objId);
+    std::shared_ptr<osm::ObjectDB> odb = getObjectDB(objId);
     if (!odb) {
         LOGWARN << "ObjectDB probably not open, is this expected?";
         err = ERR_NOT_READY;
@@ -248,7 +239,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
 Error ObjectMetadataDb::put(fds_volid_t volId,
                             const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
-    osm::ObjectDB *odb = getObjectDB(objId);
+    std::shared_ptr<osm::ObjectDB> odb = getObjectDB(objId);
     if (!odb) {
         LOGWARN << "ObjectDB probably not open, is this expected?";
         return ERR_NOT_READY;
@@ -267,7 +258,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
 //
 Error ObjectMetadataDb::remove(fds_volid_t volId,
                                const ObjectID& objId) {
-    osm::ObjectDB *odb = getObjectDB(objId);
+    std::shared_ptr<osm::ObjectDB> odb = getObjectDB(objId);
     if (!odb) {
         LOGWARN << "ObjectDB probably not open, is this expected?";
         return ERR_NOT_READY;

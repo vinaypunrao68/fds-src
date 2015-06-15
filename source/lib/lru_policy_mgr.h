@@ -1,6 +1,6 @@
-#ifndef __LRU_PLCY_MGR_H_
+#ifndef LRU_PLCY_MGR_H_
 
-#define LRU_PLCY_MGR_H
+#define LRU_PLCY_MGR_H_
 
 #include <list>
 #include <fds_obj_cache.h> 

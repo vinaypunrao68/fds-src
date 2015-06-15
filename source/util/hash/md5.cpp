@@ -261,7 +261,7 @@ void checksum_calc::get_checksum(std::string& result) {
     md5_finish( &ctx, output );
     result.clear();
     result.reserve(32);
-    for(uint i = 0; i < 16; i++ ) {
+    for(uint8_t i = 0; i < 16; i++ ) {
         result.append(1,hex[(output[i] >> 4) & 0x0F]);
         result.append(1,hex[output[i] & 0x0F]);
     }

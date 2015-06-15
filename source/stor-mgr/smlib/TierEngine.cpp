@@ -13,12 +13,10 @@ namespace fds {
 
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
-        StorMgrVolumeTable* _sm_volTbl,
         const SmDiskMap::ptr& diskMap,
         SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
         migrator(nullptr),
-        sm_volTbl(_sm_volTbl),
         hybridTierCtrlr(storMgr, diskMap) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:

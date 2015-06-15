@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 import json
-from fds.utils.domain_converter import DomainConverter
+
+from fds.utils.converters.platform.domain_converter import DomainConverter
 
 class LocalDomainService( AbstractService ):
     '''
@@ -11,6 +12,16 @@ class LocalDomainService( AbstractService ):
 
     def __init__(self, session):
         AbstractService.__init__(self, session)
+
+    def find_domain_by_id(self, domain_id):
+        
+        domains = self.get_local_domains()
+        
+        for domain in domains:
+            if domain.id == domain_id:
+                return domain
+            
+        return None
 
     def get_local_domains(self):
         '''
@@ -28,16 +39,23 @@ class LocalDomainService( AbstractService ):
             
         return domains
     
-    def shutdown(self, domain_name):
+    def shutdown(self, domain):
         '''
         Shutdown the specified domain
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain_name )
-        data = dict();
-        data["action"] = "shutdown"
+        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain.id )
+        domain.state = "DOWN"
+        data = DomainConverter.to_json(domain)
+        return self.rest_helper.put( self.session, url, data )
+    
+    def start(self, domain):
+        '''
+        start up the specified domain
+        '''
         
-        data = json.dumps( data )
-        
+        url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain.id )
+        domain.state = "UP"
+        data = DomainConverter.to_json(domain)
         return self.rest_helper.put( self.session, url, data )
         

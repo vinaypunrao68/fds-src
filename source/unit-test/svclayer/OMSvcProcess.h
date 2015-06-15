@@ -32,6 +32,8 @@ struct OMSvcProcess : SvcProcess {
     /* Messages invoked by handler */
     void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
     void getSvcMap(std::vector<fpi::SvcInfo> & svcMap);
+    void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg);
+    void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg);
 
  protected:
     /**

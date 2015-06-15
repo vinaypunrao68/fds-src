@@ -36,7 +36,12 @@ class AmCache {
      * Creates cache structures for the volume described
      * in the volume descriptor.
      */
-    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs);
+    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs, bool const can_cache_meta);
+
+    /**
+     * Removes metadata cache for the volume.
+     */
+    void invalidateMetaCache(fds_volid_t const volId);
 
     /**
      * Removes volume cache for the volume.
@@ -61,18 +66,20 @@ class AmCache {
      * Retrieves object ID from cache for given volume, blob,
      * and offset. If blob offset is not found, returns error.
      */
-    ObjectID::ptr getBlobOffsetObject(fds_volid_t volId,
-                                      const std::string &blobName,
-                                      fds_uint64_t blobOffset,
-                                      Error &error);
+    Error getBlobOffsetObjects(fds_volid_t volId,
+                               const std::string &blobName,
+                               fds_uint64_t const obj_offset,
+                               fds_uint64_t const obj_offset_end,
+                               size_t const obj_size,
+                               std::vector<ObjectID::ptr>& obj_ids);
 
     /**
-     * Retrieves object data from cache for given volume and object.
-     * If object is not found, returns error.
+     * Retrieves object data from cache for given volume and object ids.
+     * Returns hit_cnt, miss_cnt
      */
-    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId,
-                                                 const ObjectID &objectId,
-                                                 Error &error);
+    std::pair<size_t, size_t> getObjects(fds_volid_t volId,
+                                         std::vector<ObjectID::ptr> const& objectIds,
+                                         std::vector<boost::shared_ptr<std::string>>& objects);
 
     /**
      * Updates the cache with the contents from a commited
@@ -88,21 +95,18 @@ class AmCache {
      */
     Error putBlobDescriptor(fds_volid_t const volId,
                             typename descriptor_cache_type::key_type const& blobName,
-                            typename descriptor_cache_type::value_type const blobDesc)
-    { descriptor_cache.add(volId, blobName, blobDesc); return ERR_OK; }
+                            typename descriptor_cache_type::value_type const blobDesc);
 
     Error putOffset(fds_volid_t const volId,
                     typename offset_cache_type::key_type const& blobOff,
-                    typename offset_cache_type::value_type const objId)
-    { offset_cache.add(volId, blobOff, objId); return ERR_OK; }
+                    typename offset_cache_type::value_type const objId);
 
     /**
      * Inserts new object into the object cache.
      */
     Error putObject(fds_volid_t const volId,
                     typename object_cache_type::key_type const& objId,
-                    typename object_cache_type::value_type const obj)
-    { object_cache.add(volId, objId, obj); return ERR_OK; }
+                    typename object_cache_type::value_type const obj);
 
     /**
      * Removes cache entries for a specific blob in a volume.

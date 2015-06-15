@@ -201,7 +201,7 @@ class SmIoReq : public FDS_IOType {
         std::stringstream ret;
         return ret.str();
     }
-};
+};  // class SmIoReq
 
 /**
  * Handlers that process SmIoReq should derive from this
@@ -209,7 +209,7 @@ class SmIoReq : public FDS_IOType {
 class SmIoReqHandler {
  public:
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq) = 0;
-};
+};  // class SmIoReqHandler
 
 class SmIoAddObjRefReq : public SmIoReq {
   public:
@@ -251,7 +251,7 @@ class SmIoAddObjRefReq : public SmIoReq {
 
     /// If the AddObjRef requestes was forwarded by the SM token migration
     bool forwardedReq;
-};
+};  // class SmIoAddObjRefReq
 
 /**
  * @brief For DEL object data
@@ -286,7 +286,7 @@ class SmIoDeleteObjectReq : public SmIoReq {
             << " forwarded=" << delReq.forwardedReq;
         return out;
     }
-};
+};  // class SmIoDeleteObjectReq
 
 /**
  * @brief For PUT object data
@@ -321,7 +321,7 @@ class SmIoPutObjectReq : public SmIoReq {
             << " forwarded=" << putReq.forwardedReq;
         return out;
     }
-};
+};  // class SmIoPutObjectReq
 
 /**
  * @brief For GET object data
@@ -346,7 +346,7 @@ class SmIoGetObjectReq : public SmIoReq {
 
     /// Response callback
     CbType response_cb;
-};
+};  // class SmIoGetObjectReq
 
 /**
  * Token iterator
@@ -356,7 +356,7 @@ class SmIoGetObjectReq : public SmIoReq {
 class SMTokenItr {
  public:
     leveldb::Iterator* itr;
-    leveldb::DB* db;
+    std::shared_ptr<leveldb::DB> db;
     leveldb::ReadOptions options;
     bool done;
 
@@ -369,7 +369,7 @@ class SMTokenItr {
     }
 
     bool isEnd() {return done;}
-};
+};   // class SmTokenIter
 
 /**
  * @brief Takes snapshot of object db
@@ -379,8 +379,9 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db,
-                                bool retry)> CbType;
+                                std::shared_ptr<leveldb::DB> db,
+                                bool retry,
+                                fds_uint32_t uid)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
                                 std::string &snapDir,
@@ -388,6 +389,7 @@ class SmIoSnapshotObjectDB : public SmIoReq {
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;
+        unique_id = 0;
         isPersistent = false;
         executorId = SM_INVALID_EXECUTOR_ID;
         snapNum = "";
@@ -396,6 +398,11 @@ class SmIoSnapshotObjectDB : public SmIoReq {
 
     /* In: Token to take snapshot of*/
     fds_token_id token_id;
+
+    /* In: Unique id passed to be checked when
+     * handing over snapshot to migration executors.
+     */
+     fds_uint32_t unique_id;
 
     /* In: Persistant or in-memory snapshot?
      */
@@ -434,7 +441,7 @@ class SmIoSnapshotObjectDB : public SmIoReq {
             << " executorId " << snapReq.executorId;
         return out;
     }
-};
+};  // class SmIoSnapshotObjectDB
 
 /**
  * Request to copy or delete a given list of objects
@@ -457,7 +464,7 @@ class SmIoCompactObjects : public SmIoReq {
 
     /* response callback */
     cbType smio_compactobj_resp_cb;
-};
+};  // class SmIoCompactObjects
 
 /**
  * Request to move a set of objects from one tier to another tier
@@ -490,7 +497,7 @@ class SmIoMoveObjsToTier: public SmIoReq {
 
     /// response callback
     cbType moveObjsRespCb;
-};
+};  // class SmIoMoveObjsToTier
 
 /**
  * Request to read delta set from set of meta data.
@@ -530,7 +537,7 @@ class SmIoReadObjDeltaSetReq: public SmIoReq {
 
     // Response callback for batch object read.
     cbType smioReadObjDeltaSetReqCb;
-};  // SmIoReadObjDelta
+};  // class SmIoReadObjDelta
 
 typedef boost::shared_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqSharedPtr;
 typedef std::unique_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqUniquePtr;
@@ -539,7 +546,7 @@ typedef std::unique_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqUniquePtr;
  * Request to apply object rebalance delta set
  */
 class SmIoApplyObjRebalDeltaSet: public SmIoReq {
- public:
+  public:
     typedef std::function<void (const Error&,
                                 SmIoApplyObjRebalDeltaSet *req)> cbType;
 
@@ -574,7 +581,54 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
 
     /// response callback
     cbType smioObjdeltaRespCb;
-};
+};  // class SmIoApplyObjRebalDeltaSet
+
+/**
+ * Request to abort migration
+ *
+ * We are making this a QoS request, since this operation can take a while
+ * to complete, instead of handling  the close in the service layer, handle
+ * it in the SM QoS layer.
+ */
+class SmIoAbortMigration: public SmIoReq {
+  public:
+    typedef std::function<void (const Error&,
+                                SmIoAbortMigration *req)> cbType;
+
+    explicit SmIoAbortMigration(fpi::CtrlNotifySMAbortMigrationPtr& abortMigrationMsg)
+        : abortMigrationReqMsg(abortMigrationMsg) {
+    }
+
+    fpi::CtrlNotifySMAbortMigrationPtr abortMigrationReqMsg;
+
+    fds_uint64_t abortMigrationDLTVersion;
+
+    cbType abortMigrationCb;
+};  // class SmIoAbortMigration
+
+/**
+ * Reqest to close DLT.
+ *
+ * We are making this a QoS request, since this operation can take a while
+ * to complete, instead of handling  the close in the service layer, handle
+ * it in the SM QoS layer.
+ */
+class SmIoNotifyDLTClose: public SmIoReq {
+  public:
+    typedef std::function<void (const Error&,
+                                SmIoNotifyDLTClose *req)> cbType;
+
+    explicit SmIoNotifyDLTClose(boost::shared_ptr<fpi::CtrlNotifyDLTClose>& closeDLTMsg)
+        : closeDLTReqMsg(closeDLTMsg) {
+     }
+
+    boost::shared_ptr<fpi::CtrlNotifyDLTClose> closeDLTReqMsg;
+
+    fds_uint64_t closeDLTVersion;
+
+    cbType closeDLTCb;
+};  // class SmIoNotifyDLTClose
+
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMIO_H_

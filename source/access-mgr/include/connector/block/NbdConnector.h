@@ -5,13 +5,9 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
 
 #include <memory>
+#include <thread>
 
 #include "connector/block/common.h"
-
-namespace std
-{
-struct thread;
-}  // namespace std
 
 namespace fds {
 
@@ -20,7 +16,7 @@ struct AmProcessor;
 class NbdConnector {
     uint32_t nbdPort;
     int32_t nbdSocket {-1};
-    bool cfg_non_blocking_io {true};
+    bool cfg_no_delay {true};
     uint32_t cfg_keep_alive {0};
 
     std::unique_ptr<ev::io> evIoWatcher;

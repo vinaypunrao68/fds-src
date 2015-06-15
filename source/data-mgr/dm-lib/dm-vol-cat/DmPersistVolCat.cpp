@@ -28,7 +28,7 @@ const fds_uint32_t BLOB_META_INDEX = std::numeric_limits<fds_uint32_t>::max();
  * but is just an arbitrary string so there's technically nothing preventing
  * collision.
  */
-const std::string VOL_META_INDEX = "ffffffffffff";
+const fds_uint64_t VOL_META_ID = std::numeric_limits<fds_uint64_t>::max();
 
 const BlobObjKey OP_TIMESTAMP_KEY(INVALID_BLOB_ID, 0);
 const Record OP_TIMESTAMP_REC(reinterpret_cast<const char *>(&OP_TIMESTAMP_KEY),
@@ -71,7 +71,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
     const std::string destDir = nodeRoot + "sys-repo/dm-names/" + getVolIdStr() + "/";
-    const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r " + snapDir +
+    const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r --rsh='ssh -o StrictHostKeyChecking=no' " + snapDir +
             " " + rsyncUser + "@" + destIP + ":" + destDir;
 
     // make local copy of catalog

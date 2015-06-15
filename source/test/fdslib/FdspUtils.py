@@ -208,27 +208,28 @@ def newGetDmStatsMsg(volId):
     return msg
 
 def newEnableScavengerMsg():
-    msg = CtrlNotifyScavenger()
-    msg.scavenger = FDSP_ScavengerType()
-    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_ENABLE
+    msg = smapi.ttypes.CtrlNotifyScavenger()
+    msg.scavenger = smtypes.ttypes.FDSP_ScavengerType()
+    msg.scavenger.cmd = smtypes.ttypes.FDSP_ScavengerCmd.FDSP_SCAVENGER_ENABLE
     return msg
 
 def newDisableScavengerMsg():
-    msg = CtrlNotifyScavenger()
-    msg.scavenger = FDSP_ScavengerType()
-    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_DISABLE
+    msg = smapi.ttypes.CtrlNotifyScavenger()
+    msg.scavenger = smtypes.ttypes.FDSP_ScavengerType()
+    msg.scavenger.cmd = smtypes.ttypes.FDSP_ScavengerCmd.FDSP_SCAVENGER_DISABLE
     return msg
 
+
 def newStartScavengerMsg():
-    msg = CtrlNotifyScavenger()
-    msg.scavenger = FDSP_ScavengerType()
-    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_START
+    msg = smapi.ttypes.CtrlNotifyScavenger()
+    msg.scavenger = smtypes.ttypes.FDSP_ScavengerType()
+    msg.scavenger.cmd = smtypes.ttypes.FDSP_ScavengerCmd.FDSP_SCAVENGER_START
     return msg
 
 def newStopScavengerMsg():
-    msg = CtrlNotifyScavenger()
-    msg.scavenger = FDSP_ScavengerType()
-    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
+    msg = smapi.ttypes.CtrlNotifyScavenger()
+    msg.scavenger = smtypes.ttypes.FDSP_ScavengerType()
+    msg.scavenger.cmd = smtypes.ttypes.FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
     return msg
 
 def newScavengerStatusMsg():
@@ -278,7 +279,6 @@ def newCtrlStartHybridTierCtrlrMsg():
     msg = CtrlStartHybridTierCtrlrMsg()
     return msg
 
-
 def newStartSmchkMsg(targetTokens):
     msg = smapi.ttypes.CtrlNotifySMCheck()
     msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_START
@@ -290,5 +290,13 @@ def newStartSmchkMsg(targetTokens):
 def newStopSmchkMsg():
     msg = smapi.ttypes.CtrlNotifySMCheck()
     msg.SmCheckCmd = smtypes.ttypes.SMCheckCmd.SMCHECK_STOP
+
+    return msg
+
+def newDmchkMsg(volId, source, remedy):
+    msg = smapi.ttypes.CtrlNotifyDMStartMigrationMsg()
+    msg.migrations.VolDescriptors.volUUID = volId
+    msg.migrations.source = source
+    msg.dryRun = remedy
 
     return msg

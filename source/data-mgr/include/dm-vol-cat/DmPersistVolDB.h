@@ -96,6 +96,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) override;
 
+    virtual Error getLatestSequenceId(blob_version_t & max) override;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
 
@@ -119,7 +121,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset) override;
 
-    virtual Error deleteBlobMetaDesc(const std::string & blobName);
+    virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
 
     Catalog* getCatalog() {
         return catalog_.get();

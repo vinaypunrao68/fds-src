@@ -125,6 +125,7 @@ typedef enum {
     ERR_SM_TOK_MIGRATION_DATA_MISMATCH,
     ERR_SM_TOK_MIGRATION_METADATA_MISMATCH,
     ERR_SM_TOK_MIGRATION_ABORTED,
+    ERR_SM_TOK_MIGRATION_TIMEOUT,
     ERR_SM_TIER_WRITEBACK_NOT_DONE,
     ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME,
     ERR_SM_EXCEEDED_DISK_CAPACITY,
@@ -226,6 +227,11 @@ typedef enum {
     FDSN_StatusErrorEntityTooLarge                             ,
 
     FDSN_StatusErrorMissingContentLength                       ,
+
+    /*
+     * Errors for Platform things
+     */
+    PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH               = 60000,
 
     /* keep this as the last*/
     FDSN_StatusErrorUnknown                                     ,

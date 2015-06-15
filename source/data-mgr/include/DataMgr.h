@@ -18,7 +18,6 @@
 #include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
-#include <lib/OMgrClient.h>
 
 #include <util/Log.h>
 #include <VolumeMeta.h>
@@ -30,6 +29,7 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
+#include <fdsp/FDSP_types.h>
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
 #include <DmIoReq.h>
@@ -59,9 +59,7 @@ namespace fds {
 class DMSvcHandler;
 
 struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
-    static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-
-    OMgrClient     *omClient;
+    static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
     /* Common module provider */
     CommonModuleProviderIf *modProvider_;
@@ -119,7 +117,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
             return ERR_VOL_NOT_FOUND;
         }
 
-        if (volumeDesc->state != Active)
+        if (volumeDesc->state != fpi::Active)
         {
             return ERR_DM_VOL_NOT_ACTIVATED;
         }
@@ -320,7 +318,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
-    void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
+    void initSmMsgHdr(fpi::FDSP_MsgHdrTypePtr msgHdr);
 
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
     void  expungeObjectCb(fds_uint64_t dltVersion,
@@ -421,6 +419,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     virtual std::string getSnapDirName(const fds_volid_t &volId,
                                        const int64_t snapId) const override;
+
+    ///
+    /// Cleanly shut down.
+    ///
+    /// run() will exit after this is called.
+    ///
+    void shutdown();
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;

@@ -4,36 +4,13 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
         restrict: 'E',
         replace: true,
         transclude: false,
-        // timelinePolicies = { continuous: <num>, snapshotPolicies: [] }
         scope: { timelinePolicies: '=ngModel', saveOnly: '@' },
         templateUrl: 'scripts/directives/fds-components/snapshot-policies/timeline-policy.html',
-        controller: function( $scope, $filter ){
+        controller: function( $scope, $filter, $volume_api ){
             
             if ( !angular.isDefined( $scope.saveOnly ) ){
                 $scope.saveOnly = false;
             }
-            
-            /** preset stuff **/
-            $scope.presets = [
-                {
-                    label: $filter( 'translate' )( 'volumes.snapshot.l_sparse' ),
-                    value: [{ range: 1, value: 1 },{range: 1, value: 2},{range: 2, value: 1},{range: 3, value: 30},{range: 4, value: 2}]
-                },
-                {
-                    label: $filter( 'translate' )( 'volumes.snapshot.l_standard' ),
-                    value: [{ range: 1, value: 1 },{range: 2, value: 1},{range: 3, value: 30},{range: 3, value: 180},{range: 4, value: 5}]                    
-                },
-                {
-                    label: $filter( 'translate' )( 'volumes.snapshot.l_dense' ),
-                    value: [{ range: 1, value: 2 },{range: 3, value: 30},{range: 3, value: 210},{range: 4, value: 2},{range: 4, value: 15}]                    
-                },
-                {
-                    label: $filter( 'translate' )( 'common.l_custom' ),
-                    value: undefined
-                }
-            ];
-            
-            $scope.timelinePreset = $scope.presets[0];
         
             /**
             * This is all the range settings for our waterfall widget.
@@ -220,43 +197,57 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             $scope.dayChoice = $scope.days[0];
             $scope.monthChoice = $scope.months[0];
             $scope.yearChoice = $scope.years[0];
+            $scope.presets = [];
+            $scope.timelinePreset = undefined;
             
             // just sets the button selection correctly
+            // called one place:  translatePoliciesToScreen
             var initButtons = function(){
+                
+                // is this policy in the passed in set.  Helper for complex matching algorithm
+                var containsPolicy = function( policy, policies ) {
+                    
+                    if ( !angular.isDefined( policy.recurrenceRule ) ){
+                        return false;
+                    }
+                    
+                    for ( var i = 0; i < policies.length; i++ ){
+                        
+                        var prePolicy = policies[i];
+                        
+                        if ( policy.retentionTime.seconds === prePolicy.retentionTime.seconds &&
+                            policy.recurrenceRule.FREQ === prePolicy.recurrenceRule.FREQ ) {
+                            
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                };
                 
                 for ( var p = 0; p < $scope.presets.length - 1; p++ ){
                     
                     var preset = $scope.presets[p];
-                    var found = true;
+                    var allfound = true;
                     
-                    for ( var i = 0; i < $scope.sliders.length; i++ ){
-                        var slider = $scope.sliders[i];
-                        var pValue = preset.value[i];
+                    for ( var preI = 0; preI < preset.snapshotPolicies.length; preI++ ){
                         
-                        if ( slider.value.range !== pValue.range || slider.value.value !== pValue.value ){
-                            found = false;
+                        doesIt = containsPolicy( preset.snapshotPolicies[preI], $scope.timelinePolicies.snapshotPolicies );
+                        
+                        if ( doesIt === false ) {
+                            allfound = false;
                             break;
                         }
                     }
                     
-                    if ( found === true ){
+                    if ( allfound === true ){
                         $scope.timelinePreset = preset;
                         return;
                     }
-                }
-                
-                $scope.timelinePreset = $scope.presets[3];
-            };
-            
-            // takes the preset and changes the sliders
-            var setSlidersFromPreset = function( preset ){
-                
-                for ( var i = 0; i < $scope.sliders.length; i++ ){
                     
-                    var slider = $scope.sliders[i];
-                    
-                    slider.value = preset.value[i];
-                }
+                }// for preset
+                
+                $scope.timelinePreset = $scope.presets[ $scope.presets.length - 1 ];
             };
             
             var setSliderValue = function( slider, days ){
@@ -311,7 +302,14 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     
                     policy.name = slider.policyName;
                     policy.id = slider.policyId;
-                    policy.retention = convertRangeSelectionToSeconds( slider );
+                    policy.retentionTime = convertRangeSelectionToSeconds( slider );
+                    policy.type = 'SYSTEM_TIMELINE';
+                    
+                    // make it JSON friendly
+                    policy.retentionTime = {
+                        seconds: policy.retentionTime,
+                        nanos: 0
+                    };
                     
                     // set the frequency
                     switch( i ){
@@ -369,12 +367,12 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             var translatePoliciesToScreen = function(){
             
                 // do continuous first... we expect it to always be at least 1 day and no partial days
-                var cDays = $scope.timelinePolicies.continuous / (60*60*24);
+                var cDays = $scope.timelinePolicies.commitLogRetention.seconds / (60*60*24);
                 setSliderValue( $scope.sliders[0], cDays );
                 
-                for ( var i = 0; angular.isDefined( $scope.timelinePolicies.policies ) && i < $scope.timelinePolicies.policies.length; i++ ){
+                for ( var i = 0; angular.isDefined( $scope.timelinePolicies.snapshotPolicies ) && i < $scope.timelinePolicies.snapshotPolicies.length; i++ ){
                     
-                    var policy = $scope.timelinePolicies.policies[i];
+                    var policy = $scope.timelinePolicies.snapshotPolicies[i];
                     var slider = {};
                     
                     switch( policy.recurrenceRule.FREQ ){
@@ -445,8 +443,13 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                             continue;
                     }
                     
-                    // retention time is in seconds
-                    setSliderValue( slider, Math.round( policy.retention / (60*60*24)) );
+                    // retention time is in seconds and in an object potentially
+                    var retentionInSeconds = policy.retentionTime;
+                    if ( angular.isDefined( policy.retentionTime.seconds ) ){
+                        retentionInSeconds = policy.retentionTime.seconds;
+                    }
+                    
+                    setSliderValue( slider, Math.round( retentionInSeconds / (60*60*24)) );
                     
                     // add some items we'll need late
                     slider.policyId = policy.id;
@@ -460,7 +463,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                 watcher = $scope.$watch( 'timelinePolicies', function(){
                     
                     // no use continuing if the policies are missing
-                    if ( !angular.isDefined( $scope.timelinePolicies ) || !angular.isDefined( $scope.timelinePolicies.continuous ) ){
+                    if ( !angular.isDefined( $scope.timelinePolicies ) || !angular.isDefined( $scope.timelinePolicies.commitLogRetention ) ){
                         return;
                     }
                     
@@ -474,9 +477,15 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     watcher();
                 }
                 
-                $scope.timelinePolicies.continuous = convertRangeSelectionToSeconds( $scope.sliders[0] );
+                $scope.timelinePolicies.commitLogRetention = convertRangeSelectionToSeconds( $scope.sliders[0] );
                 
-                $scope.timelinePolicies.policies = buildPolicies();
+                // JSON stuff
+                $scope.timelinePolicies.commitLogRetention = {
+                    seconds: $scope.timelinePolicies.commitLogRetention,
+                    nanos: 0
+                };
+                
+                $scope.timelinePolicies.snapshotPolicies = buildPolicies();
                 initWatcher();
             };
             
@@ -499,26 +508,69 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
 
             });
             
+            $scope.$on( 'fds::timeline_init', function(){
+                
+                $scope.timelinePreset = $scope.presets[1];
+            });
+            
             $scope.$watch( 'timelinePreset', function( newVal, oldVal ){
                 
                 if ( newVal === oldVal || !angular.isDefined( newVal ) ){
                     return;
                 }
                 
-                if ( !angular.isDefined( newVal.value ) ){
+                if (  newVal.name === $filter( 'translate' )( 'common.l_custom' ) ){
                     $scope.editing = true;
                     $scope.$broadcast( 'fds::waterfall-slider-refresh' );
                 }
                 else {
                     $scope.editing = false;
                     
-                    setSlidersFromPreset( newVal );
-                    translateScreenToPolicies();
+                    // if they already have an ID or name, we need to keep that in place
+                    for ( var j = 0; angular.isDefined( $scope.timelinePolicies ) && 
+                         angular.isDefined( $scope.timelinePolicies.snapshotPolicies ) && 
+                         j < $scope.timelinePolicies.snapshotPolicies.length; j++ ){
+                        
+                        var tPolicy = $scope.timelinePolicies.snapshotPolicies[j];
+                        
+                        if ( !angular.isDefined( tPolicy.name ) || tPolicy.name === '' || 
+                            tPolicy.name.indexOf( '_TIMELINE_' ) === -1 || 
+                            !angular.isDefined( tPolicy.id ) || tPolicy.id === -1 ){
+                            continue;
+                        }
+                        
+                        // we've already weeded out any policy that's not a timeline policy so now we only have 1 frequency of each
+                        for ( var i = 0; angular.isDefined( newVal.snapshotPolicies ) && i < newVal.snapshotPolicies.length; i++ ){
+                        
+                            var newPolicy = newVal.snapshotPolicies[i];
+
+                            if ( newPolicy.recurrenceRule.FREQ === tPolicy.recurrenceRule.FREQ ){
+                                newPolicy.name = tPolicy.name;
+                                newPolicy.id = tPolicy.id;
+                            }
+                        }// i
+                    }//j
+                    
+                    $scope.timelinePolicies = newVal;
+                    translatePoliciesToScreen();
                 }
             });
             
-            initWatcher();
+            init = function(){
+                
+                $volume_api.getDataProtectionPolicyPresets( function( presets ){
+                    
+                    $scope.presets = presets;
+                    $scope.presets.push( { name: $filter( 'translate' )( 'common.l_custom' ) });
+                    
+                    if ( !angular.isDefined( $scope.timelinePolicies ) ){
+                        $scope.timelinePreset = $scope.presets[1];
+                    }
+                });
+            };
             
+            init();
+            initWatcher();
         }
     };
     

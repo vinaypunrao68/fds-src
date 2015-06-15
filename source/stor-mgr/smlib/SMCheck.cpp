@@ -7,12 +7,11 @@
 #include <fds_assert.h>
 #include <fds_process.h>
 #include "platform/platform.h"
+#include <StorMgr.h>
 
 #include <ObjectId.h>
-#include <StorMgr.h>
 #include <boost/program_options.hpp>
 #include <net/SvcMgr.h>
-
 
 #include <SMCheck.h>
 
@@ -139,7 +138,7 @@ ObjectID SMCheckOffline::hash_data(boost::shared_ptr<const std::string> dataPtr,
 }
 
 bool SMCheckOffline::consistency_check(fds_token_id token) {
-    leveldb::DB *ldb;
+    std::shared_ptr<leveldb::DB> ldb;
     leveldb::Iterator *it;
     leveldb::ReadOptions options;
 
@@ -180,7 +179,6 @@ bool SMCheckOffline::consistency_check(fds_token_id token) {
     ldb->ReleaseSnapshot(options.snapshot);
     // Delete ldb and it
     delete it;
-    delete ldb;
 
     if (error_count > 0) {
         GLOGNORMAL << "WARNING: " << error_count << " errors were found.\n";
@@ -328,7 +326,6 @@ void SMCheckOffline::MetadataIterator::next() {
         if (end()) { return; }
 
         delete ldb_it;
-        delete ldb;
 
         // Create new from new token
         GLOGNORMAL << "Reading metadata db for SM token " << *token_it << "\n";
@@ -436,13 +433,8 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
     // Reset all stats.
     resetStats();
 
-#if THIS_SUCKS
-    // TODO(Sean):
-    // Can't compile with these lines.  It causes compilation error.
-    // So, for now, we are updating (or cloning) closed DLT from SMSvcHandler.
     latestClosedDLT = const_cast<DLT *>(objStorMgr->getDLT());
-    SMCheckUuid = objStorMgr->getUuid();
-#endif
+
     // Get UUID of the SM.
     SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
@@ -453,6 +445,8 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
              << " DLT=" << latestClosedDLT;
 
     targetDLTTokens = tgtDltTokens;
+    // Clear any tokens that were stored from previous runs
+    allTokens.clear();
     if (!targetDLTTokens.empty()) {
         for (auto token : targetDLTTokens) {
             fds_token_id smToken;
@@ -515,7 +509,7 @@ void
 SMCheckOnline::SMCheckSnapshotCB(const Error& error,
                                 SmIoSnapshotObjectDB* snapReq,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db)
+                                std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
 

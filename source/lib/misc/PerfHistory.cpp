@@ -370,7 +370,7 @@ void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     SCOPEDWRITE(stat_lock_);
     fds_uint32_t index = useSlotLockHeld(rel_seconds);
-    if ((index >= 0) && (index < nslots_)) {
+    if (index < nslots_) {
         stat_slots_[index].add(stat_type, counter);
     }
 }
@@ -381,7 +381,7 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     SCOPEDWRITE(stat_lock_);
     fds_uint32_t index = useSlotLockHeld(rel_seconds);
-    if ((index >= 0) && (index < nslots_)) {
+    if (index < nslots_) {
         stat_slots_[index].add(stat_type, value);
     }
 }
@@ -423,7 +423,7 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
                                                        fdsp_start_ts);
         write_synchronized(stat_lock_) {
             fds_uint32_t index = useSlotLockHeld(rel_seconds);
-            if ((index >= 0) && (index < nslots_)) {
+            if (index < nslots_) {
                 stat_slots_[index] += remote_slot;
             }
         }
@@ -441,7 +441,7 @@ void VolumePerfHistory::mergeSlots(const std::vector<StatSlot>& stat_list,
                                                        remote_start_ts);
         write_synchronized(stat_lock_) {
             fds_uint32_t index = useSlotLockHeld(rel_seconds);
-            if ((index >= 0) && (index < nslots_)) {
+            if (index < nslots_) {
                 stat_slots_[index] += stat_list[i];
             }
         }

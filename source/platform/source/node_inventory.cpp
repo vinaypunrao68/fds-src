@@ -8,10 +8,11 @@
 #include <platform/node_services.h>
 #include "platform/platform.h"
 #include <net/net-service-tmpl.hpp>
-#include <NetSession.h>
 #include "platform/node_data.h"
 #include "platform/node_shm_ctrl.h"
 #include <util/Log.h>
+#include <net/net_utils.h>
+
 namespace fds
 {
     std::ostream& operator<< (std::ostream &os, const NodeServices& node)
@@ -37,87 +38,6 @@ namespace fds
         return NodeShmCtrl::shm_node_inventory();
     }
 
-    // node_get_shm_rec
-    // ----------------
-    // Return the copy of node data in shared memory.
-    //
-    void NodeInventory::node_get_shm_rec(node_data_t *ndata) const
-    {
-        TRACEFUNC;
-        int               idx;
-        NodeUuid          nd_uuid;
-        fds_uint64_t      uuid;
-        const ShmObjRO   *shm;
-
-        rs_uuid.uuid_get_base_val(&nd_uuid);
-
-        if (node_ro_idx == -1)
-        {
-            /* TODO(Vy): support legacy OM path. */
-            Platform             *plat = Platform::platf_singleton();
-            NodeAgent::pointer    na = plat->plf_find_node_agent(nd_uuid);
-
-            fds_verify((na != NULL) && (na != this) && (na->node_ro_idx != -1));
-            na->node_get_shm_rec(ndata);
-            return;
-        }
-
-        shm  = NodeShmCtrl::shm_node_inventory();
-        uuid = nd_uuid.uuid_get_val();
-        idx  =
-            shm->shm_lookup_rec(node_ro_idx, static_cast<const void *>(&uuid),
-                                static_cast<void *>(ndata),
-                                sizeof(*ndata));
-
-        fds_verify(idx == node_ro_idx);
-    }
-
-    // node_info_frm_shm
-    // -----------------
-    //
-    void NodeInventory::node_info_frm_shm(node_data_t *out) const
-    {
-        TRACEFUNC;
-        int               idx;
-        NodeUuid          uuid;
-        fds_uint64_t      uid;
-        const ShmObjRO   *shm;
-
-        rs_uuid.uuid_get_base_val(&uuid);
-
-        if (node_ro_idx == -1)
-        {
-            /* TODO(Vy): support legacy OM path. */
-            Platform             *plat = Platform::platf_singleton();
-            NodeAgent::pointer    na = plat->plf_find_node_agent(uuid);
-
-            fds_verify((na != NULL) && (na != this) && (na->node_ro_idx != -1));
-            na->node_info_frm_shm(out);
-            return;
-        }
-
-        uid = uuid.uuid_get_val();
-        shm = node_shm_ctrl();
-        idx =
-            shm->shm_lookup_rec(node_ro_idx, static_cast<const void *>(&uid),
-                                static_cast<void *>(out),
-                                sizeof(*out));
-
-        fds_assert(idx == node_ro_idx);
-    }
-
-#if 0
-    // get_node_name
-    // -------------
-    //
-    std::string NodeInventory::get_node_name() const
-    {
-        node_data_t    ndata;
-
-        node_get_shm_rec(&ndata);
-        return std::string(ndata.nd_auto_name);
-    }
-#endif
 
     // get_ip_str
     // ----------
@@ -127,7 +47,6 @@ namespace fds
         TRACEFUNC;
         node_data_t    ndata;
 
-        node_get_shm_rec(&ndata);
         return std::string(ndata.nd_ip_addr);
     }
 
@@ -136,7 +55,8 @@ namespace fds
         TRACEFUNC;
         node_data_t    ndata;
 
-        node_get_shm_rec(&ndata);
+        ndata.nd_base_port = 0;
+
         return Platform::plf_svc_port_from_node(ndata.nd_base_port, node_svc_type);
     }
 
@@ -147,35 +67,6 @@ namespace fds
     {
         TRACEFUNC;
         return node_root;
-    }
-
-    // node_capability
-    // ---------------
-    //
-    const node_stor_cap_t * NodeInventory::node_capability() const
-    {
-        TRACEFUNC;
-        const ShmObjRO      *shm;
-        const node_data_t   *ndata;
-
-        shm   = node_shm_ctrl();
-
-        if (node_ro_idx == -1)
-        {
-            /* TODO(Vy): support OM legacy path where we have 2 node agents. */
-            NodeAgent::pointer    na;
-            NodeUuid              uuid;
-            Platform             *plat = Platform::platf_singleton();
-
-            rs_uuid.uuid_get_base_val(&uuid);
-            na = plat->plf_find_node_agent(uuid);
-            fds_verify((na != NULL) && (na != this) && (na->node_ro_idx != -1));
-            return na->node_capability();
-        }
-
-        ndata = shm->shm_get_rec<node_data_t>(node_ro_idx);
-        fds_verify(ndata != NULL);
-        return &ndata->nd_capability;
     }
 
     // node_fill_shm_inv
@@ -248,7 +139,7 @@ namespace fds
 
         msg_bind->svc_id.svc_uuid.svc_uuid   = gl_OmUuid.uuid_get_val();
         msg_bind->svc_node.svc_uuid.svc_uuid = gl_OmUuid.uuid_get_val();
-        memset(&msg->node_stor, 0, sizeof(msg->node_stor));
+        msg->node_stor = fpi::StorCapMsg();
     }
 
     // init_om_pm_info_msg
@@ -288,8 +179,8 @@ namespace fds
     {
         TRACEFUNC;
         node_data_t    ninfo;
+        ninfo.nd_node_uuid = 0;
 
-        node_info_frm_shm(&ninfo);
         svc->svc_id.svc_uuid.svc_uuid = ninfo.nd_node_uuid;
 
         svc->svc_id.svc_name.assign(rs_name);
@@ -311,7 +202,7 @@ namespace fds
         nd_node_name = msg->node_name;
         node_root    = msg->node_root;
 
-        ip = netSession::ipAddr2String(msg->ip_lo_addr);
+        ip = net::ipAddr2String(msg->ip_lo_addr);
         strncpy(rs_name, ip.c_str(), RS_NAME_MAX - 1);
     }
 
@@ -364,7 +255,7 @@ namespace fds
         if (plat == NULL)
         {
             /* We'll get here if this is OM */
-            msgHdr->src_id        = FDSP_ORCH_MGR;
+            msgHdr->src_id        = fpi::FDSP_ORCH_MGR;
             msgHdr->src_node_name = "";
         }else {
             msgHdr->src_id        = plat->plf_get_node_type();

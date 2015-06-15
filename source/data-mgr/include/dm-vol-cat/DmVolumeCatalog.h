@@ -64,8 +64,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     ~DmVolumeCatalog();
 
     // Methods
-    virtual void mod_startup() {}
-    virtual void mod_shutdown() {}
+    virtual void mod_startup() override {}
+    virtual void mod_shutdown() override {}
 
     /**
      * Add catalog for a new volume described in 'voldesc'
@@ -90,7 +90,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * Activate catalog for the given volume 'volId'. After this call
      * Volume Catalog will accept put/get/delete requests for this volume
      */
-    Error activateCatalog(fds_volid_t volId);
+    Error activateCatalog(fds_volid_t volId) override;
 
     /**
      * Reload catalog for the given volume
@@ -104,7 +104,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
     /**
      * Callback to expunge a list of objects from a volume
      */
-    void registerExpungeObjectsCb(expunge_objs_cb_t cb);
+    void registerExpungeObjectsCb(expunge_objs_cb_t cb) override;
 
     /**
      * Marks volume as deleted
@@ -128,7 +128,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * to volume catalog
      */
     Error statVolume(fds_volid_t volId, fds_uint64_t* volSize,
-                     fds_uint64_t* blobCount, fds_uint64_t* objCount);
+                     fds_uint64_t* blobCount, fds_uint64_t* objCount) override;
 
     /**
      * Sets the key-value metadata pairs for the volume. Any keys that already
@@ -149,7 +149,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * to volume catalog.
      */
     Error getVolumeMetadata(fds_volid_t volId,
-                            fpi::FDSP_MetaDataList &metadataList);
+                            fpi::FDSP_MetaDataList &metadataList) override;
 
     /**
      * Get all objects for the volume
@@ -174,7 +174,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      */
     Error getBlobMeta(fds_volid_t volId, const std::string & blobName,
             blob_version_t * blobVersion, fds_uint64_t * blobSize,
-            fpi::FDSP_MetaDataList * metaList);
+            fpi::FDSP_MetaDataList * metaList) override;
 
     /**
      * Retrieves all info about the blob with given blobName and volume 'volId'
@@ -192,14 +192,14 @@ class DmVolumeCatalog : public Module, public HasLogger,
      */
     Error getBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t startOffset,
             fds_int64_t endOffset, blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
-                  fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize);
+                  fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize) override;
 
     /**
      * Returns the list of blobs in the volume with basic blob info
      * @param[out] binfoList list of blobs
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
-    Error listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bdescrList);
+    Error listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bdescrList) override;
 
     /**
      * Updates committed blob in the Volume Catalog.
@@ -229,20 +229,22 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * If the blob version is invalid, deletes the most recent blob version.
      */
     Error deleteBlob(fds_volid_t volId, const std::string& blobName,
-            blob_version_t blobVersion);
+            blob_version_t blobVersion) override;
 
     /**
      * Sync volume catalog to DM 'dmUuid'
      */
-    Error syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid);
+    Error syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) override;
 
     /**
      * Get total matadata size for a volume
      */
-     fds_uint64_t getTotalMetadataSize(fds_volid_t volId) {
+     fds_uint64_t getTotalMetadataSize(fds_volid_t volId) override {
          // TODO(umesh): implement this
          return 0;
      }
+
+    Error getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id);
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 

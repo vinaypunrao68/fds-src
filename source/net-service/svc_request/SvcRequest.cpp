@@ -79,6 +79,7 @@ SvcRequestIf::SvcRequestIf(CommonModuleProviderIf* provider,
     myEpId_(myEpId),
     state_(PRIOR_INVOCATION),
     timeoutMs_(0),
+    fireAndForget_(false),
     minor_version(0)
 {
 }
@@ -156,9 +157,6 @@ void SvcRequestIf::invoke()
 {
     /* Disable to scheduling thread pool */
     fiu_do_on("svc.disable.schedule", invokeWork_(); return;);
-    fiu_do_on("svc.use.lftp",
-              MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->getSvcWorkerThreadpool()->\
-              scheduleWithAffinity(id_, &SvcRequestIf::invoke2, this); return;);
 
     SynchronizedTaskExecutor<uint64_t>* taskExecutor = 
         MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
@@ -190,6 +188,17 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
                   throw util::FiuException("svc.fail.sendpayload_before"));
         /* send the payload */
         MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcReqMessage(header, payloadBuf_);
+
+        /* For fire and forget message simulate dummy response from endpoint */
+        if (fireAndForget_) {
+            DBG(LOGDEBUG << "Schedule empty response for Fire and forget request: "
+                << logString());
+            auto respHdr = MODULEPROVIDER()->getSvcMgr()->\
+                           getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_,
+                                                                      peerEpId, myEpId_);
+            MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postEmptyResponse(respHdr);
+            return;
+        }
 
        /* start the timer */
        if (timeoutMs_) {
@@ -274,18 +283,12 @@ EPSvcRequest::~EPSvcRequest()
 {
 }
 
-void EPSvcRequest::invoke2()
-{
+void EPSvcRequest::invoke() {
+    if (!respCb_) {
+        fireAndForget_ = true;
+    }
+    SvcRequestIf::invoke();
 }
-
-void FailoverSvcRequest::invoke2()
-{
-}
-
-void QuorumSvcRequest::invoke2()
-{
-}
-
 
 /**
 * @brief Worker function for doing the invocation work
@@ -296,20 +299,12 @@ void EPSvcRequest::invokeWork_()
     fds_verify(state_ == PRIOR_INVOCATION);
 
     // TODO(Rao): Determine endpoint is healthy or not
-    bool epHealthy = true;
     state_ = INVOCATION_PROGRESS;
-    if (epHealthy) {
-        SVCPERF(util::StopWatch sw; sw.start());
-        sendPayload_(peerEpId_);
-        SVCPERF(MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->\
-                sendPayloadLat.update(sw.getElapsedNanos()));
-    } else {
-        GLOGERROR << logString() << " No healthy endpoints left";
-        auto respHdr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->\
-                       newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId_, myEpId_);
-        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
-        MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
-    }
+
+    SVCPERF(util::StopWatch sw; sw.start());
+    sendPayload_(peerEpId_);
+    SVCPERF(MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->\
+            sendPayloadLat.update(sw.getElapsedNanos()));
 }
 
 /**
@@ -501,6 +496,13 @@ FailoverSvcRequest::~FailoverSvcRequest()
 }
 
 
+void FailoverSvcRequest::invoke() {
+    /* Response callback must be set for failover request.  Fire and forget isn't
+     * supported
+     */
+    fds_verify(respCb_ && "Response callback must be set for failover requests");
+    SvcRequestIf::invoke();
+}
 
 /**
  * Invocation work function
@@ -614,7 +616,6 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
         return;
     }
 
-    fiu_do_on("svc.use.lftp", epReqs_[curEpIdx_]->invoke2(); return;);
     epReqs_[curEpIdx_]->invokeWork_();
 }
 
@@ -756,6 +757,17 @@ QuorumSvcRequest::~QuorumSvcRequest()
 void QuorumSvcRequest::setQuorumCnt(const uint32_t cnt)
 {
     quorumCnt_ = cnt;
+}
+
+void QuorumSvcRequest::invoke() {
+    if (!respCb_) {
+        fireAndForget_ = true;
+        for (auto &ep : epReqs_) {
+            ep->fireAndForget_ = true;
+        }
+    }
+
+    SvcRequestIf::invoke();
 }
 
 /**

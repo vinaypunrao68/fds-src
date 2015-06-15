@@ -51,6 +51,12 @@ struct SnapshotPolicy {
   6: i64  timelineTime;
 }
 
+struct FDSP_ModifyVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i64		 vol_uuid,
+  3: common.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
+}
+
 /**
  * Statistic stream parameters.
  */
@@ -81,6 +87,22 @@ struct LocalDomain {
   3: required string site;
 }
 
+struct FDSP_ActivateOneNodeType {
+  1: i32        domain_id,
+  2: common.FDSP_Uuid  node_uuid,
+  3: bool       activate_sm,
+  4: bool       activate_dm,
+  5: bool       activate_am
+}
+
+struct FDSP_RemoveServicesType {
+  1: string node_name, // Name of the node that contains services
+  2: common.FDSP_Uuid node_uuid,  // used if node name is not provided
+  3: bool remove_sm,   // true if sm needs to be removed
+  4: bool remove_dm,   // true to remove dm
+  5: bool remove_am    // true to remove am
+}
+
 /**
  * Tenant descriptor.
  */
@@ -107,6 +129,26 @@ struct User {
   5: bool isFdsAdmin;
 }
 
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: common.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
+struct FDSP_DeleteVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  // i64    		 vol_uuid,
+  2: i32			 domain_id,
+}
+
+exception FDSP_VolumeNotFound {
+  1: string message;
+}
+
+struct FDSP_GetVolInfoReqType {
+ 1: string vol_name,    /* name of the volume */
+ 3: i32    domain_id,
+}
+
 /**
  * Volume configuration parameters.
  */
@@ -121,8 +163,8 @@ struct VolumeSettings {
   4: required i64 contCommitlogRetention;
   /** the media policy type */
   5: MediaPolicy mediaPolicy;
-  /** the default access policy */
-  6: optional common.VolumeAccessPolicy default_policy;
+  /** the default access mode */
+  6: optional common.VolumeAccessMode default_mode;
 }
 
 /**

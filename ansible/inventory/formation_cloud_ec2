@@ -1,8 +1,5 @@
 [formation_cloud_ec2]
-52.10.247.210
-52.10.239.86
-54.69.181.254
-54.149.19.176
+10.3.255.4[3:6]
 
 [formation_cloud_ec2:vars]
 clean_fds=no
@@ -11,9 +8,10 @@ fds_build=release
 no_password_change=true
 fds_log_severity=normal
 fds_default_nic=eth0
-fds_om_host=52.10.247.210
+fds_om_host=10.3.255.43
 fds_metrics_enables=false
 fds_metricsdb_ip=127.0.0.1
 ssl_enabled=true
 ssl_api_hostname=us-east.formationds.com
 ssl_web_hostname=us-eastweb.formationds.com
+fds_system_stats_enabled=True

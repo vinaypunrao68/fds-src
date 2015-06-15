@@ -245,7 +245,7 @@ DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::StatStreamDeregistrationRspMsg resp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamDeregistrationRspMsg), resp);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::StatStreamDeregistrationRspMsg), resp);
 }
 
 void
@@ -256,7 +256,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "OMClient received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
 
-    DLTManagerPtr dltMgr = dataManager_.omClient->getDltManager();
+    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     err = dltMgr->addSerializedDLT(dlt->dlt_data.dlt_data,
                                    std::bind(
                                        &DMSvcHandler::NotifyDLTUpdateCb,
@@ -340,7 +340,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "DMSvcHandler received new DMT commit version  "
               << dmt->dmt_data.dmt_type;
-    err = dataManager_.omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
     if (!err.ok()) {
         LOGERROR << "failed to update DMT " << err;
         NotifyDMTUpdateCb(hdr, err);
@@ -414,7 +414,7 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message DM ... flush IOs..";
-    dataManager_.flushIO();
+    dataManager_.shutdown();
 
     // respond to OM
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
@@ -429,7 +429,7 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 
     // revert to DMT version provided in abort message
     if (abortMsg->DMT_version > 0) {
-        err = dataManager_.omClient->getDmtManager()->commitDMT(dmtVersion);
+        err = MODULEPROVIDER()->getSvcMgr()->getDmtManager()->commitDMT(dmtVersion);
         if (err == ERR_NOT_FOUND) {
             LOGNOTIFY << "We did not revert to previous DMT, because DM did not receive it."
                       << " DM will not have any DMT, which is ok";
