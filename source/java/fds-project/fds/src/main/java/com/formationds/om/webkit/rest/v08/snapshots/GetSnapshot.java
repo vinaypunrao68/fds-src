@@ -7,7 +7,6 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Snapshot;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
@@ -19,7 +18,6 @@ import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,8 +57,7 @@ public class GetSnapshot implements RequestHandler {
 		}
 
 		LOG.error("Could not find snapshot with ID: " + snapshotId);
-		throw new HttpException(HttpServletResponse.SC_BAD_REQUEST,
-				"No snapshot was found with the ID: " + snapshotId);
+		throw new ApiException( "No snapshot was found with the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
 	}
 	
 	public Snapshot findSnapshot( long snapshotId ) throws ApiException, TException{

@@ -767,4 +767,10 @@ DmPersistVolCat::ptr DmVolumeCatalog::getVolume(fds_volid_t volId) {
     GET_VOL(volId);
     return vol;
 }
+
+Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getLatestSequenceId(seq_id);
+}
+
 }  // namespace fds

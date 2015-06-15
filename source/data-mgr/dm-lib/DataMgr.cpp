@@ -617,6 +617,17 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
+    // Primary is responsible for persisting the latest seq number.
+    // latest seq_number is provided to AM on volume open.
+    if (fPrimary) {
+        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid,
+                                                             volmeta->seq_id);
+
+        if (!err.ok()) {
+            return err;
+        }
+    }
+
     /*
      * XXX: The logic below will use source volume id to collect stats for clone,
      *      but it will now stream the stats to AM because amIPrimary() check is

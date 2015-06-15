@@ -103,7 +103,7 @@ class LocalDomainPlugin( AbstractPlugin):
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
         response = self.get_local_domain_service().shutdown(domain)
         
-        if "message" not in response:
+        if response is not None:
             self.list_domains(args)
             
     def startup(self, args):
@@ -113,7 +113,7 @@ class LocalDomainPlugin( AbstractPlugin):
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
         response = self.get_local_domain_service().start(domain)
         
-        if "message" not in response:
+        if response is not None:
             self.list_domains(args)
             
             

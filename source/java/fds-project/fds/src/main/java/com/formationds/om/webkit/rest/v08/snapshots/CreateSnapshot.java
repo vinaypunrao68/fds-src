@@ -13,6 +13,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.Map;
 
 public class CreateSnapshot implements RequestHandler {
 
+	private static final Logger logger = LoggerFactory.getLogger( CreateSnapshot.class );
 	private static final String VOLUME_ARG = "volume_id";
 	
 	private ConfigurationApi configApi;
@@ -31,6 +34,8 @@ public class CreateSnapshot implements RequestHandler {
 			final Map<String, String> routeParameters) throws Exception {
 
 		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
+		
+		logger.debug( "Create a snapshot for volume {}.", volumeId );
 		
 		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
 		Snapshot inputSnapshot = ObjectModelHelper.toObject( reader, Snapshot.class );

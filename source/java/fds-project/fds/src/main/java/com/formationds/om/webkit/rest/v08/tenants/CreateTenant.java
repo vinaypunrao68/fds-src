@@ -35,6 +35,8 @@ public class CreateTenant implements RequestHandler {
     	final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
     	Tenant tenant = ObjectModelHelper.toObject( reader, Tenant.class );
     	
+    	logger.debug( "Trying to create tenant: " + tenant.getName() );
+    	
     	long tenantId = getConfigApi().createTenant( tenant.getName() );
     	
     	List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants(0);

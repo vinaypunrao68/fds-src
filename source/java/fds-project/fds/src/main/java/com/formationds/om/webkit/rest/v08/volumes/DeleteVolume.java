@@ -13,13 +13,15 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
 public class DeleteVolume implements RequestHandler {
 
 	private final static String VOLUME_ARG = "volume_id";
-	
+	private static final Logger logger = LoggerFactory.getLogger( DeleteVolume.class );
 	private ConfigurationApi configApi;
 	private Authorizer authorizer;
 	private AuthenticationToken token;
@@ -35,6 +37,8 @@ public class DeleteVolume implements RequestHandler {
 			throws Exception {
 
 		long volumeId = requiredLong( routeParameters,  VOLUME_ARG );
+		
+		logger.debug( "Deleting volume: {}.", volumeId );
 		
 		String volumeName = getConfigApi().getVolumeName( volumeId );
 		

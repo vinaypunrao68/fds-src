@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.SizeUnit;
@@ -19,13 +21,20 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetVolumeTypes implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( GetVolumeTypes.class );
 	private List<VolumeSettings> volumeTypes;
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 
-		String jsonString = ObjectModelHelper.toJSON( getVolumeTypes() );
+		logger.debug( "Getting supported volume types." );
+		
+		List<VolumeSettings> types = getVolumeTypes();
+		
+		logger.debug( "Found {} types.", types.size() );
+		
+		String jsonString = ObjectModelHelper.toJSON( types );
 		
 		return new TextResource( jsonString );
 	}

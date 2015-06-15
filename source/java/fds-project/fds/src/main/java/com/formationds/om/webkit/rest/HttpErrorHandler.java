@@ -27,7 +27,11 @@ public class HttpErrorHandler implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         try {
-            return rh.handle(request, routeParameters);
+            Resource r = rh.handle(request, routeParameters);
+            
+            logger.trace( r.toString() );
+            
+            return r;
         } catch (Exception e) {
 
             logger.error( "Error executing " +

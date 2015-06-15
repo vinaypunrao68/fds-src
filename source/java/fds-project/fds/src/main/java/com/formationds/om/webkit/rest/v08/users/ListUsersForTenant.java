@@ -32,6 +32,8 @@ public class ListUsersForTenant implements RequestHandler{
 		
 		long tenantId = requiredLong( routeParameters, TENANT_ARG );
 		
+		logger.debug( "Finding users for tenant: {}.", tenantId );
+		
 		List<User> users = Collections.emptyList();
 		
 		try {

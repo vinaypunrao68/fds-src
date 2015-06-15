@@ -36,6 +36,8 @@ public class GetNode implements RequestHandler{
 
 		long nodeId = requiredLong( routeParameters, NODE_ARG );
 		
+		logger.debug( "Trying to retrieve node: " + nodeId );
+		
 		Node node = getNode( nodeId );
 		
 		String jsonString = ObjectModelHelper.toJSON( node );

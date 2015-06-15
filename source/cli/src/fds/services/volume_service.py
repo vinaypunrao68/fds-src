@@ -52,8 +52,10 @@ class VolumeService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id)
         response = self.rest_helper.get(self.session, url)
         
-        volume = VolumeConverter.build_volume_from_json(response)
+        if response is None:
+            return
         
+        volume = VolumeConverter.build_volume_from_json(response) 
         return volume
     
     def create_volume(self, volume):
@@ -65,7 +67,10 @@ class VolumeService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/volumes" )
         data = VolumeConverter.to_json( volume )
         j_volume = self.rest_helper.post( self.session, url, data )
-        
+
+        if j_volume is None:
+            return
+
         volume = VolumeConverter.build_volume_from_json( j_volume )
         return volume
     
@@ -76,8 +81,11 @@ class VolumeService( AbstractService ):
         url = "{}{}{}{}".format(self.get_url_preamble(), "/volumes/", volume.id, "/snapshot/", snapshot_id)
         data = VolumeConverter.to_json(volume)
         newVolume = self.rest_helper.post(self.session, url, data );
-        newVolume = VolumeConverter.build_volume_from_json(newVolume);
         
+        if newVolume is None:
+            return
+        
+        newVolume = VolumeConverter.build_volume_from_json(newVolume);
         return newVolume;
     
     def clone_from_timeline(self, volume, fromTime):
@@ -88,6 +96,10 @@ class VolumeService( AbstractService ):
         url = "{}{}{}/{}".format( self.get_url_preamble(), "/volumes/", volume.id, "/time/", fromTime )
         data = VolumeConverter.to_json( volume )
         volume = self.rest_helper.post( self.session, url, data )
+
+        if volume is None:
+            return
+
         volume = VolumeConverter.build_volume_from_json( volume )
         return volume
     
@@ -100,6 +112,9 @@ class VolumeService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", str(volume.id) )
         data = VolumeConverter.to_json( volume )
         j_volume = self.rest_helper.put( self.session, url, data )
+        
+        if j_volume is None:
+            return
         
         volume = VolumeConverter.build_volume_from_json(j_volume)
         return volume
@@ -137,6 +152,9 @@ class VolumeService( AbstractService ):
         url = "{}{}{}{}".format ( self.get_url_preamble(), "/volumes/", volume_id, "/snapshots" )
         response = self.rest_helper.get( self.session, url )
         
+        if response is None:
+            return
+    
         snapshots = []
         
         for j_snapshot in response:
