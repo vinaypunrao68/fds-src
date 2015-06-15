@@ -547,17 +547,13 @@ void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
 
 void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)
 {
-    auto svcDownMsg = boost::make_shared<fds::apis::NotifyHealthReport>();
-    svcDownMsg->healthReport.serviceID = svcInfo_.svc_id;
-    svcDownMsg->healthReport.serviceState = fds::apis::UNREACHABLE; 
+    auto svcDownMsg = boost::make_shared<fpi::NotifyHealthReport>();
+    svcDownMsg->healthReport.serviceInfo = info;
+    svcDownMsg->healthReport.serviceState = fpi::UNREACHABLE; 
 
-    // TODO(Rao/Paul): Uncomment once NotifyHealthReport is made part of fpi and
-    // added to thrift definition
-#if 0
     auto asyncReq = getSvcRequestMgr()->newEPSvcRequest(getOmSvcUuid());
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::NotifyHealthReport), svcDownMsg);
     asyncReq->invoke();
-#endif
 }
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
