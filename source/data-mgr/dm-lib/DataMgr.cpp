@@ -1219,14 +1219,38 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  * or not for a given volume.
  */
 fds_bool_t
-DataMgr::amIPrimary(fds_volid_t volUuid) {
-    if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
-        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
-        fds_verify(nodes->getLength() > 0);
+DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
+	if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+		DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
+		fds_verify(nodes->getLength() > 0);
+		fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
 
-        return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
+        if (topPrimary) {
+        	// Only the 0th element is considered top Primary
+        	return (myUuid == nodes->get(0).toSvcUuid());
+        } else {
+        	// Anything else within number_of_primary is within primary group
+        	int numberOfPrimaryDMs = MODULEPROVIDER()->get_fds_config()->
+				  get<int>("fds.dm.number_of_primary");
+        	fds_verify(numberOfPrimaryDMs > 0);
+        	for (int i = 0; i < numberOfPrimaryDMs; i++) {
+        		if (nodes->get(i).toSvcUuid() == myUuid) {
+        			return true;
+        		}
+        	}
+        }
     }
     return false;
+}
+
+fds_bool_t
+DataMgr::amIPrimary(fds_volid_t volUuid) {
+	return (DataMgr::_amIPrimaryImpl(volUuid, true));
+}
+
+fds_bool_t
+DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
+	return (DataMgr::_amIPrimaryImpl(volUuid, false));
 }
 
 /**
