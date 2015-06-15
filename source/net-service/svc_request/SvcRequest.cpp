@@ -905,36 +905,25 @@ MultiPrimarySvcRequest::MultiPrimarySvcRequest(CommonModuleProviderIf* provider,
 {
     primaryAckdCnt_ = 0;
     totalAckdCnt_ = 0;
-    primariesCnt_ = 0;
     addEndpoints(primarySvcs);
     addEndpoints(optionalSvcs);
+    primariesCnt_ = primarySvcs.size();
 }
 
-/**
-* @brief 
-*/
 void MultiPrimarySvcRequest::invoke() {
     /* Fire and forget is disallowed */
     fds_verify(respCb_);
     SvcRequestIf::invoke();
 }
 
-/**
-* @brief 
-*
-* @return 
-*/
 std::string MultiPrimarySvcRequest::logString()
 {
     std::stringstream oss;
     logSvcReqCommon_(oss, "MultiPrimarySvcRequest");
+    oss << " primaries cnt: " << primariesCnt_;
     return oss.str();
 }
 
-/**
-* @brief Inovcation work function
-* NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
-*/
 void MultiPrimarySvcRequest::invokeWork_()
 {
     for (auto &ep : epReqs_) {
@@ -944,14 +933,6 @@ void MultiPrimarySvcRequest::invokeWork_()
     }
 }
 
-/**
-* @brief Returns endpoint request identified by peerEpId
-*
-* @param peerEpId
-* @param isPrimary - return true if peerEpId is also primary
-*
-* @return 
-*/
 EPSvcRequestPtr MultiPrimarySvcRequest::getEpReq_(fpi::SvcUuid &peerEpId,
                                                   bool &isPrimary)
 {
@@ -970,12 +951,6 @@ EPSvcRequestPtr MultiPrimarySvcRequest::getEpReq_(fpi::SvcUuid &peerEpId,
     return nullptr;
 }
 
-/**
-* @brief Handling response.
-*
-* @param header
-* @param payload
-*/
 void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
                                                 boost::shared_ptr<std::string>& payload)
 {
@@ -993,8 +968,10 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
         /* Drop responses from uknown endpoint src ids */
         GLOGWARN << logString() << " Unkonwn EpId";
         return;
+    } else if (epReq->isComplete()) {
+        GLOGWARN << epReq->logString() << " Already completed";
+        return;
     }
-
     epReq->complete(header->msg_code, header, payload);
 
     bool bSuccess = (header->msg_code == ERR_OK);
@@ -1033,7 +1010,7 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     if (primaryAckdCnt_ == primariesCnt_ &&
         respCb_) {
         auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
-        respCb_(this, reqErr);
+        respCb_(this, reqErr, responsePayload(0));
         respCb_ = 0;
     }
 
@@ -1044,7 +1021,7 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
         auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
         complete(reqErr);
         if (allRespondedCb_) {
-            allRespondedCb_(this, reqErr);
+            allRespondedCb_(this, reqErr, responsePayload(0));
         }
         if (reqErr == ERR_OK) {
             MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->appsuccess.incr();

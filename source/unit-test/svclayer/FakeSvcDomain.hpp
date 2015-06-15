@@ -211,7 +211,7 @@ MultiPrimarySvcRequestPtr FakeSvcDomain::sendGetStatusMultiPrimarySvcRequest(int
     asyncReq->setTimeoutMs(1000);
     asyncReq->onPrimariesResponsdedCb(
         /* We only care once all endpoints respond*/ 
-        [](MultiPrimarySvcRequest*, const Error&) {}
+        [](MultiPrimarySvcRequest*, const Error&, StringPtr) {}
         );
     asyncReq->onAllRespondedCb(cbHandle.cb);
     asyncReq->invoke();

@@ -49,7 +49,8 @@ using QuorumSvcRequestRespCb = std::function<void(QuorumSvcRequest*,
                                                   const Error&,
                                                   boost::shared_ptr<std::string>)>;
 using MultiPrimarySvcRequestRespCb = std::function<void(MultiPrimarySvcRequest*,
-                                                        const Error&)>;
+                                                        const Error&,
+                                                        StringPtr)>;
 #define RESPONSE_MSG_HANDLER(func, ...) \
     std::bind(&func, this, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3)
@@ -464,7 +465,12 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
 typedef boost::shared_ptr<QuorumSvcRequest> QuorumSvcRequestPtr;
 
 /**
-* @brief 
+* @brief Use this request to manage messaging to few primaries and few optionals in a consistency
+* group.
+* Provided callback hooks
+* -onPrimariesResponsdedCb(cb) - Here cb is invoked when responses from all primaries have been received.
+* -onAllRespondedCb(cb) - Here cb is invoked when responses from all services have been received.
+
 */
 struct MultiPrimarySvcRequest : MultiEpSvcRequest {
     using MultiEpSvcRequest::MultiEpSvcRequest;
@@ -498,31 +504,65 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
     }
 
  protected:
+    /**
+     * @brief Inovcation work function
+     * NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
+     */
     virtual void invokeWork_() override;
+    /**
+     * @brief Returns endpoint request identified by peerEpId
+     *
+     * @param peerEpId
+     * @param isPrimary - return true if peerEpId is also primary
+     *
+     * @return 
+     */
     EPSvcRequestPtr getEpReq_(fpi::SvcUuid &peerEpId, bool &isPrimary);
 
+    /* Primary acks received */
     uint8_t                         primaryAckdCnt_;
+    /* Total acks received */
     uint8_t                         totalAckdCnt_;
+    /* # of primary services */
     uint8_t                         primariesCnt_;
+    /* Primaries that have failed */
     std::vector<EPSvcRequestPtr>    failedPrimaries_;
+    /* Optionals that have failed */
     std::vector<EPSvcRequestPtr>    failedOptionals_;
+    /* Invoked once responses from all primaries have been received */
     MultiPrimarySvcRequestRespCb    respCb_; 
+    /* Invoked once response from all endpoints is received */
     MultiPrimarySvcRequestRespCb    allRespondedCb_;
 
  private:
+    /**
+     * @brief Handling response.  This call is expected to be called in a synchnorized manner.
+     * In response handling, once responses from all primaries have been received then respCb_
+     * is invoked.
+     * Once responses from all endpoints including optionals have been receieved then
+     * allRespondedCb_ is invoked.
+     *
+     * @param header
+     * @param payload
+     */
     virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 };
 using MultiPrimarySvcRequestPtr = boost::shared_ptr<MultiPrimarySvcRequest>;
 
+/**
+* @brief Use an object of this class to wait on MultiPrimarySvcRequest.  It is helpful
+* for making async MultiPrimarySvcRequest into a sync call.
+*/
 struct MultiPrimarySvcRequestCbTask : concurrency::TaskStatus {
     MultiPrimarySvcRequestCbTask() {
         error = ERR_INVALID;
         cb = std::bind(&MultiPrimarySvcRequestCbTask::allRespondedCb, this,
 			std::placeholders::_1,  // NOLINT
-			std::placeholders::_2);  // NOLINT
+			std::placeholders::_2,
+            std::placeholders::_3);  // NOLINT
     }
-    void allRespondedCb(MultiPrimarySvcRequest *req, const Error &e) {
+    void allRespondedCb(MultiPrimarySvcRequest *req, const Error &e, StringPtr payload) {
         error = e;
         done();
     }
@@ -535,8 +575,8 @@ struct MultiPrimarySvcRequestCbTask : concurrency::TaskStatus {
         concurrency::TaskStatus::reset(1);
     }
 
-    Error error;
-    std::function<void(MultiPrimarySvcRequest*, const Error&)> cb;
+    Error                           error;
+    MultiPrimarySvcRequestRespCb    cb;
 };
 
 }  // namespace fds

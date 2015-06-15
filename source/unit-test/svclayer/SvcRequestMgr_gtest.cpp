@@ -188,10 +188,10 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
     int cnt = 4;
     FakeSyncSvcDomain domain(cnt, confFile);
-
+    MultiPrimarySvcRequestPtr req;
     /* Request with all services up should work */
     MultiPrimarySvcRequestCbTask svcStatusWaiter1;
-    auto req = domain.sendGetStatusMultiPrimarySvcRequest(
+    req = domain.sendGetStatusMultiPrimarySvcRequest(
         0,
         {1,2}, {3},
         svcStatusWaiter1);
@@ -221,8 +221,7 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
         {1,2}, {3},
         svcStatusWaiter3);
     svcStatusWaiter3.await();
-    ASSERT_TRUE(svcStatusWaiter3.error == ERR_SVC_REQUEST_INVOCATION ||
-                svcStatusWaiter3.error == ERR_SVC_REQUEST_TIMEOUT)
+    ASSERT_TRUE(svcStatusWaiter3.error == ERR_SVC_REQUEST_FAILED)
         << "Error: " << svcStatusWaiter3.error;
     ASSERT_EQ(req->getFailedPrimaries().size(), 1);
     ASSERT_EQ(req->getFailedOptionals().size(), 0);
