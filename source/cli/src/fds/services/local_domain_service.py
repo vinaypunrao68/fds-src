@@ -31,6 +31,9 @@ class LocalDomainService( AbstractService ):
         url = "{}{}".format(self.get_url_preamble(), "/local_domains")
         j_domains = self.rest_helper.get( self.session, url )
         
+        if j_domains is None:
+            return
+        
         domains = []
         
         for j_domain in j_domains:

@@ -95,6 +95,31 @@ AmAsyncXdiResponse::initiateClientConnect() {
     }
 }
 
+boost::shared_ptr<fpi::ErrorCode>
+AmAsyncXdiResponse::mappedErrorCode(Error const& error) const {
+    auto code = boost::make_shared<fpi::ErrorCode>();
+    switch (error.GetErrno()) {
+        case ERR_DUPLICATE:
+        case ERR_HASH_COLLISION:
+        case ERR_VOL_DUPLICATE:
+            *code = fpi::RESOURCE_ALREADY_EXISTS;
+            break;;
+        case ERR_NOT_FOUND:
+        case ERR_BLOB_NOT_FOUND:
+        case ERR_CAT_ENTRY_NOT_FOUND:
+        case ERR_VOL_NOT_FOUND:
+            *code = fpi::MISSING_RESOURCE;
+            break;;
+        case ERR_VOLUME_ACCESS_DENIED:
+            *code = fpi::SERVICE_NOT_READY;
+            break;;
+        default:
+            *code = fpi::BAD_REQUEST;
+            break;;
+    }
+    return code;
+}
+
 void
 AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
                        boost::shared_ptr<int32_t>& port) {
@@ -108,10 +133,8 @@ AmAsyncXdiResponse::attachVolumeResp(const Error &error,
                                      boost::shared_ptr<VolumeDesc>& volDesc,
                                      boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(attachVolumeResponse(requestId, mode));
@@ -123,10 +146,8 @@ AmAsyncXdiResponse::startBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId,
                                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(startBlobTxResponse(requestId, txDesc));
@@ -137,10 +158,8 @@ void
 AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(abortBlobTxResponse(requestId));
@@ -151,10 +170,8 @@ void
 AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(commitBlobTxResponse(requestId));
@@ -165,10 +182,8 @@ void
 AmAsyncXdiResponse::updateBlobResp(const Error &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(updateBlobResponse(requestId));
@@ -179,10 +194,8 @@ void
 AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(updateBlobOnceResponse(requestId));
@@ -193,14 +206,8 @@ void
 AmAsyncXdiResponse::updateMetadataResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
-            ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(updateMetadataResponse(requestId));
@@ -211,14 +218,8 @@ void
 AmAsyncXdiResponse::deleteBlobResp(const Error &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
-            ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(deleteBlobResponse(requestId));
@@ -230,14 +231,8 @@ AmAsyncXdiResponse::statBlobResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
-            ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(statBlobResponse(requestId, blobDesc));
@@ -249,13 +244,8 @@ AmAsyncXdiResponse::volumeStatusResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId,
                                      boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(volumeStatus(requestId, volumeStatus));
@@ -268,13 +258,8 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
                                        boost::shared_ptr<
                                        std::vector<fpi::BlobDescriptor>>& volContents) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(volumeContents(requestId, volContents));
@@ -285,13 +270,8 @@ void
 AmAsyncXdiResponse::setVolumeMetadataResp(const Error &error,
                                           boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(setVolumeMetadataResponse(requestId));
@@ -303,13 +283,8 @@ AmAsyncXdiResponse::getVolumeMetadataResp(const Error &error,
                                           boost::shared_ptr<apis::RequestId>& requestId,
                                           api_type::shared_meta_type& metadata) {
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        }
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         XDICLIENTCALL(getVolumeMetadataResponse(requestId, metadata));
@@ -323,16 +298,8 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 int& length) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
-            ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        } else {
-            *errorCode = fpi::BAD_REQUEST;
-        }
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
@@ -352,16 +319,8 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if (!error.ok()) {
-        boost::shared_ptr<fpi::ErrorCode> errorCode(
-            boost::make_shared<fpi::ErrorCode>());
-        if (ERR_CAT_ENTRY_NOT_FOUND == error || ERR_BLOB_NOT_FOUND == error ||
-            ERR_VOL_NOT_FOUND == error) {
-            *errorCode = fpi::MISSING_RESOURCE;
-        } else {
-            *errorCode = fpi::BAD_REQUEST;
-        }
-        boost::shared_ptr<std::string> message(
-            boost::make_shared<std::string>());
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
         XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
     } else {
         // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT

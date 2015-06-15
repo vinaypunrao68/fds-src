@@ -39,7 +39,10 @@ import com.formationds.protocol.FDSP_VolType;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
+
 import org.apache.thrift.TException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.time.Duration;
@@ -55,522 +58,571 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings( "unused" )
 public class ExternalModelConverter {
 
-  private static ConfigurationApi configApi;
+	private static ConfigurationApi configApi;
+	private static final Integer DEF_BLOCK_SIZE = ( 1024 * 128 );
+	private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
+	private static final Logger logger = LoggerFactory.getLogger( ExternalModelConverter.class );
 
-  public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
+	public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
 
-    String extName = internalDomain.getName();
-    Long extId = internalDomain.getId();
-    String site = internalDomain.getSite();
+		String extName = internalDomain.getName();
+		Long extId = internalDomain.getId();
+		String site = internalDomain.getSite();
 
-    return new Domain( extId, extName, site, DomainState.UP );
-  }
+		Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
 
-  public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
+		return externalDomain;
+	}
 
-    LocalDomain internalDomain = new LocalDomain();
+	public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
 
-    internalDomain.setId( externalDomain.getId() );
-    internalDomain.setName( externalDomain.getName() );
-    internalDomain.setSite( externalDomain.getName() );
+		LocalDomain internalDomain = new LocalDomain();
 
-    return internalDomain;
-  }
+		internalDomain.setId( externalDomain.getId() );
+		internalDomain.setName( externalDomain.getName() );
+		internalDomain.setSite( externalDomain.getName() );
 
-  public static User convertToExternalUser( com.formationds.apis.User internalUser ) {
+		return internalDomain;
+	}
 
-    Long extId = internalUser.getId();
-    String extName = internalUser.getIdentifier();
-    Long roleId = 1L;
+	public static User convertToExternalUser( com.formationds.apis.User internalUser ) {
 
-    if ( internalUser.isFdsAdmin ) {
-      roleId = 0L;
-    }
+		Long extId = internalUser.getId();
+		String extName = internalUser.getIdentifier();
+		Long roleId = 1L;
 
-    Optional<com.formationds.apis.Tenant> tenant = getConfigApi().tenantFor( extId );
+		if ( internalUser.isFdsAdmin ) {
+			roleId = 0L;
+		}
 
-    Tenant externalTenant = null;
+		Optional<com.formationds.apis.Tenant> tenant = getConfigApi().tenantFor( extId );
 
-    if ( tenant.isPresent() ) {
+		Tenant externalTenant = null;
 
-      externalTenant = convertToExternalTenant( tenant.get() );
-    }
+		if ( tenant.isPresent() ) {
 
-    return new User( extId, extName, roleId, externalTenant );
-  }
+			externalTenant = convertToExternalTenant( tenant.get() );
+		}
 
-  public static com.formationds.apis.User convertToInternalUser( User externalUser ) {
+		User externalUser = new User( extId, extName, roleId, externalTenant );
 
-    com.formationds.apis.User internalUser = new com.formationds.apis.User();
+		return externalUser;
+	}
 
-    internalUser.setId( externalUser.getId() );
-    internalUser.setIdentifier( externalUser.getName() );
+	public static com.formationds.apis.User convertToInternalUser( User externalUser ) {
 
-    if ( externalUser.getRoleId() == 0L ) {
-      internalUser.setIsFdsAdmin( true );
-    } else {
-      internalUser.setIsFdsAdmin( false );
-    }
+		com.formationds.apis.User internalUser = new com.formationds.apis.User();
 
-    return internalUser;
-  }
+		internalUser.setId( externalUser.getId() );
+		internalUser.setIdentifier( externalUser.getName() );
 
-  public static Tenant convertToExternalTenant( com.formationds.apis.Tenant internalTenant ) {
+		if ( externalUser.getRoleId() == 0L ) {
+			internalUser.setIsFdsAdmin( true );
+		} else {
+			internalUser.setIsFdsAdmin( false );
+		}
 
-    Long id = internalTenant.getId();
-    String name = internalTenant.getIdentifier();
+		return internalUser;
+	}
 
-    return new Tenant( id, name );
-  }
+	public static Tenant convertToExternalTenant( com.formationds.apis.Tenant internalTenant ) {
 
-  public static com.formationds.apis.Tenant convertToInternalTenant( Tenant externalTenant ) {
+		Long id = internalTenant.getId();
+		String name = internalTenant.getIdentifier();
 
-    com.formationds.apis.Tenant internalTenant = new com.formationds.apis.Tenant();
-    internalTenant.setId( externalTenant.getId() );
-    internalTenant.setIdentifier( externalTenant.getName() );
+		Tenant externalTenant = new Tenant( id, name );
+		return externalTenant;
+	}
 
-    return internalTenant;
-  }
+	public static com.formationds.apis.Tenant convertToInternalTenant( Tenant externalTenant ) {
 
-  public static MediaPolicy convertToExternalMediaPolicy( com.formationds.apis.MediaPolicy internalPolicy ) {
+		com.formationds.apis.Tenant internalTenant = new com.formationds.apis.Tenant();
+		internalTenant.setId( externalTenant.getId() );
+		internalTenant.setIdentifier( externalTenant.getName() );
 
-    MediaPolicy externalPolicy;
+		return internalTenant;
+	}
 
-    switch ( internalPolicy ) {
-      case HDD_ONLY:
-        externalPolicy = MediaPolicy.HDD;
-        break;
-      case SSD_ONLY:
-        externalPolicy = MediaPolicy.SSD;
-        break;
-      case HYBRID_ONLY:
-      default:
-        externalPolicy = MediaPolicy.HYBRID;
-        break;
-    }
+	public static MediaPolicy convertToExternalMediaPolicy( com.formationds.apis.MediaPolicy internalPolicy ) {
 
-    return externalPolicy;
-  }
+		MediaPolicy externalPolicy;
 
-  public static com.formationds.apis.MediaPolicy convertToInternalMediaPolicy( MediaPolicy externalPolicy ) {
+		switch ( internalPolicy ) {
+		case HDD_ONLY:
+			externalPolicy = MediaPolicy.HDD;
+			break;
+		case SSD_ONLY:
+			externalPolicy = MediaPolicy.SSD;
+			break;
+		case HYBRID_ONLY:
+		default:
+			externalPolicy = MediaPolicy.HYBRID;
+			break;
+		}
 
-    com.formationds.apis.MediaPolicy internalPolicy;
+		return externalPolicy;
+	}
 
-    switch ( externalPolicy ) {
+	public static com.formationds.apis.MediaPolicy convertToInternalMediaPolicy( MediaPolicy externalPolicy ) {
 
-      case HDD:
-        internalPolicy = com.formationds.apis.MediaPolicy.HDD_ONLY;
-        break;
-      case SSD:
-        internalPolicy = com.formationds.apis.MediaPolicy.SSD_ONLY;
-        break;
-      case HYBRID:
-      default:
-        internalPolicy = com.formationds.apis.MediaPolicy.HYBRID_ONLY;
-    }
+		com.formationds.apis.MediaPolicy internalPolicy;
 
-    return internalPolicy;
-  }
+		switch ( externalPolicy ) {
 
-  public static VolumeState convertToExternalVolumeState( ResourceState internalState ) {
+		case HDD:
+			internalPolicy = com.formationds.apis.MediaPolicy.HDD_ONLY;
+			break;
+		case SSD:
+			internalPolicy = com.formationds.apis.MediaPolicy.SSD_ONLY;
+			break;
+		case HYBRID:
+		default:
+			internalPolicy = com.formationds.apis.MediaPolicy.HYBRID_ONLY;
+		}
 
-    return VolumeState.valueOf( internalState.name() );
-  }
+		return internalPolicy;
+	}
 
-  public static ResourceState convertToInternalVolumeState( VolumeState externalState ) {
+	public static VolumeState convertToExternalVolumeState( ResourceState internalState ) {
 
-    return ResourceState.valueOf( externalState.name() );
-  }
+		VolumeState state = VolumeState.valueOf( internalState.name() );
 
-  public static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume ) {
+		return state;
+	}
 
-    VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
+	public static ResourceState convertToInternalVolumeState( VolumeState externalState ) {
 
-    final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
+		return ResourceState.valueOf( externalState.name() );
+	}
 
-    Size extUsage = Size.of( 0L, SizeUnit.B );
+	public static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume ) {
 
-    if ( optionalStatus.isPresent() ) {
-      com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
+		VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
-      extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
-    }
+		final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
+				SingletonRepositoryManager.instance()
+				.getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
 
-    Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
-                                    null, null, null, null, null, null, null, null, null, null );
+		Size extUsage = Size.of( 0L, SizeUnit.B );
 
-    final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( fakeVolume );
+		if ( optionalStatus.isPresent() ) {
+			com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
 
-    Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
+			extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+		}
 
-    if ( fbResults != null ) {
+		Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
+				null, null, null, null, null, null, null, null, null, null );
 
-      // put each firebreak event in the JSON object if it exists
-      fbResults.forEach( ( type, pair ) -> {
+		final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( fakeVolume );
 
-        if ( type.equals( FirebreakType.CAPACITY ) ) {
-          instants[0] = Instant.ofEpochMilli( pair.getDatapoint().getY().longValue() );
-        } else if ( type.equals( FirebreakType.PERFORMANCE ) ) {
-          instants[1] = Instant.ofEpochMilli( pair.getDatapoint().getY().longValue() );
-        }
-      } );
-    }
+		Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
 
-    return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
-  }
+		if ( fbResults != null ) {
 
-//	public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
-//
-//		long creation = internalSnapshot.getCreationTimestamp();
-//		long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
-//		long snapshotId = internalSnapshot.getSnapshotId();
-//		String snapshotName = internalSnapshot.getSnapshotName();
-//		long volumeId = internalSnapshot.getVolumeId();
-//
-//		Snapshot externalSnapshot = new Snapshot( snapshotId,
-//				 								  snapshotName,
-//				 								  volumeId,
-//				 								  Duration.ofSeconds( retentionInSeconds ),
-//				 								  Instant.ofEpochMilli( creation ) );
-//
-//		return externalSnapshot;
-//	}
+			// put each firebreak event in the JSON object if it exists
+			fbResults.forEach( ( type, pair ) -> {
 
-  public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
+				if ( type.equals( FirebreakType.CAPACITY ) ) {
+					instants[0] = Instant.ofEpochMilli( pair.getDatapoint().getY().longValue() );
+				} else if ( type.equals( FirebreakType.PERFORMANCE ) ) {
+					instants[1] = Instant.ofEpochMilli( pair.getDatapoint().getY().longValue() );
+				}
+			} );
+		}
 
-    com.formationds.protocol.Snapshot internalSnapshot = new com.formationds.protocol.Snapshot();
+		VolumeStatus externalStatus = new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
 
-    internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
-    internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
-    internalSnapshot.setSnapshotId( snapshot.getId() );
-    internalSnapshot.setSnapshotName( snapshot.getName() );
-    internalSnapshot.setVolumeId( snapshot.getVolumeId() );
+		return externalStatus;
+	}
 
-    return internalSnapshot;
-  }
+	//		public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
+		//
+		//			long creation = internalSnapshot.getCreationTimestamp();
+		//			long retentionInSeconds = internalSnapshot.getRetentionTimeSeconds();
+		//			long snapshotId = internalSnapshot.getSnapshotId();
+		//			String snapshotName = internalSnapshot.getSnapshotName();
+	//			long volumeId = internalSnapshot.getVolumeId();
+	//
+	//			Snapshot externalSnapshot = new Snapshot( snapshotId, 
+	//					 								  snapshotName, 
+	//					 								  volumeId,
+	//					 								  Duration.ofSeconds( retentionInSeconds ), 
+	//					 								  Instant.ofEpochMilli( creation ) );
+	//
+	//			return externalSnapshot;
+	//		}
 
-  public static Snapshot convertToExternalSnapshot( com.formationds.protocol.Snapshot protoSnapshot ){
+	public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ){
 
-    long creation = protoSnapshot.getCreationTimestamp();
-    long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
-    long volumeId = protoSnapshot.getVolumeId();
-    String snapshotName = protoSnapshot.getSnapshotName();
-    long snapshotId = protoSnapshot.getSnapshotId();
+		com.formationds.protocol.Snapshot internalSnapshot = new com.formationds.protocol.Snapshot();
 
-    return new Snapshot( snapshotId,
-                         snapshotName,
-                         volumeId,
-                         Duration.ofSeconds( retentionInSeconds ),
-                         Instant.ofEpochMilli( creation ) );
-  }
+		internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
+		internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
+		internalSnapshot.setSnapshotId( snapshot.getId() );
+		internalSnapshot.setSnapshotName( snapshot.getName() );
+		internalSnapshot.setVolumeId( snapshot.getVolumeId() );
 
-  public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ){
+		return internalSnapshot;
+	}
 
-    Long extId = internalPolicy.getId();
-    String intRule = internalPolicy.getRecurrenceRule();
-    Long intRetention = internalPolicy.getRetentionTimeSeconds();
+	public static Snapshot convertToExternalSnapshot( com.formationds.protocol.Snapshot protoSnapshot ){
 
-    RecurrenceRule extRule = new RecurrenceRule();
+		long creation = protoSnapshot.getCreationTimestamp();
+		long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
+		long volumeId = protoSnapshot.getVolumeId();
+		String snapshotName = protoSnapshot.getSnapshotName();
+		long snapshotId = protoSnapshot.getSnapshotId();
 
-    try {
-      extRule = extRule.parser( intRule );
-    } catch (ParseException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+		Snapshot externalSnapshot = new Snapshot( snapshotId, 
+				snapshotName, 
+				volumeId,
+				Duration.ofSeconds( retentionInSeconds ),
+				Instant.ofEpochMilli( creation ) );
 
-    Duration extRetention = Duration.ofSeconds( intRetention );
+		return externalSnapshot;
+	}
 
-    SnapshotPolicyType type = SnapshotPolicyType.USER;
+	public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ){
 
-    if ( internalPolicy.getPolicyName().contains( SnapshotPolicyType.SYSTEM_TIMELINE.name() ) ) {
-      type = SnapshotPolicyType.SYSTEM_TIMELINE;
-    }
+		Long extId = internalPolicy.getId();
+		String intRule = internalPolicy.getRecurrenceRule();
+		Long intRetention = internalPolicy.getRetentionTimeSeconds();
 
-    return new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
-  }
+		RecurrenceRule extRule = new RecurrenceRule();
 
-  public static com.formationds.apis.SnapshotPolicy convertToInternalSnapshotPolicy( SnapshotPolicy externalPolicy ) {
-    com.formationds.apis.SnapshotPolicy internalPolicy = new com.formationds.apis.SnapshotPolicy();
+		try {
+			extRule = extRule.parser( intRule );
+		} catch (ParseException e) {
+			logger.warn( "Could not parse the retention rule: " + intRule );
+			logger.debug( e.getMessage(), e );
+		}
 
-    String policyName = externalPolicy.getName();
-    internalPolicy.setId( externalPolicy.getId() );
-    internalPolicy.setPolicyName( policyName );
-    internalPolicy.setRecurrenceRule( externalPolicy.getRecurrenceRule().toString() );
-    internalPolicy.setRetentionTimeSeconds( externalPolicy.getRetentionTime().getSeconds() );
+		Duration extRetention = Duration.ofSeconds( intRetention );
 
-    return internalPolicy;
-  }
+		SnapshotPolicyType type = SnapshotPolicyType.USER;
 
-  public static DataProtectionPolicy convertToExternalProtectionPolicy( VolumeDescriptor internalVolume ) {
+		if ( internalPolicy.getPolicyName().contains( SnapshotPolicyType.SYSTEM_TIMELINE.name() ) ) {
+			type = SnapshotPolicyType.SYSTEM_TIMELINE;
+		}
 
-    Duration extCommitRetention = Duration.ofDays( 1L );
+		SnapshotPolicy externalPolicy = new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
 
-    try {
-      FDSP_VolumeDescType volDescType =
-              getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName(), 0 ) );
+		return externalPolicy;
+	}
 
-      long clRetention = volDescType.getContCommitlogRetention();
+	public static com.formationds.apis.SnapshotPolicy convertToInternalSnapshotPolicy( SnapshotPolicy externalPolicy ) {
+		com.formationds.apis.SnapshotPolicy internalPolicy = new com.formationds.apis.SnapshotPolicy();
 
-      extCommitRetention = Duration.ofSeconds( clRetention );
-    } catch ( TException e ) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+		String policyName = externalPolicy.getName();
+		internalPolicy.setId( externalPolicy.getId() );
+		internalPolicy.setPolicyName( policyName );
+		internalPolicy.setRecurrenceRule( externalPolicy.getRecurrenceRule().toString() );
+		internalPolicy.setRetentionTimeSeconds( externalPolicy.getRetentionTime().getSeconds() );
 
-    // snapshot policies
-    List<SnapshotPolicy> extPolicies = new ArrayList<>();
+		return internalPolicy;
+	}
 
-    try {
-      final List<com.formationds.apis.SnapshotPolicy> internalPolicies =
-              getConfigApi().listSnapshotPoliciesForVolume( internalVolume.getVolId() );
+	public static DataProtectionPolicy convertToExternalProtectionPolicy( VolumeDescriptor internalVolume ) {
 
-      for ( com.formationds.apis.SnapshotPolicy internalPolicy : internalPolicies ) {
+		Duration extCommitRetention = Duration.ofDays( 1L );
 
-        SnapshotPolicy externalPolicy = convertToExternalSnapshotPolicy( internalPolicy );
-        extPolicies.add( externalPolicy );
-      }
-    } catch ( TException e ) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+		try {
+			FDSP_VolumeDescType volDescType =
+					getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName(), 0 ) );
 
-    return new DataProtectionPolicy( extCommitRetention, extPolicies );
-  }
+			long clRetention = volDescType.getContCommitlogRetention();
 
-  public static Volume convertToExternalVolume( VolumeDescriptor internalVolume ) {
+			extCommitRetention = Duration.ofSeconds( clRetention );
+		} catch ( TException e ) {
+			
+			logger.warn( "Error occurred while trying to retrieve volume: " + internalVolume.getVolId() );
+			logger.debug( "Exception: ", e );
+			
+		}
 
-    String extName = internalVolume.getName();
-    Long volumeId = internalVolume.getVolId();
+		// snapshot policies
+		List<SnapshotPolicy> extPolicies = new ArrayList<>();
 
-    com.formationds.apis.VolumeSettings settings = internalVolume.getPolicy();
-    MediaPolicy extPolicy = convertToExternalMediaPolicy( settings.getMediaPolicy() );
+		try {
+			final List<com.formationds.apis.SnapshotPolicy> internalPolicies =
+					getConfigApi().listSnapshotPoliciesForVolume( internalVolume.getVolId() );
 
-    VolumeSettings extSettings = null;
+			for ( com.formationds.apis.SnapshotPolicy internalPolicy : internalPolicies ) {
 
-    if ( settings.getVolumeType().equals( VolumeType.BLOCK ) ) {
+				SnapshotPolicy externalPolicy = convertToExternalSnapshotPolicy( internalPolicy );
+				extPolicies.add( externalPolicy );
+			}
+		} catch ( TException e ) {
+			
+			logger.warn( "Error occurred while trying to retrieve snapshot policies for volume: " + internalVolume.getVolId() );
+			logger.debug("Exception: ", e);
+		}
 
-      Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
-      Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
+		DataProtectionPolicy extProtectionPolicy = new DataProtectionPolicy( extCommitRetention, extPolicies );
 
-      extSettings = new VolumeSettingsBlock( capacity, blockSize );
-    } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
-      Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
+		return extProtectionPolicy;
+	}
 
-      extSettings = new VolumeSettingsObject( maxObjectSize );
-    }
+	public static Volume convertToExternalVolume( VolumeDescriptor internalVolume ) {
 
-    // need to get a different volume object for the other stuff...
-    // NOTE:  This won't work when we have multiple domains.
-    // TODO: FIx for multiple days
-    QosPolicy extQosPolicy = null;
+		String extName = internalVolume.getName();
+		Long volumeId = internalVolume.getVolId();
 
-    try {
-      FDSP_VolumeDescType volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( extName, 0 ) );
+		com.formationds.apis.VolumeSettings settings = internalVolume.getPolicy();
+		MediaPolicy extPolicy = convertToExternalMediaPolicy( settings.getMediaPolicy() );
 
-      extQosPolicy = new QosPolicy( volDescType.getRel_prio(),
-                                    (int) volDescType.getIops_assured(),
-                                    (int) volDescType.getIops_throttle() );
-    }
-    catch ( TException e ) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+		VolumeSettings extSettings = null;
 
-    Tenant extTenant = null;
+		if ( settings.getVolumeType().equals( VolumeType.BLOCK ) ) {
 
-    try {
-      List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants( 0 );
+			Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+			Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-      for ( com.formationds.apis.Tenant internalTenant : internalTenants ) {
+			extSettings = new VolumeSettingsBlock( capacity, blockSize );
+		} else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
+			Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-        if ( internalTenant.getId() == internalVolume.getTenantId() ) {
-          extTenant = convertToExternalTenant( internalTenant );
-          break;
-        }
-      }
-    } catch ( TException e ) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+			extSettings = new VolumeSettingsObject( maxObjectSize );
+		}
 
-    VolumeStatus extStatus = convertToExternalVolumeStatus( internalVolume );
+		// need to get a different volume object for the other stuff...
+		// NOTE:  This won't work when we have multiple domains.
+		// TODO: FIx for multiple days
+		QosPolicy extQosPolicy = null;
 
-    VolumeAccessPolicy extAccessPolicy = VolumeAccessPolicy.exclusiveRWPolicy();
+		try {
+			FDSP_VolumeDescType volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( extName, 0 ) );
 
-    DataProtectionPolicy extProtectionPolicy = convertToExternalProtectionPolicy( internalVolume );
+			extQosPolicy = new QosPolicy( volDescType.getRel_prio(),
+					(int) volDescType.getIops_assured(),
+					(int) volDescType.getIops_throttle() );
+		} catch ( Exception e ) {
+			
+			logger.warn( "Error occurred while trying to get VolInfo type for volume: " + internalVolume.getVolId() );
+			logger.debug( "Exception: ", e );
+		}
 
-    Instant extCreation = Instant.ofEpochMilli( internalVolume.dateCreated );
+		Tenant extTenant = null;
 
-    return new Volume( volumeId,
-                       extName,
-                       extTenant,
-                       "Application",
-                       extStatus,
-                       extSettings,
-                       extPolicy,
-                       extProtectionPolicy,
-                       extAccessPolicy,
-                       extQosPolicy,
-                       extCreation,
-                       null );
-  }
+		try {
+			List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants( 0 );
 
-  public static VolumeDescriptor convertToInternalVolumeDescriptor( Volume externalVolume ) {
+			for ( com.formationds.apis.Tenant internalTenant : internalTenants ) {
 
-    VolumeDescriptor internalDescriptor = new VolumeDescriptor();
+				if ( internalTenant.getId() == internalVolume.getTenantId() ) {
+					extTenant = convertToExternalTenant( internalTenant );
+					break;
+				}
+			}
+		} catch ( TException e ) {
+			
+			logger.warn( "Error occurred while trying to retrieve a list of tenants." );
+			logger.debug( "Exception: ", e );
+		}
 
-    if ( externalVolume.getCreated() != null ){
-      internalDescriptor.setDateCreated( externalVolume.getCreated().toEpochMilli() );
-    }
+		VolumeStatus extStatus = convertToExternalVolumeStatus( internalVolume );
 
-    internalDescriptor.setName( externalVolume.getName() );
+		VolumeAccessPolicy extAccessPolicy = VolumeAccessPolicy.exclusiveRWPolicy();
 
-    if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
-      internalDescriptor.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
-    }
+		DataProtectionPolicy extProtectionPolicy = convertToExternalProtectionPolicy( internalVolume );
 
-    if ( externalVolume.getTenant() != null ) {
-      internalDescriptor.setTenantId( externalVolume.getTenant().getId() );
-    }
+		Instant extCreation = Instant.ofEpochMilli( internalVolume.dateCreated );
 
-    if ( externalVolume.getId() != null ){
-      internalDescriptor.setVolId( externalVolume.getId() );
-    }
+		Volume externalVolume = new Volume( volumeId,
+				extName,
+				extTenant,
+				"Application",
+				extStatus,
+				extSettings,
+				extPolicy,
+				extProtectionPolicy,
+				extAccessPolicy,
+				extQosPolicy,
+				extCreation,
+				null );
 
-    com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
+		return externalVolume;
+	}
 
-    if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {
+	public static VolumeDescriptor convertToInternalVolumeDescriptor( Volume externalVolume ) {
 
-      VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
+		VolumeDescriptor internalDescriptor = new VolumeDescriptor();
 
-      internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
-      internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
-                                                             .intValue() );
+		if ( externalVolume.getCreated() != null ){
+			internalDescriptor.setDateCreated( externalVolume.getCreated().toEpochMilli() );
+		}
 
-      internalSettings.setVolumeType( VolumeType.BLOCK );
+		internalDescriptor.setName( externalVolume.getName() );
 
-    } else {
-      VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
-      internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+		if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
+			internalDescriptor.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+		}
 
-      internalSettings.setVolumeType( VolumeType.OBJECT );
-    }
+		if ( externalVolume.getTenant() != null ) {
+			internalDescriptor.setTenantId( externalVolume.getTenant().getId() );
+		}
 
-    internalSettings.setMediaPolicy( convertToInternalMediaPolicy( externalVolume.getMediaPolicy() ) );
-    internalSettings.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
-                                                              .getSeconds() );
+		if ( externalVolume.getId() != null ){
+			internalDescriptor.setVolId( externalVolume.getId() );
+		}
 
-    internalDescriptor.setPolicy( internalSettings );
+		com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
 
-    return internalDescriptor;
-  }
+		// block volume
+		if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {
 
-  public static FDSP_VolumeDescType convertToInternalVolumeDescType( Volume externalVolume ) {
+			VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
 
-    FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
+			internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
 
-    volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
-                                                        .getSeconds() );
+			if ( blockSettings.getBlockSize() != null ){
+				internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
+						.intValue() );
+			}
+			else {
+				internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
+			}
 
-    if ( externalVolume.getCreated() != null ){
-      volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
-    }
-    volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
-    volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
+			internalSettings.setVolumeType( VolumeType.BLOCK );
 
-    FDSP_MediaPolicy fdspMediaPolicy;
+			// object volume
+		} else {
+			VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
 
-    switch ( externalVolume.getMediaPolicy() ) {
-      case HYBRID:
-        fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HYBRID;
-        break;
-      case SSD:
-        fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
-        break;
-      case HDD:
-      default:
-        fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD;
-        break;
-    }
+			if ( objectSettings.getMaxObjectSize() != null ){
+				internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+			}
+			else {
+				internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+			}
 
-    volumeType.setMediaPolicy( fdspMediaPolicy );
+			internalSettings.setVolumeType( VolumeType.OBJECT );
+		}
 
-    volumeType.setLocalDomainId( 0 );
-    volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
-    volumeType.setVolUUID( externalVolume.getId() );
-    volumeType.setVol_name( externalVolume.getName() );
+		internalSettings.setMediaPolicy( convertToInternalMediaPolicy( externalVolume.getMediaPolicy() ) );
+		internalSettings.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+				.getSeconds() );
 
-    VolumeSettings settings = externalVolume.getSettings();
+		internalDescriptor.setPolicy( internalSettings );
 
-    if ( settings instanceof VolumeSettingsBlock ) {
-      VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
+		return internalDescriptor;
+	}
 
-      volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
-      volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
-      volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
-    } else {
-      VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
+	public static FDSP_VolumeDescType convertToInternalVolumeDescType( Volume externalVolume ) {
 
-      volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
-      volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
-    }
+		FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
 
-    if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
-      volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
-    }
+		volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+				.getSeconds() );
 
-    if ( externalVolume.getTenant() != null ){
-      volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
-    }
+		if ( externalVolume.getCreated() != null ){
+			volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
+		}
+		volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
+		volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
 
-    return volumeType;
-  }
+		FDSP_MediaPolicy fdspMediaPolicy;
 
-  /**
-   * Getting the possible firebreak events for this volume in the past 24 hours
-   *
-   * @param v the {@link Volume}
-   *
-   * @return Returns EnumMap<FirebreakType, VolumeDatapointPair>
-   */
-  private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ) {
+		switch ( externalVolume.getMediaPolicy() ) {
+		case HYBRID:
+			fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HYBRID;
+			break;
+		case SSD:
+			fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
+			break;
+		case HDD:
+		default:
+			fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD;
+			break;
+		}
 
-    MetricQueryCriteria query = new MetricQueryCriteria();
-    DateRange range = new DateRange();
-    range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime()) ) );
-    range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+		volumeType.setMediaPolicy( fdspMediaPolicy );
 
-    query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
-    query.setContexts( Collections.singletonList( v ) );
-    query.setRange( range );
+		volumeType.setLocalDomainId( 0 );
+		volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
+		volumeType.setVolUUID( externalVolume.getId() );
+		volumeType.setVol_name( externalVolume.getName() );
 
-    MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+		VolumeSettings settings = externalVolume.getSettings();
 
-    final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
+		if ( settings instanceof VolumeSettingsBlock ) {
+			VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
 
-    FirebreakHelper fbh = new FirebreakHelper();
-    EnumMap<FirebreakType, VolumeDatapointPair> map = null;
+			if ( blockSettings.getBlockSize() != null ){
+				volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
+			}
+			else {
+				volumeType.setMaxObjSizeInBytes( DEF_BLOCK_SIZE );
+			}
 
-    try {
-      // TODO examine teh correct fix
-      //noinspection SuspiciousMethodCalls
-      map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
-    } catch ( TException e ) {
-      e.printStackTrace();
-    }
+			volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
+			volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
+		} else {
+			VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
-    return map;
-  }
+			if ( objectSettings.getMaxObjectSize() != null ){
+				volumeType.setMaxObjSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+			}
+			else {
+				volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
+			}
 
-  private static ConfigurationApi getConfigApi() {
+			volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
+		}
 
-    if ( configApi == null ) {
-      configApi = SingletonConfigAPI.instance().api();
-    }
+		if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ){
+			volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+		}
 
-    return configApi;
-  }
+		if ( externalVolume.getTenant() != null ){
+			volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+		}
+
+		return volumeType;
+	}
+
+	/**
+	 * Getting the possible firebreak events for this volume in the past 24 hours
+	 *
+	 * @param v the {@link Volume}
+	 *
+	 * @return Returns EnumMap<FirebreakType, VolumeDatapointPair>
+	 */
+	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ) {
+
+		MetricQueryCriteria query = new MetricQueryCriteria();
+		DateRange range = new DateRange();
+		range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime()) ) );
+		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+
+		query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
+		query.setContexts( Collections.singletonList( v ) );
+		query.setRange( range );
+
+		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+
+		final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
+
+		FirebreakHelper fbh = new FirebreakHelper();
+		EnumMap<FirebreakType, VolumeDatapointPair> map = null;
+
+		try {
+			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
+		} catch ( TException e ) {
+			
+			logger.error( "Error occurred while trying to retrieve firebreak events.", e );
+		}
+
+		return map;
+	}
+
+	private static ConfigurationApi getConfigApi() {
+
+		if ( configApi == null ) {
+			configApi = SingletonConfigAPI.instance().api();
+		}
+
+		return configApi;
+	}
 }

@@ -48,7 +48,7 @@ public class Xdi {
         }
     }
 
-    private void attemptToplevelAccess(AuthenticationToken token, Intent intent) throws SecurityException {
+    private void attemptToplevelAccess(AuthenticationToken token) throws SecurityException {
         if (!authorizer.hasToplevelPermission(token)) {
             throw new SecurityException();
         }
@@ -67,7 +67,7 @@ public class Xdi {
     }
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
-        attemptToplevelAccess(token, Intent.readWrite);
+        attemptToplevelAccess(token);
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         return config.getVolumeId(volumeName);
     }
@@ -98,7 +98,7 @@ public class Xdi {
     }
 
     public List<VolumeDescriptor> listVolumes(AuthenticationToken token, String domainName) throws ApiException, TException {
-        attemptToplevelAccess(token, Intent.read);
+        attemptToplevelAccess(token);
         List<VolumeDescriptor> volumes = config.listVolumes(domainName);
         List<VolumeDescriptor> result = new ArrayList<>();
         for (VolumeDescriptor volume : volumes) {

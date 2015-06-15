@@ -5,6 +5,7 @@
 import unittest
 import mock
 import disk_format
+import copy
 
 
 ''' extendedFstab class unit tests -- these could use improvements '''
@@ -61,7 +62,7 @@ class BaseDiskTest (unittest.TestCase):
 
         fake_path = '/dev/foo'
 
-        mock_args = self.instance.GET_UUID_COMMAND
+        mock_args = copy.deepcopy (self.instance.GET_UUID_COMMAND)
         mock_args.append (fake_path)
 
         self.instance.get_uuid (fake_path)
@@ -157,11 +158,11 @@ class DiskTest (unittest.TestCase):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         self.assertFalse (d.get_os_usage())
 
-    def testDiskSmFlag (self):
-        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
-        self.assertFalse (d.sm_flag)
-        d.set_sm_flag()
-        self.assertTrue (d.sm_flag)
+#    def testDiskSmFlag (self):
+#        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+#        self.assertFalse (d.sm_flag)
+#        d.set_sm_flag()
+#        self.assertTrue (d.sm_flag)
 
     def testDiskDmFlag (self):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
@@ -237,35 +238,35 @@ class DiskTest (unittest.TestCase):
         assert 2 == mock_call_subproc.call_count
 
 
-    @mock.patch ('disk_format.Disk.call_subproc')
-    def testDiskPartitionSMIndex (self, mock_call_subproc):
-        d = disk_format.Disk (DiskTest.TEST_PATH, False, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
-        d.set_sm_flag()
-
-        sm_index_size = 4
-
-        process_mock = mock.Mock ()
-        attrs = {'returncode': 0}
-        process_mock.configure (attrs)
-
-        mock_call_subproc.return_value = process_mock
-
-        fake_path = '/dev/foo'
-
-        mock_args_mklabel = self.instance.PARTED_MKLABEL_PART_1 + fake_path.split() + self.instance.PARTED_MKLABEL_PART_2
-
-        mock_args_mkpart_sb = disk_format.Disk.PARTED_MKPART_SUPERBLOCK_1 + fake_path.split() + disk_format.Disk.PARTED_MKPART_SUPERBLOCK_2 + disk_format.PARTITION_TYPE.split() + (str (disk_format.PARTITION_START_MB) + 'MB').split() + (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB) + 'MB').split() + disk_format.Disk.PARTED_MKPART_SUPERBLOCK_3
-
-        mock_args_mkpart_index = disk_format.Disk.PARTED_MKPART_INDEX_1  + fake_path.split() + disk_format.Disk.PARTED_MKPART_INDEX_2 + disk_format.PARTITION_TYPE.split() + (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB) + 'MB').split() + (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB + sm_index_size) + 'MB').split()
-
-        mock_args_mkpart_data = disk_format.Disk.PARTED_MKPART_DATA_1 + fake_path.split() + disk_format.Disk.PARTED_MKPART_DATA_2 +  (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB + sm_index_size) + 'MB').split() + disk_format.Disk.PARTED_MKPART_DATA_3
-
-        expected = [mock.call (mock_args_mklabel), mock.call (mock_args_mkpart_sb), mock.call (mock_args_mkpart_index), mock.call (mock_args_mkpart_data)]
-
-        d.partition (1,sm_index_size)
-
-        assert mock_call_subproc.call_args_list == expected
-        assert 4 == mock_call_subproc.call_count
+#    @mock.patch ('disk_format.Disk.call_subproc')
+#    def testDiskPartitionSMIndex (self, mock_call_subproc):
+#        d = disk_format.Disk (DiskTest.TEST_PATH, False, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+#        d.set_sm_flag()
+#
+#        sm_index_size = 4
+#
+#        process_mock = mock.Mock ()
+#        attrs = {'returncode': 0}
+#        process_mock.configure (attrs)
+#
+#        mock_call_subproc.return_value = process_mock
+#
+#        fake_path = '/dev/foo'
+#
+#        mock_args_mklabel = self.instance.PARTED_MKLABEL_PART_1 + fake_path.split() + self.instance.PARTED_MKLABEL_PART_2
+#
+#        mock_args_mkpart_sb = disk_format.Disk.PARTED_MKPART_SUPERBLOCK_1 + fake_path.split() + disk_format.Disk.PARTED_MKPART_SUPERBLOCK_2 + disk_format.PARTITION_TYPE.split() + (str (disk_format.PARTITION_START_MB) + 'MB').split() + (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB) + 'MB').split() + disk_format.Disk.PARTED_MKPART_SUPERBLOCK_3
+#
+#        mock_args_mkpart_index = disk_format.Disk.PARTED_MKPART_INDEX_1  + fake_path.split() + disk_format.Disk.PARTED_MKPART_INDEX_2 + disk_format.PARTITION_TYPE.split() + (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB) + 'MB').split() + (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB + sm_index_size) + 'MB').split()
+#
+#        mock_args_mkpart_data = disk_format.Disk.PARTED_MKPART_DATA_1 + fake_path.split() + disk_format.Disk.PARTED_MKPART_DATA_2 +  (str (disk_format.PARTITION_START_MB + disk_format.FDS_SUPERBLOCK_SIZE_IN_MB + sm_index_size) + 'MB').split() + disk_format.Disk.PARTED_MKPART_DATA_3
+#
+#        expected = [mock.call (mock_args_mklabel), mock.call (mock_args_mkpart_sb), mock.call (mock_args_mkpart_index), mock.call (mock_args_mkpart_data)]
+#
+#        d.partition (1,sm_index_size)
+#
+#        assert mock_call_subproc.call_args_list == expected
+#        assert 4 == mock_call_subproc.call_count
 
 
     @mock.patch ('disk_format.Disk.call_subproc')
@@ -359,136 +360,136 @@ class DiskTest (unittest.TestCase):
 
 
 
-class testRaidDevice (unittest.TestCase):
-
-    def setUp (self):
-        self.raid = disk_format.RaidDevice()
-
-    @mock.patch ('disk_format.RaidDevice.call_subproc')
-    def testRaidDeviceResetRaidComponents (self, mock_subproc):
-        process_mock = mock.Mock ()
-        attrs = {'returncode': 0}
-        process_mock.configure (**attrs)
-
-        mock_subproc.return_value = process_mock
-
-        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
-        md_device = '/dev/mdNNN'
-
-        mock_args_stop = disk_format.RaidDevice.MDADM_STOP_RAID_1 + md_device.split()
-        mock_args_zero = disk_format.RaidDevice.MDADM_ZERO_SB_1
-
-        for part in raid_partitions:
-            mock_args_zero.append (part)
-
-        self.raid.reset_raid_components(md_device, raid_partitions)
-
-        expected = [mock.call (mock_args_stop), mock.call (mock_args_zero)]
-
-        assert mock_subproc.call_args_list == expected
-        assert 2 == mock_subproc.call_count
-
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    @mock.patch ('disk_format.RaidDevice.call_subproc')
-    @mock.patch ('disk_format.DiskUtils.find_mounts')
-    @mock.patch ('disk_format.os.path')
-    @mock.patch ('disk_format.subprocess.Popen')
-    def testRaidDeviceCleanupRaidIfUsedPresent (self, mock_popen, mock_os_path, mock_find_mounts, mock_subproc, mock_uuid):
-
-        popen_mock = mock.Mock()
-        attrs = {'returncode': 0}
-        popen_mock.configure (**attrs)
-        popen_mock.stdout = ['/dev/idxa2', '/dev/idxb2']
-        mock_popen.return_value = popen_mock
-
-        md_device = '/dev/md0'
-
-        mock_os_path.exists.return_value = True
-
-        find_mounts_mock = mock.Mock (return_value = ['/dev/mdNNN'])
-        mock_find_mounts.return_value = find_mounts_mock.return_value
-
-        subproc_mock = mock.Mock()
-        attrs = {'returncode': 0}
-        subproc_mock.configure (**attrs)
-        mock_subproc.return_value = subproc_mock.return_value
-
-        uuid_mock = mock.Mock (return_value = 'bazmoonar')
-        mock_uuid.return_value = uuid_mock.return_value
-
-        fstab = disk_format.extendedFstab()
-        fstab.read ('test_data/ExtendedFstabTest.unit')
-        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
-        disk_utils = disk_format.DiskUtils()
-
-        mock_args_umount = disk_format.RaidDevice.UMOUNT_COMMAND_1 + mock_find_mounts.return_value
-        mock_args_stop = disk_format.RaidDevice.MDADM_STOP_RAID_1 + md_device.split()
-        mock_args_zero = disk_format.RaidDevice.MDADM_ZERO_SB_1
-
-        expected = [mock.call (mock_args_umount), mock.call (mock_args_stop), mock.call (mock_args_zero)]
-
-        self.raid.cleanup_raid_if_in_use (raid_partitions, fstab, disk_utils)
-
-
-        assert mock_subproc.call_args_list == expected
-        assert 3 == mock_subproc.call_count
-
-    @mock.patch ('disk_format.os.path')
-    def testRaidDeviceCleanupRaidIfUsedNotPresent (self, mock_os_path):
-
-        mock_os_path.exists.return_value = False
-
-        fstab = disk_format.extendedFstab()
-        fstab.read ('test_data/ExtendedFstabTest.unit')
-        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
-        disk_utils = disk_format.DiskUtils()
-
-        value = self.raid.cleanup_raid_if_in_use(raid_partitions, fstab, disk_utils)
-
-        assert False == value
-
-    def testRaidDeviceCreateIndexRaidShortList (self):
-        raid_partitions = ['/dev/idxa2']
-        uuid = self.raid.create_index_raid (raid_partitions)
-        assert uuid is None
-
-    @mock.patch ('disk_format.os.path')
-    def testRaidDeviceCreateIndexRaidNoDevAvailable (self, mock_os_path):
-        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
-
-        mock_os_path.exists.return_value = True
-
-        with self.assertRaises (SystemExit) as cm:
-            self.raid.create_index_raid (raid_partitions)
-        self.assertEqual (cm.exception.code, 8)
-
-
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    @mock.patch ('disk_format.RaidDevice.call_subproc')
-    @mock.patch ('disk_format.os.path')
-    def testRaidDeviceCreateIndexRaidWorks (self, mock_os_path, mock_subproc, mock_uuid):
-        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
-        raid_device = '/dev/md0'
-
-        mock_os_path.exists.return_value = False
-
-        subproc_mock = mock.Mock()
-        attrs = {'returncode': 0}
-        subproc_mock.configure (**attrs)
-        mock_subproc.return_value = subproc_mock.return_value
-
-        uuid_mock = mock.Mock (return_value = 'biznoolar')
-        mock_uuid.return_value = uuid_mock.return_value
-
-        uuid = self.raid.create_index_raid (raid_partitions)
-
-        mock_args_md_create = disk_format.RaidDevice.MDADM_CREATE_1 + raid_device.split() + disk_format.RaidDevice.MDADM_CREATE_2 + raid_partitions
-        mock_args_format = disk_format.Disk.MKFS_PART_1 + raid_device.split() + disk_format.Disk.MKFS_PART_2
-
-        expected = [mock.call (mock_args_md_create), mock.call (mock_args_format)]
-
-        assert mock_subproc.call_args_list == expected
-        assert 2 == mock_subproc.call_count
+#class testRaidDevice (unittest.TestCase):
+#
+#    def setUp (self):
+#        self.raid = disk_format.RaidDevice()
+#
+#    @mock.patch ('disk_format.RaidDevice.call_subproc')
+#    def testRaidDeviceResetRaidComponents (self, mock_subproc):
+#        process_mock = mock.Mock ()
+#        attrs = {'returncode': 0}
+#        process_mock.configure (**attrs)
+#
+#        mock_subproc.return_value = process_mock
+#
+#        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
+#        md_device = '/dev/mdNNN'
+#
+#        mock_args_stop = disk_format.RaidDevice.MDADM_STOP_RAID_1 + md_device.split()
+#        mock_args_zero = disk_format.RaidDevice.MDADM_ZERO_SB_1
+#
+#        for part in raid_partitions:
+#            mock_args_zero.append (part)
+#
+#        self.raid.reset_raid_components(md_device, raid_partitions)
+#
+#        expected = [mock.call (mock_args_stop), mock.call (mock_args_zero)]
+#
+#        assert mock_subproc.call_args_list == expected
+#        assert 2 == mock_subproc.call_count
+#
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    @mock.patch ('disk_format.RaidDevice.call_subproc')
+#    @mock.patch ('disk_format.DiskUtils.find_mounts')
+#    @mock.patch ('disk_format.os.path')
+#    @mock.patch ('disk_format.subprocess.Popen')
+#    def testRaidDeviceCleanupRaidIfUsedPresent (self, mock_popen, mock_os_path, mock_find_mounts, mock_subproc, mock_uuid):
+#
+#        popen_mock = mock.Mock()
+#        attrs = {'returncode': 0}
+#        popen_mock.configure (**attrs)
+#        popen_mock.stdout = ['/dev/idxa2', '/dev/idxb2']
+#        mock_popen.return_value = popen_mock
+#
+#        md_device = '/dev/md0'
+#
+#        mock_os_path.exists.return_value = True
+#
+#        find_mounts_mock = mock.Mock (return_value = ['/dev/mdNNN'])
+#        mock_find_mounts.return_value = find_mounts_mock.return_value
+#
+#        subproc_mock = mock.Mock()
+#        attrs = {'returncode': 0}
+#        subproc_mock.configure (**attrs)
+#        mock_subproc.return_value = subproc_mock.return_value
+#
+#        uuid_mock = mock.Mock (return_value = 'bazmoonar')
+#        mock_uuid.return_value = uuid_mock.return_value
+#
+#        fstab = disk_format.extendedFstab()
+#        fstab.read ('test_data/ExtendedFstabTest.unit')
+#        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
+#        disk_utils = disk_format.DiskUtils()
+#
+#        mock_args_umount = disk_format.RaidDevice.UMOUNT_COMMAND_1 + mock_find_mounts.return_value
+#        mock_args_stop = disk_format.RaidDevice.MDADM_STOP_RAID_1 + md_device.split()
+#        mock_args_zero = disk_format.RaidDevice.MDADM_ZERO_SB_1
+#
+#        expected = [mock.call (mock_args_umount), mock.call (mock_args_stop), mock.call (mock_args_zero)]
+#
+#        self.raid.cleanup_raid_if_in_use (raid_partitions, fstab, disk_utils)
+#
+#
+#        assert mock_subproc.call_args_list == expected
+#        assert 3 == mock_subproc.call_count
+#
+#    @mock.patch ('disk_format.os.path')
+#    def testRaidDeviceCleanupRaidIfUsedNotPresent (self, mock_os_path):
+#
+#        mock_os_path.exists.return_value = False
+#
+#        fstab = disk_format.extendedFstab()
+#        fstab.read ('test_data/ExtendedFstabTest.unit')
+#        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
+#        disk_utils = disk_format.DiskUtils()
+#
+#        value = self.raid.cleanup_raid_if_in_use(raid_partitions, fstab, disk_utils)
+#
+#        assert False == value
+#
+#    def testRaidDeviceCreateIndexRaidShortList (self):
+#        raid_partitions = ['/dev/idxa2']
+#        uuid = self.raid.create_index_raid (raid_partitions)
+#        assert uuid is None
+#
+#    @mock.patch ('disk_format.os.path')
+#    def testRaidDeviceCreateIndexRaidNoDevAvailable (self, mock_os_path):
+#        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
+#
+#        mock_os_path.exists.return_value = True
+#
+#        with self.assertRaises (SystemExit) as cm:
+#            self.raid.create_index_raid (raid_partitions)
+#        self.assertEqual (cm.exception.code, 8)
+#
+#
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    @mock.patch ('disk_format.RaidDevice.call_subproc')
+#    @mock.patch ('disk_format.os.path')
+#    def testRaidDeviceCreateIndexRaidWorks (self, mock_os_path, mock_subproc, mock_uuid):
+#        raid_partitions = ['/dev/idxa2', '/dev/idxb2']
+#        raid_device = '/dev/md0'
+#
+#        mock_os_path.exists.return_value = False
+#
+#        subproc_mock = mock.Mock()
+#        attrs = {'returncode': 0}
+#        subproc_mock.configure (**attrs)
+#        mock_subproc.return_value = subproc_mock.return_value
+#
+#        uuid_mock = mock.Mock (return_value = 'biznoolar')
+#        mock_uuid.return_value = uuid_mock.return_value
+#
+#        uuid = self.raid.create_index_raid (raid_partitions)
+#
+#        mock_args_md_create = disk_format.RaidDevice.MDADM_CREATE_1 + raid_device.split() + disk_format.RaidDevice.MDADM_CREATE_2 + raid_partitions
+#        mock_args_format = disk_format.Disk.MKFS_PART_1 + raid_device.split() + disk_format.Disk.MKFS_PART_2
+#
+#        expected = [mock.call (mock_args_md_create), mock.call (mock_args_format)]
+#
+#        assert mock_subproc.call_args_list == expected
+#        assert 2 == mock_subproc.call_count
 
 
 
@@ -608,7 +609,7 @@ class testDiskManager (unittest.TestCase):
         self.manager.calculate_capacities()
 
         assert 142 == self.manager.dm_index_MB
-        assert 2668 == self.manager.sm_index_MB
+#        assert 2668 == self.manager.sm_index_MB
 
     def testDiskManagerCalcCapacitiesNormalCapacity (self):
         self.manager.disk_config_file = 'test_data/disk_config.normal'
@@ -616,7 +617,7 @@ class testDiskManager (unittest.TestCase):
         self.manager.calculate_capacities()
 
         assert 5216 == self.manager.dm_index_MB
-        assert 98278 == self.manager.sm_index_MB
+#        assert 98278 == self.manager.sm_index_MB
 
     def testDiskManagerBuildPartLists (self):
         self.manager.disk_config_file = 'test_data/disk_config.normal'
@@ -625,7 +626,7 @@ class testDiskManager (unittest.TestCase):
         self.manager.build_partition_lists()
 
         assert ['/dev/sdzx2'] == self.manager.dm_index_partition_list
-        assert ['/dev/sdzw2', '/dev/sdzv2'] == self.manager.sm_index_partition_list
+#        assert ['/dev/sdzw2', '/dev/sdzv2'] == self.manager.sm_index_partition_list
         assert ['/dev/sdzx3', '/dev/sdzw3', '/dev/sdzv3', '/dev/sdzu2'] == self.manager.data_partition_list
         assert ['/dev/sdzx3', '/dev/sdzw3', '/dev/sdzv3', '/dev/sdzu2', '/dev/sdzx2'] == self.manager.umount_list
 
@@ -651,60 +652,62 @@ class testDiskManager (unittest.TestCase):
         assert 4 == mock_format.call_count
 
 
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    @mock.patch ('disk_format.RaidDevice.create_index_raid')
-    def testDiskManagerAddSmMountPointWithRaid (self, mock_create_index, mock_uuid):
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    @mock.patch ('disk_format.RaidDevice.create_index_raid')
+#    def testDiskManagerAddSmMountPointWithRaid (self, mock_create_index, mock_uuid):
+#
+#        process_mock = mock.Mock ()
+#        attrs = {'returncode': 0}
+#        process_mock.configure (**attrs)
+#
+#        uuid_mock = mock.Mock (return_value = 'bazzoofar')
+#        mock_uuid.return_value = uuid_mock.return_value
+#
+#        self.manager.disk_config_file = 'test_data/disk_config.normal'
+#        self.manager.load_disk_config_file()
+#
+#        self.manager.build_partition_lists()
+#
+##        self.manager.raid_manager = disk_format.RaidDevice()
+#        self.manager.fstab = disk_format.extendedFstab()
+#        self.manager.fstab.read ('test_data/ExtendedFstabTest.unit')
+#
+#        self.manager.add_sm_mount_point()
+#
+#        self.assertTrue (self.manager.fstab.altered)
+#
+#
+##    @mock.patch ('disk_format.RaidDevice.get_uuid')
+##    def testDiskManagerAddSmMountPointWithOutRaid (self, mock_uuid):
+#    def testDiskManagerAddSmMountPointWithOutRaid (self):
+#
+#        process_mock = mock.Mock ()
+#        attrs = {'returncode': 0}
+#        process_mock.configure (**attrs)
+#
+##        uuid_mock = mock.Mock (return_value = 'bazzoofar')
+##        mock_uuid.return_value = uuid_mock.return_value
+#
+#        self.manager.disk_config_file = 'test_data/disk_config'
+#        self.manager.load_disk_config_file()
+#
+#        self.manager.build_partition_lists()
+#
+##        self.manager.raid_manager = disk_format.RaidDevice()
+#        self.manager.fstab = disk_format.extendedFstab()
+#        self.manager.fstab.read ('test_data/ExtendedFstabTest.unit')
+#
+#        self.manager.add_sm_mount_point()
+#
+#        self.assertTrue (self.manager.fstab.altered)
 
-        process_mock = mock.Mock ()
-        attrs = {'returncode': 0}
-        process_mock.configure (**attrs)
 
-        uuid_mock = mock.Mock (return_value = 'bazzoofar')
-        mock_uuid.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerAddDmMountPoint (self, mock_uuid):
+    def testDiskManagerAddDmMountPoint (self):
 
-        self.manager.disk_config_file = 'test_data/disk_config.normal'
-        self.manager.load_disk_config_file()
-
-        self.manager.build_partition_lists()
-
-        self.manager.raid_manager = disk_format.RaidDevice()
-        self.manager.fstab = disk_format.extendedFstab()
-        self.manager.fstab.read ('test_data/ExtendedFstabTest.unit')
-
-        self.manager.add_sm_mount_point()
-
-        self.assertTrue (self.manager.fstab.altered)
-
-
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerAddSmMountPointWithOutRaid (self, mock_uuid):
-
-        process_mock = mock.Mock ()
-        attrs = {'returncode': 0}
-        process_mock.configure (**attrs)
-
-        uuid_mock = mock.Mock (return_value = 'bazzoofar')
-        mock_uuid.return_value = uuid_mock.return_value
-
-        self.manager.disk_config_file = 'test_data/disk_config'
-        self.manager.load_disk_config_file()
-
-        self.manager.build_partition_lists()
-
-        self.manager.raid_manager = disk_format.RaidDevice()
-        self.manager.fstab = disk_format.extendedFstab()
-        self.manager.fstab.read ('test_data/ExtendedFstabTest.unit')
-
-        self.manager.add_sm_mount_point()
-
-        self.assertTrue (self.manager.fstab.altered)
-
-
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerAddDmMountPoint (self, mock_uuid):
-
-        uuid_mock = mock.Mock (return_value = 'bazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#        uuid_mock = mock.Mock (return_value = 'bazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
 
         self.manager.disk_config_file = 'test_data/disk_config'
         self.manager.load_disk_config_file()
@@ -719,11 +722,12 @@ class testDiskManager (unittest.TestCase):
         self.assertTrue (self.manager.fstab.altered)
 
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerAddDataMountPoints (self, mock_uuid, mock_os):
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerAddDataMountPoints (self, mock_uuid, mock_os):
+    def testDiskManagerAddDataMountPoints (self, mock_os):
 
         uuid_mock = mock.Mock (return_value = 'bazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#        mock_uuid.return_value = uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 
@@ -740,10 +744,11 @@ class testDiskManager (unittest.TestCase):
         self.assertTrue (self.manager.fstab.altered)
 
 
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessReport (self, mock_uuid):
-        uuid_mock = mock.Mock (return_value = 'bazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessReport (self, mock_uuid):
+    def testDiskManagerProcessReport (self):
+#        uuid_mock = mock.Mock (return_value = 'bazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
 
         with self.assertRaises (SystemExit) as cm:
             self.manager.process()
@@ -753,11 +758,14 @@ class testDiskManager (unittest.TestCase):
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessFormatExisting (self, mock_uuid, mock_uuid_diskutils, mock_os, mock_popen):
-        uuid_mock = mock.Mock (return_value = 'cazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
-        mock_uuid_diskutils.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessFormatExisting (self, mock_uuid, mock_uuid_diskutils, mock_os, mock_popen):
+    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen):
+#        mock_uuid.return_value = uuid_mock.return_value
+
+#        uuid_mock = mock.Mock (return_value = 'cazzoomar')
+        self.uuid_mock = mock.Mock (return_value = 'cazzoomar')
+        mock_uuid_diskutils.return_value = self.uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 
@@ -774,10 +782,11 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessDiskFilter (self, mock_uuid, mock_os):
-        uuid_mock = mock.Mock (return_value = 'dazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessDiskFilter (self, mock_uuid, mock_os):
+    def testDiskManagerProcessDiskFilter (self, mock_os):
+#        uuid_mock = mock.Mock (return_value = 'dazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 
@@ -787,10 +796,11 @@ class testDiskManager (unittest.TestCase):
 
 
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessFDSPath (self, mock_uuid, mock_os):
-        uuid_mock = mock.Mock (return_value = 'fazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessFDSPath (self, mock_uuid, mock_os):
+    def testDiskManagerProcessFDSPath (self, mock_os):
+#        uuid_mock = mock.Mock (return_value = 'fazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 
@@ -799,10 +809,11 @@ class testDiskManager (unittest.TestCase):
         assert '/foo/' + self.manager.options.disk_config_file == self.manager.disk_config_file
 
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessDiskRootMap (self, mock_uuid, mock_os):
-        uuid_mock = mock.Mock (return_value = 'dazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessDiskRootMap (self, mock_uuid, mock_os):
+    def testDiskManagerProcessDiskRootMap (self, mock_os):
+#        uuid_mock = mock.Mock (return_value = 'dazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 
@@ -812,10 +823,11 @@ class testDiskManager (unittest.TestCase):
 
 
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessDiskMap (self, mock_uuid, mock_os):
-        uuid_mock = mock.Mock (return_value = 'dazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessDiskMap (self, mock_uuid, mock_os):
+    def testDiskManagerProcessDiskMap (self, mock_os):
+#        uuid_mock = mock.Mock (return_value = 'dazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 
@@ -830,11 +842,13 @@ class testDiskManager (unittest.TestCase):
     @mock.patch ('disk_format.os')
     @mock.patch ('disk_format.DiskManager.partition_and_format_disks')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
-    @mock.patch ('disk_format.RaidDevice.get_uuid')
-    def testDiskManagerProcessFormatReset (self, mock_uuid, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
-        uuid_mock = mock.Mock (return_value = 'cazzoomar')
-        mock_uuid.return_value = uuid_mock.return_value
-        mock_uuid_diskutils.return_value = uuid_mock.return_value
+#    @mock.patch ('disk_format.RaidDevice.get_uuid')
+#    def testDiskManagerProcessFormatReset (self, mock_uuid, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
+    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
+#        uuid_mock = mock.Mock (return_value = 'cazzoomar')
+#        mock_uuid.return_value = uuid_mock.return_value
+        self.uuid_mock = mock.Mock (return_value = 'cazzoomar')
+        mock_uuid_diskutils.return_value = self.uuid_mock.return_value
 
         mock_os.getuid.return_value = 0
 

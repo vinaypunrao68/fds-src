@@ -2,6 +2,7 @@ package com.formationds.smoketest;
 
 import com.formationds.apis.*;
 import com.formationds.commons.Fds;
+import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -20,15 +21,11 @@ import org.junit.Test;
 
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 
 @Ignore
@@ -68,7 +65,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(84, (long) blobDescriptor.getByteCount());
     }
 
-    @Test
+    @Test //done 7
     public void testVolumeContents() throws Exception {
         List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(0, contents.size());
@@ -79,7 +76,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, contents.size());
     }
 
-    @Test
+    @Test //done 3
     public void testDeleteBlob() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -102,7 +99,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(0, volumeStatus.blobCount);
     }
 
-    @Test
+    @Test //done 9
     public void testUpdateMetadata() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -114,9 +111,10 @@ public class AsyncAmTest extends BaseAmTest {
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
         assertEquals("panda", blobDescriptor.getMetadata().get("hello"));
+        assertEquals(1, blobDescriptor.getMetadataSize());
     }
 
-    @Test
+    @Test //done 1
     public void testTransactions() throws Exception {
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
                 .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, tx, bigObject, OBJECT_SIZE, new ObjectOffset(0), false).thenApply(x -> tx))
@@ -127,27 +125,46 @@ public class AsyncAmTest extends BaseAmTest {
                 .get();
     }
 
-    @Test
+    @Test //done 5
     public void testTransactionalMetadataUpdate() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        assertEquals("world",bd1.getMetadata().get("hello"));
+
         metadata.put("animal", "panda");
         asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
         asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
-        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
-        assertEquals("panda", blobDescriptor.getMetadata().get("animal"));
-        assertEquals(smallObjectLength, blobDescriptor.getByteCount());
+        BlobDescriptor  bd2= asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals(2, bd2.getMetadataSize());
+        assertEquals("panda", bd2.getMetadata().get("animal"));
+        assertEquals(smallObjectLength, bd2.getByteCount());
     }
 
-    @Test
+    @Test //done 2
     public void testMultipleAsyncUpdates() throws Exception {
         String blobName = UUID.randomUUID().toString();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), Maps.newHashMap()).get();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(1), Maps.newHashMap()).get();
         BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
         assertEquals(OBJECT_SIZE + smallObjectLength, blobDescriptor.getByteCount());
+
+        byte[] result = new byte[OBJECT_SIZE];
+        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN,volumeName,blobName,OBJECT_SIZE,new ObjectOffset(0)).get();
+        byteBuffer.get(result);
+        byte[] bigObjectByteArray = new byte[OBJECT_SIZE];
+        bigObject.get(bigObjectByteArray);
+        assertArrayEquals(result, bigObjectByteArray);
+
+        byte[] result1 = new byte[smallObjectLength];
+        ByteBuffer bb1 = asyncAm.getBlob(FdsFileSystem.DOMAIN,volumeName,blobName,smallObjectLength,new ObjectOffset(1)).get();
+        bb1.get(result1);
+        byte[] smallObjectByteArray = new byte[smallObjectLength];
+        smallObject.get(smallObjectByteArray);
+        assertArrayEquals(smallObjectByteArray,result1);
+
     }
 
     @Test
@@ -157,10 +174,41 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(smallObjectLength, blobDescriptor.getByteCount());
     }
 
-    @Test
+    @Test //done 6
     public void testAsyncGetNonExistentBlob() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.statBlob(domainName, volumeName, blobName).get());
+    }
+    @Test //done 4
+    public void testStatAndUpdateBlobData() throws ExecutionException, InterruptedException {
+        String blobName = "key";
+        byte[] buf = new byte[10];
+        new Random().nextBytes(buf);
+
+        asyncAm.updateBlobOnce(FdsFileSystem.DOMAIN, volumeName, blobName, 1, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0), new HashMap<>()).get();
+        ByteBuffer bb = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0)).get();
+        byte[] result = new byte[buf.length];
+        bb.get(result);
+        assertArrayEquals(buf, result);
+        assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
+
+        buf = new byte[42];
+        new Random().nextBytes(buf);
+        TxDescriptor tx = asyncAm.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1).get();
+        asyncAm.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0),false).get();
+        asyncAm.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx).get();
+
+        bb = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0)).get();
+        result = new byte[buf.length];
+        bb.get(result);
+        assertArrayEquals(buf, result);
+        assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
+    }
+
+    @Test //done 8
+    public void testVolumeContentsOnMissingVolume() throws Exception {
+        assertFdsError(ErrorCode.MISSING_RESOURCE,
+                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,"nonExistingVolume",Integer.MAX_VALUE,0,"",BlobListOrder.LEXICOGRAPHIC,false).get());
     }
 
     private static ConfigurationService.Iface configService;

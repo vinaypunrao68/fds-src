@@ -712,7 +712,7 @@ struct DmIoReloadVolume : dmCatReq {
 struct DmIoMigration : dmCatReq {
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationRspMsg> response;
-    explicit DmIoMigration(boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
+    explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
               response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
               dmCatReq(0, "", "", 0, FDS_DM_MIGRATION) {

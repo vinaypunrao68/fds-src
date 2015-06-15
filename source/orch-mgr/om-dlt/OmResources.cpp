@@ -2155,7 +2155,7 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
 // Called when OM received push meta response from DM service
 //
 Error
-OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid,
+OM_NodeDomainMod::om_recv_pull_meta_resp(const NodeUuid& uuid,
                                          const Error& respError) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();

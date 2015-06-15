@@ -36,6 +36,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
+            return
         
         rj = response.json()
         return rj
@@ -45,6 +46,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
+            return
         
         rj = response.json()
         return rj    
@@ -55,6 +57,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
+            return
         
         rj = response.json()
         return rj
@@ -65,6 +68,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
+            return
         
         rj = response.json()
         return rj

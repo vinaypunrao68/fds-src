@@ -19,7 +19,7 @@ class SettingsConverter(object):
         
         if ( settings.type is "BLOCK" ):
             
-            j_settings["capacity"] = json.loads(SizeConverter.to_json(settings.size))
+            j_settings["capacity"] = json.loads(SizeConverter.to_json(settings.capacity))
             
             if settings.block_size is not None:
                 j_settings["blockSize"] = json.loads(SizeConverter.to_json(settings.block_size))
@@ -38,11 +38,13 @@ class SettingsConverter(object):
         
         settings = None
         
-        if j_str.pop("type") is "BLOCK":
+        volume_type = j_str.pop( "type" )
+        
+        if volume_type == "BLOCK":
             
             settings = BlockSettings()
             
-            if "blockSize" in settings:
+            if "blockSize" in j_str:
                 settings.block_size = SizeConverter.build_size_from_json( j_str.pop("blockSize", settings.block_size) )
                 
             settings.capacity = SizeConverter.build_size_from_json( j_str.pop("capacity", settings.capacity) )

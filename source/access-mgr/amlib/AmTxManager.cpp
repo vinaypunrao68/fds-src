@@ -98,7 +98,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
                                     const std::string &blobName,
                                     fds_uint64_t blobOffset,
                                     const ObjectID &objectId) {
-    SCOPEDWRITE(txMapLock);
+    SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
         return ERR_NOT_FOUND;
@@ -122,7 +122,7 @@ Error
 AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
                                     const ObjectID &objectId,
                                     boost::shared_ptr<std::string> objectData) {
-    SCOPEDWRITE(txMapLock);
+    SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
         return ERR_NOT_FOUND;
@@ -145,7 +145,7 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
 Error
 AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
                                   fpi::FDSP_MetaDataList const& metaDataList) {
-    SCOPEDWRITE(txMapLock);
+    SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
         return ERR_NOT_FOUND;
@@ -171,15 +171,18 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
 
     // A duplicate is ok, renewal's of a token cause this
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
-    if (ERR_VOL_DUPLICATE == err) {
-        err = ERR_OK;
+    switch (err.GetErrno()) {
+        case ERR_OK:
+            LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
+            break;;
+        case ERR_VOL_DUPLICATE:
+            err = ERR_OK;
+            break;;
+        default:
+            LOGERROR << "Failed to register volume: " << err;
+            break;;
     }
 
-    if (!err.ok()) {
-        LOGERROR << "Failed to register volume: " << err;
-    } else {
-        LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-    }
     return err;
 }
 

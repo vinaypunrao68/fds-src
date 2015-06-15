@@ -18,6 +18,9 @@ class TenantService( AbstractService):
         url = "{}{}".format( self.get_url_preamble(), "/tenants")
         response = self.rest_helper.get( self.session, url )
         
+        if response is None:
+            return
+        
         tenants = []
         
         for j_tenant in response:
@@ -34,6 +37,9 @@ class TenantService( AbstractService):
         url = "{}{}{}".format( self.get_url_preamble(), "/users/tenant/", tenant_id )
         response = self.rest_helper.get( self.session, url )
         
+        if response is not None:
+            return
+        
         users = []
         
         for j_user in response:
@@ -49,7 +55,13 @@ class TenantService( AbstractService):
         
         url = "{}{}".format( self.get_url_preamble(), "/tenants" )
         data = TenantConverter.to_json(tenant)
-        return self.rest_helper.post( self.session, url, data )
+        j_tenant = self.rest_helper.post( self.session, url, data )
+        
+        if j_tenant is None:
+            return
+        
+        j_tenant = TenantConverter.build_tenant_from_json(j_tenant)
+        return j_tenant
     
     def assign_user_to_tenant(self, tenant_id, user_id):
         '''

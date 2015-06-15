@@ -28,6 +28,8 @@ struct PutBlobReq
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
     fds_int32_t blob_mode;
+    /** Maintains order of blob updates */
+    fds_uint64_t vol_sequence {0};
 
     /* ack cnt for responses, decremented when response from SM and DM come back */
     std::atomic<int> resp_acks;
@@ -61,7 +63,7 @@ struct PutBlobReq
                boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                CallbackPtr _cb);
 
-    void setTxId(const BlobTxId &txId) {
+    void setTxId(fds_uint64_t const txId) {
         // We only expect to need to set this in putBlobOnce cases
         fds_verify(tx_desc == NULL);
         tx_desc = BlobTxId::ptr(new BlobTxId(txId));
