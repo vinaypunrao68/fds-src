@@ -6,7 +6,18 @@
 
 [bld-soak-clus:vars]
 cluster_location=bld
+<<<<<<< Updated upstream
 deploy_artifact=nightly
+=======
+<<<<<<< Updated upstream
+clean_fds=yes
+force=false
+deploy_artifact=beta
+=======
+deploy_artifact=nightly
+>>>>>>> Stashed changes
+fds_build=release
+>>>>>>> Stashed changes
 fds_default_nic=em1
 fds_om_host=10.2.10.40
 fds_metrics_enables=false

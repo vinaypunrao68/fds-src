@@ -206,12 +206,7 @@ class nbdlib:
         ret_dev = None
 
         with self.__lock(use_lock):
-            devs = list(self.__device_paths())
-            if len(devs) == 0:
-                if not self.__insmod_nbd():
-                    raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
-
-                devs = list(self.__device_paths())
+            devs = self.get_device_paths()
 
             for conn in self.__nbd_connections():
                 (p, c_dev, c_host, c_port, volume) = conn
@@ -236,6 +231,13 @@ class nbdlib:
                             continue
 
         return ret_dev
+
+    def get_device_paths(self):
+        devs = list(self.__device_paths())
+        if len(devs) == 0:
+            if not self.__insmod_nbd():
+                raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
+            devs = list(self.__device_paths())
 
     def list_conn(self):
         return [(dev, host, port, vol) for (proc, dev, host, port, vol) in self.__nbd_connections()]
