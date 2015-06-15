@@ -216,9 +216,12 @@ FdsProcess::~FdsProcess()
     /* Terminate signal handling thread */
     if (sig_tid_) {
         int rc = pthread_kill(*sig_tid_, SIGTERM);
-        fds_assert(rc == 0);
-        rc = pthread_join(*sig_tid_, NULL);
-        fds_assert(rc == 0);
+        if (0 != rc) {
+            LOGERROR << "thread kill returned error:" << rc;
+        } else {
+            rc = pthread_join(*sig_tid_, NULL);
+            if ( 0 != rc) LOGERROR << "thread join returned error : " << rc;
+        }
     }
 
     if (proc_thrp) delete proc_thrp;

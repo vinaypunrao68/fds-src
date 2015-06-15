@@ -80,12 +80,17 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 
     void setConfigDB(kvstore::ConfigDB* configDB);
     
+    void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    		boost::shared_ptr<fpi::NotifyHealthReport> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
   private:
     void init_svc_event_handlers();
+    void heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
+    		boost::shared_ptr<fpi::NotifyHealthReport> &msg);
     
     kvstore::ConfigDB* configDB = NULL;
     

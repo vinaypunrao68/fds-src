@@ -96,8 +96,14 @@ class FdsAuth():
             payload = { "login" : self.get_username(), "password" : self.get_password() }
             
             #get rid of the password immediately after its used
-            self.__password = ""
-            response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + '/api/auth/token', params=payload )
+            self.__password = None
+            response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + "/fds/config/v08/token", params=payload )
+            
+            if "message" in response:
+                print "Login failed.\n"
+                print response.pop("message")
+                return
+            
             response = response.json()
             
             if ( "userId" in response ):

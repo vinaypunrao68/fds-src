@@ -16,6 +16,7 @@ import time
 import string
 import sys
 
+
 from fds.services.node_service import NodeService
 from fds.services.fds_auth import FdsAuth
 from fds.services.users_service import UsersService
@@ -67,12 +68,18 @@ class DMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.start_service(node.id, node.services['DM'][0].id)
+		time.sleep(7)
+
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['DM'][0].status ==  'ACTIVE':
-			         log.info('DM service has started on node {}'.format(node.ip_v4_address))
+			         log.info('PASS - DM service has started on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('DM service has NOT started on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - DM service has NOT started on node {}'.format(node.ip_v4_address))
 			         return False 
 
 
@@ -97,13 +104,18 @@ class DMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.stop_service(node.id, node.services['DM'][0].id)
+		time.sleep(7)
 
-                if node.services['DM'][0].status !=  'ACTIVE':
-			         log.info('DM service is no longer running on node {}'.format(node.ip_v4_address))
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
+                if node.services['DM'][0].status ==  'INACTIVE':
+			         log.info('PASS - DM service is no longer running on node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('DM service is STILL running on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - DM service is STILL running on node {}'.format(node.ip_v4_address))
 			         return False
 
 
@@ -124,15 +136,17 @@ class DMService(object):
         log.info('Killing DataMgr service')
         env.host_string = node_ip
         sudo('pkill -9 DataMgr')
-
-        for node in self.node_list:
+	time.sleep(7)
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
             if node.ip_v4_address == node_ip:
-                if node.services['DM'][0].status !=  'ACTIVE':
-		        log.warn('Failed to kill DataMgr service on node {}'.format(node.ip_v4_address))
+                if node.services['DM'][0].status ==  'ACTIVE':
+		        log.warn('FAIL -  Failed to kill DataMgr service on node {}'.format(node.ip_v4_address))
 		        return False 
 
 		else:
-			log.info('killed DataMgr service on node {}'.format(node.ip_v4_address))
+			log.info('PASS - killed DataMgr service on node {}'.format(node.ip_v4_address))
 		        return True
 
     def add(self, node_ip):
@@ -160,13 +174,18 @@ class DMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.add_service(node.id, newNodeService)
+		time.sleep(7)
 
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['DM'][0].status ==  'ACTIVE':
-			         log.info('Added DM service to node {}'.format(node.ip_v4_address))
+			         log.info('PASS - Added DM service to node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to add DM service to node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - Failed to add DM service to node {}'.format(node.ip_v4_address))
 			         return False 
 
     def remove(self, node_ip):
@@ -190,11 +209,17 @@ class DMService(object):
         for node in self.node_list:
             if node.ip_v4_address == node_ip:
                 self.nservice.remove_service(node.id, node.services['DM'][0].id)
+		time.sleep(7)
+
+        #check updated node state
+        node_list = self.nservice.list_nodes()
+        for node in node_list:
+            if node.ip_v4_address == node_ip:
                 if node.services['DM'][0].status ==  'INACTIVE':
-			         log.info('Removed DM service from node {}'.format(node.ip_v4_address))
+			         log.info('PASS - Removed DM service from node {}'.format(node.ip_v4_address))
 			         return True
 
                 else:
-			         log.warn('Failed to remove DM service from node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - Failed to remove DM service from node {}'.format(node.ip_v4_address))
 			         return False 
 

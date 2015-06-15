@@ -1,16 +1,18 @@
 from fds.services import volume_service
 from fds.services import response_writer
-from fds.model.volume import Volume
-from fds.model.snapshot import Snapshot
-from fds.utils.volume_converter import VolumeConverter
-
+from fds.model.volume.volume import Volume
+from fds.model.volume.snapshot import Snapshot
+from fds.utils.converters.volume.volume_converter import VolumeConverter
 from abstract_plugin import AbstractPlugin
 import json
 import time
 from fds.utils.volume_validator import VolumeValidator
-from fds.utils.snapshot_converter import SnapshotConverter
+from fds.utils.converters.volume.snapshot_converter import SnapshotConverter
 from fds.services.snapshot_policy_service import SnapshotPolicyService
-from fds.utils.snapshot_policy_converter import SnapshotPolicyConverter
+from fds.utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from fds.model.volume.settings.block_settings import BlockSettings
+from fds.model.common.size import Size
+from fds.model.volume.settings.object_settings import ObjectSettings
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -71,10 +73,10 @@ class VolumePlugin( AbstractPlugin):
         __listParser = subparser.add_parser( "list", help="List all the volumes in the system" )
         __listParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         
-        indGroup = __listParser.add_argument_group( "Individual volume queries", "Indicate how to identify the volume that you are looking for." )
-        __listParserGroup = indGroup.add_mutually_exclusive_group()
-        __listParserGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="Specify a particular volume to list by UUID" )
-        __listParserGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="Specify a particular volume to list by name" )
+#         indGroup = __listParser.add_argument_group( "Individual volume queries", "Indicate how to identify the volume that you are looking for." )
+#         __listParserGroup = indGroup.add_mutually_exclusive_group()
+        __listParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="Specify a particular volume to list by UUID", default=None )
+#         __listParserGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="Specify a particular volume to list by name" )
         __listParser.set_defaults( func=self.list_volumes, format="tabular" )
         
 
@@ -99,15 +101,17 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.data_str, help="JSON string representing the volume parameters desired for the new volume.  This argument will take precedence over all individual arguments.", default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.name_str, help="The name of the volume", default=None )
         __createParser.add_argument( self.arg_str + AbstractPlugin.qos_preset_str, help="The ID of the quality of service preset you would like applied.  Take precedence over individually set items.", default=None)
-        __createParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the timeline preset you would like applied.  This will cause snapshot policies to be created and attached to this volume.", default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the data protection preset you would like applied.  This will cause snapshot policies to be created and attached to this volume.", default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.", type=VolumeValidator.iops_limit, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.  Default value is 7.", type=VolumeValidator.priority, default=7, metavar="")
         __createParser.add_argument( self.arg_str + AbstractPlugin.type_str, help="The type of volume connector to use for this volume.", choices=["object", "block"], default="object")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID_ONLY", "SSD_ONLY", "HDD_ONLY"], default="HDD_ONLY")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID", "SSD", "HDD"], default="HDD")
         __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_str, help="The block size you would like to use for block type volumes.", type=int, default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_unit_str, help="The units that you wish the block size to be in.  The default is KB.", choices=["KB","MB"], default="KB")
         
         __createParser.set_defaults( func=self.create_volume, format="tabular" )
 
@@ -119,8 +123,7 @@ class VolumePlugin( AbstractPlugin):
         __editParser = subparser.add_parser( "edit", help="Edit the quality of service settings on your volume")
         __editParser.add_argument( self.arg_str + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         __editGroup = __editParser.add_mutually_exclusive_group( required=True )
-        __editGroup.add_argument( self.arg_str + AbstractPlugin.data_str, help="A JSON string representing the volume quality of service parameters.  This argument will take precedence over all individual arguments.", default=None)
-        __editGroup.add_argument( self.arg_str + AbstractPlugin.volume_name_str, help="The name of the volume you would like to edit.", default=None)
+        __editGroup.add_argument( self.arg_str + AbstractPlugin.data_str, help="A JSON string representing the volume and parameters to change.  This argument will take precedence over all individual arguments.", default=None)
         __editGroup.add_argument( self.arg_str + AbstractPlugin.volume_id_str, help="The UUID of the volume you would like to edit.", default=None)
         __editParser.add_argument( self.arg_str + AbstractPlugin.qos_preset_str, help="The ID of the quality of service preset you would like applied.  Take precedence over individually set items.", default=None)
         __editParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the timeline preset you would like applied.  This will cause snapshot policies to be created and attached to this volume.", default=None)
@@ -140,18 +143,19 @@ class VolumePlugin( AbstractPlugin):
         __cloneParser = subparser.add_parser( "clone", help="Create a clone of a volume from the current volume or a snapshot from the past.")
         __cloneParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         __cloneParser.add_argument( "-" + AbstractPlugin.name_str, help="The name of the resulting new volume.", required=True )
-        __idGroup = __cloneParser.add_mutually_exclusive_group( required=True )
-        __idGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="The name of the volume from which the clone will be made.")
-        __idGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume from which the clone will be made.")
-        __idGroup.add_argument( "-" + AbstractPlugin.snapshot_id_str, help="The UUID of the snapshot you would like to create the clone from.")
+        __cloneParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume from which the clone will be made.", required=True)
+        
+        __fromGroup = __cloneParser.add_mutually_exclusive_group( required=False )
+        __fromGroup.add_argument( "-" + AbstractPlugin.time_str, help="The time (in seconds from the epoch) that you wish the clone to be made from.  The system will select the snapshot of the volume chosen which is nearest to this value.  If not specified, the default is to use the current time.", default=None, type=int)
+        __fromGroup.add_argument( "-" + AbstractPlugin.snapshot_id_str, help="The UUID of the snapshot you would like to create the clone from.")
+        
         __cloneParser.add_argument( self.arg_str + AbstractPlugin.qos_preset_str, help="The ID of the quality of service preset you would like to use.  This will take precedence over any other QoS settings.", default=None)
-        __cloneParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the timeline preset that you would like to be applied.  This will create and attach snapshot policies to the created volume.", default=None)
-        __cloneParser.add_argument( "-" + AbstractPlugin.time_str, help="The time (in seconds from the epoch) that you wish the clone to be made from.  The system will select the snapshot of the volume chosen which is nearest to this value.  If not specified, the default is to use the current time.", default=None, type=int)
-        __cloneParser.add_argument( "-" + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  If not specified, the default will be the same as the parent volume.  0 = unlimited.", type=VolumeValidator.iops_limit, default=None, metavar="" )
-        __cloneParser.add_argument( "-" + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  If not specified, the default will be the same as the parent volume.  0 = no guarantee.", type=VolumeValidator.iops_guarantee, default=None, metavar="" )
+        __cloneParser.add_argument( self.arg_str + AbstractPlugin.timeline_preset_str, help="The ID of the data protection preset that you would like to be applied.  This will create and attach snapshot policies to the created volume.", default=None)
+        __cloneParser.add_argument( "-" + AbstractPlugin.iops_limit_str, help="The IOPs maximum for the volume.  If not specified, the default will be the same as the parent volume.  0 = unlimited.", type=VolumeValidator.iops_limit, default=None, metavar="" )
+        __cloneParser.add_argument( "-" + AbstractPlugin.iops_guarantee_str, help="The IOPs minimum for this volume.  If not specified, the default will be the same as the parent volume.  0 = no guarantee.", type=VolumeValidator.iops_guarantee, default=None, metavar="" )
         __cloneParser.add_argument( "-" + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  If not specified, the default will be the same as the parent volume.  1 = highest priority, 10 = lowest.", type=VolumeValidator.priority, default=None, metavar="")
         __cloneParser.add_argument( "-" + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  If not specified, the default will be the same as the parent volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=None, metavar="" )
-        __cloneParser.add_argument( "-" + AbstractPlugin.data_str, help="A JSON string containing the IOPs guarantee, IOPs limit, priority and continuous protection settings.", default=None )
+        __cloneParser.add_argument( "-" + AbstractPlugin.data_str, help="A JSON string containing the IOPs minimum, IOPs maximum, priority and continuous protection settings.", default=None )
 
         __cloneParser.set_defaults( func=self.clone_volume, format="tabular" )
 
@@ -175,12 +179,10 @@ class VolumePlugin( AbstractPlugin):
         __snapshotParser = subparser.add_parser( "create_snapshot", help="Create a snapshot from a specific volume.")
         __snapshotParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
         __snapshotParser.add_argument( "-" + AbstractPlugin.name_str, help="The name to give this snapshot.", required=True)
-        __snapshotGroup = __snapshotParser.add_mutually_exclusive_group( required=True )
-        __snapshotGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="The name of the volume that you'd like to take a snapshot of.")
-        __snapshotGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that you'd like to take a snapshot of.")
+        __snapshotParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that you'd like to take a snapshot of.", required=True)
         __snapshotParser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that this snapshot will be retained.  0 = forever.", default=0, type=int )
         
-        __snapshotGroup.set_defaults( func=self.create_snapshot, format="tabular" )
+        __snapshotParser.set_defaults( func=self.create_snapshot, format="tabular" )
         
     def create_list_snapshots_command(self, subparser):
         '''
@@ -189,11 +191,9 @@ class VolumePlugin( AbstractPlugin):
         
         __listSnapsParser = subparser.add_parser( "list_snapshots", help="List all of the snapshots that exist for a specific volume.")
         __listSnapsParser.add_argument( "-" + AbstractPlugin.format_str, help="Specify the format that the result is printed as", choices=["json","tabular"], required=False )
-        __listGroup = __listSnapsParser.add_mutually_exclusive_group( required=True )
-        __listGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume to list snapshots for.")
-        __listGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="The name of the volume to list snapshots for.")
+        __listSnapsParser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume to list snapshots for.", required=True)
         
-        __listGroup.set_defaults( func=self.list_snapshots, format="tabular")
+        __listSnapsParser.set_defaults( func=self.list_snapshots, format="tabular")
     
     #other class utilities
     def get_volume_service(self):
@@ -209,7 +209,13 @@ class VolumePlugin( AbstractPlugin):
         '''
         Retrieve a list of volumes in accordance with the passed in arguments
         '''
-        response = self.get_volume_service().list_volumes()
+        response = []
+        
+        if AbstractPlugin.volume_id_str in args and args[AbstractPlugin.volume_id_str] is not None:
+            response = self.get_volume_service().get_volume(args[AbstractPlugin.volume_id_str])
+            response = [response]
+        else:
+            response = self.get_volume_service().list_volumes()
         
         if len( response ) == 0:
             print "\nNo volumes found."
@@ -237,7 +243,7 @@ class VolumePlugin( AbstractPlugin):
         '''
         snapshot_policy_service = SnapshotPolicyService(self.session)
         
-        j_list = snapshot_policy_service.list_snapshot_policies_by_volume( args[AbstractPlugin.volume_id_str])
+        j_list = snapshot_policy_service.list_snapshot_policies( args[AbstractPlugin.volume_id_str])
         
         if ( args[AbstractPlugin.format_str] == "json" ):
             j_policies = []
@@ -271,8 +277,18 @@ class VolumePlugin( AbstractPlugin):
         else:
        
             volume.name = args[AbstractPlugin.name_str]
+            
             volume.type = args[AbstractPlugin.type_str]
             volume.media_policy = args[AbstractPlugin.media_policy_str]
+            
+            if ( volume.type.lower() == "block" ):
+                volume.settings = BlockSettings()
+                volume.settings.capacity = Size( size=args[AbstractPlugin.size_str], unit=args[AbstractPlugin.size_unit_str] )
+                
+                if args[AbstractPlugin.block_size_str] is not None:
+                    volume.settings.block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
+            else:
+                volume.settings = ObjectSettings()
             
             # deal with the QOS preset selection if there was one
             if args[AbstractPlugin.qos_preset_str] != None:
@@ -280,42 +296,29 @@ class VolumePlugin( AbstractPlugin):
                 
                 if len(qos_preset) >= 1:
                     qos_preset = qos_preset[0]
-                
-                    volume.iops_guarantee = qos_preset.iops_guarantee
-                    volume.iops_limit = qos_preset.iops_limit
-                    volume.priority = qos_preset.priority
+                    
+                    volume.qos_policy.preset_id = qos_preset.id
+                    volume.qos_policy.iops_max = qos_preset.iops_limit
+                    volume.qos_policy.iops_min = qos_preset.iops_guarantee
+                    volume.qos_policy.priority = qos_preset.priority
             else:                
-                volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
-                volume.iops_limit = args[AbstractPlugin.iops_limit_str]
-                volume.priority = args[AbstractPlugin.priority_str]
+                volume.qos_policy.iops_min = args[AbstractPlugin.iops_guarantee_str]
+                volume.qos_policy.iops_max = args[AbstractPlugin.iops_limit_str]
+                volume.qos_policy.priority = args[AbstractPlugin.priority_str]
                 
             # deal with the continuous protection arg in the timeline preset if specified
             t_preset = None
             if args[AbstractPlugin.timeline_preset_str] != None:
-                t_preset = self.get_volume_service().get_timeline_presets(preset_id=args[AbstractPlugin.timeline_preset_str])
+                t_preset = self.get_volume_service().get_data_protection_presets(preset_id=args[AbstractPlugin.timeline_preset_str])[0]
                 
-                if len(t_preset) >= 1:
-                    t_preset = t_preset[0]
-                    volume.continuous_protection = t_preset.continuous_protection
-            else:
-                volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]
-            
-            if ( volume.type == "block" ):
-                volume.current_size = args[AbstractPlugin.size_str]
-                volume.current_units = args[AbstractPlugin.size_unit_str]
+                volume.data_protection_policy = t_preset
+                volume.data_protection_policy.preset_id = t_preset.id
+#             else:
+#                 volume.data_protection_policy.commit_log_retention = duration
         
-        volume = self.get_volume_service().create_volume( volume )
+        response = self.get_volume_service().create_volume( volume )
         
-        #deal with the timeline preset now that we have the volume returned because we need the ID
-        if args[AbstractPlugin.timeline_preset_str] != None:
-            snap_service = SnapshotPolicyService(self.session)
-            
-            for policy in t_preset.policies:
-                policy.name = volume.id + "_TIMELINE_" + policy.recurrence_rule.frequency
-                policy = snap_service.create_snapshot_policy(policy)
-                snap_service.attach_snapshot_policy( policy.id, volume.id )
-        
-        if ( volume is not None ):
+        if isinstance(response, Volume):
             self.list_volumes(args)
             
         return
@@ -333,27 +336,24 @@ class VolumePlugin( AbstractPlugin):
             isFromData = True
             jsonData = json.loads( args[AbstractPlugin.data_str] )
             volume =  VolumeConverter.build_volume_from_json( jsonData )  
-        
-        if ( isFromData is False and args[AbstractPlugin.volume_name_str] is not None ):
-            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
-        elif ( isFromData is False and args[AbstractPlugin.volume_id_str] is not None ):
-            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
+        elif ( args[AbstractPlugin.volume_id_str] is not None ):
+            volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
                
         if ( volume.id is None ):
             print "Could not find a volume that matched your entry.\n"
             return       
            
         if ( args[AbstractPlugin.iops_guarantee_str] is not None and isFromData is False ):
-            volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
+            volume.qos_policy.iops_min = args[AbstractPlugin.iops_guarantee_str]
             
         if ( args[AbstractPlugin.iops_limit_str] is not None and isFromData is False):
-            volume.iops_limit = args[AbstractPlugin.iops_limit_str]
+            volume.qos_policy.iops_max = args[AbstractPlugin.iops_limit_str]
             
         if ( args[AbstractPlugin.priority_str] is not None and isFromData is False):
-            volume.priority = args[AbstractPlugin.priority_str]
+            volume.qos_policy.priority = args[AbstractPlugin.priority_str]
             
         if ( args[AbstractPlugin.continuous_protection_str] is not None and isFromData is False):
-            volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]      
+            volume.data_protection_policy.commit_log_retention = args[AbstractPlugin.continuous_protection_str]      
             
         #use the qos preset if it was provided
         if args[AbstractPlugin.qos_preset_str] != None:
@@ -361,44 +361,43 @@ class VolumePlugin( AbstractPlugin):
             
             if len(qos_preset) >= 1:
                 qos_preset = qos_preset[0]
-                volume.iops_guarantee = qos_preset.iops_guarantee
-                volume.iops_limit = qos_preset.iops_limit
-                volume.priority = qos_preset.priority
+                volume.qos_policy.preset_id = qos_preset.id
+                volume.qos_policy.iops_min = qos_preset.iops_guarantee
+                volume.qos_policy.iops_max = qos_preset.iops_limit
+                volume.qos_policy.priority = qos_preset.priority
             
         #if a timeline preset is provided we need to do the following
         # 1.  get a list of all attached policies
         # 2.  If the policy has the volume id_TIMELINE in the name we need to delete the policy
         # 3.  Create the policies like we do in the create method and attach them
         if args[AbstractPlugin.timeline_preset_str] != None:
-            t_preset = self.get_volume_service().get_timeline_presets(args[AbstractPlugin.timeline_preset_str])
+            t_preset = self.get_volume_service().get_data_protection_presets(args[AbstractPlugin.timeline_preset_str])
             
             if len( t_preset ) >= 1:
                 t_preset = t_preset[0]
                 
-                volume.continuous_protection = t_preset.continuous_protection
+                volume.data_protection_policy.commit_log_retention = t_preset.commit_log_retention
                 
                 #get attached policies
-                s_service = SnapshotPolicyService( self.session )
-                policies = s_service.list_snapshot_policies_by_volume( volume.id )
+                policies = volume.data_protection_policy.snapshot_policies
+                n_policies = []
                 
                 #clean up the current policy assignments
                 for policy in policies:
                     
-                    s_service.detach_snapshot_policy( policy.id, volume.id )
-                    
-                    if policy.name.startswith( volume.id + "_TIMELINE_" ):
-                        s_service.delete_snapshot_policy( policy.id )
+                    if not policy.type.startswith( volume.id + "SYSTEM_TIMELINE" ):
+                        n_policies.append( policy )
                         
-                #create the policies from the presets and attach them
-                for p_policy in t_preset.policies:
-                    p_policy.name = volume.id + "_TIMELINE_" + p_policy.recurrence_rule.frequency
-                    real_policy = s_service.create_snapshot_policy( p_policy )
-                    s_service.attach_snapshot_policy(real_policy.id, volume.id)
+                volume.data_protection_policy.snapshot_policies = t_preset.snapshot_policies
+                
+                for policy in n_policies:
+                    volume.data_protection_policy.snapshot_policies.append( policy ) 
                         
             
         response = self.get_volume_service().edit_volume( volume );
         
-        if ( response is not None ):
+        if isinstance(response, Volume):
+            args = [ args[AbstractPlugin.format_str]]
             self.list_volumes( args )                 
             
     def clone_volume(self, args):
@@ -411,23 +410,16 @@ class VolumePlugin( AbstractPlugin):
         if ( args[AbstractPlugin.time_str] is not None ):
             fromTime = args[AbstractPlugin.time_str]
         
-        volume = None
-        
-        if ( args[AbstractPlugin.volume_name_str] is not None):
-            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
-        elif ( args[AbstractPlugin.volume_id_str] is not None):
-            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
-        elif ( args[AbstractPlugin.snapshot_id_str] is not None):
-            volume = self.get_volume_service().find_volume_from_snapshot_id( args[AbstractPlugin.snapshot_id_str] )
+        volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
         
         if ( volume is None ):
             print "Could not find a volume associated with the input parameters."
             return
         
-        iops_guarantee = volume.iops_guarantee
-        iops_limit = volume.iops_limit
-        priority = volume.priority
-        continuous_protection = volume.continuous_protection
+        iops_guarantee = volume.qos_policy.iops_min
+        iops_limit = volume.qos_policy.iops_max
+        priority = volume.qos_policy.priority
+        continuous_protection = volume.data_protection_policy.commit_log_retention
         
         if ( args[AbstractPlugin.iops_guarantee_str] is not None ):
             iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
@@ -444,84 +436,84 @@ class VolumePlugin( AbstractPlugin):
         if ( args[AbstractPlugin.data_str] is not None ):
             jsonData = json.loads( args[AbstractPlugin.data_str] )
             
-            if ( jsonData["priority"] is not None ):
-                priority = jsonData["priority"]
+            qosData = jsonData["qosPolicy"]
+            dataProtection = jsonData["dataProtectionPolicy"]
+            
+            if ( qosData["priority"] is not None ):
+                priority = qosData["priority"]
                 
-            if ( jsonData["sla"] is not None ):
-                iops_guarantee = jsonData["sla"]
+            if ( qosData["iopsMin"] is not None ):
+                iops_guarantee = qosData["iopsMin"]
                 
-            if ( jsonData["limit"] is not None ):
-                iops_limit = jsonData["limit"]
+            if ( qosData["iopsMax"] is not None ):
+                iops_limit = qosData["iopsMax"]
                 
-            if ( jsonData["commit_log_retention"] is not None ):
-                continuous_protection = jsonData["commit_log_retention"]
+            if ( dataProtection["commitLogRetention"] is not None ):
+                continuous_protection = dataProtection["commitLogRetention"]
                 
         if args[AbstractPlugin.qos_preset_str] != None:
             qos_preset = self.get_volume_service().get_qos_presets(args[AbstractPlugin.qos_preset_str])
             
             if len( qos_preset ) >= 1:
                 qos_preset = qos_preset[0]
-                iops_guarantee = qos_preset.iops_guarantee
-                iops_limit = qos_preset.iops_limit
-                priority = qos_preset.priority        
+                iops_guarantee = qos_preset.iops_min
+                iops_limit = qos_preset.iops_max
+                priority = qos_preset.priority     
+                volume.qos_policy.preset_id = qos_preset.id   
         
         #have to get continuous from a potential timeline preset
         t_preset = None
         if args[AbstractPlugin.timeline_preset_str] != None:
-            t_preset = self.get_volume_service().get_timeline_presets(args[AbstractPlugin.timeline_preset_str])
+            t_preset = self.get_volume_service().get_data_protection_presets(args[AbstractPlugin.timeline_preset_str])
             
             if len( t_preset ) >= 1:
                 t_preset = t_preset[0]
                 
-                continuous_protection = t_preset.continuous_protection
+                continuous_protection = t_preset.commit_log_retention
         
-        volume.iops_guarantee = iops_guarantee
-        volume.iops_limit = iops_limit
-        volume.priority = priority
-        volume.continuous_protection = continuous_protection 
+        volume.qos_policy.iops_min = iops_guarantee
+        volume.qos_policy.iops_max = iops_limit
+        volume.qos_policy.priority = priority
+        volume.data_protection_policy.commit_log_retention = continuous_protection 
+        
         volume.name = args[AbstractPlugin.name_str]       
         
         # one URL when snapshot was chosen, a different one if the time / volume was chosen
         new_volume = None
         if ( args[AbstractPlugin.snapshot_id_str] is not None ):
-            new_volume = self.get_volume_service().clone_from_snapshot_id( args[AbstractPlugin.snapshot_id_str], volume )
+            new_volume = self.get_volume_service().clone_from_snapshot_id( volume, args[AbstractPlugin.snapshot_id_str] )
         else:
-            new_volume = self.get_volume_service().clone_from_timeline( fromTime, volume )
+            new_volume = self.get_volume_service().clone_from_timeline( volume, fromTime )
             
-        if new_volume is not None:
+        if isinstance(new_volume, Volume):
             
             #if there was a timeline preset included, create and attach those policies now
             if t_preset is not None:
                 
-                s_service = SnapshotPolicyService( self.session )
-                
                 for policy in t_preset.policies:
-                    policy = s_service.create_snapshot_policy(policy)
-                    s_service.attach_snapshot_policy(policy.id, new_volume.id)                    
+                    volume.data_protection_policy.snapshot_policies.append( policy ) 
+                    
+                volume.data_protection_policy.preset_id = t_preset.id               
             
             print "Volume cloned successfully."
+            args = [args[AbstractPlugin.format_str]]
             self.list_volumes( args );
     
     def delete_volume(self, args):
         '''
         Delete the indicated volume
         '''
-        volName = args[AbstractPlugin.volume_name_str]
+        vol_id = args[AbstractPlugin.volume_id_str]
         
-        if ( args[AbstractPlugin.volume_id_str] is not None):
-            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str])
-            
-            if ( volume is None ):
-                print "No volume found with an ID of " + args[AbstractPlugin.volume_id_str]
-                return
-                
-            volName = volume.name
+        if AbstractPlugin.name_str in args and args[AbstractPlugin.name_str] is not None:
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.name_str])
+            vol_id = volume.id.uuid
         
-        response = self.get_volume_service().delete_volume( volName )
+        response = self.get_volume_service().delete_volume( vol_id )
         
-        if ( response["status"].lower() == "ok" ):
+        if response is not None:
             print 'Deletion request completed successfully.'
-            
+            args = [args[AbstractPlugin.format_str]]
             self.list_volumes(args)
             
     def create_snapshot(self, args):
@@ -529,12 +521,7 @@ class VolumePlugin( AbstractPlugin):
         Create a snapshot for a volume
         '''
         
-        volume = None
-        
-        if ( args[AbstractPlugin.volume_name_str] is not None ):
-            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
-        else:
-            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
+        volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
             
         if ( volume is None ):
             print "No volume found with the specified identification.\n"
@@ -544,12 +531,11 @@ class VolumePlugin( AbstractPlugin):
         
         snapshot.name = args[AbstractPlugin.name_str]
         snapshot.retention = args[AbstractPlugin.retention_str]
-        snapshot.timeline_time = 0
         snapshot.volume_id = volume.id
         
         response = self.get_volume_service().create_snapshot( snapshot )
         
-        if ( response is not None ):
+        if isinstance(response, Snapshot):
             self.list_snapshots(args)
          
     def list_snapshots(self, args):
@@ -557,17 +543,11 @@ class VolumePlugin( AbstractPlugin):
         List snapshots for this volume
         '''
         volId = args[AbstractPlugin.volume_id_str]
-        
-        if ( args[AbstractPlugin.volume_name_str] is not None):
-            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str])
-            
-            if ( volume is None ):
-                print "No volume found with a name of " + args[AbstractPlugin.volume_name_str] + "\n"
-                return
-            
-            volId = volume.id
             
         response = self.get_volume_service().list_snapshots(volId)
+        
+        if "message" in response:
+            return
         
         if ( len( response ) == 0 ):
             print "No snapshots found for volume with ID " + volId;

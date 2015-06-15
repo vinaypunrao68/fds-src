@@ -16,8 +16,8 @@ raise "FDS_SRC_DIR must be set'" unless fds_src_dir
 install_dir "#{default_root}/#{name}"
 
 #build_version Omnibus::BuildVersion.semver
-build_version '0.7.8'
-build_iteration 3
+build_version '2015.06.05'
+build_iteration 1
 
 # Creates required build directories
 dependency "preparation"
@@ -57,6 +57,7 @@ dependency "libcryptopp"
 dependency "server-jre"
 dependency "mdadm"
 dependency "influxdb"
+dependency "fdsutil"
 
 # Version manifest file
 dependency "version-manifest"

@@ -10,6 +10,7 @@
 #include "AmVolume.h"
 
 #include "AmRequest.h"
+#include "requests/AttachVolumeReq.h"
 #include "PerfTrace.h"
 #include "AmQoSCtrl.h"
 
@@ -31,21 +32,24 @@ class WaitQueue {
     ~WaitQueue() = default;
 
     template<typename Cb>
-    void drain(std::string const&, Cb&&);
+    void remove_if(std::string const&, Cb&&);
     Error delay(AmRequest*);
     bool empty() const;
-    void pop(AmRequest*);
 };
 
 template<typename Cb>
-void WaitQueue::drain(std::string const& vol_name, Cb&& cb) {
+void WaitQueue::remove_if(std::string const& vol_name, Cb&& cb) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
-        for (auto& req: wait_it->second) {
-            cb(req);
+        auto& vol_queue = wait_it->second;
+        auto new_end = std::remove_if(vol_queue.begin(),
+                                      vol_queue.end(),
+                                      std::forward<Cb>(cb));
+        vol_queue.erase(new_end, vol_queue.end());
+        if (wait_it->second.empty()) {
+            queue.erase(wait_it);
         }
-        queue.erase(wait_it);
     }
 }
 
@@ -64,17 +68,6 @@ Error WaitQueue::delay(AmRequest* amReq) {
 bool WaitQueue::empty() const {
     std::lock_guard<std::mutex> l(wait_lock);
     return queue.empty();
-}
-
-void WaitQueue::pop(AmRequest* amReq) {
-    std::lock_guard<std::mutex> l(wait_lock);
-    auto wait_it = queue.find(amReq->volume_name);
-    if (queue.end() != wait_it) {
-        auto& queue = wait_it->second;
-        auto queue_it = std::find(queue.begin(), queue.end(), amReq);
-        if (queue.end() != queue_it)
-        { queue.erase(queue_it); }
-    }
 }
 
 /***** AmVolumeTable methods ******/
@@ -99,69 +92,109 @@ AmVolumeTable::~AmVolumeTable() {
     volume_map.clear();
 }
 
-void AmVolumeTable::registerCallback(tx_callback_type cb) {
+void AmVolumeTable::registerCallback(processor_cb_type cb) {
     /** Create a closure for the QoS Controller to call when it wants to
      * process a request. I just find this cleaner than function pointers. */
-    auto closure = [cb](AmRequest* amReq) mutable -> void { cb(amReq); };
+    auto closure = [cb](AmRequest* amReq) mutable -> void {
+        fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+        cb(amReq);
+    };
     qos_ctrl->runScheduler(std::move(closure));
 }
 
 /*
- * Creates volume if it has not been created yet
- * Does nothing if volume is already registered, call is idempotent
+ * Register the volume and create QoS structs 
+ * Search the wait queue for an attach on this volume (by name),
+ * if found process it, and only it.
  */
 Error
-AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
-                              boost::shared_ptr<AmVolumeAccessToken> access_token)
+AmVolumeTable::registerVolume(const VolumeDesc& volDesc)
 {
     Error err(ERR_OK);
-    fds_volid_t vol_uuid = vdesc.GetID();
+    fds_volid_t vol_uuid = volDesc.GetID();
+    map_rwlock.write_lock();
+    auto const& it = volume_map.find(vol_uuid);
+    if (volume_map.cend() == it) {
+        /** Create queue and register with QoS */
+        FDS_VolumeQueue* queue {nullptr};
+        if (volDesc.isSnapshot()) {
+            LOGDEBUG << "Volume is a snapshot : [0x" << std::hex << vol_uuid << "]";
+            queue = qos_ctrl->getQueue(volDesc.qosQueueId);
+        }
+        if (!queue) {
+            queue = new FDS_VolumeQueue(4096,
+                                        volDesc.iops_throttle,
+                                        volDesc.iops_assured,
+                                        volDesc.relativePrio);
+            err = qos_ctrl->registerVolume(volDesc.volUUID, queue);
+        }
 
-    {
-        WriteGuard wg(map_rwlock);
-        auto it = volume_map.find(vol_uuid);
-        if (volume_map.end() == it) {
-            /** Create queue and register with QoS */
-            FDS_VolumeQueue* queue {nullptr};
-            if (vdesc.isSnapshot()) {
-                LOGDEBUG << "Volume is a snapshot : [0x" << std::hex << vol_uuid << "]";
-                queue = qos_ctrl->getQueue(vdesc.qosQueueId);
-            }
-            if (!queue) {
-                queue = new FDS_VolumeQueue(4096,
-                                            vdesc.iops_throttle,
-                                            vdesc.iops_assured,
-                                            vdesc.relativePrio);
-                err = qos_ctrl->registerVolume(vdesc.volUUID, queue);
-            }
+        /** Internal bookkeeping */
+        if (err.ok()) {
+            // Create the volume and add it to the known volume map
+            auto new_vol = std::make_shared<AmVolume>(volDesc, queue, nullptr);
+            volume_map[vol_uuid] = std::move(new_vol);
+            map_rwlock.write_unlock();
 
-            /** Internal bookkeeping */
-            if (err.ok()) {
-                auto new_vol = std::make_shared<AmVolume>(vdesc, queue, access_token);
-                /** Drain wait queue into QoS */
-                wait_queue->drain(vdesc.name,
-                                  [this, vol_uuid] (AmRequest* amReq) mutable -> void {
-                                      amReq->setVolId(vol_uuid);
-                                      this->enqueueRequest(amReq);
+            // Search the queue for the first attach we find.
+            // The wait queue will iterate the queue for the given volume and
+            // apply the callback to each request. For the first attach request
+            // we find we process it (to cause volumeOpen to start), and remove
+            // it from the queue...but only the first.
+            wait_queue->remove_if(volDesc.name,
+                                  [this, &vol_desc = volDesc, found = false]
+                                  (AmRequest* amReq) mutable -> bool {
+                                      if (!found && FDS_ATTACH_VOL == amReq->io_type) {
+                                          auto volReq = static_cast<AttachVolumeReq*>(amReq);
+                                          volReq->setVolId(vol_desc.volUUID);
+                                          this->enqueueRequest(amReq);
+                                          found = true;
+                                          return true;
+                                      }
+                                      return false;
                                   });
-                volume_map[vol_uuid] = std::move(new_vol);
 
-                LOGNOTIFY << "AmVolumeTable - Register new volume " << vdesc.name
-                          << " " << std::hex << vol_uuid << std::dec
-                          << ", policy " << vdesc.volPolicyId
-                          << " (iops_throttle=" << vdesc.iops_throttle
-                          << ", iops_assured=" << vdesc.iops_assured
-                          << ", prio=" << vdesc.relativePrio << ")"
-                          << " result: " << err.GetErrstr();
-            } else {
-                LOGERROR << "Volume failed to register : [0x"
-                         << std::hex << vol_uuid << "]"
-                         << " because: " << err;
-            }
+            LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
+                      << " " << std::hex << vol_uuid << std::dec
+                      << ", policy " << volDesc.volPolicyId
+                      << " (iops_throttle=" << volDesc.iops_throttle
+                      << ", iops_assured=" << volDesc.iops_assured
+                      << ", prio=" << volDesc.relativePrio << ")"
+                      << " result: " << err.GetErrstr();
+            return err;
+        } else {
+            LOGERROR << "Volume failed to register : [0x"
+                     << std::hex << vol_uuid << "]"
+                     << " because: " << err;
         }
     }
-
+    map_rwlock.write_unlock();
     return err;
+}
+
+/*
+ * Binds access token to volume and drains any pending IO
+ */
+Error
+AmVolumeTable::processAttach(const VolumeDesc& volDesc,
+                             boost::shared_ptr<AmVolumeAccessToken> access_token)
+{
+    auto vol = getVolume(volDesc.GetID());
+    if (!vol) {
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    // Assign the volume the token we got from DM
+    vol->access_token.swap(access_token);
+
+    /** Drain wait queue into QoS */
+    wait_queue->remove_if(volDesc.name,
+                          [this, vol_uuid = volDesc.GetID()] (AmRequest* amReq) {
+                              amReq->setVolId(vol_uuid);
+                              this->enqueueRequest(amReq);
+                              return true;
+                          });
+    return ERR_OK;
 }
 
 Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
@@ -204,11 +237,13 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
 {
     WriteGuard wg(map_rwlock);
     /** Drain any wait queue into as any Error */
-    wait_queue->drain(volDesc.name,
-                      [] (AmRequest* amReq) {
-                          amReq->cb->call(FDSN_StatusEntityDoesNotExist);
-                          delete amReq;
-                      });
+    wait_queue->remove_if(volDesc.name,
+                          [] (AmRequest* amReq) {
+                              if (amReq->cb)
+                                  amReq->cb->call(ERR_VOL_NOT_FOUND);
+                              delete amReq;
+                              return true;
+                          });
     if (0 == volume_map.erase(volDesc.volUUID)) {
         LOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
         return ERR_OK;
@@ -220,7 +255,7 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
 /*
  * Returns SH volume object or NULL if the volume has not been created
  */
-AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t vol_uuid) const
+AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uuid) const
 {
     ReadGuard rg(map_rwlock);
     volume_ptr_type ret_vol;
@@ -245,7 +280,7 @@ AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& 
 }
 
 fds_uint32_t
-AmVolumeTable::getVolMaxObjSize(fds_volid_t volUuid) const {
+AmVolumeTable::getVolMaxObjSize(fds_volid_t const volUuid) const {
     ReadGuard rg(map_rwlock);
     auto it = volume_map.find(volUuid);
     fds_uint32_t maxObjSize = 0;
@@ -277,19 +312,28 @@ AmVolumeTable::getVolumeUUID(const std::string& vol_name) const {
 
 Error
 AmVolumeTable::enqueueRequest(AmRequest* amReq) {
-    if (invalid_vol_id == amReq->io_vol_id) {
-        auto vol_id = getVolumeUUID(amReq->volume_name);
+    // Lookup volume by name if need be
+    auto vol_id = amReq->io_vol_id;
+    if (invalid_vol_id == vol_id) {
+        vol_id = getVolumeUUID(amReq->volume_name);
+        if (invalid_vol_id != vol_id) {
+            // Set the volume and initialize some of the perf contexts
+            amReq->setVolId(vol_id);
+        }
+    }
+    auto volume = getVolume(vol_id);
+
+    // If we don't have the volume attached, we'll need to delay the request
+    // until it is
+    if (!volume) {
         /**
          * If the volume id is invalid, we haven't attached to it yet just queue
          * the request, hopefully we'll get an attach.
          * TODO(bszmyd):
          * Time these out if we don't get the attach
          */
-        if (invalid_vol_id == vol_id) {
-            GLOGDEBUG << "Delaying request: " << amReq;
-            return wait_queue->delay(amReq);
-        }
-        amReq->setVolId(vol_id);
+        GLOGDEBUG << "Delaying request: " << amReq;
+        return wait_queue->delay(amReq);
     }
 
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
@@ -298,14 +342,6 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
 
 Error
 AmVolumeTable::markIODone(AmRequest* amReq) {
-    if (invalid_vol_id == amReq->io_vol_id) {
-        /**
-         * Must have failed to dispatch attach, expect to find this request in
-         * the wait queue.
-         */
-        wait_queue->pop(amReq);
-        return ERR_OK;
-    }
     return qos_ctrl->markIODone(amReq);
 }
 

@@ -37,7 +37,7 @@ struct DmVolumeAccessTable {
      * Request an access token for the given policy
      */
     Error getToken(fds_int64_t& token,
-                   fpi::VolumeAccessPolicy const& policy,
+                   fpi::VolumeAccessMode const& mode,
                    std::chrono::duration<fds_uint32_t> const lease_time);
 
     /**
@@ -46,12 +46,11 @@ struct DmVolumeAccessTable {
     void removeToken(fds_int64_t const token);
 
   private:
-    using map_value_type = std::pair<fpi::VolumeAccessPolicy, boost::shared_ptr<FdsTimerTask>>;
+    using map_value_type = std::pair<fpi::VolumeAccessMode, boost::shared_ptr<FdsTimerTask>>;
     std::unordered_map<fds_int64_t, map_value_type> access_map;
     std::mt19937_64 random_generator;
 
-    bool write_locked { false };
-    bool read_locked { false };
+    bool cached { false };
     std::mutex lock;
 
     /**

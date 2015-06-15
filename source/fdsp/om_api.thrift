@@ -8,6 +8,7 @@ include "om_types.thrift"
 include "common.thrift"
 include "svc_types.thrift"
 include "svc_api.thrift"
+include "health_monitoring_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
@@ -52,6 +53,8 @@ struct CtrlSvcEvent {
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
 }
 
+// Make NotifyHealthReport defined within the fpi namespace.
+typedef health_monitoring_api.NotifyHealthReport NotifyHealthReport
 
  # OM Service.  Only put sync rpc calls in here.  Async RPC calls use
  # message passing provided by BaseAsyncSvc

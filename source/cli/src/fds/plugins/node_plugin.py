@@ -1,10 +1,10 @@
 from abstract_plugin import AbstractPlugin
+
 from fds.services.node_service import NodeService
 from fds.services.response_writer import ResponseWriter
-from fds.model.node_state import NodeState
-from fds.utils.node_converter import NodeConverter
-
+from fds.utils.converters.platform.node_converter import NodeConverter
 import json
+from fds.model.platform.service import Service
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -182,25 +182,36 @@ class NodePlugin( AbstractPlugin ):
         '''
         Activate a set of discovered nodes
         '''
-        id_list = []
+        n_list = []
+        d_nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes())
         
         if ( args[AbstractPlugin.node_ids_str] is None ):
-            nodes = self.filter_for_discovered_nodes( self.get_node_service().list_nodes() )
-            for node in nodes:
-                id_list.append( node["uuid"] )
+            for node in d_nodes:
+                
+                #right now we need to make sure each type is added.
+                node.services['AM'] = Service(name="AM", a_type="AM")
+                node.services['DM'] = Service(name="DM", a_type="DM")
+                node.services['SM'] = Service(name="SM", a_type="SM")
+                
+                n_list.append( node )
             #end of for loop
         else:
-            id_list = args[AbstractPlugin.node_ids_str]
-            
-        # make each call
-        state = NodeState()
+            for node in d_nodes:
+                if node.id == args[AbstractPlugin.node_ids_str]:
+                    
+                    #right now we need to make sure each type is added.
+                    node.services['AM'] = Service(name="AM", a_type="AM")
+                    node.services['DM'] = Service(name="DM", a_type="DM")
+                    node.services['SM'] = Service(name="SM", a_type="SM")
+                    
+                    n_list.append( node )
         
         failures = []
         
-        for uuid in id_list:
-            result = self.get_node_service().add_node( uuid, state )
-            if ( result["status"] != 200 ):
-                failures.append( uuid )
+        for node in n_list:
+            result = self.get_node_service().add_node( node.id, node )
+            if result is None:
+                failures.append( node.id )
             
         if ( len( failures ) > 0 ):
             print "The following IDs were not added due to errors: {}\n".format( failures )
@@ -213,7 +224,7 @@ class NodePlugin( AbstractPlugin ):
         '''
         response = self.get_node_service().remove_node(args[AbstractPlugin.node_id_str])
         
-        if ( response["status"] == 200 ):
+        if response is not None:
             self.list_nodes(args)
             
     def start_node(self, args):
@@ -223,7 +234,7 @@ class NodePlugin( AbstractPlugin ):
         
         response = self.get_node_service().start_node(args[AbstractPlugin.node_id_str])
         
-        if ( response["status"] == 200 ):
+        if response is not None:
             self.list_nodes(args)            
             
     def stop_node(self, args):
@@ -233,7 +244,7 @@ class NodePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_node(args[AbstractPlugin.node_id_str])
         
-        if ( response["status"] == 200 ):
+        if response is not None:
             self.list_nodes(args)                         
                         
     def list_services(self, args):
@@ -269,5 +280,4 @@ class NodePlugin( AbstractPlugin ):
         else:
             cleaned = ResponseWriter.prep_services_for_table( self.session, node_list )
             ResponseWriter.writeTabularData( cleaned )
-                     
-        
+                      

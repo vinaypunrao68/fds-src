@@ -13,32 +13,26 @@
 #include <fds_module.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <fdsp/PlatNetSvc.h>
-/*
- * Use this macro for registering FDSP message handlers
- * @param FDSPMsgT - fdsp message type
- * @param func - Name of the function to invoke
- */
-#define REGISTER_FDSP_MSG_HANDLER(FDSPMsgT, func) \
-    asyncReqHandlers_[FDSP_MSG_TYPEID(FDSPMsgT)] = \
-    [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
-        boost::shared_ptr<std::string>& payloadBuf) \
-    { \
-        boost::shared_ptr<FDSPMsgT> payload; \
-        fds::deserializeFdspMsg(payloadBuf, payload); \
-        SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
-        func(header, payload); \
-    }
 
 #define REGISTER_FDSP_MSG_HANDLER_GENERIC(platsvc, FDSPMsgT, func)  \
     platsvc->asyncReqHandlers_[FDSP_MSG_TYPEID(FDSPMsgT)] = \
     [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
         boost::shared_ptr<std::string>& payloadBuf) \
     { \
+        DBG(fiu_do_on("svc.dropincoming."#FDSPMsgT, return;)); \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
         SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
     }
+/*
+ * Use this macro for registering FDSP message handlers
+ * @param FDSPMsgT - fdsp message type
+ * @param func - Name of the function to invoke
+ */
+#define REGISTER_FDSP_MSG_HANDLER(FDSPMsgT, func) \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(this, FDSPMsgT, func)
+
 
 // note : CALLBACK & CALLBACK2 are same
 #define BIND_MSG_CALLBACK(func, header , ...) \

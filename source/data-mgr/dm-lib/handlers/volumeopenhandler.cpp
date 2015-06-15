@@ -53,7 +53,7 @@ void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
              << std::hex << request->volId << std::dec << "'";
 
     helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
-                                                     request->access_policy);
+                                                     request->access_mode);
 }
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

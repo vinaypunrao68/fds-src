@@ -9,9 +9,11 @@ namespace fds
 {
 
 AmVolumeAccessToken::AmVolumeAccessToken(FdsTimer& _timer,
+                                         mode_type const& _mode,
                                          token_type const _token,
                                          callback_type&& _cb)
     : FdsTimerTask(_timer),
+      mode(_mode),
       token(_token),
       cb(std::move(_cb))
 {

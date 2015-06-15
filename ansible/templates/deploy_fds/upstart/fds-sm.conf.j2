@@ -1,0 +1,13 @@
+# sm
+
+description     "Storage Manager"
+
+limit nofile 400000 400000
+limit core unlimited unlimited
+
+env LD_LIBRARY_PATH=/fds/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
+env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:/fds/bin:/fds/sbin
+
+chdir /fds/bin
+
+exec StorMgr --foreground --fds-root=/fds --fds.pm.platform_uuid=${UUID} 2>&1 /fds/bin/sm.out

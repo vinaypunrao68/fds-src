@@ -174,6 +174,11 @@ enum  FDSPMsgTypeId {
   CloseVolumeRspMsgTypeId;
   ReloadVolumeMsgTypeId;
   ReloadVolumeRspMsgTypeId;
+  CtrlNotifyDMStartMigrationMsgTypeId;
+  CtrlNotifyDMStartMigrationRspMsgTypeId;
+
+  /** Health Status */
+  NotifyHealthReportTypeId                  = 100000;
 }
 
 /**
@@ -265,6 +270,7 @@ struct SvcInfo {
 
 /**
  * Activate Service
+ * @deprecated 06/09/2015
  */
 struct ActivateServicesMsg {
   1: FDSP.FDSP_ActivateNodeType info;

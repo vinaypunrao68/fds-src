@@ -21,6 +21,8 @@
 #include <StorMgr.h>
 #include <sm_dataset.h>
 #include <sm_ut_utils.h>
+#include <SMSvcHandler.h>
+#include <net/SvcProcess.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -33,11 +35,11 @@ static fds_uint32_t hddCount = 0;
 static fds_uint32_t ssdCount = 10;
 static TestVolume::ptr volume1;
 
-class SmUnitTestProc : public FdsProcess {
+class SmUnitTestProc : public SvcProcess {
   public:
     SmUnitTestProc(int argc, char *argv[],
                    Module **mod_vec) :
-            FdsProcess(argc,
+            SvcProcess(argc,
                        argv,
                        "platform.conf",
                        "fds.sm.",

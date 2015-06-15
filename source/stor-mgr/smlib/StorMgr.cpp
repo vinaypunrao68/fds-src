@@ -205,6 +205,9 @@ void ObjectStorMgr::mod_enable_service()
             if (err.ok()) {
                 // got a DLT, ignore it if SM is not in it
                 const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // Store the current DLT to the presistent storage to be used
+                // by offline smcheck.
+                objStorMgr->storeCurrentDLT();
                 if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
                     LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
                 } else {
@@ -911,8 +914,6 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     objDeltaSet->executorID = readDeltaSetReq->executorId;
     objDeltaSet->seqNum = readDeltaSetReq->seqNum;
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
-
-    // PerfTracer::incr(PerfEventType::SM_READ_OBJ_DELTA_SET_LOOP_SIZE, 0, (readDeltaSetReq->deltaSet).size(), 1);
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;

@@ -60,9 +60,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(fds_volid_t const vol_id,
-                            fds_int64_t const token,
-                            std::function<void(fds_int64_t const, Error const)> cb);
+    void dispatchOpenVolume(AmRequest *amReq);
 
     /**
      * Dispatches an open volume request to DM.
@@ -258,9 +256,9 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Callback for catalog query error checks from service layer.
      */
-    fds_bool_t getQueryCatalogAppStatusCb(AmRequest* amReq,
-                                          const Error& error,
-                                          boost::shared_ptr<std::string> payload);
+    fds_bool_t missingBlobStatusCb(AmRequest* amReq,
+                                   const Error& error,
+                                   boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for set metadata on blob responses.

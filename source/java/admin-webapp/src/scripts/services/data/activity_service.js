@@ -55,7 +55,7 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
             ];
         }
         
-        return $http_fds.put( '/api/config/events', filter, callback );
+        return $http_fds.put( webPrefix + '/events', filter, callback );
     };
     
     service.getSystemHealth = function( callback ){
@@ -82,7 +82,7 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
 //        };
 //        
 //        callback( health );
-        return $http_fds.get( '/api/systemhealth', callback );
+        return $http_fds.get( webPrefix + '/systemhealth', callback );
     };
 
     return service;

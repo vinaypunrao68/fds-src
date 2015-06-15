@@ -24,6 +24,7 @@ fds_am_testing_am_testing_toggleDisableStreamingStats=true
 fds_sm_data_verify=false
 fds_sm_data_verify_background=false
 clean_fds=yes
+force=yes
 fds_sm_tiering_hybrid_enable=true
 fds_sm_tiering_hybrid_batchsz=BATCHSZ
 fds_sm_tiering_hybrid_frequency=FREQUENCY

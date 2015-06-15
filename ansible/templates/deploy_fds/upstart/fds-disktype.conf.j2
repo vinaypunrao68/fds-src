@@ -1,0 +1,15 @@
+# platformd
+
+description     "disk_type"
+
+start on (starting fds-pm)
+
+limit nofile 400000 400000
+limit core unlimited unlimited
+
+env LD_LIBRARY_PATH=/fds/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
+env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:/fds/bin:/fds/sbin
+
+task
+
+exec /fds/bin/disk_type.py -m

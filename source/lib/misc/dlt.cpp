@@ -327,16 +327,16 @@ void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
  * count as N.
  */
 NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
-                                  std::vector<fds_token_id>& dltTokens,
+                                  const std::set<fds_token_id>& dltTokens,
                                   const uint8_t& retryCount,
-                                  std::map<NodeUuid, bool>& failedSMs) {
+                                  std::map<NodeUuid, bool>& failedSMs) const {
     NodeTokenMap newTokenGroups;
     /**
      * Go over the table column for the token in DLT table and figure
      * out the next replica SM which will act as source for migration of
      * this token.
      */
-    for (std::vector<fds_token_id>::iterator tokenIter = dltTokens.begin();
+    for (std::set<fds_token_id>::iterator tokenIter = dltTokens.begin();
          tokenIter != dltTokens.end(); tokenIter++) {
         bool foundSrcSM = false;
         uint8_t curSrcIdx = getIndex(*tokenIter, curSrcSM);
@@ -597,7 +597,6 @@ bool DLT::loadFromFile(std::string filename) {
 }
 
 bool DLT::storeToFile(std::string filename) {
-    LOGNOTIFY << "storing dltmgr to file : " << filename;
     serialize::Serializer *s= serialize::getFileSerializer(filename);
     write(s);
     delete s;

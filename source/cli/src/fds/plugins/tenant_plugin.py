@@ -1,19 +1,21 @@
 from abstract_plugin import AbstractPlugin
 
-'''
-Created on Apr 13, 2015
-
-This plugin configures all of the parsing for tenant specific operation and
-maps those options to the appropriate calls for tenant management
-
-@author: nate
-'''
 from fds.services.tenant_service import TenantService
 import json
-from fds.utils.tenant_converter import TenantConverter
+from fds.utils.converters.admin.tenant_converter import TenantConverter
 from fds.services.response_writer import ResponseWriter
-from fds.utils.user_converter import UserConverter
+from fds.utils.converters.admin.user_converter import UserConverter
+from fds.model.admin.tenant import Tenant
+
 class TenantPlugin( AbstractPlugin):
+    '''
+    Created on Apr 13, 2015
+    
+    This plugin configures all of the parsing for tenant specific operation and
+    maps those options to the appropriate calls for tenant management
+    
+    @author: nate
+    '''    
     
     def __init__(self, session):
         AbstractPlugin.__init__(self, session)  
@@ -136,26 +138,19 @@ class TenantPlugin( AbstractPlugin):
         List the users for a specific Tenant
         '''
         
-        tenants = self.get_tenant_service().list_tenants()
-        
-        my_tenant = None
-        
-        for tenant in tenants:
-            if tenant.id == int(args[AbstractPlugin.tenant_id_str]):
-                my_tenant = tenant
-                break
+        users = self.get_tenant_service().list_users_for_tenant(args[AbstractPlugin.tenant_id_str])
         
         if args[AbstractPlugin.format_str] == "json":
             j_users = []
             
-            for user in my_tenant.users:
+            for user in users:
                 j_user = UserConverter.to_json(user)
                 j_user = json.loads(j_user)
                 j_users.append(j_user)
                 
             ResponseWriter.writeJson(j_users)
         else:
-            d_users = ResponseWriter.prep_users_for_table(my_tenant.users)
+            d_users = ResponseWriter.prep_users_for_table(users)
             ResponseWriter.writeTabularData(d_users)
             
     def create_tenant(self, args):
@@ -163,9 +158,12 @@ class TenantPlugin( AbstractPlugin):
         Call the create tenant endpoint with the args passed in
         '''
         
-        response = self.get_tenant_service().create_tenant( args[AbstractPlugin.name_str] )
+        tenant = Tenant()
+        tenant.name = args[AbstractPlugin.name_str]
         
-        if response is not None:
+        response = self.get_tenant_service().create_tenant( tenant )
+        
+        if isinstance(response, Tenant):
             self.list_tenants(args)
             
     def assign_user(self, args):
@@ -175,7 +173,7 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().assign_user_to_tenant( args[AbstractPlugin.tenant_id_str], args[AbstractPlugin.user_id_str] )
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             self.list_users(args)
             
     def remove_user(self, args):
@@ -185,6 +183,6 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().remove_user_from_tenant( args[AbstractPlugin.tenant_id_str], args[AbstractPlugin.user_id_str] )
         
-        if response["status"].lower() == "ok":
+        if response is not None:
             self.list_users(args)
         

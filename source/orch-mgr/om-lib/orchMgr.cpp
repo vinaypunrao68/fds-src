@@ -137,25 +137,36 @@ void OrchMgr::proc_pre_service()
 
 void OrchMgr::setupConfigDb_()
 {
-    SvcProcess::setupConfigDb_();
+    /*
+     * no need to call this, service layer doesn't need to do any configdb
+     * setup. We should remove this from service layer 05/22/2015 (Tinius )
+     */
+//    SvcProcess::setupConfigDb_();
     
     configDB = new kvstore::ConfigDB(
-    conf_helper_.get<std::string>("configdb.host", "localhost"),
-    conf_helper_.get<int>("configdb.port", 0),
-    conf_helper_.get<int>("configdb.poolsize", 10));
+        conf_helper_.get<std::string>( "configdb.host", "localhost" ),
+        conf_helper_.get<int>( "configdb.port", 0 ),
+        conf_helper_.get<int>( "configdb.poolsize", 10 ) );
         
     LOGDEBUG << "ConfigDB Initialized";
 }
 
 void OrchMgr::setupSvcInfo_()
 {
-    auto config = MODULEPROVIDER()->get_conf_helper();
-    svcInfo_.ip = config.get_abs<std::string>("fds.common.om_ip_list");
-    svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port");
-    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
-        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
-
-    LOGDEBUG << "OM SvcInfo Initialized: " << fds::logString(svcInfo_);
+    /*
+     * without this we see the following error during startup
+     * '/fds/bin/liborchmgr.so: /fds/bin/liborchmgr.so: undefined symbol: _ZTVN3fds7OrchMgrE'
+     */
+    SvcProcess::setupSvcInfo_();
+    
+    /*
+     * need to populate the om node UUID with the platform UUID
+     */
+     
+    /*
+     * TODO(Tinius) handle more than one OM IP address
+     */
+    
 }
 
 void OrchMgr::registerSvcProcess()
@@ -170,10 +181,8 @@ int OrchMgr::run()
 {
     // run server to listen for OMControl messages from
     // SM, DM and SH
-    runConfigService(this);
-
     deleteScheduler.start();
-
+    runConfigService(this);
     return 0;
 }
 

@@ -617,6 +617,17 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
+    // Primary is responsible for persisting the latest seq number.
+    // latest seq_number is provided to AM on volume open.
+    if (fPrimary) {
+        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid,
+                                                             volmeta->seq_id);
+
+        if (!err.ok()) {
+            return err;
+        }
+    }
+
     /*
      * XXX: The logic below will use source volume id to collect stats for clone,
      *      but it will now stream the stats to AM because amIPrimary() check is
@@ -966,6 +977,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
+    handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1061,6 +1073,9 @@ void DataMgr::mod_enable_service() {
             std::bind(&DataMgr::handleLocalStatStream, this,
                       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         statStreamAggr_->mod_startup();
+
+        // get DMT from OM if DMT already exist
+        MODULEPROVIDER()->getSvcMgr()->getDMT();
     }
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
@@ -1089,7 +1104,7 @@ void DataMgr::shutdown()
     mod_shutdown();
 }
 
-//   Block new IO's  and flush queued IO's 
+//   Block new IO's  and flush queued IO's
 void DataMgr::flushIO()
 {
     shuttingDown = true;
