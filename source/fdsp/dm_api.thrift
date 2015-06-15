@@ -74,7 +74,8 @@ struct GetVolumeMetadataMsgRsp {
 struct SetVolumeMetadataMsg {
   1: i64                        volumeId;
   2: dm_types.FDSP_MetaDataList metadataList;
-  3: optional i64               sequence_id;
+  /** Volume update sequencing */
+  3: required i64               sequence_id;
 }
 /**
  * Returns success if metadata was updated.
@@ -161,7 +162,8 @@ struct OpenVolumeMsg {
 struct OpenVolumeRspMsg {
   /** Token for volume access */
   1: required i64                       token;
-  2: optional i64                       sequence_id;
+  /** Volume update sequencing */
+  2: required i64                       sequence_id;
 }
 
 /**
@@ -216,7 +218,8 @@ struct CommitBlobTxMsg {
   3: i64                        blob_version;
   4: i64                        txId;
   5: i64                        dmt_version;
-  6: optional i64               sequence_id;
+  /** Volume update sequencing */
+  6: required i64               sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -289,7 +292,8 @@ struct UpdateCatalogOnceMsg {
    /** List of object ids of the objects that this blob is being mapped to */
    7: dm_types.FDSP_BlobObjectList      obj_list;
    8: dm_types.FDSP_MetaDataList        meta_list;
-   9: optional i64                      sequence_id;
+   /** Volume update sequencing */
+   9: required i64                      sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
