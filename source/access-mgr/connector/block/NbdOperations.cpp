@@ -211,9 +211,6 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
     // calculate how many FDS objects we will write
     fds_uint32_t objCount = getObjectCount(length, offset);
 
-    LOGDEBUG << "Will write 0x" << std::hex << length << " bytes to 0x" << offset
-             << " handle 0x" << handle << std::dec;
-
     // we will wait for write response for all objects we chunk this request into
     NbdResponseVector* resp = new NbdResponseVector(handle,
                                                     NbdResponseVector::WRITE,
@@ -238,8 +235,9 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             iLength = maxObjectSizeInBytes - iOff;
         }
 
-        LOGDEBUG << "actualLen " << iLength << " bytesW " << amBytesWritten
-                 << " length " << bytes->length();
+        LOGTRACE  << "Will write offset: 0x" << std::hex << curOffset
+                  << " for length: 0x" << iLength;
+
         auto objBuf = (iLength == bytes->length()) ?
             bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
 
@@ -250,10 +248,6 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 
         // request id is 64 bit of handle + 32 bit of sequence Id
         handle_type reqId{handle, seqId};
-
-        // if we are here, we don't need to read this object first; will do write
-        LOGTRACE  << "Will write offset: 0x" << std::hex << curOffset
-                  << " for length: 0x" << iLength;
 
         // To prevent a race condition we lock the sector (object) for the
         // duration of the operation and queue other requests to that offset

@@ -29,12 +29,15 @@ namespace FDS_ProtocolInterface {
     struct CtrlNotifyDLTClose;
     struct CtrlNotifyDMTUpdate;
     struct CtrlDMMigrateMeta;
+    struct CtrlNotifyDMStartMigrationMsg;
     using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
     using CtrlNotifySMAbortMigrationPtr = boost::shared_ptr<CtrlNotifySMAbortMigration>;
     using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
     using CtrlNotifyDLTClosePtr = boost::shared_ptr<CtrlNotifyDLTClose>;
     using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
     using CtrlDMMigrateMetaPtr = boost::shared_ptr<CtrlDMMigrateMeta>;
+    using CtrlNotifyDMStartMigrationMsgPtr =
+    		boost::shared_ptr<CtrlNotifyDMStartMigrationMsg>;
 }  // namespace FDS_ProtocolInterface
 
 namespace fds {
@@ -136,8 +139,8 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
-    virtual Error om_send_pushmeta(fpi::CtrlDMMigrateMetaPtr& meta_msg);
-    void om_pushmeta_resp(EPSvcRequest* req,
+    virtual Error om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg);
+    void om_pullmeta_resp(EPSvcRequest* req,
                           const Error& error,
                           boost::shared_ptr<std::string> payload);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
@@ -917,10 +920,10 @@ class OM_NodeDomainMod : public Module
                                           const Error& respError);
 
     /**
-     * Notification that OM received push meta response from
+     * Notification that OM received pull meta response from
      * node with uuid 'uuid'
      */
-    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid,
+    virtual Error om_recv_pull_meta_resp(const NodeUuid& uuid,
                                          const Error& respError);
 
     /**

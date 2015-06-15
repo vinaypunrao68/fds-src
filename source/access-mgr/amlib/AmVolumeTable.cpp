@@ -179,20 +179,17 @@ Error
 AmVolumeTable::processAttach(const VolumeDesc& volDesc,
                              boost::shared_ptr<AmVolumeAccessToken> access_token)
 {
-    fds_volid_t vol_uuid = volDesc.GetID();
-    WriteGuard wg(map_rwlock);
-    auto it = volume_map.find(vol_uuid);
-    if (volume_map.end() == it) {
+    auto vol = getVolume(volDesc.GetID());
+    if (!vol) {
         return ERR_VOL_NOT_FOUND;
     }
 
-    fds_assert(it->second);
     // Assign the volume the token we got from DM
-    it->second->access_token.swap(access_token);
+    vol->access_token.swap(access_token);
 
     /** Drain wait queue into QoS */
     wait_queue->remove_if(volDesc.name,
-                          [this, vol_uuid] (AmRequest* amReq) {
+                          [this, vol_uuid = volDesc.GetID()] (AmRequest* amReq) {
                               amReq->setVolId(vol_uuid);
                               this->enqueueRequest(amReq);
                               return true;
@@ -258,7 +255,7 @@ Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
 /*
  * Returns SH volume object or NULL if the volume has not been created
  */
-AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t vol_uuid) const
+AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uuid) const
 {
     ReadGuard rg(map_rwlock);
     volume_ptr_type ret_vol;
@@ -283,7 +280,7 @@ AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& 
 }
 
 fds_uint32_t
-AmVolumeTable::getVolMaxObjSize(fds_volid_t volUuid) const {
+AmVolumeTable::getVolMaxObjSize(fds_volid_t const volUuid) const {
     ReadGuard rg(map_rwlock);
     auto it = volume_map.find(volUuid);
     fds_uint32_t maxObjSize = 0;
@@ -315,19 +312,28 @@ AmVolumeTable::getVolumeUUID(const std::string& vol_name) const {
 
 Error
 AmVolumeTable::enqueueRequest(AmRequest* amReq) {
-    if (invalid_vol_id == amReq->io_vol_id) {
-        auto vol_id = getVolumeUUID(amReq->volume_name);
+    // Lookup volume by name if need be
+    auto vol_id = amReq->io_vol_id;
+    if (invalid_vol_id == vol_id) {
+        vol_id = getVolumeUUID(amReq->volume_name);
+        if (invalid_vol_id != vol_id) {
+            // Set the volume and initialize some of the perf contexts
+            amReq->setVolId(vol_id);
+        }
+    }
+    auto volume = getVolume(vol_id);
+
+    // If we don't have the volume attached, we'll need to delay the request
+    // until it is
+    if (!volume) {
         /**
          * If the volume id is invalid, we haven't attached to it yet just queue
          * the request, hopefully we'll get an attach.
          * TODO(bszmyd):
          * Time these out if we don't get the attach
          */
-        if (invalid_vol_id == vol_id) {
-            GLOGDEBUG << "Delaying request: " << amReq;
-            return wait_queue->delay(amReq);
-        }
-        amReq->setVolId(vol_id);
+        GLOGDEBUG << "Delaying request: " << amReq;
+        return wait_queue->delay(amReq);
     }
 
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);

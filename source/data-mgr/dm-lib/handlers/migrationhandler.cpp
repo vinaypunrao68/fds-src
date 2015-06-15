@@ -47,7 +47,7 @@ void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     asyncHdr->msg_code = e.GetErrno();
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationMsgTypeId, *message);
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId, *message);
 
     delete dmRequest;
 }
