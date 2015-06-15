@@ -412,16 +412,16 @@ bool AmProcessor_impl::stop() {
 std::shared_ptr<AmVolume>
 AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
     // check if this is a snapshot
-    auto shVol = volTable->getVolume(amReq->io_vol_id);
-    if (!shVol) {
+    auto vol = volTable->getVolume(amReq->io_vol_id);
+    if (!vol) {
         LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
         respond_and_delete(amReq, FDSN_StatusErrorUnknown);
-    } else if (!allow_snapshot && shVol->voldesc->isSnapshot()) {
+    } else if (!allow_snapshot && vol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
         respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        shVol = nullptr;
+        vol = nullptr;
     }
-    return shVol;
+    return vol;
 }
 
 bool
@@ -458,17 +458,17 @@ AmProcessor_impl::haveWriteToken(std::shared_ptr<AmVolume> const& volume) const 
 void
 AmProcessor_impl::renewToken(const fds_volid_t vol_id) {
     // Get the current volume and token
-    auto shVol = volTable->getVolume(vol_id);
-    if (!shVol) {
+    auto vol = volTable->getVolume(vol_id);
+    if (!vol) {
         LOGDEBUG << "Ignoring token renewal for unknown (detached?) volume: " << vol_id;
         return;
     }
 
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
-    auto amReq = new AttachVolumeReq(vol_id, "", shVol->access_token->getMode(), nullptr);
+    auto amReq = new AttachVolumeReq(vol_id, "", vol->access_token->getMode(), nullptr);
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-    amReq->token = shVol->getToken();
+    amReq->token = vol->getToken();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::attachVolumeCb, amReq);
     amDispatcher->dispatchOpenVolume(amReq);
 }
@@ -479,12 +479,12 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     Error err{ERR_OK};
 
     // If we had a token for a volume, give it back to DM
-    auto shVol = volTable->getVolume(volDesc.volUUID);
-    if (shVol) {
+    auto vol = volTable->getVolume(volDesc.volUUID);
+    if (vol) {
         // If we had a cache token for this volume, close it
-        fds_int64_t token = shVol->getToken();
+        fds_int64_t token = vol->getToken();
         if (invalid_vol_token != token) {
-            if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(shVol->access_token))) {
+            if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token))) {
                 LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
             } else {
                 LOGWARN << "Failed to cancel timer, volume with re-attach!";
@@ -532,11 +532,13 @@ AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    auto shVol = getVolume(amReq, false);
-    if (!haveWriteToken(shVol)) {
+    auto vol = getVolume(amReq, false);
+    if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
+    auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
+    volReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchSetVolumeMetadata(amReq);
 }
@@ -557,13 +559,13 @@ AmProcessor_impl::attachVolume(AmRequest *amReq) {
     // Not cross-connector safe...
     // Check if we already are attached so we can have a current token
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
-    auto shVol = getVolume(amReq);
+    auto vol = getVolume(amReq);
     if (volume_open_support &&
-        shVol &&
-        invalid_vol_token != shVol->getToken())
+        vol &&
+        invalid_vol_token != vol->getToken())
     {
-        token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(shVol->access_token));
-        volReq->token = shVol->getToken();
+        token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token));
+        volReq->token = vol->getToken();
     }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::attachVolumeCb, amReq);
 
@@ -584,27 +586,15 @@ void
 AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
-    auto shVol = getVolume(amReq);
-    auto& vol_desc = *shVol->voldesc;
-    if (!err.ok()) {
-        LOGDEBUG << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
-            << ") write(" << volReq->mode.can_write << "), trying R/O.";
-        if (volReq->mode.can_write || volReq->mode.can_cache) {
-            // TODO(bszmyd): Tue 26 May 2015 11:11:53 AM MDT
-            // This should be controlled by the connector
-            // Retry open with r/o mode
-            volReq->mode.can_cache = false;
-            volReq->mode.can_write = false;
-            txMgr->invalidateMetaCache(vol_desc);
-            return attachVolume(amReq);
-        }
-    } else {
+    auto vol = getVolume(amReq);
+    auto& vol_desc = *vol->voldesc;
+    if (err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
                   << ", received access token: 0x" << std::hex << volReq->token << std::dec;
 
         if (err.ok()) {
             // If this is a new token, create a access token for the volume
-            auto access_token = shVol->access_token;
+            auto access_token = vol->access_token;
             if (!access_token) {
                 access_token = boost::make_shared<AmVolumeAccessToken>(
                     token_timer,
@@ -640,7 +630,9 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     }
 
     if (ERR_OK != err) {
-        LOGNOTIFY << "Failed to register volume, error: " << err;
+        LOGNOTIFY << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
+                  << ") write(" << volReq->mode.can_write
+                  << ") error(" << err << ")";
         // Flush the volume's wait queue and return errors for pending requests
         volTable->removeVolume(vol_desc);
     }
@@ -651,10 +643,10 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
 void
 AmProcessor_impl::detachVolume(AmRequest *amReq) {
     // This really can not fail, we have to be attached to be here
-    auto shVol = getVolume(amReq);
-    if (!shVol) return;
+    auto vol = getVolume(amReq);
+    if (!vol) return;
 
-    removeVolume(*shVol->voldesc);
+    removeVolume(*vol->voldesc);
     respond_and_delete(amReq, ERR_OK);
 }
 
@@ -679,8 +671,8 @@ AmProcessor_impl::startBlobTx(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    auto shVol = getVolume(amReq, false);
-    if (!haveWriteToken(shVol)) {
+    auto vol = getVolume(amReq, false);
+    if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -713,8 +705,8 @@ AmProcessor_impl::startBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor_impl::deleteBlob(AmRequest *amReq) {
-    auto shVol = getVolume(amReq, false);
-    if (!haveWriteToken(shVol)) {
+    auto vol = getVolume(amReq, false);
+    if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -737,15 +729,15 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    auto shVol = getVolume(amReq, false);
+    auto vol = getVolume(amReq, false);
 
-    if (!haveWriteToken(shVol)) {
+    if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
 
     // Convert the offset to use a Byte term instead of Object
-    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    fds_uint32_t maxObjSize = vol->voldesc->maxObjSizeInBytes;
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
 
     // Use a stock object ID if the length is 0.
@@ -762,7 +754,8 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
-        blobReq->setTxId(BlobTxId(randNumGen->genNumSafe()));
+        blobReq->setTxId(randNumGen->genNumSafe());
+        blobReq->vol_sequence = vol->getNextSequenceId();
         amDispatcher->dispatchUpdateCatalogOnce(amReq);
     } else {
         amDispatcher->dispatchUpdateCatalog(amReq);
@@ -824,9 +817,9 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    auto shVol = getVolume(amReq, true);
+    auto vol = getVolume(amReq, true);
     auto volId = amReq->io_vol_id;
-    if (!shVol) {
+    if (!vol) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
         getBlobCb(amReq, ERR_INVALID);
         return;
@@ -836,7 +829,7 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     // offsets, so we need to be consistent in query catalog
     // Review this!
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
-    auto const maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    auto const maxObjSize = vol->voldesc->maxObjSizeInBytes;
     blobReq->blob_offset = (amReq->blob_offset * maxObjSize);
     blobReq->blob_offset_end = blobReq->blob_offset;
 
@@ -844,7 +837,7 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     // the extra objects required.
     if (maxObjSize < amReq->data_len) {
         auto const extra_objects = (amReq->data_len / maxObjSize) - 1
-                                 + (0 != amReq->data_len % maxObjSize) ? 1 : 0;
+                                 + ((0 != amReq->data_len % maxObjSize) ? 1 : 0);
         blobReq->blob_offset_end += extra_objects * maxObjSize;
     }
 
@@ -864,15 +857,13 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
 
     // We can only read from the cache if we have an access token managing it
     Error err = ERR_OK;
-    if (haveCacheToken(shVol)) {
-        BlobDescriptor::ptr cachedBlobDesc = txMgr->getBlobDescriptor(volId,
-                                                                      amReq->getBlobName(),
-                                                                      err);
-        // If we have a descriptor for this blob, and it covers the request
-        // range, otherwise we need to read from DM to double check
-        if (ERR_OK == err && cachedBlobDesc->getBlobSize() > (amReq->blob_offset + amReq->data_len)) {
-            // If we need to return metadata, check the cache
-            if (blobReq->get_metadata) {
+    if (haveCacheToken(vol)) {
+        // If we need to return metadata, check the cache
+        if (blobReq->get_metadata) {
+            auto cachedBlobDesc = txMgr->getBlobDescriptor(volId,
+                                                           amReq->getBlobName(),
+                                                           err);
+            if (err.ok()) {
                 LOGTRACE << "Found cached blob descriptor for " << std::hex
                          << volId << std::dec << " blob " << amReq->getBlobName();
                 blobReq->metadata_cached = true;
@@ -880,21 +871,24 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
                 // Fill in the data here
                 cb->blobDesc = cachedBlobDesc;
             }
+        }
 
-            // Check cache for object IDs
+        // Check cache for object IDs
+        if (err.ok()) {
             err = txMgr->getBlobOffsetObjects(volId,
                                               amReq->getBlobName(),
                                               amReq->blob_offset,
                                               amReq->blob_offset_end,
                                               maxObjSize,
                                               blobReq->object_ids);
-            // ObjectIDs were found in the cache
-            if ((ERR_OK == err) && (blobReq->metadata_cached == blobReq->get_metadata)) {
-                // Found all metadata, just need object data
-                blobReq->metadata_cached = true;
-                amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
-                return txMgr->getObjects(blobReq);
-            }
+        }
+
+        // ObjectIDs were found in the cache
+        if (err.ok() && (blobReq->metadata_cached == blobReq->get_metadata)) {
+            // Found all metadata, just need object data
+            blobReq->metadata_cached = true;
+            amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+            return txMgr->getObjects(blobReq);
         }
     } else {
         LOGDEBUG << "Can't read from cache, dispatching to DM.";
@@ -944,12 +938,12 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
         cb->return_size = std::min(amReq->data_len, vector_size);
 
         // If we have a cache token, we can stash this metadata
-        auto shVol = getVolume(amReq);
-        if (!blobReq->metadata_cached && haveCacheToken(shVol)) {
+        auto vol = getVolume(amReq);
+        if (!blobReq->metadata_cached && haveCacheToken(vol)) {
             txMgr->putOffsets(amReq->io_vol_id,
                               amReq->getBlobName(),
                               amReq->blob_offset,
-                              shVol->voldesc->maxObjSizeInBytes,
+                              vol->voldesc->maxObjSizeInBytes,
                               blobReq->object_ids);
             if (blobReq->get_metadata) {
                 auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
@@ -967,8 +961,8 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
 
 void
 AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
-    auto shVol = getVolume(amReq, false);
-    if (!haveWriteToken(shVol)) {
+    auto vol = getVolume(amReq, false);
+    if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -986,8 +980,8 @@ AmProcessor_impl::statBlob(AmRequest *amReq) {
     fds_volid_t volId = amReq->io_vol_id;
     LOGDEBUG << "volume:" << volId <<" blob:" << amReq->getBlobName();
 
-    auto shVol = getVolume(amReq, true);
-    auto can_cache = haveCacheToken(shVol);
+    auto vol = getVolume(amReq, true);
+    auto can_cache = haveCacheToken(vol);
 
     if (can_cache) {
         // Check cache for blob descriptor
@@ -1046,6 +1040,13 @@ AmProcessor_impl::volumeContents(AmRequest *amReq) {
 
 void
 AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
+    auto vol = getVolume(amReq, false);
+    if (!haveWriteToken(vol)) {
+        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
+        return;
+    }
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
 }

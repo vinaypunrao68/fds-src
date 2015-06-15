@@ -74,6 +74,7 @@ struct GetVolumeMetadataMsgRsp {
 struct SetVolumeMetadataMsg {
   1: i64                        volumeId;
   2: dm_types.FDSP_MetaDataList metadataList;
+  3: optional i64               sequence_id;
 }
 /**
  * Returns success if metadata was updated.
@@ -160,6 +161,7 @@ struct OpenVolumeMsg {
 struct OpenVolumeRspMsg {
   /** Token for volume access */
   1: required i64                       token;
+  2: optional i64                       sequence_id;
 }
 
 /**
@@ -213,7 +215,8 @@ struct CommitBlobTxMsg {
   2: string                     blob_name;
   3: i64                        blob_version;
   4: i64                        txId;
-  5: i64                        dmt_version,
+  5: i64                        dmt_version;
+  6: optional i64               sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -286,6 +289,7 @@ struct UpdateCatalogOnceMsg {
    /** List of object ids of the objects that this blob is being mapped to */
    7: dm_types.FDSP_BlobObjectList      obj_list;
    8: dm_types.FDSP_MetaDataList        meta_list;
+   9: optional i64                      sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -470,14 +474,21 @@ struct CtrlNotifyDMStartMigrationMsg {
    * pull associated volume descriptors from the source DM.
    */
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
+<<<<<<< HEAD
 
   /* Verson of DMT associated with the migration */
+=======
+>>>>>>> origin
   2: i64                     DMT_version;
 }
 
+/**
+ * ACK to the OM from DM of receiving a migration msg.
+ */
 struct CtrlNotifyDMStartMigrationRspMsg {
-  /* An empty reply from the Destionation DM to the OM when the
-   * migration is complete.
+  /* An empty reply from the Destination DM to the OM when the
+   * migration is complete.  
+   * Any error code is stuffed in the async header.
    */
 }
 

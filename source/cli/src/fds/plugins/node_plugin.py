@@ -210,7 +210,7 @@ class NodePlugin( AbstractPlugin ):
         
         for node in n_list:
             result = self.get_node_service().add_node( node.id, node )
-            if ( result["status"] != 200 ):
+            if result is None:
                 failures.append( node.id )
             
         if ( len( failures ) > 0 ):
@@ -224,7 +224,7 @@ class NodePlugin( AbstractPlugin ):
         '''
         response = self.get_node_service().remove_node(args[AbstractPlugin.node_id_str])
         
-        if ( response["status"] == 200 ):
+        if response is not None:
             self.list_nodes(args)
             
     def start_node(self, args):
@@ -234,7 +234,7 @@ class NodePlugin( AbstractPlugin ):
         
         response = self.get_node_service().start_node(args[AbstractPlugin.node_id_str])
         
-        if ( response["status"] == 200 ):
+        if response is not None:
             self.list_nodes(args)            
             
     def stop_node(self, args):
@@ -244,7 +244,7 @@ class NodePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_node(args[AbstractPlugin.node_id_str])
         
-        if ( response["status"] == 200 ):
+        if response is not None:
             self.list_nodes(args)                         
                         
     def list_services(self, args):

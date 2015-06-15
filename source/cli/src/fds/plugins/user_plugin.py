@@ -5,7 +5,6 @@ from fds.services.users_service import UsersService
 from fds.utils.converters.admin.user_converter import UserConverter
 import json
 from fds.services.response_writer import ResponseWriter
-from collections import OrderedDict
 from fds.model.admin.user import User
 
 class UserPlugin(AbstractPlugin):    
@@ -142,7 +141,7 @@ class UserPlugin(AbstractPlugin):
         
         result = self.get_user_service().create_user( user )
         
-        if result != None:
+        if isinstance( result, User):
             self.list_users(args)
             
     def who_am_i(self, args):

@@ -186,6 +186,7 @@ fds: {
         catalog_write_buffer_size = {{ dm_catalog_write_buffer_size }}
         catalog_cache_size =  {{ dm_catalog_cache_size  }}
         catalog_log_max_files = 5
+        number_of_primary = 2
 
         /* process id */
         id      = "dm"
@@ -214,6 +215,15 @@ fds: {
             rsync_username = "root"
             /* Rsync password to use during migration */
             rsync_password = "passwd"
+
+            /* boolean to enable/disable DM migration feature */
+            enable_feature = true
+
+            /* boolean to enable/disable DM resync feature */
+            enable_resync = true
+
+            /* timeout duration in sec */
+            migration_timeout=300
         }
 
         /* Graphite is enabled or not */
@@ -372,14 +382,6 @@ fds: {
         }
         /* Migration related info */
         migration: {
-            /* IP of the migration server */
-            /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
-            ip = "{{ om_ip }}"
-
-            /* Number of threads for doing migration work */
-            /* DEPRECATED */
-            thread_cnt=5
-
             /* size of the delta set from source SM to destination SM */
             max_delta_set_size=16
 

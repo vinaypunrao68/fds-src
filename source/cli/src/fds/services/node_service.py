@@ -45,7 +45,13 @@ class NodeService( AbstractService ):
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/1" )
         data = NodeConverter.to_json( node )
-        return self.rest_helper.post( self.session, url, data )
+        node = self.rest_helper.post( self.session, url, data )
+        
+        if node is None:
+            return 
+        
+        node = NodeConverter.build_node_from_json(node)
+        return node
     
     def start_node(self, node_id):
         '''
@@ -85,6 +91,9 @@ class NodeService( AbstractService ):
         '''
         url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
         response = self.rest_helper.get(self.session, url)
+        
+        if response is None:
+            return
         
         node = NodeConverter.build_node_from_json(response)
         

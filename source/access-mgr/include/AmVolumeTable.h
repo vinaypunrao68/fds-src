@@ -49,7 +49,7 @@ struct AmVolumeTable : public HasLogger {
     /**
      * Returns NULL is volume does not exist
      */
-    volume_ptr_type getVolume(fds_volid_t vol_uuid) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     /**
      * Return tokens to all attached volumes
@@ -59,7 +59,7 @@ struct AmVolumeTable : public HasLogger {
     /**
      * Returns the volumes max object size
      */
-    fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid) const;
+    fds_uint32_t getVolMaxObjSize(fds_volid_t const volUuid) const;
 
     /**
      * Returns volume uuid if found in volume map.

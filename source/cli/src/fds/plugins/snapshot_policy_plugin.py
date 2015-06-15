@@ -189,9 +189,10 @@ class SnapshotPolicyPlugin( AbstractPlugin):
                 policy.recurrence_rule.byhour = args[AbstractPlugin.hour_str]
                 policy.recurrence_rule.byminute = args[AbstractPlugin.minute_str]
             
-        self.get_snapshot_policy_service().create_snapshot_policy( args[AbstractPlugin.volume_id_str], policy )
+        new_policy = self.get_snapshot_policy_service().create_snapshot_policy( args[AbstractPlugin.volume_id_str], policy )
 
-        self.list_snapshot_policies(args)
+        if isinstance( new_policy, SnapshotPolicy):
+            self.list_snapshot_policies(args)
     
     def edit_snapshot_policy(self, args):
         '''
@@ -231,9 +232,10 @@ class SnapshotPolicyPlugin( AbstractPlugin):
                 policy.recurrence_rule.byhour = args[AbstractPlugin.hour_str]
                 policy.recurrence_rule.byminute = args[AbstractPlugin.minute_str]
             
-        self.get_snapshot_policy_service().edit_snapshot_policy( policy )
+        new_policy = self.get_snapshot_policy_service().edit_snapshot_policy( policy )
 
-        self.list_snapshot_policies(args)
+        if isinstance(new_policy, SnapshotPolicy):
+            self.list_snapshot_policies(args)
     
     def delete_snapshot_policy(self, args):
         '''
@@ -242,7 +244,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         
         response = self.get_snapshot_policy_service().delete_snapshot_policy( args[AbstractPlugin.volume_id_str], args[AbstractPlugin.policy_id_str] )
             
-        if ( response["status"].lower() == "ok" ):
+        if response is not None:
             self.list_snapshot_policies(args)
 
 

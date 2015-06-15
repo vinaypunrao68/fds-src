@@ -126,7 +126,9 @@ class VolumeCatalogQueryIface {
      * get total matadata size for a volume
      */
     virtual fds_uint64_t getTotalMetadataSize(fds_volid_t volume_id) = 0;
-    
+
+    virtual Error getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) = 0;
+
     virtual Error activateCatalog(fds_volid_t volId) {
         return ERR_OK;
     };
@@ -135,4 +137,3 @@ class VolumeCatalogQueryIface {
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_VCQUERYIFACE_H_
-

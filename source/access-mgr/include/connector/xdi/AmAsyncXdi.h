@@ -42,6 +42,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
         }
     }
 
+    boost::shared_ptr<fpi::ErrorCode> mappedErrorCode(Error const& error) const;
+
   public:
     explicit AmAsyncXdiResponse(std::string const& server_ip);
     ~AmAsyncXdiResponse();
