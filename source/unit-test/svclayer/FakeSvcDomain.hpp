@@ -205,11 +205,11 @@ MultiPrimarySvcRequestPtr FakeSvcDomain::sendGetStatusMultiPrimarySvcRequest(int
     auto srcMgr = svcs_[srcIdx]->getSvcMgr();
 
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = srcMgr->getSvcRequestMgr()->neMultiPrimarySvcRequest(
+    auto asyncReq = srcMgr->getSvcRequestMgr()->newMultiPrimarySvcRequest(
         primarySvcs, optionalSvcs);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
-    asyncReq->onPrimariesResponsdedCb(
+    asyncReq->onPrimariesRespondedCb(
         /* We only care once all endpoints respond*/ 
         [](MultiPrimarySvcRequest*, const Error&, StringPtr) {}
         );

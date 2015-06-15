@@ -41,7 +41,7 @@ class SvcRequestPool : HasModuleProvider {
     }
     FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider);
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
-    MultiPrimarySvcRequestPtr neMultiPrimarySvcRequest(
+    MultiPrimarySvcRequestPtr newMultiPrimarySvcRequest(
         const std::vector<fpi::SvcUuid>& primarySvcs,
         const std::vector<fpi::SvcUuid>& optionalSvcs);
 

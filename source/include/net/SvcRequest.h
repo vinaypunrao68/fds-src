@@ -367,7 +367,7 @@ struct MultiEpSvcRequest : SvcRequestIf {
     void onEPAppStatusCb(EPAppStatusCb cb);
 
  protected:
-    EPSvcRequestPtr getEpReq_(fpi::SvcUuid &peerEpId);
+    EPSvcRequestPtr getEpReq_(const fpi::SvcUuid &peerEpId);
 
     /* Endpoint request collection */
     std::vector<EPSvcRequestPtr> epReqs_;
@@ -481,7 +481,7 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
                            const std::vector<fpi::SvcUuid>& optionalSvcs);
     void invoke() override;
     std::string logString() override;
-    void onPrimariesResponsdedCb(MultiPrimarySvcRequestRespCb cb) {
+    void onPrimariesRespondedCb(MultiPrimarySvcRequestRespCb cb) {
         respCb_ = cb;
     }
     void onAllRespondedCb(MultiPrimarySvcRequestRespCb cb) {
@@ -517,7 +517,7 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
      *
      * @return 
      */
-    EPSvcRequestPtr getEpReq_(fpi::SvcUuid &peerEpId, bool &isPrimary);
+    EPSvcRequestPtr getEpReq_(const fpi::SvcUuid &peerEpId, bool &isPrimary);
 
     /* Primary acks received */
     uint8_t                         primaryAckdCnt_;

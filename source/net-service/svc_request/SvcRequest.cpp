@@ -418,7 +418,7 @@ MultiEpSvcRequest::MultiEpSvcRequest(CommonModuleProviderIf* provider,
                                      const std::vector<fpi::SvcUuid>& peerEpIds)
     : SvcRequestIf(provider, id, myEpId)
 {
-    for (auto &uuid : peerEpIds) {
+    for (const auto &uuid : peerEpIds) {
         addEndpoint(uuid);
     }
 }
@@ -443,7 +443,7 @@ void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
  */
 void MultiEpSvcRequest::addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds)
 {
-    for (auto &uuid : peerEpIds) {
+    for (const auto &uuid : peerEpIds) {
         addEndpoint(uuid);
     }
 }
@@ -466,9 +466,9 @@ void MultiEpSvcRequest::onEPAppStatusCb(EPAppStatusCb cb)
 *
 * @return
 */
-EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
+EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(const fpi::SvcUuid &peerEpId)
 {
-    for (auto ep : epReqs_) {
+    for (const auto &ep : epReqs_) {
         if (ep->getPeerEpId() == peerEpId) {
             return ep;
         }
@@ -913,7 +913,7 @@ MultiPrimarySvcRequest::MultiPrimarySvcRequest(CommonModuleProviderIf* provider,
 void MultiPrimarySvcRequest::invoke() {
     /* Fire and forget is disallowed */
     fds_verify(respCb_);
-    SvcRequestIf::invoke();
+    MultiEpSvcRequest::invoke();
 }
 
 std::string MultiPrimarySvcRequest::logString()
@@ -933,7 +933,7 @@ void MultiPrimarySvcRequest::invokeWork_()
     }
 }
 
-EPSvcRequestPtr MultiPrimarySvcRequest::getEpReq_(fpi::SvcUuid &peerEpId,
+EPSvcRequestPtr MultiPrimarySvcRequest::getEpReq_(const fpi::SvcUuid &peerEpId,
                                                   bool &isPrimary)
 {
     int idx = 0;
@@ -966,7 +966,7 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
         return;
     } else if (!epReq) {
         /* Drop responses from uknown endpoint src ids */
-        GLOGWARN << logString() << " Unkonwn EpId";
+        GLOGWARN << logString() << " Unknown EpId";
         return;
     } else if (epReq->isComplete()) {
         GLOGWARN << epReq->logString() << " Already completed";

@@ -195,7 +195,7 @@ QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr ep
     return req;
 }
 
-MultiPrimarySvcRequestPtr SvcRequestPool::neMultiPrimarySvcRequest(
+MultiPrimarySvcRequestPtr SvcRequestPool::newMultiPrimarySvcRequest(
     const std::vector<fpi::SvcUuid>& primarySvcs,
     const std::vector<fpi::SvcUuid>& optionalSvcs)
 {
