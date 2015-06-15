@@ -474,11 +474,8 @@ struct CtrlNotifyDMStartMigrationMsg {
    * pull associated volume descriptors from the source DM.
    */
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
-<<<<<<< HEAD
 
   /* Verson of DMT associated with the migration */
-=======
->>>>>>> origin
   2: i64                     DMT_version;
 }
 
