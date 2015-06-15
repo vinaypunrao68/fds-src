@@ -33,7 +33,7 @@ public class ListUsers implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-
+    	
     	List<User> externalUsers = null;
     	
     	try{
@@ -51,6 +51,8 @@ public class ListUsers implements RequestHandler {
     }
     
     public List<User> listUsers() throws ApiException, TException{
+    	
+    	logger.debug( "Trying to list users." );
     	
     	List<User> externalUsers = new ArrayList<>();
     	

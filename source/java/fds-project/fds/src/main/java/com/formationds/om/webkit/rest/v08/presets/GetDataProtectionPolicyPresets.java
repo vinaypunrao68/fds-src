@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.client.ical.Numbers;
 import com.formationds.client.ical.RecurrenceRule;
@@ -21,6 +23,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetDataProtectionPolicyPresets implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( GetDataProtectionPolicyPresets.class );
 	private List<DataProtectionPolicyPreset> dataProtectionPresets;
 	private DataProtectionPolicyPreset sparsePreset;
 	private DataProtectionPolicyPreset normalPreset;
@@ -30,7 +33,13 @@ public class GetDataProtectionPolicyPresets implements RequestHandler{
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 		
-		String jsonString = ObjectModelHelper.toJSON( getDataProtectionPolicyPresets() );
+		logger.debug( "Requesting the data protection presets." );
+		
+		List<DataProtectionPolicyPreset> presets = getDataProtectionPolicyPresets();
+		
+		logger.debug( "Found {} preset policies.", presets.size() );
+		
+		String jsonString = ObjectModelHelper.toJSON( presets );
 		
 		return new TextResource( jsonString );
 	}

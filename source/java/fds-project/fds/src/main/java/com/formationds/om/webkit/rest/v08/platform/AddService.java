@@ -33,6 +33,7 @@ public class AddService implements RequestHandler {
 
 		long nodeId = requiredLong( routeParameters, NODE_ARG );
 		
+		logger.debug( "Trying to add a new service on node: " + nodeId );
 		
 		
         return new JsonResource( new JSONObject().put( "status", 200 ), 200);

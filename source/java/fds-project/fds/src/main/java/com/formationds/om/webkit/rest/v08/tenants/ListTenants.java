@@ -51,6 +51,8 @@ public class ListTenants implements RequestHandler {
     
     public List<Tenant> listTenants() throws Exception{
     	
+    	logger.debug( "Trying to get a list of tenants." );
+    	
     	List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants( 0 );
     	
     	List<Tenant> externalTenants = new ArrayList<Tenant>();

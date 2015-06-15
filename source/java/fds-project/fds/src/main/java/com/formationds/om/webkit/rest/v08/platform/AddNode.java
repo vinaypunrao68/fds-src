@@ -46,6 +46,8 @@ public class AddNode
 
         long nodeUuid = requiredLong(routeParameters, NODE_ARG );
         
+        logger.debug( "Trying to add node: " + nodeUuid );
+        
         final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
         Node node = ObjectModelHelper.toObject( reader, Node.class );
         
@@ -78,9 +80,9 @@ public class AddNode
 
         }
 
-        List<Node> nodes = (new ListNodes()).getNodes();
+        Node newNode = (new GetNode()).getNode( nodeUuid );
         
-        String jsonString = ObjectModelHelper.toJSON( nodes );
+        String jsonString = ObjectModelHelper.toJSON( newNode );
         
         return new TextResource( jsonString );
     }
