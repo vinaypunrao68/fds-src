@@ -1119,7 +1119,8 @@ MigrationMgr::notifyDltUpdate(const DLT *dlt,
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);
         numBitsPerDltToken = bitsPerDltToken;
-        if (dltTokenStates.size() == 0  && dlt->getVersion() == 1) {
+        if (dltTokenStates.size() == 0 &&
+            dlt->getVersion() == 1) {
             // The case where SM starts up and there was no DLT before,
             // so this SM is up and does not resync or migration
             // Initialize DLT tokens that this SM owns to ready
