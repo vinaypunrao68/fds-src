@@ -12,6 +12,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.security.HashedPassword;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 
@@ -24,6 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+
+import javax.servlet.http.HttpServletResponse;
 
 public class UpdatePassword implements RequestHandler {
     
