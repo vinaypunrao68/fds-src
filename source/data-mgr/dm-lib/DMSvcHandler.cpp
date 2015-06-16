@@ -65,12 +65,12 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     DBG(GLOGDEBUG << logString(*hdr) << "Vol Add");  // logString(*vol_msg));
     fds_verify(vol_msg->__isset.vol_desc);
-    uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
+    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
 
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
+    fds_volid_t volumeId (vol_msg->vol_desc.volUUID);
     VolumeDesc vdb(vol_msg->vol_desc);
     GLOGNOTIFY << "Received create for vol "
-               << "[" << std::hex << volumeId << std::dec << ", "
+               << "[" << volumeId << ", "
                << vdb.getName() << "]";
 
     Error err(ERR_OK);
@@ -92,7 +92,7 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     DBG(GLOGDEBUG << logString(*hdr) << "Vol Remove");  // logString(*vol_msg));
     fds_verify(vol_msg->__isset.vol_desc);
-    uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
+    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     Error err(ERR_OK);
     bool fCheck = (vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
 
@@ -120,7 +120,7 @@ DMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     DBG(GLOGDEBUG << logString(*hdr) << "vol modify");  //  logString(*vol_msg));
     fds_verify(vol_msg->__isset.vol_desc);
-    uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
+    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     Error err(ERR_OK);
     VolumeDesc desc(vol_msg->vol_desc);
     err = dataManager_._process_mod_vol(vol_uuid, desc);
@@ -161,9 +161,10 @@ void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * get the snapshot manager instanace
      * invoke the deleteSnapshot DM function
      */
-    err = dataManager_.process_rm_vol(deleteSnapshot->snapshotId, true);
+    fds_volid_t vol_uuid (deleteSnapshot->snapshotId);
+    err = dataManager_.process_rm_vol(vol_uuid, true);
     if (err.ok()) {
-        err = dataManager_.process_rm_vol(deleteSnapshot->snapshotId, false);
+        err = dataManager_.process_rm_vol(vol_uuid, false);
     }
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -206,7 +207,7 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error err(ERR_OK);
 
     // synchronous call to process the volume sync state
-    err = dataManager_.processVolSyncState(syncStateMsg->volume_id,
+    err = dataManager_.processVolSyncState(fds_volid_t(syncStateMsg->volume_id),
                                            syncStateMsg->forward_complete);
 
     asyncHdr->msg_code = err.GetErrno();

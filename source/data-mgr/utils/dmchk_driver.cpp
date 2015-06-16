@@ -8,7 +8,7 @@
 namespace po = boost::program_options;
 
 int main(int argc, char* argv[]) {
-    fds_volid_t volumeUuid = 0;
+    fds_volid_t volumeUuid = invalid_vol_id;
     std::string blobName;
     // process command line options
     po::options_description desc("\nDM checker command line options");

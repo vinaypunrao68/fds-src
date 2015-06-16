@@ -105,7 +105,7 @@ void   AmQoSCtrl::setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher
     }
 }
 
-Error AmQoSCtrl::registerVolume(fds_int64_t  vol_uuid, FDS_VolumeQueue *volq) {
+Error AmQoSCtrl::registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq) {
     Error err(ERR_OK);
     err = htb_dispatcher->registerQueue(vol_uuid, volq);
     LOGWARN << err;
@@ -127,7 +127,7 @@ fds_uint32_t AmQoSCtrl::waitForWorkers() {
     return 1;
 }
 
-Error   AmQoSCtrl::deregisterVolume(fds_int64_t vol_uuid) {
+Error   AmQoSCtrl::deregisterVolume(fds_volid_t vol_uuid) {
     Error err(ERR_OK);
     err = htb_dispatcher->deregisterQueue(vol_uuid);
     return err;

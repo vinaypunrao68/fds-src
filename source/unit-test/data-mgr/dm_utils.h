@@ -167,15 +167,15 @@ struct BlobDetails {
     }
 };
 
-boost::shared_ptr<LatencyCounter> putCounter(new LatencyCounter("put", 0, 0));
-boost::shared_ptr<LatencyCounter> getCounter(new LatencyCounter("get", 0, 0));
-boost::shared_ptr<LatencyCounter> deleteCounter(new LatencyCounter("delete", 0, 0));
+boost::shared_ptr<LatencyCounter> putCounter(new LatencyCounter("put", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> getCounter(new LatencyCounter("get", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> deleteCounter(new LatencyCounter("delete", invalid_vol_id, 0));
 
 void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
     for (fds_uint32_t i = 1; i <= NUM_VOLUMES; ++i) {
         std::string name = "test" + std::to_string(i);
 
-        boost::shared_ptr<VolumeDesc> vdesc(new VolumeDesc(name, ++volCount));
+        boost::shared_ptr<VolumeDesc> vdesc(new VolumeDesc(name, fds_volid_t(++volCount)));
 
         vdesc->tennantId = i;
         vdesc->localDomainId = i;

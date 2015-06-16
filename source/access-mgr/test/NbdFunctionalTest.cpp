@@ -142,7 +142,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         nbdOps.reset(new NbdOperations(this));
         nbdOps->init(volumeName, am->getProcessor());
         am->getProcessor()->registerVolume(
-            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
+            std::move(VolumeDesc(*volumeName, fds_volid_t(5), 0, 0, 1)));
     }
 
     void resetCounters() {

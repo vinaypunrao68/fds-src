@@ -340,7 +340,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
         for (auto vol : metavol.volList) {
             LOGMIGRATE << "Will sync vol " << std::hex << vol
                        << " to node " << uuid.uuid_get_val() << std::dec;
-            vols.insert(vol);
+            vols.insert(fds_volid_t(vol));
         }
 
         // Tell CatalogSync to start the sync process

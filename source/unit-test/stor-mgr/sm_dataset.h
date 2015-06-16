@@ -94,7 +94,7 @@ class TestVolume {
         STORE_OP_DUPLICATE
     } StoreOpType;
 
-    TestVolume() : voldesc_("invalid", 0) {}
+    TestVolume() : voldesc_("invalid", invalid_vol_id) {}
     TestVolume(fds_volid_t volume_id,
                std::string volname,
                FdsConfigAccessor &conf);
@@ -215,7 +215,7 @@ void TestVolumeMap::init(boost::shared_ptr<FdsConfig>& fdsconf,
         if (!conf.exists(volname)) break;
         std::string vol_path = basePath + volname + ".";
         FdsConfigAccessor vol_conf(fdsconf, vol_path);
-        fds_volid_t volId = volidx + 1;
+        fds_volid_t volId(volidx + 1);
         TestVolume::ptr volume(new TestVolume(volId, volname, vol_conf));
         fds_verify(volmap.count(volId) == 0);
         volmap[volId] = volume;

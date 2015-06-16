@@ -411,7 +411,7 @@ fds_uint64_t VolumePerfHistory::getLocalRelativeSec(fds_uint64_t remote_rel_sec,
 Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
                                     fds_uint64_t fdsp_start_ts) {
     Error err(ERR_OK);
-    fds_verify(fdsp_volstats.volume_id == volid_);
+    fds_verify(fdsp_volstats.volume_id == static_cast<int64_t>(volid_));
     for (fds_uint32_t i = 0; i < fdsp_volstats.statlist.size(); ++i) {
         StatSlot remote_slot;
         err = remote_slot.loadSerialized(fdsp_volstats.statlist[i].slot_data);

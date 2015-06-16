@@ -71,7 +71,7 @@ namespace fds {
          * so register volume may fail
          */
         inline fds_volid_t shadowVolUuid(fds_volid_t volid) const {
-            return (volid | 0x8000000000000000);
+            return fds_volid_t(static_cast<uint64_t>(volid) | 0x8000000000000000);
         }
 
   private:  // methods

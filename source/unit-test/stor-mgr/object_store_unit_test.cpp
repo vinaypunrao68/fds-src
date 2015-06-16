@@ -85,7 +85,7 @@ void SmObjectStoreTest::TearDown() {
 
 void setupTests(fds_uint32_t concurrency,
                 fds_uint32_t datasetSize) {
-    fds_volid_t volId = 98;
+    fds_volid_t volId(98);
     fds_uint32_t sm_count = 1;
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
 
@@ -118,21 +118,21 @@ void setupTests(fds_uint32_t concurrency,
     volTbl->registerVolume(volume1->voldesc_);
 
     // large capacity volume for multi-threaded testing
-    largeCapVolume.reset(new TestVolume(volId+1, "ut_vol_capacity",
+    largeCapVolume.reset(new TestVolume(fds_volid_t(volId+1), "ut_vol_capacity",
                                         concurrency, 0,
                                         TestVolume::STORE_OP_PUT,
                                         20*datasetSize, 4096));
     volTbl->registerVolume(largeCapVolume->voldesc_);
 
     // volume with large obj size (2MB)
-    largeObjVolume.reset(new TestVolume(volId+2, "ut_vol_2MB",
+    largeObjVolume.reset(new TestVolume(fds_volid_t(volId+2), "ut_vol_2MB",
                                         1, 0,
                                         TestVolume::STORE_OP_PUT,
                                         datasetSize, 2*1024*1024));
     volTbl->registerVolume(largeObjVolume->voldesc_);
 
     // volume we will use to test migration code
-    migrVolume.reset(new TestVolume(volId+3, "ut_migration_vol",
+    migrVolume.reset(new TestVolume(fds_volid_t(volId+3), "ut_migration_vol",
                                     1, 0,
                                     TestVolume::STORE_OP_PUT,
                                     datasetSize, 4096));
@@ -148,7 +148,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
     fds_uint64_t seed = RandNumGenerator::getRandSeed();
     RandNumGenerator rgen(seed);
     fds_uint32_t datasetSize = (volume->testdata_).dataset_.size();
-    fds_volid_t volId = (volume->voldesc_).volUUID;
+    fds_volid_t volId((volume->voldesc_).volUUID);
     fds_uint32_t ops = atomic_fetch_add(&op_count, (fds_uint32_t)1);
 
     while ((ops + 1) <= numOps) {

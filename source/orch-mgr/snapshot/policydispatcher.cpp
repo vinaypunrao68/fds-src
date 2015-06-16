@@ -96,8 +96,9 @@ void PolicyDispatcher::run() {
         fds::apis::SnapshotPolicy policy;
         om->getConfigDB()->getSnapshotPolicy(policyId, policy);
 
-        VolumeDesc volumeDesc("", 1);
-        for (auto volId : vecVolumes) {
+        VolumeDesc volumeDesc("", fds_volid_t(1));
+        for (auto volId_ : vecVolumes) {
+            fds_volid_t volId(volId_);
             // check if we already have a snap scheduled with the volId
             auto iter = mapVolSnaps.find(volId);
             if (iter != mapVolSnaps.end() &&
@@ -128,11 +129,12 @@ void PolicyDispatcher::run() {
                                 policy.policyName.c_str(),
                                 util::getTimeStampMillis()));
             snapshot.volumeId = volId;
-            snapshot.snapshotId = om->getConfigDB()->getNewVolumeId();
-            if (invalid_vol_id == snapshot.snapshotId) {
+            auto snapshotId = om->getConfigDB()->getNewVolumeId();
+            if (invalid_vol_id == snapshotId) {
                 LOGWARN << "unable to generate a new snapshot id";
                 continue;
             }
+            snapshot.snapshotId = snapshotId;
 
             snapshot.snapshotPolicyId = policyId;
             snapshot.creationTimestamp = util::getTimeStampMillis();

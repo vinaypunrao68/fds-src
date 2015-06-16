@@ -4,6 +4,7 @@
 
 #include "dm-tvc/VolumeAccessTable.h"
 
+#include "util/Log.h"
 #include "fds_timer.h"
 
 namespace fds
@@ -28,7 +29,7 @@ DmVolumeAccessTable::getTimer() {
 
 DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
     : access_map(),
-      random_generator(vol_uuid),
+      random_generator(static_cast<uint64_t>(vol_uuid)),
       timer(DmVolumeAccessTable::getTimer())
 { }
 

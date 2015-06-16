@@ -35,7 +35,7 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
     startBlbTx->txId = txnNum;
     startBlbTx->blob_mode = blobMode;
     startBlbTx->dmt_version = 1;
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
+    auto dmBlobTxReq = new DmIoStartBlobTx(volId,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
                                            startBlbTx->blob_mode,
@@ -57,7 +57,7 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     commitBlbTx->blob_name = blobName;
     commitBlbTx->txId = txnNum;
 
-    auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
+    auto dmBlobTxReq1 = new DmIoCommitBlobTx(dmTester->TESTVOLID,
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version);
@@ -112,7 +112,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
             putBlobOnce->txId = txnId;
 
 
-            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(putBlobOnce->volume_id,
+            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(dmTester->TESTVOLID,
                                                               putBlobOnce->blob_name,
                                                               putBlobOnce->blob_version,
                                                               putBlobOnce->dmt_version);
@@ -247,7 +247,7 @@ TEST_F(DmUnitTest, GetMeta) {
         blobName = dmTester->getBlobName(i);
         auto getBlobMeta = SvcMsgFactory::newGetBlobMetaDataMsg(
             dmTester->TESTVOLID, blobName);
-        auto dmReq = new DmIoGetBlobMetaData(getBlobMeta->volume_id,
+        auto dmReq = new DmIoGetBlobMetaData(dmTester->TESTVOLID,
                                              getBlobMeta->blob_name,
                                              getBlobMeta->blob_version,
                                              getBlobMeta);

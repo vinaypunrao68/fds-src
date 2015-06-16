@@ -791,7 +791,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             if (isFirstRound && !resyncOnRestart) {
                 // --> start of second round
                 // --> incrememnt counter / marker of second round
-                PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
+                PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, invalid_vol_id);
                 LOGMIGRATE << "starting second round for " << (migrExecutors.begin()->first);
                 LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
                 nextExecutor.set(migrExecutors.begin());

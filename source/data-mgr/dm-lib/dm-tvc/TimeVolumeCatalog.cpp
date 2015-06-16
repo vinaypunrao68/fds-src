@@ -623,7 +623,7 @@ void DmTimeVolCatalog::monitorLogs() {
                         if (!rc) {
                             fds_verify(0 == unlink(srcFile.c_str()));
                             processedEvent = true;
-                            fds_volid_t volId = std::atoll(d.c_str());
+                            fds_volid_t volId (std::atoll(d.c_str()));
                             TimeStamp startTime = 0;
                             dmGetCatJournalStartTime(volTLPath + f, &startTime);
                             dataManager_.timeline->addJournalFile(volId, startTime, volTLPath + f);

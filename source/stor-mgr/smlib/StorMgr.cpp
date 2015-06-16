@@ -243,9 +243,10 @@ void ObjectStorMgr::mod_enable_service()
              * for the volume QoS.
              */
             /* high max iops so that unit tests does not take forever to finish */
+            fds_volid_t fdsVolId(testVolId);
             testVdb = new VolumeDesc(testVolName,
-                                     testVolId,
-                                     8+ testVolId,
+                                     fdsVolId,
+                                     8ULL + testVolId,
                                      10000,
                                      testVolId);
             fds_assert(testVdb != NULL);
@@ -259,7 +260,7 @@ void ObjectStorMgr::mod_enable_service()
             else
                 testVdb->mediaPolicy = FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
 
-            registerVolume(testVolId,
+            registerVolume(fdsVolId,
                            testVdb,
                            FDS_ProtocolInterface::FDSP_NOTIFY_VOL_NO_FLAG,
                            FDS_ProtocolInterface::FDSP_ERR_OK);
@@ -491,7 +492,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
 
-    fds_assert(volId != 0);
+    fds_assert(volId != invalid_vol_id);
     fds_assert(objId != NullObjectID);
 
     {  // token lock
@@ -537,7 +538,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     const ObjectID&  objId    = delReq->getObjId();
     fds_volid_t volId         = delReq->getVolId();
 
-    fds_assert(volId != 0);
+    fds_assert(volId != invalid_vol_id);
     fds_assert(objId != NullObjectID);
 
     LOGDEBUG << "Volume " << std::hex << volId << std::dec
@@ -580,8 +581,8 @@ void
 ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 {
     fds_assert(0 != addObjRefReq);
-    fds_assert(0 != addObjRefReq->getSrcVolId());
-    fds_assert(0 != addObjRefReq->getDestVolId());
+    fds_assert(invalid_vol_id != addObjRefReq->getSrcVolId());
+    fds_assert(invalid_vol_id != addObjRefReq->getDestVolId());
 
     Error rc = ERR_OK;
 
@@ -657,7 +658,7 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     fds_volid_t volId         = getReq->getVolId();
     diskio::DataTier tierUsed = diskio::maxTier;
 
-    fds_assert(volId != 0);
+    fds_assert(volId != invalid_vol_id);
     fds_assert(objId != NullObjectID);
 
     LOGDEBUG << "volume " << std::hex << volId << std::dec

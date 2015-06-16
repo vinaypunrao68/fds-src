@@ -270,10 +270,10 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
+AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
     fiu_do_on("am.uturn.dispatcher", return;);
 
-    LOGDEBUG << "Attempting to close volume: " << std::hex << vol_id;
+    LOGDEBUG << "Attempting to close volume: " << vol_id;
     auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
     volMDMsg->volume_id = vol_id;
     volMDMsg->token = token;

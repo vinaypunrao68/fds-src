@@ -30,7 +30,7 @@ using namespace fds;  // NOLINT
 struct ArchiveClientTest : public BaseTestFixture, DataMgrIf
 {
     ArchiveClientTest()
-        : volDesc_("dummy", 0)
+        : volDesc_("dummy", invalid_vol_id)
     {
         volDesc_.tennantId = 1;
     }
@@ -90,7 +90,7 @@ struct ArchiveClientTest : public BaseTestFixture, DataMgrIf
 */
 TEST_F(ArchiveClientTest, put_get)
 {
-    fds_volid_t volId = 1;
+    fds_volid_t volId(1);
     int64_t snapId = 1;
     std::string script = this->getArg<std::string>("script");
 

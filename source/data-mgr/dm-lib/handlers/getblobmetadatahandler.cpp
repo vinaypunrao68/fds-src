@@ -25,14 +25,15 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
                                            boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 
-    auto dmReq = new DmIoGetBlobMetaData(message->volume_id,
+    auto dmReq = new DmIoGetBlobMetaData(volId,
                                          message->blob_name,
                                          message->blob_version,
                                          message);

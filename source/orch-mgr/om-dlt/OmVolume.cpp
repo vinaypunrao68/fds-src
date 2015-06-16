@@ -738,7 +738,7 @@ VolumeInfo::~VolumeInfo()
 void
 VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeDescType &info)
 {
-    vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
+    vol_properties = new VolumeDesc(info, fds_volid_t(rs_uuid.uuid_get_val()));
     setName(info.vol_name);
     vol_name.assign(rs_name);
 
@@ -1006,8 +1006,8 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
             return ERR_DUPLICATE;
     }
 
-    ResourceUUID         uuid(gl_orch_mgr->getConfigDB()->getNewVolumeId());
-    if (uuid == invalid_vol_id) {
+    auto uuid = gl_orch_mgr->getConfigDB()->getNewVolumeId();
+    if (invalid_vol_id == fds_volid_t(uuid)) {
         LOGWARN << "unable to generate a vol id";
         return ERR_INVALID_VOL_ID;
     }
@@ -1423,7 +1423,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
                                       const Error & resp_err,
                                       NodeUuid from_svc)
 {
-    fds_volid_t vol_uuid = volinfo->vol_get_properties()->volUUID;
+    fds_uint64_t vol_uuid = volinfo->vol_get_properties()->volUUID;
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
@@ -1512,7 +1512,7 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     VolumeInfo::pointer  vol;
-    ResourceUUID         uuid = volumeDesc.volUUID;
+    ResourceUUID         uuid = static_cast<fds_uint64_t>(volumeDesc.volUUID);
     Error  err(ERR_OK);
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1646,7 +1646,7 @@ bool VolumeContainer::createSystemVolume(int32_t tenantId) {
     }
     fds_bool_t fReturn = true;
     if (!gl_orch_mgr->getConfigDB()->volumeExists(name)) {
-        VolumeDesc volume(name, 1);
+        VolumeDesc volume(name, fds_volid_t(1));
         
         volume.volUUID = gl_orch_mgr->getConfigDB()->getNewVolumeId();
         volume.createTime = util::getTimeStampMillis();

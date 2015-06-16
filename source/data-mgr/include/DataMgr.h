@@ -456,12 +456,12 @@ class CloseDMTTimerTask : public FdsTimerTask {
 
 namespace dmutil {
 // location of volume
-std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = 0);
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
 
 // location of all snapshots for a volume
 std::string getSnapshotDir(fds_volid_t volId);
 
-std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = 0);
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
 }  // namespace dmutil
 
 }  // namespace fds

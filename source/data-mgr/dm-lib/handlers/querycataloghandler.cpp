@@ -25,7 +25,7 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(fds_volid_t(message->volume_id));
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);

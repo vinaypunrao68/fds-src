@@ -28,7 +28,7 @@ struct AmVolumeAccessToken;
 struct WaitQueue;
 
 struct AmVolumeTable : public HasLogger {
-    static constexpr fds_volid_t fds_default_vol_uuid { 1 };
+    static fds_volid_t const fds_default_vol_uuid;
 
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 

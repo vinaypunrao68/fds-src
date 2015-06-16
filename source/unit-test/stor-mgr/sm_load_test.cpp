@@ -437,17 +437,17 @@ SmLoadProc::putSm(fds_volid_t volId,
 
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
-    putReq->setVolId(putObjMsg->volume_id);
+    putReq->setVolId(volId);
     putReq->dltVersion = 1;
     putReq->forwardedReq = false;
     putReq->setObjId(objId);
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
     putReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_PUT_OBJ_REQ;
-    putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opReqLatencyCtx.reset_volid(volId);
     putReq->opLatencyCtx.type = PerfEventType::SM_PUT_IO;
-    putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opLatencyCtx.reset_volid(volId);
     putReq->opQoSWaitCtx.type = PerfEventType::SM_PUT_QOS_QUEUE_WAIT;
-    putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opQoSWaitCtx.reset_volid(volId);
 
     putReq->response_cb= std::bind(
         &SmLoadProc::putSmCb, this,
@@ -498,16 +498,16 @@ SmLoadProc::getSm(fds_volid_t volId,
 
     auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
-    getReq->setVolId(getObjMsg->volume_id);
+    getReq->setVolId(volId);
     getReq->setObjId(objId);
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
     getReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_GET_OBJ_REQ;
-    getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opReqLatencyCtx.reset_volid(volId);
     getReq->opLatencyCtx.type = PerfEventType::SM_GET_IO;
-    getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opLatencyCtx.reset_volid(volId);
     getReq->opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
-    getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opQoSWaitCtx.reset_volid(volId);
 
     getReq->response_cb = std::bind(
         &SmLoadProc::getSmCb, this,
@@ -567,7 +567,7 @@ SmLoadProc::removeSm(fds_volid_t volId,
     expObjMsg->volId = volId;
     auto delReq = new SmIoDeleteObjectReq(expObjMsg);
     delReq->io_type = FDS_SM_DELETE_OBJECT;
-    delReq->setVolId(expObjMsg->volId);
+    delReq->setVolId(volId);
     delReq->dltVersion = 1;
     delReq->forwardedReq = false;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));

@@ -29,7 +29,7 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(fds_volid_t(message->volume_id));
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::ReloadVolumeMsg>();
@@ -50,10 +50,10 @@ void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
 
     LOGTRACE << "Will reload volume " << *typedRequest;
 
-    const VolumeDesc * voldesc = dataManager.getVolumeDesc(typedRequest->message->volume_id);
+    fds_volid_t volId(typedRequest->message->volume_id);
+    const VolumeDesc * voldesc = dataManager.getVolumeDesc(volId);
     if (!voldesc) {
-        LOGERROR << "Volume entry not found in descriptor map for volume '" << std::hex
-                << typedRequest->message->volume_id << std::dec << "'";
+        LOGERROR << "Volume entry not found in descriptor map for volume '" << volId << "'";
         helper.err = ERR_VOL_NOT_FOUND;
     } else {
         helper.err = dataManager.timeVolCat_->queryIface()->reloadCatalog(*voldesc);

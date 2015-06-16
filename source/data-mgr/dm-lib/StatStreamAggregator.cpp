@@ -42,7 +42,7 @@ StatStreamTimerTask::StatStreamTimerTask(FdsTimer &timer,
           reg_(reg),
           statStreamAggr_(statStreamAggr) {
     for (auto volId : reg_->volumes) {
-        vol_last_ts_[volId] = 0;
+        vol_last_ts_[fds_volid_t(volId)] = 0;
     }
 }
 
@@ -452,9 +452,9 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
         fpi::VolStatList & vstats = (stream_msg->volstats)[i];
         LOGDEBUG << "Received stats for volume " << std::hex << vstats.volume_id
                  << std::dec << " timestamp " << remote_start_ts;
-        VolumeStats::ptr volstats = getVolumeStats(vstats.volume_id);
+        VolumeStats::ptr volstats = getVolumeStats(fds_volid_t(vstats.volume_id));
         if (!volstats) {
-          LOGWARN << "Volume " << std::hex << vstats.volume_id << std::dec
+          LOGWARN << "Volume " << fds_volid_t(vstats.volume_id)
                << " is not attached to the aggregator! Ignoring stats";
           continue;
         }
@@ -555,7 +555,7 @@ StatStreamAggregator::getStatStreamRegDetails(const fds_volid_t & volId,
     SCOPEDREAD(lockStatStreamRegsMap);
     for (auto entry : statStreamRegistrations_) {
         for (auto vol : entry.second->volumes) {
-            if (volId == vol) {
+            if (volId == fds_volid_t(vol)) {
                 amId = entry.second->dest;
                 regId = entry.second->id;
                 return ERR_OK;
@@ -690,7 +690,7 @@ void StatStreamTimerTask::runTimerTask() {
         cleanupVolumes(volumes);  // cleanup in case volumes were removed
     } else {
         for (auto i : reg_->volumes) {
-            volumes.push_back(i);
+            volumes.push_back(fds_volid_t(i));
         }
     }
 

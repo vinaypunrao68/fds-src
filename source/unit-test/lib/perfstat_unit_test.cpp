@@ -42,7 +42,7 @@ int runMultivolTest(int slots, int sec_in_slot)
   iotime = 2000;
   next_io = now + iotime * nanos_in_micro;
   while (now < end_time) {
-      stats->recordEvent(1, now, STAT_AM_PUT_OBJ, 50);
+      stats->recordEvent(fds_volid_t(1), now, STAT_AM_PUT_OBJ, 50);
       next_io = wait_next_io(now, next_io, iotime);
       now = util::getTimeStampNanos();
  }
@@ -53,7 +53,7 @@ int runMultivolTest(int slots, int sec_in_slot)
   iotime = 5000;
   next_io = now + iotime * nanos_in_micro;
   while (now < end_time) {
-      stats->recordEvent(2, now, STAT_AM_PUT_OBJ, 20);
+      stats->recordEvent(fds_volid_t(2), now, STAT_AM_PUT_OBJ, 20);
       next_io = wait_next_io(now, next_io, iotime);
       now = util::getTimeStampNanos();
   }
@@ -64,8 +64,8 @@ int runMultivolTest(int slots, int sec_in_slot)
   iotime = 1000;
   next_io = now + iotime * nanos_in_micro;
   while (now < end_time) {
-      stats->recordEvent(1, now, STAT_AM_PUT_OBJ, 33);
-      stats->recordEvent(2, now, STAT_AM_PUT_OBJ, 55);
+      stats->recordEvent(fds_volid_t(1), now, STAT_AM_PUT_OBJ, 33);
+      stats->recordEvent(fds_volid_t(2), now, STAT_AM_PUT_OBJ, 55);
       next_io = wait_next_io(now, next_io, iotime);
       now = util::getTimeStampNanos();
   }
@@ -75,7 +75,7 @@ int runMultivolTest(int slots, int sec_in_slot)
   end_time = now + 10 * nanos_in_sec;
   while (now < end_time) {
      for (int i = 0; i < 1000; i++) {
-         stats->recordEvent(100+i, now, STAT_AM_PUT_OBJ, 10);
+         stats->recordEvent(fds_volid_t(100+i), now, STAT_AM_PUT_OBJ, 10);
      }
      now = util::getTimeStampNanos();
   } 
@@ -150,7 +150,7 @@ int runUnitTest(int slots, int sec_in_slot)
   fds_uint64_t start_time = util::getTimeStampNanos();
   fds_uint64_t sec_in_slot64 = sec_in_slot;
   fds_uint64_t nanos_in_slot = sec_in_slot64 * 1000000000;
-  VolumePerfHistory *hist = new VolumePerfHistory(1, start_time,
+  VolumePerfHistory *hist = new VolumePerfHistory(fds_volid_t(1), start_time,
                                                   slots, sec_in_slot);
   if (!hist) {
     std::cout << "Failed to create VolumePerfHistory" << std::endl;
@@ -165,7 +165,7 @@ int runUnitTest(int slots, int sec_in_slot)
   fds_uint64_t delta = nanos_in_slot;
   for (int i = 0; i < slots; ++i)
     {
-        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
+        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 200);
         ts += delta;
     }
 
@@ -178,8 +178,8 @@ int runUnitTest(int slots, int sec_in_slot)
   delta = 2 * nanos_in_slot;
   for (int i = 0; i < slots; ++i)
     {
-        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 400);
-        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
+        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 400);
+        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 200);
         ts += delta;
     }
 
@@ -193,11 +193,11 @@ int runUnitTest(int slots, int sec_in_slot)
   delta = (slots-2) * nanos_in_slot;
   for (int i = 0; i < 5; ++i)
     {
-        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 999);
+        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 999);
         ts += delta;
     }
   ts += nanos_in_slot;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 888);   // this last slot will be discarded
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 888);   // this last slot will be discarded
 
   statfile << "Expecting " << slots-1
            << " stats, one slot is filled with 1 IO, lat = 999 microsec"
@@ -211,28 +211,28 @@ int runUnitTest(int slots, int sec_in_slot)
 
   ts += delta;
   ts += delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 500);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 500);
   ts -= delta;
 
   /* add io too far in the past */
   ts -= delta2;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 789);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 789);
   ts += delta2;
 
   /* continue adding to current history */
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 300);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 300);
   ts += delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 200);
   ts += delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 999);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 999);
   ts -= delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 300);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 300);
   ts -= delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 1);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 1);
   ts += 5*delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 5);
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 5);
   ts += delta;
-  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 6);  // will be discarded
+  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 6);  // will be discarded
 
   statfile << "Expecting 8 stats. A portion of stats should include:"
            << std::endl ;
@@ -247,10 +247,10 @@ int runUnitTest(int slots, int sec_in_slot)
   for (int i = 0; i < (slots*sec_in_slot); ++i)
     {
       for (int k = 0; k < 10; ++k) {
-          hist->recordEvent(ts, STAT_AM_PUT_OBJ, 100);
+          hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 100);
       }
       for (int k = 0; k < 40; ++k) {
-          hist->recordEvent(ts, STAT_AM_GET_OBJ, 5);
+          hist->recordEvent(fds_volid_t(ts), STAT_AM_GET_OBJ, 5);
       }
       ts += delta;
     }
@@ -267,7 +267,7 @@ int runUnitTest(int slots, int sec_in_slot)
   fds_uint64_t rel_sec = hist->toFdspPayload(fdsp_stats, 0);
 
   fds_uint64_t recv_start_time = start_time + nanos_in_slot;
-  VolumePerfHistory *recv_hist = new VolumePerfHistory(1, recv_start_time,
+  VolumePerfHistory *recv_hist = new VolumePerfHistory(fds_volid_t(1), recv_start_time,
                                                        slots, sec_in_slot);
   if (!hist) {
     std::cout << "Failed to create VolumePerfHistory" << std::endl;
@@ -290,7 +290,7 @@ int runUnitTest(int slots, int sec_in_slot)
   rel_sec = hist->toSlotList(slot_list, 0);
 
   recv_start_time = start_time + nanos_in_slot;
-  VolumePerfHistory *other_hist = new VolumePerfHistory(1, recv_start_time,
+  VolumePerfHistory *other_hist = new VolumePerfHistory(fds_volid_t(1), recv_start_time,
                                                        slots, sec_in_slot);
   if (!hist) {
     std::cout << "Failed to create VolumePerfHistory" << std::endl;

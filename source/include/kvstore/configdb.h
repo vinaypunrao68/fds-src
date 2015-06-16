@@ -129,9 +129,9 @@ struct ConfigDB : KVStore {
     bool getSnapshotPolicy(int64_t policyid, fds::apis::SnapshotPolicy& policy);
     bool listSnapshotPolicies(std::vector<fds::apis::SnapshotPolicy> & _return); //NOLINT
     bool deleteSnapshotPolicy(const int64_t id); //NOLINT
-    bool attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
-    bool listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & _return, const int64_t volumeId); //NOLINT
-    bool detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
+    bool attachSnapshotPolicy(fds_volid_t const volumeId, const int64_t policyId); //NOLINT
+    bool listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & _return, fds_volid_t const volumeId); //NOLINT
+    bool detachSnapshotPolicy(fds_volid_t const volumeId, const int64_t policyId); //NOLINT
     bool listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId); //NOLINT
 
     bool createSnapshot(fpi::Snapshot& snapshot);
@@ -139,10 +139,10 @@ struct ConfigDB : KVStore {
 
     // volumeid & snapshotid should be set ...
     bool getSnapshot(fpi::Snapshot& snapshot);
-    bool deleteSnapshot(const int64_t volumeId, const int64_t snapshotId);
+    bool deleteSnapshot(fds_volid_t const volumeId, const int64_t snapshotId);
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
-    bool setSnapshotState(const int64_t volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
-   bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+    bool setSnapshotState(fds_volid_t const volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
+   bool listSnapshots(std::vector<fpi::Snapshot> & _return, fds_volid_t const volumeId); //NOLINT
 
   protected:
     void setModified();

@@ -30,22 +30,23 @@ bool DeleteScheduler::addSnapshot(const fpi::Snapshot& snapshot) {
     // check if the volume is already here
     bool fModified = false;
     uint64_t deleteTime  = snapshot.creationTimestamp/1000 + snapshot.retentionTimeSeconds;
-    auto handleptr = handleMap.find(snapshot.volumeId);
+    auto snapVolId = fds_volid_t(snapshot.volumeId);
+    auto handleptr = handleMap.find(snapVolId);
     if (handleptr != handleMap.end()) {
         // volume already exists
         DeleteTask* task = *handleptr->second;
         if (task->runAtTime > deleteTime) {
-            LOGDEBUG << "updating runAt for vol:" << snapshot.volumeId
+            LOGDEBUG << "updating runAt for vol:" << snapVolId
                      << " @ " << fds::util::getLocalTimeString(deleteTime);
             task->runAtTime = deleteTime;
             pq.update(handleptr->second);
         }
     } else {
         DeleteTask* task = new DeleteTask();
-        task->volumeId = snapshot.volumeId;
+        task->volumeId = snapVolId;
         task->runAtTime = deleteTime;
-        handleMap[snapshot.volumeId] = pq.push(task);
-        LOGDEBUG << "new volumeinfo :" << snapshot.volumeId
+        handleMap[snapVolId] = pq.push(task);
+        LOGDEBUG << "new volumeinfo :" << snapVolId
                  << " @ " << fds::util::getLocalTimeString(deleteTime);
         fModified = true;
     }

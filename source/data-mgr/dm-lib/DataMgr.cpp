@@ -125,8 +125,9 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
         if (vol_it->second->vol_desc->fSnapshot) {
             continue;
         }
-        if (amIPrimary(vol_it->first)) {
-            prim_vols.insert(vol_it->first);
+        fds_volid_t volId (vol_it->first);
+        if (amIPrimary(volId)) {
+            prim_vols.insert(volId);
         }
     }
     vol_map_mtx->unlock();
@@ -190,7 +191,7 @@ DataMgr::finishCloseDMT() {
     for (vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
-        fds_volid_t volid = vol_it->first;
+        fds_volid_t volid (vol_it->first);
         VolumeMeta *vol_meta = vol_it->second;
         if (vol_meta->isForwarding()) {
             vol_meta->setForwardFinish();
@@ -425,10 +426,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                          << " will be a clone at current time";
                 err = timeVolCat_->copyVolume(*vdesc);
             } else {
-                fds_volid_t latestSnapshotId = 0;
+                fds_volid_t latestSnapshotId = invalid_vol_id;
                 timeline->getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
                 util::TimeStamp snapshotTime = 0;
-                if (latestSnapshotId > 0) {
+                if (latestSnapshotId > invalid_vol_id) {
                     LOGDEBUG << "clone vol:" << vdesc->volUUID
                              << " of srcvol:" << vdesc->srcVolumeId
                              << " will be based of snapshot:" << latestSnapshotId;
@@ -666,7 +667,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             desc->contCommitlogRetention = 0;
             desc->timelineTime = 0;
             desc->setState(fpi::Active);
-            desc->name = util::strformat("snaphot_%ld_%ld", vol_uuid, snapId);
+            desc->name = util::strformat("snaphot_%ld_%ld",
+                                         static_cast<uint64_t>(vol_uuid),
+                                         static_cast<uint64_t>(snapId));
             VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
                                                             snapId,
                                                             GetLog(),
@@ -841,7 +844,7 @@ Error DataMgr::notifyDMTClose() {
          ++vol_it) {
         VolumeMeta *vol_meta = vol_it->second;
         vol_meta->finishForwarding();
-        pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
+        pushMetaDoneIo = new DmIoPushMetaDone(fds_volid_t(vol_it->first));
         handleDMTClose(pushMetaDoneIo);
     }
     vol_map_mtx->unlock();
@@ -1112,7 +1115,7 @@ void DataMgr::flushIO()
                  it = vol_meta_map.begin();
          it != vol_meta_map.end();
          it++) {
-        qosCtrl->quieseceIOs(it->first);
+        qosCtrl->quieseceIOs(fds_volid_t(it->first));
     }
 
 }
@@ -1149,7 +1152,7 @@ void DataMgr::mod_shutdown()
          it != vol_meta_map.end();
          it++) {
         //  qosCtrl->quieseceIOs(it->first);
-        qosCtrl->deregisterVolume(it->first);
+        qosCtrl->deregisterVolume(fds_volid_t(it->first));
         delete it->second;
     }
     vol_meta_map.clear();
@@ -1429,26 +1432,37 @@ namespace dmutil {
 std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     if (snapId > 0) {
-        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb", root->dir_user_repo_dm().c_str(), volId, snapId);
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
+                               root->dir_user_repo_dm().c_str(),
+                               static_cast<uint64_t>(volId),
+                               static_cast<uint64_t>(snapId));
     } else {
-        return util::strformat("%s/%ld", root->dir_sys_repo_dm().c_str(), volId);
+        return util::strformat("%s/%ld",
+                               root->dir_sys_repo_dm().c_str(),
+                               static_cast<uint64_t>(volId));
     }
 }
 
 // location of all snapshots for a volume
 std::string getSnapshotDir(fds_volid_t volId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    return util::strformat("%s/%ld/snapshot", root->dir_user_repo_dm().c_str(), volId);
+    return util::strformat("%s/%ld/snapshot",
+                           root->dir_user_repo_dm().c_str(),
+                           static_cast<uint64_t>(volId));
 }
 
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     if (snapId > 0) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
-                                 root->dir_user_repo_dm().c_str(), volId, snapId);
+                                 root->dir_user_repo_dm().c_str(),
+                                 static_cast<uint64_t>(volId),
+                                 static_cast<uint64_t>(snapId));
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
-                                 root->dir_sys_repo_dm().c_str(), volId, volId);
+                                 root->dir_sys_repo_dm().c_str(),
+                                 static_cast<uint64_t>(volId),
+                                 static_cast<uint64_t>(volId));
     }
 }
 }  // namespace dmutil

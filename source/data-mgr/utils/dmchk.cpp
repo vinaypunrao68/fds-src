@@ -18,7 +18,9 @@ DmChecker::DmChecker(int argc,
 
 Error DmChecker::loadVolume(fds_volid_t volumeUuid) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string volDir = util::strformat("%s/%ld", root->dir_sys_repo_dm().c_str(), volumeUuid);
+    std::string volDir = util::strformat("%s/%ld",
+                                         root->dir_sys_repo_dm().c_str(),
+                                         static_cast<uint64_t>(volumeUuid));
 
     if (!util::dirExists(volDir)) {
         return ERR_VOL_NOT_FOUND;
@@ -137,7 +139,7 @@ void DmChecker::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {
     util::getSubDirectories(root->dir_sys_repo_dm(), vecNames);
 
     for (const auto& name : vecNames) {
-        vecVolumes.push_back(std::atoll(name.c_str()));
+        vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
     }
     std::sort(vecVolumes.begin(), vecVolumes.end());
 }

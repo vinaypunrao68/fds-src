@@ -14,26 +14,29 @@
 #include <string>
 #include <atomic>
 
-#include <fds_types.h>
 #include <fds_error.h>
 #include <fds_assert.h>
-#include <fds_typedefs.h>
 #include <fds_ptr.h>
+#include <has_state.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
+#include <boost/serialization/strong_typedef.hpp>
+#include <boost/io/ios_state.hpp>
 #include <serialize.h>
-#include <fds_resource.h>
 #include <shared/fds-constants.h>
-#define FdsSysTaskQueueId 0xefffffff
+#define FdsSysTaskQueueId fds_volid_t(0xefffffff)
 #define FdsSysTaskPri 5
 
 namespace fds {
 
+class FDS_IOType;
+
 // typedef fds_uint64_t fds_volid_t;
 typedef boost::posix_time::ptime ptime;
+BOOST_STRONG_TYPEDEF(fds_uint64_t, fds_volid_t)
 
-static constexpr fds_volid_t invalid_vol_id = 0;
+static fds_volid_t const invalid_vol_id = fds_volid_t(0);
 static constexpr fds_int64_t invalid_vol_token = -1;
 
 /**
@@ -89,7 +92,7 @@ class VolumeDesc : public HasState {
     fds_uint64_t           timelineTime;
     // in millis
 
-    fpi::ResourceState     state;
+    FDS_ProtocolInterface::ResourceState     state;
 
     /* Output from block device */
     char                   vol_blkdev[FDS_MAX_VOL_NAME];
@@ -134,11 +137,11 @@ class VolumeDesc : public HasState {
     bool isSystemVolume() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
-    fpi::ResourceState getState() const {
+    FDS_ProtocolInterface::ResourceState getState() const {
         return state;
     }
 
-    void setState(fpi::ResourceState state) {
+    void setState(FDS_ProtocolInterface::ResourceState state) {
         this->state = state;
     }
 };
@@ -280,5 +283,27 @@ class FDS_VolumeQueue {
 
         INTRUSIVE_PTR_DEFS(FDS_VolumeQueue, refcnt_);
     };
+
+// Define streaming operator for volume ids
+inline std::ostream& operator<<(std::ostream& out, const fds_volid_t& vol_id) {
+    boost::io::ios_flags_saver ifs(out);
+    return out << std::dec << static_cast<uint64_t>(vol_id);
+}
+
 }  // namespace fds
+
+// Define a hash function for fds_volid_t
+namespace std {
+    template<>
+    struct hash<fds::fds_volid_t> {
+        typedef fds::fds_volid_t argument_type;
+        typedef std::size_t result_type;
+
+        result_type operator()(argument_type const& val) const {
+            return std::hash<fds_uint64_t>()(val);
+        }
+
+    };
+}  // namespace std
+
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_

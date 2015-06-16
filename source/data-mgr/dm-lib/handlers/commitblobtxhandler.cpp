@@ -36,14 +36,15 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 
-    auto dmReq = new DmIoCommitBlobTx(message->volume_id,
+    auto dmReq = new DmIoCommitBlobTx(volId,
                                       message->blob_name,
                                       message->blob_version,
                                       message->dmt_version);
