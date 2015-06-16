@@ -907,7 +907,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
                << " lastSet=" << readDeltaSetReq->lastSet
                << " delta set size=" << readDeltaSetReq->deltaSet.size();
 
-    PerfContext tmp_pctx(PerfEventType::SM_READ_OBJ_DELTA_SET, 0);
+    PerfContext tmp_pctx(PerfEventType::SM_READ_OBJ_DELTA_SET, invalid_vol_id);
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
 
     fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
