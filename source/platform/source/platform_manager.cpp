@@ -517,6 +517,11 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
             }
         }
 
+        void PlatformManager::addService (fpi::NotifyAddServiceMsgPtr const &addServiceMsg)
+        {
+
+        }
+
         void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
         {
             determineDiskCapability();

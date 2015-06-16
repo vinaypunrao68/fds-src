@@ -11,23 +11,79 @@ namespace fds
 {
     namespace pm
     {
-        SvcHandler::SvcHandler(CommonModuleProviderIf *provider, PlatformManager *platform) : PlatNetSvcHandler(provider)
+        SvcHandler::SvcHandler (CommonModuleProviderIf *provider, PlatformManager *platform) : PlatNetSvcHandler (provider)
         {
             this->platform = platform;
-            REGISTER_FDSP_MSG_HANDLER(fpi::ActivateServicesMsg, activateServices);
-            REGISTER_FDSP_MSG_HANDLER(fpi::DeactivateServicesMsg, deactivateServices);
+
+/* to be deprecated START */
+            REGISTER_FDSP_MSG_HANDLER (fpi::ActivateServicesMsg, activateServices);
+            REGISTER_FDSP_MSG_HANDLER (fpi::DeactivateServicesMsg, deactivateServices);
+/* to be deprecated End */
+/*
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyAddNodeMsg, addNode);
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyRemoveNodeMsg, removeNode);
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStartNodeMsg, startNode);
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStopNodeMsg, stopNode);
+*/
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyAddServiceMsg, addService);
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyRemoveServiceMsg, removeService);
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStartServiceMsg, startService);
+            REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStopServiceMsg, stopService);
+        }
+/* to be deprecated START */
+        void SvcHandler::activateServices (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::ActivateServicesMsg> &activateMsg)
+        {
+            platform->activateServices (activateMsg);
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 
-        void SvcHandler::activateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::ActivateServicesMsg> &activateMsg)
+        void SvcHandler::deactivateServices (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::DeactivateServicesMsg> &deactivateMsg)
         {
-            platform->activateServices(activateMsg);
-            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+            platform->deactivateServices (deactivateMsg);
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+/* to be deprecated End */
+/*
+        void SvcHandler::addNode (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyAddNodeMsg> &addNodeMessage)
+        {
+            platform->addNode (addNodeMessage);
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 
-        void SvcHandler::deactivateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::DeactivateServicesMsg> &deactivateMsg)
+        void SvcHandler::removeNode (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyRemoveNodeMsg> &removeNodeMessage)
         {
-            platform->deactivateServices(deactivateMsg);
-            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::startNode (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStartNodeMsg> &startNodeMessage)
+        {
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::stopNode (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStopNodeMsg> &stopNodeMessage)
+        {
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+*/        
+        void SvcHandler::addService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyAddServiceMsg> &addServiceMessage)
+        {
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::removeService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyRemoveServiceMsg> &removeServiceMessage)
+        {
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::startService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStartServiceMsg> &startServiceMessage)
+        {
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::stopService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStopServiceMsg> &stopServiceMessage)
+        {
+            sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 
     }  // namespace pm
