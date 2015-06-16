@@ -391,10 +391,10 @@ describe( 'Testing volume creation permutations', function(){
     it( 'should be able to delete a volume', function(){
         
         deleteVolume( "Dumb One" );
-        browser.sleep( 320 );
+        browser.sleep( 300 );
         
         var rows = mainEl.all( by.css( '.volume-row' ) ).count().then( function( num ){
-            expect( num ).toBe( 4 );
+            expect( num ).toBe( 3 );
         });
         
         logout();

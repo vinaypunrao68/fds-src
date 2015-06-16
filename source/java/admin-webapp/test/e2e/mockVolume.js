@@ -58,7 +58,7 @@ mockVolume = function(){
             var temp = [];
 
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if( volService.volumes[i].id.name !== volume.id.name ){
+                if( volService.volumes[i].name !== volume.name ){
                     temp.push( volService.volumes[i] );
                 }
             }
