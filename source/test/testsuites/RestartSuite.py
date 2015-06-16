@@ -32,6 +32,7 @@ def suiteConstruction(self):
     genericTestCase = testcases.TestCase.FDSTestCase()
     fdscfg = genericTestCase.parameters["fdscfg"]
     nodes = [n.nd_conf_dict['node-name'] for n in fdscfg.rt_obj.cfg_nodes]
+    omNode = None if fdscfg.rt_om_node == None else fdscfg.rt_om_node.nd_conf_dict['node-name']
 
     # -- setup the connection
     tests = [
@@ -53,11 +54,20 @@ def suiteConstruction(self):
     suite.addTests(tests)
 
     for node in nodes:
-        for svc in ['AM', 'SM', 'DM']:
+        for svc in ['PM', 'AM', 'SM', 'DM']:
             delay=10 if svc != 'AM' else 60
             tests = [
                 log ("restarting {}".format(svc))                  ,
                 eval('service.Test'+ svc + 'Kill(node="'+node+'")'),
+            ]
+
+            if svc == 'PM':
+                if node == omNode:
+                    tests.append(service.TestPMForOMBringUp())
+                else:
+                    tests.append(service.TestPMBringUp(node=node))
+
+            tests.extend([
                 eval('service.Test'+ svc + 'Wait(node="'+node+'")'),
                 TestWait(delay=delay)                              ,
                 s3.TestS3CrtBucket(bucket='restart_suite_vol1')    ,
@@ -70,7 +80,7 @@ def suiteConstruction(self):
                 s3.TestDeletes(dataset=2)                          ,
                 s3.TestKeys(dataset=2, exist=False)                ,
                 s3.TestS3DelBucket(bucket='restart_suite_vol2')    ,
-            ]
+            ])
 
             suite.addTests(tests)
 
