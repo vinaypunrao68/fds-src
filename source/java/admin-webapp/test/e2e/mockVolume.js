@@ -77,7 +77,7 @@ mockVolume = function(){
             for ( var i = 0; i < volService.volumes.length; i++ ){
                 var thisVol = volService.volumes[i];
 
-                if ( thisVol.id.name === volume.id.name ){
+                if ( thisVol.name === volume.name ){
                     // edit
                     volService.volumes[i] = volume;
 
@@ -91,7 +91,7 @@ mockVolume = function(){
                 }
             }
 
-            volume.id.uuid = (new Date()).getTime();
+            volume.uid = (new Date()).getTime();
             volume.status = {
                 currentUsage: {
                     size: 0,
@@ -104,14 +104,16 @@ mockVolume = function(){
             volume.rate = 10000;
             volume.snapshots = [];
             
+            if ( !angular.isDefined( volume.snapshotPolicies ) ){
+                volume.snapshotPolicies = [];
+            }
+            
             // re-name the policies
             for ( var polIndex = 0; polIndex < volume.snapshotPolicies.length; polIndex++ ){
                 var policy = volume.snapshotPolicies[polIndex];
                 
-                policy.id = {
-                    uuid: (new Date()).getTime() - polIndex,
-                    name: volume.id.uuid + '_TIMELINE_' + policy.recurrenceRule.FREQ
-                };
+                policy.uid = (new Date()).getTime() - polIndex;
+                policy.type = volume.uid + '_SYSTEM_TIMELINE_' + policy.recurrenceRule.FREQ;
             }
             
             volService.volumes.push( volume );
@@ -137,7 +139,7 @@ mockVolume = function(){
             var volume;
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id.uuid === volumeId ){
+                if ( volService.volumes[i].uid === volumeId ){
                     volume = volService.volumes[i];
                     break;
                 }
@@ -148,7 +150,7 @@ mockVolume = function(){
             }
             
             var id = (new Date()).getTime();
-            volume.snapshots.push( { id: { uuid: id, name: id }, creation: id } );
+            volume.snapshots.push( { uid: id, name: id, creation: id } );
             
             callback();
         };
@@ -161,7 +163,7 @@ mockVolume = function(){
             //callback( [] );
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id.uuid === volumeId ){
+                if ( volService.volumes[i].uid === volumeId ){
                     
                     if ( angular.isFunction( callback ) ){
                         callback( volService.volumes[i].snapshots );
@@ -179,7 +181,7 @@ mockVolume = function(){
             for ( var i = 0; i < volService.volumes.length; i++ ){
                 var volume = volService.volumes[i];
                 
-                if ( volume.id.uuid === volumeId ){
+                if ( volume.uid === volumeId ){
                     policies = volume.snapshotPolicies;
                     break;
                 }
@@ -197,29 +199,29 @@ mockVolume = function(){
                 }
             };
         };
-        
+
         volService.getQosPolicyPresets = function( callback, failure ){
             
             var presets = [
                 {
                     priority: 10,
-                    sla: 0,
-                    limit: 0,
-                    uuid: -1,
+                    iopsMin: 0,
+                    iopsMax: 0,
+                    id: 0,
                     name: 'Least Important'
                 },
                 {
                     priority: 7,
-                    sla: 0,
-                    limit: 0,
-                    uuid: -1,
+                    iopsMin: 0,
+                    iopsMax: 0,
+                    id: 1,
                     name: 'Standard'
                 },
                 {
                     priority: 1,
-                    sla: 0,
-                    limit: 0,
-                    uuid: -1,
+                    iopsMin: 0,
+                    iopsMax: 0,
+                    id: 2,
                     name: 'Most Important'
                 }
             ];
@@ -229,38 +231,55 @@ mockVolume = function(){
             }
         };
         
-        volService.getSnapshotPolicyPresets = function( callback, failure ){
+        volService.getDataProtectionPolicyPresets = function( callback, failure ){
             
             var presets = [{
-                commitLogRetention: 86400,
+                "id": 0,
+                commitLogRetention: { 
+                    "seconds": 86400,
+                    "nanos" : 0
+                },
                 name: 'Sparse Coverage',
-                policies: [{
+                snapshotPolicies: [{
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'DAILY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0']
                     },
-                    retention: 172800
+                    retentionTime: {
+                        seconds: 172800,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'WEEKLY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0'],
                         BYDAY: ['MO']
                     },
-                    retention: 604800
+                    retentionTime: {
+                        seconds: 604800,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'MONTHLY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0'],
                         BYMONTHDAY: ['1']
                     },
-                    retention: 7776000
+                    retentionTime: {
+                        seconds: 7776000,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'YEARLY',
                         BYMINUTE: ['0'],
@@ -268,39 +287,59 @@ mockVolume = function(){
                         BYMONTHDAY: ['1'],
                         BYMONTH: ['1']
                     },
-                    retention: 63244800
+                    retentionTime: {
+                        seconds: 63244800,
+                        nanos: 0
+                    }
                 }]
             },
             {
-                commitLogRetention: 86400,
+                id: 1,
+                commitLogRetention: {
+                    seconds: 86400,
+                    nanos: 0
+                },
                 name: 'Standard',
-                policies: [{
+                snapshotPolicies: [{
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'DAILY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0']
                     },
-                    retention: 604800
+                    retentionTime: {
+                        seconds: 604800,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'WEEKLY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0'],
                         BYDAY: ['MO']
                     },
-                    retention: 7776000
+                    retentionTime: {
+                        seconds: 7776000,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'MONTHLY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0'],
                         BYMONTHDAY: ['1']
                     },
-                    retention: 15552000
+                    retentionTime: {
+                        seconds: 15552000,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'YEARLY',
                         BYMINUTE: ['0'],
@@ -308,39 +347,59 @@ mockVolume = function(){
                         BYMONTHDAY: ['1'],
                         BYMONTH: ['1']
                     },
-                    retention: 158112000
+                    retentionTime: {
+                        seconds: 158112000,
+                        nanos: 0
+                    }
                 }]
             },
             {
-                commitLogRetention: 172800,
+                id: 2,
+                commitLogRetention: {
+                    seconds: 172800,
+                    nanos: 0
+                },
                 name: 'Dense Coverage',
-                policies: [{
+                snapshotPolicies: [{
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'DAILY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0']
                     },
-                    retention: 2592000
+                    retentionTime: {
+                        seconds: 2592000,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'WEEKLY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0'],
                         BYDAY: ['MO']
                     },
-                    retention: 18144000
+                    retentionTime: {
+                        seconds: 18144000,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'MONTHLY',
                         BYMINUTE: ['0'],
                         BYHOUR: ['0'],
                         BYMONTHDAY: ['1']
                     },
-                    retention: 63244800
+                    retentionTime: {
+                        seconds: 63244800,
+                        nanos: 0
+                    }
                 },
                 {
+                    type: 'SYSTEM_TIMELINE',
                     recurrenceRule: {
                         FREQ: 'YEARLY',
                         BYMINUTE: ['0'],
@@ -348,7 +407,10 @@ mockVolume = function(){
                         BYMONTHDAY: ['1'],
                         BYMONTH: ['1']
                     },
-                    retention: 474336000
+                    retentionTime: {
+                        seconds: 474336000,
+                        nanos: 0
+                    }
                 }]
             }];
             
@@ -365,7 +427,6 @@ mockVolume = function(){
                 if ( !angular.isDefined( vols ) || vols === null ){
                     vols = [];
                 }
-                
                 volService.volumes = vols;
             }
         };
@@ -379,41 +440,21 @@ mockVolume = function(){
     angular.module( 'volume-management' ).factory( '$data_connector_api', function(){
 
         var api = {};
-        api.connectors = [];
-
-        var getConnectorTypes = function(){
-    //        return $http.get( '/api/config/data_connectors' )
-    //            .success( function( data ){
-    //                api.connectors = data;
-    //            });
-
-            api.connectors = [{
-                type: 'Block',
+        api.types = [
+            {
+                type: 'BLOCK',
                 capacity: {
-                    size: 10,
+                    value: 10,
                     unit: 'GB'
-                },
-                blockSize: {
-                    size: 128,
-                    unit: 'KB'
                 }
             },
             {
-                type: 'Object',
-                maxObjectSize: {
-                    size: 1,
-                    unit: 'GB'
-                }
-            }];
-        }();
+                type: 'OBJECT'
+            }
+        ];
 
-        api.editConnector = function( connector ){
-
-            api.connectors.forEach( function( realConnector ){
-                if ( connector.type === realConnector.type ){
-                    realConnector = connector;
-                }
-            });
+        api.getVolumeTypes = function( callback ){
+            callback( api.types );
         };
 
         return api;

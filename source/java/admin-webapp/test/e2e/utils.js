@@ -155,7 +155,7 @@ var setCustomQos = function( pageEl, qos ){
     var limitSegment = 0;
     var guaranteeSegment = 0;
 
-    switch( qos.limit ){
+    switch( qos.iopsMax ){
         case 100:
             limitSegment = 0;
             break;
@@ -191,7 +191,7 @@ var setCustomQos = function( pageEl, qos ){
             break;
     }
     
-    switch( qos.sla ){
+    switch( qos.iopsMin ){
         case 0:
             limitSegment = 0;
             break;
@@ -244,12 +244,12 @@ var setVolumeValues = function( pageEl, data_type, qos, mediaPolicy, timeline, t
 
         typeMenu.click();
         
-        if ( data_type.type === 'block' ){
+        if ( data_type.type === 'block' || data_type.type === 'BLOCK' ){
             blockEl.click();
             
             var sizeSpinner = pageEl.element( by.css( '.data-connector-size-spinner' )).element( by.tagName( 'input' ));
             sizeSpinner.clear();
-            sizeSpinner.sendKeys( data_type.attributes.size );
+            sizeSpinner.sendKeys( data_type.capacity.value );
         }
         else {
             objectEl.click();

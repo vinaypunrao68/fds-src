@@ -87,7 +87,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
             iopsMin: $scope.editQos.iopsMin
         };
         
-        $scope.thisVolume.dataProtectionPolicy.commitLogRetention = $scope.timelinePolicies.commitLogRetention;
+        $scope.thisVolume.dataProtectionPolicy = $scope.timelinePolicies;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
             $scope.volumeVars.selectedVolume = volume;
