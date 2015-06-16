@@ -451,7 +451,7 @@ namespace fds {
             io->io_total_time = static_cast<double>(total_nano) / 1000.0;
 
             LOGDEBUG << "Dispatcher: IO Request " << io->io_req_id
-                   << " for vol id 0x" << std::hex << io->io_vol_id << std::dec
+                   << " for vol id [" << io->io_vol_id << "]"
                    << " completed in " << io->io_service_time
                    << " usecs with a wait time of " << io->io_wait_time
                    << " usecs with total io time of " << io->io_total_time
