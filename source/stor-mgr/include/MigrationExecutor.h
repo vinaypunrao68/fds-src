@@ -72,6 +72,8 @@ class MigrationExecutor {
         ME_ERROR
     };
 
+    const fds_uint32_t INVALID_ROUND = 3;
+
     inline fds_uint64_t getId() const {
         return executorId;
     }
@@ -126,7 +128,7 @@ class MigrationExecutor {
             case ME_SECOND_PHASE_APPLYING_DELTA:
                 return 2;
             default:
-                return 0;
+                return INVALID_ROUND;
         }
     }
 
