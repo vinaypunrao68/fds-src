@@ -203,6 +203,7 @@ class RsContainer
     inline fds_uint32_t rs_available_elm() {
         return rs_cur_idx;
     }
+
     /**
      * Iterate through the array.  It's thread safe.
      */

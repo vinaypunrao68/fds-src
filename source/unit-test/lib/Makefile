@@ -8,7 +8,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-am-engine \
     fds-lib \
-    fds-fdsp
+    fds-fdsp \
 
 user_non_fds_libs := \
     gmock \
@@ -45,7 +45,8 @@ user_cpp          :=  \
     qos_tokbucket_gtest.cpp \
     s3utils_gtest.cpp \
     fds_panic.cpp \
-	bitset_gtest.cpp
+	bitset_gtest.cpp \
+	rs_container_ut.cpp
 
 
 user_cc           :=
@@ -58,7 +59,8 @@ user_no_style     :=                \
     counters_test.cpp               \
     SynchronizedTaskExecutor_ut.cpp \
     sharedcache_perf_test.cpp       \
-    perf_trace_unit_test.cpp
+    perf_trace_unit_test.cpp \
+    rs_container_ut.cpp
 
 user_bin_exe      := \
     fds_timer_test \
@@ -80,7 +82,8 @@ user_bin_exe      := \
     qos_tokbucket_gtest \
     s3utils_gtest \
     fds_panic \
-	bitset_gtest
+	bitset_gtest \
+	rs_container_ut
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -102,5 +105,6 @@ histogram_gtest 			   := histogram_gtest.cpp
 qos_tokbucket_gtest            := qos_tokbucket_gtest.cpp
 fds_panic                      := fds_panic.cpp
 bitset_gtest				   := bitset_gtest.cpp
+rs_container_ut                := rs_container_ut.cpp
 
 include $(topdir)/Makefile.incl
