@@ -437,6 +437,17 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     ///
     void shutdown();
 
+    /*
+     * Gets and sets Number of primary DMs.
+     */
+    inline fds_uint32_t getNumOfPrimary()  {
+    	return (_numOfPrimary);
+    }
+    inline void setNumOfPrimary(fds_uint32_t num) {
+    	fds_verify(num > 0);
+    	_numOfPrimary = num;
+    }
+
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
@@ -452,6 +463,11 @@ private:
      * Implementation of amIPrimary
      */
     fds_bool_t _amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary);
+
+    /*
+     * Number of primary DMs
+     */
+    fds_uint32_t _numOfPrimary;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

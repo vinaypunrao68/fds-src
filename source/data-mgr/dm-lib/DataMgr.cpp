@@ -953,6 +953,14 @@ int DataMgr::mod_init(SysParams const *const param)
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
+    /*
+     * Retrieves the number of primary DMs from the config file.
+     */
+    int primary_check = MODULEPROVIDER()->get_fds_config()->
+				  get<int>("fds.dm.number_of_primary");
+    fds_verify(primary_check > 0);
+    setNumOfPrimary((unsigned)primary_check);
+
     return 0;
 }
 
@@ -1217,21 +1225,22 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
 /**
  * Checks the current DMT to determine if this DM primary
  * or not for a given volume.
+ * topPrimary - If specified to be true, will check to see if
+ * this current DM is the top element of the DMT column.
  */
 fds_bool_t
 DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
 	if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
-		DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
+		const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
 		fds_verify(nodes->getLength() > 0);
-		fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+		const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
 
         if (topPrimary) {
         	// Only the 0th element is considered top Primary
         	return (myUuid == nodes->get(0).toSvcUuid());
         } else {
         	// Anything else within number_of_primary is within primary group
-        	int numberOfPrimaryDMs = MODULEPROVIDER()->get_fds_config()->
-				  get<int>("fds.dm.number_of_primary");
+        	const int numberOfPrimaryDMs = getNumOfPrimary();
         	fds_verify(numberOfPrimaryDMs > 0);
         	for (int i = 0; i < numberOfPrimaryDMs; i++) {
         		if (nodes->get(i).toSvcUuid() == myUuid) {
@@ -1245,12 +1254,12 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
 
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-	return (DataMgr::_amIPrimaryImpl(volUuid, true));
+	return (_amIPrimaryImpl(volUuid, true));
 }
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
-	return (DataMgr::_amIPrimaryImpl(volUuid, false));
+	return (_amIPrimaryImpl(volUuid, false));
 }
 
 /**
