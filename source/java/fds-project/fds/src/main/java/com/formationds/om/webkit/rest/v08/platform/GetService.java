@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
@@ -17,6 +19,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetService implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( GetService.class );
 	private static final String SERVICE_ARG = "service_id";
 	private static final String NODE_ARG = "node_id";
 	
@@ -26,6 +29,8 @@ public class GetService implements RequestHandler{
 		
 		long nodeId = requiredLong( routeParameters, NODE_ARG );
 		long serviceId = requiredLong( routeParameters, SERVICE_ARG );
+		
+		logger.debug( "Trying to retrieve service: " + serviceId + " running on node: " + nodeId );
 		
 		Service service = getService( nodeId, serviceId );
 		
@@ -47,7 +52,8 @@ public class GetService implements RequestHandler{
 		}).findFirst();
 		
 		if ( foundService.isPresent() ){
-			return foundService.get();
+			Service service = foundService.get();
+			return service;
 		}
 		
 		throw new ApiException( "Could not find service for node: " + nodeId + " and service: " + serviceId, ErrorCode.MISSING_RESOURCE );

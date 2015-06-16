@@ -21,6 +21,10 @@ class SnapshotPolicyService( AbstractService ):
         url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies" )
         data = SnapshotPolicyConverter.to_json( policy )
         j_policy =  self.rest_helper.post( self.session, url, data )
+        
+        if j_policy is None:
+            return
+        
         policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
         return policy
 
@@ -43,7 +47,13 @@ class SnapshotPolicyService( AbstractService ):
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies/", policy.id.uuid )
         data = SnapshotPolicyConverter.to_json(policy)
-        return self.rest_helper.put( self.session, url, data )
+        j_policy = self.rest_helper.put( self.session, url, data )
+        
+        if j_policy is None:
+            return
+        
+        policy = SnapshotPolicyConverter.build_snapshot_policy_from_json(j_policy)
+        return policy
     
     def list_snapshot_policies(self, volume_id):
         '''

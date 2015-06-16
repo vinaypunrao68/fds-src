@@ -106,10 +106,10 @@ def main():
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "metrics.formationds.com",
-        "port" : 8086,
-        "user" : "root",
-        "password" : "root",
+        "ip" : "influxdb-ec2",
+        "port" : 80,
+        "user" : "perf",
+        "password" : "perf",
         "db" : "counters"
     }
     

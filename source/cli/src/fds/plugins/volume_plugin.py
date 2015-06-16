@@ -110,6 +110,8 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_str, help="The block size you would like to use for block type volumes.", type=int, default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_unit_str, help="The units that you wish the block size to be in.  The default is KB.", choices=["KB","MB"], default="KB")
         
         __createParser.set_defaults( func=self.create_volume, format="tabular" )
 
@@ -281,7 +283,10 @@ class VolumePlugin( AbstractPlugin):
             
             if ( volume.type.lower() == "block" ):
                 volume.settings = BlockSettings()
-                volume.settings.capacity = Size( args[AbstractPlugin.size_str], args[AbstractPlugin.size_unit_str] )
+                volume.settings.capacity = Size( size=args[AbstractPlugin.size_str], unit=args[AbstractPlugin.size_unit_str] )
+                
+                if args[AbstractPlugin.block_size_str] is not None:
+                    volume.settings.block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
             else:
                 volume.settings = ObjectSettings()
             
@@ -313,7 +318,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().create_volume( volume )
         
-        if ( volume is not None ):
+        if isinstance(response, Volume):
             self.list_volumes(args)
             
         return
@@ -391,7 +396,7 @@ class VolumePlugin( AbstractPlugin):
             
         response = self.get_volume_service().edit_volume( volume );
         
-        if ( response is not None ):
+        if isinstance(response, Volume):
             args = [ args[AbstractPlugin.format_str]]
             self.list_volumes( args )                 
             
@@ -480,7 +485,7 @@ class VolumePlugin( AbstractPlugin):
         else:
             new_volume = self.get_volume_service().clone_from_timeline( volume, fromTime )
             
-        if new_volume is not None:
+        if isinstance(new_volume, Volume):
             
             #if there was a timeline preset included, create and attach those policies now
             if t_preset is not None:
@@ -530,7 +535,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().create_snapshot( snapshot )
         
-        if ( response is not None ):
+        if isinstance(response, Snapshot):
             self.list_snapshots(args)
          
     def list_snapshots(self, args):
@@ -540,6 +545,9 @@ class VolumePlugin( AbstractPlugin):
         volId = args[AbstractPlugin.volume_id_str]
             
         response = self.get_volume_service().list_snapshots(volId)
+        
+        if "message" in response:
+            return
         
         if ( len( response ) == 0 ):
             print "No snapshots found for volume with ID " + volId;

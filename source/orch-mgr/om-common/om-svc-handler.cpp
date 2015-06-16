@@ -258,11 +258,11 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
 {
 	LOGNORMAL << "Received Health Report from PM: "
-			<< msg->healthReport.serviceID.svc_name
+			<< msg->healthReport.serviceInfo.svc_id.svc_name
 			<< " state: " << msg->healthReport.serviceState
 			<< " status: " << msg->healthReport.statusCode << std::endl;
 
-	ResourceUUID service_UUID (msg->healthReport.serviceID.svc_uuid.svc_uuid);
+	ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
 	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
 	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
 
@@ -293,7 +293,7 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 				default:
 					// Panic on unhandled service
 					fds_panic("Unhandled process: %s with service type %d",
-							msg->healthReport.serviceID.svc_name.c_str(),
+							msg->healthReport.serviceInfo.svc_id.svc_name.c_str(),
 							service_type);
 					break;
 			}

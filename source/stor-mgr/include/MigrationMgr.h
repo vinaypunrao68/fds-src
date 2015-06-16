@@ -108,6 +108,19 @@ class MigrationMgr {
     Error abortMigration();
 
     /**
+     * Abort migration for a given SM token. Currently
+     * this is used in case of errors seen during
+     * migration on the destination side.
+     */
+    Error abortMigrationForSMToken(fds_token_id &smToken, const Error &err);
+
+    /**
+     * Start migration for the next executor or if none found
+     * move on to the next phase.
+     */
+    void startNextSMTokenMigration(fds_token_id &smToken, bool isFirstRound);
+
+    /**
      * Handle a timeout error from executor or client.
      */
     void timeoutAbortMigration();
@@ -225,6 +238,12 @@ class MigrationMgr {
      fds_uint32_t getUniqueRestartId()
      { return std::atomic_fetch_add(&uniqRestartId, (fds_uint32_t)1); }
 
+    /**
+     * Check if all the Migration Executors for a given sm token
+     * are is error state.
+     */
+     bool allExecutorsInErrorState(const fds_token_id &sm_token);
+
   private:
 
     /**
@@ -325,7 +344,8 @@ class MigrationMgr {
      * Set a given list of DLT tokens to available
      * for data operations.
      */
-    void markDltTokensAvailable(const TokenList& tokens);
+    template<typename T>
+    void changeDltTokensAvailability(const T& tokens, bool availability);
 
     /**
      * If all executors and clients are done, moves migration to IDLE state

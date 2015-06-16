@@ -14,14 +14,16 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public class ListSnapshots implements RequestHandler {
 
+	private static final Logger logger = LoggerFactory.getLogger( ListSnapshots.class );
 	private static final String REQ_PARAM_VOLUME_ID = "volume_id";
 	private ConfigurationApi configApi;
 
@@ -35,13 +37,15 @@ public class ListSnapshots implements RequestHandler {
 		final long volumeId = requiredLong(routeParameters, REQ_PARAM_VOLUME_ID);
 		
 		final List<Snapshot> snapshots = listSnapshots( volumeId );
-
+		
 		String jsonString = ObjectModelHelper.toJSON( snapshots );
 		
 		return new TextResource( jsonString );
 	}
 	
 	public List<Snapshot> listSnapshots( long volumeId ) throws Exception{
+		
+		logger.debug( "Looking for snapshots for volume: {}.", volumeId );
 		
 		List<com.formationds.protocol.Snapshot> internalSnapshots = getConfigApi().listSnapshots( volumeId );
 		
@@ -51,6 +55,8 @@ public class ListSnapshots implements RequestHandler {
 			Snapshot externalSnapshot = ExternalModelConverter.convertToExternalSnapshot( internalSnapshot );
 			externalSnapshots.add( externalSnapshot );
 		});
+		
+		logger.debug( "Found {} snapshots.", externalSnapshots.size() );
 		
 		return externalSnapshots;
 	}

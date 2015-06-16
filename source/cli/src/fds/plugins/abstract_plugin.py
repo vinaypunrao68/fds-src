@@ -53,6 +53,8 @@ class AbstractPlugin( object ):
     user_name_str = "username"
     user_id_str = "user_id"
     tenant_id_str = "tenant_id"
+    block_size_str= "block_size"
+    block_size_unit_str = "block_size_unit"
 
     def __init__(self, session):
         self.__session = session

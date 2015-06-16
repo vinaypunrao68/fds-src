@@ -7,7 +7,6 @@ import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.User;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.webkit.rest.v08.tenants.AssignUserToTenant;
 import com.formationds.security.HashedPassword;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
@@ -17,12 +16,15 @@ import com.formationds.web.toolkit.TextResource;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.UUID;
 
 public class CreateUser implements RequestHandler {
 
+	private static final Logger logger = LoggerFactory.getLogger( CreateUser.class );
 	private ConfigurationApi configApi;
 
     public CreateUser() {}
@@ -34,6 +36,8 @@ public class CreateUser implements RequestHandler {
         JSONObject o = new JSONObject(source);
         
         User inputUser = ObjectModelHelper.toObject( source, User.class );
+        
+        logger.debug( "Trying to create user: {}.", inputUser.getName() );
     	
     	String login = inputUser.getName();
         String password = o.getString( "password" );

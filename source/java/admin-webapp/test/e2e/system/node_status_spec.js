@@ -64,9 +64,9 @@ describe( 'Testing the system screen', function(){
             expect( txt ).toBe( 'awesome-node' );
         });
         
-        expect( node1.element( by.css( '.ams span' ) ).getAttribute( 'class' ) ).toContain( 'icon-excellent' );
-        expect( node1.element( by.css( '.pms span' ) ).getAttribute( 'class' ) ).toContain( 'icon-issues' );
-        expect( node1.element( by.css( '.dms span' ) ).getAttribute( 'class' ) ).toContain( 'icon-nothing' );
+        expect( node1.element( by.css( '.oms span' ) ).getAttribute( 'class' ) ).toContain( 'icon-excellent' );
+        expect( node1.element( by.css( '.ams span' ) ).getAttribute( 'class' ) ).toContain( 'icon-issues' );
+        expect( node1.element( by.css( '.dms span' ) ).getAttribute( 'class' ) ).toContain( 'icon-excellent' );
         expect( node1.element( by.css( '.sms span' ) ).getAttribute( 'class' ) ).toContain( 'icon-warning' );
         
     });

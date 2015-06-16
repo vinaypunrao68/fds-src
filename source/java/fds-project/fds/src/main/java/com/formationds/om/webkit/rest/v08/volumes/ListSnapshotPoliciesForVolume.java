@@ -47,6 +47,8 @@ public class ListSnapshotPoliciesForVolume implements RequestHandler {
     
     public List<SnapshotPolicy> listSnapshotPoliciesForVolume( long volumeId ) throws ApiException, TException{
         
+    	logger.debug( "Finding snapshot policies for volume: {}.", volumeId );
+    	
     	final List<com.formationds.apis.SnapshotPolicy> internalPolicies = getConfigApi().listSnapshotPoliciesForVolume( volumeId );
 
         final List<SnapshotPolicy> policies = new ArrayList<>();
@@ -59,6 +61,8 @@ public class ListSnapshotPoliciesForVolume implements RequestHandler {
         	SnapshotPolicy externalPolicy = ExternalModelConverter.convertToExternalSnapshotPolicy( internalPolicy );
         	policies.add( externalPolicy );
         });    	
+        
+        logger.debug( "Found {} policies.", policies.size() );
         
         return policies;
     }

@@ -580,7 +580,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // check if DLT token ready -- we are doing it after creating
     // put request, because callback needs it
-    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+    if (!putObjMsg->forwardedReq && !objStorMgr->migrationMgr->isDltTokenReady(objId)) {
         LOGDEBUG << "DLT token not ready, not going to do PUT for " << objId;
         putObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, putReq);
         return;
@@ -588,7 +588,18 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
-        fds_assert(!"Hit an error in enqueing");
+    	if (err != fds::ERR_VOL_NOT_FOUND) {
+    		/**
+    		 * Race cond: SM may not have the vol descriptors
+    		 * ready yet even though it's finished pulling the DLT.
+    		 */
+    		fds_assert(!"Hit an error in enqueing");
+    	} else {
+            /**
+             * TODO(neil): This needs to be fixed. See FS-2229
+             */
+            fds_assert(!"Hit FS-2229. This needs to be fixed.");
+        }
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                  << err;
         putObjectCb(asyncHdr, err, putReq);
@@ -709,7 +720,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // check if DLT token ready -- we are doing it after creating
     // delete request, because callback needs it
-    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
+    if (!deleteObjMsg->forwardedReq && !objStorMgr->migrationMgr->isDltTokenReady(objId)) {
         LOGDEBUG << "DLT token not ready, not going to do DELETE for " << objId;
         deleteObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, delReq);
         return;

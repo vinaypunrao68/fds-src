@@ -15,6 +15,7 @@ SOURCE_DIR="source"
 
 parser = OptionParser()
 parser.add_option("-r", "--release-build-enable", dest = "release_build_enable", action = "store_true", default = False, help = "Enable build release")
+parser.add_option("-c", "--coverage", dest = "coverage", action = "store_true", default = False, help = "Enable code coverage reporting.")
 (options, args) = parser.parse_args()
 
 os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-8-oracle"
@@ -27,6 +28,8 @@ if options.release_build_enable:
     cmd += ' BUILD=release'
 else:
     cmd += ' CCACHE=1'
+if options.coverage:
+    cmd += ' COVERAGE=1 VERBOSE=1'
 
 can_build = False
 

@@ -39,9 +39,13 @@ public class MutateVolume implements RequestHandler{
 		
 		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 		
+		logger.debug( "Editing volume: {}.", volumeId );
+		
 		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
 		Volume volume = ObjectModelHelper.toObject( reader, Volume.class );
 		volume.setId( volumeId );
+		
+		logger.trace( ObjectModelHelper.toJSON( volume ) );
 		
 		// change the QOS
 		(new CreateVolume( getAuthorizer(), getToken() )).setQosForVolume( volume );

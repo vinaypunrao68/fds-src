@@ -84,7 +84,17 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * DmIoReqHandler method implementation
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
+
+    /**
+     * If this DM, given the volume, is the TOP listed DM of the DMT column.
+     */
     fds_bool_t amIPrimary(fds_volid_t volUuid);
+
+    /**
+     * If this DM, given the volume, is within the Primary group.
+     */
+    fds_bool_t amIPrimaryGroup(fds_volid_t volUuid);
+
 
     inline StatStreamAggregator::ptr statStreamAggregator() {
         return statStreamAggr_;
@@ -426,6 +436,17 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     ///
     void shutdown();
 
+    /*
+     * Gets and sets Number of primary DMs.
+     */
+    inline fds_uint32_t getNumOfPrimary()  {
+    	return (_numOfPrimary);
+    }
+    inline void setNumOfPrimary(fds_uint32_t num) {
+    	fds_verify(num > 0);
+    	_numOfPrimary = num;
+    }
+
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
@@ -436,6 +457,16 @@ private:
     /// Don't shut down until this gate is opened.
     ///
     util::ExecutionGate _shutdownGate;
+
+    /**
+     * Implementation of amIPrimary
+     */
+    fds_bool_t _amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary);
+
+    /*
+     * Number of primary DMs
+     */
+    fds_uint32_t _numOfPrimary;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

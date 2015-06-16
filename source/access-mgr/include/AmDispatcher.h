@@ -61,6 +61,10 @@ struct AmDispatcher : HasModuleProvider
      * Dispatches an open volume request to DM.
      */
     void dispatchOpenVolume(AmRequest *amReq);
+    void dispatchOpenVolumeCb(AmRequest* amReq,
+                              QuorumSvcRequest* svcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload) const;
 
     /**
      * Dispatches an open volume request to DM.

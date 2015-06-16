@@ -251,19 +251,25 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
     volMDMsg->mode = volReq->mode;
 
     /** What to do with the response */
-    auto svc_cb = [amReq] (QuorumSvcRequest* svcReq,
-                           const Error& error,
-                           boost::shared_ptr<std::string> payload) mutable -> void {
-        auto e = error;
-        auto msg = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-        // Set the token to the one from DM, or invalid if error
-        static_cast<fds::AttachVolumeReq*>(amReq)->token =
-            (msg ? msg->token : invalid_vol_token);
-        amReq->proc_cb(e);
-    };
-
-    auto asyncOpenVolReq = createQuorumRequest(amReq->io_vol_id, volMDMsg, svc_cb);
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchOpenVolumeCb, amReq));
+    auto asyncOpenVolReq = createQuorumRequest(amReq->io_vol_id, volMDMsg, respCb);
     asyncOpenVolReq->invoke();
+}
+
+void
+AmDispatcher::dispatchOpenVolumeCb(AmRequest* amReq,
+                                   QuorumSvcRequest* svcReq,
+                                   const Error& error,
+                                   boost::shared_ptr<std::string> payload) const {
+    auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
+    auto e = error;
+    auto msg = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
+    if (e.ok()) {
+        // Set the token and volume sequence returned by the DM
+        volReq->token = (msg ? msg->token : invalid_vol_token);
+        volReq->vol_sequence = msg->sequence_id;
+    }
+    amReq->proc_cb(e);
 }
 
 /**
@@ -452,12 +458,12 @@ void
 AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
-
+    auto blobReq = static_cast<DeleteBlobReq *>(amReq);
     auto message = boost::make_shared<fpi::DeleteBlobMsg>();
     message->volume_id = amReq->io_vol_id.get();
     message->blob_name = amReq->getBlobName();
     message->blob_version = blob_version_invalid;
-    message->txId = static_cast<DeleteBlobReq *>(amReq)->tx_desc->getValue();
+    message->txId = blobReq->tx_desc->getValue();
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, amReq));
@@ -537,6 +543,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
     updCatMsg->dmt_version  = dmtMgr->getCommittedVersion();
+    updCatMsg->sequence_id  = blobReq->vol_sequence;
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
@@ -952,14 +959,15 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
-
+    auto blobReq = static_cast<CommitBlobTxReq *>(amReq);
     // Create network message
     auto commitBlobTxMsg = boost::make_shared<fpi::CommitBlobTxMsg>();
     commitBlobTxMsg->blob_name    = amReq->getBlobName();
     commitBlobTxMsg->blob_version = blob_version_invalid;
     commitBlobTxMsg->volume_id    = amReq->io_vol_id.get();
-    commitBlobTxMsg->txId         = static_cast<CommitBlobTxReq *>(amReq)->tx_desc->getValue();
+    commitBlobTxMsg->txId         = blobReq->tx_desc->getValue();
     commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
+    commitBlobTxMsg->sequence_id  = blobReq->vol_sequence;
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));

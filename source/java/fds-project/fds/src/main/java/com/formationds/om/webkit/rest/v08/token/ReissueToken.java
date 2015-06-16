@@ -13,6 +13,8 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 
@@ -21,6 +23,7 @@ import java.util.UUID;
 
 public class ReissueToken implements RequestHandler {
     
+	private static final Logger logger = LoggerFactory.getLogger( ReissueToken.class );
 	private static final String USER_ARG = "user_id";
 	private ConfigurationApi configApi;
     private SecretKey        secretKey;
@@ -35,6 +38,8 @@ public class ReissueToken implements RequestHandler {
     	long userId = requiredLong(routeParameters, USER_ARG );
         User user = getConfigApi().getUser(userId);
 
+        logger.debug( "Re-issuing token for user: {}.", userId );
+        
         if (user == null) {
             return new JsonResource(new JSONObject().put("status", "not found"), 404);
         }

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.client.v08.model.QosPolicyPreset;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -14,6 +16,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetQosPolicyPresets implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( GetQosPolicyPresets.class );
 	private List<QosPolicyPreset> policyPresets;
 	private QosPolicyPreset lowPriorityPreset;
 	private QosPolicyPreset normalPriorityPreset;
@@ -23,7 +26,13 @@ public class GetQosPolicyPresets implements RequestHandler{
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 		
-		String jsonString = ObjectModelHelper.toJSON( getQosPolicyPresets() );
+		logger.debug( "Requesting all the QOS preset policies." );
+		
+		List<QosPolicyPreset> presets = getQosPolicyPresets();
+		
+		logger.debug( "Found {} policies.", presets.size() );
+		
+		String jsonString = ObjectModelHelper.toJSON( presets );
 		
 		return new TextResource( jsonString );
 	}

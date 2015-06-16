@@ -14,18 +14,18 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.InputStreamReader;
-import java.util.List;
 import java.util.Map;
 
 public class RemoveNode
@@ -46,8 +46,7 @@ public class RemoveNode
     	
     	long nodeUuid = requiredLong(routeParameters, NODE_ARG );
         
-        final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
-        Node node = ObjectModelHelper.toObject( reader, Node.class );
+    	Node node = (new GetNode()).getNode(nodeUuid);
         
         if( node == null ) {
 	  		throw new ApiException( "The specified node uuid " + nodeUuid + " has no matching node name.", ErrorCode.MISSING_RESOURCE );
@@ -79,11 +78,7 @@ public class RemoveNode
 
         }
 
-        List<Node> nodes = (new ListNodes()).getNodes();
-        
-        String jsonString = ObjectModelHelper.toJSON( nodes );
-        
-        return new TextResource( jsonString );
+        return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
     }
     
     private ConfigurationApi getConfigApi(){

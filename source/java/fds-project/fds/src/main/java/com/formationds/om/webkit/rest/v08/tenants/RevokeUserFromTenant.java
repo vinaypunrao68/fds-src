@@ -11,6 +11,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -18,6 +20,7 @@ import com.formationds.web.toolkit.Resource;
 
 public class RevokeUserFromTenant implements RequestHandler{
 
+	private static final Logger logger = LoggerFactory.getLogger( RevokeUserFromTenant.class );
 	private final static String TENANT_ARG = "tenant_id";
 	private final static String USER_ARG = "user_id";
 	
@@ -31,6 +34,8 @@ public class RevokeUserFromTenant implements RequestHandler{
 
 		long tenantId = requiredLong( routeParameters, TENANT_ARG );
 		long userId = requiredLong( routeParameters, USER_ARG );
+		
+		logger.debug( "Removing user: {} from tenant: {}.", userId, tenantId );
 		
 		getConfigApi().revokeUserFromTenant(userId, tenantId);
 		

@@ -590,41 +590,45 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto& vol_desc = *vol->voldesc;
     if (err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
-                  << ", received access token: 0x" << std::hex << volReq->token << std::dec;
+                  << ", received access token: 0x" << std::hex << volReq->token
+                  << ", sequence id: 0x" << volReq->vol_sequence << std::dec;
+
+        // If this is a new token, create a access token for the volume
+        auto access_token = vol->access_token;
+        if (!access_token) {
+            access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                volReq->mode,
+                volReq->token,
+                [this, vol_id = vol_desc.volUUID] () mutable -> void {
+                this->renewToken(vol_id);
+                });
+            err = volTable->processAttach(vol_desc, access_token);
+        } else {
+            token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
+            access_token->setMode(volReq->mode);
+            access_token->setToken(volReq->token);
+        }
+
+        // Update the sequence ID for the volume according to DM,
+        // unless this is the first time we are getting an attach
+        // response we _should_ already have this value.
+        vol->setSequenceId(volReq->vol_sequence);
 
         if (err.ok()) {
-            // If this is a new token, create a access token for the volume
-            auto access_token = vol->access_token;
-            if (!access_token) {
-                access_token = boost::make_shared<AmVolumeAccessToken>(
-                    token_timer,
-                    volReq->mode,
-                    volReq->token,
-                    [this, vol_id = vol_desc.volUUID] () mutable -> void {
-                    this->renewToken(vol_id);
-                    });
-                err = volTable->processAttach(vol_desc, access_token);
-            } else {
-                token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
-                access_token->setMode(volReq->mode);
-                access_token->setToken(volReq->token);
-            }
+            // Renew this token at a regular interval
+            auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+                { LOGWARN << "Failed to schedule token renewal timer!"; }
 
-            if (err.ok()) {
-                // Renew this token at a regular interval
-                auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-                if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
-                    { LOGWARN << "Failed to schedule token renewal timer!"; }
+            // Create caches if we have a token
+            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
 
-                // Create caches if we have a token
-                txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
-
-                // If this is a real request, set the return data
-                if (amReq->cb) {
-                    auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
-                    cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
-                    cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
-                }
+            // If this is a real request, set the return data
+            if (amReq->cb) {
+                auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+                cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
+                cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
             }
         }
     }

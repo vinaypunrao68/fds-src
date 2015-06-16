@@ -14,8 +14,10 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import org.apache.log4j.Logger;
+
 import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
-    private static final Logger LOG = Logger.getLogger(ListVolumes.class);
+    private static final Logger logger = LoggerFactory.getLogger(ListVolumes.class);
 
     private ConfigurationApi configApi;
     private Authorizer authorizer;
@@ -46,6 +48,8 @@ public class ListVolumes implements RequestHandler {
 	
 	public List<Volume> listVolumes() throws Exception{
 		
+		logger.debug( "Listing all volumes." );
+		
 		String domain = "";
 		List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
 		
@@ -53,12 +57,12 @@ public class ListVolumes implements RequestHandler {
 		rawVolumes = rawVolumes.stream()
 			// TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
 			.filter( descriptor -> {
-				LOG.debug( "Removing volume " + descriptor.getName() + " from the volume list." );
+				logger.debug( "Removing volume " + descriptor.getName() + " from the volume list." );
 				Boolean systemVolume = descriptor.getName().startsWith( "SYSTEM_VOLUME" );
 				return !systemVolume;
 			})
 			.filter( descriptor -> {
-				LOG.debug( "Removing a volume that the caller does not have access to." );
+				logger.debug( "Removing a volume that the caller does not have access to." );
 				Boolean owns = getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
 				return owns;
 			})
@@ -68,10 +72,12 @@ public class ListVolumes implements RequestHandler {
 		
 		rawVolumes.stream().forEach( descriptor ->{
 			
-			LOG.trace( "Converting volume " + descriptor.getName() + " to external format." );
+			logger.trace( "Converting volume " + descriptor.getName() + " to external format." );
 			Volume externalVolume = ExternalModelConverter.convertToExternalVolume( descriptor );
 			externalVolumes.add( externalVolume );
 		});		
+		
+		logger.debug( "Found {} volumes.", externalVolumes.size() );
 		
 		return externalVolumes;
 	}
