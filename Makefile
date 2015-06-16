@@ -6,8 +6,14 @@ user_build_dir := \
     jansson-2.5   \
     gmock-1.7.0   \
     cmdconsole    \
+	gcovr         \
     source
 
 include $(topdir)/Makefile.incl
 
+.PHONY: coverage
+
 all: generate-config-files
+
+coverage:
+	cd source && make coverage
