@@ -466,11 +466,20 @@ struct GetDmStatsRespMsg {
 }
 
 /* ------------------------------------------------------------
-   Operations for  Meta verifications 
+   Operations for Catalog Migration and Resync
    ------------------------------------------------------------*/
 
+/* This is a message from OM to the destination DM to start the
+ * migration
+ */
 struct CtrlNotifyDMStartMigrationMsg {
+  /* List of < source UUID, {list of volume descriptors} > to 
+   * migrate.  The destination DM will receive the message, and
+   * pull associated volume descriptors from the source DM.
+   */
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
+
+  /* Verson of DMT associated with the migration */
   2: i64                     DMT_version;
 }
 
@@ -478,7 +487,10 @@ struct CtrlNotifyDMStartMigrationMsg {
  * ACK to the OM from DM of receiving a migration msg.
  */
 struct CtrlNotifyDMStartMigrationRspMsg {
-    // Empty response is fine. Nothing needed.
+  /* An empty reply from the Destination DM to the OM when the
+   * migration is complete.  
+   * Any error code is stuffed in the async header.
+   */
 }
 
 /* ------------------------------------------------------------

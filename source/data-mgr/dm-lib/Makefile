@@ -14,7 +14,10 @@ user_cpp          := \
 	DMSvcHandler.cpp \
 	CatalogSync.cpp \
 	CatalogSyncRecv.cpp \
-        StatStreamAggregator.cpp
+    StatStreamAggregator.cpp \
+	DmMigrationMgr.cpp \
+	DmMigrationExecutor.cpp \
+	DmMigrationClient.cpp
 
 user_ar_libs      := fds-dm-lib
 #.NOTPARALLEL: fds-dm-lib
