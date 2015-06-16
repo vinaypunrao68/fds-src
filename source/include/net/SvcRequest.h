@@ -26,26 +26,31 @@ namespace fds {
 struct EPSvcRequest;
 struct FailoverSvcRequest;
 struct QuorumSvcRequest;
-typedef boost::shared_ptr<std::string> StringPtr;
+struct MultiPrimarySvcRequest;
+
+using StringPtr = boost::shared_ptr<std::string>;
 
 /* Async svc request identifier */
-typedef uint64_t SvcRequestId;
+using SvcRequestId = uint64_t;
 
 /* Async svc request callback types */
 struct SvcRequestIf;
-typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;
-typedef std::function<SvcRequestIfPtr(const SvcRequestId&)> SvcRequestCompletionCb;
-typedef std::function<void(boost::shared_ptr<std::string>)> SvcRequestSuccessCb;
-typedef std::function<void(const Error&,
-        boost::shared_ptr<std::string>)> SvcRequestErrorCb;
-typedef std::function<bool (const Error&, boost::shared_ptr<std::string>)> EPAppStatusCb;
-typedef std::function<void(EPSvcRequest*,
-                           const Error&, boost::shared_ptr<std::string>)> EPSvcRequestRespCb;
-typedef std::function<void(FailoverSvcRequest*,
-                           const Error&, boost::shared_ptr<std::string>)> FailoverSvcRequestRespCb;
-typedef std::function<void(QuorumSvcRequest*,
-                           const Error&, boost::shared_ptr<std::string>)> QuorumSvcRequestRespCb;
-
+using SvcRequestIfPtr = boost::shared_ptr<SvcRequestIf>;
+using EPSvcRequestPtr = boost::shared_ptr<EPSvcRequest>;
+using SvcRequestCompletionCb = std::function<SvcRequestIfPtr(const SvcRequestId&)>;
+using SvcRequestSuccessCb = std::function<void(boost::shared_ptr<std::string>)>;
+using SvcRequestErrorCb = std::function<void(const Error&, boost::shared_ptr<std::string>)>;
+using EPAppStatusCb = std::function<bool (const Error&, boost::shared_ptr<std::string>)>;
+using EPSvcRequestRespCb = std::function<void(EPSvcRequest*, const Error&, boost::shared_ptr<std::string>)>;
+using FailoverSvcRequestRespCb = std::function<void(FailoverSvcRequest*,
+                                                    const Error&,
+                                                    boost::shared_ptr<std::string>)>;
+using QuorumSvcRequestRespCb = std::function<void(QuorumSvcRequest*,
+                                                  const Error&,
+                                                  boost::shared_ptr<std::string>)>;
+using MultiPrimarySvcRequestRespCb = std::function<void(MultiPrimarySvcRequest*,
+                                                        const Error&,
+                                                        StringPtr)>;
 #define RESPONSE_MSG_HANDLER(func, ...) \
     std::bind(&func, this, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3)
@@ -232,6 +237,9 @@ struct SvcRequestIf : HasModuleProvider {
             boost::shared_ptr<std::string>& payload);
 
     virtual void complete(const Error& error);
+    virtual void complete(const Error& error,
+                          const fpi::AsyncHdrPtr& header,
+                          const StringPtr& payload);
 
     virtual bool isComplete();
 
@@ -246,6 +254,9 @@ struct SvcRequestIf : HasModuleProvider {
     void setRequestId(const SvcRequestId &id);
 
     void setCompletionCb(SvcRequestCompletionCb &completionCb);
+    inline const fpi::AsyncHdrPtr& responseHeader() const { return respHeader_; }
+    inline Error responseStatus() const { return respHeader_->msg_code; }
+    inline const StringPtr& responsePayload() const { return respPayload_; }
 
  public:
     struct SvcReqTs {
@@ -283,6 +294,10 @@ struct SvcRequestIf : HasModuleProvider {
     fpi::FDSPMsgTypeId msgTypeId_;
     /* Payload buffer */
     boost::shared_ptr<std::string> payloadBuf_;
+    /* Response header */
+    fpi::AsyncHdrPtr respHeader_;
+    /* Response payload */
+    StringPtr respPayload_;
     /* Completion cb */
     SvcRequestCompletionCb completionCb_;
     /* Where the request is fire and forget or not */
@@ -327,13 +342,13 @@ struct EPSvcRequest : SvcRequestIf {
 
     friend class FailoverSvcRequest;
     friend class QuorumSvcRequest;
+    friend class MultiPrimarySvcRequest;
 
  private:
     virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
 };
-typedef boost::shared_ptr<EPSvcRequest> EPSvcRequestPtr;
 
 /**
 * @brief Base class for mutiple endpoint based requests
@@ -347,11 +362,12 @@ struct MultiEpSvcRequest : SvcRequestIf {
                       const std::vector<fpi::SvcUuid>& peerEpIds);
 
     void addEndpoint(const fpi::SvcUuid& peerEpId);
+    void addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds);
 
     void onEPAppStatusCb(EPAppStatusCb cb);
 
  protected:
-    EPSvcRequestPtr getEpReq_(fpi::SvcUuid &peerEpId);
+    EPSvcRequestPtr getEpReq_(const fpi::SvcUuid &peerEpId);
 
     /* Endpoint request collection */
     std::vector<EPSvcRequestPtr> epReqs_;
@@ -447,6 +463,122 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
 
 };
 typedef boost::shared_ptr<QuorumSvcRequest> QuorumSvcRequestPtr;
+
+/**
+* @brief Use this request to manage messaging to few primaries and few optionals in a consistency
+* group.
+* Provided callback hooks
+* -onPrimariesResponsdedCb(cb) - Here cb is invoked when responses from all primaries have been received.
+* -onAllRespondedCb(cb) - Here cb is invoked when responses from all services have been received.
+
+*/
+struct MultiPrimarySvcRequest : MultiEpSvcRequest {
+    using MultiEpSvcRequest::MultiEpSvcRequest;
+    MultiPrimarySvcRequest(CommonModuleProviderIf* provider,
+                           const SvcRequestId& id,
+                           const fpi::SvcUuid &myEpId,
+                           const std::vector<fpi::SvcUuid>& primarySvcs,
+                           const std::vector<fpi::SvcUuid>& optionalSvcs);
+    void invoke() override;
+    std::string logString() override;
+    void onPrimariesRespondedCb(MultiPrimarySvcRequestRespCb cb) {
+        respCb_ = cb;
+    }
+    void onAllRespondedCb(MultiPrimarySvcRequestRespCb cb) {
+        allRespondedCb_ = cb;
+    }
+    const std::vector<EPSvcRequestPtr>& getFailedPrimaries() const {
+        return failedPrimaries_;
+    }
+    const std::vector<EPSvcRequestPtr>& getFailedOptionals() const {
+        return failedOptionals_;
+    }
+    inline const fpi::AsyncHdrPtr& responseHeader(uint8_t epIdx) const {
+        return epReqs_[epIdx]->responseHeader();
+    }
+    inline Error responseStatus(uint8_t epIdx) const {
+        return epReqs_[epIdx]->responseStatus();
+    }
+    inline const StringPtr& responsePayload(uint8_t epIdx) const {
+        return epReqs_[epIdx]->responsePayload();
+    }
+
+ protected:
+    /**
+     * @brief Inovcation work function
+     * NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
+     */
+    virtual void invokeWork_() override;
+    /**
+     * @brief Returns endpoint request identified by peerEpId
+     *
+     * @param peerEpId
+     * @param isPrimary - return true if peerEpId is also primary
+     *
+     * @return 
+     */
+    EPSvcRequestPtr getEpReq_(const fpi::SvcUuid &peerEpId, bool &isPrimary);
+
+    /* Primary acks received */
+    uint8_t                         primaryAckdCnt_;
+    /* Total acks received */
+    uint8_t                         totalAckdCnt_;
+    /* # of primary services */
+    uint8_t                         primariesCnt_;
+    /* Primaries that have failed */
+    std::vector<EPSvcRequestPtr>    failedPrimaries_;
+    /* Optionals that have failed */
+    std::vector<EPSvcRequestPtr>    failedOptionals_;
+    /* Invoked once responses from all primaries have been received */
+    MultiPrimarySvcRequestRespCb    respCb_; 
+    /* Invoked once response from all endpoints is received */
+    MultiPrimarySvcRequestRespCb    allRespondedCb_;
+
+ private:
+    /**
+     * @brief Handling response.  This call is expected to be called in a synchnorized manner.
+     * In response handling, once responses from all primaries have been received then respCb_
+     * is invoked.
+     * Once responses from all endpoints including optionals have been receieved then
+     * allRespondedCb_ is invoked.
+     *
+     * @param header
+     * @param payload
+     */
+    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+};
+using MultiPrimarySvcRequestPtr = boost::shared_ptr<MultiPrimarySvcRequest>;
+
+/**
+* @brief Use an object of this class to wait on MultiPrimarySvcRequest.  It is helpful
+* for making async MultiPrimarySvcRequest into a sync call.
+*/
+struct MultiPrimarySvcRequestCbTask : concurrency::TaskStatus {
+    MultiPrimarySvcRequestCbTask() {
+        error = ERR_INVALID;
+        cb = std::bind(&MultiPrimarySvcRequestCbTask::allRespondedCb, this,
+			std::placeholders::_1,  // NOLINT
+			std::placeholders::_2,
+            std::placeholders::_3);  // NOLINT
+    }
+    void allRespondedCb(MultiPrimarySvcRequest *req, const Error &e, StringPtr payload) {
+        error = e;
+        done();
+    }
+    bool success() {
+        return error == ERR_OK;
+    }
+    void reset()
+    {
+        error = ERR_INVALID;
+        concurrency::TaskStatus::reset(1);
+    }
+
+    Error                           error;
+    MultiPrimarySvcRequestRespCb    cb;
+};
+
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_NET_SVCREQUEST_H_
