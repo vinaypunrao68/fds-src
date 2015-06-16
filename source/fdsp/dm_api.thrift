@@ -570,6 +570,11 @@ struct ReloadVolumeMsg {
 struct ReloadVolumeRspMsg {
 }
 
+struct BlobStatusMsg {
+  1: i64                          volume_id;
+  2: list<BlobSequence>           blob_seq_list;
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/
