@@ -54,7 +54,7 @@ def suiteConstruction(self):
     suite.addTests(tests)
 
     for node in nodes:
-        for svc in ['PM', 'AM', 'SM', 'DM']:
+        for svc in ['SM', 'PM', 'AM', 'DM']:
             delay=10 if svc != 'AM' else 60
             tests = [
                 log ("restarting {}".format(svc))                  ,
