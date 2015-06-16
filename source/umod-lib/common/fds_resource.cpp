@@ -126,7 +126,7 @@ Error RsContainer::rs_register_mtx(Resource::pointer rs) {
             return ERR_OK;
         }
         fds_verify(rs_array[i] != rs);
-        if (i >= rs_array.capacity()) {
+        if (i >= (RS_DEFAULT_ELEM_CNT - 1)) {
             return ERR_OUT_OF_MEMORY;
         }
     }
