@@ -134,7 +134,7 @@ struct DMVolumeMigrationDiff {
   3: list<DMBlobDescriptorDiff> blob_diff_list;
 }
 
-struct BlobSequence {
+struct BlobFilterSetEntry {
   1: i64                        blob_id;
   2: i64                        sequence_id;
 }
