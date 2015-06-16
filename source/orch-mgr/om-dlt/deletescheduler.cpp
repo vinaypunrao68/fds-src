@@ -108,7 +108,7 @@ void DeleteScheduler::run() {
 
                 OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
                 VolumeContainer::pointer volContainer = local->om_vol_mgr();
-                auto volId = static_cast<fds_uint64_t>(task->volumeId);
+                auto volId = task->volumeId.get();
                 auto vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volId)); //NOLINT
                 if (vol) {
                     LOGDEBUG << "resuming delete for vol:" << task->volumeId

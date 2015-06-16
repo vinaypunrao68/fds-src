@@ -72,8 +72,6 @@ bool WaitQueue::empty() const {
 
 /***** AmVolumeTable methods ******/
 
-fds_volid_t const AmVolumeTable::fds_default_vol_uuid(1);
-
 /* creates its own logger */
 AmVolumeTable::AmVolumeTable(size_t const qos_threads, fds_log *parent_log) :
     volume_map(),

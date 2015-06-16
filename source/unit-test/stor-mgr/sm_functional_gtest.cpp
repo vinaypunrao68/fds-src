@@ -144,7 +144,7 @@ SmUnitTest::putSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::PutObjectMsg> putObjMsg(new fpi::PutObjectMsg());
-    putObjMsg->volume_id = volId;
+    putObjMsg->volume_id = volId.get();
     putObjMsg->data_obj = *objData;
     putObjMsg->data_obj_len = (*objData).size();
     putObjMsg->data_obj_id.digest =
@@ -184,7 +184,7 @@ SmUnitTest::getSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::GetObjectMsg> getObjMsg(new fpi::GetObjectMsg());
-    getObjMsg->volume_id = volId;
+    getObjMsg->volume_id = volId.get();
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
@@ -219,7 +219,7 @@ SmUnitTest::putSmCb(const Error &err,
                     SmIoPutObjectReq* putReq)
 {
     fds_volid_t volId = putReq->getVolId();
-    ASSERT_EQ(volId, 98);
+    ASSERT_EQ(volId.get(), 98);
     fds_uint32_t dispatched = atomic_fetch_sub(&(volume1->dispatched_count), (fds_uint32_t)1);
     if (dispatched <= 1) {
         done_cond.notify_all();
@@ -236,7 +236,7 @@ SmUnitTest::getSmCb(const Error &err,
                     SmIoGetObjectReq *getReq)
 {
     fds_volid_t volId = getReq->getVolId();
-    ASSERT_EQ(volId, 98);
+    ASSERT_EQ(volId.get(), 98);
     TestVolume::ptr vol = volume1;
 
     // validate data

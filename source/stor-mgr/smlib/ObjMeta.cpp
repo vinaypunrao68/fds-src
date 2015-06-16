@@ -295,7 +295,7 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
     }
 
     obj_assoc_entry_t new_association;
-    new_association.vol_uuid = destVolId;
+    new_association.vol_uuid = destVolId.get();
     new_association.ref_cnt = assoc_entry[pos].ref_cnt;
     obj_map.obj_refcnt += assoc_entry[pos].ref_cnt;
     assoc_entry.push_back(new_association);
@@ -317,7 +317,7 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
         }
     }
     obj_assoc_entry_t new_association;
-    new_association.vol_uuid = vol_id;
+    new_association.vol_uuid = vol_id.get();
     new_association.ref_cnt = 1UL;
     new_association.vol_migration_reconcile_ref_cnt = 0L;
     obj_map.obj_refcnt++;
@@ -830,7 +830,7 @@ ObjMetaData::initializeDelReconcile(const ObjectID& objId, fds_volid_t volId)
 
     obj_assoc_entry_t new_association;
 
-    new_association.vol_uuid = volId;
+    new_association.vol_uuid = volId.get();
     new_association.ref_cnt = 0UL;
     new_association.vol_migration_reconcile_ref_cnt = -1L;
     obj_map.obj_refcnt = 0UL;
@@ -898,7 +898,7 @@ ObjMetaData::reconcileDelObjMetaData(ObjectID objId,
     // While is Reconcile state, DELETE was called on this object.  We
     if (it == assoc_entry.end()) {
         obj_assoc_entry_t newAssociation;
-        newAssociation.vol_uuid = volId;
+        newAssociation.vol_uuid = volId.get();
         newAssociation.ref_cnt = 0;
         newAssociation.vol_migration_reconcile_ref_cnt = -1L;
         assoc_entry.push_back(newAssociation);
@@ -971,7 +971,7 @@ ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
     // New volume association.  Add a new entry.
     if (it == assoc_entry.end()) {
         obj_assoc_entry_t new_association;
-        new_association.vol_uuid = volId;
+        new_association.vol_uuid = volId.get();
         new_association.ref_cnt = 1L;
         new_association.vol_migration_reconcile_ref_cnt = 0L;
 

@@ -246,7 +246,7 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
              << " with token: " << volReq->token;
 
     auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
-    volMDMsg->volume_id = amReq->io_vol_id;
+    volMDMsg->volume_id = amReq->io_vol_id.get();
     volMDMsg->token = volReq->token;
     volMDMsg->mode = volReq->mode;
 
@@ -275,7 +275,7 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
 
     LOGDEBUG << "Attempting to close volume: " << vol_id;
     auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
-    volMDMsg->volume_id = vol_id;
+    volMDMsg->volume_id = vol_id.get();
     volMDMsg->token = token;
 
     QuorumSvcRequestRespCb cb;
@@ -286,7 +286,7 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
 void
 AmDispatcher::dispatchStatVolume(AmRequest *amReq) {
     fpi::StatVolumeMsgPtr volMDMsg = boost::make_shared<fpi::StatVolumeMsg>();
-    volMDMsg->volume_id = amReq->io_vol_id;
+    volMDMsg->volume_id = amReq->io_vol_id.get();
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statVolumeCb, amReq));
     auto asyncStatVolReq = createFailoverRequest(amReq->io_vol_id, volMDMsg,respCb);
@@ -316,7 +316,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
             boost::make_shared<fpi::SetVolumeMetadataMsg>();
     auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
 
-    volMetaMsg->volumeId = amReq->io_vol_id;
+    volMetaMsg->volumeId = amReq->io_vol_id.get();
     // Copy api structure into fdsp structure.
     // TODO(Andrew): Make these calls use the same structure.
     fpi::FDSP_MetaDataPair metaPair;
@@ -351,7 +351,7 @@ AmDispatcher::dispatchGetVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     auto volMetaMsg = boost::make_shared<fpi::GetVolumeMetadataMsg>();
-    volMetaMsg->volumeId = amReq->io_vol_id;
+    volMetaMsg->volumeId = amReq->io_vol_id.get();
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, amReq));
     auto asyncGetVolMetadataReq = createFailoverRequest(amReq->io_vol_id, volMetaMsg, respCb);
@@ -390,7 +390,7 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
     stBlobTxMsg->blob_name      = amReq->getBlobName();
     stBlobTxMsg->blob_version   = blob_version_invalid;
     stBlobTxMsg->txId           = static_cast<AbortBlobTxReq *>(amReq)->tx_desc->getValue();
-    stBlobTxMsg->volume_id      = volId;
+    stBlobTxMsg->volume_id      = volId.get();
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, amReq));
     auto asyncAbortBlobTxReq = createQuorumRequest(volId, stBlobTxMsg,respCb);
@@ -424,7 +424,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     auto startBlobTxMsg = boost::make_shared<fpi::StartBlobTxMsg>();
     startBlobTxMsg->blob_name    = amReq->getBlobName();
     startBlobTxMsg->blob_version = blob_version_invalid;
-    startBlobTxMsg->volume_id    = amReq->io_vol_id;
+    startBlobTxMsg->volume_id    = amReq->io_vol_id.get();
     startBlobTxMsg->blob_mode    = blobReq->blob_mode;
     startBlobTxMsg->txId         = blobReq->tx_desc->getValue();
     startBlobTxMsg->dmt_version  = blobReq->dmt_version;
@@ -454,7 +454,7 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     auto message = boost::make_shared<fpi::DeleteBlobMsg>();
-    message->volume_id = amReq->io_vol_id;
+    message->volume_id = amReq->io_vol_id.get();
     message->blob_name = amReq->getBlobName();
     message->blob_version = blob_version_invalid;
     message->txId = static_cast<DeleteBlobReq *>(amReq)->tx_desc->getValue();
@@ -496,7 +496,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     auto updCatMsg(boost::make_shared<fpi::UpdateCatalogMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
-    updCatMsg->volume_id    = amReq->io_vol_id;
+    updCatMsg->volume_id    = amReq->io_vol_id.get();
     updCatMsg->txId         = blobReq->tx_desc->getValue();
 
     // Setup blob offset updates
@@ -533,7 +533,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     auto updCatMsg(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
-    updCatMsg->volume_id    = amReq->io_vol_id;
+    updCatMsg->volume_id    = amReq->io_vol_id.get();
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
     updCatMsg->dmt_version  = dmtMgr->getCommittedVersion();
@@ -625,7 +625,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
               return;);
 
     auto putObjMsg(boost::make_shared<fpi::PutObjectMsg>());
-    putObjMsg->volume_id        = amReq->io_vol_id;
+    putObjMsg->volume_id        = amReq->io_vol_id.get();
     putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
     putObjMsg->data_obj_id.digest = std::string(
@@ -692,7 +692,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     ObjectID const& objId = *blobReq->obj_id;
 
     auto getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
-    getObjMsg->volume_id = volId;
+    getObjMsg->volume_id = volId.get();
     getObjMsg->data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(objId.GetId()),
         objId.GetLen());
@@ -762,7 +762,7 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
      * we want...all objects won't work well for large blobs.
      */
     auto queryMsg = boost::make_shared<fpi::QueryCatalogMsg>();
-    queryMsg->volume_id    = volId;
+    queryMsg->volume_id    = volId.get();
     queryMsg->blob_name    = amReq->getBlobName();
     queryMsg->start_offset = start_offset;
     queryMsg->end_offset   = end_offset;
@@ -880,7 +880,7 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
               return;);
 
     auto message = boost::make_shared<fpi::GetBlobMetaDataMsg>();
-    message->volume_id = amReq->io_vol_id;
+    message->volume_id = amReq->io_vol_id.get();
     message->blob_name = amReq->getBlobName();
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, amReq));
@@ -899,7 +899,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     auto setMDMsg = boost::make_shared<fpi::SetBlobMetaDataMsg>();
     setMDMsg->blob_name = amReq->getBlobName();
     setMDMsg->blob_version = blob_version_invalid;
-    setMDMsg->volume_id = vol_id;
+    setMDMsg->volume_id = vol_id.get();
     setMDMsg->txId = blobReq->tx_desc->getValue();
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
@@ -957,7 +957,7 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     auto commitBlobTxMsg = boost::make_shared<fpi::CommitBlobTxMsg>();
     commitBlobTxMsg->blob_name    = amReq->getBlobName();
     commitBlobTxMsg->blob_version = blob_version_invalid;
-    commitBlobTxMsg->volume_id    = amReq->io_vol_id;
+    commitBlobTxMsg->volume_id    = amReq->io_vol_id.get();
     commitBlobTxMsg->txId         = static_cast<CommitBlobTxReq *>(amReq)->tx_desc->getValue();
     commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
@@ -997,7 +997,7 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
               return;);
 
     auto message = boost::make_shared<fpi::GetBucketMsg>();
-    message->volume_id = amReq->io_vol_id;
+    message->volume_id = amReq->io_vol_id.get();
     message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
     message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
     message->pattern = static_cast<VolumeContentsReq *>(amReq)->pattern;

@@ -208,12 +208,12 @@ int64_t ConfigDB::getIdOfLocalDomain(const std::string& identifier) {
 
 
 // volumes
-fds_uint64_t ConfigDB::getNewVolumeId() {
+fds_volid_t ConfigDB::getNewVolumeId() {
     try {
-        fds_uint64_t volId;
+        fds_volid_t volId;
         for (;;) {
-            volId = r.incr("volumes:nextid");
-            if (!volumeExists(fds_volid_t(volId))) return volId;
+            volId = fds_volid_t(r.incr("volumes:nextid"));
+            if (!volumeExists(volId)) return volId;
         }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
@@ -224,7 +224,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
     TRACKMOD();
     // add the volume to the volume list for the domain
     try {
-        auto volId = static_cast<fds_uint64_t>(vol.volUUID);
+        auto volId = vol.volUUID.get();
         Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, volId);
         if (!reply.wasModified()) {
             LOGWARN << "volume [" << vol.volUUID
@@ -282,7 +282,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.iops_throttle,
                               vol.relativePrio,
                               vol.fSnapshot,
-                              static_cast<fds_uint64_t>(vol.srcVolumeId),
+                              vol.srcVolumeId.get(),
                               vol.getState(),
                               vol.createTime);
         if (reply.isOk()) return true;
@@ -298,7 +298,7 @@ bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
     TRACKMOD();
     try {
         LOGNORMAL << "updating volume id " << volumeId << " to state " << state;
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         return r.sendCommand("hset vol:%ld state %d", volId, static_cast<int>(state)).isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();
@@ -321,7 +321,7 @@ bool ConfigDB::updateVolume(const VolumeDesc& volumeDesc) {
 bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
     TRACKMOD();
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         Reply reply = r.sendCommand("srem %d:volumes %ld", localDomainId, volId);
         if (!reply.wasModified()) {
             LOGWARN << "volume [" << volumeId
@@ -341,7 +341,7 @@ bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
 
 bool ConfigDB::volumeExists(fds_volid_t volumeId) {
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         Reply reply = r.sendCommand("exists vol:%ld", volId);
         return reply.getLong()== 1;
     } catch(RedisException& e) {
@@ -416,7 +416,7 @@ bool ConfigDB::getVolumes(std::vector<VolumeDesc>& volumes, int localDomain) {
 
 bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         Reply reply = r.sendCommand("hgetall vol:%ld", volId);
         StringList strings;
         reply.toVector(strings);
@@ -1554,7 +1554,7 @@ bool ConfigDB::deleteSnapshotPolicy(const int64_t policyId) {
 
 bool ConfigDB::attachSnapshotPolicy(fds_volid_t const volumeId, const int64_t policyId) {
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         r.sendCommand("sadd snapshot.policy:%ld:volumes %ld", policyId, volId);
         r.sendCommand("sadd volume:%ld:snapshot.policies %ld", volId, policyId);
     } catch(const RedisException& e) {
@@ -1567,7 +1567,7 @@ bool ConfigDB::attachSnapshotPolicy(fds_volid_t const volumeId, const int64_t po
 bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & vecPolicies,
                                              fds_volid_t const volumeId) {
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         Reply reply = r.sendCommand("smembers volume:%ld:snapshot.policies", volId); //NOLINT
         StringList strings;
         reply.toVector(strings);
@@ -1599,7 +1599,7 @@ bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPoli
 
 bool ConfigDB::detachSnapshotPolicy(fds_volid_t const volumeId, const int64_t policyId) {
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         r.sendCommand("srem snapshot.policy:%ld:volumes %ld", policyId, volId);
         r.sendCommand("srem volume:%ld:snapshot.policies %ld", volId, policyId);
     } catch(const RedisException& e) {
@@ -1646,12 +1646,12 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
     return true;
 }
 
-bool ConfigDB::deleteSnapshot(fds_volid_t const volumeId, const int64_t snapshotId) {
+bool ConfigDB::deleteSnapshot(fds_volid_t const volumeId, fds_volid_t const snapshotId) {
     TRACKMOD();
     try {
         fpi::Snapshot snapshot;
-        snapshot.volumeId = volumeId;
-        snapshot.snapshotId = snapshotId;
+        snapshot.volumeId = volumeId.get();
+        snapshot.snapshotId = snapshotId.get();
 
         if (!getSnapshot(snapshot)) {
             LOGWARN << "unable to fetch snapshot [vol:" << volumeId <<",snap:" << snapshotId <<"]";
@@ -1696,7 +1696,7 @@ bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
 
 bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, fds_volid_t const volumeId) {
     try {
-        auto volId = static_cast<fds_uint64_t>(volumeId);
+        auto volId = volumeId.get();
         Reply reply = r.sendCommand("hvals volume:%ld:snapshots", volId);
         StringList strings;
         reply.toVector(strings);
@@ -1734,11 +1734,11 @@ bool ConfigDB::setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState sta
     return updateSnapshot(snapshot);
 }
 
-bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, const int64_t snapshotId,
+bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, fds_volid_t const snapshotId,
                                 fpi::ResourceState state) {
     fpi::Snapshot snapshot;
-    snapshot.volumeId = volumeId;
-    snapshot.snapshotId = snapshotId;
+    snapshot.volumeId = volumeId.get();
+    snapshot.snapshotId = snapshotId.get();
     return setSnapshotState(snapshot, state);
 }
 

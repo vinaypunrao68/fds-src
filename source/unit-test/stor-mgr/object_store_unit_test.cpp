@@ -118,21 +118,21 @@ void setupTests(fds_uint32_t concurrency,
     volTbl->registerVolume(volume1->voldesc_);
 
     // large capacity volume for multi-threaded testing
-    largeCapVolume.reset(new TestVolume(fds_volid_t(volId+1), "ut_vol_capacity",
+    largeCapVolume.reset(new TestVolume(fds_volid_t(volId.get()+1), "ut_vol_capacity",
                                         concurrency, 0,
                                         TestVolume::STORE_OP_PUT,
                                         20*datasetSize, 4096));
     volTbl->registerVolume(largeCapVolume->voldesc_);
 
     // volume with large obj size (2MB)
-    largeObjVolume.reset(new TestVolume(fds_volid_t(volId+2), "ut_vol_2MB",
+    largeObjVolume.reset(new TestVolume(fds_volid_t(volId.get()+2), "ut_vol_2MB",
                                         1, 0,
                                         TestVolume::STORE_OP_PUT,
                                         datasetSize, 2*1024*1024));
     volTbl->registerVolume(largeObjVolume->voldesc_);
 
     // volume we will use to test migration code
-    migrVolume.reset(new TestVolume(fds_volid_t(volId+3), "ut_migration_vol",
+    migrVolume.reset(new TestVolume(fds_volid_t(volId.get()+3), "ut_migration_vol",
                                     1, 0,
                                     TestVolume::STORE_OP_PUT,
                                     datasetSize, 4096));
@@ -305,7 +305,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
 
     // init
     fpi::MetaDataVolumeAssoc volAssoc;
-    volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
+    volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID.get();
     volAssoc.volumeRefCnt = 1;
     msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
     msg.objectVolumeAssoc.push_back(volAssoc);
@@ -429,7 +429,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
 
         // add new volume association
         fpi::MetaDataVolumeAssoc volAssoc2;
-        volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
+        volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID.get();
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;
         // setting it to 0, so volume[0] doesn't factor into reconciling.

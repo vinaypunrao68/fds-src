@@ -39,7 +39,7 @@ struct ConfigDB : KVStore {
     int64_t getIdOfLocalDomain(const std::string& identifier);
 
     // volumes
-    fds_uint64_t getNewVolumeId();
+    fds_volid_t getNewVolumeId();
     bool setVolumeState(fds_volid_t volumeId, fpi::ResourceState state);
     bool addVolume(const VolumeDesc& volumeDesc);
     bool updateVolume(const VolumeDesc& volumeDesc);
@@ -139,9 +139,9 @@ struct ConfigDB : KVStore {
 
     // volumeid & snapshotid should be set ...
     bool getSnapshot(fpi::Snapshot& snapshot);
-    bool deleteSnapshot(fds_volid_t const volumeId, const int64_t snapshotId);
+    bool deleteSnapshot(fds_volid_t const volumeId, fds_volid_t const snapshotId);
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
-    bool setSnapshotState(fds_volid_t const volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
+    bool setSnapshotState(fds_volid_t const volumeId, fds_volid_t const snapshotId, fpi::ResourceState state); //NOLINT
    bool listSnapshots(std::vector<fpi::Snapshot> & _return, fds_volid_t const volumeId); //NOLINT
 
   protected:

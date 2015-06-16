@@ -23,7 +23,7 @@ AmQoSCtrl::~AmQoSCtrl() {
 }
 
 FDS_VolumeQueue* AmQoSCtrl::getQueue(fds_volid_t queueId) {
-    return htb_dispatcher->getQueue(queueId);
+    return htb_dispatcher->getQueue(queueId.get());
 }
 
 Error AmQoSCtrl::processIO(FDS_IOType *io) {
@@ -82,7 +82,7 @@ Error AmQoSCtrl::markIODone(FDS_IOType *io) {
     default:
         ;;
     };
-    fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id);
+    fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id.get());
     PerfTracer::incr(PerfEventType::AM_QOS_QUEUE_SIZE, io->io_vol_id, queue_size, 1); // Let this be a latency counter
     if (queue_size > 0) {
         StatsCollector::singleton()->recordEvent(io->io_vol_id,
@@ -107,7 +107,7 @@ void   AmQoSCtrl::setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher
 
 Error AmQoSCtrl::registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq) {
     Error err(ERR_OK);
-    err = htb_dispatcher->registerQueue(vol_uuid, volq);
+    err = htb_dispatcher->registerQueue(vol_uuid.get(), volq);
     LOGWARN << err;
     return err;
 }
@@ -118,7 +118,7 @@ Error AmQoSCtrl::modifyVolumeQosParams(fds_volid_t vol_uuid,
                                        fds_uint32_t prio)
 {
     Error err(ERR_OK);
-    err = htb_dispatcher->modifyQueueQosParams(vol_uuid, iops_min, iops_max, prio);
+    err = htb_dispatcher->modifyQueueQosParams(vol_uuid.get(), iops_min, iops_max, prio);
     return err;
 }
 
@@ -129,14 +129,14 @@ fds_uint32_t AmQoSCtrl::waitForWorkers() {
 
 Error   AmQoSCtrl::deregisterVolume(fds_volid_t vol_uuid) {
     Error err(ERR_OK);
-    err = htb_dispatcher->deregisterQueue(vol_uuid);
+    err = htb_dispatcher->deregisterQueue(vol_uuid.get());
     return err;
 }
 
 
 Error AmQoSCtrl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
     Error err(ERR_OK);
-    htb_dispatcher->enqueueIO(volUUID, io);
+    htb_dispatcher->enqueueIO(volUUID.get(), io);
     return err;
 }
 

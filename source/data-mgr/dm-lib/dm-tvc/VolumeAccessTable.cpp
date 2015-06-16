@@ -29,7 +29,7 @@ DmVolumeAccessTable::getTimer() {
 
 DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
     : access_map(),
-      random_generator(static_cast<uint64_t>(vol_uuid)),
+      random_generator(vol_uuid.get()),
       timer(DmVolumeAccessTable::getTimer())
 { }
 

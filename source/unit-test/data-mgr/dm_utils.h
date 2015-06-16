@@ -197,7 +197,7 @@ void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
         vdesc->mediaPolicy = fpi::FDSP_MEDIA_POLICY_HYBRID;
         vdesc->placementPolicy = 1;
         vdesc->appWorkload = fpi::FDSP_APP_S3_OBJS;
-        vdesc->backupVolume = invalid_vol_id;
+        vdesc->backupVolume = invalid_vol_id.get();
 
         vdesc->iops_assured = 1000;
         vdesc->iops_throttle = 5000;

@@ -905,8 +905,8 @@ MigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
             // Mapping doesn't exist.  Create a new mapping
             fpi::AddObjectRefMsgPtr addObjRefMsgPtr(new fpi::AddObjectRefMsg());
 
-            addObjRefMsgPtr->srcVolId = addObjRefReq->getSrcVolId();
-            addObjRefMsgPtr->destVolId = addObjRefReq->getDestVolId();
+            addObjRefMsgPtr->srcVolId = addObjRefReq->getSrcVolId().get();
+            addObjRefMsgPtr->destVolId = addObjRefReq->getDestVolId().get();
             fpi::FDS_ObjectIdType objectId;
             assign(objectId, oid);
             addObjRefMsgPtr->objIds.push_back(objectId);

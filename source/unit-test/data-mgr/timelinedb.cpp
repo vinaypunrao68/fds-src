@@ -32,11 +32,11 @@ TEST_F(DmUnitTest, Timelinedb) {
 
     fds_volid_t volId = invalid_vol_id;
     dataMgr->timeline->removeVolume(volId);
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, fds_volid_t(10), "hello1"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, fds_volid_t(20), "hello2"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, fds_volid_t(30), "hello3"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, fds_volid_t(40), "hello4"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, fds_volid_t(50), "hello5"));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 10, "hello1"));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 20, "hello2"));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 30, "hello3"));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 40, "hello4"));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 50, "hello5"));
 
     std::vector<fds::JournalFileInfo> vecJournalFiles;
     EXPECT_EQ(ERR_OK, dataMgr->timeline->getJournalFiles(volId, 0, 30, vecJournalFiles));

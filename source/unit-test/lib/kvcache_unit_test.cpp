@@ -54,10 +54,10 @@ void addObj(TestObject & obj) {
 }
 
 void create(TestObject & obj) {
-    if (!volSet[obj.volId]) {
+    if (!volSet[obj.volId.get()]) {
         std::cout << "Creating cache for vol " << obj.volId << std::endl;
         strCacheManager.createCache(obj.volId, 50, fds::LRU);
-        volSet[obj.volId] = 1;
+        volSet[obj.volId.get()] = 1;
     }
     pool.schedule(addObj, obj);
 }

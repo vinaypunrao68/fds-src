@@ -84,8 +84,7 @@ Error TimelineDB::addJournalFile(fds_volid_t volId,
                                  TimeStamp startTime, const std::string& journalFile) {
     DECLARE_DB_VARS();
     sql = util::strformat("insert into journaltbl (volid, starttime, filename) "
-                                      "values (%ld, %ld, '%s')",
-                                      static_cast<uint64_t>(volId),
+                                      "values (%ld, %ld, '%s')", volId.get(),
                                       startTime, journalFile.c_str());
     LOGDEBUG << "sql: " << sql;
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
@@ -96,7 +95,7 @@ Error TimelineDB::addJournalFile(fds_volid_t volId,
 Error TimelineDB::removeJournalFile(fds_volid_t volId, const std::string& journalFile) {
     DECLARE_DB_VARS();
     sql = util::strformat("delete from journaltbl where volid=%ld and filename = '%s'",
-                                      static_cast<uint64_t>(volId),
+                                      volId.get(),
                                       journalFile.c_str());
     LOGDEBUG << "sql: " << sql;
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
@@ -125,7 +124,7 @@ Error TimelineDB::removeOldJournalFiles(fds_volid_t volId, TimeStamp uptoTime,
     sql = util::strformat(
         "delete from journaltbl where "
         "volid = %ld and starttime <= %ld",
-        static_cast<uint64_t>(volId), startTime);
+        volId.get(), startTime);
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
     CHECK_SQL_CODE("unable to delete records from db");
     return err;
@@ -140,13 +139,13 @@ Error TimelineDB::getJournalFiles(fds_volid_t volId, TimeStamp fromTime, TimeSta
     // get the highest time <= fromTime
     sql = util::strformat("select starttime from journaltbl where volid=%ld and "
                           "starttime <= %ld order by starttime desc limit 1",
-                          static_cast<uint64_t>(volId), fromTime);
+                          volId.get(), fromTime);
     getInt(sql, startTime);
 
     sql = util::strformat(
         "select starttime, filename from journaltbl where "
         "volid = %ld and starttime >= %ld and starttime <= %ld",
-        static_cast<uint64_t>(volId), startTime, toTime);
+        volId.get(), startTime, toTime);
 
     sqlite3_stmt * stmt;
     const char * pzTail;
@@ -178,9 +177,9 @@ Error TimelineDB::addSnapshot(fds_volid_t volId, fds_volid_t snapshotId, TimeSta
     DECLARE_DB_VARS();
     sql = util::strformat("insert into snapshottbl (volid, createtime, snapshotid) "
                           "values (%ld, %ld, %ld)",
-                          static_cast<uint64_t>(volId),
+                          volId.get(),
                           createTime,
-                          static_cast<uint64_t>(snapshotId));
+                          snapshotId.get());
     LOGDEBUG << "sql: " << sql;
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
     CHECK_SQL_CODE("unable to add snapshot info to snapshot table");
@@ -190,7 +189,7 @@ Error TimelineDB::addSnapshot(fds_volid_t volId, fds_volid_t snapshotId, TimeSta
 Error TimelineDB::removeSnaphot(fds_volid_t snapshotId) {
     DECLARE_DB_VARS();
     sql = util::strformat("delete from snapshottbl where snapshotid=%ld",
-                          static_cast<uint64_t>(snapshotId));
+                          snapshotId.get());
     LOGDEBUG << "sql: " << sql;
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
     CHECK_SQL_CODE("unable to remove snapshot from snapshot tbl");
@@ -206,7 +205,7 @@ Error TimelineDB::getLatestSnapshotAt(fds_volid_t volId,
     sql = util::strformat(
         "select snapshotid from snapshottbl "
         "where volid=%ld and createtime <= %ld order by createtime desc LIMIT 1",
-        static_cast<uint64_t>(volId), uptoTime);
+        volId.get(), uptoTime);
     return getInt(sql, *(reinterpret_cast<fds_uint64_t*>(&snapshotId) ));
 }
 
@@ -217,7 +216,7 @@ Error TimelineDB::getSnapshotTime(fds_volid_t volId,
     sql = util::strformat(
         "select createtime from snapshottbl "
         "where volid=%ld and snapshotid = %ld  LIMIT 1",
-        static_cast<uint64_t>(volId), static_cast<uint64_t>(snapshotId));
+        volId.get(), snapshotId.get());
     return getInt(sql, createTime);
 }
 
@@ -249,11 +248,11 @@ Error TimelineDB::getInt(const std::string& sql, fds_uint64_t& data) {
 
 Error TimelineDB::removeVolume(fds_volid_t volId) {
     DECLARE_DB_VARS();
-    sql = util::strformat("delete from snapshottbl where volid=%ld", static_cast<uint64_t>(volId));
+    sql = util::strformat("delete from snapshottbl where volid=%ld", volId.get());
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
     CHECK_SQL_CODE("unable to remove volume from snapshot tbl");
 
-    sql = util::strformat("delete from journaltbl where volid=%ld", static_cast<uint64_t>(volId));
+    sql = util::strformat("delete from journaltbl where volid=%ld", volId.get());
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
     CHECK_SQL_CODE("unable to remove volume from journal tbl");
 

@@ -68,8 +68,7 @@ void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
     // TODO(Anna) If this DM is not forwarding for this io's volume anymore
     // we reject start TX on DMT mismatch
     dataManager.vol_map_mtx->lock();
-    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator volMetaIter =
-            dataManager.vol_meta_map.find(typedRequest->volId);
+    auto volMetaIter = dataManager.vol_meta_map.find(typedRequest->volId);
     if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&

@@ -1036,7 +1036,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (*volPolicyId > 0) {
             desc.volPolicyId = *volPolicyId;
         }
-        desc.backupVolume = invalid_vol_id;
+        desc.backupVolume = invalid_vol_id.get();
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
@@ -1079,7 +1079,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
         }
 
-        return vol->vol_get_properties()->volUUID;
+        return vol->vol_get_properties()->volUUID.get();
     }
 
     void createSnapshot(boost::shared_ptr<int64_t>& volumeId,
@@ -1095,7 +1095,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGWARN << "unable to generate a new snapshot id";
             apiException("unable to generate a new snapshot id");
         }
-        snapshot.snapshotId = snapshotId;
+        snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
         snapshot.creationTimestamp = util::getTimeStampMillis();
         snapshot.retentionTimeSeconds = *retentionTime;

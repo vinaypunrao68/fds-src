@@ -17,11 +17,11 @@
 #include <fds_error.h>
 #include <fds_assert.h>
 #include <fds_ptr.h>
+#include <fds_value_type.h>
 #include <has_state.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
-#include <boost/serialization/strong_typedef.hpp>
 #include <boost/io/ios_state.hpp>
 #include <serialize.h>
 #include <shared/fds-constants.h>
@@ -32,11 +32,11 @@ namespace fds {
 
 class FDS_IOType;
 
-// typedef fds_uint64_t fds_volid_t;
 typedef boost::posix_time::ptime ptime;
-BOOST_STRONG_TYPEDEF(fds_uint64_t, fds_volid_t)
 
-static fds_volid_t const invalid_vol_id = fds_volid_t(0);
+using fds_volid_t = fds_value_type<uint64_t>;
+
+static fds_volid_t const invalid_vol_id(0);
 static constexpr fds_int64_t invalid_vol_token = -1;
 
 /**
@@ -287,7 +287,7 @@ class FDS_VolumeQueue {
 // Define streaming operator for volume ids
 inline std::ostream& operator<<(std::ostream& out, const fds_volid_t& vol_id) {
     boost::io::ios_flags_saver ifs(out);
-    return out << std::dec << static_cast<uint64_t>(vol_id);
+    return out << std::dec << vol_id.get();
 }
 
 }  // namespace fds
@@ -296,13 +296,8 @@ inline std::ostream& operator<<(std::ostream& out, const fds_volid_t& vol_id) {
 namespace std {
     template<>
     struct hash<fds::fds_volid_t> {
-        typedef fds::fds_volid_t argument_type;
-        typedef std::size_t result_type;
-
-        result_type operator()(argument_type const& val) const {
-            return std::hash<fds_uint64_t>()(val);
-        }
-
+        std::size_t operator()(fds::fds_volid_t const& val) const
+            { return std::hash<fds_uint64_t>()(val.get()); }
     };
 }  // namespace std
 

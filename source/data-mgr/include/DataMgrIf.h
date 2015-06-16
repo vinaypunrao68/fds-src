@@ -25,7 +25,7 @@ struct DataMgrIf {
         return "";
     }
     virtual std::string getSnapDirName(const fds_volid_t &volId,
-                                       const int64_t snapId) const
+                                       const fds_volid_t snapId) const
     {
         return "";
     }

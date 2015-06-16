@@ -20,14 +20,14 @@ Error DmChecker::loadVolume(fds_volid_t volumeUuid) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     std::string volDir = util::strformat("%s/%ld",
                                          root->dir_sys_repo_dm().c_str(),
-                                         static_cast<uint64_t>(volumeUuid));
+                                         volumeUuid.get());
 
     if (!util::dirExists(volDir)) {
         return ERR_VOL_NOT_FOUND;
     }
     
     volCat = boost::make_shared<DmVolumeCatalog>("DM checker");
-    volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid), volumeUuid);
+    volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid.get()), volumeUuid);
     // TODO(Andrew): We're just making up a max object size because the catalog add
     // is going to expect it. For basic blob traversal, it's not used so doesn't matter.
     // Ideally, DM's catalog superblock could describe the volume and we could pull that

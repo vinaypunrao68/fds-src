@@ -75,7 +75,7 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     Error err(ERR_OK);
     VolumeDesc desc(vol_msg->vol_desc);
-    err = dataManager_._process_add_vol(dataManager_.getPrefix() + std::to_string(vol_uuid),
+    err = dataManager_._process_add_vol(dataManager_.getPrefix() + std::to_string(vol_uuid.get()),
                                         vol_uuid,
                                         &desc,
                                         vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC);

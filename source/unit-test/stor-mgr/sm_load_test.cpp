@@ -429,7 +429,7 @@ SmLoadProc::putSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::PutObjectMsg> putObjMsg(new fpi::PutObjectMsg());
-    putObjMsg->volume_id = volId;
+    putObjMsg->volume_id = volId.get();
     putObjMsg->data_obj = *objData;
     putObjMsg->data_obj_len = (*objData).size();
     putObjMsg->data_obj_id.digest =
@@ -492,7 +492,7 @@ SmLoadProc::getSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::GetObjectMsg> getObjMsg(new fpi::GetObjectMsg());
-    getObjMsg->volume_id = volId;
+    getObjMsg->volume_id = volId.get();
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
@@ -564,7 +564,7 @@ SmLoadProc::removeSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::DeleteObjectMsg> expObjMsg(new fpi::DeleteObjectMsg());
-    expObjMsg->volId = volId;
+    expObjMsg->volId = volId.get();
     auto delReq = new SmIoDeleteObjectReq(expObjMsg);
     delReq->io_type = FDS_SM_DELETE_OBJECT;
     delReq->setVolId(volId);

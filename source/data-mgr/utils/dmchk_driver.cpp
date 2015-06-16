@@ -2,6 +2,7 @@
  * Copyright 2015 by Formation Data Systems, Inc.
  */
 
+#include <algorithm>
 #include <boost/program_options.hpp>
 #include <dmchk.h>
 #include <vector>
@@ -19,7 +20,7 @@ int main(int argc, char* argv[]) {
             ("blobs,b", "list blob contents for given volume")
             ("stats,s", "show stats")
             ("objects,o", po::value<std::string>(&blobName), "show objects for blob")
-            ("volumeid", po::value<std::vector<fds_volid_t> >()->composing());
+            ("volumeid", po::value<std::vector<uint64_t> >()->composing());
     m_positional.add("volumeid", -1);
 
     po::variables_map vm;
@@ -37,8 +38,11 @@ int main(int argc, char* argv[]) {
 
     std::vector<fds_volid_t> volumes, allVolumes;
 
+    // Transform the provided uint64s into fds_volid_t's
     if (!vm["volumeid"].empty()) {
-        volumes = vm["volumeid"].as<std::vector<fds_volid_t> >();
+        auto parsedIds = vm["volumeid"].as<std::vector<uint64_t> >();
+        std::transform(parsedIds.begin(), parsedIds.end(), volumes.begin(),
+           [](uint64_t const& val) -> fds_volid_t { return fds_volid_t(val); });
     }
 
     Module *dmchkVec[] = {

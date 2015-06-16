@@ -100,7 +100,7 @@ void PolicyDispatcher::run() {
         for (auto volId_ : vecVolumes) {
             fds_volid_t volId(volId_);
             // check if we already have a snap scheduled with the volId
-            auto iter = mapVolSnaps.find(volId);
+            auto iter = mapVolSnaps.find(volId.get());
             if (iter != mapVolSnaps.end() &&
                 iter->second.retentionTimeSeconds > policy.retentionTimeSeconds) {
                 // Now there is a snap already scheduled which has higher retention
@@ -128,13 +128,13 @@ void PolicyDispatcher::run() {
                                 volumeDesc.name.c_str(),
                                 policy.policyName.c_str(),
                                 util::getTimeStampMillis()));
-            snapshot.volumeId = volId;
+            snapshot.volumeId = volId.get();
             auto snapshotId = om->getConfigDB()->getNewVolumeId();
             if (invalid_vol_id == snapshotId) {
                 LOGWARN << "unable to generate a new snapshot id";
                 continue;
             }
-            snapshot.snapshotId = snapshotId;
+            snapshot.snapshotId = snapshotId.get();
 
             snapshot.snapshotPolicyId = policyId;
             snapshot.creationTimestamp = util::getTimeStampMillis();
@@ -145,7 +145,7 @@ void PolicyDispatcher::run() {
                      << " name:" << snapshot.snapshotName;
 
             // Add it to the map
-            mapVolSnaps[volId] = snapshot;
+            mapVolSnaps[volId.get()] = snapshot;
         }
     }
 }

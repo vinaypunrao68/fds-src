@@ -18,7 +18,7 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
 
     boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
-    msg->volume_id = volId;
+    msg->volume_id = volId.get();
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
 
     SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
@@ -94,8 +94,9 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     }
 
     vol_map_mtx->lock();
-    fds_verify(vol_meta_map.count(io->volId) > 0);
-    VolumeMeta *vol_meta = vol_meta_map[io->volId];
+    auto volIt = vol_meta_map.find(io->volId);
+    fds_verify(vol_meta_map.end() != volIt);
+    VolumeMeta *vol_meta = volIt->second;
     vol_meta->dmVolQueue->activate();
     vol_map_mtx->unlock();
 
@@ -111,7 +112,6 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     Error err(ERR_OK);
     std::unordered_set<fds_volid_t> prim_vols;
     std::unordered_set<fds_volid_t>::const_iterator cit;
-    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
     fds_uint64_t total_bytes = 0;
     fds_uint64_t total_blobs = 0;
     fds_uint64_t total_objects = 0;
@@ -119,7 +119,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     // find all volumes for which this DM is primary (we only need
     // to collect capacity stats from DMs that are primary).
     vol_map_mtx->lock();
-    for (vol_it = vol_meta_map.begin();
+    for (auto vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
         if (vol_it->second->vol_desc->fSnapshot) {
@@ -177,7 +177,6 @@ void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
  */
 void
 DataMgr::finishCloseDMT() {
-    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
     std::unordered_set<fds_volid_t> done_vols;
     fds_bool_t all_finished = false;
 
@@ -188,7 +187,7 @@ DataMgr::finishCloseDMT() {
     // the set is used so that we call catSyncMgr to cleanup/and
     // and send push meta done msg outside of vol_map_mtx lock
     vol_map_mtx->lock();
-    for (vol_it = vol_meta_map.begin();
+    for (auto vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
         fds_volid_t volid (vol_it->first);
@@ -248,7 +247,7 @@ std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
 }
 
 std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
-                                    const int64_t snapId) const
+                                    const fds_volid_t snapId) const
 {
     std::stringstream stream;
     stream << getSnapDirBase() << "/" << volId << "/" << snapId;
@@ -264,7 +263,9 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
 
     // set the state
     vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[volid];
+    auto volIt = vol_meta_map.find(volid);
+    fds_assert(vol_meta_map.end() != volIt);
+    VolumeMeta *vol_meta = volIt->second;
     // Skip this verify because it's actually set later?
     // TODO(Andrew): If the above comment is correct, we
     // remove most of what this function actually do
@@ -454,7 +455,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                     // volume, directory needs to exist for activation
                     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
                     const std::string dirPath = root->dir_sys_repo_dm() +
-                            std::to_string(vdesc->volUUID);
+                            std::to_string(vdesc->volUUID.get());
                     root->fds_mkdir(dirPath.c_str());
                 }
 
@@ -641,7 +642,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-        const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid);
+        const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid.get());
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
@@ -668,8 +669,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             desc->timelineTime = 0;
             desc->setState(fpi::Active);
             desc->name = util::strformat("snaphot_%ld_%ld",
-                                         static_cast<uint64_t>(vol_uuid),
-                                         static_cast<uint64_t>(snapId));
+                                         vol_uuid.get(), snapId.get());
             VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
                                                             snapId,
                                                             GetLog(),
@@ -818,7 +818,6 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
  * finish forwarding state.
  */
 Error DataMgr::notifyDMTClose() {
-    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
     Error err(ERR_OK);
     DmIoPushMetaDone* pushMetaDoneIo = NULL;
 
@@ -839,12 +838,12 @@ Error DataMgr::notifyDMTClose() {
     // and enqueue DMT close marker to qos queues of volumes
     // that are in 'finish forwarding' state
     vol_map_mtx->lock();
-    for (vol_it = vol_meta_map.begin();
+    for (auto vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
         VolumeMeta *vol_meta = vol_it->second;
         vol_meta->finishForwarding();
-        pushMetaDoneIo = new DmIoPushMetaDone(fds_volid_t(vol_it->first));
+        pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
         handleDMTClose(pushMetaDoneIo);
     }
     vol_map_mtx->unlock();
@@ -1111,11 +1110,10 @@ void DataMgr::shutdown()
 void DataMgr::flushIO()
 {
     shuttingDown = true;
-    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
-                 it = vol_meta_map.begin();
+    for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
-         it++) {
-        qosCtrl->quieseceIOs(fds_volid_t(it->first));
+         ++it) {
+        qosCtrl->quieseceIOs(it->first);
     }
 
 }
@@ -1147,12 +1145,11 @@ void DataMgr::mod_shutdown()
     LOGNORMAL << "Destructing the Data Manager";
     closedmt_timer->destroy();
 
-    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
-                 it = vol_meta_map.begin();
+    for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
          it++) {
         //  qosCtrl->quieseceIOs(it->first);
-        qosCtrl->deregisterVolume(fds_volid_t(it->first));
+        qosCtrl->deregisterVolume(it->first);
         delete it->second;
     }
     vol_meta_map.clear();
@@ -1355,7 +1352,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     fpi::DeleteObjectMsgPtr expReq(new fpi::DeleteObjectMsg());
 
     // Set message parameters
-    expReq->volId = volId;
+    expReq->volId = volId.get();
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
@@ -1431,15 +1428,13 @@ namespace dmutil {
 
 std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    if (snapId > 0) {
+    if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(),
-                               static_cast<uint64_t>(volId),
-                               static_cast<uint64_t>(snapId));
+                               volId.get(), snapId.get());
     } else {
         return util::strformat("%s/%ld",
-                               root->dir_sys_repo_dm().c_str(),
-                               static_cast<uint64_t>(volId));
+                               root->dir_sys_repo_dm().c_str(), volId.get());
     }
 }
 
@@ -1447,22 +1442,17 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 std::string getSnapshotDir(fds_volid_t volId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     return util::strformat("%s/%ld/snapshot",
-                           root->dir_user_repo_dm().c_str(),
-                           static_cast<uint64_t>(volId));
+                           root->dir_user_repo_dm().c_str(), volId.get());
 }
 
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    if (snapId > 0) {
+    if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
-                                 root->dir_user_repo_dm().c_str(),
-                                 static_cast<uint64_t>(volId),
-                                 static_cast<uint64_t>(snapId));
+                                 root->dir_user_repo_dm().c_str(), volId.get(), snapId);
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
-                                 root->dir_sys_repo_dm().c_str(),
-                                 static_cast<uint64_t>(volId),
-                                 static_cast<uint64_t>(volId));
+                                 root->dir_sys_repo_dm().c_str(), volId, volId);
     }
 }
 }  // namespace dmutil

@@ -28,8 +28,6 @@ struct AmVolumeAccessToken;
 struct WaitQueue;
 
 struct AmVolumeTable : public HasLogger {
-    static fds_volid_t const fds_default_vol_uuid;
-
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 
     /// Use logger that passed in to the constructor

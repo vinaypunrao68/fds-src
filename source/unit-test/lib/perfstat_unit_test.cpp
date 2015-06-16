@@ -165,7 +165,7 @@ int runUnitTest(int slots, int sec_in_slot)
   fds_uint64_t delta = nanos_in_slot;
   for (int i = 0; i < slots; ++i)
     {
-        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 200);
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
         ts += delta;
     }
 
@@ -178,8 +178,8 @@ int runUnitTest(int slots, int sec_in_slot)
   delta = 2 * nanos_in_slot;
   for (int i = 0; i < slots; ++i)
     {
-        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 400);
-        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 200);
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 400);
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
         ts += delta;
     }
 
@@ -193,11 +193,11 @@ int runUnitTest(int slots, int sec_in_slot)
   delta = (slots-2) * nanos_in_slot;
   for (int i = 0; i < 5; ++i)
     {
-        hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 999);
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 999);
         ts += delta;
     }
   ts += nanos_in_slot;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 888);   // this last slot will be discarded
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 888);   // this last slot will be discarded
 
   statfile << "Expecting " << slots-1
            << " stats, one slot is filled with 1 IO, lat = 999 microsec"
@@ -211,28 +211,28 @@ int runUnitTest(int slots, int sec_in_slot)
 
   ts += delta;
   ts += delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 500);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 500);
   ts -= delta;
 
   /* add io too far in the past */
   ts -= delta2;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 789);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 789);
   ts += delta2;
 
   /* continue adding to current history */
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 300);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 300);
   ts += delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 200);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
   ts += delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 999);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 999);
   ts -= delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 300);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 300);
   ts -= delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 1);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 1);
   ts += 5*delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 5);
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 5);
   ts += delta;
-  hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 6);  // will be discarded
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 6);  // will be discarded
 
   statfile << "Expecting 8 stats. A portion of stats should include:"
            << std::endl ;
@@ -247,10 +247,10 @@ int runUnitTest(int slots, int sec_in_slot)
   for (int i = 0; i < (slots*sec_in_slot); ++i)
     {
       for (int k = 0; k < 10; ++k) {
-          hist->recordEvent(fds_volid_t(ts), STAT_AM_PUT_OBJ, 100);
+          hist->recordEvent(ts, STAT_AM_PUT_OBJ, 100);
       }
       for (int k = 0; k < 40; ++k) {
-          hist->recordEvent(fds_volid_t(ts), STAT_AM_GET_OBJ, 5);
+          hist->recordEvent(ts, STAT_AM_GET_OBJ, 5);
       }
       ts += delta;
     }
