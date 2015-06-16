@@ -69,7 +69,11 @@ function build_fds
         jenkins_scripts/build_fds.py -r
     else
         message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
-        jenkins_scripts/build_fds.py
+        if [[ ${COVERAGE} == 'true' ]]; then
+            jenkins_scripts/build_fds.py --coverage
+        else
+            jenkins_scripts/build_fds.py
+        fi
     fi
     end_time=$(date +%s)
 

@@ -118,6 +118,21 @@ void SvcRequestIf::complete(const Error& error) {
 }
 
 /**
+* @brief Marks the svc request as complete and invokes the completion callback
+*
+* @param error
+* @param header
+* @param payload
+*/
+void SvcRequestIf::complete(const Error& error,
+                            const fpi::AsyncHdrPtr& header,
+                            const StringPtr& payload) {
+    respHeader_ = header;
+    respPayload_ = payload;
+    complete(error);
+}
+
+/**
  *
  * @return True if svc request is in complete state
  */
@@ -403,7 +418,7 @@ MultiEpSvcRequest::MultiEpSvcRequest(CommonModuleProviderIf* provider,
                                      const std::vector<fpi::SvcUuid>& peerEpIds)
     : SvcRequestIf(provider, id, myEpId)
 {
-    for (auto uuid : peerEpIds) {
+    for (const auto &uuid : peerEpIds) {
         addEndpoint(uuid);
     }
 }
@@ -418,6 +433,19 @@ void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
 {
     epReqs_.push_back(EPSvcRequestPtr(
             new EPSvcRequest(MODULEPROVIDER(), id_, myEpId_, peerEpId)));
+}
+
+/**
+ * For adding endpoints.
+ * NOTE: Only invoke during initialization.  Do not invoke once
+ * the request is in progress
+ * @param peerEpIds
+ */
+void MultiEpSvcRequest::addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds)
+{
+    for (const auto &uuid : peerEpIds) {
+        addEndpoint(uuid);
+    }
 }
 
 /**
@@ -438,9 +466,9 @@ void MultiEpSvcRequest::onEPAppStatusCb(EPAppStatusCb cb)
 *
 * @return
 */
-EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
+EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(const fpi::SvcUuid &peerEpId)
 {
-    for (auto ep : epReqs_) {
+    for (const auto &ep : epReqs_) {
         if (ep->getPeerEpId() == peerEpId) {
             return ep;
         }
@@ -776,7 +804,7 @@ void QuorumSvcRequest::invoke() {
 */
 void QuorumSvcRequest::invokeWork_()
 {
-    for (auto ep : epReqs_) {
+    for (auto &ep : epReqs_) {
         ep->setPayloadBuf(msgTypeId_, payloadBuf_);
         ep->setTimeoutMs(timeoutMs_);
         ep->invokeWork_();
@@ -866,6 +894,141 @@ std::string QuorumSvcRequest::logString()
 void QuorumSvcRequest::onResponseCb(QuorumSvcRequestRespCb cb)
 {
     respCb_ = cb;
+}
+
+MultiPrimarySvcRequest::MultiPrimarySvcRequest(CommonModuleProviderIf* provider,
+                                               const SvcRequestId& id,
+                                               const fpi::SvcUuid &myEpId,
+                                               const std::vector<fpi::SvcUuid>& primarySvcs,
+                                               const std::vector<fpi::SvcUuid>& optionalSvcs)
+: MultiEpSvcRequest(provider, id, myEpId, {}) 
+{
+    primaryAckdCnt_ = 0;
+    totalAckdCnt_ = 0;
+    addEndpoints(primarySvcs);
+    addEndpoints(optionalSvcs);
+    primariesCnt_ = primarySvcs.size();
+}
+
+void MultiPrimarySvcRequest::invoke() {
+    /* Fire and forget is disallowed */
+    fds_verify(respCb_);
+    MultiEpSvcRequest::invoke();
+}
+
+std::string MultiPrimarySvcRequest::logString()
+{
+    std::stringstream oss;
+    logSvcReqCommon_(oss, "MultiPrimarySvcRequest");
+    oss << " primaries cnt: " << primariesCnt_;
+    return oss.str();
+}
+
+void MultiPrimarySvcRequest::invokeWork_()
+{
+    for (auto &ep : epReqs_) {
+        ep->setPayloadBuf(msgTypeId_, payloadBuf_);
+        ep->setTimeoutMs(timeoutMs_);
+        ep->invokeWork_();
+    }
+}
+
+EPSvcRequestPtr MultiPrimarySvcRequest::getEpReq_(const fpi::SvcUuid &peerEpId,
+                                                  bool &isPrimary)
+{
+    int idx = 0;
+    isPrimary = false;
+
+    for (auto ep : epReqs_) {
+        if (ep->getPeerEpId() == peerEpId) {
+            if (idx < primariesCnt_) {
+                isPrimary = true;
+            }
+            return ep;
+        }
+        idx++;
+    }
+    return nullptr;
+}
+
+void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+                                                boost::shared_ptr<std::string>& payload)
+{
+    DBG(GLOGDEBUG << fds::logString(*header));
+
+    fpi::SvcUuid errdEpId;
+
+    bool isPrimary = false;
+    auto epReq = getEpReq_(header->msg_src_uuid, isPrimary);
+    if (isComplete()) {
+        /* Drop completed requests */
+        GLOGWARN << logString() << " Already completed";
+        return;
+    } else if (!epReq) {
+        /* Drop responses from uknown endpoint src ids */
+        GLOGWARN << logString() << " Unknown EpId";
+        return;
+    } else if (epReq->isComplete()) {
+        GLOGWARN << epReq->logString() << " Already completed";
+        return;
+    }
+    epReq->complete(header->msg_code, header, payload);
+
+    bool bSuccess = (header->msg_code == ERR_OK);
+    /* Handle the error */
+    if (header->msg_code != ERR_OK) {
+        /* Notify actionable error to service manager */
+        if (MODULEPROVIDER()->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+            MODULEPROVIDER()->getSvcMgr()->\
+                handleSvcError(header->msg_src_uuid, header->msg_code);
+        } else {
+            /* Handle Application specific errors here */
+            if (epAppStatusCb_) {
+                bSuccess = epAppStatusCb_(header->msg_code, payload);
+            }
+        }
+    }
+
+    /* Update the endpoint ack counts */
+    if (isPrimary) {
+        primaryAckdCnt_++;
+    }
+    totalAckdCnt_++;
+    
+    /* Update who failed primary or optionals */
+    if (!bSuccess) {
+        if (isPrimary) {
+            failedPrimaries_.push_back(epReq);
+            GLOGWARN << fds::logString(*header) << " response from primary failed";
+        } else {
+            failedOptionals_.push_back(epReq);
+            GLOGWARN << fds::logString(*header) << " response from optional failed";
+        }
+    }
+
+    /* Invoke response cb once all primaries responded */
+    if (primaryAckdCnt_ == primariesCnt_ &&
+        respCb_) {
+        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
+        respCb_(this, reqErr, responsePayload(0));
+        respCb_ = 0;
+    }
+
+    /* Once all responses have come back complete the request and invoke failedOptionalsCb_
+     * if required.
+     */
+    if (totalAckdCnt_ == epReqs_.size()) {
+        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
+        complete(reqErr);
+        if (allRespondedCb_) {
+            allRespondedCb_(this, reqErr, responsePayload(0));
+        }
+        if (reqErr == ERR_OK) {
+            MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->appsuccess.incr();
+        } else {
+            MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->apperrors.incr();
+        }
+    }
 }
 
 }  // namespace fds

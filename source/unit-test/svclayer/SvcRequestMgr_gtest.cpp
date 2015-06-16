@@ -185,6 +185,48 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
         << "Status: " << svcStatusWaiter3.response->status;
 }
 
+TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
+    int cnt = 4;
+    FakeSyncSvcDomain domain(cnt, confFile);
+    MultiPrimarySvcRequestPtr req;
+    /* Request with all services up should work */
+    MultiPrimarySvcRequestCbTask svcStatusWaiter1;
+    req = domain.sendGetStatusMultiPrimarySvcRequest(
+        0,
+        {1,2}, {3},
+        svcStatusWaiter1);
+    svcStatusWaiter1.await();
+    ASSERT_EQ(svcStatusWaiter1.error, ERR_OK) << "Error: " << svcStatusWaiter1.error;
+    ASSERT_EQ(req->getFailedPrimaries().size(), 0);
+    ASSERT_EQ(req->getFailedOptionals().size(), 0);
+
+    /* Request with optional service down should work */
+    domain.kill(3);
+    MultiPrimarySvcRequestCbTask svcStatusWaiter2;
+    req = domain.sendGetStatusMultiPrimarySvcRequest(
+        0,
+        {1,2}, {3},
+        svcStatusWaiter2);
+    svcStatusWaiter2.await();
+    ASSERT_EQ(svcStatusWaiter2.error, ERR_OK) << "Error: " << svcStatusWaiter2.error;
+    ASSERT_EQ(req->getFailedPrimaries().size(), 0);
+    ASSERT_EQ(req->getFailedOptionals().size(), 1);
+
+    /* Request with one primary down should fail */
+    domain.spawn(3);
+    domain.kill(1);
+    MultiPrimarySvcRequestCbTask svcStatusWaiter3;
+    req = domain.sendGetStatusMultiPrimarySvcRequest(
+        0,
+        {1,2}, {3},
+        svcStatusWaiter3);
+    svcStatusWaiter3.await();
+    ASSERT_TRUE(svcStatusWaiter3.error == ERR_SVC_REQUEST_FAILED)
+        << "Error: " << svcStatusWaiter3.error;
+    ASSERT_EQ(req->getFailedPrimaries().size(), 1);
+    ASSERT_EQ(req->getFailedOptionals().size(), 0);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     po::options_description opts("Allowed options");

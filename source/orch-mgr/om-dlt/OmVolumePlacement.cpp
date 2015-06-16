@@ -328,7 +328,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 						// This primary is being removed. Look for another primary.
 						continue;
 					}
-					uuid = cmt_col->get(j);
 					fpi::DMVolumeMigrationGroup newGroup;
 					newGroup.source.svc_uuid = uuid.uuid_get_val();
 					newGroup.VolDescriptors.push_back(vol_desc);
