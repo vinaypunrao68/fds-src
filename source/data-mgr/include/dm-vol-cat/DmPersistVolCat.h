@@ -74,7 +74,7 @@ class DmPersistVolCat {
     }
 
     inline std::string getVolIdStr() const {
-        return std::to_string(volId_);
+        return std::to_string(volId_.get());
     }
 
     inline fpi::FDSP_VolType getVolType() const {

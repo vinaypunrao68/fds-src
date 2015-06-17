@@ -177,7 +177,7 @@ fds_volid_t ObjStatsTracker::getVolId(const ObjectID& objId) {
         return (oStats->vol_uuid);
     }
     objStatsMapLock->unlock();
-    return -1;
+    return invalid_vol_id;
 }
 
 fds_uint32_t ObjStatsTracker::getObjectAccess(const ObjectID& objId) {

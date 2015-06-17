@@ -826,7 +826,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
         if (isFirstRound && !resyncOnRestart) {
             // --> start of second round
             // --> incrememnt counter / marker of second round
-            PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, 0);
+            PerfTracer::incr(PerfEventType::SM_MIGRATION_SECOND_PHASE, invalid_vol_id);
             LOGMIGRATE << "Starting second round for SM token " << (migrExecutors.begin()->first);
             LOGMIGRATE << "migrExecutors.size()=" << migrExecutors.size();
             nextExecutor.set(migrExecutors.begin());
@@ -969,8 +969,8 @@ MigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
             // Mapping doesn't exist.  Create a new mapping
             fpi::AddObjectRefMsgPtr addObjRefMsgPtr(new fpi::AddObjectRefMsg());
 
-            addObjRefMsgPtr->srcVolId = addObjRefReq->getSrcVolId();
-            addObjRefMsgPtr->destVolId = addObjRefReq->getDestVolId();
+            addObjRefMsgPtr->srcVolId = addObjRefReq->getSrcVolId().get();
+            addObjRefMsgPtr->destVolId = addObjRefReq->getDestVolId().get();
             fpi::FDS_ObjectIdType objectId;
             assign(objectId, oid);
             addObjRefMsgPtr->objIds.push_back(objectId);

@@ -18,14 +18,16 @@ DmChecker::DmChecker(int argc,
 
 Error DmChecker::loadVolume(fds_volid_t volumeUuid) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string volDir = util::strformat("%s/%ld", root->dir_sys_repo_dm().c_str(), volumeUuid);
+    std::string volDir = util::strformat("%s/%ld",
+                                         root->dir_sys_repo_dm().c_str(),
+                                         volumeUuid.get());
 
     if (!util::dirExists(volDir)) {
         return ERR_VOL_NOT_FOUND;
     }
     
     volCat = boost::make_shared<DmVolumeCatalog>("DM checker");
-    volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid), volumeUuid);
+    volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid.get()), volumeUuid);
     // TODO(Andrew): We're just making up a max object size because the catalog add
     // is going to expect it. For basic blob traversal, it's not used so doesn't matter.
     // Ideally, DM's catalog superblock could describe the volume and we could pull that
@@ -137,7 +139,7 @@ void DmChecker::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {
     util::getSubDirectories(root->dir_sys_repo_dm(), vecNames);
 
     for (const auto& name : vecNames) {
-        vecVolumes.push_back(std::atoll(name.c_str()));
+        vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
     }
     std::sort(vecVolumes.begin(), vecVolumes.end());
 }

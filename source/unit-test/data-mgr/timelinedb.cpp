@@ -30,7 +30,7 @@ TEST_F(DmUnitTest, Timelinedb) {
         return;
     }
 
-    fds_volid_t volId = 0;
+    fds_volid_t volId = invalid_vol_id;
     dataMgr->timeline->removeVolume(volId);
     EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 10, "hello1"));
     EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 20, "hello2"));
@@ -46,14 +46,14 @@ TEST_F(DmUnitTest, Timelinedb) {
     EXPECT_EQ(ERR_OK, dataMgr->timeline->getJournalFiles(volId, 32, 55, vecJournalFiles));
     EXPECT_EQ(3, vecJournalFiles.size());
 
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, 2, 10));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, 3, 20));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, 4, 30));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, 5, 40));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(2), 10));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(3), 20));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(4), 30));
+    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(5), 40));
 
     fds_volid_t snapshotId;
     EXPECT_EQ(ERR_OK, dataMgr->timeline->getLatestSnapshotAt(volId, 22, snapshotId));
-    EXPECT_EQ(3, snapshotId);
+    EXPECT_EQ(fds_volid_t(3), snapshotId);
 }
 
 int main(int argc, char** argv) {

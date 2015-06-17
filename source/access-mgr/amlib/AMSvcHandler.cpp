@@ -106,11 +106,10 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     Error err(ERR_OK);
 
-    auto vol_uuid = vol_msg->vol_desc.volUUID;
+    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     VolumeDesc vdesc(vol_msg->vol_desc), * vdb = &vdesc;
     GLOGNOTIFY << "Received volume modify  event from OM"
-               << " for volume " << vdb->name << ":" << std::hex
-               << vol_uuid << std::dec;
+               << " for volume " << vdb->name << ":" << vol_uuid;
 
     if (amProcessor->isShuttingDown())
     {
@@ -139,10 +138,10 @@ AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     Error err(ERR_OK);
 
-    auto vol_uuid = vol_msg->vol_desc.volUUID;
+    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     GLOGNOTIFY << "Received volume add event from OM"
                        << " for volume \"" << vol_msg->vol_desc.vol_name << "\" ["
-                       << std::hex << vol_uuid << std::dec << "]";
+                       << vol_uuid << "]";
 
     if (amProcessor->isShuttingDown())
     {
@@ -186,9 +185,9 @@ AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     Error err(ERR_OK);
 
-    auto vol_uuid = vol_msg->vol_desc.volUUID;
+    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     GLOGNOTIFY << "Received volume detach event from OM"
-               << " for volume " << std::hex << vol_uuid << std::dec;
+               << " for volume " << vol_uuid;
 
     if (amProcessor->isShuttingDown())
     {

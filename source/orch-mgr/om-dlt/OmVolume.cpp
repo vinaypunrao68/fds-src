@@ -327,8 +327,8 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     // TODO(prem): store state even for volume.
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
-                                                 volDesc->volUUID,
-                                                 volDesc->state);
+                                                     volDesc->volUUID,
+                                                     volDesc->state);
     } else {
         gl_orch_mgr->getConfigDB()->setVolumeState(volDesc->volUUID, volDesc->state);
     }
@@ -738,7 +738,7 @@ VolumeInfo::~VolumeInfo()
 void
 VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeDescType &info)
 {
-    vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
+    vol_properties = new VolumeDesc(info, fds_volid_t(rs_uuid.uuid_get_val()));
     setName(info.vol_name);
     vol_name.assign(rs_name);
 
@@ -792,7 +792,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 
     pVol               = vol_properties;
     pkt->vol_name      = pVol->name;
-    pkt->volUUID       = pVol->volUUID;
+    pkt->volUUID       = pVol->volUUID.get();
     pkt->tennantId     = pVol->tennantId;
     pkt->localDomainId = pVol->localDomainId;
 
@@ -807,7 +807,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->srcVolumeId = pVol->srcVolumeId;
+    pkt->srcVolumeId = pVol->srcVolumeId.get();
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
     pkt->state        = pVol->getState();
@@ -1006,18 +1006,18 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
             return ERR_DUPLICATE;
     }
 
-    ResourceUUID         uuid(gl_orch_mgr->getConfigDB()->getNewVolumeId());
-    if (uuid == invalid_vol_id) {
+    auto uuid = gl_orch_mgr->getConfigDB()->getNewVolumeId();
+    if (invalid_vol_id == uuid) {
         LOGWARN << "unable to generate a vol id";
         return ERR_INVALID_VOL_ID;
     }
-    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid.get()));
     if (vol != NULL) {
         LOGWARN << "volume uuid [" << uuid << "] already exists : " << vname;
         return Error(ERR_DUPLICATE);
     }
 
-    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid));
+    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(uuid.get()));
     vol->vol_mk_description(creat_msg->vol_info);
 
     err = v_pol->fillVolumeDescPolicy(vol->vol_get_properties());
@@ -1127,7 +1127,7 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
 
 Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
     Error err(ERR_OK);
-    ResourceUUID         uuid(volId);
+    ResourceUUID         uuid(volId.get());
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1423,7 +1423,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
                                       const Error & resp_err,
                                       NodeUuid from_svc)
 {
-    fds_volid_t vol_uuid = volinfo->vol_get_properties()->volUUID;
+    fds_uint64_t vol_uuid = volinfo->vol_get_properties()->volUUID.get();
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
@@ -1512,7 +1512,7 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     VolumeInfo::pointer  vol;
-    ResourceUUID         uuid = volumeDesc.volUUID;
+    ResourceUUID         uuid = volumeDesc.volUUID.get();
     Error  err(ERR_OK);
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1646,7 +1646,7 @@ bool VolumeContainer::createSystemVolume(int32_t tenantId) {
     }
     fds_bool_t fReturn = true;
     if (!gl_orch_mgr->getConfigDB()->volumeExists(name)) {
-        VolumeDesc volume(name, 1);
+        VolumeDesc volume(name, fds_volid_t(1));
         
         volume.volUUID = gl_orch_mgr->getConfigDB()->getNewVolumeId();
         volume.createTime = util::getTimeStampMillis();

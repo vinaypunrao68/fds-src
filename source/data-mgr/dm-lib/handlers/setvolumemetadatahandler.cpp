@@ -25,10 +25,12 @@ SetVolumeMetadataHandler::SetVolumeMetadataHandler(DataMgr& dataManager)
 void SetVolumeMetadataHandler::handleRequest(
     boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message) {
-    LOGTRACE << "Received a set volume metadata request for volume "
-             << message->volumeId;
 
-    auto err = dataManager.validateVolumeIsActive(message->volumeId);
+    fds_volid_t volId(message->volumeId);
+    LOGTRACE << "Received a set volume metadata request for volume "
+             << volId;
+
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
