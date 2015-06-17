@@ -226,6 +226,13 @@ endif
 ifdef CCACHE
 	@ccache -C
 endif
+ifdef COVERAGE
+ifdef VERBOSE
+	find "$(topdir)" -name '*.gcno' -or -name '*.gcda' -exec rm "{}" \;
+else
+	@find "$(topdir)" -name '*.gcno' -or -name '*.gcda' -exec rm "{}" \;
+endif  # VERBOSE
+endif  # COVERAGE
 
 .PHONY: clobber
 clobber: clean $(user_clobber)

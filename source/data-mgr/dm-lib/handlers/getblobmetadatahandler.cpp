@@ -25,12 +25,13 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
                                            boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    fds_volid_t volId(message->volume_id);
     Error err(ERR_OK);
-    if (!dataManager.amIPrimary(message->volume_id)) {
+    if (!dataManager.amIPrimary(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
     {
@@ -38,7 +39,7 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
         return;
     }
 
-    auto dmReq = new DmIoGetBlobMetaData(message->volume_id,
+    auto dmReq = new DmIoGetBlobMetaData(volId,
                                          message->blob_name,
                                          message->blob_version,
                                          message);

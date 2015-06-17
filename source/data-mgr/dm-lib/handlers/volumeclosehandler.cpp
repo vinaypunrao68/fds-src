@@ -31,11 +31,12 @@ void VolumeCloseHandler::handleRequest(
     HANDLE_U_TURN();
 
     Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    fds_volid_t volId(message->volume_id);
+    if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
     {
@@ -43,7 +44,7 @@ void VolumeCloseHandler::handleRequest(
         return;
     }
 
-    auto dmReq = new DmIoVolumeClose(message->volume_id, message->token);
+    auto dmReq = new DmIoVolumeClose(volId, message->token);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeCloseHandler::handleResponse, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);

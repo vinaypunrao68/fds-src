@@ -475,6 +475,13 @@ struct SvcMgr : HasModuleProvider, Module {
     void getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt);
 
     /**
+    * @brief Do an async notification to OM that service is down
+    *
+    * @param info
+    */
+    void notifyOMSvcIsDown(const fpi::SvcInfo &info);
+
+    /**
     * @brief Minimum connection retries
     */
     static int32_t MIN_CONN_RETRIES;
@@ -482,6 +489,11 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief Max connection retries
     */
     static int32_t MAX_CONN_RETRIES;
+
+    /** 
+     * Toggles
+     */
+    bool notifyOMOnSvcDown;
 
  protected:
     /**
@@ -523,6 +535,7 @@ struct SvcMgr : HasModuleProvider, Module {
     DLTManagerPtr dltMgr_;
     /* Dmt manager */
     DMTManagerPtr dmtMgr_;
+
 
 };
 

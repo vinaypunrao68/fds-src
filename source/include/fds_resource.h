@@ -203,6 +203,7 @@ class RsContainer
     inline fds_uint32_t rs_available_elm() {
         return rs_cur_idx;
     }
+
     /**
      * Iterate through the array.  It's thread safe.
      */
@@ -250,20 +251,6 @@ class RsContainer
 
   private:
     INTRUSIVE_PTR_DEFS(RsContainer, rs_refcnt);
-};
-
-struct HasState {
-    virtual fpi::ResourceState getState() const = 0;
-    virtual void setState(fpi::ResourceState state) = 0;
-
-    std::string getStateName() const;
-    bool isStateLoading() const;
-    bool isStateCreated() const;
-    bool isStateActive() const;
-    bool isStateOffline() const;
-    bool isStateMarkedForDeletion() const;
-    bool isStateDeleted() const;
-    virtual ~HasState() {}
 };
 
 // ----------------------------------------------------------------------------

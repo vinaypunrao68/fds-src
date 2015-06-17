@@ -24,14 +24,15 @@ GetBucketHandler::GetBucketHandler(DataMgr& dataManager)
 
 void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                      boost::shared_ptr<fpi::GetBucketMsg>& message) {
-    LOGDEBUG << "volume: " << message->volume_id;
+    fds_volid_t volId(message->volume_id);
+    LOGDEBUG << "volume: " << volId;
 
     Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
     {
@@ -106,7 +107,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                                       const Error &e, dmCatReq *dmRequest) {
-    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : 0) << " err: " << e;
+    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : invalid_vol_id) << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;

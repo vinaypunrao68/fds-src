@@ -33,11 +33,12 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     HANDLE_U_TURN();
 
     Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    fds_volid_t volId(message->volume_id);
+    if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
     {
@@ -46,7 +47,7 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     }
 
     // Allocate a new Blob transaction class and queue to per volume queue.
-    auto dmReq = new DmIoAbortBlobTx(message->volume_id,
+    auto dmReq = new DmIoAbortBlobTx(volId,
                                      message->blob_name,
                                      message->blob_version);
     dmReq->cb = BIND_MSG_CALLBACK(AbortBlobTxHandler::handleResponse, asyncHdr, message);

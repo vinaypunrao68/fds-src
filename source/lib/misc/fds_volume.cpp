@@ -177,7 +177,7 @@ int VolumeDesc::getPriority() const {
 
 std::string VolumeDesc::ToString() {
     return (std::string("Vol<") + getName() +
-            std::string(":") + std::to_string(GetID()) +
+            std::string(":") + std::to_string(GetID().get()) +
             std::string(">"));
 }
 

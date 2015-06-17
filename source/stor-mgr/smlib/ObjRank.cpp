@@ -240,7 +240,7 @@ void ObjectRankEngine::analyzeStats()
     StorMgrVolume* vol = NULL;
     fds_volid_t volid;
     /* default volume desc we will use if we don't get voldesc, e.g. if using unit test */
-    VolumeDesc voldesc(std::string("novol"), 1, 0, 0, 10);
+    VolumeDesc voldesc(std::string("novol"), fds_volid_t(1), 0, 0, 10);
 
     /* ignore the hot objects if we are already in the ranking process, for now...
      * need some extra care since lowrank objs and change table are temporarily unavail that time */

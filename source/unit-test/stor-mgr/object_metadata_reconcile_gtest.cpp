@@ -23,7 +23,7 @@
 namespace fds {
 
 void
-initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg, fds_volid_t volId)
+initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg, uint64_t volId)
 {
     // cleanup first
     msg.objectVolumeAssoc.clear();
@@ -64,7 +64,7 @@ TEST(ObjMetaData, test1)
     ObjectID oid = ObjIdGen::genObjectId(objData.c_str(), objData.size());
 
     ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
-    objMetaDataPtr->initializeDelReconcile(oid, 0);
+    objMetaDataPtr->initializeDelReconcile(oid, invalid_vol_id);
     objMetaDataPtr->getAssociatedVolumes(vols);
     EXPECT_EQ(1, vols.size());
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
@@ -76,7 +76,7 @@ TEST(ObjMetaData, test1)
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
 
-    objMetaDataPtr->reconcilePutObjMetaData(oid, 0);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, invalid_vol_id);
 
 #ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
@@ -108,7 +108,7 @@ TEST(ObjMetaData, test2)
 
     // first DELETE
     ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
-    objMetaDataPtr->initializeDelReconcile(oid, 0);
+    objMetaDataPtr->initializeDelReconcile(oid, invalid_vol_id);
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
     objMetaDataPtr->getAssociatedVolumes(vols);
@@ -121,7 +121,7 @@ TEST(ObjMetaData, test2)
 #endif  // TEST_VERBOSE
 
     // second DELETE reconcile
-    objMetaDataPtr->reconcileDelObjMetaData(oid, 1, fds::util::getTimeStampMillis());
+    objMetaDataPtr->reconcileDelObjMetaData(oid, fds_volid_t(1), fds::util::getTimeStampMillis());
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
@@ -136,7 +136,7 @@ TEST(ObjMetaData, test2)
 #endif  // TEST_VERBOSE
 
     // first PUT reconcile
-    objMetaDataPtr->reconcilePutObjMetaData(oid, 0);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, invalid_vol_id);
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
@@ -150,7 +150,7 @@ TEST(ObjMetaData, test2)
 #endif  // TEST_VERBOSE
 
     // second PUT reconcile
-    objMetaDataPtr->reconcilePutObjMetaData(oid, 1);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, fds_volid_t(1));
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
@@ -184,7 +184,7 @@ TEST(ObjMetaData, test3)
     // Metadata
     ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
     objMetaDataPtr->initialize(oid, objData.size());
-    objMetaDataPtr->updateAssocEntry(oid, 0);
+    objMetaDataPtr->updateAssocEntry(oid, invalid_vol_id);
     EXPECT_EQ(1, objMetaDataPtr->getRefCnt());
 
     objMetaDataPtr->getAssociatedVolumes(vols);
@@ -230,7 +230,7 @@ TEST(ObjMetaData, test4)
     // Metadata
     ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
     objMetaDataPtr->initialize(oid, objData.size());
-    objMetaDataPtr->updateAssocEntry(oid, 1);
+    objMetaDataPtr->updateAssocEntry(oid, fds_volid_t(1));
     EXPECT_EQ(1, objMetaDataPtr->getRefCnt());
 
     objMetaDataPtr->getAssociatedVolumes(vols);
@@ -274,7 +274,7 @@ TEST(ObjMetaData, test5)
 
     // Metadata
     ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
-    objMetaDataPtr->initializeDelReconcile(oid, 1);
+    objMetaDataPtr->initializeDelReconcile(oid, fds_volid_t(1));
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
     objMetaDataPtr->getAssociatedVolumes(vols);
@@ -321,7 +321,7 @@ TEST(ObjMetaData, test6)
 
     // Metadata
     ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
-    objMetaDataPtr->initializeDelReconcile(oid, 0);
+    objMetaDataPtr->initializeDelReconcile(oid, invalid_vol_id);
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
     objMetaDataPtr->getAssociatedVolumes(vols);

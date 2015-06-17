@@ -35,11 +35,12 @@ void UpdateCatalogOnceHandler::handleRequest(
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    fds_volid_t volId(message->volume_id);
+    if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
     {
@@ -49,7 +50,7 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
-    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(message->volume_id,
+    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(volId,
                                                       message->blob_name,
                                                       message->blob_version,
                                                       message->dmt_version);

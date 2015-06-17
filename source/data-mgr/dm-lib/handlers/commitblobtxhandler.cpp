@@ -37,11 +37,12 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     HANDLE_U_TURN();
 
     Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    fds_volid_t volId(message->volume_id);
+    if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
     {
@@ -49,7 +50,7 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
         return;
     }
 
-    auto dmReq = new DmIoCommitBlobTx(message->volume_id,
+    auto dmReq = new DmIoCommitBlobTx(volId,
                                       message->blob_name,
                                       message->blob_version,
                                       message->dmt_version);
@@ -127,15 +128,14 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
     // do forwarding if needed and commit was successful
     if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
-        VolumeMeta* vol_meta = nullptr;
         fds_bool_t is_forwarding = false;
 
         // check if we need to forward this commit to receiving
         // DM if we are in progress of migrating volume catalog
         dataManager.vol_map_mtx->lock();
-        fds_verify(dataManager.vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = dataManager.vol_meta_map[commitBlobReq->volId];
-        is_forwarding = vol_meta->isForwarding();
+        auto vol_meta = dataManager.vol_meta_map.find(commitBlobReq->volId);
+        fds_verify(dataManager.vol_meta_map.end() != vol_meta);
+        is_forwarding = (*vol_meta).second->isForwarding();
         dataManager.vol_map_mtx->unlock();
 
         if (is_forwarding) {
@@ -164,11 +164,10 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // check if we can finish forwarding if volume still forwards cat commits
     if (dataManager.features.isCatSyncEnabled() && dataManager.catSyncMgr->isSyncInProgress()) {
         fds_bool_t is_finish_forward = false;
-        VolumeMeta* vol_meta = nullptr;
         dataManager.vol_map_mtx->lock();
-        fds_verify(dataManager.vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = dataManager.vol_meta_map[commitBlobReq->volId];
-        is_finish_forward = vol_meta->isForwardFinishing();
+        auto vol_meta = dataManager.vol_meta_map.find(commitBlobReq->volId);
+        fds_verify(dataManager.vol_meta_map.end() != vol_meta);
+        is_finish_forward =(*vol_meta).second->isForwardFinishing();
         dataManager.vol_map_mtx->unlock();
         if (is_finish_forward) {
             if (!dataManager.timeVolCat_->isPendingTx(commitBlobReq->volId,

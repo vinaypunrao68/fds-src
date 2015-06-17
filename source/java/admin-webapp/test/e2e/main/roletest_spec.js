@@ -22,24 +22,26 @@ describe( 'Test role effects on visual elements', function(){
         expect( sysNav.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
     });
 
-    it ( 'should show the upgrade and rollback buttons for an admin', function(){
+// page removed for the time being
+//    it ( 'should show the upgrade and rollback buttons for an admin', function(){
+//
+//        var adminlink = element( by.id( 'main.admin' ) );
+//        adminlink.click();
+//
+//        var upgradeDiv = element( by.css( '.upgrade-panel' ) );
+//        expect( upgradeDiv.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+//
+//    });
 
-        var adminlink = element( by.id( 'main.admin' ) );
-        adminlink.click();
-
-        var upgradeDiv = element( by.css( '.upgrade-panel' ) );
-        expect( upgradeDiv.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-
-    });
-
-    it ( 'should show the log and alert selection for an admin', function(){
-
-        var logPanel = element( by.css( '.log-and-alert-panel' ) );
-
-        expect( logPanel.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-
-        logout();
-    });
+// page removed for the time being
+//    it ( 'should show the log and alert selection for an admin', function(){
+//
+//        var logPanel = element( by.css( '.log-and-alert-panel' ) );
+//
+//        expect( logPanel.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+//
+//        logout();
+//    });
 
     it ( 'should not show the system management page for an tenant admin', function(){
 
@@ -54,24 +56,25 @@ describe( 'Test role effects on visual elements', function(){
         expect( sysNav.getAttribute( 'class' ) ).toContain( 'ng-hide' );
     });
 
-    it ( 'should not show the upgrade and rollback buttons for a tenant admin', function(){
-
-        var adminlink = element( by.id( 'main.admin' ) );
-        adminlink.click();
-
-        var upgradeDiv = element( by.css( '.upgrade-panel' ) );
-        expect( upgradeDiv.getAttribute( 'class' ) ).toContain( 'ng-hide' );
-
-    });
-
-    it ( 'should not show the log and alert selection for a tenant admin', function(){
-
-        var logPanel = element( by.css( '.log-and-alert-panel' ) );
-
-        expect( logPanel.getAttribute( 'class' ) ).toContain( 'ng-hide' );
-
-        logout();
-    });
+// removed from the UI currently
+//    it ( 'should not show the upgrade and rollback buttons for a tenant admin', function(){
+//
+//        var adminlink = element( by.id( 'main.admin' ) );
+//        adminlink.click();
+//
+//        var upgradeDiv = element( by.css( '.upgrade-panel' ) );
+//        expect( upgradeDiv.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+//
+//    });
+//
+//    it ( 'should not show the log and alert selection for a tenant admin', function(){
+//
+//        var logPanel = element( by.css( '.log-and-alert-panel' ) );
+//
+//        expect( logPanel.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+//
+//        logout();
+//    });
 
 
 });

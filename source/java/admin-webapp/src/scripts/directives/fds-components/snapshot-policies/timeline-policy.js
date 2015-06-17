@@ -301,7 +301,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     var slider = $scope.sliders[i];
                     
                     policy.name = slider.policyName;
-                    policy.id = slider.policyId;
+                    policy.uid = slider.policyId;
                     policy.retentionTime = convertRangeSelectionToSeconds( slider );
                     policy.type = 'SYSTEM_TIMELINE';
                     
@@ -452,7 +452,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     setSliderValue( slider, Math.round( retentionInSeconds / (60*60*24)) );
                     
                     // add some items we'll need late
-                    slider.policyId = policy.id;
+                    slider.policyId = policy.uid;
                     slider.policyName = policy.name;
                     
                     initButtons();
@@ -535,7 +535,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                         
                         if ( !angular.isDefined( tPolicy.name ) || tPolicy.name === '' || 
                             tPolicy.name.indexOf( '_TIMELINE_' ) === -1 || 
-                            !angular.isDefined( tPolicy.id ) || tPolicy.id === -1 ){
+                            !angular.isDefined( tPolicy.uid ) || tPolicy.uid === -1 ){
                             continue;
                         }
                         
@@ -546,7 +546,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
 
                             if ( newPolicy.recurrenceRule.FREQ === tPolicy.recurrenceRule.FREQ ){
                                 newPolicy.name = tPolicy.name;
-                                newPolicy.id = tPolicy.id;
+                                newPolicy.uid = tPolicy.uid;
                             }
                         }// i
                     }//j

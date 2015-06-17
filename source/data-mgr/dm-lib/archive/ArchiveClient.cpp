@@ -19,7 +19,7 @@ ArchiveClient::ArchiveClient(DataMgrIf* dataMgrIf)
     snapDirBase_ = dataMgrIf_->getSnapDirBase();
 }
 
-Error ArchiveClient::tarSnap_(uint64_t volId, uint64_t snapId,
+Error ArchiveClient::tarSnap_(fds_volid_t volId, fds_volid_t snapId,
                               const std::string &snapDirPath,
                               const std::string &snapName)
 {
@@ -37,7 +37,7 @@ Error ArchiveClient::tarSnap_(uint64_t volId, uint64_t snapId,
     return ERR_OK;
 }
 
-Error ArchiveClient::untarSnap_(uint64_t volId, uint64_t snapId,
+Error ArchiveClient::untarSnap_(fds_volid_t volId, fds_volid_t snapId,
                                const std::string &snapDirPath,
                                const std::string &snapName)
 {
@@ -56,7 +56,7 @@ Error ArchiveClient::untarSnap_(uint64_t volId, uint64_t snapId,
 
 
 void ArchiveClient::populateSnapInfo_(const fds_volid_t &volId,
-                                      const int64_t &snapId,
+                                      const fds_volid_t &snapId,
                                       std::string &snapName,
                                       std::string &snapDirPath,
                                       std::string &snapPath)
@@ -102,7 +102,7 @@ Error BotoArchiveClient::connect()
 }
 
 Error BotoArchiveClient::putSnap(const fds_volid_t &volId,
-                                 const int64_t &snapId)
+                                 const fds_volid_t &snapId)
 {
     // TODO(Rao:)
     // 1. Clean up the tar file and snap after upload is done
@@ -127,7 +127,7 @@ Error BotoArchiveClient::putSnap(const fds_volid_t &volId,
 }
 
 Error BotoArchiveClient::getSnap(const fds_volid_t &volId,
-                                const int64_t &snapId)
+                                const fds_volid_t &snapId)
 {
     Error e;
     std::string snapName;

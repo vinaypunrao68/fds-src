@@ -822,6 +822,14 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     fds_verify(dp != NULL);
     fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
 
+    /**
+     * TODO(Gurpreet): Remove this sleep once FS-2231 is done. This sleep
+     * prevents a race between outstanding IO for src SM which are forwared
+     * to destination SM during migration AND sending of dltClose notification
+     * to all SMs.
+     */
+    usleep(0.5*1000*1000);
+
     // Send DLT close message to SM nodes
     fds_uint32_t close_cnt = dom_ctrl->om_bcast_dlt_close(commited_dlt_ver);
     // if we are here, there must be at least one SM, so we should
