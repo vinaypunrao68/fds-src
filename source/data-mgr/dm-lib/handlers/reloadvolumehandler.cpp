@@ -29,14 +29,8 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
-    Error err(ERR_OK);
     fds_volid_t volId(message->volume_id);
-    if (!dataManager.amIPrimaryGroup(volId)) {
-    	err = ERR_DM_NOT_PRIMARY;
-    }
-    if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(volId);
-    }
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::ReloadVolumeMsg>();

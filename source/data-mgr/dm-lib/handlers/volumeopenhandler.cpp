@@ -34,8 +34,7 @@ void VolumeOpenHandler::handleRequest(
     fds_volid_t volId(message->volume_id);
     if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
-    }
-    if (err.OK()) {
+    } else {
     	err = dataManager.validateVolumeIsActive(volId);
     }
     if (!err.OK())
