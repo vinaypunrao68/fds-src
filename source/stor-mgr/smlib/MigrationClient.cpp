@@ -734,6 +734,16 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
     bool completeSet = false;
     Error err(ERR_OK);
 
+    /**
+     * Ideally this check should never be true. If it is, then something's
+     * wrong on Migration Executor side.
+     *
+     * The check essentially says that if the sequence number set for the filter
+     * set messages received from Migration Executor is already complete, then
+     * this request will be ignored. Because the seqeunce number set was complete
+     * the migration for this Migration Client - Executor pair is already
+     * in progress.
+     */
     if (seqNumFilterSet.isSeqNumComplete()) {
         LOGMIGRATE << "DLT token=" << dltToken << ", "
                    << "seqNum=" << curSeqNum << ", "
