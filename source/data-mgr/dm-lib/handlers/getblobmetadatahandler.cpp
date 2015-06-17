@@ -27,7 +27,7 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
 
     fds_volid_t volId(message->volume_id);
     Error err(ERR_OK);
-    if (!dataManager.amIPrimary(volId)) {
+    if (!dataManager.amIPrimaryGroup(volId)) {
     	err = ERR_DM_NOT_PRIMARY;
     }
     if (err.OK()) {
