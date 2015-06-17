@@ -72,6 +72,8 @@ class MigrationExecutor {
         ME_ERROR
     };
 
+    const fds_uint32_t INVALID_ROUND = 3;
+
     inline fds_uint64_t getId() const {
         return executorId;
     }
@@ -84,15 +86,19 @@ class MigrationExecutor {
     inline fds_uint32_t getUniqueId() const {
         return uniqueId;
     }
-
+    inline std::set<fds_token_id> getTokens() const {
+        return dltTokens;
+    }
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
-        if (std::atomic_load(&state) == ME_DONE_WITH_ERROR) {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (curState == ME_DONE_WITH_ERROR ||
+            curState == ME_ERROR) {
             return true;
         }
         if (isFirstRound) {
-            return (std::atomic_load(&state) == ME_SECOND_PHASE_REBALANCE_START);
+            return (curState == ME_SECOND_PHASE_REBALANCE_START);
         }
-        return (std::atomic_load(&state) == ME_DONE);
+        return (curState == ME_DONE);
     }
     inline fds_bool_t isDone() const {
         MigrationExecutorState curState = std::atomic_load(&state);
@@ -109,6 +115,20 @@ class MigrationExecutor {
             return true;
         } else {
             return false;
+        }
+    }
+
+    inline fds_uint32_t migrationRound() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        switch (curState) {
+            case ME_FIRST_PHASE_REBALANCE_START:
+            case ME_FIRST_PHASE_APPLYING_DELTA:
+                return 1;
+            case ME_SECOND_PHASE_REBALANCE_START:
+            case ME_SECOND_PHASE_APPLYING_DELTA:
+                return 2;
+            default:
+                return INVALID_ROUND;
         }
     }
 
@@ -145,6 +165,11 @@ class MigrationExecutor {
      * Wait for all pending Executor requests to complete.
      */
     void waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid);
+
+    /**
+     * Abort migration for this executor.
+     */
+     void abortMigration(const Error &err);
 
   private:
     /**
