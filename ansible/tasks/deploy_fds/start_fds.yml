@@ -22,7 +22,7 @@
       - cleaninfluxdb
 
 -   name: clean influxdb
-    shell: PATH=$PATH:/opt/fds-deps/embedded/bin curl -X DELETE "{{ om_influxdb_url }}/db/{{ item }}?u=root&p=root" --write-out %{http_code} --silent 
+    shell: PATH=$PATH:/opt/fds-deps/embedded/bin curl -X DELETE "{{ om_influxdb_url }}/db/{{ item }}?u=root&p=root" --write-out %{http_code} --silent
     with_items:
       - om-metricdb
       - om-eventdb

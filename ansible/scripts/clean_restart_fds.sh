@@ -126,7 +126,7 @@ check_sudo() {
 
 run_deploy_playbook() {
     # passing -e fds_cluster_name for the sake of getting identifiable metrics
-    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" -e "fds_cluster_name=${inventory_filename}" -e "clean_fds=yes" -e "force=yes" --skip-tags uninstall,setup,install-deps,install-local,install-repo,post-install --vault-password-file ~/.vault_pass.txt 
+    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" -e "fds_cluster_name=${inventory_filename}" -e "clean_fds=yes" -e "force=yes" --skip-tags uninstall,setup,install-deps,install-local,install-repo,post-install --vault-password-file ~/.vault_pass.txt
 }
 
 check_environment
