@@ -36,7 +36,13 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);

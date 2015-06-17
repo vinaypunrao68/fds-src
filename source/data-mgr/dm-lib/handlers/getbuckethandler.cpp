@@ -26,7 +26,13 @@ void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                      boost::shared_ptr<fpi::GetBucketMsg>& message) {
     LOGDEBUG << "volume: " << message->volume_id;
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(message->volume_id)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(message->volume_id);
+    }
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::GetBucketRspMsg>();
