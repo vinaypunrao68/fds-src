@@ -314,6 +314,11 @@ struct AmDispatcher : HasModuleProvider
      */
     uint32_t message_timeout_io { 0 };
 
+    /**
+     * Number of DM primary replicas
+     */
+    uint32_t numDmPrimaries;
+
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
 };
