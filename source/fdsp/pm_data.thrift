@@ -29,20 +29,20 @@ namespace java com.formationds.protocol.pm.types
 
 struct NodeInfo 
 {
-  1: required i64 uuid,
+  1: required i64 uuid;
 /* fields 2-5 are deprecated */
-  2: required bool fHasAm,
-  3: required bool fHasDm,
-  4: required bool fHasOm,
-  5: required bool fHasSm,
+  2: required bool fHasAm;
+  3: required bool fHasDm;
+  4: required bool fHasOm;
+  5: required bool fHasSm;
 
-  6: i32  bareAMPid = -1,
-  7: i32  javaAMPid = -1,
-  8: i32  dmPid = -1,
-  9: i32  smPid = -1,
+  6: i32  bareAMPid = -1;
+  7: i32  javaAMPid = -1;
+  8: i32  dmPid = -1;
+  9: i32  smPid = -1;
 
- 10: pm_types.pmServiceStateTypeId  bareAMState = pm_types.SERVICE_NOT_PRESENT,
- 11: pm_types.pmServiceStateTypeId  javaAMState = pm_types.SERVICE_NOT_PRESENT,
- 12: pm_types.pmServiceStateTypeId  dmState     = pm_types.SERVICE_NOT_PRESENT,
- 13: pm_types.pmServiceStateTypeId  smState     = pm_types.SERVICE_NOT_PRESENT,
+ 10: pm_types.pmServiceStateTypeId  bareAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+ 11: pm_types.pmServiceStateTypeId  javaAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+ 12: pm_types.pmServiceStateTypeId  dmState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+ 13: pm_types.pmServiceStateTypeId  smState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
 }
