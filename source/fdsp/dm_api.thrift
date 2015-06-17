@@ -575,7 +575,7 @@ struct ReloadVolumeRspMsg {
  * - used to initiate static DM migration/resync
  * - sent from sync destination to sync source.
  */
-struct InitialBlobFilterSetMsg {
+struct ResyncInitialBlobFilterSetMsg {
   // the volume in question
   1: i64                          volume_id;
   // the list of blobs held and the sequence id of the most recent write to each blob
@@ -584,7 +584,7 @@ struct InitialBlobFilterSetMsg {
 }
 
 // 1st Response Message for InitialBlobFilterSetMsg
-struct Msg {
+struct ResyncUpdateBlobsMsg {
   // levelDB key-value pairs for insertion to the reciever.
   // list should be sorted to ensure blob descriptor is written after the object mappings
   1: dm_types.FDSP_MetaDataList          pairs;
