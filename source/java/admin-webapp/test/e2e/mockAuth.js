@@ -3,27 +3,15 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
-        id: {
-            uuid: 0,
-            name: 'admin'
-        },
-        tenantId: undefined,
-        role: {
-            name: 'ADMIN',
-            features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']   
-        }
+        userId: 0,
+        username: 'admin',
+        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']   
     };
 
     var goldman = {
-        id: {
-            uuid: '1',
-            name: 'goldman',
-        },
-        tenantId: undefined,
-        role: {
-            name: 'USER',
-            features: ['Volume Management','User Management']   
-        }
+        userId: '1',
+        username: 'goldman',
+        features: ['Volume Management','User Management']   
     };
 
     var user = {};
@@ -117,8 +105,6 @@ mockAuth = function() {
         var service = {};
         service.user = user;
 
-        service.user = user;
-
         service.setUser = function( user ){
             service.user = user;
         };
@@ -128,7 +114,7 @@ mockAuth = function() {
         service.getUsername = function(){
 
             if ( user !== null ){
-                return user.id.name;
+                return user.username;
             }
             else {
                 return undefined;
@@ -139,8 +125,8 @@ mockAuth = function() {
         // if the current user should have access to something
         service.isAllowed = function( feature ){
 
-            for ( var i = 0; user !== null && angular.isDefined( user ) && angular.isDefined( user.role ) && i < user.role.features.length; i++ ){
-                if ( user.role.features[i] === feature ){
+            for ( var i = 0; user !== null && angular.isDefined( user ) && angular.isDefined( user.features ) && i < user.features.length; i++ ){
+                if ( user.features[i] === feature ){
                     return true;
                 }
             }
@@ -151,7 +137,7 @@ mockAuth = function() {
         service.validateUserToken = function( success, failure ){
 
             if ( angular.isFunction( success ) ){
-                success( user.id.uuid );
+                success( user.userId );
             }
         };
 

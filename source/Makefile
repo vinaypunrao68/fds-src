@@ -56,7 +56,7 @@ src_coverage: coverage/source.xml coverage/source.html
 
 coverage/source.xml:
 	mkdir -p ../coverage
-	../gcovr/gcovr-3.2.build/scripts/gcovr --root=. \
+	../gcovr/gcovr-3.2.build/scripts/gcovr --root="$(shell pwd)" \
 	                                       --verbose \
 	                                       --object-directory=build.linux-x86_64.debug \
 	                                       --relative-objdir \
@@ -67,7 +67,7 @@ coverage/source.xml:
 
 coverage/source.html:
 	mkdir -p ../coverage
-	../gcovr/gcovr-3.2.build/scripts/gcovr --root=. \
+	../gcovr/gcovr-3.2.build/scripts/gcovr --root="$(shell pwd)" \
 	                                       --verbose \
 	                                       --object-directory=build.linux-x86_64.debug \
 	                                       --relative-objdir \
