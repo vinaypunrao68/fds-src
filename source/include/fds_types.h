@@ -55,7 +55,6 @@
  */
 namespace fds {
 
-typedef fds_int64_t fds_volid_t;
 typedef fds_int64_t VolumeId;
 typedef fds_int64_t fds_qid_t;  // type for queue id
 

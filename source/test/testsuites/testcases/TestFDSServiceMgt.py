@@ -2089,10 +2089,15 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
         svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
 
-        self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
-            self.passedFaultName, self.passedService, self.passedNode))
+        '''
+        Randomly choose a fault to inject
+        '''
+        chosenFault = random.choice(self.passedFaultName)
 
-        res = svc_map.client(svc_uuid).setFault('enable name=' + self.passedFaultName)
+        self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
+            chosenFault, self.passedService, self.passedNode))
+
+        res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
         if res:
             return True
 

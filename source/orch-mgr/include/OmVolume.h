@@ -8,6 +8,7 @@
 #include <vector>
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
+#include "has_state.h"
 #include "platform/node_agent.h"
 #include "fdsp/om_api_types.h"
 #include <fdsp/common_types.h>

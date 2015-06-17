@@ -15,6 +15,7 @@ describe( 'Testing volume creation permutations', function(){
     var createEl;
     var newText;
     var viewEl;
+    var createButton;
     
     clean();
     
@@ -33,11 +34,11 @@ describe( 'Testing volume creation permutations', function(){
         });
         
         viewEl.element( by.css( '.sla' )).getText().then( function( text ){
-            expect( text ).toBe( qos.sla );
+            expect( text ).toBe( qos.iopsMin );
         });
         
         viewEl.element( by.css( '.limit' )).getText().then( function( text ){
-            expect( text ).toBe( qos.limit );
+            expect( text ).toBe( qos.iopsMax );
         });        
         
         viewEl.element( by.css( '.qos-preset' )).getText().then( function( text ){
@@ -112,7 +113,7 @@ describe( 'Testing volume creation permutations', function(){
 
         createLink = element( by.css( 'a.new_volume') );
         createEl = $('.create-panel.volumes');
-        createButton = element.all( by.buttonText( 'Create Volume' ) ).get(0);
+        createButton = element.all( by.css( '.save-volume' ) ).get(0);
         mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
         viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
         
@@ -162,7 +163,7 @@ describe( 'Testing volume creation permutations', function(){
         });
     });
     
-    it ( 'should go to the edit screen on press of the edit button', function(){
+    it ( 'should go to the view screen on clicking the row', function(){
         
         clickRow( 'Test Volume' );
         
@@ -183,7 +184,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             'Test Volume', 
             'Flash Only',
-            { preset: STANDARD, priority: '7', sla: 'None', limit: 'Unlimited'},
+            { preset: STANDARD, priority: '7', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: STANDARD, 
                 settings: [
@@ -218,7 +219,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Hybrid',
-            { preset: LEAST, priority: '10', sla: 'None', limit: 'Unlimited'},
+            { preset: LEAST, priority: '10', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: SPARSE, 
                 settings: [
@@ -252,7 +253,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Disk Only',
-            { preset: MOST, priority: '1', sla: 'None', limit: 'Unlimited'},
+            { preset: MOST, priority: '1', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: DENSE, 
                 settings: [
@@ -273,8 +274,8 @@ describe( 'Testing volume creation permutations', function(){
         
         var qos = {
             priority: 3,
-            capacity: 500,
-            limit: 1000
+            iopsMin: 500,
+            iopsMax: 1000
         };
         
         var timeline = [
@@ -293,9 +294,10 @@ describe( 'Testing volume creation permutations', function(){
         };
         
         var data_type = {
-            type: 'block',
-            attributes: {
-                size: 9
+            type: 'BLOCK',
+            capacity: {
+                value: 10,
+                unit: 'GB'
             }
         };
         
@@ -312,7 +314,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Flash Only',
-            { preset: CUSTOM, priority: '3', sla: '500', limit: '1000'},
+            { preset: CUSTOM, priority: '3', iopsMin: '500', iopsMax: '1000'},
             { 
                 preset: CUSTOM, 
                 settings: [
@@ -343,7 +345,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Hybrid',
-            { preset: MOST, priority: '1', sla: 'None', limit: 'Unlimited'},
+            { preset: MOST, priority: '1', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: DENSE, 
                 settings: [
@@ -389,7 +391,7 @@ describe( 'Testing volume creation permutations', function(){
     it( 'should be able to delete a volume', function(){
         
         deleteVolume( "Dumb One" );
-        browser.sleep( 320 );
+        browser.sleep( 300 );
         
         var rows = mainEl.all( by.css( '.volume-row' ) ).count().then( function( num ){
             expect( num ).toBe( 3 );

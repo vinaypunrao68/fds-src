@@ -11,7 +11,7 @@
 namespace fds {
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_int64_t _uuid,
+                       fds_volid_t _uuid,
                        VolumeDesc* desc)
               : fwd_state(VFORWARD_STATE_NONE), dmVolQueue(0)
 {
@@ -26,7 +26,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_int64_t _uuid,
+                       fds_volid_t _uuid,
                        fds_log* _dm_log,
                        VolumeDesc* _desc)
         : VolumeMeta(_name, _uuid, _desc) {

@@ -152,7 +152,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Create copy of the volume for snapshot/clone
      */
-    Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = 0);
+    Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = invalid_vol_id);
 
     /**
      *

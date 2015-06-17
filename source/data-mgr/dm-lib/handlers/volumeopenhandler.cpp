@@ -30,7 +30,7 @@ void VolumeOpenHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(fds_volid_t(message->volume_id));
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);

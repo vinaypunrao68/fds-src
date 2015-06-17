@@ -34,7 +34,8 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -43,7 +44,7 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
-    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(message->volume_id,
+    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(volId,
                                                       message->blob_name,
                                                       message->blob_version,
                                                       message->dmt_version);

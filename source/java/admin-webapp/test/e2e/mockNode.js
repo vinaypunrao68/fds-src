@@ -10,87 +10,77 @@ mockNode = function(){
             
             var node = 
             {
-              "id": {
-                  "uuid": 1,
-                  "name": name
+              "uid": 1,
+              "name": name,
+              "address": {
+                "ipv6address": "0.0.0.0",
+                "ipv4address": "127.0.0.1"
               },
-              "ipV6address": "0.0.0.0",
-              "ipV4address": "127.0.0.1",
               "state": "UP",
-              "services": {
+              "serviceMap": {
                 "DM": [
                   {
-                    "id":{
-                        "uuid": 7088430947183220035,
-                        "name": "DM"
-                    },
+                    "uid": 7088430947183220035,
+                    "name": "DM",
                     "port": 7031,
                     "status": {
                         "state": "RUNNING",
                         "code": 0,
                         "description": ""
                     },
-                    "type": "FDSP_DATA_MGR"
+                    "type": "DM"
                   }
                 ],
                 "AM": [
                   {
-                    "id":{
-                        "uuid":7088430947183220035,
-                        "name": "AM"
-                    },
+                    "uid":7088430947183220035,
+                    "name": "AM",
                     "port": 7041,
                     "status": {
                         "state": "DEGRADED",
                         "code": 3001,
                         "description": "Service is degraded"
                     },
-                    "type": "FDSP_ACCESS_MGR"
+                    "type": "AM"
                   }
                 ],
                 "SM": [
                   {
-                    "id": {
-                        "uuid" : 7088430947183220035,
-                        "name": "SM"
-                    },
+                    "uid" : 7088430947183220035,
+                    "name": "SM",
                     "port": 7021,
                     "status": {
                         "state": "ERROR",
                         "code": 4002,
                         "description": "Service is dead."
                     },
-                    "type": "FDSP_STOR_MGR"
+                    "type": "SM"
                   }
                 ],
                 "PM": [
                   {
-                    "id": {
-                        "uuid": 7088430947183220035,
-                        "name": "PM"
-                    },
+                    "uid": 7088430947183220035,
+                    "name": "PM",
                     "port": 7001,
                     "status": {
                         "state": "UNREACHABLE",
                         "code": 404,
                         "description": "Cannot reach service."
                     },
-                    "type": "FDSP_PLATFORM"
+                    "type": "PM"
                   }
                 ],
                 "OM": [
                   {
-                    "id": {
-                        "uuid": 7088430947183220035,
-                        "name": "OM"
-                    },
+                    "uid": 7088430947183220035,
+                    "name": "OM",
                     "port": 7001,
                     "status": {
                         "state": "RUNNING",
                         "code": 0,
                         "description": "All is good."
                     },
-                    "type": "FDSP_ORCH_MGR"
+                    "type": "OM"
                   }
                 ]
               }
@@ -106,20 +96,18 @@ mockNode = function(){
               "ipV6address": "0.0.0.0",
               "ipV4address": "127.0.0.1",
               "state": "DISCOVERED",
-              "services": {
-                "DM": [
+              "serviceMap": {
+                "PM": [
                   {
-                    "id": {
-                        "uuid": 7088430947183220035,
-                        "name": "PM"
-                    },
+                    "uid": 7088430947183220035,
+                    "name": "PM",
                     "port": 7031,
                     "status": {
                         "state": "NOT_RUNNING",
                         "code": 0,
                         "description": "Service is down"
                     },
-                    "type": "FDSP_PLATFORM"
+                    "type": "PM"
                   }
                 ]
               }
@@ -193,80 +181,70 @@ mockNode = function(){
                 nodes[i].state = 'UP';
                 
                 
-                nodes[i].services = {
+                nodes[i].serviceMap = {
                     "DM": [
                         {
-                            "id": {
-                                "uuid": nodes[i].uuid + 1,
-                                "name": "DM"
-                            },
+                            "uid": nodes[i].uid + 1,
+                            "name": "DM",
                             "port": 7031,
                             "status": {
                                 "state": service.FDS_RUNNING,
                                 "code": 0,
                                 "description": ""
                             },
-                            "type": "FDSP_DATA_MGR"
+                            "type": "DM"
                         }
                     ],
                     "AM": [
                         {
-                            "id": {
-                                "uuid": nodes[i].uuid + 2,
-                                "name": "AM",
-                            },                                
+                            "uid": nodes[i].uid + 2,
+                            "name": "AM",                                
                             "port": 7041,
                             "status": {
                                 "state": service.FDS_RUNNING,
                                 "code": 0,
                                 "description": ""
                             },
-                            "type": "FDSP_ACCESS_MGR"
+                            "type": "AM"
                         }
                     ],
                     "SM": [
                         {
-                            "id": {
-                                "uuid": nodes[i].uuid + 3,
-                                "name": "SM"
-                            },
+                            "uid": nodes[i].uid + 3,
+                            "name": "SM",
                             "port": 7021,
                             "status": {
                                 "state": service.FDS_RUNNING,
                                 "code": 0,
                                 "description": ""
                             },
-                            "type": "FDSP_STOR_MGR"
+                            "type": "SM"
                         }
                     ],
                     "PM": [
                         {
-                            "id": {
-                                "uuid": nodes[i].uuid + 4,
-                                "name": "PM"
-                            },
+                            "uid": nodes[i].uid + 4,
+                            "name": "PM",
                             "port": 7001,
                             "status": {
                                 "state": service.FDS_RUNNING,
                                 "code": 0,
                                 "description": ""
                             },
-                            "type": "FDSP_PLATFORM"
+                            "type": "PM"
                         }
                     ],
                     "OM": [
                         {
-                            "id": {
-                                "uuid": nodes[i].uuid + 5,
-                                "name": "OM"
-                            },
+                            "uid": nodes[i].uid + 5,
+                            "name": "OM",
                             "port": 7001,
                             "status": {
                                 "state": service.FDS_RUNNING,
                                 "code": 0,
                                 "description": ""
                             },
-                            "type": "FDSP_ORCH_MGR"
+                            "type": "OM"
                         }
                     ]
                 };

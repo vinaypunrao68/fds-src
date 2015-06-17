@@ -24,9 +24,10 @@ GetBucketHandler::GetBucketHandler(DataMgr& dataManager)
 
 void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                      boost::shared_ptr<fpi::GetBucketMsg>& message) {
-    LOGDEBUG << "volume: " << message->volume_id;
+    fds_volid_t volId(message->volume_id);
+    LOGDEBUG << "volume: " << volId;
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::GetBucketRspMsg>();
@@ -100,7 +101,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                                       const Error &e, dmCatReq *dmRequest) {
-    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : 0) << " err: " << e;
+    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : invalid_vol_id) << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;

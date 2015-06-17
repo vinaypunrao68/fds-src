@@ -26,6 +26,8 @@ GCOVR_PATCH    = gcovr-fds.patch
 
 .PHONY: clean
 
+all: $(GCOVR_ARTIFACT)/scripts/gcovr
+
 clean:
 	rm -rf "$(GCOVR_CONTENT)"
 	rm -rf "$(GCOVR_UPDATED)"

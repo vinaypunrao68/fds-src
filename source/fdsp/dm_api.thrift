@@ -570,6 +570,17 @@ struct ReloadVolumeMsg {
 struct ReloadVolumeRspMsg {
 }
 
+/**
+ * current versions of the blobs on a given volume held by the sender DM
+ * used to initial static DM migration/resync
+ */
+struct InitialBlobFilterSetMsg {
+  // the volume in question
+  1: i64                          volume_id;
+  // the list of blobs held and the sequence id of the most recent write to each blob
+  2: list<dm_types.BlobFilterSetEntry>           blob_filter_set;
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/

@@ -238,7 +238,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
                << std::dec << " blob " << commitBlobReq->blob_name;
 
     fpi::ForwardCatalogMsgPtr fwdMsg(new fpi::ForwardCatalogMsg());
-    fwdMsg->volume_id = commitBlobReq->volId;
+    fwdMsg->volume_id = commitBlobReq->volId.get();
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
@@ -340,7 +340,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
         for (auto vol : metavol.volList) {
             LOGMIGRATE << "Will sync vol " << std::hex << vol
                        << " to node " << uuid.uuid_get_val() << std::dec;
-            vols.insert(vol);
+            vols.insert(fds_volid_t(vol));
         }
 
         // Tell CatalogSync to start the sync process
@@ -561,7 +561,7 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
     Error err(ERR_OK);
     fpi::VolSyncStateMsgPtr fwdMsg(new fpi::VolSyncStateMsg());
 
-    fwdMsg->volume_id = volId;
+    fwdMsg->volume_id = volId.get();
     fwdMsg->forward_complete = forward_complete;
 
     LOGMIGRATE << "Sending VolSyncStateMsg: " << std::hex

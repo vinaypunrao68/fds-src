@@ -23,9 +23,10 @@ DmSysStatsHandler::DmSysStatsHandler(DataMgr& dataManager)
 
 void DmSysStatsHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::GetDmStatsMsg>& message) {
-    LOGDEBUG << "volume: " << message->volume_id;
+    fds_volid_t volId(message->volume_id);
+    LOGDEBUG << "volume: " << volId;
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);

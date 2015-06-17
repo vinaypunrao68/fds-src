@@ -46,8 +46,7 @@ public class RemoveNode
     	
     	long nodeUuid = requiredLong(routeParameters, NODE_ARG );
         
-        final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
-        Node node = ObjectModelHelper.toObject( reader, Node.class );
+    	Node node = (new GetNode()).getNode(nodeUuid);
         
         if( node == null ) {
 	  		throw new ApiException( "The specified node uuid " + nodeUuid + " has no matching node name.", ErrorCode.MISSING_RESOURCE );
