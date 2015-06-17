@@ -734,6 +734,15 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
     bool completeSet = false;
     Error err(ERR_OK);
 
+    if (seqNumFilterSet.isSeqNumComplete()) {
+        LOGMIGRATE << "DLT token=" << dltToken << ", "
+                   << "seqNum=" << curSeqNum << ", "
+                   << "executorId=" << std::hex << executorId << std::dec
+                   << " is received after the seqNumFilterSet was marked complete."
+                   << " Probably a duplicate sequence number. Ignore filterSet message";
+        return err;
+    }
+
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": seqNum=" << curSeqNum << ", "
                << "DLT token=" << dltToken << ", "

@@ -466,11 +466,11 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
-	    migrClients[executorId] = std::make_shared<MigrationClient>(smReqHandler,
-                                                                    executorNodeUuid,
-                                                                    targetDltVersion,
-                                                                    bitsPerDltToken,
-                                                                    rebalSetMsg->onePhaseMigration);
+            migrClients[executorId] = std::make_shared<MigrationClient>(smReqHandler,
+                                                                        executorNodeUuid,
+                                                                        targetDltVersion,
+                                                                        bitsPerDltToken,
+                                                                        rebalSetMsg->onePhaseMigration);
         }
         migrClient = migrClients[executorId];
     }
@@ -1372,6 +1372,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
     // set "done with error" state for the failed executor, we will clean it
     // when the whole resync/migration is finished
     migrExecutor->setDoneWithError();
+    migrExecutor->clearRetryDltTokenSet();
 
     /**
      * Now we are going to actually start migration only for these newly created
