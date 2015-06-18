@@ -49,7 +49,7 @@ Error AmQoSCtrl::markIODone(AmRequest *io) {
     Error err(ERR_OK);
 
     // This prevents responding to the same request > 1
-    if (io->testAndSetMagic()) {
+    if (io->testAndSetComplete()) {
         return ERR_DUPLICATE;
     }
     auto remaining = htb_dispatcher->markIODone(io);

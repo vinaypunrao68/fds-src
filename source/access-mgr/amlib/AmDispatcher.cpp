@@ -305,7 +305,7 @@ AmDispatcher::statVolumeCb(AmRequest* amReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     auto volReq = static_cast<fds::StatVolumeReq*>(amReq);
     auto volMDMsg = deserializeFdspMsg<fpi::StatVolumeMsg>(const_cast<Error&>(error), payload);
 
@@ -346,7 +346,7 @@ AmDispatcher::setVolumeMetadataCb(AmRequest* amReq,
                                   const Error& error,
                                   boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
     auto volMetaMsgRsp = deserializeFdspMsg<fpi::SetVolumeMetadataMsgRsp>(
         const_cast<Error&>(error), payload);
@@ -372,7 +372,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
                                   const Error& error,
                                   boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     auto err = error;
 
     if (error.ok()) {
@@ -414,7 +414,7 @@ AmDispatcher::abortBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     amReq->proc_cb(error);
 }
 
@@ -453,7 +453,7 @@ AmDispatcher::startBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
 
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
@@ -487,7 +487,7 @@ AmDispatcher::deleteBlobCb(AmRequest* amReq,
                            boost::shared_ptr<std::string> payload)
 {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     LOGDEBUG << " volume:" << amReq->io_vol_id
              << " blob:" << amReq->getBlobName();
 
@@ -590,7 +590,7 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
 
@@ -614,7 +614,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
@@ -672,7 +672,7 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     auto blobReq = static_cast<fds::PutBlobReq*>(amReq);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
     auto putObjRsp = deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
@@ -737,7 +737,7 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
                           boost::shared_ptr<std::string> payload)
 {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
     // notify DLT manager that request completed, so we can decrement refcnt
@@ -822,7 +822,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
                                 boost::shared_ptr<std::string> payload)
 {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
     auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
@@ -934,7 +934,7 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
                                 const Error &error,
                                 boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     auto setMDRsp = deserializeFdspMsg<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << amReq->getBlobName() << " Error: " << error;
@@ -951,7 +951,7 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
                          boost::shared_ptr<std::string> payload)
 {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     // Deserialize if all OK
     if (ERR_OK == error) {
         // using the same structure for input and output
@@ -997,7 +997,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     auto response = deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
     if (ERR_OK == error) {
@@ -1038,7 +1038,7 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
                                boost::shared_ptr<std::string> payload)
 {
     // Ensure we haven't already replied to this request
-    if (!amReq->magicInUse()) { return; }
+    if (!amReq->isCompleted()) { return; }
     // Return if err
     if (ERR_OK == error) {
         // using the same structure for input and output

@@ -32,7 +32,7 @@ class AmRequest : public FDS_IOType {
     std::string    volume_name;
 
     // Flag to indicate when a request has been responded to
-    std::atomic<bool> responded_to;
+    std::atomic<bool> completed;
 
     ProcessorCallback proc_cb;
     CallbackPtr cb;
@@ -45,7 +45,7 @@ class AmRequest : public FDS_IOType {
               fds_uint64_t        _blob_offset = 0,
               fds_uint64_t        _data_len = 0)
         : volume_name(_vol_name),
-        responded_to(false),
+        completed(false),
         blob_name(_blob_name),
         blob_offset(_blob_offset),
         data_len(_data_len),
@@ -69,11 +69,11 @@ class AmRequest : public FDS_IOType {
     virtual ~AmRequest()
     { fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); }
 
-    bool magicInUse()
-    { return !responded_to.load(std::memory_order_relaxed); }
+    bool isCompleted()
+    { return !completed.load(std::memory_order_relaxed); }
 
-    bool testAndSetMagic()
-    { return responded_to.exchange(true, std::memory_order_relaxed); }
+    bool testAndSetComplete()
+    { return completed.exchange(true, std::memory_order_relaxed); }
 
     const std::string& getBlobName() const
     { return blob_name; }

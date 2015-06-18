@@ -258,7 +258,7 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
 void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
     fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
-    fds_assert(amReq->magicInUse() == true);
+    fds_assert(amReq->isCompleted() == true);
 
     /*
      * Drain the queue if we are shutting down.
