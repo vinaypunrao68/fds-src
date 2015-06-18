@@ -22,13 +22,37 @@
 -->
 <configuration>
 <property>
-    <name>hbase.rootdir</name>
-    <value>fds://fremont/hbase</value>
-  </property>
+	<name>fds.am.endpoint</name>
+	<value>localhost</value>
+</property>
+<property>
+	<name>fds.cs.endpoint</name>
+	<value>localhost</value>
+</property>
 
+<!--hbase properties-->
 <property>
     <name>hbase.master</name>
     <value>localhost</value>
+</property>
+<property>
+    <name>hbase.rootdir</name>
+    <value>fds://fremont/hbase</value>
+</property>
+<property>
+	<name>hbase.cluster.distributed</name>
+	<value>true</value>
+</property>
+<!--
+<property>
+	<name>zookeeper.znode.parent</name>
+	<value>/hbase</value>
+</property>
+-->
+<!--fds properties-->
+<property>
+	<name>fs.default.name</name>
+	<value>fds://fremont/</value>
 </property>
 
 <property>
@@ -37,32 +61,17 @@
 </property>
 
 <property>
-        <name>fs.default.name</name>
-        <value>fds://fremont/</value>
-</property>
-
-<property>
       <name>fs.AbstractFileSystem.fds.impl</name>
       <value>com.formationds.hadoop.FdsFileSystem$AFS</value>
 </property>
 
 <property>
-      <name>hbase.zookeeper.quorum</name>
-      <value>localhost</value>
-</property>
-
-<property>
-    <name>hbase.cluster.distributed</name>
-    <value>true</value>
-</property>
-
-<property>
     <name>fds.conf.file</name>
     <value>/fds/etc/fds.conf</value>
-  </property>
+</property>
 
 <property>
     <name>fds.conf.options</name>
     <value>client_readahead_min=4193404</value>
-  </property>
+</property>
 </configuration>
