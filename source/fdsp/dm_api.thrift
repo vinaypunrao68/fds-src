@@ -584,7 +584,7 @@ struct ResyncInitialBlobFilterSetMsg {
 }
 
 /**
- * 1st Response Message for InitialBlobFilterSetMsg
+ * 1st Response Message for ResyncInitialBlobFilterSetMsg
  */
 struct ResyncUpdateBlobsMsg {
   /** levelDB key-value pairs for insertion to the reciever.
@@ -593,7 +593,7 @@ struct ResyncUpdateBlobsMsg {
 }
 
 /**
- * 2nd Response Message for InitialBlobFilterSetMsg
+ * 2nd Response Message for ResyncInitialBlobFilterSetMsg
  */
 struct ResyncDeleteBlobsMsg {
   /** A list of blob ids that exist on the receiver (sync destination) but not the
