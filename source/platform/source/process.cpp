@@ -87,7 +87,7 @@ namespace fds
 
             // In the child process, No logging between fork and exec
 
-            // This sets the process's process group id.  Using this prevents children from being killed when a parent died.
+            // This sets the process's process group id.  Using this prevents children from being killed when a parent is delivered a sigterm (service ... stop).
             if (-1 == setpgid (0, 0))
             {
                 std::cerr << "setpgid() failure:  errno = " << errno;
