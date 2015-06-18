@@ -424,10 +424,9 @@ namespace fds {
             return err;
         }
 
-        virtual Error markIODone(FDS_IOType *io)
+        virtual size_t markIODone(FDS_IOType *io)
         {
-            Error err(ERR_OK);
-            fds_uint32_t n_oios = 1;
+            size_t n_oios = 1;
 
             if (bypass_dispatcher == false) {
                 n_oios = atomic_fetch_sub(&(num_outstanding_ios), (unsigned int)1);
@@ -455,9 +454,9 @@ namespace fds {
                    << " completed in " << io->io_service_time
                    << " usecs with a wait time of " << io->io_wait_time
                    << " usecs with total io time of " << io->io_total_time
-                   << " usecs. # of outstanding ios = " << n_oios-1;
+                   << " usecs. # of outstanding ios = " << --n_oios;
 
-            return err;
+            return n_oios;
         }
     };
 }  // namespace fds

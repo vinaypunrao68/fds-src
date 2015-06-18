@@ -278,7 +278,6 @@ class FDS_IOType {
         DATA_MGR_IO
     } ioModule;
 
-    int         io_magic;
     fds_io_op_t io_type;
     fds_uint32_t io_req_id;
     fds_volid_t io_vol_id;

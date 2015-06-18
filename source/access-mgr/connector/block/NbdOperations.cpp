@@ -23,16 +23,10 @@ static std::unordered_map<std::string, std::uint_fast16_t> assoc_map {};
 static std::mutex assoc_map_lock {};
 
 
-fds_bool_t
+void
 NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
-                                      fds_uint32_t len,
-                                      const Error& err) {
+                                      fds_uint32_t len) {
     fds_assert(operation == READ);
-
-    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
-                     (err != ERR_BLOB_NOT_FOUND)) {
-        return true;
-    }
 
     // acquire the buffers
     bufVec.swap(buffers);
@@ -66,7 +60,6 @@ NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>
             bufVec.back() = boost::make_shared<std::string>(bufVec.back()->data(), lastObjLen);
         }
     }
-    return true;
 }
 
 std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
@@ -293,7 +286,6 @@ NbdOperations::getBlobResp(const Error &error,
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
-    fds_bool_t done = false;
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
              << error << ", handle " << handle
@@ -319,7 +311,7 @@ NbdOperations::getBlobResp(const Error &error,
         LOGDEBUG << "Write after read, handle 0x" << std::hex << handle << std::dec << " seqId " << seqId;
 
         // RMW only operates on a single buffer...
-        auto& buf = !bufs->empty() ? bufs->front() : empty_buffer;
+        auto& buf = (bufs && !bufs->empty()) ? bufs->front() : empty_buffer;
 
         // apply the update from NBD connector to this object
         auto rwm_pair = resp->handleRMWResponse(buf, length, seqId, error);
@@ -339,29 +331,31 @@ NbdOperations::getBlobResp(const Error &error,
                                            objLength,
                                            off,
                                            emptyMeta);
-        } else {
-            done = true;
+            return;
         }
     } else {
-        // this is response for read operation, add buf to the response list
-        done = resp->handleReadResponse(*bufs, length, error);
+        // this is response for read operation,
+        if (error.ok() || (error == ERR_BLOB_OFFSET_INVALID) ||
+                          (error == ERR_BLOB_NOT_FOUND)) {
+            // Adjust the buffers in our vector so they align and are of the
+            // correct length according to the original request
+            resp->handleReadResponse(*bufs, length);
+        }
     }
 
-    if (done) {
-        bool response_removed = false;
-        {
-            // nbd connector will free resp
-            // remove from the wait list
-            fds_mutex::scoped_lock l(respLock);
-            response_removed = (1 == responses.erase(handle));
-        }
-        if (response_removed) {
-            // we are done collecting responses for this handle, notify nbd connector
-            nbdResp->readWriteResp(resp);
-        } else {
-            LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
-                      << " was missing from the response map!";
-        }
+    bool response_removed = false;
+    {
+        // nbd connector will free resp
+        // remove from the wait list
+        fds_mutex::scoped_lock l(respLock);
+        response_removed = (1 == responses.erase(handle));
+    }
+    if (response_removed) {
+        // we are done collecting responses for this handle, notify nbd connector
+        nbdResp->readWriteResp(resp);
+    } else {
+        LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
+                  << " was missing from the response map!";
     }
 }
 

@@ -34,15 +34,13 @@ struct GetBlobReq: public AmRequest {
     ~GetBlobReq() override = default;
 
     void setResponseCount(uint16_t const cnt) {
-        fds_assert(0 == resp_acks.load(std::memory_order_relaxed));
-        resp_acks.store(cnt, std::memory_order_relaxed);
+        resp_acks = cnt;
     }
 
     void notifyResponse(const Error &e) {
-        auto cnt = resp_acks.load(std::memory_order_acquire);
+        std::lock_guard<std::mutex> g(resp_lock);
         op_err = e.ok() ? op_err : e;
-        resp_acks.store(--cnt, std::memory_order_release);
-        if (0 == cnt) {
+        if (0 == --resp_acks) {
             // Call back to processing layer
             proc_cb(op_err);
         }
@@ -50,7 +48,8 @@ struct GetBlobReq: public AmRequest {
 
  private:
     /* ack cnt for responses, decremented when response from SM and DM come back */
-    std::atomic_uint_fast16_t resp_acks;
+    std::mutex resp_lock;
+    size_t resp_acks;
     Error op_err {ERR_OK};
 };
 
