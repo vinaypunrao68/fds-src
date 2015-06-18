@@ -6,7 +6,7 @@ import org.dcache.nfs.ExportFile;
 import java.util.HashMap;
 import java.util.Map;
 
-class ExportResolver {
+public class ExportResolver {
     private final Map<String, Integer> map;
 
     public ExportResolver(ExportFile file) {

@@ -75,4 +75,46 @@ public class NfsAttributes {
     public Stat.Type getType() {
         return Enum.valueOf(Stat.Type.class, metadata.get(NFS_TYPE));
     }
+
+    public NfsAttributes updateMtime() {
+        metadata.put(NFS_MTIME, Long.toString(System.currentTimeMillis()));
+        return this;
+    }
+
+    public NfsAttributes updateSize(long newSize) {
+        metadata.put(NFS_SIZE, Long.toString(newSize));
+        return this;
+    }
+
+    public NfsAttributes update(Stat stat) {
+        if (stat.isDefined(Stat.StatAttribute.MODE)) {
+            metadata.put(NFS_MODE, Integer.toString(stat.getMode()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.SIZE)) {
+            metadata.put(NFS_SIZE, Long.toString(stat.getSize()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.OWNER)) {
+            metadata.put(NFS_UID, Integer.toString(stat.getUid()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.GROUP)) {
+            metadata.put(NFS_GID, Integer.toString(stat.getGid()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.ATIME)) {
+            metadata.put(NFS_ATIME, Long.toString(stat.getATime()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.CTIME)) {
+            metadata.put(NFS_CTIME, Long.toString(stat.getCTime()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.MTIME)) {
+            metadata.put(NFS_MTIME, Long.toString(stat.getMTime()));
+        }
+
+        return this;
+    }
 }
