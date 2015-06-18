@@ -21,6 +21,7 @@ extern "C" {
 #include <AccessMgr.h>
 #include <AmProcessor.h>
 #include "connector/xdi/AmAsyncXdi.h"
+#include "AmDataApi.h"
 #include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
@@ -530,6 +531,106 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         }
     }
 
+    void task(int id, TaskOps opType) {
+        fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
+        GLOGDEBUG << "Starting thread " << id;
+        // constants we are going to pass to api
+        boost::shared_ptr<fds_int32_t> blobMode(new fds_int32_t);
+        *blobMode = 1;
+        boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(blobSize);
+        boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
+        std::map<std::string, std::string> metaData;
+        boost::shared_ptr< std::map<std::string, std::string> > meta =
+                boost::make_shared<std::map<std::string, std::string>>(metaData);
+
+        SequentialBlobDataGen blobGen(blobSize, id);
+        fds_uint64_t localLatencyTotal = 0;
+        fds_uint32_t localOpCount = 0;
+        while ((ops + 1) <= totalOps) {
+            fds_uint64_t start_nano = util::getTimeStampNanos();
+            if (opType == PUT) {
+                try {
+                    // Make copy of data since function "takes" the shared_ptr
+                    boost::shared_ptr<std::string> localData(
+                        boost::make_shared<std::string>(*blobGen.blobData));
+                    am->dataApi->updateBlobOnce(domainName, volumeName,
+                                                blobGen.blobName, blobMode,
+                                                localData, blobLength, off, meta);
+                } catch(fpi::ApiException fdsE) {
+                    fds_panic("updateBlob failed");
+                }
+            } else if (opType == GET) {
+                try {
+                    std::string data;
+                    am->dataApi->getBlob(data,
+                                         domainName,
+                                         volumeName,
+                                         blobGen.blobName,
+                                         blobLength,
+                                         off);
+                } catch(fpi::ApiException fdsE) {
+                    fds_panic("getBlob failed");
+                }
+            } else if (opType == STARTTX) {
+                try {
+                    apis::TxDescriptor txDesc;
+                    am->dataApi->startBlobTx(txDesc,
+                                             domainName,
+                                             volumeName,
+                                             blobGen.blobName,
+                                             blobMode);
+                } catch(fpi::ApiException fdsE) {
+                    fds_panic("statBlob failed");
+                }
+            } else {
+                fds_panic("Unknown op type");
+            }
+            localLatencyTotal += (util::getTimeStampNanos() - start_nano);
+            ++localOpCount;
+
+            ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
+            blobGen.generateNext();
+        }
+        avgLatencyTotal += (localLatencyTotal / localOpCount);
+    }
+
+    virtual int runTask(TaskOps opType) {
+        opCount = 0;
+        avgLatencyTotal = 0;
+        fds_uint64_t start_nano = util::getTimeStampNanos();
+        for (unsigned i = 0; i < concurrency; ++i) {
+            std::thread* new_thread = new std::thread(&AmLoadProc::task, this, i, opType);
+            threads_[i] = new_thread;
+        }
+
+        // Wait for all threads
+        for (unsigned x = 0; x < concurrency; ++x) {
+            threads_[x]->join();
+        }
+
+        fds_uint64_t duration_nano = util::getTimeStampNanos() - start_nano;
+        double time_sec = duration_nano / 1000000000.0;
+        if (time_sec < 10) {
+            std::cout << "Experiment ran for too short time to calc IOPS" << std::endl;
+            GLOGNOTIFY << "Experiment ran for too short time to calc IOPS";
+        } else {
+            std::cout << "Average IOPS = " << totalOps / time_sec << std::endl;
+            GLOGNOTIFY << "Average IOPS = " << totalOps / time_sec;
+            std::cout << "Average latency = " << avgLatencyTotal / concurrency
+                      << " nanosec" << std::endl;
+            GLOGNOTIFY << "Average latency = " << avgLatencyTotal / concurrency
+                       << " nanosec";
+        }
+
+        for (unsigned x = 0; x < concurrency; ++x) {
+            std::thread* th = threads_[x];
+            delete th;
+            threads_[x] = NULL;
+        }
+
+        return 0;
+    }
+
     virtual int runAsyncTask(TaskOps opType) {
         opCount = 0;
         opsDone = 0;
@@ -656,6 +757,21 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
 using fds::AmLoadProc;
 AmLoadProc::shared_ptr amLoad;
+
+TEST(AccessMgr, updateBlobOnce) {
+    GLOGDEBUG << "Testing updateBlobOnce";
+    amLoad->runTask(AmLoadProc::PUT);
+}
+
+TEST(AccessMgr, getBlob) {
+    GLOGDEBUG << "Testing getBlob";
+    amLoad->runTask(AmLoadProc::GET);
+}
+
+TEST(AccessMgr, startBlobTx) {
+    GLOGDEBUG << "Testing startBlobTx";
+    amLoad->runTask(AmLoadProc::STARTTX);
+}
 
 TEST(AccessMgr, asyncStartBlobTx) {
     GLOGDEBUG << "Testing async startBlobTx";

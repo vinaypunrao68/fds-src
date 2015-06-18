@@ -17,6 +17,7 @@ namespace fds {
 struct AmDataApi;
 struct AmProcessor;
 struct AsyncDataServer;
+struct FdsnServer;
 struct NbdConnector;
 
 /**
@@ -41,6 +42,12 @@ class AccessMgr : public Module, public boost::noncopyable {
     void run();
     void stop();
 
+    /// Shared ptr to AM's data API. It's public so that
+    /// other components (e.g., unit tests, perf tests) can
+    /// directly call it. It may be shared by this and the
+    /// fdsn server.
+    boost::shared_ptr<AmDataApi> dataApi;
+
     std::shared_ptr<AmProcessor> getProcessor()
     { return amProcessor; }
 
@@ -56,6 +63,9 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     /// Block connector
     std::unique_ptr<NbdConnector> blkConnector;
+
+    /// Unique ptr to the fdsn server that communicates with XDI
+    std::unique_ptr<FdsnServer> fdsnServer;
 
     /// Unique ptr to the async server that communicates with XDI
     std::unique_ptr<AsyncDataServer> asyncServer;
