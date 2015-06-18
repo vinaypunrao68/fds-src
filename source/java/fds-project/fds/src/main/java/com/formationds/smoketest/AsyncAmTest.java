@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
-
     @Test
     public void testReadPastBlobEnd() throws Exception {
         Map<String, String> metadata = new HashMap<>();
@@ -248,10 +247,9 @@ public class AsyncAmTest extends BaseAmTest {
 
     @BeforeClass
     public static void setUpOnce() throws Exception {
-        int pmPort = 7000;
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), 8899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 
