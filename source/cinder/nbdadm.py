@@ -79,7 +79,7 @@ class nbdlib:
 
     def __nbd_connections(self):
         for p in psutil.process_iter():
-            if p.name == 'nbd-client':
+            if p.name() == 'nbd-client':
                 try:
                     args = p.cmdline()
 
