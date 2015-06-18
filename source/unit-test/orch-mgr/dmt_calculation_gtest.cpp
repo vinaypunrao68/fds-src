@@ -24,6 +24,8 @@ using ::testing::Return;
 
 namespace fds {
 
+// The 7 lines below are to make this unit test compile,
+// since everything in OM is global and depends on everything
 extern OrchMgr *orchMgr;
 OM_Module *omModule;
 
