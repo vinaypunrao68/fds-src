@@ -2,6 +2,7 @@
 <!--
   ~ Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
   -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -163,13 +164,13 @@
         <enabled>true</enabled>
       </releases>
     </repository>
-    <repository>
-        <id>dcache-releases</id>
-        <name>dCache.ORG maven repository</name>
-        <url>https://download.dcache.org/nexus/content/repositories/releases</url>
-        <layout>default</layout>
-    </repository>
 
+    <repository>
+      <id>dcache-releases</id>
+      <name>dCache.ORG maven repository</name>
+      <url>https://download.dcache.org/nexus/content/repositories/releases</url>
+      <layout>default</layout>
+    </repository>
   </repositories>
 
   <dependencyManagement>
@@ -412,11 +413,6 @@
         <version>${mockito.version}</version>
         <!-- add scope back in once test code is removed from production -->
         <!--<scope>test</scope>-->
-      </dependency>
-      <dependency>
-          <groupId>org.dcache</groupId>
-          <artifactId>nfs4j-core</artifactId>
-          <version>0.10.2</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

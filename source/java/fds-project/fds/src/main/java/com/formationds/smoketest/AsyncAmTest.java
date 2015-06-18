@@ -1,15 +1,17 @@
 package com.formationds.smoketest;
 
+import com.formationds.apis.*;
 import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
-import com.formationds.nfs.*;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
-import com.formationds.xdi.s3.S3Failure;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
@@ -17,7 +19,6 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import javax.security.auth.Subject;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -25,32 +26,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
-import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
-    @Test
-    public void testReadPastBlobEnd() throws Exception {
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("hello", "world");
-        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
-        ByteBuffer byteBuffer = asyncAm.getBlob(domainName, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(0)).get();
-        assertEquals(smallObjectLength, byteBuffer.remaining());
-        try {
-            unwindExceptions(() -> asyncAm.getBlob(domainName, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(1)).get());
-        } catch (ApiException e) {
-            assertEquals(e.getErrorCode(), S3Failure.ErrorCode.MISSING_RESOURCE);
-            return;
-        }
-
-        fail("Should have gotten an ApiException!");
-    }
-
     @Test
     public void testVolumeMetadata() throws Exception {
         Map<String, String> metadata = asyncAm.getVolumeMetadata(domainName, volumeName).get();
@@ -247,9 +226,10 @@ public class AsyncAmTest extends BaseAmTest {
 
     @BeforeClass
     public static void setUpOnce() throws Exception {
+        int pmPort = 7000;
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), 8899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 
