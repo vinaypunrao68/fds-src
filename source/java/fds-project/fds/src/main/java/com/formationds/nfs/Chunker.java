@@ -59,7 +59,7 @@ public class Chunker {
         
         for (long i = 0; i < totalObjects; i++) {
             ByteBuffer buf = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
-            int toBeRead = Math.min(length, (objectSize - startOffset));
+            int toBeRead = Math.min(buf.remaining() - startOffset, (objectSize - startOffset));
             buf.position(buf.position() + startOffset);
             buf.limit(buf.position() + toBeRead);
             output.put(buf);

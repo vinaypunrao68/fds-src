@@ -252,9 +252,8 @@
     <dependency>
       <groupId>org.dcache</groupId>
       <artifactId>nfs4j-core</artifactId>
-      <version>0.10.2</version>
     </dependency>
-    
+
     <!-- test dependencies -->
     <dependency>
       <groupId>junit</groupId>
