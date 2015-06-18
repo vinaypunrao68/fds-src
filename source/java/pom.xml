@@ -556,7 +556,7 @@
           </execution>
         </executions>
         <configuration>
-          <failOnWarning>true</failOnWarning>
+          <failOnWarning>false</failOnWarning>
           <artifactItems />
         </configuration>
       </plugin>
