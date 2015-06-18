@@ -598,7 +598,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             /**
              * TODO(neil): This needs to be fixed. See FS-2229
              */
-            fds_assert(!"Hit FS-2229. This needs to be fixed.");
+            LOGWARN << "Hit FS-2229. This needs to be fixed.";
         }
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                  << err;
