@@ -576,24 +576,28 @@ struct ReloadVolumeRspMsg {
  * - sent from sync destination to sync source.
  */
 struct ResyncInitialBlobFilterSetMsg {
-  // the volume in question
+  /** the volume in question */
   1: i64                          volume_id;
-  // the list of blobs held and the sequence id of the most recent write to each blob
-  // N.B. list should be sorted by Blob ID
+  /** the list of blobs held and the sequence id of the most recent write to each blob
+      NOTE: list should be sorted by Blob ID */
   2: list<dm_types.BlobFilterSetEntry>           blob_filter_set;
 }
 
-// 1st Response Message for InitialBlobFilterSetMsg
+/**
+ * 1st Response Message for InitialBlobFilterSetMsg
+ */
 struct ResyncUpdateBlobsMsg {
-  // levelDB key-value pairs for insertion to the reciever.
-  // list should be sorted to ensure blob descriptor is written after the object mappings
+  /** levelDB key-value pairs for insertion to the reciever.
+      list should be sorted to ensure blob descriptor is written after the object mappings */
   1: dm_types.FDSP_MetaDataList          pairs;
 }
 
-// 2nd Response Message for InitialBlobFilterSetMsg
+/**
+ * 2nd Response Message for InitialBlobFilterSetMsg
+ */
 struct ResyncDeleteBlobsMsg {
-  // A list of blob ids that exist on the receiver (sync destination) but not the
-  // sender (sync source). These blobs should be deleted by the receiver.
+  /** A list of blob ids that exist on the receiver (sync destination) but not the
+      sender (sync source). These blobs should be deleted by the receiver. */
   1: list<i64> blob_list;
 }
 
