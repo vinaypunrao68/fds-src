@@ -41,6 +41,8 @@ extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj)
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 
+static constexpr uint32_t DmDefaultPrimaryCnt { 2 };
+
 AmDispatcher::AmDispatcher(CommonModuleProviderIf *modProvider) 
         : HasModuleProvider(modProvider)
 {
@@ -81,6 +83,7 @@ AmDispatcher::start() {
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
+    numDmPrimaries = conf.get_abs<fds_uint32_t>("fds.dm.number_of_primary", DmDefaultPrimaryCnt);
 }
 
 Error
@@ -209,9 +212,16 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
                                     boost::shared_ptr<Msg> const& payload,
                                     FailoverSvcRequestRespCb cb,
                                     uint32_t timeout) const {
+    // Only issue reads from primaries.
+    DmtColumnPtr dmsForVol = dmtMgr->getCommittedNodeGroup(volId);
+    DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numDmPrimaries);
+    uint32_t numPrimaries = (dmsForVol->getLength() < numDmPrimaries ? dmsForVol->getLength() : numDmPrimaries);
+    for (uint32_t i = 0; i < numPrimaries; ++i) {
+        dmPrimariesForVol->set(i, dmsForVol->get(i));
+    }
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(
                             boost::make_shared<DmtVolumeIdEpProvider>(
-                                        dmtMgr->getCommittedNodeGroup(volId)));
+                                dmPrimariesForVol));
     failoverReq->onResponseCb(cb);
     failoverReq->setTimeoutMs(timeout);
     failoverReq->setPayload(message_type_id(*payload), payload);
