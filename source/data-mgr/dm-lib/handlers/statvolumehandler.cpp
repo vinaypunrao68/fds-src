@@ -29,7 +29,13 @@ void StatVolumeHandler::handleRequest(
     LOGTRACE << "Received a statVolume request for volume "
              << volId;
 
-    auto err = dataManager.validateVolumeIsActive(volId);
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(volId)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
