@@ -137,9 +137,8 @@ class NbdResponseVector {
     /**
      * \return true if all responses were received or operation error
      */
-    fds_bool_t handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
-                                  fds_uint32_t len,
-                                  const Error& err);
+    void handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
+                            fds_uint32_t len);
 
     /**
      * \return true if all responses were received
