@@ -30,7 +30,7 @@ struct SectorLockMap {
     typedef E entry_type;
     static constexpr size_t size = N;
     typedef std::mutex lock_type;
-    typedef int64_t key_type;
+    typedef uint64_t key_type;
     typedef boost::lockfree::spsc_queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
     typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
     typedef typename map_type::iterator map_it;

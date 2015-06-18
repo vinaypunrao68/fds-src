@@ -45,11 +45,14 @@ void AmQoSCtrl::runScheduler(vol_callback_type&& cb) {
 }
 
 
-Error AmQoSCtrl::markIODone(FDS_IOType *io) {
+Error AmQoSCtrl::markIODone(AmRequest *io) {
     Error err(ERR_OK);
-    assert(io->io_magic == FDS_SH_IO_MAGIC_IN_USE);
-    io->io_magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
-    htb_dispatcher->markIODone(io);
+
+    // This prevents responding to the same request > 1
+    if (io->testAndSetMagic()) {
+        return ERR_DUPLICATE;
+    }
+    auto remaining = htb_dispatcher->markIODone(io);
 
     switch (io->io_type) {
     case fds::FDS_IO_WRITE:
@@ -82,13 +85,12 @@ Error AmQoSCtrl::markIODone(FDS_IOType *io) {
     default:
         ;;
     };
-    fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id.get());
-    PerfTracer::incr(PerfEventType::AM_QOS_QUEUE_SIZE, io->io_vol_id, queue_size, 1); // Let this be a latency counter
-    if (queue_size > 0) {
+    PerfTracer::incr(PerfEventType::AM_QOS_QUEUE_SIZE, io->io_vol_id, remaining, 1); // Let this be a latency counter
+    if (remaining > 0) {
         StatsCollector::singleton()->recordEvent(io->io_vol_id,
                                                  io->io_done_ts,
                                                  STAT_AM_QUEUE_FULL,
-                                                 queue_size);
+                                                 remaining);
     }
     StatsCollector::singleton()->recordEvent(io->io_vol_id,
                                              io->io_done_ts,

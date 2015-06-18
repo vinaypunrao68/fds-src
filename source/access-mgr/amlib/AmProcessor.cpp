@@ -213,9 +213,9 @@ class AmProcessor_impl
      * Generic callback for a few responses
      */
     void respond_and_delete(AmRequest *amReq, const Error& error)
-        { respond(amReq, error); delete amReq; }
+        { if (respond(amReq, error).ok()) { delete amReq; } }
 
-    void respond(AmRequest *amReq, const Error& error);
+    Error respond(AmRequest *amReq, const Error& error);
 
 };
 
@@ -227,8 +227,6 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     if (shut_down) {
         err = ERR_SHUTTING_DOWN;
     } else {
-        fds_verify(amReq->magicInUse() == true);
-
         amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
         err = volTable->enqueueRequest(amReq);
 
@@ -259,8 +257,8 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
 
 void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
-    fds_verify(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
-    fds_verify(amReq->magicInUse() == true);
+    fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
+    fds_assert(amReq->magicInUse() == true);
 
     /*
      * Drain the queue if we are shutting down.
@@ -371,10 +369,12 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     volTable->registerCallback(closure);
 }
 
-void
+Error
 AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
-    volTable->markIODone(amReq);
-    if (amReq->cb) {
+    // markIODone will return ERR_DUPLICATE if the request has already
+    // been responded to, in that case drop on the floor.
+    Error err = volTable->markIODone(amReq);
+    if (err.ok() && amReq->cb) {
         amReq->cb->call(error);
     }
 
@@ -383,6 +383,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     if (isShuttingDown()) {
         stop();
     }
+    return err;
 }
 
 void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
