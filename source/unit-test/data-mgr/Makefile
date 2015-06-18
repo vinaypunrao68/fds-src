@@ -15,11 +15,13 @@ user_bin_exe      := \
     dm_direct \
     dm_volume_catalog_gtest \
     dm_timelinedb \
-    archive_gtest
+    archive_gtest \
+    ldb_differ
 
 dm_volume_catalog_gtest     := dm_volume_catalog_gtest.cpp
 dm_direct := dm_direct.cpp
 dm_timelinedb := timelinedb.cpp
 archive_gtest := ArchiveClient_gtest.cpp
+ldb_differ := LeveldbDiffer_gtest.cpp
 
 include $(test_topdir)/Makefile.dm
