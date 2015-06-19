@@ -20,6 +20,7 @@ import random
 import re
 import fdslib.platformservice as plat_svc
 
+sm_killed_pid = -1
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -711,45 +712,46 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
     def test_SMBringUp(self):
         """
+        DEPRECATED:  This is now PM's job.
         Test Case:
         Attempt to start the SM service(s)
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
-            # If we were passed a node, use it and get out. Otherwise,
-            # we boot all SMs we have.
-            if self.passedNode is not None:
-                n = findNodeFromInv(nodes, self.passedNode)
-
-            port = n.nd_conf_dict['fds_port']
-            fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = n.nd_agent.get_bin_dir(debug=False)
-            log_dir = n.nd_agent.get_log_dir()
-
-            # Make sure SM should be running on this node.
-            if n.nd_services.count("sm") == 0:
-                self.log.warning("SM not configured for node %s." % n.nd_conf_dict['node-name'])
-                if self.passedNode is None:
-                    break
-                else:
-                    continue
-
-            self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
-
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
-                                          (fds_dir, log_dir, port),
-                                          fds_bin=True)
-
-            if status != 0:
-                self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
-            elif self.passedNode is not None:
-                # Passed a specific node so get out.
-                break
+#        # Get the FdsConfigRun object for this test.
+#        fdscfg = self.parameters["fdscfg"]
+#
+#        nodes = fdscfg.rt_obj.cfg_nodes
+#        for n in nodes:
+#            # If we were passed a node, use it and get out. Otherwise,
+#            # we boot all SMs we have.
+#            if self.passedNode is not None:
+#                n = findNodeFromInv(nodes, self.passedNode)
+#
+#            port = n.nd_conf_dict['fds_port']
+#            fds_dir = n.nd_conf_dict['fds_root']
+#            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+#            log_dir = n.nd_agent.get_log_dir()
+#
+#            # Make sure SM should be running on this node.
+#            if n.nd_services.count("sm") == 0:
+#                self.log.warning("SM not configured for node %s." % n.nd_conf_dict['node-name'])
+#                if self.passedNode is None:
+#                    break
+#                else:
+#                    continue
+#
+#            self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
+#
+#            status = n.nd_agent.exec_wait('bash -c \"(nohup ./StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
+#                                          (fds_dir, log_dir, port),
+#                                          fds_bin=True)
+#
+#            if status != 0:
+#                self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+#                return False
+#            elif self.passedNode is not None:
+#                # Passed a specific node so get out.
+#                break
 
         return True
 
@@ -968,6 +970,9 @@ class TestSMKill(TestCase.FDSTestCase):
         Attempt to shutdown the SM service(s)
         """
 
+        global sm_killed_pid
+        sm_killed_pid = -1
+
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
@@ -1008,6 +1013,7 @@ class TestSMKill(TestCase.FDSTestCase):
                 # Took care of the one node passed so get out.
                 break
 
+        sm_killed_pid = pid
         return True
 
 
@@ -1045,7 +1051,10 @@ class TestSMVerifyDown(TestCase.FDSTestCase):
             self.log.info("Verify the SM on %s is down." %n.nd_conf_dict['node-name'])
 
             if not modWait("StorMgr", n, forShutdown=True):
-                return False
+                pid = getSvcPIDforNode('StorMgr', n)
+                if pid != -1 and pid == sm_killed_pid :
+                    return False
+                self.log.info("The SM on %s was down and restarted by platformd." %n.nd_conf_dict['node-name'])
             elif self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
