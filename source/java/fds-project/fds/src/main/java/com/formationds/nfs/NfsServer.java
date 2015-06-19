@@ -7,12 +7,7 @@ import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.collect.Lists;
-import org.apache.hadoop.fs.Path;
-import org.apache.log4j.PropertyConfigurator;
 import org.dcache.nfs.ExportFile;
-import org.dcache.nfs.FsExport;
-import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.v3.MountServer;
 import org.dcache.nfs.v3.NfsServerV3;
 import org.dcache.nfs.v4.*;
@@ -21,30 +16,17 @@ import org.dcache.xdr.OncRpcProgram;
 import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
 
-import javax.security.auth.Subject;
 import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
 
-/**
- * Created by root on 5/11/15.
- */
-public class App {
+
+public class NfsServer {
     public static void main(String[] args) throws Exception {
         new Configuration("NFS", new String[] {"--console"});
         XdiClientFactory clientFactory = new XdiClientFactory();
-        AsyncXdiServiceRequest.Iface iface = clientFactory.remoteOnewayAm("localhost", 8899);
-
         XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
         config.startCacheUpdaterThread(1000);
 
-        AsyncAm asyncAm = new RealAsyncAm(iface, new ServerPortFinder().findPort("NFS", 10000));
+        AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
 
         // specify file with export entries

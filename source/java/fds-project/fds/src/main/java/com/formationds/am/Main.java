@@ -144,11 +144,9 @@ public class Main {
 
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
-        AsyncXdiServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost,
-                                                                             pmPort + xdiServicePortOffset);
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
-                new RealAsyncAm(oneWayAm, amResponsePort);
+                new RealAsyncAm(amHost, pmPort + xdiServicePortOffset, amResponsePort);
         asyncAm.start();
 
         // TODO: should XdiAsync use omCachedConfigProxy too?

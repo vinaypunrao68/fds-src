@@ -5,37 +5,25 @@ import com.formationds.commons.Fds;
 import com.formationds.nfs.AmVfs;
 import com.formationds.nfs.ExportResolver;
 import com.formationds.nfs.NfsPath;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.*;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.FsExport;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
 import org.dcache.nfs.vfs.VirtualFileSystem;
-import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.security.auth.Subject;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -75,7 +63,7 @@ public class NfsTest extends BaseAmTest {
         XdiClientFactory xdiCf = new XdiClientFactory();
         config = new XdiConfigurationApi(xdiCf.remoteOmService(Fds.getFdsHost(), 9090));
         int responsePort = new ServerPortFinder().findPort("Async AM response", 10000);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), 8899), responsePort, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, responsePort, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 
