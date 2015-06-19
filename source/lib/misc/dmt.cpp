@@ -210,9 +210,6 @@ Error DMT::verify() const {
             }
             nodes.insert(uuid);
         }
-        if (nodes.size() != depth) {
-            return ERR_INVALID_DMT;
-        }
     }
     return err;
 }
