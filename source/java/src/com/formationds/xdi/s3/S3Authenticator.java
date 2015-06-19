@@ -7,7 +7,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
-import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.formationds.xdi.security.XdiAuthorizer;
 
 import javax.crypto.SecretKey;
@@ -36,7 +36,7 @@ public class S3Authenticator {
         AuthenticationComponents authenticationComponents = resolveFdsCredentials(candidateHeader);
         AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName, authenticationComponents.fdsToken.signature(secretKey));
 
-        String requestHash = S3SignatureGenerator.hash(context, basicAWSCredentials);
+        String requestHash = S3SignatureGeneratorV2.hash(context, basicAWSCredentials);
 
         if (candidateHeader.equals(requestHash)) {
             return authenticationComponents.fdsToken;

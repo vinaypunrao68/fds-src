@@ -8,7 +8,7 @@ import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
-import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
@@ -388,7 +388,7 @@ public class S3SmokeTest {
         userClient.putObject(userBucket, key, new ByteArrayInputStream(buf), new ObjectMetadata());
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet("https://" + host + ":8443/" + userBucket + "/" + key);
-        String hash = S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials(userName, userToken));
+        String hash = S3SignatureGeneratorV2.hash(httpGet, new BasicAWSCredentials(userName, userToken));
         httpGet.addHeader("Authorization", hash);
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());

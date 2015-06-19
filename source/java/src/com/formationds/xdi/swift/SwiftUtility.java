@@ -2,6 +2,7 @@ package com.formationds.xdi.swift;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.commons.util.DateTimeFormats;
 import com.formationds.web.toolkit.Resource;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
@@ -21,8 +22,6 @@ public class SwiftUtility {
     }
 
     public static String formatRfc1123Date(DateTime date) {
-        // TODO: put this formatter somewhere generally accessible
-        DateTimeFormatter rfc1123DateFormat = DateTimeFormat.forPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'").withZoneUTC();
-        return rfc1123DateFormat.print(date);
+        return DateTimeFormats.RFC1123().print(date);
     }
 }
