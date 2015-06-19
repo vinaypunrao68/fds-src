@@ -171,7 +171,7 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public String readlink(Inode inode) throws IOException {
-        return null;
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
@@ -193,7 +193,7 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public Inode symlink(Inode inode, String s, String s1, Subject subject, int i) throws IOException {
-        return null;
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
@@ -236,7 +236,7 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public void setAcl(Inode inode, nfsace4[] nfsace4s) throws IOException {
-
+        // ACLS not implemented
     }
 
     @Override
@@ -246,6 +246,7 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public AclCheckable getAclCheckable() {
+        // ACLS not implemented
         return null;
     }
 

@@ -178,22 +178,22 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
 
     @Override
     public boolean move(Inode src, String oldName, Inode dest, String newName) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
     public Inode parentOf(Inode inode) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
     public int read(Inode inode, byte[] data, long offset, int count) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
     public String readlink(Inode inode) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
@@ -213,17 +213,17 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
 
     @Override
     public Inode symlink(Inode parent, String path, String link, Subject subject, int mode) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
     public void commit(Inode inode, long offset, int count) throws IOException {
-        System.out.println("Commit");
+        // no-op
     }
 
     @Override
