@@ -45,6 +45,22 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
+float_t ObjectStore::getUsedCapacityAsPct() {
+
+    float_t max = 0;
+    for (auto diskId : diskMap->getDiskIds(diskio::diskTier)) {
+        // Get the (used, total) pair
+        SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        float_t pct_used = (capacity.first * 1.) / capacity.second;
+
+        if (pct_used > max) {
+            max = pct_used;
+        }
+    }
+
+    return max * 100;
+}
+
 /**
  * Open metadata and data store for given SM tokens
  * Ok if metadata and data stores are already open for any of

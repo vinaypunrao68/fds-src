@@ -32,6 +32,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
     typedef std::shared_ptr<SmDiskMap> ptr;
     typedef std::shared_ptr<const SmDiskMap> const_ptr;
 
+    typedef std::pair<fds_uint64_t, fds_uint64_t> capacity_tuple;
+
     /**
      * Loads and validates superblock / disk map
      * @return ERR_SM_NOERR_PRISTINE_STATE is SM comes up from
@@ -87,6 +89,12 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Returns IDs of all existing disks of a given tier
      */
     DiskIdSet getDiskIds(diskio::DataTier tier) const;
+
+    /**
+     * Returns all disk IDs, regardless of tier
+     */
+    DiskIdSet getDiskIds() const;
+
     /**
      * Returns total number of disks: hdds + ssds
      */
@@ -116,6 +124,11 @@ class SmDiskMap : public Module, public boost::noncopyable {
     */
     void ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize);
 
+    /**
+     * Gets the total consumed space and returns a pair (totalConsumed, totalAvailable).
+     * The returned values can be divided out to get the % full
+     */
+    capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
 
     /**
      * Get current (i.e. closed DLT) from persitent storgate.

@@ -70,6 +70,21 @@ SmDiskMap::loadPersistentState() {
     return err;
 }
 
+SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
+{
+    struct statvfs statbuf;
+    std::string diskPath = getDiskPath(disk_id);
+    if (statvfs(diskPath.c_str(), &statbuf) < 0) {
+        LOGERROR << "Could not read disk " << diskPath;
+    }
+
+    fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
+    fds_uint64_t consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
+
+    return std::pair<fds_uint64_t, fds_uint64_t>(consumedSize, totalSize);
+}
+
+
 fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
         fds_uint64_t writeSize, fds_uint32_t fullThreshold) {
     fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
@@ -325,6 +340,21 @@ SmDiskMap::getDiskIds(diskio::DataTier tier) const {
     } else {
         fds_panic("Unknown tier request from SM disk map\n");
     }
+    return diskIds;
+}
+
+DiskIdSet
+SmDiskMap::getDiskIds() const {
+    DiskIdSet diskIds;
+
+    if (hdd_ids.size() > 0) {
+        diskIds.insert(hdd_ids.begin(), hdd_ids.end());
+    }
+
+    if (ssd_ids.size() > 0) {
+        diskIds.insert(ssd_ids.begin(), ssd_ids.end());
+    }
+
     return diskIds;
 }
 

@@ -97,6 +97,12 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::shared_ptr<ObjectStore> ptr;
 
     /**
+     * Returns the highest percentage of used capacity among all disks.
+     * For right now this will be limited to hard drives as tiering is per-volume.
+     */
+    float_t getUsedCapacityAsPct();
+
+    /**
      * Open store for a given set of SM tokens. One or more
      * SM tokens may be already opened, which is ok.
      * Called when SM starts migrating new tokens for which it gained
