@@ -6,12 +6,81 @@
 #
 osdep_target         := $(osdep_target).debug
 
+REALLY_NO_OPTIMIZATION_FLAGS := -fno-aggressive-loop-optimizations \
+                                -fno-branch-count-reg \
+                                -fno-dce \
+                                -fno-delete-null-pointer-checks \
+                                -fno-dse \
+                                -fno-early-inlining \
+                                -fno-gcse-lm \
+                                -fno-inline \
+                                -fno-ira-hoist-pressure \
+                                -fno-ivopts \
+                                -fno-jump-tables \
+                                -fno-move-loop-invariants \
+                                -fno-peephole \
+                                -fno-prefetch-loop-arrays \
+                                -fno-rename-registers \
+                                -fno-short-enums \
+                                -fthreadsafe-statics \
+                                -fno-toplevel-reorder \
+                                -fno-tree-coalesce-vars \
+                                -fno-tree-cselim \
+                                -fno-tree-forwprop \
+                                -fno-tree-loop-if-convert \
+                                -fno-tree-loop-im \
+                                -fno-tree-loop-optimize \
+                                -fno-tree-phiprop \
+                                -fno-tree-pta \
+                                -fno-tree-reassoc \
+                                -fno-tree-scev-cprop \
+                                -fno-tree-slp-vectorize \
+                                -fno-tree-vect-loop-version \
+                                -fno-web
+
+# Changes behavior on overflow.
+# Changes CPU instructions used.
+# Can be wrong in the presence of bugs (CBWITPOB).
+# CBWITPOB.
+# CBWITPOB.
+# NO INLINING! Because...
+# Changes CPU instructions used.
+# ...inlining also does things like elide locals.
+# Might be irrelevant, but NO HOISTING!
+# Elides and changes instructions. CBWITPOB.
+# Changes CPU instructions for switch statements.
+# NO HOISTING!
+# Exploiting CPU quirks. CBWITPOB.
+# Changes CPU instructions, even GCC manual is ambivalent.
+# Maybe wrong in the presence of bugs?
+# Binary-incompatible with code compiled otherwise.
+# Slightly smaller in code that doesn't need to be TS.
+# Elides unused static variable, reorders globals.
+# Elides temporaries. CBWITPOB.
+# Reorders, violates C++ mem model, CBWITPOB.
+# Reorders and changes instructions. CBWITPOB.
+# Reorders and changes instructions. CBWITPOB.
+# Reorders and changes instructions. CBWITPOB.
+# Reorders and changes instructions. CBWITPOB.
+# NO HOISTING! Reorders and changes. CBWITPOB.
+# Less analysis means maybe less interference.
+# Elides and vectories.
+# Elides and changes instructions.
+# E&C.
+# E&C.
+# E&C.
+
 osdep_kern_cc_flags  +=
 osdep_kern_ld_flags  +=
 osdep_kern_ar_flags  +=
 
-osdep_user_cc_flags  += -Og -DDEBUG -g -DFIU_ENABLE=1
-osdep_user_cpp_flags += -Og -DDEBUG -g -DFIU_ENABLE=1
+osdep_user_cc_flags  += -O0 -DDEBUG -g3 -gdwarf-4 -fvar-tracking-assignments -fno-inline -DFIU_ENABLE=1
+osdep_user_cpp_flags += -O0 -DDEBUG -g3 -gdwarf-4 -fvar-tracking-assignments -fno-inline -DFIU_ENABLE=1
 osdep_user_ld_flags  +=
 osdep_user_so_flags  +=
 osdep_user_ar_flags  +=
+
+ifdef REALLY_NO_OPTIMIZATION
+	osdep_user_cc_flags  += $(REALLY_NO_OPTIMIZATION_FLAGS)
+	osdep_user_cpp_flags += $(REALLY_NO_OPTIMIZATION_FLAGS)
+endif
