@@ -695,68 +695,6 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# bringing up a Storage Manager (SM) service.
-class TestSMBringUp(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
-        """
-        When run by a qaautotest module test runner,
-        "parameters" will have been populated with
-        .ini configuration.
-        """
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_SMBringUp,
-                                             "SM service bringup")
-
-        self.passedNode = node
-
-    def test_SMBringUp(self):
-        """
-        DEPRECATED:  This is now PM's job.
-        Test Case:
-        Attempt to start the SM service(s)
-        """
-
-#        # Get the FdsConfigRun object for this test.
-#        fdscfg = self.parameters["fdscfg"]
-#
-#        nodes = fdscfg.rt_obj.cfg_nodes
-#        for n in nodes:
-#            # If we were passed a node, use it and get out. Otherwise,
-#            # we boot all SMs we have.
-#            if self.passedNode is not None:
-#                n = findNodeFromInv(nodes, self.passedNode)
-#
-#            port = n.nd_conf_dict['fds_port']
-#            fds_dir = n.nd_conf_dict['fds_root']
-#            bin_dir = n.nd_agent.get_bin_dir(debug=False)
-#            log_dir = n.nd_agent.get_log_dir()
-#
-#            # Make sure SM should be running on this node.
-#            if n.nd_services.count("sm") == 0:
-#                self.log.warning("SM not configured for node %s." % n.nd_conf_dict['node-name'])
-#                if self.passedNode is None:
-#                    break
-#                else:
-#                    continue
-#
-#            self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
-#
-#            status = n.nd_agent.exec_wait('bash -c \"(nohup ./StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
-#                                          (fds_dir, log_dir, port),
-#                                          fds_bin=True)
-#
-#            if status != 0:
-#                self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-#                return False
-#            elif self.passedNode is not None:
-#                # Passed a specific node so get out.
-#                break
-
-        return True
-
-
-# This class contains the attributes and methods to test
 # waiting for a Storage Manager (SM) service to start.
 class TestSMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
