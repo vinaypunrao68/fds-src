@@ -110,9 +110,9 @@ public class NfsPath {
 
     @Override
     public String toString() {
-        return "NfsPath{" +
+        return "[" +
                 "volume='" + volume + '\'' +
                 ", path=" + path +
-                '}';
+                ']';
     }
 }

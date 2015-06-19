@@ -24,16 +24,16 @@ public class Chunker {
 
         for (long i = 0; i < totalObjects; i++) {
             int toBeWritten = Math.min(length, (objectSize - startOffset));
-            ByteBuffer newChunk = ByteBuffer.allocate(startOffset + toBeWritten);
-
-            ByteBuffer existing = null;
+            ByteBuffer newChunk = null;
             try {
-                existing = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+                ByteBuffer existing = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+                newChunk = ByteBuffer.allocate(Math.max(existing.remaining(), startOffset + toBeWritten));
+                newChunk.put(existing);
+                newChunk.position(0);
+
             } catch (FileNotFoundException e) {
-                existing = ByteBuffer.wrap(new byte[0]);
+                newChunk = ByteBuffer.allocate(startOffset + toBeWritten);
             }
-            newChunk.put(existing);
-            newChunk.position(0);
 
             newChunk.position(startOffset);
             newChunk.put(bytes, writtenSoFar, toBeWritten);

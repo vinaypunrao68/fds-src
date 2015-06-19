@@ -145,7 +145,7 @@ class MemoryVirtualFileSystem implements VirtualFileSystem {
 
     @Override
     public Inode link(Inode parent, Inode link, String path, Subject subject) throws IOException {
-        return null;
+        throw new RuntimeException("Not implemented");
     }
 
     @Override

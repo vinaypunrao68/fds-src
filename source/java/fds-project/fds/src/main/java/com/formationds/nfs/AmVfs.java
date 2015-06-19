@@ -84,7 +84,7 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public Inode link(Inode inode, Inode inode1, String s, Subject subject) throws IOException {
-        throw new RuntimeException();
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
@@ -212,7 +212,7 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public void commit(Inode inode, long offset, int count) throws IOException {
-        System.out.println("Commit");
+        // no-op
     }
 
     @Override
@@ -319,6 +319,7 @@ public class AmVfs implements VirtualFileSystem {
                     attributes.asMetadata())
                     .get());
         } catch (Exception e) {
+            LOG.error("Update metadata fails on " + path.toString(), e);
             throw new IOException(e);
         }
     }
