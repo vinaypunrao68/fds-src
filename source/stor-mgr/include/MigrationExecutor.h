@@ -132,6 +132,14 @@ class MigrationExecutor {
         }
     }
 
+    inline void setAbortPending() {
+        abortPending = true;
+    }
+
+    inline bool isAbortPending() {
+        return abortPending;
+    }
+
     /**
      * Adds DLT token to the list of DLT tokens for which this
      * MigrationExecutor is responsible for
@@ -261,6 +269,11 @@ class MigrationExecutor {
      * Target DLT version for this executor
      */
     fds_uint64_t targetDltVersion;
+
+    /**
+     * Flag to signify if abort is pending for this migration executor.
+     */
+    bool abortPending;
 
     /**
      * Set of DLT tokens that needs to be migrated from source SM

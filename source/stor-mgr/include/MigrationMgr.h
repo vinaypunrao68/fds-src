@@ -115,6 +115,12 @@ class MigrationMgr {
     Error abortMigrationForSMToken(fds_token_id &smToken, const Error &err);
 
     /**
+     * Set abort pending for all Migration Executors. This is called in
+     * response to CtrlNotifyAbortMigration message received from OM.
+     */
+    void setAbortPendingForExecutors();
+
+    /**
      * Start migration for the next executor or if none found
      * move on to the next phase.
      */
@@ -507,6 +513,11 @@ class MigrationMgr {
      * was not ready.
      */
      FdsTimer mTimer;
+
+    /**
+     * Timer for handling abort migration gracefully.
+     */
+    FdsTimer abortTimer;
 
     /**
      * Unique ID that will be used to identify what migrations to restart

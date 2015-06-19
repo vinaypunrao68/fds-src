@@ -1227,6 +1227,39 @@ MigrationMgr::abortMigration(const Error& error)
         return;  // this is ok
     }
 
+    /**
+     * Cancel the retryTokenMigrationTask.
+     */
+    mTimer.cancel(retryTokenMigrationTask);
+    setAbortPendingForExecutors();
+
+    /**
+     * Create a timer task that will check and wait for all currently
+     * running executors to exit and then abort the migration.
+     */
+     FdsTimerTaskPtr tryAbortingMigrationTask(
+                            new FdsTimerFunctionTask(abortTimer,
+                                                     std::bind(&MigrationMgr::tryAbortingMigration,
+                                                               this)));
+    int tryAbortInterval = 1;
+    abortTimer.scheduleRepeated(tryAbortingMigrationTask, std::chrono::seconds(tryAbortInterval));
+}
+
+void
+MigrationMgr::tryAbortingMigration() {
+
+    {
+        FDSGUARD(smTokenInProgressMutex);
+        if (!smTokenInProgress.empty()) {
+            return;
+        }
+    }
+
+    /**
+     * Cancel the try abort timer task.
+     */
+    abortTimer.cancel(tryAbortingMigrationTask);
+
     // if we need to ack Start Migration from OM, we will have a cb to reply to
     if (omStartMigrCb) {
         omStartMigrCb(error);
@@ -1247,6 +1280,17 @@ MigrationMgr::abortMigration(const Error& error)
     targetDltVersion = DLT_VER_INVALID;
 
     resyncOnRestart = false;
+}
+
+void
+MigrationMgr::setAbortPendingForExecutors() {
+
+    SCOPEDWRITE(migrExecutorLock);
+    for (auto &executors : migrExecutors) {
+        for (auto &executor : executors.second) {
+            executor.second.setAbortPending();
+        }
+    }
 }
 
 void
