@@ -30,6 +30,9 @@ void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     auto dmReq = new DmIoMigration(FdsDmSysTaskId, message);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationHandler::handleResponse, asyncHdr, message);
 
+    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    fds_verify(dmReq->io_type == FDS_DM_MIGRATION);
+
     addToQueue(dmReq);
 
 }
@@ -37,6 +40,11 @@ void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
+
+    // Do some bookkeeping
+
+    // Talk to migration handler.
+    dataManager.dmMigrationMgr->startMigration(typedRequest->message);
 
 }
 
