@@ -13,7 +13,7 @@
 localhost
 awo-bh-01 fds_deploy_local_deps=False fds_build=release
 
-[static_16node_ec2]
+[static_32node_ec2]
 10.3.20.60
 10.3.20.61
 10.3.20.62
@@ -47,7 +47,8 @@ awo-bh-01 fds_deploy_local_deps=False fds_build=release
 10.3.20.90
 10.3.20.91
 
-[static_16node_ec2:vars]
+[static_32node_ec2:vars]
+instance_count=32
 ansible_ssh_user=deploy
 cluster_location=awo
 deploy_artifact=nightly

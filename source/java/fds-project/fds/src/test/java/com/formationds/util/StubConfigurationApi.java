@@ -399,7 +399,11 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public void createSnapshot(long volumeId, String snapshotName, long retentionTime, long timelineTime) throws ApiException, TException {
         configurationVersion.incrementAndGet();
+    }
 
+    @Override
+    public void deleteSnapshot(long volumeId, long snapshotId) throws ApiException, TException {
+        configurationVersion.incrementAndGet();
     }
 
     @Override
