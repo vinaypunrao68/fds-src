@@ -54,8 +54,6 @@
         -   10.3.4.128 awo-apt.formationds.com awo-apt
         -   10.2.10.22 bld-apt.formationds.com bld-apt
         -   10.1.10.50 fre-apt.formationds.com fre-apt
-    tags:
-        - install-deps
 
 -   name: add artifactory repo key
     when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
@@ -87,7 +85,7 @@
         state=present
         update_cache=yes
     tags:
-        - install-deps
+      - install-deps
 
 -   name: install fds-deps package from repo
     when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false

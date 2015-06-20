@@ -3,14 +3,10 @@
     raw: python --version
     register: python_installed
     ignore_errors: yes
-    tags:
-      - setup
 
 -   name: install python
     raw: apt-get -y install python
     when: python_installed|failed
-    tags:
-      - setup
 
 -   name: set the root password
     action: user name=root
