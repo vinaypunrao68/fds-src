@@ -623,7 +623,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // latest seq_number is provided to AM on volume open.
     if (fPrimary) {
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid,
-                                                             volmeta->seq_id);
+                                                             volmeta->sequence_id);
 
         if (!err.ok()) {
             return err;

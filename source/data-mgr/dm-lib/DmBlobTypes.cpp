@@ -106,6 +106,7 @@ std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
 
 BasicBlobMeta::BasicBlobMeta() {
     version = blob_version_invalid;
+    sequence_id = 0;
     blob_size = 0;
 }
 
@@ -116,6 +117,7 @@ uint32_t BasicBlobMeta::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     bytes += s->writeString(blob_name);
     bytes += s->writeI64(version);
+    bytes += s->writeI64(sequence_id);
     bytes += s->writeI64(blob_size);
     return bytes;
 }
@@ -125,6 +127,7 @@ uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
     blob_name.clear();
     bytes += d->readString(blob_name);
     bytes += d->readI64(version);
+    bytes += d->readI64(sequence_id);
     bytes += d->readI64(blob_size);
     return bytes;
 }
@@ -132,6 +135,7 @@ uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
 BasicBlobMeta& BasicBlobMeta::operator=(const BasicBlobMeta &rhs) {
     blob_name = rhs.blob_name;
     version   = rhs.version;
+    sequence_id = rhs.sequence_id;
     blob_size = rhs.blob_size;
     return *this;
 }
@@ -140,6 +144,7 @@ std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& desc) {
     out << "BasicBlobMeta: "
         << "name " << desc.blob_name
         << ", version " << desc.version
+        << ", sequence ID " << desc.sequence_id
         << ", size " << desc.blob_size << " bytes; ";
     return out;
 }
@@ -361,7 +366,7 @@ std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
  * until someone else actually assigns valid data
  */
 VolumeMetaDesc::VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList)
-        : meta_list(metadataList) {    
+        : meta_list(metadataList) {
 }
 
 VolumeMetaDesc::~VolumeMetaDesc() = default;

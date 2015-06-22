@@ -612,6 +612,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     return expungeCb_(volId, expungeList);
 }
 
+// XXX: (JLL) commenting out this function doesn't seem to break anything
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
         CatWriteBatch & wb, bool truncate /* = true */) {
@@ -768,7 +769,7 @@ DmPersistVolCat::ptr DmVolumeCatalog::getVolume(fds_volid_t volId) {
     return vol;
 }
 
-Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) {
+Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getLatestSequenceId(seq_id);
 }

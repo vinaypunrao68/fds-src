@@ -156,7 +156,7 @@ struct BlobObjList :
      * obj size is max obj size, unless this is the last object of the blob.
      * We also expect that each offset is max_obj_size aligned
      *
-     * If we remove any of these assumptions, we will 
+     * If we remove any of these assumptions, we will
      * the last object of the blob; Once that assumption is not true,
      * we need to make some modifications in Volume Catalog to
      * remove these assumptions
@@ -181,11 +181,12 @@ struct BlobObjList :
 };
 
 /**
- * Basic blob metadata 
+ * Basic blob metadata
  */
 struct BasicBlobMeta: serialize::Serializable {
     std::string blob_name;
     blob_version_t version;
+    sequence_id_t sequence_id;
 
     // NOTE(bszmyd): Wed 07 Jan 2015 04:31:44 PM PST
     // This should be interpreted as the size of the blob
@@ -261,4 +262,3 @@ std::ostream& operator<<(std::ostream& out, const VolumeMetaDesc& volumeMetaDesc
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMBLOBTYPES_H_
-

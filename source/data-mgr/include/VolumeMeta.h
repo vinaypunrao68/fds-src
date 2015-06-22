@@ -79,7 +79,7 @@ class VolumeMeta : public HasLogger {
     // latest sequence ID is not part of the volume descriptor because it will
     // always be out of date. stashing it here to provide to the AM on attach.
     // ATTN: NOT updated on every request.
-    blob_version_t seq_id;
+    sequence_id_t sequence_id;
 
     /*
      * Default constructor should NOT be called

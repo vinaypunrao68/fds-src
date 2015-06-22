@@ -177,7 +177,7 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
+Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
     Catalog::catalog_roptions_t opts;
     auto dbIt = getSnapshotIter(opts);
     if (!dbIt) {
@@ -196,8 +196,8 @@ Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
                 return ERR_SERIALIZE_FAILED;
             }
 
-            if (max < blobMeta.desc.version) {
-                max = blobMeta.desc.version;
+            if (max < blobMeta.desc.sequence_id) {
+                max = blobMeta.desc.sequence_id;
             }
         }
     }

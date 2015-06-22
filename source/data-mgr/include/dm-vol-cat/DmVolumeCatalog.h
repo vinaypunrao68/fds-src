@@ -244,7 +244,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
          return 0;
      }
 
-    Error getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id);
+    Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id);
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
