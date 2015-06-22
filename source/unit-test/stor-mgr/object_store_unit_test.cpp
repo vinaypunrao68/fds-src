@@ -224,6 +224,7 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
 }
 
 TEST_F(SmObjectStoreTest, get_used_capacity_pct) {
+
     Error err(ERR_OK);
 
     float_t used_pct = objectStore->getUsedCapacityAsPct();

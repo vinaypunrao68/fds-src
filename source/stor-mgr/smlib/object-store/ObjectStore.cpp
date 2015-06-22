@@ -48,15 +48,16 @@ ObjectStore::~ObjectStore() {
 float_t ObjectStore::getUsedCapacityAsPct() {
 
     float_t max = 0;
-    for (auto diskId : diskMap->getDiskIds(diskio::diskTier)) {
+    // For disks
+    for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
         SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
             // If we don't just return 0
-            LOGERROR << "Found disk used capacity " << capacity.first << " / " << capacity.second;
-            return 0;
+            LOGERROR << "Found disk used capacity of zero, possible error ";
+            break;
         }
         float_t pct_used = (capacity.first * 1.) / capacity.second;
 

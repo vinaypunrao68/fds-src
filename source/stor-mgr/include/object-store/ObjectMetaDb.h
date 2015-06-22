@@ -118,6 +118,11 @@ class ObjectMetadataDb {
                    std::string &snapDir,
                    leveldb::CopyEnv **env);
 
+    /**
+     * Return the file name of the object meta db for this token
+     */
+    static std::string getObjectMetaFilename(std::string diskPath, fds_token_id smTokId);
+
   private:  // methods
     /**
      * Open object metadata DB for a given SM token

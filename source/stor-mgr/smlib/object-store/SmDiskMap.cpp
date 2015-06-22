@@ -8,6 +8,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 #include <net/SvcMgr.h>
+#include <object-store/ObjectMetaDb.h>
 
 namespace fds {
 
@@ -75,13 +76,38 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
     struct statvfs statbuf;
     memset(&statbuf, 0, sizeof(statbuf));
 
+    bool ssdMetadata = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta");
+
+    // Get the total size info for the disk regardless of type
     std::string diskPath = getDiskPath(disk_id);
     if (statvfs(diskPath.c_str(), &statbuf) < 0) {
         LOGERROR << "Could not read disk " << diskPath;
     }
-
     fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
-    fds_uint64_t consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
+    fds_uint64_t consumedSize = 0;
+
+    // If we got an SSD disk id and have HDDs we still need to check metadata size
+    if ((ssd_ids.find(disk_id) != ssd_ids.end()) && (hdd_ids.size() != 0)) {
+        // Only calculate this value if we've got ssd metadata turned on
+        if (ssdMetadata) {
+            LOGDEBUG << "SM using SSD for metadata, checking metadata size...";
+
+            SmTokenSet smToks = getSmTokens();
+            // Find the LevelDBs
+            for (SmTokenSet::const_iterator cit = smToks.cbegin();
+                 cit != smToks.cend();
+                 ++cit) {
+                // Calculate a consumedSize based on the size of the level DBs
+                std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
+                if (statvfs(filename.c_str(), &statbuf) < 0) {
+                    LOGERROR << "Could not read metadata filename" << filename;
+                }
+                consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
+            }
+        }
+    } else {
+        consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
+    }
 
     return std::pair<fds_uint64_t, fds_uint64_t>(consumedSize, totalSize);
 }
