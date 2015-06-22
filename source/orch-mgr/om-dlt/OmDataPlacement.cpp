@@ -87,6 +87,10 @@ DataPlacement::computeDlt() {
     // Will change to be relative to the current.
     fds_uint64_t version;
     
+//    fds_verify( newDlt == NULL );
+    
+    LOGDEBUG << "NEW DLT " << newDlt << " COMMITED DLT " << commitedDlt;
+    
     if ( ( newDlt == NULL ) && ( commitedDlt != NULL ) )
     {
         return;

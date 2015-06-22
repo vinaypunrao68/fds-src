@@ -1742,9 +1742,29 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                 
                 if ( error.ok() )
                 {
+                    NodeList addNodes, rmNodes;                        
                     OM_Module *om = OM_Module::om_singleton();
+                    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
                     ClusterMap *cm = om->om_clusmap_mod();
-                    cm->getAddedServices( reg_node_req->node_type );
+                    
+                    if ( svc.svc_type == fpi::FDSP_STOR_MGR )
+                    {
+                        addNodes.clear();
+                        rmNodes.clear();
+                        
+                        OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+                        cm->updateMap( fpi::FDSP_STOR_MGR, addNodes, rmNodes );
+                        cm->resetPendServices( fpi::FDSP_STOR_MGR );
+                    }
+                    else if ( svc.svc_type == fpi::FDSP_DATA_MGR )
+                    {
+                        addNodes.clear();
+                        rmNodes.clear();
+                       
+                        OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
+                        cm->updateMap( fpi::FDSP_DATA_MGR, addNodes, rmNodes );
+                        cm->resetPendServices( fpi::FDSP_DATA_MGR );
+                    }
                 }
                 break;
             case fpi::FDSP_PLATFORM:
@@ -1979,7 +1999,6 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
     }
         
     error = om_locDomain->dc_register_node( uuid, msg, &nodeAgent );
-    LOGDEBUG << "Domain Register Node Returned " << error;
     if ( error == ERR_DUPLICATE || error.ok() ) 
     {
         nodeAgent->set_node_state( fpi::FDS_Node_Up );
@@ -2003,10 +2022,6 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                          << std::hex << msg->node_uuid.uuid << std::dec << " )";
             }
         } 
-        else if ( msg->node_type == fpi::FDSP_DATA_MGR )
-        {
-            om_locDomain->om_bcast_stream_reg_list( nodeAgent );
-        }
             
         om_locDomain->om_update_node_list( nodeAgent, msg );
         LOGNOTIFY << "OM Restart, spoof registration for"

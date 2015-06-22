@@ -1956,7 +1956,7 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
 // -----------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
+    OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
 {
     fds_uint32_t cnt = 0;
     om_volumes->vol_foreach<NodeAgent::pointer, fds_uint32_t *>

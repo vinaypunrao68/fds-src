@@ -164,7 +164,7 @@ void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::Async
     // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
 
 
-    GLOGDEBUG << logString(*header);
+//    GLOGDEBUG << logString(*header);
 
     fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
 

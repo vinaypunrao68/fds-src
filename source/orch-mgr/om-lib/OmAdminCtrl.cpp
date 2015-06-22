@@ -80,14 +80,15 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
 
-    LOGNOTIFY<< "desc iops_assured: " << pVolDesc->iops_assured
-             << "desc iops_throttle: " << pVolDesc->iops_throttle
-             << "desc capacity (MB): " << pVolDesc->capacity
-             << "total iops assured : " << total_vol_iops_assured
-             << "total iops throttle: " << total_vol_iops_throttle
-             << "total capacity (GB): " << total_vol_disk_cap_GB;
-    fds_verify(pVolDesc->iops_assured <= total_vol_iops_assured);
-    fds_verify(pVolDesc->iops_throttle <= total_vol_iops_throttle);
+    LOGDEBUG << "desc iops_assured: " << pVolDesc->iops_assured
+             << " desc iops_throttle: " << pVolDesc->iops_throttle
+             << " desc capacity (MB): " << pVolDesc->capacity
+             << " total iops assured : " << total_vol_iops_assured
+             << " total iops throttle: " << total_vol_iops_throttle
+             << " total capacity (GB): " << total_vol_disk_cap_GB;
+        
+    fds_verify(pVolDesc->iops_assured <= total_vol_iops_assured);            
+    fds_verify(pVolDesc->iops_throttle <= total_vol_iops_throttle);          
     fds_verify(vol_capacity_GB <= total_vol_disk_cap_GB);
 
     total_vol_iops_assured -= pVolDesc->iops_assured;
