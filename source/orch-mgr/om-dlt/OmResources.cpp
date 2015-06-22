@@ -1329,7 +1329,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 LOGNORMAL << "No persisted Service Map found.";
             }
         }
-				//
+	
         // load DLT (and save as not committed) from config DB and
         // check if DLT matches the set of persisted nodes
         err = dp->loadDltsFromConfigDB(sm_services);
@@ -1736,11 +1736,16 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
         
         switch ( svc.svc_type )
         {
-            case fpi::FDSP_ACCESS_MGR:
-                break;
             case fpi::FDSP_DATA_MGR:
             case fpi::FDSP_STOR_MGR:
                 error = om_handle_restart( node_uuid, reg_node_req );
+                
+                if ( error.ok() )
+                {
+                    OM_Module *om = OM_Module::om_singleton();
+                    ClusterMap *cm = om->om_clusmap_mod();
+                    cm->getAddedServices( reg_node_req->node_type );
+                }
                 break;
             case fpi::FDSP_PLATFORM:
                 // TODO how do we set the node state?
@@ -1765,7 +1770,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
     }
     
     if ( spoofed.size() > 0  )
-    {
+    {    
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
     }
 }
@@ -1778,6 +1783,10 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
 {
     std::vector<fpi::SvcInfo> svcs;
     configDB->getSvcMap( svcs );
+    
+    std::vector<fpi::SvcInfo> entries;
+    MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
+    LOGDEBUG << "SERVICE MAP SIZE:: " << entries.size();
     
     LOGDEBUG << "OM Restart, Found " << svcs.size() << " persisted services.";
     if ( svcs.size() > 0 )
@@ -1806,8 +1815,10 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
         }
     }
     
-    return ( ( pmSvcs->size() > 0 ) || 
-             ( amSvcs->size() > 0 ) ||  
+    /**
+     * ignore any PMs that are running. They are expected.
+     */
+    return ( ( amSvcs->size() > 0 ) ||  
              ( smSvcs->size() > 0 ) || 
              ( dmSvcs->size() > 0 ) ) 
             ? true 
