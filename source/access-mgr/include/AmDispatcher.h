@@ -69,7 +69,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
+    Error dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.

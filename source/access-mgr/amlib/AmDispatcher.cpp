@@ -3,6 +3,7 @@
  */
 
 #include <algorithm>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -309,18 +310,28 @@ AmDispatcher::dispatchOpenVolumeCb(AmRequest* amReq,
 /**
  * Dispatch a request to DM asking for permission to access this volume.
  */
-void
+Error
 AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
-    fiu_do_on("am.uturn.dispatcher", return;);
+    fiu_do_on("am.uturn.dispatcher", return ERR_OK;);
 
     LOGDEBUG << "Attempting to close volume: " << vol_id;
     auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
     volMDMsg->volume_id = vol_id.get();
     volMDMsg->token = token;
 
-    MultiPrimarySvcRequestRespCb cb;
+    // This gives this request blocking semantics
+    std::promise<Error> done;
+    std::shared_future<Error> ready(done.get_future());
+    MultiPrimarySvcRequestRespCb cb =
+        [&done] (MultiPrimarySvcRequest* svcReq,
+                 const Error& error,
+                 boost::shared_ptr<std::string> payload) mutable -> void {
+            return done.set_value(error); // Trigger processor thread
+        };
+
     auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, volMDMsg, cb);
     asyncCloseVolReq->invoke();
+    return ready.get();
 }
 
 void
