@@ -73,6 +73,8 @@ SmDiskMap::loadPersistentState() {
 SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
     struct statvfs statbuf;
+    memset(&statbuf, 0, sizeof(statbuf));
+
     std::string diskPath = getDiskPath(disk_id);
     if (statvfs(diskPath.c_str(), &statbuf) < 0) {
         LOGERROR << "Could not read disk " << diskPath;

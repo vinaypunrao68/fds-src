@@ -97,8 +97,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::shared_ptr<ObjectStore> ptr;
 
     /**
-     * Returns the highest percentage of used capacity among all disks.
-     * For right now this will be limited to hard drives as tiering is per-volume.
+     * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
+     * Does not consider tiering data in calculations, but does include SM metadata stored in SSDs.
+     * Returns 0 and logs an error if either the used capacity or the total capacity is 0.
      */
     float_t getUsedCapacityAsPct();
 

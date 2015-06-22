@@ -32,6 +32,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     typedef std::shared_ptr<SmDiskMap> ptr;
     typedef std::shared_ptr<const SmDiskMap> const_ptr;
 
+    // Type for storing (used capacity, total capacity) pairs
     typedef std::pair<fds_uint64_t, fds_uint64_t> capacity_tuple;
 
     /**

@@ -51,6 +51,13 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     for (auto diskId : diskMap->getDiskIds(diskio::diskTier)) {
         // Get the (used, total) pair
         SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+
+        // Check to make sure we've got good data from the stat call
+        if (capacity.first == 0 || capacity.second == 0) {
+            // If we don't just return 0
+            LOGERROR << "Found disk used capacity " << capacity.first << " / " << capacity.second;
+            return 0;
+        }
         float_t pct_used = (capacity.first * 1.) / capacity.second;
 
         if (pct_used > max) {

@@ -231,11 +231,13 @@ TEST_F(SmObjectStoreTest, get_used_capacity_pct) {
     EXPECT_TRUE(used_pct >= 0);
 
     // populate store
+    int written = 0;
     for (fds_uint32_t i = 0; i < (volume1->testdata_).dataset_.size(); ++i) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data = (volume1->testdata_).dataset_map_[oid].getObjectData();
         err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
+        written += data->size();
     }
 
     float_t used_pct2 = objectStore->getUsedCapacityAsPct();
