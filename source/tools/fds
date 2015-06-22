@@ -552,7 +552,8 @@ function clean() {
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
 
-				rm -rf /${node}/var/logs
+		rm -rf /${node}/var/logs/*.log*
+		rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null
         fi

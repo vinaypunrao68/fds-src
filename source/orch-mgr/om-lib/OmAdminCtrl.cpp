@@ -122,9 +122,9 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // quick hack to allow system volumes
     if (pVolDesc->isSystemVolume()) {
         pVolDesc->iops_assured = 0;
-        LOGWARN << "system volume : "
-                << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
-                << " admitted unconditionally";
+        LOGDEBUG << "system volume : "
+                 << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
+                 << " admitted unconditionally";
         return err;
     }
 

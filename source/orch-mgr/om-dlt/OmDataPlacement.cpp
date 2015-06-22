@@ -16,6 +16,7 @@
 #include <net/net-service.h>
 #include <fdsp/svc_types_types.h>
 #include <net/SvcRequestPool.h>
+#include <list>
 #include "fdsp/sm_api_types.h"
 
 namespace fds {
@@ -69,6 +70,10 @@ Error
 DataPlacement::updateMembers(const NodeList &addNodes,
                              const NodeList &rmNodes) {
     placementMutex->lock();
+    LOGDEBUG << "Updating OM Cluster Map "
+             << " Add Nodes: " << addNodes.size()
+             << " Remove Nodes: " << rmNodes.size();
+    
     Error err = curClusterMap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // TODO(Andrew): We should be recomputing the DLT here.
     placementMutex->unlock();
@@ -81,8 +86,11 @@ DataPlacement::computeDlt() {
     // Currently always create a new empty DLT.
     // Will change to be relative to the current.
     fds_uint64_t version;
-    fds_verify(newDlt == NULL);
-
+    
+    if ( ( newDlt == NULL ) && ( commitedDlt != NULL ) )
+    {
+        return;
+    }
     if (commitedDlt == NULL) {
         version = DLT_VER_INVALID + 1;
     } else {
