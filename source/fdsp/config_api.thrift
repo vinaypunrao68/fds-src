@@ -469,6 +469,12 @@ service ConfigurationService {
       throws (1: common.ApiException e),
 
   /**
+   * Delete the snapshot with the given snapshotId
+   */
+  void deleteSnapshot(1:i64 volumeId, 2:i64 snapshotId)
+      throws (1: common.ApiException e),
+
+  /**
    * Enumerate snapshots.
    *
    * @param volumeId the volume id

@@ -764,6 +764,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
+    public void deleteSnapshot(long volumeId, long snapshotId)
+        throws TException {
+        getConfig().deleteSnapshot(volumeId, snapshotId);
+    }
+
+    @Override
     public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listSnapshots(volumeId);

@@ -371,6 +371,13 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public void deleteSnapshot(long volumeId, long snapshotId)
+            throws ApiException, TException {
+        config.deleteSnapshot(volumeId, snapshotId);
+    }
+
+
+    @Override
     public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
             throws ApiException, org.apache.thrift.TException {
         return config.listSnapshots(volumeId);

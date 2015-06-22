@@ -71,7 +71,6 @@ private:
     DataMgr& dataManager_;
 };
 
-
 struct Handler: HasLogger {
     explicit Handler(DataMgr& dataManager);
     // providing a default empty implmentation to support requests that
