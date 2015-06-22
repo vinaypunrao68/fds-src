@@ -56,7 +56,8 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
             // If we don't just return 0
-            LOGERROR << "Found disk used capacity of zero, possible error ";
+            LOGERROR << "Found disk used capacity of zero, possible error. DiskID = " << diskId
+                        << ". Disk path = " << diskMap->getDiskPath(diskId);
             break;
         }
         float_t pct_used = (capacity.first * 1.) / capacity.second;
