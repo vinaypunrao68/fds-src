@@ -83,7 +83,7 @@ AmDispatcher::start() {
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
-    numDmPrimaries = conf.get_abs<fds_uint32_t>("fds.dm.number_of_primary", DmDefaultPrimaryCnt);
+    numPrimaries = conf.get_abs<fds_uint32_t>("fds.dm.number_of_primary", DmDefaultPrimaryCnt);
 }
 
 Error
@@ -173,17 +173,14 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
                                         boost::shared_ptr<Msg> const& payload,
                                         MultiPrimarySvcRequestRespCb cb,
                                         uint32_t timeout) const {
-    static size_t const num_primaries {2};
-
     auto token_group = dmtMgr->getCommittedNodeGroup(volId);
 
-    // TODO(bszmyd): Mon 22 Jun 2015 11:43:24 AM MDT
-    // Right now, assuming the first two (if any) nodes are the primaries and
+    // Assuming the first N (if any) nodes are the primaries and
     // the rest are backups. Not sure if this is a safe assumption!
     std::vector<fpi::SvcUuid> primaries, secondaries;
     for (size_t i = 0; token_group->getLength() > i; ++i) {
         auto uuid = token_group->get(i).toSvcUuid();
-        if (num_primaries > i) {
+        if (numPrimaries > i) {
             primaries.push_back(uuid);
             continue;
         }
@@ -209,18 +206,15 @@ AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
                                         boost::shared_ptr<Msg> const& payload,
                                         MultiPrimarySvcRequestRespCb cb,
                                         uint32_t timeout) const {
-    static size_t const num_primaries {2};
-
     auto const dlt = dltMgr->getDLT();
     auto token_group = dlt->getNodes(objId);
 
-    // TODO(bszmyd): Mon 22 Jun 2015 11:43:24 AM MDT
-    // Right now, assuming the first two (if any) nodes are the primaries and
+    // Assuming the first N (if any) nodes are the primaries and
     // the rest are backups. Not sure if this is a safe assumption!
     std::vector<fpi::SvcUuid> primaries, secondaries;
     for (size_t i = 0; token_group->getLength() > i; ++i) {
         auto uuid = token_group->get(i).toSvcUuid();
-        if (num_primaries > i) {
+        if (numPrimaries > i) {
             primaries.push_back(uuid);
             continue;
         }
@@ -244,9 +238,9 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
                                     uint32_t timeout) const {
     // Only issue reads from primaries.
     DmtColumnPtr dmsForVol = dmtMgr->getCommittedNodeGroup(volId);
-    DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numDmPrimaries);
-    uint32_t numPrimaries = (dmsForVol->getLength() < numDmPrimaries ? dmsForVol->getLength() : numDmPrimaries);
-    for (uint32_t i = 0; i < numPrimaries; ++i) {
+    DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numPrimaries);
+    auto numNodes = std::min(dmsForVol->getLength(), numPrimaries);
+    for (uint32_t i = 0; numNodes > i; ++i) {
         dmPrimariesForVol->set(i, dmsForVol->get(i));
     }
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(
