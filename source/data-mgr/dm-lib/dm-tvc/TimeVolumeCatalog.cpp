@@ -129,7 +129,8 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fds_int64_t& token,
-                             fpi::VolumeAccessMode const& mode) {
+                             fpi::VolumeAccessMode const& mode,
+                             sequence_id_t& sequence_id) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -148,6 +149,8 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
             err = it->second->getToken(token, mode, vol_tok_lease_time);
         }
     }
+
+    sequence_id = dataManager_.getVolumeMeta(volId, false)->getSequenceId();
 
     return err;
 }
@@ -228,7 +231,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
 
 #if 0
     // disable the ObjRef count  login for now. will revisit this  once  we have complete
-    // design in place 
+    // design in place
         for (auto it : tokenOidMap) {
             incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
             // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
@@ -661,7 +664,7 @@ void DmTimeVolCatalog::monitorLogs() {
                 vecVolIds.push_back(item.first);
             }
         }
-        
+
         // now check for each volume if the commit log time has been exceeded
         TimeStamp now = fds::util::getTimeStampMicros();
         std::vector<JournalFileInfo> vecJournalFiles;
@@ -691,7 +694,7 @@ void DmTimeVolCatalog::monitorLogs() {
                     }
                 }
             }
-        }        
+        }
 
 
         do {

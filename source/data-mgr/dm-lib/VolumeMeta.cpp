@@ -77,4 +77,18 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->timelineTime = pVol->timelineTime;
 }
 
+void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
+    fds_mutex::scoped_lock l(sequence_lock);
+
+    if (new_seq_id > sequence_id) {
+        sequence_id = new_seq_id;
+    }
+}
+
+sequence_id_t VolumeMeta::getSequenceId(){
+    fds_mutex::scoped_lock l(sequence_lock);
+
+    return sequence_id;
+}
+
 }  // namespace fds

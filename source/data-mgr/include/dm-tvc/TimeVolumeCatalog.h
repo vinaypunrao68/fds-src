@@ -142,7 +142,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     Error openVolume(fds_volid_t const volId,
                      fds_int64_t& token,
-                     fpi::VolumeAccessMode const& mode);
+                     fpi::VolumeAccessMode const& mode,
+                     sequence_id_t& sequence_id);
 
     /**
      * Attempt to "close" this volume from a previous open

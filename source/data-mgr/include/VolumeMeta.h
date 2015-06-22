@@ -79,7 +79,12 @@ class VolumeMeta : public HasLogger {
     // latest sequence ID is not part of the volume descriptor because it will
     // always be out of date. stashing it here to provide to the AM on attach.
     // ATTN: NOT updated on every request.
+ private:
     sequence_id_t sequence_id;
+    fds_mutex sequence_lock;
+ public:
+    void setSequenceId(sequence_id_t seq_id);
+    sequence_id_t getSequenceId();
 
     /*
      * Default constructor should NOT be called

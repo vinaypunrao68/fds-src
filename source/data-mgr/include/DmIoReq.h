@@ -632,6 +632,7 @@ struct DmIoVolumeOpen : dmCatReq {
 
     fds_int64_t token;
     fpi::VolumeAccessMode access_mode;
+    sequence_id_t sequence_id;
 
     // response callback
     CbType dmio_get_volmd_resp_cb;
