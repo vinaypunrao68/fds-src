@@ -29,7 +29,7 @@ class AmQoSCtrl : public FDS_QoSControl {
     virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
     Error processIO(FDS_IOType *io);
     void runScheduler(vol_callback_type&& cb);
-    Error markIODone(FDS_IOType *io);
+    Error markIODone(AmRequest *io);
     fds_uint32_t waitForWorkers();
     void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
     Error   registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq);

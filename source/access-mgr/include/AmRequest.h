@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "fds_volume.h"
 #include "PerfTrace.h"
 #include "responsehandler.h"
 
@@ -27,8 +28,11 @@ class AmRequest : public FDS_IOType {
 
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
+    fds_uint64_t   blob_offset_end;
     std::string    volume_name;
-    ObjectID       obj_id;
+
+    // Flag to indicate when a request has been responded to
+    std::atomic<bool> completed;
 
     ProcessorCallback proc_cb;
     CallbackPtr cb;
@@ -41,32 +45,41 @@ class AmRequest : public FDS_IOType {
               fds_uint64_t        _blob_offset = 0,
               fds_uint64_t        _data_len = 0)
         : volume_name(_vol_name),
+        completed(false),
         blob_name(_blob_name),
         blob_offset(_blob_offset),
         data_len(_data_len),
         cb(_cb)
     {
-        io_magic  = FDS_SH_IO_MAGIC_IN_USE;
         io_module = ACCESS_MGR_IO;
         io_req_id = 0;
         io_type   = _op;
-        io_vol_id = _vol_id;
+        setVolId(_vol_id);
+    }
 
-        e2e_req_perf_ctx.reset_volid(_vol_id);
+    void setVolId(fds_volid_t const vol_id) {
+        io_vol_id = vol_id;
+        e2e_req_perf_ctx.reset_volid(io_vol_id);
+        qos_perf_ctx.reset_volid(io_vol_id);
+        hash_perf_ctx.reset_volid(io_vol_id);
+        dm_perf_ctx.reset_volid(io_vol_id);
+        sm_perf_ctx.reset_volid(io_vol_id);
     }
 
     virtual ~AmRequest()
     { fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); }
 
-    bool magicInUse() const
-    { return (io_magic == FDS_SH_IO_MAGIC_IN_USE); }
+    bool isCompleted()
+    { return !completed.load(std::memory_order_relaxed); }
+
+    bool testAndSetComplete()
+    { return completed.exchange(true, std::memory_order_relaxed); }
 
     const std::string& getBlobName() const
     { return blob_name; }
 
  protected:
     std::string        blob_name;
-    util::StopWatch    stopwatch;
 };
 
 struct AmTxReq {

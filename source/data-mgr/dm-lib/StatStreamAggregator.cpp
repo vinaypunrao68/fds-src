@@ -4,6 +4,7 @@
 #include <string>
 #include <limits>
 #include <vector>
+#include <fdsp/fds_stream_types.h>
 #include <fds_process.h>
 #include <net/SvcMgr.h>
 #include <util/math-util.h>
@@ -34,11 +35,14 @@ class VolStatsTimerTask : public FdsTimerTask {
 
 StatStreamTimerTask::StatStreamTimerTask(FdsTimer &timer,
                                          fpi::StatStreamRegistrationMsgPtr reg,
-                                         StatStreamAggregator & statStreamAggr)
-        : FdsTimerTask(timer), reg_(reg),
+                                         StatStreamAggregator & statStreamAggr,
+                                         DataMgr& dataManager)
+        : FdsTimerTask(timer),
+          dataManager_(dataManager),
+          reg_(reg),
           statStreamAggr_(statStreamAggr) {
     for (auto volId : reg_->volumes) {
-        vol_last_ts_[volId] = 0;
+        vol_last_ts_[fds_volid_t(volId)] = 0;
     }
 }
 
@@ -265,8 +269,10 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
 
 
 StatStreamAggregator::StatStreamAggregator(char const *const name,
-                                           boost::shared_ptr<FdsConfig> fds_config)
+                                           boost::shared_ptr<FdsConfig> fds_config,
+                                           DataMgr& dataManager)
         : Module(name),
+          dataManager_(dataManager),
           process_tm_(new FdsTimer()),
           process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
@@ -421,7 +427,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
 
     SCOPEDWRITE(lockStatStreamRegsMap);
     statStreamRegistrations_[registration->id] = registration;
-    FdsTimerTaskPtr task(new StatStreamTimerTask(timer_, registration, *this));
+    FdsTimerTaskPtr task(new StatStreamTimerTask(timer_, registration, *this, dataManager_));
     statStreamTaskMap_[registration->id] = task;
     timer_.scheduleRepeated(task, std::chrono::seconds(registration->duration_seconds));
     return ERR_OK;
@@ -446,9 +452,9 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
         fpi::VolStatList & vstats = (stream_msg->volstats)[i];
         LOGDEBUG << "Received stats for volume " << std::hex << vstats.volume_id
                  << std::dec << " timestamp " << remote_start_ts;
-        VolumeStats::ptr volstats = getVolumeStats(vstats.volume_id);
+        VolumeStats::ptr volstats = getVolumeStats(fds_volid_t(vstats.volume_id));
         if (!volstats) {
-          LOGWARN << "Volume " << std::hex << vstats.volume_id << std::dec
+          LOGWARN << "Volume " << fds_volid_t(vstats.volume_id)
                << " is not attached to the aggregator! Ignoring stats";
           continue;
         }
@@ -467,7 +473,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     char buf[50];
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string fileName = root->dir_sys_repo_stats() + std::to_string(vol_id) +
+    const std::string fileName = root->dir_sys_repo_stats() + std::to_string(vol_id.get()) +
             std::string("/") + (isMin ? "stat_min.log" : "stat_hour.log");
 
     FILE   *pFile = fopen((const char *)fileName.c_str(), "a+");
@@ -481,19 +487,21 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     *(strchr(buf, '\n')) = '\0';  // Get rid of the \n at the end
     fprintf(pFile, "%s,", buf);
 
-    std::vector<DataPointPair>::const_iterator pos;
+    std::vector<fpi::DataPointPair>::const_iterator pos;
 
     fprintf(pFile, "[");
-    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos)
-        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<fds_int64_t>(pos->value));
+    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos) {
+        // FIXME: Add range checking.
+        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<long long>(pos->value));
+    }
     fprintf(pFile, "]");
 
     fprintf(pFile, "\n");
     fclose(pFile);
 
     /* rsync the per volume stats */
-    if (dataMgr->amIPrimary(vol_id)) {
-        DmtColumnPtr nodes = dataMgr->omClient->getDMTNodesForVolume(vol_id);
+    if (dataManager_.amIPrimary(vol_id)) {
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(vol_id);
         fds_verify(nodes->getLength() > 0);
 
         auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
@@ -513,7 +521,7 @@ Error
 StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string src_dir = root->dir_sys_repo_stats() + std::to_string(vol_id) +
+    const std::string src_dir = root->dir_sys_repo_stats() + std::to_string(vol_id.get()) +
                                               std::string("/");
     const fpi::SvcUuid & dmSvcUuid = dm_uuid.toSvcUuid();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
@@ -530,7 +538,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     std::string dst_ip = dmSvcInfo.ip;
 
     const std::string dst_node = node_root + "sys-repo/vol-stats/" +
-                                    std::to_string(vol_id) + std::string("/");
+                                    std::to_string(vol_id.get()) + std::string("/");
     const std::string rsync_cmd = "sshpass -p passwd rsync -r "
             + src_dir + "  root@" + dst_ip + ":" + dst_node + "";
 
@@ -547,7 +555,7 @@ StatStreamAggregator::getStatStreamRegDetails(const fds_volid_t & volId,
     SCOPEDREAD(lockStatStreamRegsMap);
     for (auto entry : statStreamRegistrations_) {
         for (auto vol : entry.second->volumes) {
-            if (volId == vol) {
+            if (volId == fds_volid_t(vol)) {
                 amId = entry.second->dest;
                 regId = entry.second->id;
                 return ERR_OK;
@@ -682,7 +690,7 @@ void StatStreamTimerTask::runTimerTask() {
         cleanupVolumes(volumes);  // cleanup in case volumes were removed
     } else {
         for (auto i : reg_->volumes) {
-            volumes.push_back(i);
+            volumes.push_back(fds_volid_t(i));
         }
     }
 
@@ -695,7 +703,7 @@ void StatStreamTimerTask::runTimerTask() {
             GLOGWARN << "Cannot get stat volume history for id '" << volId << "'";
             continue;
         }
-        const std::string & volName = dataMgr->volumeName(volId);
+        const std::string & volName = dataManager_.volumeName(volId);
 
         VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;

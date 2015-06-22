@@ -5,22 +5,22 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/data-connector/data-connector.html',
-        scope: { dataConnector: '=ngModel', editable: '@', enable: '=?'},
+        scope: { volumeType: '=ngModel', editable: '@', enable: '=?'},
         controller: function( $scope, $data_connector_api ){
             
-            $scope.sizes = [{name:'GB'}, {name:'TB'},{name:'PB'}];
-            $scope.connectors = $data_connector_api.connectors;
-            $scope._selectedSize = 1;
-            $scope._selectedUnit = $scope.sizes[0];
+            $scope.sizes = [{name: 'MB'}, {name:'GB'}, {name:'TB'},{name:'PB'}];
+            $scope.types = [];
+            $scope._selectedSize = 10;
+            $scope._selectedUnit = $scope.sizes[1];
 
             var findUnit = function(){
 
-                if ( !angular.isDefined( $scope.dataConnector.attributes ) ){
+                if ( !angular.isDefined( $scope.volumeType.capacity ) ){
                     return;
                 }
                 
                 for ( var i = 0; i < $scope.sizes.length; i++ ){
-                    if ( $scope.sizes[i].name == $scope.dataConnector.attributes.size ){
+                    if ( $scope.sizes[i].name == $scope.volumeType.capacity.unit ){
                         $scope._selectedUnit = $scope.sizes[i];
                     }
                 }
@@ -28,31 +28,46 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             
             var refreshSelection = function(){
                  
-                if ( angular.isDefined( $scope.dataConnector.attributes ) ){
-                    $scope.dataConnector.attributes.size = $scope._selectedSize;
-                    $scope.dataConnector.attributes.unit = $scope._selectedUnit.name;
+                if ( angular.isDefined( $scope.volumeType.capacity ) ){
+                    $scope.volumeType.capacity.value = $scope._selectedSize;
+                    $scope.volumeType.capacity.unit = $scope._selectedUnit.name;
+                }
+            };
+            
+            var typesReturned = function( types ){
+                
+                $scope.types = types;
+                
+                if ( $scope.types.length > 0 ){
+                    $scope.volumeType = $scope.types[0];
                 }
             };
             
             $scope.$on( 'fds::refresh', refreshSelection );
             
-            $scope.$watch( 'dataConnector', function( newVal ){
+            $scope.$watch( 'volumeType', function( newVal ){
                 
                 if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.type ) ){
-                    $scope.dataConnector = $scope.connectors[1];
+                    $scope.volumeType = $scope.types[1];
                     return;
                 }
                 
                 $scope.$emit( 'fds::data_connector_changed' );
                 $scope.$emit( 'change' );
                 
-                if ( $scope.dataConnector.attributes ){
-                    $scope._selectedSize = $scope.dataConnector.attributes.size;
+                if ( angular.isDefined( $scope.volumeType.capacity ) ){
+                    $scope._selectedSize = $scope.volumeType.capacity.value;
                     findUnit();
                 }
                 
             });
             
+            var init = function(){
+                
+                $data_connector_api.getVolumeTypes( typesReturned );
+            };
+            
+            init();
         }
     };
     

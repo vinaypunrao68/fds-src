@@ -45,13 +45,19 @@ void
 DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 }
 
-DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
-        : Module(name.c_str()), opSynchronizer_(tp),
-          config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp), stopLogMonitoring_(false)
+DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name,
+                                   fds_threadpool &tp,
+                                   DataMgr& dataManager)
+        : Module(name.c_str()),
+          dataManager_(dataManager),
+          opSynchronizer_(tp),
+          config_helper_(g_fdsprocess->get_conf_helper()),
+          tp_(tp),
+          stopLogMonitoring_(false)
 {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
 
-    if (dataMgr->features.isTimelineEnabled()) {
+    if (dataManager.features.isTimelineEnabled()) {
         logMonitorThread_.reset(new std::thread(
                 std::bind(&DmTimeVolCatalog::monitorLogs, this)));
     }
@@ -60,7 +66,7 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
-    if (dataMgr->features.isVolumeTokensEnabled()) {
+    if (dataManager.features.isVolumeTokensEnabled()) {
         vol_tok_lease_time =
             std::chrono::duration<fds_uint32_t>(
                 config_helper_.get_abs<fds_uint32_t>("fds.dm.token_lease_time"));
@@ -123,23 +129,23 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fds_int64_t& token,
-                             fpi::VolumeAccessPolicy const& policy) {
+                             fpi::VolumeAccessMode const& mode) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
-    if (dataMgr->features.isVolumeTokensEnabled()) {
+    if (dataManager_.features.isVolumeTokensEnabled()) {
         std::unique_lock<std::mutex> lk(accessTableLock_);
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
             auto table = new DmVolumeAccessTable(volId);
-            table->getToken(token, policy, vol_tok_lease_time);
+            table->getToken(token, mode, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
             // Table already exists, check if we can attach again or
             // renew the existing token.
-            err = it->second->getToken(token, policy, vol_tok_lease_time);
+            err = it->second->getToken(token, mode, vol_tok_lease_time);
         }
     }
 
@@ -153,7 +159,7 @@ DmTimeVolCatalog::closeVolume(fds_volid_t const volId, fds_int64_t const token) 
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
-    if (dataMgr->features.isVolumeTokensEnabled()) {
+    if (dataManager_.features.isVolumeTokensEnabled()) {
         std::unique_lock<std::mutex> lk(accessTableLock_);
         auto it = accessTable_.find(volId);
         if (accessTable_.end() != it) {
@@ -175,7 +181,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
     // COMMITLOG_GET(voldesc.srcVolumeId, commitLog);
     // fds_assert(commitLog);
 
-    if (origSrcVolume == 0) {
+    if (invalid_vol_id == origSrcVolume) {
         origSrcVolume = voldesc.srcVolumeId;
     }
     LOGDEBUG << "copying into volume [" << voldesc.volUUID
@@ -194,7 +200,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
         return rc;
     }
 
-    if (dataMgr->amIPrimary(voldesc.srcVolumeId)) {
+    if (dataManager_.amIPrimary(voldesc.srcVolumeId)) {
         // Increment object references
         std::set<ObjectID> objIds;
         rc = volcat->getVolumeObjects(voldesc.srcVolumeId, objIds);
@@ -204,13 +210,10 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
             return rc;
         }
 
-        OMgrClient * omClient = dataMgr->omClient;
-        fds_verify(omClient);
-
         std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
                 tokenOidMap;
         for (auto oid : objIds) {
-            const DLT * dlt = omClient->getCurrentDLT();
+            const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
             fds_verify(dlt);
 
             fds_token_id token = dlt->getToken(oid);
@@ -223,11 +226,15 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
             tokenOidMap[dlt->getToken(oid)]->push_back(tmpId);
         }
 
+#if 0
+    // disable the ObjRef count  login for now. will revisit this  once  we have complete
+    // design in place 
         for (auto it : tokenOidMap) {
             incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
             // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
             //         voldesc.volUUID, it.first, it.second);
         }
+#endif
     }
 
     return rc;
@@ -243,20 +250,17 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     // 2. what if call to increment ref count fails
     // 3. whether to do it in background/ foreground thread
 
-    OMgrClient * omClient = dataMgr->omClient;
-    fds_verify(omClient);
-
     // Create message
-    fpi::AddObjectRefMsgPtr addObjReq(new AddObjectRefMsg());
-    addObjReq->srcVolId = srcVolId;
-    addObjReq->destVolId = destVolId;
+    fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
+    addObjReq->srcVolId = srcVolId.get();
+    addObjReq->destVolId = destVolId.get();
     addObjReq->objIds = *objIds;
 
     // for (auto it : *objIds) {
     //     addObjReq->objIds.push_back(it);
     // }
 
-    const DLT * dlt = omClient->getCurrentDLT();
+    const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     fds_verify(dlt);
 
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
@@ -619,10 +623,10 @@ void DmTimeVolCatalog::monitorLogs() {
                         if (!rc) {
                             fds_verify(0 == unlink(srcFile.c_str()));
                             processedEvent = true;
-                            fds_volid_t volId = std::atoll(d.c_str());
+                            fds_volid_t volId (std::atoll(d.c_str()));
                             TimeStamp startTime = 0;
                             dmGetCatJournalStartTime(volTLPath + f, &startTime);
-                            dataMgr->timeline->addJournalFile(volId, startTime, volTLPath + f);
+                            dataManager_.timeline->addJournalFile(volId, startTime, volTLPath + f);
                         } else {
                             LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
                                     << rc << "'";
@@ -665,7 +669,7 @@ void DmTimeVolCatalog::monitorLogs() {
         int rc;
         for (const auto& volid : vecVolIds) {
             vecJournalFiles.clear();
-            const VolumeDesc *volumeDesc = dataMgr->getVolumeDesc(volid);
+            const VolumeDesc *volumeDesc = dataManager_.getVolumeDesc(volid);
             if (!volumeDesc) {
                 LOGWARN << "unable to get voldesc for vol:" << volid;
                 continue;
@@ -674,8 +678,9 @@ void DmTimeVolCatalog::monitorLogs() {
             // TODO(prem) : remove this soon
             bool fRemoveOldLogs = false;
             if (retention > 0 && fRemoveOldLogs) {
-                dataMgr->timeline->removeOldJournalFiles(volid, now-retention,
-                                                        vecJournalFiles);
+                dataManager_.timeline->removeOldJournalFiles(volid,
+                                                             now - retention,
+                                                             vecJournalFiles);
                 LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
                 for (const auto& journal : vecJournalFiles) {
                     rc = unlink(journal.journalFile.c_str());
@@ -728,7 +733,7 @@ void DmTimeVolCatalog::monitorLogs() {
     }
 }
 
-Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
+Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog& destCat,
                                               const std::vector<std::string> &files,
                                               util::TimeStamp fromTime,
                                               util::TimeStamp toTime) {
@@ -748,7 +753,7 @@ Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
                 break;
             }
             if (ts >= fromTime && ts <= toTime) {
-                rc = destCat->Update(&wb);
+                rc = destCat.Update(&wb);
             }
         }
     }
@@ -775,7 +780,7 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
     Error err(ERR_INVALID);
     std::vector<JournalFileInfo> vecJournalInfos;
     std::vector<std::string> journalFiles;
-    dataMgr->timeline->getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
+    dataManager_.timeline->getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
 
     journalFiles.reserve(vecJournalInfos.size());
     for (auto& item : vecJournalInfos) {
@@ -815,11 +820,11 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
         return ERR_NOT_FOUND;
     }
 
-    return dmReplayCatJournalOps(catalog, journalFiles, fromTime, toTime);
+    return dmReplayCatJournalOps(*catalog, journalFiles, fromTime, toTime);
 }
 
 void DmTimeVolCatalog::cancelLogMonitoring() {
-    if (dataMgr->features.isTimelineEnabled()) {
+    if (dataManager_.features.isTimelineEnabled()) {
         stopLogMonitoring_ = true;
         logMonitorThread_->join();
     }

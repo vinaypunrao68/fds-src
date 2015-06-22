@@ -7,6 +7,7 @@
 
 #include <fds_process.h>
 #include "pm_disk_inventory.h"
+#include "platform/disk_capabilities.h"
 
 namespace fds
 {
@@ -26,6 +27,7 @@ namespace fds
             struct udev_monitor        *dsk_mon;
             FileDiskInventory          *dsk_sim;
             DiskLabelMgr               *label_manager;
+            DiskCapabilitiesMgr        *capabilities_manager;
             struct pollfd               pollfds[1];
 
             void dsk_discover_mount_pts();
@@ -45,6 +47,15 @@ namespace fds
             {
                 return dsk_plat_singleton()->dsk_devices;
             }
+
+            /// The aggregate capacities for storage disks <hdd, sdd>
+            std::pair<size_t, size_t> disk_capacities();
+
+            /// The aggregate counts for storage disks <hdd, sdd>
+            std::pair<size_t, size_t> disk_counts();
+
+            /// Disk interface type
+            fds_disk_type_t disk_type();
 
             void dsk_rescan();
             void dsk_monitor_hotplug();

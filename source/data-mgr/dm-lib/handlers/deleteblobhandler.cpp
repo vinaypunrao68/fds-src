@@ -10,8 +10,10 @@
 namespace fds {
 namespace dm {
 
-DeleteBlobHandler::DeleteBlobHandler() {
-    if (!dataMgr->features.isTestMode()) {
+DeleteBlobHandler::DeleteBlobHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::DeleteBlobMsg, handleRequest);
     }
 }
@@ -25,7 +27,8 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -42,7 +45,7 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 }
 
 void DeleteBlobHandler::handleQueueItem(dmCatReq *dmRequest) {
-    QueueHelper helper(dmRequest);  // this will call the callback
+    QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoDeleteBlob *request = static_cast<DmIoDeleteBlob*>(dmRequest);
 
     LOGDEBUG << " volid:" << request->volId
@@ -52,7 +55,9 @@ void DeleteBlobHandler::handleQueueItem(dmCatReq *dmRequest) {
     // do processing and set the error
     BlobTxId::const_ptr ioBlobTxDesc = boost::make_shared<const BlobTxId>(request->message->txId);
     helper.err = (blobTxIdInvalid == *ioBlobTxDesc) ? ERR_DM_INVALID_TX_ID :
-            dataMgr->timeVolCat_->deleteBlob(request->volId, ioBlobTxDesc, request->blob_version);
+            dataManager.timeVolCat_->deleteBlob(request->volId,
+                                                ioBlobTxDesc,
+                                                request->blob_version);
 }
 
 void DeleteBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

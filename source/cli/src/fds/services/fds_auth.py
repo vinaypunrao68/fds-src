@@ -23,6 +23,7 @@ class FdsAuth():
         self.__parser.read( confFile )
         
         self.__token = None
+        self.__user_id = -1
         self.__features = []
         self.__hostname = self.get_from_parser( 'hostname' )
         self.__port = self.get_from_parser( 'port' )
@@ -37,34 +38,37 @@ class FdsAuth():
         
     def get_hostname(self):
         
-        if ( self.__hostname == None ):
+        if ( self.__hostname is None ):
             self.__hostname = raw_input( 'Hostname: ' )
            
         return self.__hostname
     
     def get_username(self):
         
-        if ( self.__username == None ):
+        if ( self.__username is None ):
             self.__username = raw_input( 'Login: ' )
             
         return self.__username
     
     def get_password(self):
         
-        if ( self.__password == None ):
+        if ( self.__password is None ):
             self.__password = getpass.getpass( 'Password: ' )
             
         return self.__password
 
     def get_port(self):
         
-        if ( self.__port == None ):
+        if ( self.__port is None ):
             self.__port = raw_input( 'Port: ' )
             
         return self.__port
     
     def get_token(self):
         return self.__token
+    
+    def get_user_id(self):
+        return self.__user_id
     
     def is_allowed(self, feature):
         
@@ -77,7 +81,7 @@ class FdsAuth():
     
     def is_authenticated(self):
         
-        if ( self.__token != None ):
+        if ( self.__token is not None ):
             return True
         
         return False
@@ -92,15 +96,24 @@ class FdsAuth():
             payload = { "login" : self.get_username(), "password" : self.get_password() }
             
             #get rid of the password immediately after its used
-            self.__password = ""
-            response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + '/api/auth/token', params=payload )
+            self.__password = None
+            response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + "/fds/config/v08/token", params=payload )
+            
+            if "message" in response:
+                print "Login failed.\n"
+                print response.pop("message")
+                return
+            
             response = response.json()
+            
+            if ( "userId" in response ):
+                self.__user_id = response["userId"]
         
-            if ( 'token' in response ):
+            if ( "token" in response ):
                 self.__token = response['token']
                 
-            if ( 'features' in response ):
-                self.__features = response['features']
+            if ( "features" in response ):
+                self.__features = response["features"]
                 
             return self.__token
         

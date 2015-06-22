@@ -24,13 +24,27 @@ const std::string DmPersistVolDB::CATALOG_WRITE_BUFFER_SIZE_STR("catalog_write_b
 const std::string DmPersistVolDB::CATALOG_CACHE_SIZE_STR("catalog_cache_size");
 const std::string DmPersistVolDB::CATALOG_MAX_LOG_FILES_STR("catalog_max_log_files");
 
-DmPersistVolDB::~DmPersistVolDB() {
-    delete catalog_;
+Error status2error(leveldb::Status s){
+    if (s.ok()) {
+        return ERR_OK;
+    }else if (s.IsCorruption()) {
+        return ERR_ONDISK_DATA_CORRUPT;
+    }else if (s.IsNotFound()) {
+        return ERR_VOL_NOT_FOUND;
+    }else if (s.IsIOError()) {
+        return ERR_DISK_READ_FAILED;
+    }
 
+    return ERR_INVALID;
+}
+
+
+DmPersistVolDB::~DmPersistVolDB() {
+    catalog_.reset();
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
-                root->dir_sys_repo_dm()) + std::to_string(srcVolId_) +
+                root->dir_sys_repo_dm()) + std::to_string(srcVolId_.get()) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
         const std::string rm_cmd = "rm -rf  " + loc_src_db;
         int retcode = std::system((const char *)rm_cmd.c_str());
@@ -51,7 +65,7 @@ Error DmPersistVolDB::activate() {
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     } else {
         // snapshot
-        catName += std::to_string(srcVolId_) + "/snapshot";
+        catName += std::to_string(srcVolId_.get()) + "/snapshot";
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     }
 
@@ -81,9 +95,13 @@ Error DmPersistVolDB::activate() {
 
     try
     {
-        if (catalog_) delete catalog_;
-        catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
-                    logFilePrefix, maxLogFiles, &cmp_);
+        catalog_.reset(new Catalog(catName,
+                                   writeBufferSize,
+                                   cacheSize,
+                                   logDirName,
+                                   logFilePrefix,
+                                   maxLogFiles,
+                                   &cmp_));
     }
     catch(const CatalogException& e)
     {
@@ -114,7 +132,8 @@ Error DmPersistVolDB::copyVolDir(const std::string & destName) {
 }
 
 Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
-    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+    const BlobObjKey key(VOL_META_ID, 0);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = catalog_->Query(keyRec, &value);
@@ -143,7 +162,7 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 
 Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) {
     Catalog::catalog_roptions_t opts;
-    Catalog::catalog_iterator_t * dbIt = getSnapshotIter(opts);
+    auto dbIt = getSnapshotIter(opts);
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record dbKey = dbIt->key();
@@ -154,9 +173,43 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
+}
+
+Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
+    Catalog::catalog_roptions_t opts;
+    auto dbIt = getSnapshotIter(opts);
+    if (!dbIt) {
+        LOGERROR << "Error searching latest sequence id for volume " << volId_;
+        return ERR_INVALID;
+    }
+
+    max = 0;
+
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record dbKey = dbIt->key();
+        if (reinterpret_cast<const BlobObjKey *>(dbKey.data())->objIndex == BLOB_META_INDEX) {
+            BlobMetaDesc blobMeta;
+            if (blobMeta.loadSerialized(dbIt->value().ToString()) != ERR_OK) {
+                LOGERROR << "Error deserializing blob metadata when searching latest sequence id for volume " << volId_;
+                return ERR_SERIALIZE_FAILED;
+            }
+
+            if (max < blobMeta.desc.version) {
+                max = blobMeta.desc.version;
+            }
+        }
+    }
+
+    if (dbIt->status().ok()) {
+        return ERR_OK;
+    }else{
+        LOGERROR << "Error searching latest sequence id for volume " << volId_
+                 << ": " << dbIt->status().ToString();
+
+        return status2error(dbIt->status());
+    }
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offset,
@@ -196,7 +249,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
@@ -212,7 +265,6 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         objList.push_back(std::move(blobInfo));
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
@@ -233,7 +285,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
@@ -247,13 +299,13 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         objList[static_cast<fds_uint64_t>(key->objIndex) * objSize_] = blobInfo;
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    delete dbIt;
 
     return ERR_OK;
 }
 
 Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
-    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+    const BlobObjKey key(VOL_META_ID, 0);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = volDesc.getSerialized(value);

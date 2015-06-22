@@ -53,17 +53,17 @@ std::string getGMTimeString(TimeStamp t) {
 
 fds_uint64_t rdtsc() {
     unsigned int hi, lo;
-    __asm__ volatile("rdtsc" : "= a" (lo), "= d" (hi));
+    __asm__ volatile("rdtsc" : "=a" (lo), "=d" (hi));
     return ((fds_uint64_t)hi << 32) | lo;
 }
 
 fds_uint64_t rdtsc_barrier() {
 #ifdef __i386__
-    register fds_uint64_t tsc asm("eax");
+    fds_uint64_t tsc asm("eax");
     asm volatile(".byte 15, 49" : : : "eax", "edx");
     return tsc;
 #else
-    register fds_uint64_t hi, lo;
+    fds_uint64_t hi, lo;
 
     asm volatile("cpuid; rdtscp" : "=a"(lo), "=d"(hi));
     return ((hi << 32) | lo);
@@ -166,7 +166,7 @@ TimeStamp TimeTracker::totalNanos() {
 std::ostream& operator<<(std::ostream& oss, const fds::util::TimeTracker& tracker) {
     oss << "Times:\n";
     auto iter = tracker.vecTimes.begin();
-    fds::util::TimeStamp previous;
+    fds::util::TimeStamp previous {0};
 
     if (iter != tracker.vecTimes.end()) {
         oss << iter->first << ":" << iter->second << "\n";

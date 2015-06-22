@@ -108,6 +108,8 @@ struct PutObjectRspMsg {
 struct CtrlNotifySMCheck {
   /** Checker command. */
   1: sm_types.SMCheckCmd    SmCheckCmd;
+  /** Target tokens to check (optional) **/
+  2: optional set<i32> targetTokens;
 }
 
 /**
@@ -342,8 +344,8 @@ struct CtrlObjectRebalanceFilterSet {
   5: bool   lastFilterSet;
   /** Set of objects to be sync'ed */
   6: list<sm_types.CtrlObjectMetaDataSync>    objectsToFilter;
-  /** is this rebalance for a SM resync */
-  7: bool  forResync;
+  /** Migration for which this message is sent will be one phase migration */
+  7: bool  onePhaseMigration;
 }
 
 /**

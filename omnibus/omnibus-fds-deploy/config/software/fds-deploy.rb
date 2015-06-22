@@ -2,16 +2,16 @@
 # These options are required for all software definitions
 name "fds-deploy"
 
-fds_version = "0.7.6"
-build_type = ENV['BUILD_TYPE'] 
+fds_version = "2015.05.22"
+build_type = ENV['BUILD_TYPE']
 git_sha = `git rev-parse HEAD`.chomp
 fds_src_dir = ENV['FDS_SRC_DIR']
 
 raise "FDS_SRC_DIR must be set'" unless fds_src_dir
-raise "You need to have a release build available locally at #{fds_src_dir}" unless !Dir.glob("#{fds_src_dir}/omnibus/omnibus-fds-platform/pkg/fds-platform*release*.deb").empty?
+raise "You need to have a release build available locally at #{fds_src_dir}" unless !Dir.glob("#{fds_src_dir}/omnibus/omnibus-fds-platform/pkg/fds-platform-rel_*.deb").empty?
 raise "You need to have a fds-deps package available locally at #{fds_src_dir}" unless !Dir.glob("#{fds_src_dir}/omnibus/omnibus-fds-deps/pkg/fds-deps*.deb").empty?
 
-default_version '0.7.6'
+default_version '2015.05.22"
 
 build do
     mkdir "#{install_dir}/omnibus/omnibus-fds-platform/pkg"

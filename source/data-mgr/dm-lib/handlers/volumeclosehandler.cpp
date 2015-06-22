@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-VolumeCloseHandler::VolumeCloseHandler() {
-    if (!dataMgr->features.isTestMode()) {
+VolumeCloseHandler::VolumeCloseHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::CloseVolumeMsg, handleRequest);
     }
 }
@@ -28,14 +30,15 @@ void VolumeCloseHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 
-    auto dmReq = new DmIoVolumeClose(message->volume_id, message->token);
+    auto dmReq = new DmIoVolumeClose(volId, message->token);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeCloseHandler::handleResponse, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
@@ -44,13 +47,13 @@ void VolumeCloseHandler::handleRequest(
 }
 
 void VolumeCloseHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeClose * request = static_cast<DmIoVolumeClose *>(dmRequest);
 
     LOGDEBUG << "Attempting to close volume: '"
              << std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataMgr->timeVolCat_->closeVolume(request->volId, request->token);
+    helper.err = dataManager.timeVolCat_->closeVolume(request->volId, request->token);
 }
 
 void VolumeCloseHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

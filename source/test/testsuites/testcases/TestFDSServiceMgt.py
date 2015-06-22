@@ -9,6 +9,7 @@ import unittest
 import xmlrunner
 import TestCase
 from fdslib.TestUtils import findNodeFromInv
+from fdslib import SvcHandle
 
 # Module-specific requirements
 import sys
@@ -16,6 +17,9 @@ import time
 import logging
 import shlex
 import random
+import re
+import fdslib.platformservice as plat_svc
+
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -131,11 +135,22 @@ def modWait(mod, node, forShutdown = False):
     else:
         found = False
 
+    mod_decorator = mod
+    java_class = None
+
+    if mod == "orchMgr":
+        mod_decorator = "java"
+        java_class = "com.formationds.om.Main"
+
+    if mod == "AMAgent":
+        mod_decorator = "java"
+        java_class = "com.formationds.am.Main"
+
     status = 0
     while (count < maxcount) and ((forShutdown and found) or (not forShutdown and not found)):
         time.sleep(1)
 
-        pid = getSvcPIDforNode(mod, node)
+        pid = getSvcPIDforNode(mod_decorator, node, java_class)
         if pid != -1:
             found = True
 
@@ -166,11 +181,11 @@ def modWait(mod, node, forShutdown = False):
         if forShutdown:
             return False
 
-    if orchMgrPID != '':
-        return pidWaitParent(int(orchMgrPID), 1, node)
-
-    if AMAgentPID != '':
-        return pidWaitParent(int(AMAgentPID), 2, node)
+#    if orchMgrPID != '':
+#        return pidWaitParent(int(orchMgrPID), 1, node)
+#
+#    if AMAgentPID != '':
+#        return pidWaitParent(int(AMAgentPID), 2, node)
 
     return True
 
@@ -2035,6 +2050,58 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 
         return True
 
+#This class injects fault in Storage Manager running on a given node.
+#It randomly chooses a fault to inject from a given set of faults passed
+#as parameter to the testcase in the system test.
+class TestServiceInjectFault(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node='random_node', service='sm', faultName=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ServiceFaultInjection,
+                                             "Test setting fault injection")
+        self.passedNode = node
+        self.passedService = service
+        self.passedFaultName = faultName
+
+    def test_ServiceFaultInjection(self):
+        """
+        Test Case:
+        This testcase sets the fault injection parameter on specific service in a node
+        At the moment only random_node is supported
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        svc_map = plat_svc.SvcMap(fdscfg.rt_om_node.nd_conf_dict['ip'],
+                                  fdscfg.rt_om_node.nd_conf_dict['fds_port'])
+        svcs = svc_map.list()
+
+        if self.passedNode is not None and self.passedNode != "random_node":
+            self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            passed_node_uuid = self.passedNode.nd_uuid
+
+            # First filter out only services belonging to the specified node
+            # Use a little voodoo to match service UUIDs to the node UUID
+            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+
+        # Svc map will be a list of lists in the form:
+        # [ [uuid, svc_name, ???, ip, port, is_active?] ]
+        svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+
+        '''
+        Randomly choose a fault to inject
+        '''
+        chosenFault = random.choice(self.passedFaultName)
+
+        self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
+            chosenFault, self.passedService, self.passedNode))
+
+        res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
+        if res:
+            return True
+
+        return False
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

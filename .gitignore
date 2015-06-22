@@ -35,6 +35,7 @@ build.*
 chef/nodes
 chef/vagrant/*/.vagrant/*
 core
+coverage
 cscope.*
 gmock-1.7.0/gmock_test
 linux-*
@@ -58,6 +59,7 @@ source/include/fdsp/*
 source/include/net-proxies/iomsg.h
 source/include/xdi/*.cpp
 source/include/xdi/*.h
+source/java/fds-project/*/target
 source/java/${build.dir}/
 source/java/${project.build.dir}
 source/java/.idea
@@ -125,7 +127,8 @@ ycm.flags
 /CMakeCache.txt
 /CMakeFiles/2.8.12.2/
 /CMakeFiles/
-/source/java/nb-configuration.xml
+**/nb-configuration.xml
+**/nbproject/
 ExtendedFstabTest.unit.bak
 ExtendedFstabTest.unit.1*
 ExtendedFstabTest.unit.altered.1*

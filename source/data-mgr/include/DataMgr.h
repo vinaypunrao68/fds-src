@@ -18,7 +18,6 @@
 #include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
-#include <lib/OMgrClient.h>
 
 #include <util/Log.h>
 #include <VolumeMeta.h>
@@ -30,6 +29,7 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
+#include <fdsp/FDSP_types.h>
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
 #include <DmIoReq.h>
@@ -47,6 +47,8 @@
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
 
+#include "util/ExecutionGate.h"
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -54,14 +56,10 @@
 
 namespace fds {
 
-struct DataMgr;
 class DMSvcHandler;
-extern DataMgr *dataMgr;
 
 struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
-    static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-
-    OMgrClient     *omClient;
+    static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
     /* Common module provider */
     CommonModuleProviderIf *modProvider_;
@@ -69,7 +67,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * TODO: Move to STD shared or unique pointers. That's
      * safer.
      */
-    std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
+    std::unordered_map<fds_volid_t, VolumeMeta*> vol_meta_map;
     /**
      * Catalog sync manager
      */
@@ -77,7 +75,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
     VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
-
     /**
     * Callback for DMT close
     */
@@ -87,7 +84,17 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * DmIoReqHandler method implementation
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
+
+    /**
+     * If this DM, given the volume, is the TOP listed DM of the DMT column.
+     */
     fds_bool_t amIPrimary(fds_volid_t volUuid);
+
+    /**
+     * If this DM, given the volume, is within the Primary group.
+     */
+    fds_bool_t amIPrimaryGroup(fds_volid_t volUuid);
+
 
     inline StatStreamAggregator::ptr statStreamAggregator() {
         return statStreamAggr_;
@@ -100,8 +107,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
         FDSGUARD(vol_map_mtx);
-        std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
-                vol_meta_map.find(volId);
+        auto iter = vol_meta_map.find(volId);
         return (vol_meta_map.end() != iter && iter->second ?
                 iter->second->vol_desc : 0);
     }
@@ -120,7 +126,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
             return ERR_VOL_NOT_FOUND;
         }
 
-        if (volumeDesc->state != Active)
+        if (volumeDesc->state != fpi::Active)
         {
             return ERR_DM_VOL_NOT_ACTIVATED;
         }
@@ -230,16 +236,16 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
-                    threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
+                    threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
                     break;
                 case FDS_DM_PUSH_META_DONE:
-                    threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
+                    threadPool->schedule(&DataMgr::handleDMTClose, parentDm, io);
                     break;
                 case FDS_DM_PURGE_COMMIT_LOG:
                     threadPool->schedule(io->proc, io);
                     break;
                 case FDS_DM_META_RECVD:
-                    threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
+                    threadPool->schedule(&DataMgr::handleForwardComplete, parentDm, io);
                     break;
 
                 /* End of new refactored DM message types */
@@ -266,7 +272,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         dataMgr->handlers.at(io->io_type), io);
+                                         parentDm->handlers.at(io->io_type),
+                                         io);
                     break;
 
                 default:
@@ -320,7 +327,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
-    void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
+    void initSmMsgHdr(fpi::FDSP_MsgHdrTypePtr msgHdr);
 
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
     void  expungeObjectCb(fds_uint64_t dltVersion,
@@ -420,12 +427,46 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     virtual std::string getSysVolumeName(const fds_volid_t &volId) const override;
 
     virtual std::string getSnapDirName(const fds_volid_t &volId,
-                                       const int64_t snapId) const override;
+                                       const fds_volid_t snapId) const override;
+
+    ///
+    /// Cleanly shut down.
+    ///
+    /// run() will exit after this is called.
+    ///
+    void shutdown();
+
+    /*
+     * Gets and sets Number of primary DMs.
+     */
+    inline fds_uint32_t getNumOfPrimary()  {
+    	return (_numOfPrimary);
+    }
+    inline void setNumOfPrimary(fds_uint32_t num) {
+    	fds_verify(num > 0);
+    	_numOfPrimary = num;
+    }
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
     friend class dm::DeleteBlobHandler;
+
+private:
+    ///
+    /// Don't shut down until this gate is opened.
+    ///
+    util::ExecutionGate _shutdownGate;
+
+    /**
+     * Implementation of amIPrimary
+     */
+    fds_bool_t _amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary);
+
+    /*
+     * Number of primary DMs
+     */
+    fds_uint32_t _numOfPrimary;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
@@ -442,6 +483,16 @@ class CloseDMTTimerTask : public FdsTimerTask {
   private:
     cbType timeout_cb;
 };
+
+namespace dmutil {
+// location of volume
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+
+// location of all snapshots for a volume
+std::string getSnapshotDir(fds_volid_t volId);
+
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+}  // namespace dmutil
 
 }  // namespace fds
 

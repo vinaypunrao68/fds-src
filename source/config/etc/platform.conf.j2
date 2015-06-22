@@ -24,12 +24,14 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
-	    volume_open_support = true
+            volume_open_support = true
         }
-        plat: {
+        pm: {
 
             use_disk_hints = {{ ft_platform_use_disk_hints }}
             control_disk_simulation_mode = {{ ft_platform_control_disk_simulation_mode }}
+            use_new_superblock = {{ ft_platform_use_new_superblock }}
+            restart_failed_children_processes = {{ ft_restart_failed_children_processes }}
         }
         dm: {
 
@@ -40,7 +42,7 @@ fds: {
         am: {
         }
         om: {
-
+           allow_service_reregistration = {{ ft_allow_service_reregistration }}
         }
     }
 
@@ -57,9 +59,9 @@ fds: {
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
 #}
-	om_ip_list = "{{ om_ip }}"
-	om_port = 7004
-	om_uuid = 1028
+        om_ip_list = "{{ om_ip }}"
+        om_port = 7004
+        om_uuid = 1028
 
        {# TODO: FDSCONFIG Make it so that services search for configs in common
            as well as in their own config block. A uniform order of precedence
@@ -85,13 +87,13 @@ fds: {
         log_severity = "{{ pm_log_severity }}"
 
         /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
-	platform_uuid = 1024
-        /* Platform port.  This is the node base port.  All services running on this node derive */
-	/* their port based on this port */
+        platform_uuid = 1024
+
+        /* Platform port.  This is the node base port.  All services running on this node derive their port based on this port */
         platform_port = 7000
 
         /* Orchestration manager info */
-	/* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
+        /* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
@@ -117,6 +119,20 @@ fds: {
             period = 5
         }
 
+        capabilities: {
+            disk: {
+                ssd: {
+                    iops_min = 5000
+                    iops_max = 10000
+                }
+                hdd: {
+                    iops_min = 500
+                    iops_max = 1000
+                }
+                /* GC..etc disk reservation */
+                reserved_space = 0.20
+            }
+        }
         threadpool: {
             num_threads = 10
 
@@ -125,11 +141,11 @@ fds: {
         }
         /* Internal testing related info */
         testing: {
-	    standalone = false
+            standalone = false
             /* overwrite node capabilities from this config */
             manual_nodecap = true
-            disk_iops_max  = 100000
-            disk_iops_min  = 60000
+            node_iops_max  = 100000
+            node_iops_min  = 60000
         }
         /* Service layer stanza */
         svc: {
@@ -170,11 +186,13 @@ fds: {
         catalog_write_buffer_size = {{ dm_catalog_write_buffer_size }}
         catalog_cache_size =  {{ dm_catalog_cache_size  }}
         catalog_log_max_files = 5
+        number_of_primary = 2
 
         /* process id */
         id      = "dm"
         no_om   = false;
-	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
+
+        /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -184,8 +202,8 @@ fds: {
         /* Log severity */
         log_severity = "{{ dm_log_severity }}"
 
-	/* Lease time (seconds) for volume access tokens */
-	token_lease_time=60
+            /* Lease time (seconds) for volume access tokens */
+            token_lease_time=60
 
         cache: {
            /* Default max entries in a volume's DM catalog cache */
@@ -196,7 +214,16 @@ fds: {
             /* Rsync username to use during migration */
             rsync_username = "root"
             /* Rsync password to use during migration */
-	    rsync_password = "passwd"
+            rsync_password = "passwd"
+
+            /* boolean to enable/disable DM migration feature */
+            enable_feature = true
+
+            /* boolean to enable/disable DM resync feature */
+            enable_resync = true
+
+            /* timeout duration in sec */
+            migration_timeout=300
         }
 
         /* Graphite is enabled or not */
@@ -263,7 +290,8 @@ fds: {
         /* process id */
         id      = "sm"
         prefix  = ""
-	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
+
+        /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -341,6 +369,10 @@ fds: {
             hot_threshold = 3
             /* approx number of times an obj has to be accessed to become cold */
             cold_threshold = 0
+            /* enable sleep from SM service registers with OM */
+            enable_sleep_before_svcregister = false
+            /* the duration of sleep(secs) before SM registers itself with OM */
+            sleep_duration_before_svcregister = 150
         }
         threadpool: {
             num_threads = 10
@@ -350,14 +382,6 @@ fds: {
         }
         /* Migration related info */
         migration: {
-            /* IP of the migration server */
-	    /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
-            ip = "{{ om_ip }}"
-
-            /* Number of threads for doing migration work */
-            /* DEPRECATED */
-            thread_cnt=5
-
             /* size of the delta set from source SM to destination SM */
             max_delta_set_size=16
 
@@ -368,17 +392,20 @@ fds: {
             enable_feature = true
 
             /* boolean to enable/disable SM resync feature */
-            enable_resync = false
+            enable_resync = true
+
+            /* timeout duration in sec */
+            migration_timeout=300
         }
-	tiering: {
-	    hybrid: {
-	        enable 		= {{ sm_tiering_hybrid_enable }}
-		/* Number of objects to move at a time */
-		batchSz 	= {{ sm_tiering_hybrid_batchsz }}
-		/* In seconds to make testing easier (default 172800s = 2days) */
-		frequency 	= {{ sm_tiering_hybrid_frequency }}
-	    }
-	}
+        tiering: {
+            hybrid: {
+                enable                 = {{ sm_tiering_hybrid_enable }}
+                /* Number of objects to move at a time */
+                batchSz         = {{ sm_tiering_hybrid_batchsz }}
+                /* In seconds to make testing easier (default 172800s = 2days) */
+                frequency         = {{ sm_tiering_hybrid_frequency }}
+            }
+        }
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
@@ -402,23 +429,24 @@ fds: {
                 worker_thread_cnt = 2
             }
             timeout: {
-		io_message = {{ am_svc_io_message_timeout }}
+                io_message = {{ am_svc_io_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
         perf: { enable = {{ perf_tracing }} }
 
         /* process id */
-	id = "am"
+            id = "am"
 
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
-	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
+
+        /* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
         /* TODO(Rao): Get this from platform */
-        om_config_port = 8903
+        om_config_port = 9090
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
@@ -442,8 +470,8 @@ fds: {
         fdsn_server_threads=30
         qos_threads=4
 
-	/* Frequency (seconds) to notify DM we are using a volume */
-	token_renewal_freq=30
+        /* Frequency (seconds) to notify DM we are using a volume */
+        token_renewal_freq=30
 
         connector: {
             nbd: {
@@ -451,7 +479,7 @@ fds: {
                 options: {
                     /* Time (seconds) to retry connection to client before disconnect */
                     keep_alive=30
-                    non_block_io=true
+                    no_delay=true
                 }
             }
         }
@@ -532,17 +560,19 @@ fds: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
-	/* Testing stanza */
-	testing: {
-            /* Toggle stand alone mode */
-            standalone = false
-	}
+
+        /* Testing stanza */
+        testing: {
+                /* Toggle stand alone mode */
+                standalone = false
+        }
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"
         logfile="om"
-        config_port=8903
-	/* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
+        config_port=9090
+
+        /* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
         ip_address = "{{ om_ip }}"
         token_factor=8
@@ -554,9 +584,14 @@ fds: {
         web_dir="../lib/admin-webapp/"
         http_port=7777
         https_port=7443
-        configdb : {
+        configdb: {
             port=6379
         }
+
+        influxdb: {
+            url="{{ om_influxdb_url }}"
+        }
+
         test_mode=false
         threadpool: {
             num_threads = 10
@@ -584,7 +619,7 @@ fds: {
         control_port = 6991
 
         /* Orchestration manager ip */
-	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
+        /* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */
@@ -602,10 +637,10 @@ fds: {
     }
 
     test: {
-	testing: {
+        testing: {
             /* Toggle stand alone mode */
-            standalone = true 
-	}
+            standalone = true
+        }
     }
 }
 {% endblock %}

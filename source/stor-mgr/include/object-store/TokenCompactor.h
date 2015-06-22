@@ -135,7 +135,7 @@ class SmPersistStoreHandler;
         void snapDoneCb(const Error& error,
                         SmIoSnapshotObjectDB* snap_req,
                         leveldb::ReadOptions& options,
-                        leveldb::DB *db);
+                        std::shared_ptr<leveldb::DB> db);
 
         /**
          * Callback from object store that compaction for a set of objects is

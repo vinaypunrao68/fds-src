@@ -13,12 +13,10 @@ namespace fds {
 
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
-        StorMgrVolumeTable* _sm_volTbl,
         const SmDiskMap::ptr& diskMap,
         SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
         migrator(nullptr),
-        sm_volTbl(_sm_volTbl),
         hybridTierCtrlr(storMgr, diskMap) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
@@ -43,9 +41,10 @@ TierEngine::~TierEngine() {
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
 
-    if (MODULEPROVIDER()->get_fds_config()->\
-        get<bool>("fds.sm.tiering.hybrid.enable")) {
-        hybridTierCtrlr.start(false);
+    // set the enable flag based on the configuration.
+    bool enableHybridTier =  MODULEPROVIDER()->get_fds_config()->get<bool>("fds.sm.tiering.hybrid.enable");
+    if (enableHybridTier) {
+        hybridTierCtrlr.enableFeature();
     }
 
     /*
@@ -93,9 +92,9 @@ void TierEngine::enableTierMigration() {
 }
 
 /* For manually starting hybrid tier controller */
-void TierEngine::startHybridTierCtrlr()
+void TierEngine::startHybridTierCtrlr(bool manual)
 {
-    hybridTierCtrlr.start(true);
+    hybridTierCtrlr.start(manual);
 }
 
 /*

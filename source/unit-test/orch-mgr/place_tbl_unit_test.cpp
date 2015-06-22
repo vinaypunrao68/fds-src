@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     std::cout << *dmt_mgr << std::endl;
 
     // get one column
-    fds::DmtColumnPtr pcol = dmt_mgr->getCommittedNodeGroup(0x85739);
+    fds::DmtColumnPtr pcol = dmt_mgr->getCommittedNodeGroup(fds::fds_volid_t(0x85739));
     std::cout << "Primary node for volume is "
               << std::hex << pcol->get(0) << std::dec << std::endl;
 

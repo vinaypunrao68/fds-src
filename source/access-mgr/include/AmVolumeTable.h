@@ -28,8 +28,6 @@ struct AmVolumeAccessToken;
 struct WaitQueue;
 
 struct AmVolumeTable : public HasLogger {
-    static constexpr fds_volid_t fds_default_vol_uuid { 1 };
-
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 
     /// Use logger that passed in to the constructor
@@ -37,16 +35,19 @@ struct AmVolumeTable : public HasLogger {
     ~AmVolumeTable();
     
     /// Registers the callback we make to the transaction layer
-    using tx_callback_type = std::function<void(AmRequest*)>;
-    void registerCallback(tx_callback_type cb);
+    using processor_cb_type = std::function<void(AmRequest*)>;
+    void registerCallback(processor_cb_type cb);
 
-    Error registerVolume(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
+    // A volume descriptor from OM means we probably have an attach pending
+    Error processAttach(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
+
+    Error registerVolume(const VolumeDesc& volDesc);
     Error removeVolume(const VolumeDesc& volDesc);
 
     /**
      * Returns NULL is volume does not exist
      */
-    volume_ptr_type getVolume(fds_volid_t vol_uuid) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     /**
      * Return tokens to all attached volumes
@@ -56,7 +57,7 @@ struct AmVolumeTable : public HasLogger {
     /**
      * Returns the volumes max object size
      */
-    fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid) const;
+    fds_uint32_t getVolMaxObjSize(fds_volid_t const volUuid) const;
 
     /**
      * Returns volume uuid if found in volume map.

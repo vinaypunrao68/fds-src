@@ -370,7 +370,7 @@ void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     SCOPEDWRITE(stat_lock_);
     fds_uint32_t index = useSlotLockHeld(rel_seconds);
-    if ((index >= 0) && (index < nslots_)) {
+    if (index < nslots_) {
         stat_slots_[index].add(stat_type, counter);
     }
 }
@@ -381,7 +381,7 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     SCOPEDWRITE(stat_lock_);
     fds_uint32_t index = useSlotLockHeld(rel_seconds);
-    if ((index >= 0) && (index < nslots_)) {
+    if (index < nslots_) {
         stat_slots_[index].add(stat_type, value);
     }
 }
@@ -411,7 +411,7 @@ fds_uint64_t VolumePerfHistory::getLocalRelativeSec(fds_uint64_t remote_rel_sec,
 Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
                                     fds_uint64_t fdsp_start_ts) {
     Error err(ERR_OK);
-    fds_verify(fdsp_volstats.volume_id == volid_);
+    fds_verify(static_cast<uint64_t>(fdsp_volstats.volume_id) == volid_.get());
     for (fds_uint32_t i = 0; i < fdsp_volstats.statlist.size(); ++i) {
         StatSlot remote_slot;
         err = remote_slot.loadSerialized(fdsp_volstats.statlist[i].slot_data);
@@ -423,7 +423,7 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
                                                        fdsp_start_ts);
         write_synchronized(stat_lock_) {
             fds_uint32_t index = useSlotLockHeld(rel_seconds);
-            if ((index >= 0) && (index < nslots_)) {
+            if (index < nslots_) {
                 stat_slots_[index] += remote_slot;
             }
         }
@@ -441,7 +441,7 @@ void VolumePerfHistory::mergeSlots(const std::vector<StatSlot>& stat_list,
                                                        remote_start_ts);
         write_synchronized(stat_lock_) {
             fds_uint32_t index = useSlotLockHeld(rel_seconds);
-            if ((index >= 0) && (index < nslots_)) {
+            if (index < nslots_) {
                 stat_slots_[index] += stat_list[i];
             }
         }
@@ -603,7 +603,7 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
     fds_uint64_t last_added_ts = last_rel_sec;
 
     fdsp_volstat.statlist.clear();
-    fdsp_volstat.volume_id = volid_;
+    fdsp_volstat.volume_id = volid_.get();
     while (ix != endix) {
         fds_uint64_t ts = stat_slots_[ix].getTimestamp();
         if (ts > last_rel_sec) {

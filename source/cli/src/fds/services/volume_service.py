@@ -1,8 +1,7 @@
 from abstract_service import AbstractService
-from fds.utils.volume_converter import VolumeConverter
-from fds.utils.snapshot_converter import SnapshotConverter
-from fds.services.snapshot_service import SnapshotService
-
+from fds.utils.converters.volume.volume_converter import VolumeConverter
+from fds.utils.converters.volume.snapshot_converter import SnapshotConverter
+from fds.utils.converters.volume.preset_converter import PresetConverter
 
 class VolumeService( AbstractService ):
 
@@ -17,18 +16,6 @@ class VolumeService( AbstractService ):
     
     def __init__(self, session):
         AbstractService.__init__(self, session)
-
-    
-    def find_volume_by_id(self, an_id):
-        '''
-        Get a volume by its UUID.  Hopefully this is temporary code only while the REST services
-        don't support taking either the ID or the name.  Currently they only take a name.
-        '''
-        volumes = self.list_volumes()
-        
-        for volume in volumes:
-            if ( volume["id"] == an_id ):
-                return VolumeConverter.build_volume_from_json( volume )
             
     def find_volume_by_name(self, aName):  
         '''
@@ -38,30 +25,38 @@ class VolumeService( AbstractService ):
         volumes = self.list_volumes()
         
         for volume in volumes:
-            if ( volume["name"] == aName ):
-                return VolumeConverter.build_volume_from_json( volume )  
-            
-    def find_volume_from_snapshot_id(self, snapshotId ):
-        '''
-        try to find the volume from the snapshot ID
-        '''
-        snapshot_service = SnapshotService( self.__session)
-        snapshot = snapshot_service.get_snapshot_by_id( snapshotId )
-        snapshot = SnapshotConverter.build_snapshot_from_json( snapshot )
-        
-        if ( snapshot == None ):
-            return
-        
-        volume = self.find_volume_by_id( snapshot.volume_id )
-        return volume
+            if ( volume.name == aName ):
+                return volume  
     
     def list_volumes(self):
         
         '''
         Return the raw json list of volumes from the FDS REST call
         '''
-        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes" )
-        return self.rest_helper.get( self.session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/volumes" )
+        response = self.rest_helper.get( self.session, url )
+        
+        volumes = []
+        
+        for j_volume in response:
+            volume = VolumeConverter.build_volume_from_json( j_volume )
+            volumes.append( volume )
+            
+        return volumes
+    
+    def get_volume(self, volume_id):
+        ''' 
+        get a single volume
+        '''
+        
+        url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id)
+        response = self.rest_helper.get(self.session, url)
+        
+        if response is None:
+            return
+        
+        volume = VolumeConverter.build_volume_from_json(response) 
+        return volume
     
     def create_volume(self, volume):
         '''
@@ -69,27 +64,44 @@ class VolumeService( AbstractService ):
         endpoint to make the creation request
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes" )
+        url = "{}{}".format( self.get_url_preamble(), "/volumes" )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        j_volume = self.rest_helper.post( self.session, url, data )
+
+        if j_volume is None:
+            return
+
+        volume = VolumeConverter.build_volume_from_json( j_volume )
+        return volume
     
-    def clone_from_snapshot_id(self, snapshot_id, volume):
+    def clone_from_snapshot_id(self, volume, snapshot_id):
+        ''' 
+        clone from the given volume and snapshot ID
         '''
-        Use a snapshot ID and volume QoS settings to clone a new volume
+        url = "{}{}{}{}".format(self.get_url_preamble(), "/volumes/", volume.id, "/snapshot/", snapshot_id)
+        data = VolumeConverter.to_json(volume)
+        newVolume = self.rest_helper.post(self.session, url, data );
+        
+        if newVolume is None:
+            return
+        
+        newVolume = VolumeConverter.build_volume_from_json(newVolume);
+        return newVolume;
+    
+    def clone_from_timeline(self, volume, fromTime):
+        '''
+        Use a time and volume QoS settings to clone a new volume
         '''
         
-        url = "{}{}{}/{}".format( self.get_url_preamble(), "/api/config/snapshot/clone/", snapshot_id, volume.name )
+        url = "{}{}{}/{}".format( self.get_url_preamble(), "/volumes/", volume.id, "/time/", fromTime )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
-    
-    def clone_from_timeline(self, a_time, volume ):
-        '''
-        Create a clone of the specified volume from the closest snapshot to the time provided
-        '''
-        
-        url = "{}{}{}/{}/{}".format( self.get_url_preamble(), "/api/config/volumes/clone/", volume.id, volume.name, a_time )
-        data = VolumeConverter.to_json( volume )
-        return self.rest_helper.post( self.session, url, data )
+        volume = self.rest_helper.post( self.session, url, data )
+
+        if volume is None:
+            return
+
+        volume = VolumeConverter.build_volume_from_json( volume )
+        return volume
     
     def edit_volume(self, volume):
         '''
@@ -97,16 +109,22 @@ class VolumeService( AbstractService ):
         to the volume it points to
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", str(volume.id) )
+        url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", str(volume.id) )
         data = VolumeConverter.to_json( volume )
-        return self.rest_helper.put( self.session, url, data )
+        j_volume = self.rest_helper.put( self.session, url, data )
+        
+        if j_volume is None:
+            return
+        
+        volume = VolumeConverter.build_volume_from_json(j_volume)
+        return volume
     
-    def delete_volume(self, name):
+    def delete_volume(self, volume_id):
         '''
         Deletes a volume based on the volume name.  It expects this name to be unique
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", name )
+        url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id )
         return self.rest_helper.delete( self.session, url )
     
     def create_snapshot(self, snapshot ):
@@ -114,22 +132,73 @@ class VolumeService( AbstractService ):
         Create a snapshot for the volume specified
         '''
         
-        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", snapshot.volume_id, "/snapshot" )
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", snapshot.volume_id, "/snapshots" )
         data = SnapshotConverter.to_json(snapshot)
         return self.rest_helper.post( self.session, url, data )
     
-    def list_snapshots(self, an_id):
+    def delete_snapshot(self, volume_id, snapshot_id):
+        '''
+        Delete a specific snapshot from a volume
+        '''
+        
+        url = "{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot", snapshot_id )
+        return self.rest_helper.delete( url )
+    
+    def list_snapshots(self, volume_id):
         '''
         Get a list of all the snapshots that exists for a given volume
         '''
         
-        url = "{}{}{}{}".format ( self.get_url_preamble(), "/api/config/volumes/", an_id, "/snapshots" )
-        return self.rest_helper.get( self.session, url )
+        url = "{}{}{}{}".format ( self.get_url_preamble(), "/volumes/", volume_id, "/snapshots" )
+        response = self.rest_helper.get( self.session, url )
+        
+        if response is None:
+            return
     
-    def list_volume_ids_by_snapshot_policy(self, snapshot_policy_id ):
+        snapshots = []
+        
+        for j_snapshot in response:
+            snapshot = SnapshotConverter.build_snapshot_from_json( j_snapshot )
+            snapshots.append( snapshot )
+            
+        return snapshots
+    
+    def get_data_protection_presets(self, preset_id=None):
         '''
-        Get a list of all volume IDs associated with this snapshot policy ID
+        Get a list of timeline preset policies
         '''
         
-        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/policies/", snapshot_policy_id, "/volumes")
-        return self.rest_helper().get( self.session, url )    
+        url = "{}{}".format( self.get_url_preamble(), "/presets/data_protection_policies")
+        response = self.rest_helper.get( self.session, url )
+        
+        presets = []
+        
+        for j_preset in response:
+            
+            if preset_id != None and int(j_preset["id"]) != int(preset_id):
+                continue
+            
+            preset = PresetConverter.build_timeline_from_json( j_preset )
+            presets.append( preset )
+            
+        return presets
+    
+    def get_qos_presets(self, preset_id=None):
+        '''
+        Get a list of QoS preset policies
+        '''
+        
+        url = "{}{}".format( self.get_url_preamble(), "/presets/quality_of_service_policies" )
+        response = self.rest_helper.get( self.session, url )
+        
+        presets = []
+        
+        for j_preset in response:
+            
+            if preset_id != None and int(j_preset["id"]) != int(preset_id):
+                continue
+            
+            preset = PresetConverter.build_qos_preset_from_json( j_preset )
+            presets.append( preset )
+            
+        return presets  

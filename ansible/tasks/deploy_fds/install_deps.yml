@@ -10,6 +10,22 @@
     tags:
         - install-deps
 
+-   name: see if redis-server has been installed via system packages
+    stat: path=/etc/init.d/redis-server
+        get_checksum=False
+        get_md5=False
+    register: redis_server_stat
+    tags:
+        - install-deps
+
+-   name: disable redis start-on-boot
+    service: name=redis-server
+        state=stopped
+        enabled=no
+    when: redis_server_stat.stat.exists
+    tags:
+        - install-deps
+
 -   name: install_limits_conf
     template:
         src=../templates/deploy_fds/fds_limits.conf
@@ -38,6 +54,8 @@
         -   10.3.4.128 awo-apt.formationds.com awo-apt
         -   10.2.10.22 bld-apt.formationds.com bld-apt
         -   10.1.10.50 fre-apt.formationds.com fre-apt
+    tags:
+        - install-deps
 
 -   name: add artifactory repo key
     when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
@@ -45,13 +63,31 @@
     tags:
         - install-deps
 
--   name: add Artifactory fds nightly platform repo
-    when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
-    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+-   name: remove all artifactory repos for a clean slate
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform {{ item }}"
+        state=absent
+    with_items:
+      - nightly
+      - beta
+    tags:
+      - install-deps
+
+-   name: add specified Artifactory fds platform repo
+    when: deploy_artifact != "local" and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform {{ deploy_artifact }}"
         state=present
         update_cache=yes
     tags:
       - install-deps
+
+
+-   name: add nightly Artifactory fds platform repo when installing from local fds-platorm deb
+    when: deploy_artifact == "local" and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+        state=present
+        update_cache=yes
+    tags:
+        - install-deps
 
 -   name: install fds-deps package from repo
     when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false

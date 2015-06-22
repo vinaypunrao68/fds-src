@@ -1,7 +1,7 @@
 # These options are required for all software definitions
 name "fds-platform"
 
-fds_version = "0.7.6"
+fds_version = "2015.06.05"
 build_type = ENV['BUILD_TYPE']
 git_sha = `git rev-parse HEAD`.chomp
 fds_src_dir = ENV['FDS_SRC_DIR']
@@ -27,8 +27,6 @@ build do
 
     mkdir "#{install_dir}/sbin"
     copy "#{fds_src_dir}/source/tools/redis.sh", "#{install_dir}/sbin"
-    copy "#{fds_src_dir}/source/test/fds-tool.py", "#{install_dir}/sbin"
-    copy "#{fds_src_dir}/source/test/fdsadmin", "#{install_dir}/sbin"
     copy "#{fds_src_dir}/source/tools/coroner.py", "#{install_dir}/sbin"
 
     copy "#{fds_src_dir}/source/config/etc/*.conf", "#{install_dir}/etc/"

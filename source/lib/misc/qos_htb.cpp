@@ -11,13 +11,13 @@ namespace fds {
 /***** QoSHTBDispatcher implementation ******/
 QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl,
                                    fds_log *log,
-                                   fds_uint64_t _total_rate)
-    : FDS_QoSDispatcher(ctrl, log, _total_rate),
-    total_rate(_total_rate),
-    total_min_rate(0),
+                                   fds_int64_t _total_iops)
+    : FDS_QoSDispatcher(ctrl, log, _total_iops),
+    total_iops(_total_iops),
+    total_assured_rate(0),
     max_burst_size(20),
     wait_time_microsec(DEFAULT_ASSURED_WAIT_MICROSEC),
-    avail_pool(_total_rate, max_burst_size),
+    avail_pool(_total_iops, max_burst_size),
     current_throttle_level(11)
 {
     /* TODO: we need a good per-volume burst size value, sholdn't this be a max queue size at SM/DM? */
@@ -26,103 +26,78 @@ QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl,
     last_dispatch_qid = 0; /* this should be an invalid id */
 }
 
-QoSHTBDispatcher::~QoSHTBDispatcher()
-{
-    qda_lock.write_lock();
-    for (qstate_map_it_t it = qstate_map.begin();
-            it != qstate_map.end();
-            ++it)
-    {
-        TBQueueState *qstate = it->second;
-        delete qstate;
-    }
-    qstate_map.clear();
-    qda_lock.write_unlock();
-}
-
 /* Returns ERR_INVALID_ARG if _total_rate < sum of all volumes' minimum rates */
 Error
-QoSHTBDispatcher::modifyTotalRate(fds_uint64_t _total_rate)
+QoSHTBDispatcher::modifyTotalRate(fds_int64_t _total_iops)
 {
-    Error err(ERR_OK);
-
-    /* do not modify if _total_rate is below total min_rate of all volumes */
-    if (_total_rate > total_min_rate) {
-        total_rate = _total_rate;
-        /* only need to modify avail rate */
-        avail_pool.modifyRate(total_rate - total_min_rate);
-    } else {
+    /* do not modify if _total_rate is below total assured_rate of all volumes */
+    if (_total_iops <= total_assured_rate) {
         /* for now we are not letting total rate go below volumes' total min rate */
-        err = ERR_INVALID_ARG;
-        return err;
+        return ERR_INVALID_ARG;
     }
-
-    return err;
+    total_iops = _total_iops;
+    /* only need to modify avail rate */
+    avail_pool.modifyRate(total_iops - total_assured_rate);
+    return ERR_OK;
 }
 
 Error
 QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
                                 FDS_VolumeQueue *queue)
 {
-    Error err(ERR_OK);
-    fds_uint64_t new_total_min_rate = 0;
-    fds_uint64_t new_total_avail_rate = 0;
-    fds_uint64_t q_min_rate = queue->iops_min;
-    fds_uint64_t q_max_rate = queue->iops_max;
+    fds_int64_t new_total_min_rate = 0;
+    fds_int64_t new_total_avail_rate = 0;
+    fds_int64_t q_assured_rate = queue->iops_assured;
+    fds_int64_t q_throttle_rate = queue->iops_throttle;
 
-    /* If iops_max == 0, means no max, set max_rate to a very high value */
-    if (q_max_rate == 0) {
-        q_max_rate = HTB_QUEUE_RATE_INFINITE_MAX;
+    /* If iops_throttle == 0, means no throttle, set throttle_rate to a very high value */
+    if (q_throttle_rate == 0) {
+        q_throttle_rate = HTB_QUEUE_RATE_INFINITE_MAX;
     }
 
     /* since highest priority queues will get all the slack, give some minimum
-     * iops to queues iops_min == 0 */
-    if (q_min_rate < HTB_QUEUE_RATE_MIN) {
-        q_min_rate = HTB_QUEUE_RATE_MIN;
+     * iops to queues iops_assured == 0 */
+    if (q_assured_rate < HTB_QUEUE_RATE_MIN) {
+        q_assured_rate = HTB_QUEUE_RATE_MIN;
     }
 
     /* we need a new state to control new queue */
-    TBQueueState *qstate = new TBQueueState(queue_id,
-                                            q_min_rate,
-                                            q_max_rate,
-                                            queue->priority,
-                                            wait_time_microsec,
-                                            default_que_burst_size);
+    auto qstate = queue_state_type(new TBQueueState(queue_id,
+                                                    q_assured_rate,
+                                                    q_throttle_rate,
+                                                    queue->priority,
+                                                    wait_time_microsec,
+                                                    default_que_burst_size));
     if (!qstate) {
         LOGERROR << "QoSHTBDispatcher: failed to allocate memory for queue state for queue: " << queue_id;
-        err = ERR_MAX;
-        return err;
+        return ERR_MAX;
     }
 
-    /* for now, do not allow total min rate to increase above total rate -- return error
-     *  TODO: should we scale down all volumes' min rates? */
+    /* for now, do not allow total assured rate to increase above total rate -- return error
+     *  TODO: should we scale down all volumes' assured rates? */
     qda_lock.write_lock();
 
-    if ((q_min_rate + total_min_rate) > total_rate) {
+    if ((q_assured_rate + total_assured_rate) > total_iops) {
         qda_lock.write_unlock();
-        delete qstate;
-        LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-                 << q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
-                 << total_rate;
-            err = Error(ERR_EXCEED_MIN_IOPS);
-        return err;
+        LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_assured_rate: " << q_assured_rate
+                 << " total_assured_rate: " << total_assured_rate << " total_iops: " << total_iops;
+        return ERR_EXCEED_MIN_IOPS;
     }
 
     /* call base class to actually add queue */
-    err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
+    auto err = FDS_QoSDispatcher::registerQueueWithLockHeld(queue_id, queue);
     if (!err.ok()) {
         qda_lock.write_unlock();
-        delete qstate;
         return err;
     }
 
     /* base class already checked that queue_id is valid and not already registered */
-    /* update total min rate and avail rate */
-    total_min_rate += q_min_rate;
-    new_total_min_rate = total_min_rate;
+    /* update total assured rate and avail rate */
+    total_assured_rate += q_assured_rate;
+    new_total_min_rate = total_assured_rate;
     new_total_avail_rate = avail_pool.getRate();
-    if (new_total_avail_rate > q_min_rate) {
-        new_total_avail_rate -= q_min_rate;
+    if (new_total_avail_rate > q_assured_rate) {
+        new_total_avail_rate -= q_assured_rate;
     } else {
         /* for now we allow total_min_rate to exceed total_rate, means avail rate is 0,
          * Even if avail_pool does not generate any tokens, it still gets unused
@@ -132,12 +107,12 @@ QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
     avail_pool.modifyRate(new_total_avail_rate);
 
     /* add queue state to map */
-    qstate_map[queue_id] = qstate;
+    qstate_map[queue_id].swap(qstate);
     qda_lock.write_unlock();
 
     LOGNOTIFY << "QosHTBDispatcher: registered queue 0x" << std::hex << queue_id << std::dec
-              << "with min_iops=" << queue->iops_min
-              << "; max_iops=" << queue->iops_max
+              << "with iops_assured=" << queue->iops_assured
+              << "; iops_throttle=" << queue->iops_throttle
               << "; prio=" << queue->priority
               << "; total_min_rate " << new_total_min_rate
               << ", total_avail_rate " << new_total_avail_rate
@@ -148,76 +123,76 @@ QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
 
 Error
 QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
-                                       fds_uint64_t iops_min,
-                                       fds_uint64_t iops_max,
+                                       fds_int64_t iops_assured,
+                                       fds_int64_t iops_throttle,
                                        fds_uint32_t prio)
 {
-    Error err(ERR_OK);
     fds_uint64_t new_total_min_rate = 0;
-    fds_uint64_t new_total_avail_rate = 0;
-    fds_uint64_t q_min_rate = iops_min;
-    fds_uint64_t q_max_rate = iops_max;
-    TBQueueState* qstate = NULL;
+    fds_int64_t new_total_avail_iops = 0;
+    fds_int64_t q_assured_rate = iops_assured;
+    fds_int64_t q_throttle_rate = iops_throttle;
 
-    /* If iops_max == 0, means no max, set max_rate to a very high value */
-    if (q_max_rate == 0) {
-        q_max_rate = HTB_QUEUE_RATE_INFINITE_MAX;
+    /* If iops_throttle == 0, means no max, set throttle_rate to a very high value */
+    if (q_throttle_rate == 0) {
+        q_throttle_rate = HTB_QUEUE_RATE_INFINITE_MAX;
     }
 
     /* since highest priority queues will get all the slack, give some minimum
-     * iops to queues iops_min == 0 */
-    if (q_min_rate < HTB_QUEUE_RATE_MIN) {
-        q_min_rate = HTB_QUEUE_RATE_MIN;
+     * iops to queues iops_assured == 0 */
+    if (q_assured_rate < HTB_QUEUE_RATE_MIN) {
+        q_assured_rate = HTB_QUEUE_RATE_MIN;
     }
 
     qda_lock.write_lock();
 
-    /* first check if we know about this queue */
-    if (qstate_map.count(queue_id) == 0) {
-        qda_lock.write_unlock();
-        err = Error(ERR_NOT_FOUND);
-        return err;
+    auto qstate_it = qstate_map.find(queue_id);
+    if (qstate_map.end() == qstate_it) {
+      qda_lock.write_unlock();
+      return ERR_NOT_FOUND;
     }
-    qstate = qstate_map[queue_id];
+    auto& qstate = qstate_it->second;
+    fds_assert(qstate);
 
-    /* for now, do not allow total min rate to increase above total rate -- return error
-     *  TODO: should we scale down all volumes' min rates? */
-    if ((q_min_rate > qstate->min_rate) &&
-        ((q_min_rate - qstate->min_rate + total_min_rate) > total_rate)) {
+    /* for now, do not allow total assured rate to increase above total rate -- return error
+     *  TODO: should we scale down all volumes' assured rates? */
+    if ((q_assured_rate > qstate->assured_rate) &&
+        ((q_assured_rate - qstate->assured_rate + total_assured_rate) > total_iops)) {
         qda_lock.write_unlock();
-        LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-                 << q_min_rate << " total_min_rate: "
-                 << total_min_rate-qstate->min_rate+q_min_rate
-                 << "  total_rate: " << total_rate;
-        err = Error(ERR_EXCEED_MIN_IOPS);
-        return err;
+        LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_assured_rate: "
+                 << q_assured_rate << " total_throttle_rate: "
+                 << total_assured_rate - qstate->assured_rate + q_assured_rate
+                 << "  total_iops: " << total_iops;
+        return ERR_EXCEED_MIN_IOPS;
     }
 
     /* call base class to actually modify queue qos params */
-    err = FDS_QoSDispatcher::modifyQueueQosWithLockHeld(queue_id, q_min_rate, q_max_rate, prio);
+    auto err = FDS_QoSDispatcher::modifyQueueQosWithLockHeld(queue_id,
+                                                        q_assured_rate,
+                                                        q_throttle_rate,
+                                                        prio);
     if (!err.ok()) {
         qda_lock.write_unlock();
         return err;
     }
 
-    /* update total min rate and avail rate */
-    fds_verify(total_min_rate >= qstate->min_rate);
-    total_min_rate = total_min_rate - qstate->min_rate + q_min_rate;
-    new_total_min_rate = total_min_rate;
-    new_total_avail_rate = avail_pool.getRate() + qstate->min_rate;
-    if (new_total_avail_rate > q_min_rate) {
-        new_total_avail_rate -= q_min_rate;
+    /* update total assured rate and avail rate */
+    fds_verify(total_assured_rate >= qstate->assured_rate);
+    total_assured_rate = total_assured_rate - qstate->assured_rate + q_assured_rate;
+    new_total_min_rate = total_assured_rate;
+    new_total_avail_iops = avail_pool.getRate() + qstate->assured_rate;
+    if (new_total_avail_iops > q_assured_rate) {
+        new_total_avail_iops -= q_assured_rate;
     } else {
         /* for now we allow total_min_rate to exceed total_rate, means avail rate is 0,
          * Even if avail_pool does not generate any tokens, it still gets unused
          * assured tokens (from min_iops reservation) and shares them with other queues */
-        new_total_avail_rate = 0;
+        new_total_avail_iops = 0;
     }
-    avail_pool.modifyRate(new_total_avail_rate);
+    avail_pool.modifyRate(new_total_avail_iops);
 
     /* modify queue state params */
-    qstate->min_rate = q_min_rate;
-    qstate->max_rate = q_max_rate;
+    qstate->assured_rate = q_assured_rate;
+    qstate->throttle_rate = q_throttle_rate;
     qstate->priority = prio;
     /* since we may also have a throttle level set, this func will change effective min/max rates
      * of token bucket based on iops min and max but also a current throttle level */
@@ -225,11 +200,11 @@ QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
     qda_lock.write_unlock();
 
     LOGNOTIFY << "QosHTBDispatcher: modified queue " << queue_id
-              << "new min_iops=" << q_min_rate
-              << "; max_iops=" << q_max_rate
+              << "new q_assured_rate=" << q_assured_rate
+              << "; q_throttle_rate=" << q_throttle_rate
               << "; prio=" << prio
               << "; total_min_rate " << new_total_min_rate
-              << ", total_avail_rate " << new_total_avail_rate;
+              << ", total_avail_iops " << new_total_avail_iops;
 
     return err;
 }
@@ -237,39 +212,34 @@ QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
 Error
 QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
 {
-    Error err(ERR_OK);
-    TBQueueState* qstate = NULL;
     fds_uint64_t new_total_min_rate = 0;
     fds_uint64_t new_total_avail_rate = 0;
 
     qda_lock.write_lock();
     /* call base class to remove queue */
-    err = FDS_QoSDispatcher::deregisterQueueWithLockHeld(queue_id);
+    auto err = FDS_QoSDispatcher::deregisterQueueWithLockHeld(queue_id);
     /* if error, still try to remove queue state first before returning */
 
-    if (qstate_map.count(queue_id) == 0) {
+    auto qstate_it = qstate_map.find(queue_id);
+    if (qstate_map.end() != qstate_it) {
         qda_lock.write_unlock();
-        err = Error(ERR_DUPLICATE); /* we probably got same error from base class, but still good to check if queue state exists */
-        return err;
+        return ERR_DUPLICATE; /* we probably got same error from base class, but still good to check if queue state exists */
     }
-
-    qstate = qstate_map[queue_id];
-    qstate_map.erase(queue_id);
+    auto& qstate = qstate_it->second;
+    fds_assert(qstate);
+    qstate_map.erase(qstate_it);
 
     /* update total min and avail rates */
-    assert(qstate->min_rate <= total_min_rate);
-    total_min_rate -= qstate->min_rate;
+    assert(qstate->assured_rate <= total_assured_rate);
+    total_assured_rate -= qstate->assured_rate;
 
-    new_total_min_rate = total_min_rate;
-    if (total_rate > total_min_rate) {
-        new_total_avail_rate = total_rate - total_min_rate;
+    new_total_min_rate = total_assured_rate;
+    if (total_iops > total_assured_rate) {
+        new_total_avail_rate = total_iops - total_assured_rate;
     }
 
     avail_pool.modifyRate(new_total_avail_rate);
     qda_lock.write_unlock();
-
-    /* cleanup */
-    delete qstate;
 
     LOGNOTIFY << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
               << "; total_min_rate " << new_total_min_rate
@@ -279,7 +249,7 @@ QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
 }
 
 void
-QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, float throttle_level)
+QoSHTBDispatcher::setQueueThrottleLevel(queue_state_type& qstate, float const throttle_level)
 {
     assert((throttle_level >= -10) && (throttle_level <= 11));
     fds_int32_t tlevel_x = (fds_int32_t) throttle_level;
@@ -288,29 +258,37 @@ QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, float throttle_lev
 }
 
 void
-QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, fds_uint32_t tlevel_x, double tlevel_frac)
+QoSHTBDispatcher::setQueueThrottleLevel(queue_state_type& qstate, fds_int32_t const tlevel_x, double const tlevel_frac)
 {
+    fds_assert(qstate);
     if (tlevel_x >= 0) {
-        if (qstate->priority > tlevel_x) {
-            /* throttle to min rate */
-            qstate->setEffectiveMinMaxRates(qstate->min_rate, qstate->min_rate, wait_time_microsec);
-        } else if (qstate->priority < tlevel_x) {
-            /* ok to go up to max rate limit */
-            qstate->setEffectiveMinMaxRates(qstate->min_rate, qstate->max_rate, wait_time_microsec);
+        auto tlevel_x_u = static_cast<fds_uint32_t>(tlevel_x);
+        if (qstate->priority > tlevel_x_u) {
+            /* throttle to assured rate */
+            qstate->setEffectiveMinMaxRates(qstate->assured_rate,
+                                            qstate->assured_rate,
+                                            wait_time_microsec);
+        } else if (qstate->priority < tlevel_x_u) {
+            /* ok to go up to throttle limit */
+            qstate->setEffectiveMinMaxRates(qstate->assured_rate, qstate->throttle_rate, wait_time_microsec);
         } else {
-            /* ok to go up to min_rate + Y/10*(max_rate - min_rate) */
-            double new_max_rate = qstate->min_rate + tlevel_frac * (qstate->max_rate - qstate->min_rate);
-            qstate->setEffectiveMinMaxRates(qstate->min_rate, (fds_uint64_t)new_max_rate, wait_time_microsec);
+            /* ok to go up to assured_rate + Y/10*(throttle_rate - assured_rate) */
+            fds_int64_t new_throttle_rate = qstate->assured_rate
+                                            + tlevel_frac
+                                            * (qstate->throttle_rate - qstate->assured_rate);
+            qstate->setEffectiveMinMaxRates(qstate->assured_rate,
+                                            new_throttle_rate,
+                                            wait_time_microsec);
         }
     } else { /* tlevel_x < 0 */
         double share = (10.0 - (double)abs(tlevel_x))/10.0;
-        fds_uint64_t new_min_rate = (fds_uint64_t)(share * (double)qstate->min_rate);
-        /* we don't want to go to absolute 0 rate, so set some very small rate as min */
-        if (new_min_rate < HTB_QUEUE_RATE_MIN) {
-            new_min_rate = HTB_QUEUE_RATE_MIN;
+        fds_int64_t new_assured_rate = static_cast<fds_int64_t>(share * qstate->assured_rate);
+        /* we don't want to go to absolute 0 rate, so set some very small rate as assured */
+        if (new_assured_rate < HTB_QUEUE_RATE_MIN) {
+            new_assured_rate = HTB_QUEUE_RATE_MIN;
         }
 
-        qstate->setEffectiveMinMaxRates(new_min_rate, new_min_rate, wait_time_microsec);
+        qstate->setEffectiveMinMaxRates(new_assured_rate, new_assured_rate, wait_time_microsec);
         /* note that we are not going to change total_min_rate when changing queue's effective
          * min rate (meaning we are not increasing total available rate), because in this case
          * all volumes are throttled down, and no sharing is happening */
@@ -319,8 +297,8 @@ QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, fds_uint32_t tleve
     LOGNOTIFY << "QosHTBDispatcher: setThrottleLevel(X="
               << tlevel_x <<", Y/10=" << tlevel_frac
               << ") queue " << qstate->queue_id
-              << " Policy (" << qstate->min_rate
-              << "," << qstate->max_rate << "," << qstate->priority
+              << " Policy (" << qstate->assured_rate
+              << "," << qstate->throttle_rate << "," << qstate->priority
               << "), effective min_rate=" << qstate->getEffectiveMinRate()
               << ", effective max_rate=" << qstate->getEffectiveMaxRate();
 
@@ -338,25 +316,19 @@ QoSHTBDispatcher::setThrottleLevel(float throttle_level)
               << "; X=" << tlevel_x
               << ", Y/10=" << tlevel_frac;
 
-    qda_lock.write_lock();
-    for (qstate_map_it_t it = qstate_map.begin();
-         it != qstate_map.end();
-         ++it)
-    {
-        TBQueueState* qstate = it->second;
-        assert(qstate);
-        setQueueThrottleLevel(qstate, tlevel_x, tlevel_frac);
+    WriteGuard wg(qda_lock);
+    for (auto& q_pair : qstate_map) {
+        setQueueThrottleLevel(q_pair.second, tlevel_x, tlevel_frac);
     }
     current_throttle_level = throttle_level;
-    qda_lock.write_unlock();
 }
 
 void
 QoSHTBDispatcher::ioProcessForEnqueue(fds_qid_t queue_id,
         FDS_IOType *io)
 {
-    TBQueueState* qstate = qstate_map[queue_id];
-    assert(qstate);
+    auto& qstate = qstate_map[queue_id];
+    fds_assert(qstate);
     fds_uint32_t queued_ios = qstate->handleIoEnqueue(io);
     LOGDEBUG << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
              << std::hex << queue_id << std::dec
@@ -369,8 +341,8 @@ QoSHTBDispatcher::ioProcessForDispatch(fds_qid_t queue_id,
 {
     /* we already updated tokens in getNextQueueForDispatch(),
      * so only update number of queued ios  */
-    TBQueueState* qstate = qstate_map[queue_id];
-    assert(qstate);
+    auto& qstate = qstate_map[queue_id];
+    fds_assert(qstate);
     qstate->handleIoDispatch(io);
 }
 
@@ -379,14 +351,14 @@ fds_qid_t
 QoSHTBDispatcher::getNextQueueForDispatch()
 {
     fds_qid_t ret_qid = 0;
-    TBQueueState *min_wma_qstate = NULL;
-    double min_wma;
-    uint min_wma_hiprio;
+    TBQueueState *min_wma_qstate = nullptr;
+    double min_wma {0.0};
+    uint min_wma_hiprio {0};
 
     while (1) {
 
         /* reset qstate with min wma, since we start searching from beginning */
-        min_wma_qstate = NULL;
+        min_wma_qstate = nullptr;
 
         /* all tokens are demand-driven, so make sure to update state first */
         fds_uint64_t nowMicrosec = util::getTimeStampMicros();
@@ -394,21 +366,16 @@ QoSHTBDispatcher::getNextQueueForDispatch()
 
         /**** search if any queues has IOs that need to be dispatched to meet min_iops ****/
         /* we will check the queue that we serviced last time last */
-        qstate_map_it_t end_it = qstate_map.find(last_dispatch_qid);
-        if (end_it == qstate_map.end()) {
-            /* the queue we dispatched IO last time seems to be removed */
-            end_it = qstate_map.begin();
-        }
-        qstate_map_it_t it = end_it;
-        it++;
+        auto it = qstate_map.find(last_dispatch_qid);
 
-        if (it == qstate_map.end()) {
-            it = qstate_map.begin();
-        }
+        for (auto i = qstate_map.size(); 0 < i; --i, ++it) {
+            /* next queue */
+            if (it == qstate_map.end()) {
+                it = qstate_map.begin();
+            }
 
-        for (uint i = 0; i < qstate_map.size(); ++i) {
-            TBQueueState *qstate = it->second;
-            assert(qstate != NULL);
+            auto& qstate = it->second;
+            fds_assert(qstate);
 
             /* before querying any state, update tokens */
             nowMicrosec = util::getTimeStampMicros();
@@ -435,25 +402,18 @@ QoSHTBDispatcher::getNextQueueForDispatch()
                 double q_wma = qstate->getIOPerfWMA();
                 if (!min_wma_qstate) {
                     min_wma = q_wma;
-                    min_wma_qstate = qstate;
+                    min_wma_qstate = qstate.get();
                     min_wma_hiprio = qstate->priority;
                 } else if (qstate->priority < min_wma_hiprio) {
                     /* assuming higher priority is a lower the number (highest = 1) */
                     min_wma_hiprio = qstate->priority;
                     min_wma = q_wma;
-                    min_wma_qstate = qstate;
+                    min_wma_qstate = qstate.get();
                 } else if ((qstate->priority == min_wma_hiprio) && (q_wma < min_wma)) {
                     min_wma = q_wma;
-                    min_wma_qstate = qstate;
+                    min_wma_qstate = qstate.get();
                 }
             }
-
-            /* next queue */
-            ++it;
-            if (it == qstate_map.end()) {
-                it = qstate_map.begin();
-            }
-
         }
 
         /* we did not find any queue with IOs that need to meet it min_iops */
@@ -473,7 +433,7 @@ QoSHTBDispatcher::getNextQueueForDispatch()
         /* we did not find any IOs to dispatch */
         { /* wait for next guaranteed token or few non-guaranteed tokens to be created */
             const double num_toks = 1.0;
-            fds_uint64_t assured_delay_microsec = (total_min_rate > 0) ? (num_toks/(double)total_min_rate)*1000000.0 : 0;
+            fds_uint64_t assured_delay_microsec = (total_assured_rate > 0) ? (num_toks/(double)total_assured_rate)*1000000.0 : 0;
             fds_uint64_t delay_microsec = (avail_pool.getRate() > 0) ? ((num_toks+1.0)/(double)avail_pool.getRate())*1000000.0 : 0;
             if ((assured_delay_microsec > 0) && (delay_microsec > assured_delay_microsec))
                 delay_microsec = assured_delay_microsec;
@@ -494,19 +454,19 @@ QoSHTBDispatcher::getNextQueueForDispatch()
 
 /******* TBQueueState implementation ***********/
 TBQueueState::TBQueueState(fds_qid_t _queue_id,
-        fds_uint64_t _min_rate,
-        fds_uint64_t _max_rate,
+        fds_int64_t _assured_rate,
+        fds_int64_t _throttle_rate,
         fds_uint32_t _priority,
         fds_uint64_t _assured_wait_microsec,
         fds_uint64_t _burst_size)
     : queue_id(_queue_id),
-    min_rate(_min_rate),
-    max_rate(_max_rate),
+    assured_rate(_assured_rate),
+    throttle_rate(_throttle_rate),
     priority(_priority),
-    tb_min(_min_rate, _burst_size, _assured_wait_microsec),
-    tb_max(_max_rate, _burst_size)
+    tb_assured(_assured_rate, _burst_size, _assured_wait_microsec),
+    tb_throttle(_throttle_rate, _burst_size)
 {
-    assert(_min_rate <= _max_rate);
+    assert(_assured_rate <= _throttle_rate);
     queued_io_counter = ATOMIC_VAR_INIT(0);
     memset(recent_iops, 0, sizeof(fds_uint32_t) * HTB_WMA_LENGTH);
 
@@ -523,7 +483,7 @@ TBQueueState::~TBQueueState()
 fds_uint32_t
 TBQueueState::handleIoEnqueue(FDS_IOType* /*io*/)
 {
-    return (std::atomic_fetch_add(&queued_io_counter, (unsigned int)1) + 1);
+    return (queued_io_counter.fetch_add(1, std::memory_order_relaxed) + 1);
 }
 
 /* for now assuming constant IO cost */
@@ -548,7 +508,7 @@ TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
         recent_iops[hist_slotix]++;
     }
 
-    return (std::atomic_fetch_sub(&queued_io_counter, (unsigned int)1) - 1);
+    return (queued_io_counter.fetch_sub(1, std::memory_order_relaxed) - 1);
 }
 
 /* This is an array of powers of 0.9 */
@@ -579,8 +539,8 @@ fds_uint64_t TBQueueState::updateTokens(fds_uint64_t nowMicrosec)
      * to use chrono nanosec timers (cannot compile for some reason). */
     moveToNextHistTs(nowMicrosec);
 
-    tb_max.updateTBState(nowMicrosec);
-    return tb_min.updateTBState(nowMicrosec);
+    tb_throttle.updateTBState(nowMicrosec);
+    return tb_assured.updateTBState(nowMicrosec);
 }
 
 /* will consume 'io_cost' tokens from tb_min if they are available, there is at
@@ -593,18 +553,18 @@ TBQueueState::tbStateType TBQueueState::tryToConsumeAssuredTokens(fds_uint32_t i
         return TBQUEUE_STATE_QUEUE_EMPTY;
     }
 
-    /* check if we reached max_rate */
-    if ( !tb_max.hasTokens(io_cost) ) {
+    /* check if we reached throttle_rate */
+    if ( !tb_throttle.hasTokens(io_cost) ) {
         return TBQUEUE_STATE_NO_TOKENS;
     }
 
-    /* finally, try to consume tokens from tb_min */
-    if ( !tb_min.tryToConsumeTokens(io_cost) ) {
+    /* finally, try to consume tokens from tb_assured */
+    if ( !tb_assured.tryToConsumeTokens(io_cost) ) {
         return TBQUEUE_STATE_NO_ASSURED_TOKENS;
     }
 
     /* we consumed to assured tokens */
-    tb_max.tryToConsumeTokens(io_cost);
+    tb_throttle.tryToConsumeTokens(io_cost);
     /* it's expected that we should always have tokens in tb_max
      * when there are tokens in tb_min -- not asserting for now */
     return TBQUEUE_STATE_OK;

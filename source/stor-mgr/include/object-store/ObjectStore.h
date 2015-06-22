@@ -43,6 +43,32 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
 
+    enum ObjectStoreState {
+        /**
+         * The object store is in initializing state before it
+         * validated its superblock and checked token ownership
+         */
+        OBJECT_STORE_INIT        = 0,
+        /**
+         * The object store is in ready state if it successfully
+         * loaded and validated superblock, minimal data integrity
+         * check succeeded, and token ownership state in superblock
+         * is successfully verified and consistent
+         * In this state, object store is also ready to become a source
+         * of token migration
+         */
+        OBJECT_STORE_READY       = 1,
+        /**
+         * Something bad happend (e.g., minimal data integrity check failed)
+         * so the object store is currently un-usable
+         */
+        OBJECT_STORE_UNAVAILABLE = 2,
+        OBJECT_STORE_STATE_MAX
+    };
+
+    /// Current state of the object store
+    std::atomic<ObjectStoreState> currentState;
+
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
     // TODO(xxx) we should be able to get this from platform
@@ -50,7 +76,6 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// config params
     fds_bool_t conf_verify_data;
-    fds_uint32_t numBitsPerToken;
 
     /// Task synchronizer
     std::unique_ptr<HashedLocks<ObjectID, ObjectHash>> taskSynchronizer;
@@ -59,6 +84,10 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef ScopedHashedLock<ObjectID,
                              HashedLocks<ObjectID, ObjectHash>> ScopedSynchronizer;
 
+
+    /// returns ERR_OK if Object Store is available for IO
+    Error checkAvailability() const;
+
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
@@ -66,6 +95,16 @@ class ObjectStore : public Module, public boost::noncopyable {
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
+
+    /**
+     * Open store for a given set of SM tokens. One or more
+     * SM tokens may be already opened, which is ok.
+     * Called when SM starts migrating new tokens for which it gained
+     * ownership, so the metadata and data stores must be opened
+     * This method does not update disk map; disk map is updated on
+     * DLT update.
+     */
+    Error openStore(const SmTokenSet& smTokens);
 
     /**
      * Notification about DLT change
@@ -206,6 +245,20 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Returns number of disks on this SM
      */
     fds_uint32_t getDiskCount() const;
+
+    /**
+     * Check if object store is ready to serve IO/become source for SM token
+     * migration.
+     */
+    inline fds_bool_t isReady() const {
+        return (currentState.load() == OBJECT_STORE_READY);
+    }
+    /**
+     * Returns false if object store initialization failed and it is unavailable
+     */
+    inline fds_bool_t isUnavailable() const {
+        return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
+    }
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);

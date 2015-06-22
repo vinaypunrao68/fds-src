@@ -10,7 +10,6 @@
 #include <fdsp_utils.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
-#include <NetSession.h>
 #include <orch-mgr/om-service.h>
 #include <fds_process.h>
 #include <OmDataPlacement.h>
@@ -463,6 +462,33 @@ DataPlacement::mod_startup() {
 
 void
 DataPlacement::mod_shutdown() {
+}
+
+Error
+DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
+    Error err(ERR_OK);
+
+    if (commitedDlt) {
+        err = checkDltValid(commitedDlt, sm_services);
+        if (err.ok()) {
+            LOGDEBUG << "DLT is valid!";
+            // but we must not have any target DLT at this point
+            // when we shutdown domain, we should have aborted any ongoing migrations
+            if (newDlt) {
+                LOGERROR << "Unexpected target DLT exists! We should have aborted "
+                         << " DLT update during domain shutdown!";
+                return ERR_NOT_IMPLEMENTED;
+            }
+        }
+    } else {
+        // there must be no SM services
+        if (sm_services.size() > 0) {
+            LOGERROR << "No DLT but " << sm_services.size() << " known SM services";
+            return ERR_PERSIST_STATE_MISMATCH;
+        }
+    }
+
+    return err;
 }
 
 Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {

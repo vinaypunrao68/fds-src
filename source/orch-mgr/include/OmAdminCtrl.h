@@ -27,41 +27,31 @@ namespace fds {
 
 class FdsAdminCtrl {
   public:
-    FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log);
+    explicit FdsAdminCtrl(const std::string& om_prefix);
     ~FdsAdminCtrl();
 
     // Defines minimum object size in a volume in bytes
     static const fds_uint32_t minVolObjSize = 512;
 
     /* Per local domain  dynamic disk resource  counters */
-    fds_uint64_t  total_disk_iops_max;
-    fds_uint64_t  total_disk_iops_min;
+    fds_uint64_t  total_node_iops_max;
+    fds_uint64_t  total_node_iops_min;
     fds_uint64_t  total_disk_capacity;
-    fds_uint64_t  disk_latency_max;
-    fds_uint64_t  disk_latency_min;
-    fds_uint64_t  total_ssd_iops_max;
-    fds_uint64_t  total_ssd_iops_min;
     fds_uint64_t  total_ssd_capacity;
-    fds_uint64_t  ssd_latency_max;
-    fds_uint64_t  ssd_latency_min;
 
     /* Available  capacity */
-    fds_uint64_t  avail_disk_iops_max;
-    fds_uint64_t  avail_disk_iops_min;
+    fds_uint64_t  avail_node_iops_max;
+    fds_uint64_t  avail_node_iops_min;
     fds_uint64_t  avail_disk_capacity;
-    fds_uint64_t  avail_ssd_iops_max;
-    fds_uint64_t  avail_ssd_iops_min;
     fds_uint64_t  avail_ssd_capacity;
 
     /*  per volume resouce  counter */
-    fds_uint64_t  total_vol_iops_min;
-    fds_uint64_t  total_vol_iops_max;
+    fds_int64_t  total_vol_iops_assured;
+    fds_int64_t  total_vol_iops_throttle;
     double        total_vol_disk_cap_GB;
 
     void addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
     void removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
-    void getAvailableDiskCapacity(const FdspVolDescPtr  pVolInfo);
-    void updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo);
     Error volAdminControl(VolumeDesc *pVolDesc);
     Error checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc);
     void updateAdminControlParams(VolumeDesc  *pVolInfo);
@@ -85,9 +75,6 @@ class FdsAdminCtrl {
 
     /* number of nodes reported disk capacity */
     fds_uint32_t num_nodes;
-
-    /* parent log */
-    fds_log* parent_log;
 };
 
 }  // namespace fds

@@ -6,7 +6,6 @@
 #include "platform/platform.h"
 #include "plat_agent.h"
 #include "node_shm_rw_ctrl.h"
-#include "disk_plat_module.h"
 
 namespace fds
 {
@@ -58,7 +57,6 @@ namespace fds
 
         plat   = Platform::platf_singleton();
         ep_map = EpPlatformdMod::ep_shm_singleton();
-        node_info_frm_shm(&ninfo);
         LOGDEBUG << "Platform agent uuid " << std::hex << ninfo.nd_node_uuid;
 
         if (rs_uuid == gl_OmPmUuid)

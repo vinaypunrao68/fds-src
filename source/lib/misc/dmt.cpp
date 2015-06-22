@@ -69,7 +69,7 @@ DmtColumnPtr DMT::getNodeGroup(fds_uint32_t col_index) const {
  */
 DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     fds_verify(columns > 0);
-    fds_uint32_t col_index = volume_id % columns;
+    fds_uint32_t col_index = volume_id.get() % columns;
     return dmt_table->at(col_index);
 }
 
@@ -81,7 +81,7 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
 fds_uint32_t DMT::getNodeGroupIndex(fds_volid_t volume_id,
                                     fds_uint32_t num_columns) {
     fds_verify(num_columns > 0);
-    return (volume_id % num_columns);
+    return (volume_id.get() % num_columns);
 }
 
 /**
@@ -209,9 +209,6 @@ Error DMT::verify() const {
                 return ERR_INVALID_DMT;
             }
             nodes.insert(uuid);
-        }
-        if (nodes.size() != depth) {
-            return ERR_INVALID_DMT;
         }
     }
     return err;
@@ -350,32 +347,31 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
     return err;
 }
 
-DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t vol_id) {
-    dmt_lock.read_lock();
-    fds_verify(committed_version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(committed_version) > 0);
-    DmtColumnPtr col = (dmt_map[committed_version])->getNodeGroup(vol_id);
-    dmt_lock.read_unlock();
-    return col;
+DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t const vol_id) const {
+    ReadGuard guard(dmt_lock);
+    if (committed_version == DMT_VER_INVALID) {
+        throw Exception(ERR_INVALID_DMT, "DMT is not valid");
+    }
+    auto const it = dmt_map.find(committed_version);
+    fds_verify(dmt_map.cend() != it);
+    return it->second->getNodeGroup(vol_id);
 }
 
-DmtColumnPtr DMTManager::getTargetNodeGroup(fds_volid_t vol_id) {
-    dmt_lock.read_lock();
+DmtColumnPtr DMTManager::getTargetNodeGroup(fds_volid_t const vol_id) const {
+    ReadGuard guard(dmt_lock);
     fds_verify(target_version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(target_version) > 0);
-    DmtColumnPtr col = (dmt_map[target_version])->getNodeGroup(vol_id);
-    dmt_lock.read_unlock();
-    return col;
+    auto const it = dmt_map.find(target_version);
+    fds_verify(dmt_map.cend() != it);
+    return it->second->getNodeGroup(vol_id);
 }
 
-DmtColumnPtr DMTManager::getVersionNodeGroup(fds_volid_t volume_id,
-                                             fds_uint64_t version) {
-    dmt_lock.read_lock();
+DmtColumnPtr DMTManager::getVersionNodeGroup(fds_volid_t const volume_id,
+                                             fds_uint64_t const version) const {
+    ReadGuard guard(dmt_lock);
     fds_verify(version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(version) > 0);
-    DmtColumnPtr col = (dmt_map[version])->getNodeGroup(volume_id);
-    dmt_lock.read_unlock();
-    return col;
+    auto const it = dmt_map.find(version);
+    fds_verify(dmt_map.cend() != it);
+    return it->second->getNodeGroup(volume_id);
 }
 
 DMTPtr DMTManager::getDMT(fds_uint64_t version) {

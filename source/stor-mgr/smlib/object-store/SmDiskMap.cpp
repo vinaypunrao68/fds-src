@@ -150,7 +150,7 @@ void SmDiskMap::getDiskMap() {
         disk_map[idx] = path;
     }
     if (disk_map.size() == 0) {
-        fds_panic("Can't find any devices\n");
+        LOGCRITICAL << "Can't find any devices!";
     }
 }
 

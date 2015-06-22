@@ -13,8 +13,10 @@
 namespace fds {
 namespace dm {
 
-StatStreamHandler::StatStreamHandler() {
-    if (!dataMgr->features.isTestMode()) {
+StatStreamHandler::StatStreamHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::StatStreamMsg, handleRequest);
     }
 }
@@ -30,10 +32,10 @@ void StatStreamHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 }
 
 void StatStreamHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoStatStream* typedRequest = static_cast<DmIoStatStream*>(dmRequest);
 
-    helper.err = dataMgr->statStreamAggr_->handleModuleStatStream(typedRequest->statStreamMsg);
+    helper.err = dataManager.statStreamAggr_->handleModuleStatStream(typedRequest->statStreamMsg);
 }
 
 void StatStreamHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

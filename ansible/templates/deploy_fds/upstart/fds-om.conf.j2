@@ -1,0 +1,42 @@
+# orchmgr
+#
+description     "OrchMgr"
+{% if fds_om_host == inventory_hostname %}
+start on runlevel [2345]
+stop on runlevel [!2345]
+env enabled=1
+{% endif %}
+
+limit nofile 400000 400000
+limit core unlimited unlimited
+
+env FDS_ROOT=/fds
+env LD_LIBRARY_PATH=$FDS_ROOT/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
+env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:$FDS_ROOT/bin:$FDS_ROOT/sbin
+
+script
+  chdir $FDS_ROOT/bin
+
+  [ "$enabled" = "1" ] || [ "$force_start" = "1" ] || exit 0
+
+  JAVA_OPTS="-Xmx1024M -Xms20M"
+  JAVA_HOME=/opt/fds-deps/embedded/jre/
+
+  MAIN_CLASS=com.formationds.om.Main
+
+  CLASSPATH=$FDS_ROOT/etc
+  CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/hadoop
+  CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
+  CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
+  for i in $FDS_ROOT/lib/java/*.jar; do
+          CLASSPATH="$CLASSPATH:$i"
+  done
+
+  echo '\n\n\n=====================================================' > $FDS_ROOT/bin/om.out
+  echo 'Service startup:\t'`date` >> $FDS_ROOT/bin/om.out
+  echo 'JAVA_HOME:\t\t'`echo $JAVA_HOME` >> $FDS_ROOT/bin/om.out
+  echo 'Main class:\t\t'`echo $MAIN_CLASS` >> $FDS_ROOT/bin/om.out
+  # echo 'CLASSPATH:\t\t'`echo $CLASSPATH` >> $FDS_ROOT/bin/om.out
+
+  exec $JAVA_HOME/bin/java $JAVA_OPTS -classpath $CLASSPATH $MAIN_CLASS --foreground --fds-root=$FDS_ROOT >> $FDS_ROOT/bin/om.out 2>&1
+end script

@@ -89,12 +89,12 @@ std::string FdsCountersMgr::export_as_graphite()
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
-                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
+            std::string strId = lat ? c->id() + "." + std::to_string(c->volid().get()) +
+                    ".latency" : c->id() + "." + std::to_string(c->volid().get());
             oss << id_ << "." << counters_id << "." << strId << " " << c->value() << " "
                     << ts << std::endl;
             if (lat) {
-                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
+                strId = c->id() + "." + std::to_string(c->volid().get()) + ".count";
                 oss << id_ << "." << counters_id << "." << strId << " " <<
                     dynamic_cast<LatencyCounter*>(c)->count()
                         << " " << ts << std::endl;
@@ -116,13 +116,14 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
-                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
-            stream << id_ << "." << counters_id << "." << strId << ":\t\t" << c->value()
+            auto volString = std::to_string(c->volid().get());
+            std::string strId = lat ? c->id() + "." + volString +
+                    ".latency" : c->id() + "." + volString;
+            stream << id_ << "." << counters_id << "." << strId << "\t\t" << c->value()
                     << std::endl;
             if (lat) {
-                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
-                stream << id_ << "." << counters_id << "." << strId << ":\t\t" <<
+                strId = c->id() + "." + volString + ".count";
+                stream << id_ << "." << counters_id << "." << strId << "\t\t" <<
                         dynamic_cast<LatencyCounter*>(c)->count() << std::endl;
             }
         }
@@ -141,11 +142,12 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
-                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
+            auto volString = std::to_string(c->volid().get());
+            std::string strId = lat ? c->id() + "." + volString +
+                    ".latency" : c->id() + "." + volString;
             m[strId] = static_cast<int64_t>(c->value());
             if (lat) {
-                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
+                strId = c->id() + "." + volString + ".count";
                 m[strId] = static_cast<int64_t>(
                         dynamic_cast<LatencyCounter*>(c)->count());
             }
@@ -400,9 +402,9 @@ NumericCounter::NumericCounter(const std::string &id, FdsCounters *export_parent
 NumericCounter::NumericCounter(const NumericCounter& c)
 : FdsBaseCounter(c)
 {
-    val_ = c.val_.load();
-    min_value_ = c.min_value_.load();
-    max_value_ = c.max_value_.load();
+    val_ = c.val_.load(std::memory_order_relaxed);
+    min_value_ = c.min_value_.load(std::memory_order_relaxed);
+    max_value_ = c.max_value_.load(std::memory_order_relaxed);
 }
 
 /**
@@ -415,7 +417,7 @@ NumericCounter::NumericCounter() {}
  */
 uint64_t NumericCounter::value() const
 {
-    return val_.load();
+    return val_.load(std::memory_order_relaxed);
 }
 
 /**
@@ -423,20 +425,15 @@ uint64_t NumericCounter::value() const
  */
 void NumericCounter::reset()
 {
-    val_ = 0;
-    min_value_ = std::numeric_limits<uint64_t>::max();
-    max_value_ = 0;
+    val_.store(0, std::memory_order_relaxed);
+    min_value_.store(std::numeric_limits<uint64_t>::max(), std::memory_order_relaxed);
+    max_value_.store(0, std::memory_order_relaxed);;
 }
 /**
  *
  */
 void NumericCounter::incr() {
-    val_++;
-    uint64_t val = val_.load();
-    uint64_t max = max_value_.load();
-    /* min_ stays the same*/
-    if (val > max)
-        max_value_ = val;
+    incr(1);
 }
 
 /**
@@ -444,24 +441,17 @@ void NumericCounter::incr() {
  * @param v
  */
 void NumericCounter::incr(const uint64_t v) {
-    val_ += v;
-    uint64_t val = val_.load();
-    uint64_t max = max_value_.load();
-    /* min_ stays the same*/
-    if (val > max)
-        max_value_ = val;
+    auto val = val_.fetch_add(v, std::memory_order_relaxed) + v;
+    auto old_max = max_value_.load(std::memory_order_consume);
+    if (old_max < val)
+        { max_value_.store(val, std::memory_order_release); }
 }
 
 /**
  *
  */
 void NumericCounter::decr() {
-    val_--;
-    uint64_t val = val_.load();
-    uint64_t min = min_value_.load();
-    /* max_ stays the same*/
-    if (val < min)
-        min_value_ = val;
+    decr(1);
 }
 
 /**
@@ -469,12 +459,10 @@ void NumericCounter::decr() {
  * @param v
  */
 void NumericCounter::decr(const uint64_t v) {
-    val_ -= v;
-    uint64_t val = val_.load();
-    uint64_t min = min_value_.load();
-    /* max_ stays the same*/
-    if (val < min)
-        min_value_ = val;
+    auto val = val_.fetch_sub(v, std::memory_order_relaxed) - v;
+    auto old_min = min_value_.load(std::memory_order_consume);
+    if (old_min > val)
+        { min_value_.store(val, std::memory_order_release); }
 }
 
 /**

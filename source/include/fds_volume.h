@@ -14,26 +14,29 @@
 #include <string>
 #include <atomic>
 
-#include <fds_types.h>
 #include <fds_error.h>
 #include <fds_assert.h>
-#include <fds_typedefs.h>
 #include <fds_ptr.h>
+#include <fds_value_type.h>
+#include <has_state.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
+#include <boost/io/ios_state.hpp>
 #include <serialize.h>
-#include <fds_resource.h>
 #include <shared/fds-constants.h>
-#define FdsSysTaskQueueId 0xefffffff
+#define FdsSysTaskQueueId fds_volid_t(0xefffffff)
 #define FdsSysTaskPri 5
 
 namespace fds {
 
-// typedef fds_uint64_t fds_volid_t;
+class FDS_IOType;
+
 typedef boost::posix_time::ptime ptime;
 
-static constexpr fds_volid_t invalid_vol_id = 0;
+using fds_volid_t = fds_value_type<uint64_t>;
+
+static fds_volid_t const invalid_vol_id(0);
 static constexpr fds_int64_t invalid_vol_token = -1;
 
 /**
@@ -71,9 +74,8 @@ class VolumeDesc : public HasState {
     int                    backupVolume;  // UUID of backup volume
 
     // QoS settings
-    double                 iops_min;
-    double                 iops_max;
-    int                    iops_guarantee;
+    fds_int64_t            iops_assured;
+    fds_int64_t            iops_throttle;
     int                    relativePrio;
     ptime                  tier_start_time;
     fds_uint32_t           tier_duration_sec;
@@ -90,7 +92,7 @@ class VolumeDesc : public HasState {
     fds_uint64_t           timelineTime;
     // in millis
 
-    fpi::ResourceState     state;
+    FDS_ProtocolInterface::ResourceState     state;
 
     /* Output from block device */
     char                   vol_blkdev[FDS_MAX_VOL_NAME];
@@ -104,21 +106,21 @@ class VolumeDesc : public HasState {
     VolumeDesc(const std::string& _name, fds_volid_t _uuid);
     VolumeDesc(const std::string& _name,
                fds_volid_t _uuid,
-               fds_uint32_t _iops_min,
-               fds_uint32_t _iops_max,
+               fds_int64_t _iops_assured,
+               fds_int64_t _iops_throttle,
                fds_uint32_t _priority);
     ~VolumeDesc();
 
-    void modifyPolicyInfo(fds_uint64_t _iops_min,
-                          fds_uint64_t _iops_max,
+    void modifyPolicyInfo(fds_int64_t _iops_assured,
+                          fds_int64_t _iops_throttle,
                           fds_uint32_t _priority);
 
     std::string getName() const;
     fds_volid_t GetID() const;
 
-    double getIopsMin() const;
+    fds_int64_t getIopsAssured() const;
 
-    double getIopsMax() const;
+    fds_int64_t getIopsThrottle() const;
     int getPriority() const;
 
     std::string ToString();
@@ -132,13 +134,14 @@ class VolumeDesc : public HasState {
     bool isClone() const;
     fds_volid_t getSrcVolumeId() const;
     fds_volid_t getLookupVolumeId() const;
+    bool isSystemVolume() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
-    fpi::ResourceState getState() const {
+    FDS_ProtocolInterface::ResourceState getState() const {
         return state;
     }
 
-    void setState(fpi::ResourceState state) {
+    void setState(FDS_ProtocolInterface::ResourceState state) {
         this->state = state;
     }
 };
@@ -191,8 +194,8 @@ enum FDS_ConsisProtoType {
 class FDS_Volume {
   public:
     VolumeDesc   *voldesc;
-    fds_uint64_t  real_iops_max;
-    fds_uint64_t  real_iops_min;
+    fds_int64_t  real_iops_throttle;
+    fds_int64_t  real_iops_assured;
 
     FDS_Volume();
     explicit FDS_Volume(const VolumeDesc& vol_desc);
@@ -209,8 +212,8 @@ class FDS_VolumePolicy : public serialize::Serializable {
   public:
     fds_uint32_t   volPolicyId;
     std::string    volPolicyName;
-    fds_uint64_t   iops_max;
-    fds_uint64_t   iops_min;
+    fds_int64_t    iops_throttle;
+    fds_int64_t    iops_assured;
     fds_uint64_t   thruput;       // in MByte/sec
     fds_uint32_t   relativePrio;  // Relative priority
 
@@ -242,20 +245,20 @@ class FDS_VolumeQueue {
         VolumeQState volQState;
 
         // Qos Parameters set for this volume/VolumeQueue
-        fds_uint64_t  iops_max;
-        fds_uint64_t iops_min;
+        fds_int64_t iops_throttle;
+        fds_int64_t iops_assured;
         fds_uint32_t priority;  // Relative priority
 
         // Ctor/dtor
         FDS_VolumeQueue(fds_uint32_t q_capacity,
-                        fds_uint64_t _iops_max,
-                        fds_uint64_t _iops_min,
+                        fds_int64_t _iops_throttle,
+                        fds_int64_t _iops_assured,
                         fds_uint32_t prio);
 
         ~FDS_VolumeQueue();
 
-        void modifyQosParams(fds_uint64_t _iops_min,
-                             fds_uint64_t _iops_max,
+        void modifyQosParams(fds_int64_t _iops_assured,
+                             fds_int64_t _iops_throttle,
                              fds_uint32_t _prio);
 
         void activate();
@@ -280,5 +283,22 @@ class FDS_VolumeQueue {
 
         INTRUSIVE_PTR_DEFS(FDS_VolumeQueue, refcnt_);
     };
+
+// Define streaming operator for volume ids
+inline std::ostream& operator<<(std::ostream& out, const fds_volid_t& vol_id) {
+    boost::io::ios_flags_saver ifs(out);
+    return out << std::dec << vol_id.get();
+}
+
 }  // namespace fds
+
+// Define a hash function for fds_volid_t
+namespace std {
+    template<>
+    struct hash<fds::fds_volid_t> {
+        std::size_t operator()(fds::fds_volid_t const& val) const
+            { return std::hash<fds_uint64_t>()(val.get()); }
+    };
+}  // namespace std
+
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_

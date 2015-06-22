@@ -10,6 +10,7 @@
 #define SOURCE_STOR_MGR_ODB_H_
 
 #include <iostream>  // NOLINT(*)
+#include <memory>
 #include <string>
 
 #include <fds_types.h>
@@ -88,7 +89,7 @@ class ObjectDB {
       std::cout << "Microseconds per get op:" << std::endl
                 << histo_get.ToString() << std::endl;
     }
-    leveldb::DB *GetDB() { 
+    std::shared_ptr<leveldb::DB> GetDB() { 
        return db;
     }
     leveldb::ReadOptions GetReadOptions() { 
@@ -122,12 +123,12 @@ class ObjectDB {
      * storing objects. This will likey move to
      * a different structure in the future.
      */
-    leveldb::DB* db;
+    std::shared_ptr<leveldb::DB> db;
 
     /*
      * leveldb file system interface
      */
-    leveldb::Env* env;
+    std::unique_ptr<leveldb::CopyEnv> env;
 
     /*
      * Database options. These are not expected

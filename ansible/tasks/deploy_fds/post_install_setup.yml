@@ -6,6 +6,8 @@
     tags:
         - post-install
 
+# This being in /root is legacy and should probably get removed once
+# fdsinstall is no longer referencing disk_type.py here
 -   name: copy disk_type.py to /root/disk_type.py
     copy: src=../../../source/platform/python/disk_type.py
         dest=/root/disk_type.py
@@ -14,21 +16,12 @@
         - post-install
 
 -   name: run fdsinstall step 3 - setup storage
+    environment:
+        PATH: /opt/fds-deps/embedded/sbin:{{ ansible_env.PATH }}
     shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
     when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
     tags:
         - post-install
-
--   name: render deploy_formation.conf
-    template:
-        src=../../source/test/formation.conf.j2
-        dest=/fds/sbin/deploy_formation.conf
-        owner=root
-        group=root
-        mode=0644
-    tags:
-        - post-install
-        - fdsconfig
 
 -   name: render /fds/etc config files
     template:
@@ -72,8 +65,8 @@
         - influxdb
 
 -   name: copy influxdb init script
-    copy:
-        src=../files/deploy_fds/influxdb_init.sh
+    template:
+        src=../templates/deploy_fds/influxdb_init.sh.j2
         dest=/etc/init.d/influxdb
         owner=root
         group=root
@@ -94,35 +87,20 @@
         - post-install
         - influxdb
 
--   name: render_init_scripts
+-   name: put upstart configs in place
     template:
-        src=../templates/deploy_fds/{{item}}-init.conf.j2
-        dest=/etc/init/{{item}}.conf
-        owner=root
-        group=root
-        mode=0644
-    with_items:
-        - platformd
-        - orchmgr
-        - amagent
-        - fdsactivate
-    tags:
-        - post-install
-        - init
-
--   name: copy new upstart configs
-    copy:
-        src=../files/deploy_fds/upstart/fds-{{item}}.conf
+        src=../templates/deploy_fds/upstart/fds-{{item}}.conf.j2
         dest=/etc/init/fds-{{item}}.conf
         owner=root
         group=root
         mode=0644
     with_items:
+        - om
         - am
         - bare_am
+        - disktype
         - sm
         - dm
-        - om
         - pm
     tags:
         - post-install

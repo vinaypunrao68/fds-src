@@ -29,7 +29,7 @@
         
         <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_data_connector</label>
-            <connector-panel ng-model="dataConnector" enable="enableDc"></connector-panel>
+            <connector-panel ng-model="dataSettings" enable="enableDc"></connector-panel>
         </section>
         <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>
@@ -56,7 +56,7 @@
     </div>
 
     <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;margin-left: 150px;">
-        <button class="btn btn-primary skinny" style="display: inline-block;" ng-click="save()">
+        <button class="btn btn-primary skinny save-volume" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
         </button>
         <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>

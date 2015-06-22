@@ -19,7 +19,7 @@ OmSnapshotSvcHandler::OmSnapshotSvcHandler(OrchMgr* om) : om(om) {
 
 Error OmSnapshotSvcHandler::omSnapshotCreate(const fpi::Snapshot& snapshot) {
     Error err(ERR_OK);
-    fds_volid_t   volId = snapshot.volumeId;
+    fds_volid_t   volId(snapshot.volumeId);
 
     fpi::CreateSnapshotMsgPtr msg(new fpi::CreateSnapshotMsg());
     msg->snapshot = snapshot;
@@ -61,7 +61,7 @@ Error OmSnapshotSvcHandler::omSnapshotDelete(fds_uint64_t snapshotId, fds_uint64
 
     auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omSnapshotDeleteResp);
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om->getDMTNodesForVolume(fds_volid_t(volId))));
 
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteSnapshotMsg), stSnapDeleteTxMsg);
     asyncReq->onResponseCb(cb);
@@ -80,7 +80,7 @@ void OmSnapshotSvcHandler::omSnapshotDeleteResp(QuorumSvcRequest* svcReq,
 Error OmSnapshotSvcHandler::omVolumeCloneCreate(const fpi::CreateVolumeCloneMsgPtr &msg) {
     Error err(ERR_OK);
     fds_verify(msg != NULL);
-    fds_volid_t   volId = msg->volumeId;
+    fds_volid_t   volId(msg->volumeId);
 
     auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omVolumeCloneCreateResp);
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(

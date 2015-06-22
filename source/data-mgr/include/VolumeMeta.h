@@ -75,6 +75,12 @@ class VolumeMeta : public HasLogger {
     void finishForwarding();
 
     VolumeDesc *vol_desc;
+
+    // latest sequence ID is not part of the volume descriptor because it will
+    // always be out of date. stashing it here to provide to the AM on attach.
+    // ATTN: NOT updated on every request.
+    blob_version_t seq_id;
+
     /*
      * Default constructor should NOT be called
      * directly. It is needed for STL data struct

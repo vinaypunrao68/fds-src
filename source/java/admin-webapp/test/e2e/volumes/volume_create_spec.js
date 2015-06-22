@@ -15,6 +15,7 @@ describe( 'Testing volume creation permutations', function(){
     var createEl;
     var newText;
     var viewEl;
+    var createButton;
     
     clean();
     
@@ -33,11 +34,11 @@ describe( 'Testing volume creation permutations', function(){
         });
         
         viewEl.element( by.css( '.sla' )).getText().then( function( text ){
-            expect( text ).toBe( qos.sla );
+            expect( text ).toBe( qos.iopsMin );
         });
         
         viewEl.element( by.css( '.limit' )).getText().then( function( text ){
-            expect( text ).toBe( qos.limit );
+            expect( text ).toBe( qos.iopsMax );
         });        
         
         viewEl.element( by.css( '.qos-preset' )).getText().then( function( text ){
@@ -112,7 +113,7 @@ describe( 'Testing volume creation permutations', function(){
 
         createLink = element( by.css( 'a.new_volume') );
         createEl = $('.create-panel.volumes');
-        createButton = element.all( by.buttonText( 'Create Volume' ) ).get(0);
+        createButton = element.all( by.css( '.save-volume' ) ).get(0);
         mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
         viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
         
@@ -162,7 +163,7 @@ describe( 'Testing volume creation permutations', function(){
         });
     });
     
-    it ( 'should go to the edit screen on press of the edit button', function(){
+    it ( 'should go to the view screen on clicking the row', function(){
         
         clickRow( 'Test Volume' );
         
@@ -183,13 +184,13 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             'Test Volume', 
             'Flash Only',
-            { preset: STANDARD, priority: '7', sla: 'None', limit: 'Unlimited'},
+            { preset: STANDARD, priority: '7', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: STANDARD, 
                 settings: [
                     { predicate: 'Kept', value: 'for 1 day' },
                     { predicate: 'at 12am', value: 'for 1 week' },
-                    { predicate: 'Mondays', value: 'for 30 days' },
+                    { predicate: 'Mondays', value: 'for 90 days' },
                     { predicate: 'First day of the month', value: 'for 180 days' },
                     { predicate: 'January', value: 'for 5 years' }
                 ]
@@ -218,14 +219,14 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Hybrid',
-            { preset: LEAST, priority: '10', sla: 'None', limit: 'Unlimited'},
+            { preset: LEAST, priority: '10', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: SPARSE, 
                 settings: [
                     { predicate: 'Kept', value: 'for 1 day' },
                     { predicate: 'at 12am', value: 'for 2 days' },
                     { predicate: 'Mondays', value: 'for 1 week' },
-                    { predicate: 'First day of the month', value: 'for 30 days' },
+                    { predicate: 'First day of the month', value: 'for 90 days' },
                     { predicate: 'January', value: 'for 2 years' }
                 ]
             }
@@ -252,13 +253,13 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Disk Only',
-            { preset: MOST, priority: '1', sla: 'None', limit: 'Unlimited'},
+            { preset: MOST, priority: '1', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: DENSE, 
                 settings: [
                     { predicate: 'Kept', value: 'for 2 days' },
                     { predicate: 'at 12am', value: 'for 30 days' },
-                    { predicate: 'Mondays', value: 'for 240 days' },
+                    { predicate: 'Mondays', value: 'for 210 days' },
                     { predicate: 'First day of the month', value: 'for 2 years' },
                     { predicate: 'January', value: 'for 15 years' }
                 ]
@@ -273,8 +274,8 @@ describe( 'Testing volume creation permutations', function(){
         
         var qos = {
             priority: 3,
-            capacity: 60,
-            limit: 1000
+            iopsMin: 500,
+            iopsMax: 1000
         };
         
         var timeline = [
@@ -293,9 +294,10 @@ describe( 'Testing volume creation permutations', function(){
         };
         
         var data_type = {
-            type: 'block',
-            attributes: {
-                size: 9
+            type: 'BLOCK',
+            capacity: {
+                value: 10,
+                unit: 'GB'
             }
         };
         
@@ -312,7 +314,7 @@ describe( 'Testing volume creation permutations', function(){
         verifyVolume( 
             name, 
             'Flash Only',
-            { preset: CUSTOM, priority: '3', sla: '60', limit: '1000'},
+            { preset: CUSTOM, priority: '3', iopsMin: '500', iopsMax: '1000'},
             { 
                 preset: CUSTOM, 
                 settings: [
@@ -328,41 +330,28 @@ describe( 'Testing volume creation permutations', function(){
         // go back
         var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();        
     });
-
-//    it( 'should be able to delete all the volumes', function(){
-//        
-//        mainEl.all( by.css( '.volume-row' )).then( function( list ){
-//            
-//            for ( var i = 0; i < list.length; i++ ){
-//                deleteVolume( 0 );
-//            }
-//        });
-//                
-//        mainEl.all( by.css( '.volume-row' )).count().then( function( num ){
-//            
-//            expect( num ).toBe( 0 );
-//        });
-//    });
     
     it ( 'should be able to switch presets for a volume', function(){
+        
+        browser.sleep( 220 );
         
         var qos = { preset: 2 };
         var timeline = { preset: 2 };
         
         var name = 'Dumb One';
-        
+
         editVolume( name, undefined, qos, 'HDD_ONLY', timeline );
         
         verifyVolume( 
             name, 
             'Hybrid',
-            { preset: MOST, priority: '1', sla: 'None', limit: 'Unlimited'},
+            { preset: MOST, priority: '1', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: DENSE, 
                 settings: [
                     { predicate: 'Kept', value: 'for 2 days' },
                     { predicate: 'at 12am', value: 'for 30 days' },
-                    { predicate: 'Mondays', value: 'for 240 days' },
+                    { predicate: 'Mondays', value: 'for 210 days' },
                     { predicate: 'First day of the month', value: 'for 2 years' },
                     { predicate: 'January', value: 'for 15 years' }
                 ]
@@ -375,6 +364,7 @@ describe( 'Testing volume creation permutations', function(){
 
     it( 'should be able to cancel editing and show default values on next entry', function(){
 
+        browser.sleep( 220 );
         createLink.click();
         browser.sleep( 210 );
 
@@ -395,6 +385,17 @@ describe( 'Testing volume creation permutations', function(){
 
         cancelButton.click();
         browser.sleep( 210 );
+        
+    });
+    
+    it( 'should be able to delete a volume', function(){
+        
+        deleteVolume( "Dumb One" );
+        browser.sleep( 300 );
+        
+        var rows = mainEl.all( by.css( '.volume-row' ) ).count().then( function( num ){
+            expect( num ).toBe( 3 );
+        });
         
         logout();
     });

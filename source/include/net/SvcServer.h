@@ -13,6 +13,8 @@
 #include <concurrency/Mutex.h>
 #include <thrift/server/TServer.h>
 #include <thrift/TProcessor.h>
+#include <concurrency/taskstatus.h>
+#include <fds_error.h>
 
 /* Forward declarations */
 namespace apache { namespace thrift { namespace transport {
@@ -35,6 +37,12 @@ namespace tp = apache::thrift::protocol;
 namespace ts = apache::thrift::server;
 namespace tt = apache::thrift::transport;
 
+/**
+* @brief Listerner inteface for SvcServer notifications 
+*/
+struct SvcServerListener {
+    virtual void notifyServerDown(const Error &e) = 0;
+};
 
 /**
 * @brief Server for the service.  Every service will have an instance of this server
@@ -46,16 +54,32 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcServer();
 
+
     /**
-    * @brief Starts the server
+    * @brief Set listener for server notifications
+    *
+    * @param listener
     */
-    void start();
+    void setListener(SvcServerListener *listener);
+
+    /**
+    * @brief Starts the server.  This call will block until server starts listening
+    *
+    * @return ERR_OK if we are able to start listening on the server
+    */
+    Error start();
 
     /**
     * @brief This will stop the server.  Will block until all inbound connections to the server
     * are closed and server stops.
     */
     void stop();
+
+    
+    /**
+    * @brief Called after server starts listening
+    */
+    virtual void preServe() override;
 
     /**
      * @brief Called when new connection is established
@@ -92,6 +116,11 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     boost::shared_ptr<tt::TServerTransport> serverTransport_;
     boost::shared_ptr<ts::TServer> server_;
     std::unique_ptr<std::thread> serverThread_;
+    /* Waiter to wait until server is started */
+    struct StartWaiter : concurrency::TaskStatus {
+        Error status = ERR_OK;
+    } startWaiter_;
+
 
     /* Connected transports */
     /**
@@ -105,6 +134,7 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     std::set<tt::TTransportPtr, LtTransports> connections_;
     fds_mutex connectionsLock_;
     std::atomic<bool> stopped_;
+    SvcServerListener *listener_;
 };
 }  // namespace fds
 

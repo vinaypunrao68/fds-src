@@ -12,6 +12,7 @@
 #include <vector>
 #include <cstdio>
 
+#include "util/Log.h"
 #include "fds_assert.h"
 #include "shared/fds_types.h"
 
@@ -56,9 +57,20 @@ namespace fds
             pid_t    child_pid;
             pid_t    res_pid;
 
+            int    j = 0;
+
+            std::ostringstream commandBuffer;
+
+            for (j = 0; argv[j]!= NULL; j++)
+            {
+                commandBuffer << argv[j] << " ";
+            }
+
+            LOGDEBUG << "Preparing to fork and exec:  " << commandBuffer.str();
+
             child_pid = fork();
 
-            if (child_pid != 0)
+            if (child_pid > 0)
             {
                 if (daemonize)
                 {
@@ -68,10 +80,21 @@ namespace fds
                 }
                 return child_pid;
             }
+            else if (child_pid < 0)
+            {
+                LOGDEBUG << "fds_spawn fork failure:  errno = " << errno;
+            }
 
-            /* Child process, close all file descriptors. */
+            // In the child process, No logging between fork and exec
+
+            // This sets the process's process group id.  Using this prevents children from being killed when a parent is delivered a sigterm (service ... stop).
+            if (-1 == setpgid (0, 0))
+            {
+                std::cerr << "setpgid() failure:  errno = " << errno;
+            }
+
+            /* Close all file descriptors. */
             flim = fds_get_fd_limit();
-            printf("Close fd up to %d\n", flim);
 
             for (fd = 0; fd < flim; fd++)
             {
@@ -80,9 +103,9 @@ namespace fds
 
             // There is probably a better way, but for now, create a dummy variable to capture the
             // return value from dup().  This prevents a compiler warning when compiling with -O2
-            fd = open("/dev/null", O_RDWR);  // will be 0
-            int    unused_discard = dup(fd); // will be 1
-            unused_discard = dup(fd);     // will be 2
+            fd = open("/dev/null", O_RDWR);  // will be file descriptor 0
+            int unused_discard = dup(fd);    // will be file descriptor 1
+            unused_discard = dup(fd);        // will be file descriptor 2
 
             if (daemonize)
             {
@@ -90,25 +113,14 @@ namespace fds
 
                 if (res != 0)
                 {
-                    printf("Fatal error, can't daemonize %s\n", argv[0]);
                     abort();
                 }
             }
 
             /* actual child process */
-            int    j = 0;
-
-            printf("\n");
-
-            for (j = 0; argv[j]!= NULL; j++)
-            {
-                printf("%s ", argv[j]);
-            }
-
-            printf("\n");
 
             execvp(argv[0], argv);
-            printf("Fatal error, can't spawn %s\n", argv[0]);
+            std::cerr << "fds_spawn execvp failure:  errno = " << errno;
             abort();
         }
 
@@ -125,39 +137,45 @@ namespace fds
 
             return fds_spawn_service(prog.c_str(), fds_root.c_str(), &c_args[0], daemonize ? 1 : 0);
         }
+
         /*
          * fds_spawn_service
          * -----------------
          */
         pid_t fds_spawn_service(const char *prog, const char *fds_root, const char** extra_args, int daemonize)
         {
-            size_t    len, ret;
+            size_t    len {0}, ret;
             char      exec[1024];
             char      root[1024];
             char     *argv[12];
-            int       i = 0;
-            int       j = 0;
+            int       argvIndex = 0;
+            int       extraIndex = 0;
 
-            argv[i++] = exec;
-            argv[i++] = root;
+            argv[argvIndex++] = exec;
 
-            for (; extra_args[j] != NULL && j < 10; i++, j++)
+            for (; extra_args[extraIndex] != NULL && extraIndex < 10; argvIndex++, extraIndex++)
             {
-                argv[i] = (char*) extra_args[j];
+                argv[argvIndex] = (char*) extra_args[extraIndex];
             }
 
             /* Only allow 10 args for now */
-            fds_verify(extra_args[j] == NULL);
-            argv[i] = NULL;
+            fds_verify(extra_args[extraIndex] == NULL);
 
-            if (getcwd(exec, sizeof (exec)) == NULL)
+            if (0 != strncmp ("java", prog, strlen ("java")))
             {
-                perror("Fatal from getcwd()");
-                abort();
-            }
+                if (getcwd(exec, sizeof (exec)) == NULL)
+                {
+                    perror("Fatal from getcwd()");
+                    abort();
+                }
 
-            len = strlen(exec);
-            ret = snprintf(exec + len, sizeof (exec) - len, "/%s", prog);
+                len = strlen(exec);
+                ret = snprintf(exec + len, sizeof (exec) - len, "/%s", prog);
+            }
+            else
+            {
+                ret = snprintf(exec, sizeof (exec), "%s", prog);
+            }
 
             if (ret == (sizeof (exec) - len))
             {
@@ -173,6 +191,9 @@ namespace fds
                 exit(1);
             }
 
+            argv[argvIndex++] = root;
+            argv[argvIndex] = NULL;
+
             /*
              * XXX(Vy): we're using fds_root as prefix to config DB, strip out the
              * ending '/' so that the child process can use the correct key.
@@ -184,6 +205,7 @@ namespace fds
             root[ret + 1] = '\0';
 
             printf("Spawn %s %s\n", exec, root);
+            LOGDEBUG << "Spawn " << exec ;
 
             return (fds_spawn(argv, daemonize));
         }

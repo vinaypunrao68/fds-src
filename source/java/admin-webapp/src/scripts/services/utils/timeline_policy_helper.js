@@ -2,135 +2,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
     
     var service = {};
     
-    /**
-    * These are the preset definitions... they are lengthy.  Scroll down to the next long comment for the real code.
-    **/
-    
-    var standard = {
-        label: $filter( 'translate' )( 'volumes.snapshot.l_standard' ),
-        policies: [
-        {
-            recurrenceRule: {
-                FREQ: 'WEEKLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYDAY: ['MO']
-            },
-            retention: 2592000
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'YEARLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYMONTHDAY: ['1'],
-                BYMONTH: ['1']
-            },
-            retention: 158112000
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'MONTHLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYMONTHDAY: ['1']
-            },
-            retention: 15552000
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'DAILY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0']
-            },
-            retention: 604800
-        }]
-    };
-    
-    var sparse = {
-        label: $filter( 'translate' )( 'volumes.snapshot.l_sparse' ),
-        policies: [
-        {
-            recurrenceRule: {
-                FREQ: 'WEEKLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYDAY: ['MO']
-            },
-            retention: 604800
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'YEARLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYMONTHDAY: ['1'],
-                BYMONTH: ['1']
-            },
-            retention: 63244800
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'MONTHLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYMONTHDAY: ['1']
-            },
-            retention: 2592000
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'DAILY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0']
-            },
-            retention: 172800
-        }]
-    };
-    
-    var dense = {
-        label: $filter( 'translate' )( 'volumes.snapshot.l_dense' ),
-        policies: [
-        {
-            recurrenceRule: {
-                FREQ: 'WEEKLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYDAY: ['MO']
-            },
-            retention: 18144000
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'YEARLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYMONTHDAY: ['1'],
-                BYMONTH: ['1']
-            },
-            retention: 474336000
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'MONTHLY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0'],
-                BYMONTHDAY: ['1']
-            },
-            retention: 63244800
-        },
-        {
-            recurrenceRule: {
-                FREQ: 'DAILY',
-                BYMINUTE: ['0'],
-                BYHOUR: ['0']
-            },
-            retention: 2592000
-        }]
-    };    
-    
-    service.presets = [ standard, sparse, dense ];
-    
+   
     // abbreviation map
     var abbreviations = [
         { abbr: 'MO', string: $filter( 'translate' )( 'volumes.snapshot.l_monday' ) },
@@ -208,7 +80,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                         }
                     }
                     
-                    if ( parseInt( rule.retention ) !== parseInt( rule2.retention ) ){
+                    if ( parseInt( rule.retentionTime.seconds ) !== parseInt( rule2.retentionTime.seconds ) ){
                         match = false;
                     }
                 }// match found
@@ -221,24 +93,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
         
         return true;
     };
-    
-    service.convertRawToPreset = function( policies ){
-        
-        for ( var i = 0; i < service.presets.length; i++ ){
-            
-            if ( service.arePoliciesEqual( service.presets[i].policies, policies ) ){
-                return service.presets[i];
-            }
-        }
-        
-        var custom = {
-            label: $filter( 'translate' )( 'common.l_custom' ),
-            policies: policies
-        };
-        
-        return custom;
-    };
-    
+
     service.convertAbbreviationToString = function( a ){
         
         for ( var i = 0; i < abbreviations.length; i++ ){

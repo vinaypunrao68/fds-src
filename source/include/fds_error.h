@@ -82,6 +82,9 @@ typedef enum {
     ERR_ARCHIVE_GET_FAILED = 58,
     ERR_VOLUME_ACCESS_DENIED = 59,
     ERR_TOKEN_NOT_READY      = 60,
+    ERR_DM_INVALID_REGEX     = 61,
+	ERR_DM_NOT_PRIMARY       = 62,
+	ERR_DM_NOT_TOP_PRIMARY   = 63,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -124,6 +127,7 @@ typedef enum {
     ERR_SM_TOK_MIGRATION_DATA_MISMATCH,
     ERR_SM_TOK_MIGRATION_METADATA_MISMATCH,
     ERR_SM_TOK_MIGRATION_ABORTED,
+    ERR_SM_TOK_MIGRATION_TIMEOUT,
     ERR_SM_TIER_WRITEBACK_NOT_DONE,
     ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME,
     ERR_SM_EXCEEDED_DISK_CAPACITY,
@@ -131,6 +135,7 @@ typedef enum {
     ERR_SM_NOERR_LOST_SM_TOKENS,
     ERR_SM_NOERR_NEED_RESYNC,
     ERR_SM_RESYNC_SOURCE_DECLINE,
+    ERR_SM_NOT_READY_AS_MIGR_SRC,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
@@ -142,6 +147,8 @@ typedef enum {
     ERR_SVC_REQUEST_INVOCATION,
     ERR_SVC_REQUEST_USER_INTERRUPTED,
     ERR_SVC_REQUEST_TIMEOUT,
+    ERR_SVC_SERVER_PORT_ALREADY_INUSE,
+    ERR_SVC_SERVER_CRASH,
 
     /* FDSN status errors */
     // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix
@@ -222,6 +229,11 @@ typedef enum {
     FDSN_StatusErrorEntityTooLarge                             ,
 
     FDSN_StatusErrorMissingContentLength                       ,
+
+    /*
+     * Errors for Platform things
+     */
+    PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH               = 60000,
 
     /* keep this as the last*/
     FDSN_StatusErrorUnknown                                     ,

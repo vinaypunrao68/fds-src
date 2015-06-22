@@ -153,7 +153,7 @@ class ObjectRankEngine {
      // for now a simple rank based on volume's priority and whether volume
      // has min_iops requirement
      inline fds_uint16_t getVolumeRank(const VolumeDesc& voldesc) const {
-         fds_uint8_t bin = (voldesc.iops_min > 0) ? 0 : 1;
+         fds_uint8_t bin = (voldesc.iops_assured > 0) ? 0 : 1;
          fds_uint16_t rank = (10 * bin + voldesc.relativePrio);
          return (( rank << 8 ) & 0xFF00);
      }
@@ -253,8 +253,6 @@ class ObjectRankEngine {
 
      /* True if ranking process is enabled */
      std::atomic<fds_bool_t> rankingEnabled;
-     /* for now one thread doing ranking process */
-     boost::thread *rank_thread;
      fds_notification* rank_notify;
 
      /* does not own, passed to the constructor */

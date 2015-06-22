@@ -6,6 +6,89 @@ mockNode = function(){
         
         var pollerId;
         
+        var createNode = function( name ){
+            
+            var node = 
+            {
+              "uid": 1,
+              "name": name,
+              "address": {
+                "ipv6address": "0.0.0.0",
+                "ipv4address": "127.0.0.1"
+              },
+              "state": "UP",
+              "serviceMap": {
+                "DM": [
+                  {
+                    "uid": 7088430947183220035,
+                    "name": "DM",
+                    "port": 7031,
+                    "status": {
+                        "state": "RUNNING",
+                        "code": 0,
+                        "description": ""
+                    },
+                    "type": "DM"
+                  }
+                ],
+                "AM": [
+                  {
+                    "uid":7088430947183220035,
+                    "name": "AM",
+                    "port": 7041,
+                    "status": {
+                        "state": "DEGRADED",
+                        "code": 3001,
+                        "description": "Service is degraded"
+                    },
+                    "type": "AM"
+                  }
+                ],
+                "SM": [
+                  {
+                    "uid" : 7088430947183220035,
+                    "name": "SM",
+                    "port": 7021,
+                    "status": {
+                        "state": "ERROR",
+                        "code": 4002,
+                        "description": "Service is dead."
+                    },
+                    "type": "SM"
+                  }
+                ],
+                "PM": [
+                  {
+                    "uid": 7088430947183220035,
+                    "name": "PM",
+                    "port": 7001,
+                    "status": {
+                        "state": "UNREACHABLE",
+                        "code": 404,
+                        "description": "Cannot reach service."
+                    },
+                    "type": "PM"
+                  }
+                ],
+                "OM": [
+                  {
+                    "uid": 7088430947183220035,
+                    "name": "OM",
+                    "port": 7001,
+                    "status": {
+                        "state": "RUNNING",
+                        "code": 0,
+                        "description": "All is good."
+                    },
+                    "type": "OM"
+                  }
+                ]
+              }
+            };
+              
+            return node;
+        };
+        
         service.detachedNodes = [
             {
               "name": "awesome-new-node",
@@ -13,76 +96,25 @@ mockNode = function(){
               "ipV6address": "0.0.0.0",
               "ipV4address": "127.0.0.1",
               "state": "DISCOVERED",
-              "services": {
-                "DM": [
+              "serviceMap": {
+                "PM": [
                   {
-                    "uuid": 7088430947183220035,
-                    "autoName": "PM",
+                    "uid": 7088430947183220035,
+                    "name": "PM",
                     "port": 7031,
-                    "status": "INVALID",
-                    "type": "FDSP_PLATFORM"
+                    "status": {
+                        "state": "NOT_RUNNING",
+                        "code": 0,
+                        "description": "Service is down"
+                    },
+                    "type": "PM"
                   }
                 ]
               }
             }
         ];
 
-        service.nodes = [
-            {
-              "name": "awesome-node",
-              "uuid": 1,
-              "ipV6address": "0.0.0.0",
-              "ipV4address": "127.0.0.1",
-              "state": "UP",
-              "services": {
-                "DM": [
-                  {
-                    "uuid": 7088430947183220035,
-                    "autoName": "DM",
-                    "port": 7031,
-                    "status": "INVALID",
-                    "type": "FDSP_DATA_MGR"
-                  }
-                ],
-                "AM": [
-                  {
-                    "uuid": 7088430947183220035,
-                    "autoName": "AM",
-                    "port": 7041,
-                    "status": "ACTIVE",
-                    "type": "FDSP_ACCESS_MGR"
-                  }
-                ],
-                "SM": [
-                  {
-                    "uuid": 7088430947183220035,
-                    "autoName": "SM",
-                    "port": 7021,
-                    "status": "ERROR",
-                    "type": "FDSP_STOR_MGR"
-                  }
-                ],
-                "PM": [
-                  {
-                    "uuid": 7088430947183220035,
-                    "autoName": "PM",
-                    "port": 7001,
-                    "status": "INACTIVE",
-                    "type": "FDSP_PLATFORM"
-                  }
-                ],
-                "OM": [
-                  {
-                    "uuid": 7088430947183220035,
-                    "autoName": "OM",
-                    "port": 7001,
-                    "status": "ACTIVE",
-                    "type": "FDSP_ORCH_MGR"
-                  }
-                ]
-              }
-            }
-          ];
+        service.nodes = [createNode( 'awesome-node' )];
 
         service.FDS_NODE_UP = 'FDS_Node_Up';
         service.FDS_NODE_DOWN = 'FDS_Node_Down';
@@ -91,9 +123,15 @@ mockNode = function(){
         service.FDS_NODE_ATTENTION = 'FDS_Node_Attention';
         service.FDS_NODE_DISCOVERED = 'FDS_Node_Discovered';
 
-        service.FDS_ACTIVE = 'ACTIVE';
-        service.FDS_INACTIVE = 'INACTIVE';
+        service.FDS_RUNNING = 'RUNNING';
+        service.FDS_NOT_RUNNING = 'NOT_RUNNING';
         service.FDS_ERROR = 'ERROR';
+        service.FDS_LIMITED = 'LIMITED';
+        service.FDS_DEGRADED = 'DEGRADED';
+        service.FDS_UNREACHABLE = 'UNREACHABLE';
+        service.FDS_UNEXPECTED_EXIT = 'UNEXPECTED_EXIT';
+        service.FDS_SHUTTING_DOWN = 'SHUTTING_DOWN';
+        service.FDS_INITIALIZING = 'INITIALIZING';
 
         var saveNodes = function(){
             
@@ -143,50 +181,70 @@ mockNode = function(){
                 nodes[i].state = 'UP';
                 
                 
-                nodes[i].services = {
+                nodes[i].serviceMap = {
                     "DM": [
                         {
-                            "uuid": nodes[i].uuid + 1,
-                            "autoName": "DM",
+                            "uid": nodes[i].uid + 1,
+                            "name": "DM",
                             "port": 7031,
-                            "status": "ACTIVE",
-                            "type": "FDSP_DATA_MGR"
+                            "status": {
+                                "state": service.FDS_RUNNING,
+                                "code": 0,
+                                "description": ""
+                            },
+                            "type": "DM"
                         }
                     ],
                     "AM": [
                         {
-                            "uuid": nodes[i].uuid + 2,
-                            "autoName": "AM",
+                            "uid": nodes[i].uid + 2,
+                            "name": "AM",                                
                             "port": 7041,
-                            "status": "ACTIVE",
-                            "type": "FDSP_ACCESS_MGR"
+                            "status": {
+                                "state": service.FDS_RUNNING,
+                                "code": 0,
+                                "description": ""
+                            },
+                            "type": "AM"
                         }
                     ],
                     "SM": [
                         {
-                            "uuid": nodes[i].uuid + 3,
-                            "autoName": "SM",
+                            "uid": nodes[i].uid + 3,
+                            "name": "SM",
                             "port": 7021,
-                            "status": "ACTIVE",
-                            "type": "FDSP_STOR_MGR"
+                            "status": {
+                                "state": service.FDS_RUNNING,
+                                "code": 0,
+                                "description": ""
+                            },
+                            "type": "SM"
                         }
                     ],
                     "PM": [
                         {
-                            "uuid": nodes[i].uuid + 4,
-                            "autoName": "PM",
+                            "uid": nodes[i].uid + 4,
+                            "name": "PM",
                             "port": 7001,
-                            "status": "ACTIVE",
-                            "type": "FDSP_PLATFORM"
+                            "status": {
+                                "state": service.FDS_RUNNING,
+                                "code": 0,
+                                "description": ""
+                            },
+                            "type": "PM"
                         }
                     ],
                     "OM": [
                         {
-                            "uuid": nodes[i].uuid + 5,
-                            "autoName": "OM",
+                            "uid": nodes[i].uid + 5,
+                            "name": "OM",
                             "port": 7001,
-                            "status": "ACTIVE",
-                            "type": "FDSP_ORCH_MGR"
+                            "status": {
+                                "state": service.FDS_RUNNING,
+                                "code": 0,
+                                "description": ""
+                            },
+                            "type": "OM"
                         }
                     ]
                 };

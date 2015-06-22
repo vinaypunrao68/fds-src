@@ -61,9 +61,6 @@
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
 
-    - name: add redis-server ppa
-      apt_repository: repo=ppa:chris-lea/redis-server state=present
-
     - name: add artifactory repo key
       apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
 
@@ -75,6 +72,15 @@
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
+
+    - name: purge redis packages
+      apt: name={{item}} force=yes state=absent update_cache=no
+      with_items:
+        - redis-server
+        - redis-tools
+
+    - name: purge redis init script (just to be safe)
+      file: path=/etc/init.d/redis-server state=absent
 
     - name: purge libboost 1.54 packages
       apt: name={{item}} force=yes state=absent update_cache=no
@@ -117,8 +123,6 @@
         - build-essential
         - python-software-properties
         - software-properties-common
-        - redis-server
-        - redis-tools
         - maven
         - libudev-dev
         - libparted0-dev
@@ -177,6 +181,21 @@
         - python-coverage-test-runner
         - python-mock
 
+    - name: create pip config directory at ~/.pip
+      file: path="{{ lookup('env','HOME') }}/.pip"
+        state=directory
+
+    - name: touch pip config file at ~/pip/pip.conf
+      file: path="{{ lookup('env','HOME') }}/.pip/pip.conf"
+        state=touch
+
+    - name: add Artifactory pip repo to pip config
+      lineinfile: dest="{{ lookup('env','HOME') }}/.pip/pip.conf"
+        line="{{item}}"
+      with_items:
+        - "[global]"
+        - "extra-index-url = https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
+
     - name: install pip packages
       pip: name={{item}} state=present
       with_items:
@@ -190,6 +209,14 @@
         - fstab
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
+
+    - name: install fdscli from Artifactory
+      pip: name={{item}}
+        state=present
+        extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
+      with_items:
+        - "fdscli==0.1.0"
+        - "fdsutil==0.1.3"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

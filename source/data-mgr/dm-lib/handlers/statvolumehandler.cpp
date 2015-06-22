@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-StatVolumeHandler::StatVolumeHandler() {
-    if (!dataMgr->features.isTestMode()) {
+StatVolumeHandler::StatVolumeHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::StatVolumeMsg, handleRequest);
     }
 }
@@ -23,10 +25,17 @@ StatVolumeHandler::StatVolumeHandler() {
 void StatVolumeHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::StatVolumeMsg>& message) {
+    fds_volid_t volId(message->volume_id);
     LOGTRACE << "Received a statVolume request for volume "
-             << message->volume_id;
+             << volId;
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(volId)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -42,10 +51,10 @@ void StatVolumeHandler::handleRequest(
 }
 
 void StatVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoStatVolume* typedRequest = static_cast<DmIoStatVolume*>(dmRequest);
 
-    helper.err = dataMgr->timeVolCat_->queryIface()->statVolume(
+    helper.err = dataManager.timeVolCat_->queryIface()->statVolume(
             typedRequest->getVolId(),
             // FIXME(DAC): These casts are poster-children for inappropriate usage of
             //             reinterpret_cast.

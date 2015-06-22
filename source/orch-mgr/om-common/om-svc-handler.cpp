@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright 2013-2015 by Formations Data Systems, Inc.
  */
 #include <string>
@@ -47,11 +48,12 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     om_mod = OM_NodeDomainMod::om_local_domain();
 
     /* svc->om response message */
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeDescriptor, getVolumeDescriptor);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -88,7 +90,7 @@ void OmSvcHandler::init_svc_event_handlers() {
                LOGERROR << std::hex << svc << " saw too many " << std::dec << error
                         << " events [" << events << "]";
 
-               agent->set_node_state(FDS_Node_Down);
+               agent->set_node_state(fpi::FDS_Node_Down);
                domain->om_service_down(error, svc, agent->om_agent_type());
 
            } else {
@@ -137,12 +139,12 @@ OmSvcHandler::om_node_info(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void
-OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr<fpi::CtrlTestBucket> &msg)
+OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                 boost::shared_ptr<fpi::GetVolumeDescriptor> &msg)
 {
-    LOGNORMAL << " receive test bucket msg";
+    LOGNORMAL << " receive getVolumeDescriptor msg";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_test_bucket(hdr, &msg->tbmsg);
+    local->om_get_volume_descriptor(hdr, msg->volume_name);
 }
 
 void
@@ -152,7 +154,7 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // XXX(bszmyd): Thu 22 Jan 2015 12:42:27 PM PST
     // Ignore timeouts from Om. These happen due to one-way messages
-    // that cause Svc to timeout the request; e.g. TestBucket and SvcEvent
+    // that cause Svc to timeout the request; e.g. GetVolumeDescriptor and SvcEvent
     if (gl_OmUuid == msg->evt_src_svc_uuid.svc_uuid &&
         ERR_SVC_REQUEST_TIMEOUT == msg->evt_code) {
         return;
@@ -179,6 +181,56 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     }
 }
 
+/**
+ * Allows the pulling of the DLT. Returns DLT_VER_INVALID if there's no committed DLT yet.
+ */
+
+void OmSvcHandler::getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& dlt, boost::shared_ptr<int64_t>& nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	DataPlacement *dp = om->om_dataplace_mod();
+	std::string data_buffer;
+	DLT const *dtp = nullptr;
+    FDS_ProtocolInterface::FDSP_DLT_Data_Type dlt_val;
+	if (!(dp->getCommitedDlt())){
+		LOGDEBUG << "Not sending DLT to new node, because no "
+                << " committed DLT yet";
+        dlt.__set_dlt_version(DLT_VER_INVALID);
+
+	} else {
+		LOGDEBUG << "Should have DLT to send";
+		dtp = dp->getCommitedDlt();
+		dtp->getSerialized(data_buffer);
+		dlt.__set_dlt_version(dp->getCommitedDltVersion());
+		dlt_val.__set_dlt_data(data_buffer);
+		dlt.__set_dlt_data(dlt_val);
+	}
+}
+
+/**
+ * Allows the pulling of the DMT. Returns DMT_VER_INVALID if there's no committed DMT yet.
+ */
+
+void OmSvcHandler::getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& dmt, boost::shared_ptr<int64_t>& nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	VolumePlacement* vp = om->om_volplace_mod();
+	std::string data_buffer;
+    if (vp->hasCommittedDMT()) {
+    	DMTPtr dp = vp->getCommittedDMT();
+    	LOGDEBUG << "Should have DMT to send";
+    	(*dp).getSerialized(data_buffer);
+
+    	::FDS_ProtocolInterface::FDSP_DMT_Data_Type fdt;
+    	fdt.__set_dmt_data(data_buffer);
+
+    	dmt.__set_dmt_version(vp->getCommittedDMTVersion());
+    	dmt.__set_dmt_data(fdt);
+    } else {
+        LOGDEBUG << "Not sending DMT to new node, because no "
+                << " committed DMT yet";
+        dmt.__set_dmt_version(DMT_VER_INVALID);
+    }
+}
+
 void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,
                               boost::shared_ptr< fpi::SvcUuid>& svcUuid)
 {
@@ -202,4 +254,102 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
+void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
+{
+	LOGNORMAL << "Received Health Report from PM: "
+			<< msg->healthReport.serviceInfo.svc_id.svc_name
+			<< " state: " << msg->healthReport.serviceState
+			<< " status: " << msg->healthReport.statusCode << std::endl;
+
+	ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
+	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
+
+	switch (msg->healthReport.serviceState) {
+		case fpi::RUNNING:
+		case fpi::INITIALIZING:
+		case fpi::DEGRADED:
+		case fpi::LIMITED:
+		case fpi::SHUTTING_DOWN:
+		case fpi::ERROR:
+		case fpi::UNREACHABLE:
+			LOGWARN << "Handling for service state: " << msg->healthReport.serviceState
+				<< " not implemented yet.";
+			break;
+		case fpi::UNEXPECTED_EXIT:
+			switch (service_type) {
+				case fpi::FDSP_ACCESS_MGR:
+					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+					// no break
+				case fpi::FDSP_DATA_MGR:
+					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+					// no break
+				case fpi::FDSP_STOR_MGR: {
+					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+					heatlhReportUnexpectedExit(comp_type, msg);
+					break;
+				}
+				default:
+					// Panic on unhandled service
+					fds_panic("Unhandled process: %s with service type %d",
+							msg->healthReport.serviceInfo.svc_id.svc_name.c_str(),
+							service_type);
+					break;
+			}
+			break;
+		default:
+			// Panic on unhandled service states.
+			fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
+			break;
+	}
+}
+
+void OmSvcHandler::heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
+		boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
+	/**
+	 * When a PM pings this OM with the state of an individual service
+	 * restart (AM/DM/SM) that the PM originally spawned, then we will
+	 * find the AM/DM/SM agent that corresponds to the report, and use the
+	 * PM method to deactivate the AM/DM/SM that is currently registered
+	 * with the OM.
+	 * It should then reactivate because user is expecting the service to
+	 * be up since it's passed in as UNEXPECTED.
+	 */
+	 LOGNORMAL << "Cleaning up old process information.";
+	 std::list<fds::NodeSvcEntity> pm_services;
+ 	 bool pm_found = false;
+	 NodeSvcEntity *actual_pm_service = nullptr;
+	 OM_PmContainer::pointer pm_nodes = OM_Module::om_singleton()->
+								om_nodedomain_mod()-> om_loc_domain_ctrl()->om_pm_nodes();
+	 pm_nodes->populate_nodes_in_container(pm_services);
+
+	 /**
+	  * We need to find the right PM agent who is in charge of the service
+	  * that just died.
+	  */
+	 for (std::list<NodeSvcEntity>::iterator i = pm_services.begin();
+			i != pm_services.end(); i++) {
+		 // Technically node_uuid should be unsigned too...
+		 if (i->node_uuid.uuid_get_val() ==
+			(fds_uint64_t)(msg->healthReport.platformUUID.svc_uuid.svc_uuid)) {
+			pm_found = true;
+			actual_pm_service = &(*i);
+			break;
+		 }
+	 }
+	 fds_verify(pm_found);
+	 OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
+			om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
+	 /**
+	  * PM doesn't want to hear about the actual deactivate service but
+	  * OM side needs to deactiate it. So just call the response
+	  * which will do the OM side cleanup.
+	  */
+	 Error 			dummyErr (ERR_OK);
+	 om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
+			comp_type == fpi::FDSP_DATA_MGR,
+			comp_type == fpi::FDSP_ACCESS_MGR,
+			nullptr, dummyErr, nullptr);
+}
 }  //  namespace fds

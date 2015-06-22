@@ -9,14 +9,17 @@ namespace fds {
 using snapshot::DeleteTask;
 DeleteScheduler::DeleteScheduler(OrchMgr* om) {
     this->om = om;
-    runner = new std::thread(&DeleteScheduler::run, this);
-    LOGDEBUG << "scheduler instantiated";
 }
 
 DeleteScheduler::~DeleteScheduler() {
     shutdown();
     runner->join();
     delete runner;
+}
+
+void DeleteScheduler::start() {
+    this->runner = new std::thread(&DeleteScheduler::run, this);
+    LOGDEBUG << "scheduler instantiated";
 }
 
 // will also update / modify
@@ -105,11 +108,12 @@ void DeleteScheduler::run() {
 
                 OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
                 VolumeContainer::pointer volContainer = local->om_vol_mgr();
-                VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(task->volumeId)); //NOLINT
+                auto volId = task->volumeId.get();
+                auto vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volId)); //NOLINT
                 if (vol) {
                     LOGDEBUG << "resuming delete for vol:" << task->volumeId
                              << " name:" << vol->vol_get_name();
-                    vol->vol_event(ResumeDelEvt(task->volumeId, vol.get()));
+                    vol->vol_event(ResumeDelEvt(volId, vol.get()));
                 } else {
                     LOGWARN << "unable to get volume info for vol:" << task->volumeId;
                 }

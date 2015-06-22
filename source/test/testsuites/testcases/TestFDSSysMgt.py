@@ -18,19 +18,19 @@ from TestFDSServiceMgt import TestAMBringUp
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
 # services on each node.
-class TestDomainActivate(TestCase.FDSTestCase):
+class TestDomainActivateServices(TestCase.FDSTestCase):
     def __init__(self, parameters=None, services="dm,sm,am"):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_DomainActivate,
+                                             self.test_DomainActivateServices,
                                              "Domain activation")
 
         self.passedServices = services
 
-    def test_DomainActivate(self):
+    def test_DomainActivateServices(self):
         """
         Test Case:
-        Attempt to activate a domain.
+        Attempt to activate services in a domain.
         """
 
         # Get the FdsConfigRun object for this test.
@@ -97,7 +97,16 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             self.log.info("Kill node %s." % n.nd_conf_dict['node-name'])
 
-            # First kill AM if on this node.
+            # First kill PM to prevent respawn of other services
+            killPM = TestPMKill(node=n)
+            killSuccess = killPM.test_PMKill()
+
+            if not killSuccess:
+                self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
+                return False
+
+
+            # Then kill AM if on this node.
             if (n.nd_services.count("am") > 0) or ansibleBoot:
                 killAM = TestAMKill(node=n)
                 killSuccess = killAM.test_AMKill()
@@ -123,7 +132,7 @@ class TestNodeKill(TestCase.FDSTestCase):
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
 
-            # Next, kill OM if on this node.
+            # Lastly, kill OM if on this node.
             if (fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']) or ansibleBoot:
                 killOM = TestOMKill(node=n)
                 killSuccess = killOM.test_OMKill()
@@ -131,14 +140,6 @@ class TestNodeKill(TestCase.FDSTestCase):
                 if not killSuccess and not ansibleBoot:
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
-
-            # Finally PM.
-            killPM = TestPMKill(node=n)
-            killSuccess = killPM.test_PMKill()
-
-            if not killSuccess:
-                self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
-                return False
 
             if self.passedNode is not None:
                 # We took care of the specified node. Now get out.
@@ -284,6 +285,36 @@ class TestDomainShutdown(TestCase.FDSTestCase):
 
         if status != 0:
             self.log.error("Domain shutdown returned status %d." % (status))
+            return False
+        else:
+            return True
+
+# This class contains the attributes and methods to test
+# domain restart
+class TestDomainStartup(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DomainStartup,
+                                             "Domain startup")
+
+    def test_DomainStartup(self):
+        """
+        Test Case:
+        Attempt to execute domain-startup
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        self.log.info("Startup domain after shutdown.")
+
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain startup local) \"',
+                                            fds_tools=True)
+
+        if status != 0:
+            self.log.error("Domain startup returned status %d." % (status))
             return False
         else:
             return True

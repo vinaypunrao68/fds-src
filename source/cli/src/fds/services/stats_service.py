@@ -15,7 +15,7 @@ class StatsService( AbstractService ):
         Make a query to the system metrics based on the filter criteria passed in
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/stats/volumes")
+        url = "{}{}".format( self.get_url_preamble(), "/stats/volumes")
         #TODO convert filter to json
         data = ""
         return self.rest_helper().put( self.session, url, data)
@@ -25,7 +25,7 @@ class StatsService( AbstractService ):
         Query the firebreak metrics based on the filter criteria passed in
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/stats/volumes/firebreak" )
+        url = "{}{}".format( self.get_url_preamble(), "/stats/volumes/firebreak" )
         #TODO convert the filter to JSON
         data = ""
         return self.rest_helper().put( self.session, url, data)
@@ -35,5 +35,5 @@ class StatsService( AbstractService ):
         Get the overall system health report
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/systemhealth" )
+        url = "{}{}".format( self.get_url_preamble(), "/systemhealth" )
         return self.rest_helper().get( self.session, url )

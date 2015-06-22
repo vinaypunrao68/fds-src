@@ -51,7 +51,7 @@ class Request;
 class RequestQueue
 {
   public:
-    RequestQueue(int nr_queue, int max_depth);
+    explicit RequestQueue(int const nr_queue);
     virtual ~RequestQueue();
 
     virtual void rq_enqueue(Request *rqt, int queue_idx, fds_uint32_t flag = 0);
@@ -116,7 +116,6 @@ class RequestQueue
 
   private:
     int                      rq_nr_queue;
-    int                      rq_max_depth;
     int                      rq_pending;
     fds::ChainList           *rq_lists;
     fds::fds_mutex           rq_mutex;

@@ -42,6 +42,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
         }
     }
 
+    boost::shared_ptr<fpi::ErrorCode> mappedErrorCode(Error const& error) const;
+
   public:
     explicit AmAsyncXdiResponse(std::string const& server_ip);
     ~AmAsyncXdiResponse();
@@ -54,7 +56,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     void attachVolumeResp(const api_type::error_type &error,
                           api_type::handle_type& requestId,
-                          api_type::shared_vol_descriptor_type& volDesc);
+                          api_type::shared_vol_descriptor_type& volDesc,
+                          api_type::shared_vol_mode_type& mode);
 
     void startBlobTxResp(const api_type::error_type &error,
                          api_type::handle_type& requestId,
@@ -95,11 +98,11 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
-                     api_type::shared_buffer_type buf,
+                     const api_type::shared_buffer_array_type& bufs,
                      api_type::size_type& length);
     void getBlobWithMetaResp(const api_type::error_type &error,
                              api_type::handle_type& requestId,
-                             api_type::shared_buffer_type buf,
+                             const api_type::shared_buffer_array_type& bufs,
                              api_type::size_type& length,
                              api_type::shared_descriptor_type& blobDesc);
 };
@@ -152,8 +155,8 @@ struct AmAsyncXdiRequest
     // AmAsyncDataApi.cxx
     void abortBlobTx(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
     { api_type::abortBlobTx(requestId, domainName, volumeName, blobName, txDesc); }  // NOLINT
-    void attachVolume(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
-    { api_type::attachVolume(requestId, domainName, volumeName); }
+    void attachVolume(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_vol_mode_type& mode)  // NOLINT
+    { api_type::attachVolume(requestId, domainName, volumeName, mode); }
     void commitBlobTx(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
     { api_type::commitBlobTx(requestId, domainName, volumeName, blobName, txDesc); }
     void deleteBlob(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
@@ -187,7 +190,7 @@ struct AmAsyncXdiRequest
     { fds_panic("You shouldn't be here."); }
     void abortBlobTx(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const apis::TxDescriptor& txDesc)  // NOLINT
     { you_should_not_be_here(); }
-    void attachVolume(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
+    void attachVolume(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const fpi::VolumeAccessMode& mode)  // NOLINT
     { you_should_not_be_here(); }
     void commitBlobTx(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const apis::TxDescriptor& txDesc)  // NOLINT
     { you_should_not_be_here(); }

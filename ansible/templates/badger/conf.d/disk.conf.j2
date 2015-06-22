@@ -1,0 +1,9 @@
+{
+    "interval": 0,
+    "blacklist": [],
+    /* leave disks_to_check empty to grab stats for all devices listed
+       in /proc/diskstats. Be warned it's probably not what you really
+       want, it's awfully chatty. Need to make this accept wildcards,
+       but for now it's just a list of disks */
+    "disks_to_check": {{badger_disk_list if badger_disk_list is defined else ''}}
+}

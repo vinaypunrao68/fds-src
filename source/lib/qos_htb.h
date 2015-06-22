@@ -19,7 +19,7 @@
 
 #define HTB_QUEUE_RATE_MIN                20         /* protection from queues not going to absolute 0 rate, eg. when
 						     * setting throttle levels, etc. */
-#define HTB_QUEUE_RATE_INFINITE_MAX       500000    /* a token bucket max rate when iops_max policy is set to 0 */
+#define HTB_QUEUE_RATE_INFINITE_MAX       500000    /* a token bucket max rate when iops_throttle policy is set to 0 */
 
 #define DEFAULT_ASSURED_WAIT_MICROSEC     1000000
 #define HTB_WMA_SLOT_SIZE_MICROSEC        250000   /* the length of stat slot for gathering recent iops performance */
@@ -30,8 +30,9 @@
 namespace fds {
 
   class TBQueueState;
-  typedef std::unordered_map<fds_qid_t, TBQueueState* > qstate_map_t;
-  typedef std::unordered_map<fds_qid_t, TBQueueState*>::iterator qstate_map_it_t;
+  using queue_state_type = std::unique_ptr<TBQueueState>;
+  using qstate_map_type = std::unordered_map<fds_qid_t, queue_state_type>;
+
 
   /* Queue state that is controlled by two demand-driven token buckets: one that
    * ensures minimum rate, and another ensures that tokens are never consumed
@@ -68,24 +69,24 @@ namespace fds {
     } tbStateType;
 
     TBQueueState(fds_qid_t _queue_id,
-                 fds_uint64_t _min_rate,
-                 fds_uint64_t _max_rate,
+                 fds_int64_t _assured_rate,
+                 fds_int64_t _throttle_rate,
                  fds_uint32_t _priority,
                  fds_uint64_t _assured_wait_microsec,
                  fds_uint64_t _burst_size);
     ~TBQueueState();
 
     /* Modify effective min and max rates  */
-    inline void setEffectiveMinMaxRates(fds_uint64_t _min_rate,
-					fds_uint64_t _max_rate,
+    inline void setEffectiveMinMaxRates(fds_int64_t _assured_rate,
+					fds_int64_t _throttle_rate,
 					fds_uint64_t _assured_wait_microsec) {
-      assert(_min_rate <= _max_rate);
-      tb_min.modifyRate(_min_rate, _assured_wait_microsec);
-      tb_max.modifyRate(_max_rate);
+      assert(_assured_rate <= _throttle_rate);
+      tb_assured.modifyRate(_assured_rate, _assured_wait_microsec);
+      tb_throttle.modifyRate(_throttle_rate);
     }
 
-    inline fds_uint64_t getEffectiveMinRate() const { return tb_min.getRate();}
-    inline fds_uint64_t getEffectiveMaxRate() const { return tb_max.getRate();}
+    inline fds_uint64_t getEffectiveMinRate() const { return tb_assured.getRate();}
+    inline fds_uint64_t getEffectiveMaxRate() const { return tb_throttle.getRate();}
 
     /* Notification that IO 'io' is queued or dispatched from the queue (dequeued)
      * uses atomic operations to update state of the queue
@@ -112,7 +113,7 @@ namespace fds {
      * this function will assert if this is not true
      */
     inline void consumeTokens(fds_uint32_t io_cost) {
-      fds_bool_t bret = tb_max.tryToConsumeTokens(io_cost);
+      fds_bool_t bret = tb_throttle.tryToConsumeTokens(io_cost);
       assert(bret);
     }
 
@@ -132,8 +133,8 @@ namespace fds {
     /* Queue policy settings.
      * The queue may operate at different max and min rates depending on throttle
      * level (the effective min and max are setting of tb_min and tb_max token buckets */
-    fds_uint64_t min_rate;
-    fds_uint64_t max_rate;
+    fds_int64_t assured_rate;
+    fds_int64_t throttle_rate;
     fds_uint32_t priority;
 
   private: /* data */
@@ -148,8 +149,8 @@ namespace fds {
     fds_uint32_t hist_slotix;
     static const double kweights[HTB_MAX_WMA_LENGTH];
 
-    TokenBucket tb_min;  /* token bucket to ensure min_rate */
-    TokenBucket tb_max; /* token bucket to control we do not exceed max_rate */
+    TokenBucket tb_assured;  /* token bucket to ensure assured_rate */
+    TokenBucket tb_throttle; /* token bucket to control we do not exceed throttle_rate */
 
     /*  For initial implementation where cost of IO is const, we just need
      *  to maintain a counter of queued IOs to keep track if queue is empty or not
@@ -160,10 +161,10 @@ namespace fds {
 
   /* Controls a set of queues with HTB mechanism
    *
-   * A pool of a performance resource represented as 'total_rate' (in IOPS)
+   * A pool of a performance resource represented as 'total_iops'
    * shared among a set of queues. HTB_Control ensures that each queue
    * receives its minimum rate (also called assured rate). All other available
-   * resources 'total_rate' - sum of minimum queue rates are shared among
+   * resources 'total_iops' - sum of assured queue rates are shared among
    * all the queues based on their priority. At any given time, one of the queues
    * of highest priority that has IOs queued up will get the resource (token) to
    * dispatch its IO. If there are multiple queues of the same priority, then
@@ -182,59 +183,58 @@ namespace fds {
    */
   class QoSHTBDispatcher: public FDS_QoSDispatcher {
   public:
-    QoSHTBDispatcher(FDS_QoSControl* ctrl, fds_log *log, fds_uint64_t _total_rate);
-    virtual ~QoSHTBDispatcher();
+    QoSHTBDispatcher(FDS_QoSControl* ctrl, fds_log *log, fds_int64_t _total_iops);
+    QoSHTBDispatcher(QoSHTBDispatcher const& rhs) = delete;
+    QoSHTBDispatcher operator=(QoSHTBDispatcher const& rhs) = delete;
+    ~QoSHTBDispatcher() override = default;
 
     /***** implementation of base class functions *****/
     /* handle notification that IO was just queued */
-    virtual void ioProcessForEnqueue(fds_qid_t queue_id,
-				     FDS_IOType *io);
+    void ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io) override;
 
     /* handle notification that IO will be dispatched */
-    virtual void ioProcessForDispatch(fds_qid_t queue_id,
-				      FDS_IOType *io);
+    void ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io) override;
 
     /* returns queue is whose IO needs to be dispatched next
      * this implementation consumes tokens required to dispatch IO */
-    virtual fds_qid_t getNextQueueForDispatch();
+    fds_qid_t getNextQueueForDispatch() override;
 
     /* this implementation calls based class registerQueue first */
-    virtual Error registerQueue(fds_qid_t queue_id,
-				FDS_VolumeQueue *queue);
+    Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue) override;
 
     /* this implementation calls base class deregisterQueue first */
-    virtual Error deregisterQueue(fds_qid_t queue_id);
+    Error deregisterQueue(fds_qid_t queue_id) override;
 
-    virtual Error modifyQueueQosParams(fds_qid_t queue_id,
-				       fds_uint64_t iops_min,
-				       fds_uint64_t iops_max,
-				       fds_uint32_t prio);
+    Error modifyQueueQosParams(fds_qid_t queue_id,
+                               fds_int64_t iops_assured,
+                               fds_int64_t iops_throttle,
+                               fds_uint32_t prio) override;
 
-    virtual void setThrottleLevel(float throttle_level);
+    void setThrottleLevel(float throttle_level) override;
 
     /**** extra methods that we could also add to base class ***/
 
     /* modify configurable parameters
-     * currently: returns ERR_INVALID_ARG id _total_rate < sum of all volumes' min rates
-     * TODO(?): If we want to be able to decrease total rate below sum of volumes min rates, we need
-     * an ability to notify OM that some volumes will not be able to meet their reserved rate */
-    Error modifyTotalRate(fds_uint64_t _total_rate);
+     * currently: returns ERR_INVALID_ARG id _total_iops < sum of all volumes' assured rates
+     * TODO(?): If we want to be able to decrease total rate below sum of volumes assured rates,
+     * we need an ability to notify OM that some volumes will not be able to meet their reserved
+     * rate */
+    Error modifyTotalRate(fds_int64_t _total_iops);
 
    using FDS_QoSDispatcher::dispatchIOs;
 
   private:
-   void setQueueThrottleLevel(TBQueueState* qstate, float throttle_level);
-   void setQueueThrottleLevel(TBQueueState* qstate, fds_uint32_t tlevel_x, double tlevel_frac);
+   void setQueueThrottleLevel(queue_state_type& qstate, float const throttle_level);
+   void setQueueThrottleLevel(queue_state_type& qstate, fds_int32_t const tlevel_x, double const tlevel_frac);
 
-  private:
     /****** configurable parameters *****/
 
     /* The total rate of IOs that will be dispatched from all the queues
      * given there are enough IOs queued up to consume this rate */
-    fds_uint64_t total_rate;
+    fds_int64_t total_iops;
 
-    /* sum of min rates of all queues */
-    fds_uint64_t total_min_rate;
+    /* sum of assured rates of all queues */
+    fds_int64_t total_assured_rate;
 
     /* How long we wait before giving tokens that represent assured rate
      * for a queue to other queues. This means that a workload with delays
@@ -256,7 +256,7 @@ namespace fds {
 
     /***** dynamic state ******/
     RecvTokenBucket avail_pool; /* pool of available tokens (non-guaranteed tokens + expired guaranteed tokens) */
-    qstate_map_t qstate_map;  /* min and max rate control for each queue, and other queue state */
+    qstate_map_type qstate_map;  /* min and max rate control for each queue, and other queue state */
 
     fds_qid_t last_dispatch_qid; /* queue id from which we dispatch last IO */
   };

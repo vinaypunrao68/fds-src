@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-UpdateCatalogOnceHandler::UpdateCatalogOnceHandler() {
-    if (!dataMgr->features.isTestMode()) {
+UpdateCatalogOnceHandler::UpdateCatalogOnceHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, handleRequest);
     }
 }
@@ -23,7 +25,7 @@ UpdateCatalogOnceHandler::UpdateCatalogOnceHandler() {
 void UpdateCatalogOnceHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message) {
-    if (dataMgr->testUturnAll || dataMgr->testUturnUpdateCat) {
+    if (dataManager.testUturnAll || dataManager.testUturnUpdateCat) {
         GLOGDEBUG << "Uturn testing update catalog once " << logString(*asyncHdr)
                   << logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, nullptr);
@@ -32,7 +34,8 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -41,7 +44,7 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
-    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(message->volume_id,
+    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(volId,
                                                       message->blob_name,
                                                       message->blob_version,
                                                       message->dmt_version);
@@ -60,14 +63,14 @@ void UpdateCatalogOnceHandler::handleRequest(
 }
 
 void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
+    QueueHelper helper(dataManager, static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
     DmIoUpdateCatOnce* typedRequest = static_cast<DmIoUpdateCatOnce*>(dmRequest);
 
     // Start the transaction
-    helper.err = dataMgr->timeVolCat_->startBlobTx(typedRequest->volId,
-                                                   typedRequest->blob_name,
-                                                   typedRequest->updcatMsg->blob_mode,
-                                                   typedRequest->ioBlobTxDesc);
+    helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
+                                                      typedRequest->blob_name,
+                                                      typedRequest->updcatMsg->blob_mode,
+                                                      typedRequest->ioBlobTxDesc);
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to start transaction" << typedRequest->ioBlobTxDesc << ": "
                  << helper.err;
@@ -75,14 +78,14 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
     }
 
     // Apply the offset updates
-    helper.err = dataMgr->timeVolCat_->updateBlobTx(typedRequest->volId,
-                                                    typedRequest->ioBlobTxDesc,
-                                                    typedRequest->updcatMsg->obj_list);
+    helper.err = dataManager.timeVolCat_->updateBlobTx(typedRequest->volId,
+                                                       typedRequest->ioBlobTxDesc,
+                                                       typedRequest->updcatMsg->obj_list);
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to update object offsets for transaction "
                  << *typedRequest->ioBlobTxDesc << ": " << helper.err;
-        helper.err = dataMgr->timeVolCat_->abortBlobTx(typedRequest->volId,
-                                                       typedRequest->ioBlobTxDesc);
+        helper.err = dataManager.timeVolCat_->abortBlobTx(typedRequest->volId,
+                                                          typedRequest->ioBlobTxDesc);
         if (!helper.err.ok()) {
             LOGERROR << "Failed to abort transaction " << *typedRequest->ioBlobTxDesc;
         }
@@ -90,14 +93,14 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
     }
 
     // Apply the metadata updates
-    helper.err = dataMgr->timeVolCat_->updateBlobTx(typedRequest->volId,
-                                                    typedRequest->ioBlobTxDesc,
-                                                    typedRequest->updcatMsg->meta_list);
+    helper.err = dataManager.timeVolCat_->updateBlobTx(typedRequest->volId,
+                                                       typedRequest->ioBlobTxDesc,
+                                                       typedRequest->updcatMsg->meta_list);
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to update metadata for transaction "
                  << *typedRequest->ioBlobTxDesc << ": " << helper.err;
-        helper.err = dataMgr->timeVolCat_->abortBlobTx(typedRequest->volId,
-                                                       typedRequest->ioBlobTxDesc);
+        helper.err = dataManager.timeVolCat_->abortBlobTx(typedRequest->volId,
+                                                          typedRequest->ioBlobTxDesc);
         if (!helper.err.ok()) {
             LOGERROR << "Failed to abort transaction " << *typedRequest->ioBlobTxDesc;
         }
@@ -108,18 +111,18 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
     // The commit callback we pass in will actually call the
     // final service callback
     PerfTracer::tracePointBegin(typedRequest->commitBlobReq->opLatencyCtx);
-    helper.err = dataMgr->timeVolCat_->commitBlobTx(
+    helper.err = dataManager.timeVolCat_->commitBlobTx(
             typedRequest->volId, typedRequest->blob_name, typedRequest->ioBlobTxDesc,
             std::bind(&CommitBlobTxHandler::volumeCatalogCb,
-                      static_cast<CommitBlobTxHandler*>(dataMgr->handlers[FDS_COMMIT_BLOB_TX]),
+                      static_cast<CommitBlobTxHandler*>(dataManager.handlers[FDS_COMMIT_BLOB_TX]),
                       std::placeholders::_1, std::placeholders::_2,
                       std::placeholders::_3, std::placeholders::_4, std::placeholders::_5,
                       typedRequest->commitBlobReq));
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to commit transaction " << *typedRequest->ioBlobTxDesc << ": "
                  << helper.err;
-        helper.err = dataMgr->timeVolCat_->abortBlobTx(typedRequest->volId,
-                                                       typedRequest->ioBlobTxDesc);
+        helper.err = dataManager.timeVolCat_->abortBlobTx(typedRequest->volId,
+                                                          typedRequest->ioBlobTxDesc);
         if (!helper.err.ok()) {
             LOGERROR << "Failed to abort transaction " << typedRequest->ioBlobTxDesc;
         }
@@ -147,13 +150,15 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
 
     // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
-    auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
-    updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
-    updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
+    if (dmRequest) {
+        auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+        updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
+        updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
+    }
 
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::UpdateCatalogOnceRspMsgTypeId, updcatRspMsg);
 
-    if (dataMgr->testUturnAll || dataMgr->testUturnUpdateCat) {
+    if (dataManager.testUturnAll || dataManager.testUturnUpdateCat) {
         fds_verify(dmRequest == nullptr);
     } else {
         delete dmRequest;

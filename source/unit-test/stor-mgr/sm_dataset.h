@@ -94,7 +94,7 @@ class TestVolume {
         STORE_OP_DUPLICATE
     } StoreOpType;
 
-    TestVolume() : voldesc_("invalid", 0) {}
+    TestVolume() : voldesc_("invalid", invalid_vol_id) {}
     TestVolume(fds_volid_t volume_id,
                std::string volname,
                FdsConfigAccessor &conf);
@@ -151,8 +151,8 @@ TestVolume::TestVolume(fds_volid_t volume_id,
                        std::string volname,
                        FdsConfigAccessor &conf)
         : voldesc_(volname, volume_id) {
-    voldesc_.iops_min = conf.get<fds_uint32_t>("iops_min");
-    voldesc_.iops_max = conf.get<fds_uint32_t>("iops_max");
+    voldesc_.iops_assured = conf.get<fds_int64_t>("iops_min");
+    voldesc_.iops_throttle = conf.get<fds_int64_t>("iops_max");
     voldesc_.relativePrio = conf.get<fds_uint32_t>("priority");
     voldesc_.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
     concurrency_ = conf.get<fds_uint32_t>("concurrency");
@@ -185,8 +185,8 @@ TestVolume::TestVolume(fds_volid_t volume_id,
                        fds_uint32_t datasetSize,
                        fds_uint32_t objSize)
         : voldesc_(volname, volume_id) {
-    voldesc_.iops_min = 0;
-    voldesc_.iops_max = 0;
+    voldesc_.iops_assured = 0;
+    voldesc_.iops_throttle = 0;
     voldesc_.relativePrio = 1;
     voldesc_.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     concurrency_ = concurrency;
@@ -215,7 +215,7 @@ void TestVolumeMap::init(boost::shared_ptr<FdsConfig>& fdsconf,
         if (!conf.exists(volname)) break;
         std::string vol_path = basePath + volname + ".";
         FdsConfigAccessor vol_conf(fdsconf, vol_path);
-        fds_volid_t volId = volidx + 1;
+        fds_volid_t volId(volidx + 1);
         TestVolume::ptr volume(new TestVolume(volId, volname, vol_conf));
         fds_verify(volmap.count(volId) == 0);
         volmap[volId] = volume;

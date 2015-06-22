@@ -17,7 +17,7 @@ namespace fds {
     fds_qid_t queue_id;
     fds_uint64_t queue_rate;
     fds_uint32_t queue_priority;
-    fds_uint32_t rate_based_weight;
+    fds_int64_t rate_based_weight;
     fds_uint32_t priority_based_weight;
 
     std::vector<fds_uint64_t> rate_based_rr_spots;
@@ -107,11 +107,13 @@ namespace fds {
 
   public:
 
-    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate,
+    QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_int64_t total_server_iops,
 		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
     ~QoSWFQDispatcher() {}
     Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_qid_t queue_id);
+
+    using FDS_QoSDispatcher::modifyQueueQosParams;
     Error modifyQueueQosParams(fds_qid_t queue_id,
 			       fds_uint64_t iops_min,
 			       fds_uint64_t iops_max,

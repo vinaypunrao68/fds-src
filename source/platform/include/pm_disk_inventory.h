@@ -14,6 +14,7 @@ namespace fds
 {
     class DiskPartMgr;
     class DiskLabelMgr;
+    class DiskCapabilitiesMgr;
 
     typedef std::unordered_map<std::string, PmDiskObj::pointer> DiskDevMap;
 
@@ -66,6 +67,7 @@ namespace fds
             virtual void dsk_do_partition();
             virtual void dsk_admit_all();
             virtual void dsk_mount_all();
+            virtual bool disk_read_capabilities(DiskCapabilitiesMgr *mgr);
             virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
     };
 }  // namespace fds

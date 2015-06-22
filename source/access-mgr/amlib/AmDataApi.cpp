@@ -66,9 +66,11 @@ AmDataApi::attachVolume(const std::string& domainName,
 void
 AmDataApi::attachVolume(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
+    static fpi::VolumeAccessMode const default_access_mode;
     AttachVolumeResponseHandler::ptr handler(new AttachVolumeResponseHandler());
     AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
                                               *volumeName,
+                                              default_access_mode,
                                               SHARED_DYN_CAST(Callback, handler));
     amProcessor->enqueueRequest(blobReq);
     handler->wait();
@@ -297,6 +299,7 @@ AmDataApi::getBlob(std::string& _return,
                    boost::shared_ptr<std::string>& blobName,
                    boost::shared_ptr<int32_t>& length,
                    boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     if ((true == testUturnAll) ||
         (true == testUturnGetBlob)) {
         LOGDEBUG << "Uturn testing get blob";
@@ -333,10 +336,12 @@ AmDataApi::getBlob(std::string& _return,
         throw fdsE;
     }
 
-    boost::shared_ptr<std::string> buf = getHandler->returnBuffer;
-    _return = buf->size() > getHandler->returnSize ?
-        std::string(*buf, 0, getHandler->returnSize)
-        : *buf;
+    auto buf = empty_buffer;
+    if (getHandler->return_buffers) {
+        buf = getHandler->return_buffers->front();
+    }
+    // A nullptr (with ERR_OK), indicates a zero'd out object
+    _return = buf ? *buf : std::string(*length, '\0');
 }
 
 void

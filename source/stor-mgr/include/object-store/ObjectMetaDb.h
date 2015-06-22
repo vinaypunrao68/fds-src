@@ -33,10 +33,20 @@ class ObjectMetadataDb {
     typedef std::shared_ptr<ObjectMetadataDb> ptr;
 
     /**
-     * Opens object metadata DB
+     * Opens object metadata DB for all tokens that this SM owns;
+     * Ownership is defined in disk map
      * @param[in] diskMap map of SM tokens to disks
      */
     Error openMetadataDb(const SmDiskMap::const_ptr& diskMap);
+
+    /**
+     * Opens object metadata DB for given set of SM tokens
+     * SM tokens may not be in a given disk map
+     * @param[in] diskMap map of SM tokens to disks
+     * @param[in] smToks set of SM tokens to open
+     */
+    Error openMetadataDb(const SmDiskMap::const_ptr& diskMap,
+                         const SmTokenSet& smToks);
 
     /**
      * Closes object metadata DB
@@ -98,7 +108,7 @@ class ObjectMetadataDb {
      * Returns snapshot of metadata DB for a given SM token
      */
     Error snapshot(fds_token_id smTokId,
-                   leveldb::DB*& db,
+                   std::shared_ptr<leveldb::DB>& db,
                    leveldb::ReadOptions& opts);
 
     /**
@@ -115,7 +125,7 @@ class ObjectMetadataDb {
     Error openObjectDb(fds_token_id smTokId,
                        const std::string& diskPath,
                        fds_bool_t syncWrite);
-    osm::ObjectDB *getObjectDB(const ObjectID& objId);
+    std::shared_ptr<osm::ObjectDB> getObjectDB(const ObjectID& objId);
     /**
      * Closes object metadata DB for a given SM token
      * If destroy is true, also destroys the levelDB files
@@ -124,8 +134,8 @@ class ObjectMetadataDb {
                         fds_bool_t destroy);
 
   private:  // data
-     std::unordered_map<fds_token_id, osm::ObjectDB *> tokenTbl;
-     using TokenTblIter = std::unordered_map<fds_token_id, osm::ObjectDB *>::const_iterator;
+     std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>> tokenTbl;
+     using TokenTblIter = std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>>::const_iterator;
      fds_rwlock dbmapLock_;  // lock for tokenTbl
 
      // cached number of bits per (global) token

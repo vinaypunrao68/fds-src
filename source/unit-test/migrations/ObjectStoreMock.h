@@ -255,7 +255,7 @@ class MObjStore : public ObjectStorMgr {
 
         // smObjDb->snapshot(snapReq->token_id, db, options);
 
-        snapReq->smio_snap_resp_cb(err, snapReq, options, db);
+        snapReq->smio_snap_resp_cb(err, snapReq, options, db, false);
     }
 
     void

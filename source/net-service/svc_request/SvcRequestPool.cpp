@@ -195,6 +195,17 @@ QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr ep
     return req;
 }
 
+MultiPrimarySvcRequestPtr SvcRequestPool::newMultiPrimarySvcRequest(
+    const std::vector<fpi::SvcUuid>& primarySvcs,
+    const std::vector<fpi::SvcUuid>& optionalSvcs)
+{
+    auto reqId = getNextAsyncReqId_();
+    MultiPrimarySvcRequestPtr req(new MultiPrimarySvcRequest(MODULEPROVIDER(), reqId, selfUuid_, primarySvcs, optionalSvcs));
+    asyncSvcRequestInitCommon_(req);
+
+    return req;
+}
+
 
 /**
 * @brief Common method for posting errors typically encountered in invocation code paths
@@ -223,6 +234,13 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     }
 
     /* Simulate an error for remote endpoint */
+    boost::shared_ptr<std::string> payload;
+    svcReqHandler_->asyncResp(header, payload);
+}
+
+void SvcRequestPool::postEmptyResponse(boost::shared_ptr<fpi::AsyncHdr> &header) {
+    header->msg_code = ERR_OK;
+    header->msg_type_id = FDSP_MSG_TYPEID(fpi::EmptyMsg); 
     boost::shared_ptr<std::string> payload;
     svcReqHandler_->asyncResp(header, payload);
 }

@@ -147,8 +147,8 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
 
 struct GetObjectCallback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
-    boost::shared_ptr<std::string> returnBuffer;
-    fds_uint32_t returnSize;
+    boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>> return_buffers;
+    int return_size {0};
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
@@ -211,6 +211,7 @@ struct GetVolumeMetadataCallback {
 
 struct AttachCallback {
     boost::shared_ptr<VolumeDesc> volDesc;
+    boost::shared_ptr<fpi::VolumeAccessMode> mode;
 };
 
 struct DetachCallback {};

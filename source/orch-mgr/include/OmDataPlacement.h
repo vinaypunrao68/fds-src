@@ -535,6 +535,13 @@ namespace fds {
         Error loadDltsFromConfigDB(const NodeUuidSet& ms_services);
 
         /**
+         * Make sure that current DLT matches given SM services
+         * Called on Domain re-activate. DLT must already be loaded and known
+         * to DataPlacement.
+         */
+        Error validateDltOnDomainActivate(const NodeUuidSet& sm_services);
+
+        /**
          * set the config db from orchmgr
          */
         void setConfigDB(kvstore::ConfigDB* configDB);

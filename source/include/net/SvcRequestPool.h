@@ -18,8 +18,6 @@ namespace fpi = FDS_ProtocolInterface;
 
 #include "EclipseWorkarounds.h"
 
-#include "EclipseWorkarounds.h"
-
 namespace fds {
 
 /* Forward declarations */
@@ -43,8 +41,12 @@ class SvcRequestPool : HasModuleProvider {
     }
     FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider);
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
+    MultiPrimarySvcRequestPtr newMultiPrimarySvcRequest(
+        const std::vector<fpi::SvcUuid>& primarySvcs,
+        const std::vector<fpi::SvcUuid>& optionalSvcs);
 
     void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
+    void postEmptyResponse(boost::shared_ptr<fpi::AsyncHdr> &header);
 
     fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
                                       const fpi::FDSPMsgTypeId &msgTypeId,

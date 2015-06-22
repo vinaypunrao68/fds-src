@@ -4,6 +4,7 @@
 
 #include <string>
 #include <set>
+#include <fdsp/dm_api_types.h>
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <fds_assert.h>
@@ -236,8 +237,8 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     LOGMIGRATE << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
                << std::dec << " blob " << commitBlobReq->blob_name;
 
-    ForwardCatalogMsgPtr fwdMsg(new ForwardCatalogMsg());
-    fwdMsg->volume_id = commitBlobReq->volId;
+    fpi::ForwardCatalogMsgPtr fwdMsg(new fpi::ForwardCatalogMsg());
+    fwdMsg->volume_id = commitBlobReq->volId.get();
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
@@ -276,10 +277,11 @@ void CatalogSync::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 /***** CatalogSyncManager implementation ******/
 
 CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
-                               DmIoReqHandler* dm_req_hdlr)
+                               DmIoReqHandler* dm_req_hdlr,
+                               DataMgr& dataManager)
         : Module("CatalogSyncMgr"),
+          dataManager_(dataManager),
           sync_in_progress(false),
-          max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
           cat_sync_lock("Catalog Sync lock"),
           omDmtUpdateCb(NULL),
@@ -338,7 +340,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
         for (auto vol : metavol.volList) {
             LOGMIGRATE << "Will sync vol " << std::hex << vol
                        << " to node " << uuid.uuid_get_val() << std::dec;
-            vols.insert(vol);
+            vols.insert(fds_volid_t(vol));
         }
 
         // Tell CatalogSync to start the sync process
@@ -481,9 +483,9 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
     // TODO(Andrew): Clean this stuff up since the callback is made
     // in a later call.
     if (send_dmt_close_ack) {
-        if (dataMgr->sendDmtCloseCb != nullptr) {
+        if (dataManager_.sendDmtCloseCb != nullptr) {
             Error err(ERR_OK);
-            dataMgr->sendDmtCloseCb(err);
+            dataManager_.sendDmtCloseCb(err);
         } else {
             LOGDEBUG << "sendDmtCloseCb called while ptr was NULL!!!";
         }
@@ -557,9 +559,9 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
                                         fds_bool_t forward_complete)
 {
     Error err(ERR_OK);
-    VolSyncStateMsgPtr fwdMsg(new VolSyncStateMsg());
+    fpi::VolSyncStateMsgPtr fwdMsg(new fpi::VolSyncStateMsg());
 
-    fwdMsg->volume_id = volId;
+    fwdMsg->volume_id = volId.get();
     fwdMsg->forward_complete = forward_complete;
 
     LOGMIGRATE << "Sending VolSyncStateMsg: " << std::hex

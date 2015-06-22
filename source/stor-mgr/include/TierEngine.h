@@ -39,7 +39,6 @@ class TierEngine : public Module {
      */
     TierEngine(const std::string &modName,
             rankPolicyType _rank_type,
-            StorMgrVolumeTable* _sm_volTbl,
             const SmDiskMap::ptr& diskMap,
             SmIoReqHandler* storMgr);
     ~TierEngine();
@@ -55,7 +54,7 @@ class TierEngine : public Module {
     void disableTierMigration();
     void enableTierMigration();
     /* For manually starting hybrid tier controller */
-    void startHybridTierCtrlr();
+    void startHybridTierCtrlr(bool manual);
 
     /** Gets the threshold for considering SSDs full from
     * the tier migration policy.
@@ -102,10 +101,8 @@ class TierEngine : public Module {
     void mod_shutdown();
 
   private:
-    uint32_t  numMigThrds;
     boost::shared_ptr<RankEngine> rankEngine;
 
-    StorMgrVolumeTable* sm_volTbl;
     SmTierMigration* migrator;
 
     HybridTierCtrlr hybridTierCtrlr;

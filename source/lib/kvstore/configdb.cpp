@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+#include <util/properties.h>
+#include <net/net_utils.h>
 #include <ratio>
 
 #include "platform/platform_shm_typedefs.h"
@@ -23,7 +25,7 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
 
-#define FDSP_SERIALIZE(type , varname) \
+#define FDSP_SERIALIZE(type, varname) \
     boost::shared_ptr<std::string> varname; \
     fds::serializeFdspMsg(type, varname);
 
@@ -206,11 +208,11 @@ int64_t ConfigDB::getIdOfLocalDomain(const std::string& identifier) {
 
 
 // volumes
-fds_uint64_t ConfigDB::getNewVolumeId() {
+fds_volid_t ConfigDB::getNewVolumeId() {
     try {
-        fds_uint64_t volId;
+        fds_volid_t volId;
         for (;;) {
-            volId = r.incr("volumes:nextid");
+            volId = fds_volid_t(r.incr("volumes:nextid"));
             if (!volumeExists(volId)) return volId;
         }
     } catch(const RedisException& e) {
@@ -222,7 +224,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
     TRACKMOD();
     // add the volume to the volume list for the domain
     try {
-        Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, vol.volUUID);
+        auto volId = vol.volUUID.get();
+        Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, volId);
         if (!reply.wasModified()) {
             LOGWARN << "volume [" << vol.volUUID
                     << "] already exists for domain ["
@@ -249,15 +252,14 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " app.workload %d"
                               " media.policy %d"
                               " backup.vol.id %ld"
-                              " iops.min %.3f"
-                              " iops.max %.3f"
-                              " iops.guarantee %d"
+                              " iops.min %d"
+                              " iops.max %d"
                               " relative.priority %d"
                               " fsnapshot %d"
                               " parentvolumeid %ld"
                               " state %d"
                               " create.time %ld",
-                              vol.volUUID, vol.volUUID,
+                              volId, volId,
                               vol.name.c_str(),
                               vol.tennantId,
                               vol.localDomainId,
@@ -276,12 +278,11 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.appWorkload,
                               vol.mediaPolicy,
                               vol.backupVolume,
-                              vol.iops_min,
-                              vol.iops_max,
-                              vol.iops_guarantee,
+                              vol.iops_assured,
+                              vol.iops_throttle,
                               vol.relativePrio,
                               vol.fSnapshot,
-                              vol.srcVolumeId,
+                              vol.srcVolumeId.get(),
                               vol.getState(),
                               vol.createTime);
         if (reply.isOk()) return true;
@@ -297,7 +298,8 @@ bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
     TRACKMOD();
     try {
         LOGNORMAL << "updating volume id " << volumeId << " to state " << state;
-        return r.sendCommand("hset vol:%ld state %d", volumeId, static_cast<int>(state)).isOk();
+        auto volId = volumeId.get();
+        return r.sendCommand("hset vol:%ld state %d", volId, static_cast<int>(state)).isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();
         NOMOD();
@@ -319,7 +321,8 @@ bool ConfigDB::updateVolume(const VolumeDesc& volumeDesc) {
 bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("srem %d:volumes %ld", localDomainId, volumeId);
+        auto volId = volumeId.get();
+        Reply reply = r.sendCommand("srem %d:volumes %ld", localDomainId, volId);
         if (!reply.wasModified()) {
             LOGWARN << "volume [" << volumeId
                     << "] does NOT exist for domain ["
@@ -327,7 +330,7 @@ bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
         }
 
         // del the volume data
-        reply = r.sendCommand("del vol:%ld", volumeId);
+        reply = r.sendCommand("del vol:%ld", volId);
         return reply.isOk();
     } catch(RedisException& e) {
         LOGERROR << e.what();
@@ -338,14 +341,33 @@ bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
 
 bool ConfigDB::volumeExists(fds_volid_t volumeId) {
     try {
-        Reply reply = r.sendCommand("exists vol:%ld", volumeId);
+        auto volId = volumeId.get();
+        Reply reply = r.sendCommand("exists vol:%ld", volId);
         return reply.getLong()== 1;
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
     return false;
 }
-bool ConfigDB::volumeExists(ConstString volumeName, int localDomain){ return false; }
+
+bool ConfigDB::volumeExists(ConstString volumeName, int localDomain)
+{ 
+    std::vector<VolumeDesc> volumes;
+    const bool bRetCode = getVolumes( volumes, localDomain );
+    if ( bRetCode )
+    {
+        for ( const auto volume : volumes )
+        {
+            if ( volume.getName().compare( volumeName ) == 0 )
+            {
+                return true;
+            }
+        }
+    }
+    
+    return false; 
+}
+
 bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volIds, int localDomain) {
     std::vector<long long> volumeIds; //NOLINT
 
@@ -359,7 +381,7 @@ bool ConfigDB::getVolumeIds(std::vector<fds_volid_t>& volIds, int localDomain) {
         }
 
         for (uint i = 0; i < volumeIds.size(); i++) {
-            volIds.push_back(volumeIds[i]);
+            volIds.push_back(fds_volid_t(volumeIds[i]));
         }
         return true;
     } catch(RedisException& e) {
@@ -381,8 +403,8 @@ bool ConfigDB::getVolumes(std::vector<VolumeDesc>& volumes, int localDomain) {
         }
 
         for (uint i = 0; i < volumeIds.size(); i++) {
-            VolumeDesc volume("" , 1);  // dummy init
-            getVolume(volumeIds[i], volume);
+            VolumeDesc volume("" , fds_volid_t(1));  // dummy init
+            getVolume(fds_volid_t(volumeIds[i]), volume);
             volumes.push_back(volume);
         }
         return true;
@@ -394,7 +416,8 @@ bool ConfigDB::getVolumes(std::vector<VolumeDesc>& volumes, int localDomain) {
 
 bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
     try {
-        Reply reply = r.sendCommand("hgetall vol:%ld", volumeId);
+        auto volId = volumeId.get();
+        Reply reply = r.sendCommand("hgetall vol:%ld", volId);
         StringList strings;
         reply.toVector(strings);
 
@@ -426,9 +449,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "app.workload") {vol.appWorkload = (fpi::FDSP_AppWorkload)atoi(value.c_str());} //NOLINT
             else if (key == "media.policy") {vol.mediaPolicy = (fpi::FDSP_MediaPolicy)atoi(value.c_str());} //NOLINT
             else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
-            else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(), NULL);}
-            else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
-            else if (key == "iops.guarantee") {vol.iops_guarantee = atoi (value.c_str());}
+            else if (key == "iops.min") {vol.iops_assured = strtod (value.c_str(), NULL);}
+            else if (key == "iops.max") {vol.iops_throttle = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
@@ -870,8 +892,8 @@ fds_uint32_t ConfigDB::createQoSPolicy(const std::string& identifier,
         id = static_cast<fds_uint32_t>(reply.getLong());
         qosPolicy.volPolicyId = id;
         qosPolicy.volPolicyName = identifier;
-        qosPolicy.iops_min = minIops;
-        qosPolicy.iops_max = maxIops;
+        qosPolicy.iops_assured = minIops;
+        qosPolicy.iops_throttle = maxIops;
         qosPolicy.relativePrio = relPrio;
 
 #ifdef QOS_POLICY_MANAGEMENT_CORRECTED
@@ -1530,10 +1552,11 @@ bool ConfigDB::deleteSnapshotPolicy(const int64_t policyId) {
     return true;
 }
 
-bool ConfigDB::attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {
+bool ConfigDB::attachSnapshotPolicy(fds_volid_t const volumeId, const int64_t policyId) {
     try {
-        r.sendCommand("sadd snapshot.policy:%ld:volumes %ld", policyId, volumeId);
-        r.sendCommand("sadd volume:%ld:snapshot.policies %ld", volumeId, policyId);
+        auto volId = volumeId.get();
+        r.sendCommand("sadd snapshot.policy:%ld:volumes %ld", policyId, volId);
+        r.sendCommand("sadd volume:%ld:snapshot.policies %ld", volId, policyId);
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
@@ -1542,9 +1565,10 @@ bool ConfigDB::attachSnapshotPolicy(const int64_t volumeId, const int64_t policy
 }
 
 bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & vecPolicies,
-                                             const int64_t volumeId) {
+                                             fds_volid_t const volumeId) {
     try {
-        Reply reply = r.sendCommand("smembers volume:%ld:snapshot.policies", volumeId); //NOLINT
+        auto volId = volumeId.get();
+        Reply reply = r.sendCommand("smembers volume:%ld:snapshot.policies", volId); //NOLINT
         StringList strings;
         reply.toVector(strings);
 
@@ -1573,10 +1597,11 @@ bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPoli
     return true;
 }
 
-bool ConfigDB::detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {
+bool ConfigDB::detachSnapshotPolicy(fds_volid_t const volumeId, const int64_t policyId) {
     try {
-        r.sendCommand("srem snapshot.policy:%ld:volumes %ld", policyId, volumeId);
-        r.sendCommand("srem volume:%ld:snapshot.policies %ld", volumeId, policyId);
+        auto volId = volumeId.get();
+        r.sendCommand("srem snapshot.policy:%ld:volumes %ld", policyId, volId);
+        r.sendCommand("srem volume:%ld:snapshot.policies %ld", volId, policyId);
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
@@ -1621,12 +1646,12 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
     return true;
 }
 
-bool ConfigDB::deleteSnapshot(const int64_t volumeId, const int64_t snapshotId) {
+bool ConfigDB::deleteSnapshot(fds_volid_t const volumeId, fds_volid_t const snapshotId) {
     TRACKMOD();
     try {
         fpi::Snapshot snapshot;
-        snapshot.volumeId = volumeId;
-        snapshot.snapshotId = snapshotId;
+        snapshot.volumeId = volumeId.get();
+        snapshot.snapshotId = snapshotId.get();
 
         if (!getSnapshot(snapshot)) {
             LOGWARN << "unable to fetch snapshot [vol:" << volumeId <<",snap:" << snapshotId <<"]";
@@ -1669,9 +1694,10 @@ bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
 }
 
 
-bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, const int64_t volumeId) {
+bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, fds_volid_t const volumeId) {
     try {
-        Reply reply = r.sendCommand("hvals volume:%ld:snapshots", volumeId);
+        auto volId = volumeId.get();
+        Reply reply = r.sendCommand("hvals volume:%ld:snapshots", volId);
         StringList strings;
         reply.toVector(strings);
         fpi::Snapshot snapshot;
@@ -1708,11 +1734,11 @@ bool ConfigDB::setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState sta
     return updateSnapshot(snapshot);
 }
 
-bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId,
+bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, fds_volid_t const snapshotId,
                                 fpi::ResourceState state) {
     fpi::Snapshot snapshot;
-    snapshot.volumeId = volumeId;
-    snapshot.snapshotId = snapshotId;
+    snapshot.volumeId = volumeId.get();
+    snapshot.snapshotId = snapshotId.get();
     return setSnapshotState(snapshot, state);
 }
 
@@ -1736,14 +1762,16 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
         
-        LOGDEBUG << "CONFIGDB::UPDATE::SVC::MAP " 
-                 << svcinfo.name << " "
-                 << uuid.str();
-        
-        std::string key = "svcmap";
+        LOGDEBUG << "ConfigDB updating Service Map:"
+                 << " type: " << svcinfo.name 
+                 << " uuid: " << std::hex << svcinfo.svc_id.svc_uuid.svc_uuid << std::dec
+                 << " ip: " << svcinfo.ip 
+        		 << " port: " << svcinfo.svc_port
+                 << " incarnation: " << svcinfo.incarnationNo
+                 << " status: " << svcinfo.svc_status;
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
-        bRetCode = r.hset( key, uuid.str().c_str(), *serialized );
+        bRetCode = r.hset( "svcmap", uuid.str().c_str(), *serialized );
                        
     } catch(const RedisException& e) {
         
@@ -1754,9 +1782,91 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
     return bRetCode;
 }
 
+bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid, 
+                                  const fpi::ServiceStatus svc_status )
+{
+    bool bRetCode = false;
+    
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+        
+         LOGDEBUG << "ConfigDB changing service status:"
+                  << " uuid: " << std::hex << svc_uuid << std::dec
+                  << " status: " << svc_status;
+        
+        Reply reply = r.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+        if ( reply.isValid() ) 
+        {
+            std::string value = reply.getString();
+            fpi::SvcInfo svcInfo;
+            fds::deserializeFdspMsg( value, svcInfo );
+            
+            fpi::ServiceStatus old_svc_status = svcInfo.svc_status;
+            svcInfo.svc_status = svc_status;
+                        
+            bRetCode = updateSvcMap( svcInfo );
+            
+            LOGDEBUG << "ConfigDB updated service status:"
+                     << " uuid: " << std::hex << svc_uuid << std::dec
+                     << " from status: " << old_svc_status 
+                     << " to status: " << svc_status;
+            
+            /* Convert new registration request to existing registration request */
+            kvstore::NodeInfoType nodeInfo;
+            fromTo( svcInfo, nodeInfo );
+            updateNode( nodeInfo );
+            
+            bRetCode = true;
+        }
+    }
+    catch( const RedisException& e ) 
+    {
+        
+        LOGCRITICAL << "error with redis " << e.what();
+        
+    }
+    
+    return bRetCode;
+}
+
+void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 
+                       kvstore::NodeInfoType nodeInfo )
+{
+    nodeInfo.control_port = svcInfo.svc_port;
+    nodeInfo.data_port = svcInfo.svc_port;
+    nodeInfo.ip_lo_addr = fds::net::ipString2Addr(svcInfo.ip);  
+    nodeInfo.node_name = svcInfo.name;   
+    nodeInfo.node_type = svcInfo.svc_type;
+
+    fds::assign( nodeInfo.service_uuid, svcInfo.svc_id );
+
+    NodeUuid node_uuid;
+    node_uuid.uuid_set_type( nodeInfo.service_uuid.uuid, fpi::FDSP_PLATFORM );
+    nodeInfo.node_uuid.uuid  = static_cast<int64_t>( node_uuid.uuid_get_val() );
+
+    fds_assert( nodeInfo.node_type != fpi::FDSP_PLATFORM ||
+                nodeInfo.service_uuid == nodeInfo.node_uuid );
+
+    if ( nodeInfo.node_type == fpi::FDSP_PLATFORM ) 
+    {
+        fpi::FDSP_AnnounceDiskCapability& diskInfo = nodeInfo.disk_info;
+        
+        util::Properties props( &svcInfo.props );
+        diskInfo.node_iops_max = props.getInt( "node_iops_max" );
+        diskInfo.node_iops_min = props.getInt( "node_iops_min" );
+        diskInfo.disk_capacity = props.getDouble( "disk_capacity" );
+
+        diskInfo.ssd_capacity = props.getDouble( "ssd_capacity" );
+        diskInfo.disk_type = props.getInt( "disk_type" );
+    }
+}
+
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 {
-    try {
+    try 
+    {
         svcMap.clear();
         Reply reply = r.sendCommand("hgetall svcmap");
         StringList strings;
@@ -1769,12 +1879,14 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
             fds::deserializeFdspMsg(value, svcInfo);
             svcMap.push_back(svcInfo);
         }
-    } catch(const RedisException& e) {
+    } 
+    catch ( const RedisException& e ) 
+    {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
     }
+    
     return true;
-
 }
 
 

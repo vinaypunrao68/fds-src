@@ -48,14 +48,20 @@ proc["om"]="java"
 
 declare -A apps
 apps["om"]="orchMgr"
-apps["am"]="AMAgent"
-apps["xdi"]="AMAgent"
+apps["am"]="bare_am"
+apps["xdi"]="am.Main"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
 
+declare -A TESTS
+TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
+TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
+TESTS["restart"]="SimpleRestartTest.ini"
+TESTS["smoke"]="BuildSmokeTest_onpr.ini"
+
 function usage() {
-    log "$(yellow usage: $(basename $0) [cmd] [app] [options])"
+    log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
     log " cmd : "
     log "   - $(yellow start)     : start the app "
     log "   - $(yellow stop)      : stop  the app "
@@ -64,6 +70,7 @@ function usage() {
     log "   - $(yellow clogs)     : remove the logs"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
+    log "   - $(yellow test)      : run specific tests"
     log "   - $(yellow tail)      : tail the application log file"
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
@@ -72,6 +79,8 @@ function usage() {
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log " app : om/pm/sm/am/dm/all"
+    log " $(yellow testname): name of a test"
+    echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
     printBuildMode
     exit 0
 }
@@ -122,6 +131,14 @@ function setupFdsDirs() {
     if [[ $(readlink ${FDSTEST_ROOT}/etc) != "${CONFIG_ETC}" ]] ; then
         cp -rf ${CONFIG_ETC} ${FDSTEST_ROOT}
     fi
+
+    cd ${SOURCEDIR}
+    if [ ${UID} -ne 0 ]; then
+        sudo ./dev_make_install.sh
+    else
+        ./dev_make_install.sh
+    fi
+    cd - > /dev/null
 }
 
 function activate() {
@@ -131,10 +148,10 @@ function activate() {
     if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
     if [[ -n $actapps ]]; then
         # Bao: wait for platformd before activate
-        sleep 5
+        sleep 14
 
         logwarn "asking OM to accept all discovered nodes..."
-	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local > cli.out) 2>/dev/null
+	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
     fi
 }
 
@@ -166,16 +183,26 @@ function startApp() {
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
             pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
+                case $name in
+                    sm|dm|am)
+                        params="--foreground --fds.pm.platform_uuid=$(echo 'keys node* '| redis-cli | cut -d: -f2)"
+                        ;;
+                    *)
+                        params=""
+                        ;;
+                esac
+
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
-                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} > ${name}.out 2>&1 &)
+                echo $params
+                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
-                sleep 2s
+
 		if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
                     loginfo "here is the log file: ${BINDIR}/${name}.out"
                     tail ${BINDIR}/${name}.out
                 fi
-                sleep 1s
+
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -198,7 +225,9 @@ function stopApp() {
 
     case "$appname" in 
         om|all|influx*)
-            stopInfluxDB
+            if [ "$CMD" != "clean" ]; then
+                stopInfluxDB
+            fi
             ;;
     esac
 
@@ -253,6 +282,7 @@ function cleanInfluxDB() {
 
     ## if it is not running, start it.
     if [ $isRunning != 0 ]; then
+        loginfo "Starting InfluxDB for clean"
         startInfluxDB
         sleep 5
     fi
@@ -274,6 +304,7 @@ function cleanInfluxDB() {
 
     ## if influx was NOT running originally, stop it again.
     if [ $isRunning != 0 ]; then
+        loginfo "Stopping InfluxDB"
         stopInfluxDB
     fi
 }
@@ -290,16 +321,21 @@ function statusApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid="$(getAppPid $name)"
+            pid="$(getAppPid $name zombie)"
             if [[ -z $pid ]] ; then
                 echo "$(boldblue ${name}) : $(yellow Not running)"
             else
                 local num=1
                 for procid in $pid ; do
-                    if [[ $num == 1 ]]; then
-                        echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                    if [[ "Z" == $(ps -o s= -p $procid) ]]; then
+                        echo "$(yellow ${name}) : $(boldred $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        num=$((num-1))
                     else
-                        echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        if [[ $num == 1 ]]; then
+                            echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        else
+                            echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                        fi
                     fi
                     num=$((num+1))
                 done
@@ -327,7 +363,6 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-
     if [[ $name == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
     elif [[ $name == "am" ]]; then
@@ -337,7 +372,15 @@ function getAppPid() {
     else
         pid="$(pgrep ${apps[$name]})"
     fi
-    echo -n $pid
+    if [[ $2 == "zombie" ]]; then
+        echo -n $pid
+    else
+        for p in $pid; do
+            if [[ "Z" != $(ps -o s= -p $p) ]]; then 
+                echo -n "$p "
+            fi
+        done
+    fi
 }
 
 function waitForAll() {
@@ -454,6 +497,20 @@ function showerrors() {
     done
 }
 
+function showports() {
+    local apps="$@"
+    if [[ $1 == 'all' ]]; then
+        apps="am om dm sm pm xdi"
+    fi
+    for app in ${apps}; do
+        local pid=$(getAppPid $app)
+        if [[ -n $pid ]]; then
+            local pids=$(echo -en $pid| tr ' ' '|' | sed 's/.$//')
+            loginfo "Ports used by : $(blue $app)/$pids"
+            netstat -lntp | grep -E "PID|${pids}"
+        fi
+    done
+}
 
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
@@ -505,6 +562,19 @@ function clean() {
 
     cleanInfluxDB
     cleanBinDirs
+}
+
+function runTest() {
+    local testname=$1
+    local TESTSUITEDIR=${SOURCEDIR}/test/testsuites
+
+    if [[ -n $testname ]] && [[ ${TESTS[$testname]+1} ]]; then
+        stopApp all
+        (cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
+    else
+        logerror "no matching tests for [$testname]"
+    fi
+            
 }
 
 function cleanlogs() {
@@ -584,10 +654,19 @@ if [ $run_from_install_dir -eq 1 ]; then
     source_lib
 fi
 
+
+if [[ $CMD == "test" ]]; then
+    TEST=$APP
+    APP="all"
+fi
+
 # check the values
 CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
+TESTNAME=""
+
+
 
 #echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \
 #     "TOOLSDIR=${TOOLSDIR} CONFIG_ETC=${CONFIG_ETC} BINDIR=${BINDIR}"
@@ -596,7 +675,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*) ;;
+    kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -616,6 +695,7 @@ case "${CMD}" in
         [[ $APP == "all" ]] && waitForAll
         statusApp $APP
         ;;
+    kill) stopApp  $APP;;
     stop) stopApp  $APP;;
     status) statusApp $APP;;
     clean)
@@ -644,6 +724,12 @@ case "${CMD}" in
         ;;
     err*)
         showerrors $APP
+        ;;
+    test)
+        runTest $TEST
+        ;;
+    port*)
+        showports $APP
         ;;
     *) usage ;;
 esac

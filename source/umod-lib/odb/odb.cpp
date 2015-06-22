@@ -60,10 +60,16 @@ ObjectDB::ObjectDB(const std::string& filename,
 
     write_options.sync = sync_write;
 
-    env = new leveldb::CopyEnv(leveldb::Env::Default());
-    options.env = env;
+    env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
+    options.env = env.get();
 
-    leveldb::Status status = leveldb::DB::Open(options, file, &db);
+    leveldb::Status status;
+    LOGDEBUG << "opening leveldb";
+    {
+        leveldb::DB* ptr;
+        status = leveldb::DB::Open(options, file, &ptr);
+        db.reset(ptr);
+    }
 
     /* Open has to succeed */
     if (!status.ok())
@@ -82,7 +88,7 @@ ObjectDB::ObjectDB(const std::string& filename,
  */
 ObjectDB::~ObjectDB() {
     delete options.filter_policy;
-    delete db;
+    db.reset();
 }
 
 /**
@@ -92,7 +98,6 @@ ObjectDB::~ObjectDB() {
 void ObjectDB::closeAndDestroy() {
     delete options.filter_policy;
     options.filter_policy = nullptr;
-    delete db;
     db = nullptr;
     leveldb::DestroyDB(file, leveldb::Options());
 }
@@ -334,14 +339,22 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
     leveldb::Status status = env->CreateDir(fileName);
     if (!status.ok()) {
         GLOGNORMAL << " CreateDir failed for " << fileName << "status " << status.ToString() ;
-        err = Error(ERR_DISK_WRITE_FAILED);
+        err = ERR_DISK_WRITE_FAILED;
+        return err;
     }
 
-    CopyDetails * details = new CopyDetails(file, fileName);
-    status = env->Copy(file, &doCopyFile, reinterpret_cast<void *>(details));
-    if (!status.ok()) {
-        GLOGNORMAL << " Copy failed for " << file << " destination file " << fileName;
-        err = ERR_DISK_WRITE_FAILED;
+    CopyDetails *details = new (std::nothrow)CopyDetails(file, fileName);
+    if (details) {
+        status = env->Copy(file, &doCopyFile, reinterpret_cast<void *>(details));
+        if (!status.ok()) {
+            GLOGNORMAL << " Copy failed for " << file << " destination file " << fileName;
+            err = ERR_DISK_WRITE_FAILED;
+            delete details;
+            return err;
+        }
+        delete details;
+    } else {
+        err = ERR_OUT_OF_MEMORY;
     }
 
     *cenv = env;

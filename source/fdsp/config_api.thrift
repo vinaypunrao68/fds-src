@@ -83,7 +83,17 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
-   * Shutdown currently the named Local Domain.
+   * Startup named Local Domain
+   *
+   * Startup involves starting all processes associated with SM, DM, and AM services.
+   *
+   * @param domainName - A string representing the name of the Local Domain to be started.
+   */
+  void startupLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Shutdown named Local Domain.
    *
    * Shutdown involves stopping all processes associated with SM, DM, and AM services. However,
    * none of them are unregistered from the Domain as would be the case with "removing" services.
@@ -124,12 +134,23 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Unlike activateLocalDomainServices, ActivateNode is Node-specific.
+   */
+  i32 ActivateNode(1:config_types.FDSP_ActivateOneNodeType req),
+
+  /**
    * Lists currently defined Services for the named Local Domain.
+   *
+   * Both listLocalDomainServices and ListServices do the same thing.
+   * ListServices was in place before listLocalDomainServices and so is
+   * used by the UI. However, listLocalDomainServices more closely matches
+   * our goals in a RESTful API.
    *
    * @return Returns the list of FDSP_Node_Info_Type's.
    */
   list<common.FDSP_Node_Info_Type> listLocalDomainServices(1:string domainName)
       throws (1: common.ApiException e);
+  list<common.FDSP_Node_Info_Type> ListServices(1:i32 ignore),
 
   /**
    * Remove currently defined Services from the named Local Domain.
@@ -147,6 +168,11 @@ service ConfigurationService {
    */
   void removeLocalDomainServices(1:string domainName, 2:bool sm, 3:bool dm, 4:bool am)
       throws (1: common.ApiException e);
+
+  /**
+   * Unlike removeLocalDomainServices, RemoveServices is Node-specific.
+   */
+  i32 RemoveServices(1:config_types.FDSP_RemoveServicesType rm_node_req),
 
   /**
    * Create a new tenant.
@@ -272,10 +298,23 @@ service ConfigurationService {
    *
    * @param volumeId the volume's uuid
    *
-   * @return Returns a string representing teh volume name
+   * @return Returns a string representing the volume name
    */
   string getVolumeName(1:i64 volumeId)
       throws (1: common.ApiException e),
+
+  common.FDSP_VolumeDescType GetVolInfo(1:config_types.FDSP_GetVolInfoReqType vol_info_req)
+      throws (1:config_types.FDSP_VolumeNotFound not_found),
+
+  /**
+   * Modify volume attributes. Actually used to create and clone a
+   * volume as well.
+   *
+   * @param mod_vol_req volume attributes.
+   *
+   * @return Zero for success, non-zero otherwise.
+   */
+  i32 ModifyVol(1:config_types.FDSP_ModifyVolType mod_vol_req),
 
   /**
    * Delete FDS volume.
@@ -304,10 +343,18 @@ service ConfigurationService {
   /**
    * Enumerate volumes.
    *
+   * Both listVolumes and ListVolumes do the same thing, list
+   * volumes and their attributes within the default domain, although
+   * ListVolumes provides more attributes than listVolumes.
+   * ListVolumes was in place before listVolumes and so is
+   * used by the UI. However, listVolumes more closely matches
+   * our goals in a RESTful API, but with less volume attributes.
+   *
    * @param domainName a string representing the local domain name
    */
   list<config_types.VolumeDescriptor> listVolumes(1:string domainName)
       throws (1: common.ApiException e),
+  list <common.FDSP_VolumeDescType> ListVolumes(1:i32 ignore),
 
   /**
    * Register a statistic stream.
@@ -419,6 +466,12 @@ service ConfigurationService {
     2:string snapshotName,
     3:i64 retentionTime,
     4:i64 timelineTime)
+      throws (1: common.ApiException e),
+
+  /**
+   * Delete the snapshot with the given snapshotId
+   */
+  void deleteSnapshot(1:i64 volumeId, 2:i64 snapshotId)
       throws (1: common.ApiException e),
 
   /**

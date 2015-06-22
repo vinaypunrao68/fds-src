@@ -17,7 +17,8 @@ namespace java com.formationds.protocol.pm
  */
 
 /**
- * Deactivate Services message to PM
+ * Deactivate Services message to PM 
+ * @deprecated 06/09/2015
  */
 struct DeactivateServicesMsg {
   1: common.FDSP_Uuid  node_uuid,

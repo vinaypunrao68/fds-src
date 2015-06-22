@@ -86,14 +86,15 @@ NbdConnection::NbdConnection(int clientsd,
           nbd_state(NbdProtoState::PREINIT),
           resp_needed(0u),
           handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
-          attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
-          request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           response(nullptr),
           total_blocks(0ull),
           write_offset(-1ll),
           readyResponses(4000),
           current_response(nullptr)
 {
+    memset(&attach, '\0', sizeof(attach));
+    memset(&request, '\0', sizeof(request));
+
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
 
@@ -302,8 +303,8 @@ bool NbdConnection::io_request(ev::io &watcher) {
 
     LOGIO << " op " << io_to_string[request.header.opType]
           << " handle 0x" << std::hex << request.header.handle
-          << " offset 0x" << request.header.offset << std::dec
-          << " length " << request.header.length
+          << " offset 0x" << request.header.offset
+          << " length 0x" << request.header.length << std::dec
           << " ahead of you: " <<  resp_needed++;
 
     Error err = dispatchOp();
@@ -350,8 +351,8 @@ NbdConnection::io_reply(ev::io &watcher) {
             boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
             while (buf != NULL) {
                 LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
-                         << "...Buffer # " << context
-                         << "...Size " << std::dec << buf->length() << "B";
+                         << "...Size 0x" << buf->length() << "B"
+                         << "...Buffer # " << std::dec << context;
                 response[total_blocks].iov_base = to_iovec(buf->c_str());
                 response[total_blocks].iov_len = buf->length();
                 ++total_blocks;

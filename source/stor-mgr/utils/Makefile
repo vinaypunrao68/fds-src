@@ -9,6 +9,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-smlib\
+    fds-qos-lib \
     fds-am-engine \
     fds-dsk-mgnt \
     fds-dsk-io \

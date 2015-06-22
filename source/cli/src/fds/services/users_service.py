@@ -1,5 +1,7 @@
 from abstract_service import AbstractService
 
+from fds.utils.converters.admin.user_converter import UserConverter
+
 class UsersService( AbstractService ):
     '''
     Created on Apr 23, 2015
@@ -14,44 +16,61 @@ class UsersService( AbstractService ):
         ''' 
         get a list of all the users you're allowed to see
         '''
-        url = "{}{}".format( self.get_url_preamble(), "/api/system/users" )
-        return self.rest_helper().get( self.session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/users" )        
+        j_users = self.rest_helper.get( self.session, url )
+        
+        if j_users is None:
+            return
+        
+        users = []
+        
+        for j_user in j_users:
+            user = UserConverter.build_user_from_json(j_user)
+            users.append( user )
+            
+        return users
     
-    def create_user(self, login, password ):
+    def create_user(self, user ):
         '''
         create a new user
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/system/users/", login, "/", password )
-        return self.rest_helper().post( self.session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/users" )
+        data = UserConverter.to_json(user)
+        user = self.rest_helper.post( self.session, url, data )
+        
+        if user is None:
+            return 
+        
+        user= UserConverter.build_user_from_json(user)
+        return user
     
-    def change_password(self, user_id, password ):
+    def change_password(self, user_id, user ):
         '''
         Change a users password
         '''
         
-        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/api/system/users/", user_id, "/", password )
-        return self.rest_helper().put( self.session, url )
+        url = "{}{}{}".format( self.get_url_preamble(), "/users/", user_id )
+        data = UserConverter.to_json(user)
+        return self.rest_helper.put( self.session, url, data )
     
     def reissue_user_token(self, user_id):
         '''
         Re-issue a users token.  This will effectively cause the effected user to have to revalidate themselves
         '''
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/system/token/", user_id )
-        return self.rest_helper().post( self.session, url )
-    
-    def get_user_token(self, user_id ):
-        '''
-        Retrieve the token for a specified user
-        '''
-        
-        url = "{}{}{}".format( self.get_url_preamble(), "/api/system/token/", user_id )
-        return self.rest_helper().get( self.session, url )
+        url = "{}{}{}".format( self.get_url_preamble(), "/token/", user_id )
+        return self.rest_helper.post( self.session, url )
     
     def who_am_i(self):
         '''
         Retrieve the user associated with this session/token
         '''
         
-        url = "{}{}".format( self.get_url_preamble(), "/api/auth/currentUser" )
-        return self.rest_helper().get( self.session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/userinfo" )
+        me = self.rest_helper.get( self.session, url )
+        
+        if me is None:
+            return
+        
+        real_me = UserConverter.build_user_from_json(me)
+        return real_me

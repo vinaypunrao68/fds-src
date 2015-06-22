@@ -90,7 +90,7 @@ class SMCheckOffline {
         SmTokenSet::iterator token_it;
 
         leveldb::ReadOptions options;
-        leveldb::DB *ldb;
+        std::shared_ptr<leveldb::DB> ldb;
         leveldb::Iterator *ldb_it;
 
         MdPtr omd;
@@ -105,12 +105,12 @@ class SMCheckOnline {
     SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap);
     ~SMCheckOnline();
 
-    Error startIntegrityCheck();
+    Error startIntegrityCheck(SmTokenSet tgtDltTokens);
 
     void SMCheckSnapshotCB(const Error& error,
                            SmIoSnapshotObjectDB* snapReq,
                            leveldb::ReadOptions& options,
-                           leveldb::DB* db);
+                           std::shared_ptr<leveldb::DB> db);
 
     void updateDLT(const DLT *latestDLT);
 
@@ -131,6 +131,9 @@ class SMCheckOnline {
     // a atomic counter, where is count represents number of outstanding
     // requests.
     std::atomic<bool> SMChkActive;
+
+    // Target DLT tokens list
+    std::set<fds_token_id> targetDLTTokens;
 
     void resetStats();
     bool checkObjectOwnership(const ObjectID& objId);

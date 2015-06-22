@@ -28,8 +28,7 @@ class S3Volumes(object):
     am_ip_address: the IP address to where the AM node is located. If not
     specified, the AM node will be assumed to the the same as the OM node
     '''
-    def __init__(self, name, om_ip_address, am_ip_address=None):
-        self.name = name
+    def __init__(self, om_ip_address, am_ip_address=None):
         self.om_ip_address = om_ip_address
         # in the case the AM IP Address is not specified, then use the
         # OM IP address as the AM IP Address
@@ -41,7 +40,7 @@ class S3Volumes(object):
                                                  self.am_ip_address)
         self.buckets = []
 
-    def create_volumes(self, size):
+    def create_volumes(self, quantity, name):
         '''
         Given number specified by the user, create that many buckets specified.
 
@@ -49,12 +48,14 @@ class S3Volumes(object):
         -----------
         size: the number of buckets to be created
         '''
-        assert size > 0
+        assert quantity > 0
         # connect to the S3 instance
-        for i in xrange(0, size):
-            bucket_name = "%s_%s" % (self.name, i)
+        for i in xrange(0, quantity):
+            bucket_name = "%s_%s" % (name, i)
             bucket = self.__create_volume(self.s3conn, bucket_name)
             self.buckets.append(bucket)
+
+        return self.buckets
 
     def __create_volume(self, s3conn, bucket_name):
         '''
@@ -88,6 +89,9 @@ class S3Volumes(object):
         '''
         return self.s3conn.conn.get_all_buckets()
 
+    def get_bucket(self, volume_name):
+        return self.s3conn.conn.get_bucket(volume_name)
+
     def download_files(self, bucket, dest):
         '''
         Download all the files present in a S3 volume
@@ -105,7 +109,7 @@ class S3Volumes(object):
                 self.log.info("Downloading %s" % path)
                 l.get_contents_to_filename(path)
 
-    def store_file_to_volume(self, bucket, filepath):
+    def store_file_to_volume(self, bucket, filepath, key_name):
         '''
         Given the list of files to be uploaded, presented in sample_files list,
         upload them to the corresponding volume
@@ -116,9 +120,17 @@ class S3Volumes(object):
             the S3 bucket (volume) where the data files will to uploaded to.
         '''
         # add the data files to the bucket.
-        k = Key(bucket)
+        #print("bucket name is {}".format(bucket.name))
+        #print("file is {}".format(filepath))
+        k = None
+        try:
+            k = bucket.get_key(key_name)
+        except:
+            pass
+        if k is None:
+            k = bucket.new_key(key_name)
         if os.path.exists(filepath):
-            k.key = filepath
+            #print("key is {}".format(k.key))
             k.set_contents_from_filename(filepath,
                                          cb=utils.percent_cb,
                                          num_cb=10)
@@ -133,7 +145,7 @@ class S3Volumes(object):
         ----------
         buckets: a list of S3 buckets
         '''
-        for bucket in self.buckets:
+        for bucket in buckets:
             self.__delete_volume(self.s3conn, bucket)
         # After the clean up please delete the bucket
         self.s3conn.s3_disconnect()

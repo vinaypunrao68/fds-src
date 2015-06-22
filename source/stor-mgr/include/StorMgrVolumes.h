@@ -20,7 +20,6 @@
 #include "qos_ctrl.h"
 #include "util/Log.h"
 #include "concurrency/RwLock.h"
-#include "odb.h"
 #include "util/counter.h"
 #include "SmIo.h"
 
@@ -44,12 +43,12 @@ class SmVolQueue : public FDS_VolumeQueue {
     public:
      SmVolQueue(fds_volid_t  _volUuid,
                 fds_uint32_t _q_cap,
-                fds_uint32_t _iops_max,
-                fds_uint32_t _iops_min,
+                fds_int64_t _iops_throttle,
+                fds_int64_t _iops_assured,
                 fds_uint32_t _priority) :
          FDS_VolumeQueue(_q_cap,
-                         _iops_max,
-                         _iops_min,
+                         _iops_throttle,
+                         _iops_assured,
                          _priority) {
              volUuid = _volUuid;
              /*
@@ -117,13 +116,6 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
      StorMgrVolume(const VolumeDesc& vdb,
                    fds_log *parent_log);
      ~StorMgrVolume();
-     Error createVolIndexEntry(fds_volid_t vol_uuid,
-                               fds_uint64_t vol_offset,
-                               fpi::FDS_ObjectIdType objId,
-                               fds_uint32_t data_obj_len);
-     Error deleteVolIndexEntry(fds_volid_t vol_uuid,
-                               fds_uint64_t vol_offset,
-                               fpi::FDS_ObjectIdType objId);
 
      void updateDedupBytes(double dedup_bytes_added) {
          dedupBytes_ += dedup_bytes_added;
@@ -135,9 +127,6 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
          if (dedupBytes_ < 0) return 0;
          return dedupBytes_;
      }
-
-     osm::ObjectDB  *volumeIndexDB;
-     // VolumeObjectCache *vol_obj_cache;
 };
 
 class StorMgrVolumeTable : public HasLogger {
@@ -169,14 +158,6 @@ class StorMgrVolumeTable : public HasLogger {
      Error registerVolume(const VolumeDesc& vdb);
      Error deregisterVolume(fds_volid_t vol_uuid);
      StorMgrVolume* getVolume(fds_volid_t vol_uuid);
-
-     Error createVolIndexEntry(fds_volid_t      vol_uuid,
-                               fds_uint64_t     vol_offset,
-                               fpi::FDS_ObjectIdType objId,
-                               fds_uint32_t     data_obj_len);
-     Error deleteVolIndexEntry(fds_volid_t vol_uuid,
-                               fds_uint64_t vol_offset,
-                               fpi::FDS_ObjectIdType objId);
 
      std::list<fds_volid_t> getVolList() {
          std::list<fds_volid_t> volIds;

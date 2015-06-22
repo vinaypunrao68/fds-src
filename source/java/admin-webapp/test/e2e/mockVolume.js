@@ -91,14 +91,31 @@ mockVolume = function(){
                 }
             }
 
-            volume.id = (new Date()).getTime();
-            volume.current_usage = {
-                size: 0,
-                unit: 'B'
+            volume.uid = (new Date()).getTime();
+            volume.status = {
+                currentUsage: {
+                    size: 0,
+                    unit: 'B'
+                },
+                lastCapacityFirebreak: 0,
+                lastPerformanceFirebreak: 0
             };
             
             volume.rate = 10000;
             volume.snapshots = [];
+            
+            if ( !angular.isDefined( volume.snapshotPolicies ) ){
+                volume.snapshotPolicies = [];
+            }
+            
+            // re-name the policies
+            for ( var polIndex = 0; polIndex < volume.snapshotPolicies.length; polIndex++ ){
+                var policy = volume.snapshotPolicies[polIndex];
+                
+                policy.uid = (new Date()).getTime() - polIndex;
+                policy.type = volume.uid + '_SYSTEM_TIMELINE_' + policy.recurrenceRule.FREQ;
+            }
+            
             volService.volumes.push( volume );
             saveVolumeEvent( volume );
             
@@ -122,7 +139,7 @@ mockVolume = function(){
             var volume;
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id === volumeId ){
+                if ( volService.volumes[i].uid === volumeId ){
                     volume = volService.volumes[i];
                     break;
                 }
@@ -133,7 +150,7 @@ mockVolume = function(){
             }
             
             var id = (new Date()).getTime();
-            volume.snapshots.push( { id: id, name: id, creation: id } );
+            volume.snapshots.push( { uid: id, name: id, creation: id } );
             
             callback();
         };
@@ -146,7 +163,7 @@ mockVolume = function(){
             //callback( [] );
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
-                if ( volService.volumes[i].id === volumeId ){
+                if ( volService.volumes[i].uid === volumeId ){
                     
                     if ( angular.isFunction( callback ) ){
                         callback( volService.volumes[i].snapshots );
@@ -159,26 +176,246 @@ mockVolume = function(){
 
         volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
         //                callback( [] );
-            var ps = $snapshot_service.getPolicies();
-            var rtn = [];
-
-            for ( var i = 0; i < ps.length; i++ ){
+            var policies = [];
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                var volume = volService.volumes[i];
                 
-                if ( ps[i].name.indexOf( volumeId ) != -1 ){
-                    rtn.push( ps[i] );
+                if ( volume.uid === volumeId ){
+                    policies = volume.snapshotPolicies;
+                    break;
                 }
             }
             
             if ( angular.isFunction( callback ) ){
-                callback( rtn );
+                callback( policies );
             }
             
             return {
                 then: function( cb ){
                     if ( angular.isFunction( cb ) ){
-                        cb( rtn );
+                        cb( policies );
                     }
                 }
+            };
+        };
+
+        volService.getQosPolicyPresets = function( callback, failure ){
+            
+            var presets = [
+                {
+                    priority: 10,
+                    iopsMin: 0,
+                    iopsMax: 0,
+                    id: 0,
+                    name: 'Least Important'
+                },
+                {
+                    priority: 7,
+                    iopsMin: 0,
+                    iopsMax: 0,
+                    id: 1,
+                    name: 'Standard'
+                },
+                {
+                    priority: 1,
+                    iopsMin: 0,
+                    iopsMax: 0,
+                    id: 2,
+                    name: 'Most Important'
+                }
+            ];
+                
+            if ( angular.isFunction( callback ) ){
+                callback( presets );
+            }
+        };
+        
+        volService.getDataProtectionPolicyPresets = function( callback, failure ){
+            
+            var presets = [{
+                "id": 0,
+                commitLogRetention: { 
+                    "seconds": 86400,
+                    "nanos" : 0
+                },
+                name: 'Sparse Coverage',
+                snapshotPolicies: [{
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retentionTime: {
+                        seconds: 172800,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retentionTime: {
+                        seconds: 604800,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retentionTime: {
+                        seconds: 7776000,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retentionTime: {
+                        seconds: 63244800,
+                        nanos: 0
+                    }
+                }]
+            },
+            {
+                id: 1,
+                commitLogRetention: {
+                    seconds: 86400,
+                    nanos: 0
+                },
+                name: 'Standard',
+                snapshotPolicies: [{
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retentionTime: {
+                        seconds: 604800,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retentionTime: {
+                        seconds: 7776000,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retentionTime: {
+                        seconds: 15552000,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retentionTime: {
+                        seconds: 158112000,
+                        nanos: 0
+                    }
+                }]
+            },
+            {
+                id: 2,
+                commitLogRetention: {
+                    seconds: 172800,
+                    nanos: 0
+                },
+                name: 'Dense Coverage',
+                snapshotPolicies: [{
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'DAILY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0']
+                    },
+                    retentionTime: {
+                        seconds: 2592000,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'WEEKLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYDAY: ['MO']
+                    },
+                    retentionTime: {
+                        seconds: 18144000,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'MONTHLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1']
+                    },
+                    retentionTime: {
+                        seconds: 63244800,
+                        nanos: 0
+                    }
+                },
+                {
+                    type: 'SYSTEM_TIMELINE',
+                    recurrenceRule: {
+                        FREQ: 'YEARLY',
+                        BYMINUTE: ['0'],
+                        BYHOUR: ['0'],
+                        BYMONTHDAY: ['1'],
+                        BYMONTH: ['1']
+                    },
+                    retentionTime: {
+                        seconds: 474336000,
+                        nanos: 0
+                    }
+                }]
+            }];
+            
+            if ( angular.isFunction( callback ) ) {
+                callback( presets );
             }
         };
 
@@ -190,7 +427,6 @@ mockVolume = function(){
                 if ( !angular.isDefined( vols ) || vols === null ){
                     vols = [];
                 }
-                
                 volService.volumes = vols;
             }
         };
@@ -204,39 +440,21 @@ mockVolume = function(){
     angular.module( 'volume-management' ).factory( '$data_connector_api', function(){
 
         var api = {};
-        api.connectors = [];
-
-        var getConnectorTypes = function(){
-    //        return $http.get( '/api/config/data_connectors' )
-    //            .success( function( data ){
-    //                api.connectors = data;
-    //            });
-
-            api.connectors = [{
-                type: 'Block',
-                api: 'Basic, Cinder',
-                options: {
-                    max_size: '100',
-                    unit: ['GB', 'TB', 'PB']
-                },
-                attributes: {
-                    size: '10',
+        api.types = [
+            {
+                type: 'BLOCK',
+                capacity: {
+                    value: 10,
                     unit: 'GB'
                 }
             },
             {
-                type: 'Object',
-                api: 'S3, Swift'
-            }];
-        }();
+                type: 'OBJECT'
+            }
+        ];
 
-        api.editConnector = function( connector ){
-
-            api.connectors.forEach( function( realConnector ){
-                if ( connector.type === realConnector.type ){
-                    realConnector = connector;
-                }
-            });
+        api.getVolumeTypes = function( callback ){
+            callback( api.types );
         };
 
         return api;

@@ -1,13 +1,13 @@
 <div class="name-type">
 
     <div class="flex add-bottom-space">
-        <fui-dropdown class="data-connector-dropdown" selected="dataConnector" items="connectors" skinny="true" background="none" border="#CCCCCC" color="black" name-property="type" enabled="enable"></fui-dropdown>
+        <fui-dropdown class="data-connector-dropdown" selected="volumeType" items="types" skinny="true" background="none" border="#CCCCCC" color="black" name-property="type" enabled="enable"></fui-dropdown>
     </div>
 
-    <div class="volume-gray-container" ng-show="dataConnector.attributes.size">
+    <div class="volume-gray-container" ng-show="volumeType.capacity">
         <div style="color: black;" translate>volumes.l_size_limit</div>
         <div class="flex">
-            <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false"></spinner>
+            <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999999999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false"></spinner>
             <fui-dropdown skinny="true" background-color="white" border="#CCCCCC" color="black" items="sizes" selected="_selectedUnit"></fui-dropdown>
         </div>
     </div>

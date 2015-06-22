@@ -25,12 +25,10 @@ user_build_dir :=                       \
     java
 
 # Using DEFER_TESTS=1 on the command line will build the Java directory
-# before building the checker and unit-tests.
+# before building the unit-tests.
 ifdef DEFER_TESTS
-    user_build_dir := $(filter-out checker, $(user_build_dir))
     user_build_dir := $(filter-out unit-test, $(user_build_dir))
     user_build_dir := $(user_build_dir) \
-                      checker           \
                       unit-test
 endif
 
@@ -48,3 +46,31 @@ ifdef SKIP_JAVA_BUILD
 endif
 
 include $(topdir)/Makefile.incl
+
+install:
+	@./dev_make_install.sh
+
+coverage: src_coverage
+
+src_coverage: coverage/source.xml coverage/source.html
+
+coverage/source.xml:
+	mkdir -p ../coverage
+	../gcovr/gcovr-3.2.build/scripts/gcovr --root="$(shell pwd)" \
+	                                       --verbose \
+	                                       --object-directory=build.linux-x86_64.debug \
+	                                       --relative-objdir \
+	                                       --exclude-objdir \
+	                                       --html \
+	                                       --html-details \
+	                                       --output=../coverage/source.html
+
+coverage/source.html:
+	mkdir -p ../coverage
+	../gcovr/gcovr-3.2.build/scripts/gcovr --root="$(shell pwd)" \
+	                                       --verbose \
+	                                       --object-directory=build.linux-x86_64.debug \
+	                                       --relative-objdir \
+	                                       --exclude-objdir \
+	                                       --xml \
+	                                       --output=../coverage/source.xml

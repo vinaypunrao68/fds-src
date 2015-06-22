@@ -161,10 +161,10 @@ namespace fds {
          * Shortcut to get node group for a given volume 'volume_id'
          * from commited DMT. Asserts if there is no commited DMT
          */
-        DmtColumnPtr getCommittedNodeGroup(fds_volid_t volume_id);
-        DmtColumnPtr getTargetNodeGroup(fds_volid_t volume_id);
-        DmtColumnPtr getVersionNodeGroup(fds_volid_t volume_id,
-                                         fds_uint64_t version);
+        DmtColumnPtr getCommittedNodeGroup(fds_volid_t const volume_id) const;
+        DmtColumnPtr getTargetNodeGroup(fds_volid_t const volume_id) const;
+        DmtColumnPtr getVersionNodeGroup(fds_volid_t const volume_id,
+                                         fds_uint64_t const version) const;
 
         /**
          * Returns DMT of given type, type must be either commited
@@ -185,7 +185,7 @@ namespace fds {
         fds_uint64_t committed_version;  /**< version of commited DMT */
         fds_uint64_t target_version;  /**< version of target DMT or invalid */
         std::map<fds_uint64_t, DMTPtr> dmt_map;  /**< version to DMT map */
-        fds_rwlock dmt_lock;  /**< lock protecting dmt_map */
+        mutable fds_rwlock dmt_lock;  /**< lock protecting dmt_map */
     };
     typedef boost::shared_ptr<DMTManager> DMTManagerPtr;
 

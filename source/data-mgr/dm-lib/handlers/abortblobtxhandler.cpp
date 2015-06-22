@@ -15,8 +15,10 @@
 namespace fds {
 namespace dm {
 
-AbortBlobTxHandler::AbortBlobTxHandler() {
-    if (!dataMgr->features.isTestMode()) {
+AbortBlobTxHandler::AbortBlobTxHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::AbortBlobTxMsg, handleRequest);
     }
 }
@@ -30,7 +32,8 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -38,7 +41,7 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     }
 
     // Allocate a new Blob transaction class and queue to per volume queue.
-    auto dmReq = new DmIoAbortBlobTx(message->volume_id,
+    auto dmReq = new DmIoAbortBlobTx(volId,
                                      message->blob_name,
                                      message->blob_version);
     dmReq->cb = BIND_MSG_CALLBACK(AbortBlobTxHandler::handleResponse, asyncHdr, message);
@@ -50,11 +53,12 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 }
 
 void AbortBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoAbortBlobTx* typedRequest = static_cast<DmIoAbortBlobTx*>(dmRequest);
 
     // Call TVC abortTx
-    helper.err = dataMgr->timeVolCat_->abortBlobTx(typedRequest->volId, typedRequest->ioBlobTxDesc);
+    helper.err = dataManager.timeVolCat_->abortBlobTx(typedRequest->volId,
+                                                      typedRequest->ioBlobTxDesc);
 }
 
 void AbortBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

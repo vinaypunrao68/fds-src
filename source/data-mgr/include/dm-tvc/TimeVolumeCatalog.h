@@ -30,6 +30,8 @@ struct DmVolumeAccessTable;
  */
 class DmTimeVolCatalog : public Module, boost::noncopyable {
   private:
+    DataMgr& dataManager_;
+
     /* Lock around commit log */
     fds_spinlock commitLogLock_;
 
@@ -93,7 +95,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
             fds_bool_t dirs = true);
 
     // volcat  replay
-    Error dmReplayCatJournalOps(Catalog *destCat,
+    Error dmReplayCatJournalOps(Catalog& destCat,
                                 const std::vector<std::string> &files,
                                 util::TimeStamp fromTime,
                                 util::TimeStamp toTime);
@@ -106,7 +108,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Constructs the TVC object but does not init
      */
-    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp);
+    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp, DataMgr& dataManager);
     ~DmTimeVolCatalog();
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;
@@ -140,7 +142,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     Error openVolume(fds_volid_t const volId,
                      fds_int64_t& token,
-                     fpi::VolumeAccessPolicy const& policy);
+                     fpi::VolumeAccessMode const& mode);
 
     /**
      * Attempt to "close" this volume from a previous open
@@ -150,7 +152,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Create copy of the volume for snapshot/clone
      */
-    Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = 0);
+    Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = invalid_vol_id);
 
     /**
      *

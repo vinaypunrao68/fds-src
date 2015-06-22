@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <fiu-control.h>
 #include <fdsp/sm_types_types.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
@@ -65,9 +66,11 @@ class SmObjectStoreTest: public ::testing::Test {
 
     virtual void TearDown() override;
     void task(TestVolume::StoreOpType opType,
-              TestVolume::ptr volume);
+              TestVolume::ptr volume,
+              const Error& expectedError);
     void runMultithreadedTest(TestVolume::StoreOpType opType,
-                              TestVolume::ptr volume);
+                              TestVolume::ptr volume,
+                              const Error& expectedError);
 
     std::vector<std::thread*> threads_;
     std::atomic<fds_uint32_t> op_count;
@@ -82,7 +85,7 @@ void SmObjectStoreTest::TearDown() {
 
 void setupTests(fds_uint32_t concurrency,
                 fds_uint32_t datasetSize) {
-    fds_volid_t volId = 98;
+    fds_volid_t volId(98);
     fds_uint32_t sm_count = 1;
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
 
@@ -115,21 +118,21 @@ void setupTests(fds_uint32_t concurrency,
     volTbl->registerVolume(volume1->voldesc_);
 
     // large capacity volume for multi-threaded testing
-    largeCapVolume.reset(new TestVolume(volId+1, "ut_vol_capacity",
+    largeCapVolume.reset(new TestVolume(fds_volid_t(volId.get()+1), "ut_vol_capacity",
                                         concurrency, 0,
                                         TestVolume::STORE_OP_PUT,
                                         20*datasetSize, 4096));
     volTbl->registerVolume(largeCapVolume->voldesc_);
 
     // volume with large obj size (2MB)
-    largeObjVolume.reset(new TestVolume(volId+2, "ut_vol_2MB",
+    largeObjVolume.reset(new TestVolume(fds_volid_t(volId.get()+2), "ut_vol_2MB",
                                         1, 0,
                                         TestVolume::STORE_OP_PUT,
                                         datasetSize, 2*1024*1024));
     volTbl->registerVolume(largeObjVolume->voldesc_);
 
     // volume we will use to test migration code
-    migrVolume.reset(new TestVolume(volId+3, "ut_migration_vol",
+    migrVolume.reset(new TestVolume(fds_volid_t(volId.get()+3), "ut_migration_vol",
                                     1, 0,
                                     TestVolume::STORE_OP_PUT,
                                     datasetSize, 4096));
@@ -139,12 +142,13 @@ void setupTests(fds_uint32_t concurrency,
 }
 
 void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
-                             TestVolume::ptr volume) {
+                             TestVolume::ptr volume,
+                             const Error& expectedError) {
     Error err(ERR_OK);
     fds_uint64_t seed = RandNumGenerator::getRandSeed();
     RandNumGenerator rgen(seed);
     fds_uint32_t datasetSize = (volume->testdata_).dataset_.size();
-    fds_volid_t volId = (volume->voldesc_).volUUID;
+    fds_volid_t volId((volume->voldesc_).volUUID);
     fds_uint32_t ops = atomic_fetch_add(&op_count, (fds_uint32_t)1);
 
     while ((ops + 1) <= numOps) {
@@ -161,7 +165,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
                     err = objectStore->putObject(volId, oid, data, false);
-                    EXPECT_TRUE(err.ok());
+                    EXPECT_EQ(err, expectedError);
                 }
                 break;
             case TestVolume::STORE_OP_GET:
@@ -169,13 +173,15 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                     boost::shared_ptr<const std::string> data;
                     diskio::DataTier usedTier = diskio::maxTier;
                     data = objectStore->getObject(volId, oid, usedTier, err);
-                    EXPECT_TRUE(err.ok());
-                    EXPECT_TRUE((volume->testdata_).dataset_map_[oid].isValid(data));
+                    EXPECT_EQ(err, expectedError);
+                    if (err.ok()) {
+                        EXPECT_TRUE((volume->testdata_).dataset_map_[oid].isValid(data));
+                    }
                 }
                 break;
             case TestVolume::STORE_OP_DELETE:
                 err = objectStore->deleteObject(volId, oid, false);
-                EXPECT_TRUE(err.ok());
+                EXPECT_EQ(err, expectedError);
                 break;
             default:
                 fds_verify(false);   // new type added?
@@ -186,7 +192,8 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
 
 void
 SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
-                                        TestVolume::ptr volume) {
+                                        TestVolume::ptr volume,
+                                        const Error& expectedError) {
     GLOGDEBUG << "Will do multi-threded op type " << opType
               << " volume " << (volume->voldesc_).name
               << " dataset size " << (volume->testdata_).dataset_.size()
@@ -199,7 +206,7 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
 
     for (unsigned i = 0; i < volume->concurrency_; ++i) {
         std::thread* new_thread = new std::thread(&SmObjectStoreTest::task, this,
-                                                  opType, volume);
+                                                  opType, volume, expectedError);
         threads_.push_back(new_thread);
     }
     // wait for all threads
@@ -298,7 +305,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
 
     // init
     fpi::MetaDataVolumeAssoc volAssoc;
-    volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
+    volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID.get();
     volAssoc.volumeRefCnt = 1;
     msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
     msg.objectVolumeAssoc.push_back(volAssoc);
@@ -422,7 +429,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
 
         // add new volume association
         fpi::MetaDataVolumeAssoc volAssoc2;
-        volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
+        volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID.get();
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;
         // setting it to 0, so volume[0] doesn't factor into reconciling.
@@ -451,18 +458,29 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     }
 }
 
+/// this test MUST be before concurrent_puts, otherwise put will be dup
+/// and will not go to the persistent layer
+TEST_F(SmObjectStoreTest, concurrent_puts_fail) {
+    // for puts, do num ops = dataset size
+    GLOGDEBUG << "Running concurrent_puts_fail test";
+    numOps = (largeCapVolume->testdata_).dataset_.size();
+    fiu_enable("sm.persist.writefail", 1, NULL, 0);
+    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeCapVolume, ERR_DISK_WRITE_FAILED);
+    fiu_disable("sm.persist.writefail");
+}
+
 TEST_F(SmObjectStoreTest, concurrent_puts) {
     // for puts, do num ops = dataset size
     GLOGDEBUG << "Running concurrent_puts test";
     numOps = (largeCapVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeCapVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeCapVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, concurrent_gets) {
     // for gets, do num ops = 2*dataset size
     GLOGDEBUG << "Running concurrent_gets test";
     numOps = 2 * (largeCapVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, increase_concurrency_gets) {
@@ -472,7 +490,7 @@ TEST_F(SmObjectStoreTest, increase_concurrency_gets) {
 
     for (fds_uint32_t i = 2; i < 70; i *= 2) {
         largeCapVolume->concurrency_ = i;
-        runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume);
+        runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume, ERR_OK);
     }
 }
 
@@ -483,7 +501,7 @@ TEST_F(SmObjectStoreTest, increase_concurrency_dup_puts) {
 
     for (fds_uint32_t i = 2; i < 70; i *= 2) {
         largeCapVolume->concurrency_ = i;
-        runMultithreadedTest(TestVolume::STORE_OP_DUPLICATE, largeCapVolume);
+        runMultithreadedTest(TestVolume::STORE_OP_DUPLICATE, largeCapVolume, ERR_OK);
     }
 }
 
@@ -491,14 +509,14 @@ TEST_F(SmObjectStoreTest, concurrent_puts_2mb) {
     // for puts, do num ops = dataset size
     GLOGDEBUG << "Running concurrent_puts_2mb test";
     numOps = (largeObjVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeObjVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_PUT, largeObjVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, concurrent_gets_2mb) {
     // for gets, do num ops = 2*dataset size
     GLOGDEBUG << "Running concurrent_gets_2mb test";
     numOps = 2 * (largeObjVolume->testdata_).dataset_.size();
-    runMultithreadedTest(TestVolume::STORE_OP_GET, largeObjVolume);
+    runMultithreadedTest(TestVolume::STORE_OP_GET, largeObjVolume, ERR_OK);
 }
 
 TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
@@ -532,6 +550,130 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
     ASSERT_EQ(srcNodeMap.size(), 0);
 
+    delete dlt;
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMRetryTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::set<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.insert(i);
+    }
+    unsigned curSrcSm = 1;
+    unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
+    unsigned retryCount = 1;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
+    }
+    ASSERT_EQ(nodeGroups[NodeUuid(newSrcSm)].size(), numOfTokens);
+    delete dlt;
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMRetryTwoTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::set<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.insert(i);
+    }
+
+    unsigned curSrcSm = 3;
+    unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
+    unsigned retryCount = 3;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
+    }
+    ASSERT_EQ(nodeGroups[NodeUuid(newSrcSm)].size(), numOfTokens);
+    delete dlt;
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMRetryFailedSrcTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::set<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.insert(i);
+    }
+    failedSMs[NodeUuid(4)] = true;
+    failedSMs[NodeUuid(1)] = true;
+
+    unsigned curSrcSm = 3;
+    unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
+    unsigned retryCount = 1;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
+    }
+    ASSERT_EQ(nodeGroups[NodeUuid(newSrcSm)].size(), numOfTokens);
+    delete dlt;
+
+}
+
+TEST_F(SmObjectStoreTest, findNewSrcSMAllInvalidTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+    uint32_t numOfTokens = pow(2, dlt->getWidth());
+
+    std::set<fds_token_id> dltTokens;
+    std::map<NodeUuid, bool> failedSMs;
+
+    for (uint32_t  i = 0; i < numOfTokens; i++) {
+        dltTokens.insert(i);
+    }
+    failedSMs[NodeUuid(4)] = true;
+    failedSMs[NodeUuid(3)] = true;
+    failedSMs[NodeUuid(1)] = true;
+
+    unsigned curSrcSm = 2;
+    unsigned retryCount = 1;
+    NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
+                                                   dltTokens,
+                                                   retryCount,
+                                                   failedSMs);
+    for (auto obj : nodeGroups) {
+         ASSERT_EQ(obj.first, INVALID_RESOURCE_UUID);
+    }
+    ASSERT_EQ(nodeGroups[INVALID_RESOURCE_UUID].size(), numOfTokens);
     delete dlt;
 }
 

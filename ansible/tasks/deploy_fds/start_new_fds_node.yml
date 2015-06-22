@@ -1,0 +1,220 @@
+---
+#-   name: disk_type
+#    shell: python -m disk_type -m
+#    tags:
+#      - startup
+
+-   name: start redis
+    shell: ./redis.sh start chdir=/fds/sbin
+    tags:
+      - startup
+
+-   name: check that the specified OM is indeed available
+    local_action: wait_for host={{ fds_om_host }}
+        port=7777
+        delay=1
+        timeout=180
+        state=started
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+# This is unnecessary for now, as we only run InfluxDB on the OM node. In the context
+#  of this tasks file (adding new nodes to an existing cluster) this should not be
+#  needed, yet
+#-   name: start influxdb on new nodes if it should be running there
+#    service: name=influxdb state=started
+#    when: fds_om_influxdb_url is defined and inventory_hostname in fds_om_influxdb_url
+#    tags:
+#        - startup
+
+-   name: get auth token
+    local_action: uri url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
+        method=POST
+        return_content=yes
+        status_code=200
+    register: auth_results
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+      - startupdebug
+
+-   name: get local domain list
+    local_action: uri url=http://{{ fds_om_host }}:7777/local_domains
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        method=GET
+        return_content=yes
+        status_code=200
+    register: domain_list_results
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+      - startupdebug
+
+-   name: get local domain ID
+    set_fact:
+        local_domain_id: "{{item['id']}}"
+    when: item['name'] == local_domain_name
+    with_items: domain_list_results['content']
+    tags:
+      - startup
+      - startupdebug
+
+-   name: check that domain does indeed exist
+    fail: msg="Domain '{{local_domain_name}}' could not be found! Check your inventory's 'fds_local_domain_name' variable."
+    when: local_domain_id is not defined
+    tags:
+      - startup
+      - startupdebug
+
+-   name: get service map from OM to find "DISCOVERED" nodes
+    local_action: uri url=http://{{ fds_om_host }}:7777/api/config/nodes
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        method=GET
+        return_content=yes
+        status_code=200
+    register: service_list_results
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   name: get service map
+    set_fact:
+        service_map: "{{ service_list_results['content'] | from_json }}"
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   name: find current node count
+    set_fact:
+        node_count: "{{ service_map['nodes'] | length }}"
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   name: start platformd on new nodes
+    service: name=fds-pm state=started
+    tags:
+      - startup
+
+-   name: wait for platformd to become available on new nodes
+    local_action: wait_for host={{ inventory_hostname }}
+        port=7000
+        delay=1
+        timeout=180
+        state=started
+    sudo: no
+    tags:
+      - startup
+
+-   name: see if new nodes are registered
+    local_action: uri url=http://{{ fds_om_host }}:7777/api/config/nodes
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        method=GET
+        return_content=yes
+        status_code=200
+    register: service_list_results
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   set_fact:
+        service_map: "{{ service_list_results['content'] | from_json }}"
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   set_fact:
+        new_node_count: "{{ service_map['nodes'] | length }}"
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   name: wait for new nodes to register, if they haven't yet
+    local_action: pause seconds=5
+    when: new_node_count <= node_count
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   local_action: uri url=http://{{ fds_om_host }}:7777/api/config/nodes
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        method=GET
+        return_content=yes
+        status_code=200
+    when: new_node_count <= node_count
+    register: service_list_results
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   set_fact:
+        service_map: "{{ service_list_results['content'] | from_json }}"
+    when: new_node_count <= node_count
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   set_fact:
+        new_node_count: "{{ service_map['nodes'] | length }}"
+    when: new_node_count <= node_count
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   fail: msg="Node count has not increased after a 5 second wait - new node PMs likely failed to come up and/or register with OM"
+    when: new_node_count <= node_count
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   name: activate all new nodes
+    local_action: uri url=http://{{ fds_om_host }}:7777/api/config/nodes/{{ item[1]['uuid'] }}/{{ local_domain_id }}
+        method=POST
+        body_format=json
+        body="{{ activate_node_services_post_body }}"
+        HEADER_Content-Type="application/json"
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        status_code=200
+        return_content=yes
+    when: item[1]['state'] == "DISCOVERED"
+    with_indexed_items: 
+        - "{{ service_map['nodes'] }}"
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+
+-   name: wait for services to be available on all nodes
+    wait_for: host={{inventory_hostname}}
+        port={{item}}
+        delay=1
+        timeout=180
+        state=started
+    with_items:
+        - 7001
+        # re-add this port when we are able to activate DMs on new nodes
+        #- 7002
+        - 7003
+        - 8000
+        - 8443
+        - 8899
+        - 8911
+        - 9988
+        - 9999
+    tags:
+      - startup

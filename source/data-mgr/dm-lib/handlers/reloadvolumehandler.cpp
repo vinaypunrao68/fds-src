@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-ReloadVolumeHandler::ReloadVolumeHandler() {
-    if (!dataMgr->features.isTestMode()) {
+ReloadVolumeHandler::ReloadVolumeHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::ReloadVolumeMsg, handleRequest);
     }
 }
@@ -27,7 +29,8 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::ReloadVolumeMsg>();
@@ -43,18 +46,18 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 }
 
 void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoReloadVolume* typedRequest = static_cast<DmIoReloadVolume*>(dmRequest);
 
     LOGTRACE << "Will reload volume " << *typedRequest;
 
-    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(typedRequest->message->volume_id);
+    fds_volid_t volId(typedRequest->message->volume_id);
+    const VolumeDesc * voldesc = dataManager.getVolumeDesc(volId);
     if (!voldesc) {
-        LOGERROR << "Volume entry not found in descriptor map for volume '" << std::hex
-                << typedRequest->message->volume_id << std::dec << "'";
+        LOGERROR << "Volume entry not found in descriptor map for volume '" << volId << "'";
         helper.err = ERR_VOL_NOT_FOUND;
     } else {
-        helper.err = dataMgr->timeVolCat_->queryIface()->reloadCatalog(*voldesc);
+        helper.err = dataManager.timeVolCat_->queryIface()->reloadCatalog(*voldesc);
     }
 
     if (!helper.err.ok()) {
@@ -69,7 +72,8 @@ void ReloadVolumeHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     asyncHdr->msg_code = e.GetErrno();
     LOGDEBUG << "Reload volume completed " << e << " " << logString(*asyncHdr);
 
-    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(ReloadVolumeRspMsg), fpi::ReloadVolumeRspMsg());
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::ReloadVolumeRspMsg),
+                       fpi::ReloadVolumeRspMsg());
 
     delete dmRequest;
 }

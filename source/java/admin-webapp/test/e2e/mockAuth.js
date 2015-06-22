@@ -3,17 +3,15 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
-        identifier: 'admin',
-        id: 0,
+        userId: 0,
         username: 'admin',
-        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']
+        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']   
     };
 
     var goldman = {
-        identifier: 'goldman',
-        id: '1',
+        userId: '1',
         username: 'goldman',
-        features: ['Volume Management','User Management']
+        features: ['Volume Management','User Management']   
     };
 
     var user = {};
@@ -107,8 +105,6 @@ mockAuth = function() {
         var service = {};
         service.user = user;
 
-        service.user = user;
-
         service.setUser = function( user ){
             service.user = user;
         };
@@ -118,7 +114,7 @@ mockAuth = function() {
         service.getUsername = function(){
 
             if ( user !== null ){
-                return user.identifier;
+                return user.username;
             }
             else {
                 return undefined;
@@ -141,7 +137,7 @@ mockAuth = function() {
         service.validateUserToken = function( success, failure ){
 
             if ( angular.isFunction( success ) ){
-                success( user.id );
+                success( user.userId );
             }
         };
 
@@ -167,7 +163,15 @@ mockAuth = function() {
 
         service.createUser = function( username, password, success, failure ){
 
-            var user = { identifier: username, password: password, id: (new Date()).getTime() };
+            var user = { 
+                id: {
+                    uuid: (new Date()).getTime(),
+                    name: username
+                },
+                tenantId: undefined,
+                password: password
+            };
+            
             users.push( user );
 
             var deferred = $q.defer();

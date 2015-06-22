@@ -13,14 +13,13 @@ namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
-class OMgrClient;
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
  * does the work to send and receive AM network messages over
  * the service layer.
  */
-struct AmDispatcher
+struct AmDispatcher : HasModuleProvider
 {
     /**
      * The dispatcher takes a shared ptr to the DMT manager
@@ -29,7 +28,7 @@ struct AmDispatcher
      * TODO(Andrew): Make the dispatcher own this piece or
      * iterface with platform lib.
      */
-    AmDispatcher();
+    explicit AmDispatcher(CommonModuleProviderIf *modProvider);
     AmDispatcher(AmDispatcher const&)               = delete;
     AmDispatcher& operator=(AmDispatcher const&)    = delete;
     AmDispatcher(AmDispatcher &&)                   = delete;
@@ -46,6 +45,11 @@ struct AmDispatcher
      */
     Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
+    /**
+     * Uses the OM Client to fetch the DMT and DLT, and update the AM's own versions.
+     */
+    Error getDMT();
+    Error getDLT();
 
     /**
      * Dispatches a test volume request to OM.
@@ -56,14 +60,16 @@ struct AmDispatcher
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(fds_volid_t const vol_id,
-                            fds_int64_t const token,
-                            std::function<void(fds_int64_t const, Error const)> cb);
+    void dispatchOpenVolume(AmRequest *amReq);
+    void dispatchOpenVolumeCb(AmRequest* amReq,
+                              QuorumSvcRequest* svcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload) const;
 
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token);
+    void dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.
@@ -180,9 +186,16 @@ struct AmDispatcher
      */
     void dispatchVolumeContents(AmRequest *amReq);
 
+    bool  getNoNetwork() {
+           return noNetwork;
+     }
+
   private:
-    /** OM Client to attach and manage the DLT/DMT */
-    std::unique_ptr<OMgrClient> om_client;
+
+    /**
+     * set flag for network available.
+     */
+     bool noNetwork;
 
     /**
      * Shared ptrs to the DLT and DMT managers used
@@ -191,6 +204,26 @@ struct AmDispatcher
     boost::shared_ptr<DLTManager> dltMgr;
     boost::shared_ptr<DMTManager> dmtMgr;
 
+    template<typename Msg>
+    QuorumSvcRequestPtr createQuorumRequest(fds_volid_t const& volId,
+                                            boost::shared_ptr<Msg> const& payload,
+                                            QuorumSvcRequestRespCb quorumCb,
+                                            uint32_t timeout=0) const;
+    template<typename Msg>
+    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
+                                            boost::shared_ptr<Msg> const& payload,
+                                            QuorumSvcRequestRespCb quorumCb,
+                                            uint32_t timeout=0) const;
+    template<typename Msg>
+    FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
+                                                boost::shared_ptr<Msg> const& payload,
+                                                FailoverSvcRequestRespCb cb,
+                                                uint32_t timeout=0) const;
+    template<typename Msg>
+    FailoverSvcRequestPtr createFailoverRequest(ObjectID const& objId,
+                                                boost::shared_ptr<Msg> const& payload,
+                                                FailoverSvcRequestRespCb cb,
+                                                uint32_t timeout=0) const;
     /**
      * Callback for delete blob responses.
      */
@@ -227,9 +260,9 @@ struct AmDispatcher
     /**
      * Callback for catalog query error checks from service layer.
      */
-    fds_bool_t getQueryCatalogAppStatusCb(AmRequest* amReq,
-                                          const Error& error,
-                                          boost::shared_ptr<std::string> payload);
+    fds_bool_t missingBlobStatusCb(AmRequest* amReq,
+                                   const Error& error,
+                                   boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for set metadata on blob responses.
@@ -281,9 +314,13 @@ struct AmDispatcher
      */
     uint32_t message_timeout_io { 0 };
 
+    /**
+     * Number of DM primary replicas
+     */
+    uint32_t numDmPrimaries;
+
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
-    bool mockTimeoutEnabled_ = false;
 };
 
 }  // namespace fds

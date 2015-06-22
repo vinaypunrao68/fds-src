@@ -31,6 +31,7 @@ import TestFDSPolMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
 import TestIOCounter
+import SmChk
 
 def str_to_obj(astr):
     """
@@ -109,7 +110,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         else:
             action = "install-boot-activate"
 
-        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
+        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or\
+               (action.count("graceful_restart") > 0):
             # Start this domain as indicated by the action.
             domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainBootSuite)
@@ -694,8 +696,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
     elif re.match('\[testcases.+\]', script) is not None:
         # Do we have any parameters?
-        param_names = None
-        params = None
+        param_names = []
+        params = []
         if 'param_names' in scenario.nd_conf_dict:
             param_names = scenario.nd_conf_dict['param_names'].split(",")
             if 'params' in scenario.nd_conf_dict:
@@ -712,18 +714,20 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 log.error(param_names)
                 raise Exception
         else:
-            param_names = None
+            param_names = []
 
         # Test cases are "forkable".
         if 'fork' in scenario.nd_conf_dict:
-                if param_names is None:
-                    param_names = ["fork"]
-                    params = [scenario.nd_conf_dict["fork"]]
-                else:
-                    param_names.add("fork")
-                    params.add(scenario.nd_conf_dict["fork"])
+            param_names.append("fork")
+            params.append(scenario.nd_conf_dict["fork"])
 
-        if param_names is not None:
+        # arg like stuff
+        for key,value in scenario.nd_conf_dict.items():
+            if key.startswith('arg.'):
+                param_names.append(key[4:])
+                params.append(value)
+
+        if len(param_names) > 0: 
             # Build parameter dictionary.
             kwargs = dict(zip(param_names, params))
             testcase = str_to_obj(script.strip('[]'))(**kwargs)
@@ -1047,9 +1051,9 @@ class TestLogMarker(TestCase.FDSTestCase):
             self.log.warning("Log marker called but parameters missing: scenario name or marker text.")
             self.log.warning("************************************")
         else:
-            self.log.info("************ %s ************" % self.passedScenario)
-            self.log.info("** %s" % self.passedMarker)
-            self.log.info("************************************")
+            self.log.info("{} {} {}".format('*'*12,self.passedScenario, '*' * 12))
+            self.log.info("*** %s" % self.passedMarker)
+            self.log.info("{}".format('*' * (12*2 + 2 + len(self.passedScenario))))
 
         return True
 

@@ -14,7 +14,7 @@ describe( 'Test login permutations', function(){
     var mainEl = element( by.id( 'main.content' ) );
 //    var logoutMenu = element( by.id( 'main.usermenu' ) );
 //    var logout = element( by.id( 'main.usermenu' ) ).all( by.tagName( 'li' ) ).first();
-
+    
     it( 'should say FDS', function() {
         expect( browser.getTitle() ).toEqual( 'Formation' );
     });

@@ -11,7 +11,7 @@
 namespace fds {
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_int64_t _uuid,
+                       fds_volid_t _uuid,
                        VolumeDesc* desc)
               : fwd_state(VFORWARD_STATE_NONE), dmVolQueue(0)
 {
@@ -26,7 +26,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_int64_t _uuid,
+                       fds_volid_t _uuid,
                        fds_log* _dm_log,
                        VolumeDesc* _desc)
         : VolumeMeta(_name, _uuid, _desc) {
@@ -67,8 +67,8 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->mediaPolicy = pVol->mediaPolicy;
 
     v_desc->volPolicyId = pVol->volPolicyId;
-    v_desc->iops_max = pVol->iops_max;
-    v_desc->iops_min = pVol->iops_min;
+    v_desc->iops_throttle = pVol->iops_throttle;
+    v_desc->iops_assured = pVol->iops_assured;
     v_desc->relativePrio = pVol->relativePrio;
     v_desc->fSnapshot = pVol->fSnapshot;
     v_desc->srcVolumeId = pVol->srcVolumeId;

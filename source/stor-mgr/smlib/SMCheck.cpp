@@ -7,12 +7,11 @@
 #include <fds_assert.h>
 #include <fds_process.h>
 #include "platform/platform.h"
+#include <StorMgr.h>
 
 #include <ObjectId.h>
-#include <StorMgr.h>
 #include <boost/program_options.hpp>
 #include <net/SvcMgr.h>
-
 
 #include <SMCheck.h>
 
@@ -139,7 +138,7 @@ ObjectID SMCheckOffline::hash_data(boost::shared_ptr<const std::string> dataPtr,
 }
 
 bool SMCheckOffline::consistency_check(fds_token_id token) {
-    leveldb::DB *ldb;
+    std::shared_ptr<leveldb::DB> ldb;
     leveldb::Iterator *it;
     leveldb::ReadOptions options;
 
@@ -180,7 +179,6 @@ bool SMCheckOffline::consistency_check(fds_token_id token) {
     ldb->ReleaseSnapshot(options.snapshot);
     // Delete ldb and it
     delete it;
-    delete ldb;
 
     if (error_count > 0) {
         GLOGNORMAL << "WARNING: " << error_count << " errors were found.\n";
@@ -328,7 +326,6 @@ void SMCheckOffline::MetadataIterator::next() {
         if (end()) { return; }
 
         delete ldb_it;
-        delete ldb;
 
         // Create new from new token
         GLOGNORMAL << "Reading metadata db for SM token " << *token_it << "\n";
@@ -418,7 +415,7 @@ SMCheckOnline::getStats(fpi::CtrlNotifySMCheckStatusRespPtr resp)
 // After snapshot callback is called, it will process then the call back will
 // enqueue snapshot request for the next token in the set...  and so on...
 Error
-SMCheckOnline::startIntegrityCheck()
+SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
 {
     Error err(ERR_OK);
 
@@ -436,13 +433,8 @@ SMCheckOnline::startIntegrityCheck()
     // Reset all stats.
     resetStats();
 
-#if THIS_SUCKS
-    // TODO(Sean):
-    // Can't compile with these lines.  It causes compilation error.
-    // So, for now, we are updating (or cloning) closed DLT from SMSvcHandler.
     latestClosedDLT = const_cast<DLT *>(objStorMgr->getDLT());
-    SMCheckUuid = objStorMgr->getUuid();
-#endif
+
     // Get UUID of the SM.
     SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
@@ -452,9 +444,23 @@ SMCheckOnline::startIntegrityCheck()
              << " UUID=" << SMCheckUuid
              << " DLT=" << latestClosedDLT;
 
-    // get all the SM tokens in the system.  Now
-    allTokens = diskMap->getSmTokens();
-
+    targetDLTTokens = tgtDltTokens;
+    // Clear any tokens that were stored from previous runs
+    allTokens.clear();
+    if (!targetDLTTokens.empty()) {
+        for (auto token : targetDLTTokens) {
+            fds_token_id smToken;
+            smToken = diskMap->smTokenId(token);
+            LOGDEBUG << "Token " << token << " found in sm token: " << smToken;
+            allTokens.insert(smToken);
+        }
+        LOGDEBUG << "Received target tokens list, verifying " << allTokens.size() << " SM tokens"
+                 << " and " << tgtDltTokens.size() << " dlt tokens.\n";
+    } else {
+        LOGDEBUG << "No target tokens found, verifying ALL SM tokens.\n";
+        // get all the SM tokens in the system.  Now
+        allTokens = diskMap->getSmTokens();
+    }
     // update stats on number of tokens to be checked
     totalNumTokens = allTokens.size();
     // assert in debug mode.
@@ -503,7 +509,7 @@ void
 SMCheckOnline::SMCheckSnapshotCB(const Error& error,
                                 SmIoSnapshotObjectDB* snapReq,
                                 leveldb::ReadOptions& options,
-                                leveldb::DB* db)
+                                std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
 
@@ -514,6 +520,13 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
     leveldb::Iterator* ldbIter = db->NewIterator(options);
     for (ldbIter->SeekToFirst(); ldbIter->Valid(); ldbIter->Next()) {
         ObjectID id(ldbIter->key().ToString());
+
+        if (!targetDLTTokens.empty()) {
+            // If this object isn't in the DLT token we're checking
+            if (targetDLTTokens.count(latestClosedDLT->getToken(id)) == 0) {
+                continue;
+            }
+        }
 
         ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
         objMetaDataPtr->deserializeFrom(ldbIter->value());

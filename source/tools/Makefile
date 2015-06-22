@@ -22,14 +22,16 @@ user_hh           := $(wildcard *.h)
 user_cpp          := \
     shm_dump.cpp \
     journal_dump.cpp \
-    ldb-tool.cpp
+    ldb-tool.cpp \
+    fdsio.cpp
 
 user_no_style     := \
     journal_dump.cpp
 
-user_bin_exe      := shm_dump journal-dump ldb-tool
+user_bin_exe      := shm_dump journal-dump ldb-tool fdsio
 shm_dump          := shm_dump.cpp
 journal-dump      := journal_dump.cpp
 ldb-tool          := ldb-tool.cpp
+fdsio             := fdsio.cpp
 
 include $(topdir)/Makefile.incl

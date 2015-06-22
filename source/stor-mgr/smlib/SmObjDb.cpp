@@ -149,8 +149,9 @@ void SmObjDb::unlock(const ObjectID& objId) {
  * @param db - returns a pointer to snapshotted db
  * @param options - level db specifics for snapshot
  */
+
 void SmObjDb::snapshot(const fds_token_id& tokId,
-        leveldb::DB*& db, leveldb::ReadOptions& options)
+        std::shared_ptr<leveldb::DB>& db, leveldb::ReadOptions& options)
 {
     ObjectDB *odb = getObjectDB_(tokId);
     db = odb->GetDB();

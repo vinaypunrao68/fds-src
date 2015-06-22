@@ -142,9 +142,9 @@ class TestReqHandler: public SmIoReqHandler {
         EXPECT_TRUE(odb != NULL);
 
         leveldb::ReadOptions options;
-        leveldb::DB *db = odb->GetDB();
+        std::shared_ptr<leveldb::DB> db = odb->GetDB();
         options.snapshot = db->GetSnapshot();
-        snapReq->smio_snap_resp_cb(ERR_OK, NULL, options, db);
+        snapReq->smio_snap_resp_cb(ERR_OK, NULL, options, db, false, 0);
     }
     void compactObjects(SmIoReq* ioReq) {
         SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
@@ -273,7 +273,7 @@ TestReqHandler::allocMeta(fds_uint16_t fileId,
     loc.obj_stor_offset = offset;
     loc.obj_tier = tier;
     meta->initialize(objId, 4096);
-    meta->updateAssocEntry(objId, 37);
+    meta->updateAssocEntry(objId, fds_volid_t(37));
     meta->updatePhysLocation(&loc);
     return meta;
 }

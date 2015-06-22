@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "FDSP.thrift"
@@ -49,8 +50,19 @@ enum  FDSPMsgTypeId {
   GetSvcMapRespMsgTypeId                    = 1017;
   GetSvcStatusMsgTypeId                     = 1018;
   GetSvcStatusRespMsgTypeId                 = 1019;
+  /* @Deprecated by Node & Service control messages */
   ActivateServicesMsgTypeId                 = 1020;
   DeactivateServicesMsgTypeId               = 1021;
+  /* Node & Service control messages */
+  NotifyEventMsgTypeId                      = 1022;
+  NotifyStartNodeMsgTypeId                  = 1023;
+  NotifyStopNodeMsgTypeId                   = 1024;
+  NotifyAddNodeMsgTypeId                    = 1025;
+  NotifyRemoveNodeMsgTypeId                 = 1026;
+  NotifyStartServiceMsgTypeId               = 1027;
+  NotifyStopServiceMsgTypeId                = 1028;
+  NotifyAddServiceMsgTypeId                 = 1029;
+  NotifyRemoveServiceMsgTypeId              = 1030;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
@@ -104,7 +116,7 @@ enum  FDSPMsgTypeId {
   CtrlNotifyQoSControlTypeId                = 2102;
 
   /** AM-> OM */
-  CtrlTestBucketTypeId                      = 3000;
+  GetVolumeDescriptorTypeId                 = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
 
   /** Svc -> OM */
@@ -173,6 +185,11 @@ enum  FDSPMsgTypeId {
   CloseVolumeRspMsgTypeId;
   ReloadVolumeMsgTypeId;
   ReloadVolumeRspMsgTypeId;
+  CtrlNotifyDMStartMigrationMsgTypeId;
+  CtrlNotifyDMStartMigrationRspMsgTypeId;
+
+  /** Health Status */
+  NotifyHealthReportTypeId                  = 100000;
 }
 
 /**
@@ -223,11 +240,19 @@ struct AsyncHdr {
   14:i64                        rspRcvdTs;
 }
 
+
 struct FDSP_DLT_Data_Type {
   /**  */
   1: bool   dlt_type;
   /**  */
   2: binary dlt_data;
+}
+
+struct FDSP_DMT_Data_Type {
+  /**  */
+  1: bool   dmt_type;
+  /**  */
+  2: binary dmt_data;
 }
 
 /**
@@ -256,6 +281,7 @@ struct SvcInfo {
 
 /**
  * Activate Service
+ * @deprecated 06/09/2015
  */
 struct ActivateServicesMsg {
   1: FDSP.FDSP_ActivateNodeType info;
@@ -292,19 +318,11 @@ struct DomainNodes {
 }
 
 struct StorCapMsg {
-    1: i32                    disk_iops_max,
-    2: i32                    disk_iops_min,
+    1: i32                    node_iops_max,
+    2: i32                    node_iops_min,
     3: double                 disk_capacity,
-    4: i32                    disk_latency_max,
-    5: i32                    disk_latency_min,
-    6: i32                    ssd_iops_max,
-    7: i32                    ssd_iops_min,
-    8: double                 ssd_capacity,
-    9: i32                    ssd_latency_max,
-    10: i32                   ssd_latency_min,
-    11: i32                   ssd_count,
-    12: i32                   disk_type,
-    13: i32                   disk_count,
+    4: double                 ssd_capacity,
+    5: i32                    disk_type,
 }
 
 /**

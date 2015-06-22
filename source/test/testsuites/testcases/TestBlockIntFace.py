@@ -41,24 +41,46 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        cmd = "volume create  volume1 --vol-type block --blk-dev-size 104857600"
+        cmd = "volume create  nbd_vol --vol-type block --blk-dev-size 104857600"
         status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
                                             fds_tools=True)
         if status != 0:
             self.log.error("Failed to create block volume")
             return False
-        time.sleep(5)
-
-        cmd = "volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
-                                            fds_tools=True)
-        if status != 0:
-            self.log.error("Failed to modify block volume")
-            return False
-
-        time.sleep(5)
 
         return True
+
+# This class contains the attributes and methods to test
+# the FDS interface to list the exports.
+#
+class TestBlockListVolumes(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ListVolumes,
+                                             "List nbd-client volumes")
+
+    def test_ListVolumes(self):
+        """
+        Test Case:
+        Attempt to cause a list volumes
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        blkListExportCmd = 'nbd-client -l %s' % (om_node.nd_conf_dict['ip'] )
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(blkListExportCmd, return_stdin=True)
+
+        if status != 0:
+            self.log.info("Failed to list block volumes as expected.")
+            return True
+
+        self.log.error("Error, volumes returned: %s." % (stdout))
+        return False
 
 # This class contains the attributes and methods to test
 # the FDS interface to attach a volume.
@@ -82,7 +104,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        volume = 'volume1'
+        volume = 'nbd_vol'
 
 	#Per FS-1368, make use of --lockfile /tmp/nbdadm/nbdadm.lock
 	nbdadm_tmp = '/tmp/nbdadm'
@@ -109,7 +131,6 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
             global nbd_device
             nbd_device = stdout.rstrip()
 
-        time.sleep(5)
         self.log.info("Attached block device %s" % (nbd_device))
 
         return True
@@ -153,8 +174,6 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
             self.log.error("Failed to detach block volume with status %s." % status)
             return False
 
-        time.sleep(5)
-
         return True
 
 # This class contains the attributes and methods to test
@@ -197,10 +216,9 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
                     break
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
                  "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
                  (nbd_device, verify_fatal)
-
         status = om_node.nd_agent.exec_wait(fioCmd)
 
         if status != 0:
@@ -225,13 +243,16 @@ class TestBlockFioRandW(TestCase.FDSTestCase):
         Attempt to write to a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rand-writers --readwrite=randwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
-        result = subprocess.call(fioCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to run write workload")
+        fioCmd = "sudo fio --name=rand-writers --readwrite=randwrite --ioengine=posixaio --direct=1 --bsrange=512-1M --iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
+        status = om_node.nd_agent.exec_wait(fioCmd)
+        if status != 0:
+            self.log.error("Failed to run write workload with status %s." % status)
             return False
-        time.sleep(5)
 
         return True
 
@@ -251,13 +272,16 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         Attempt to read/write to a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=4 --size=50M --filename=%s" % (nbd_device)
-        result = subprocess.call(fioCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to run read/write workload")
+        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=posixaio --direct=1 --bsrange=512-1M --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
+        status = om_node.nd_agent.exec_wait(fioCmd)
+        if status != 0:
+            self.log.error("Failed to run read/write workload with status %s." % status)
             return False
-        time.sleep(5)
 
         return True
 
@@ -277,13 +301,16 @@ class TestBlockFioRandRW(TestCase.FDSTestCase):
         Attempt to random read/write to a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rand-rw --readwrite=randrw --ioengine=libaio --direct=1 --bs=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
-        result = subprocess.call(fioCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to run random read/write workload")
+        fioCmd = "sudo fio --name=rand-rw --readwrite=randrw --ioengine=posixaio --direct=1 --bs=512-1M --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
+        status = om_node.nd_agent.exec_wait(fioCmd)
+        if status != 0:
+            self.log.error("Failed to run random read/write workload with status %s." % status)
             return False
-        time.sleep(5)
 
         return True
 

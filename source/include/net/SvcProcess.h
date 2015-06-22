@@ -8,6 +8,7 @@
 
 #include <fds_process.h>
 #include <fdsp/svc_types_types.h>
+#include <net/SvcServer.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -31,7 +32,7 @@ using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 * 2. Config db for persistence
 * 2. Service registration
 */
-struct SvcProcess : FdsProcess {
+struct SvcProcess : FdsProcess, SvcServerListener {
     SvcProcess();
     SvcProcess(int argc, char *argv[],
                    const std::string &def_cfg_file,
@@ -46,6 +47,12 @@ struct SvcProcess : FdsProcess {
                    PlatNetSvcHandlerPtr handler,
                    fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcProcess();
+
+    /**
+     * Make the base class init() visible, otherwise the overload
+     * below hides it making it unreachable.
+     */
+    using FdsProcess::init;
 
     /**
     * @brief Initializes the necessary services.
@@ -85,16 +92,28 @@ struct SvcProcess : FdsProcess {
                 handler, processor);
     }
 
+    /**
+     * @brief The entry point of where all the modules listed in the mod_vectors
+     * get started.
+     * It does the following:
+     * 1. (Pre-register) - Tells each module to initialize.
+     * 2. (Register) - Registers with the OM (using registerSvcProcess() below)
+     * 3. (Post-register) - Tells each module to start services that can now start
+     * 	  after having registered with the OM.
+     */
     virtual void start_modules() override;
 
     /**
     * @brief Registers the service.  Default implementation will register the service
     * with OM.
-    * Override this behavior depedning on the service type.
+    * Override this behavior depending on the service type.
     */
     virtual void registerSvcProcess();
 
     virtual SvcMgr* getSvcMgr() override;
+
+    /* SvcServerListener notifications */
+    virtual void notifyServerDown(const Error &e) override;
 
  protected:
     /**

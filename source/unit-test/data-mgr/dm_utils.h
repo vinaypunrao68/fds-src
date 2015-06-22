@@ -167,15 +167,15 @@ struct BlobDetails {
     }
 };
 
-boost::shared_ptr<LatencyCounter> putCounter(new LatencyCounter("put", 0, 0));
-boost::shared_ptr<LatencyCounter> getCounter(new LatencyCounter("get", 0, 0));
-boost::shared_ptr<LatencyCounter> deleteCounter(new LatencyCounter("delete", 0, 0));
+boost::shared_ptr<LatencyCounter> putCounter(new LatencyCounter("put", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> getCounter(new LatencyCounter("get", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> deleteCounter(new LatencyCounter("delete", invalid_vol_id, 0));
 
 void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
     for (fds_uint32_t i = 1; i <= NUM_VOLUMES; ++i) {
         std::string name = "test" + std::to_string(i);
 
-        boost::shared_ptr<VolumeDesc> vdesc(new VolumeDesc(name, ++volCount));
+        boost::shared_ptr<VolumeDesc> vdesc(new VolumeDesc(name, fds_volid_t(++volCount)));
 
         vdesc->tennantId = i;
         vdesc->localDomainId = i;
@@ -197,10 +197,10 @@ void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
         vdesc->mediaPolicy = fpi::FDSP_MEDIA_POLICY_HYBRID;
         vdesc->placementPolicy = 1;
         vdesc->appWorkload = fpi::FDSP_APP_S3_OBJS;
-        vdesc->backupVolume = invalid_vol_id;
+        vdesc->backupVolume = invalid_vol_id.get();
 
-        vdesc->iops_min = 1000;
-        vdesc->iops_max = 5000;
+        vdesc->iops_assured = 1000;
+        vdesc->iops_throttle = 5000;
         vdesc->relativePrio = 1;
 
         vdesc->fSnapshot = false;

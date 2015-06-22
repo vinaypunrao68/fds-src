@@ -26,6 +26,7 @@ from contexts import tenant
 from contexts import scavenger
 from contexts import ScavengerPolicy
 from contexts import SMDebug
+from contexts import DMDebug
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -446,17 +447,18 @@ class FDSConsole(cmd.Cmd):
             else:
                 if argv[-1] == '?':
                     argv[-1] = '-h'
-            
-            if self.has_access(argv) == False:
-                print 'oops!!!! you do not have privileges to run this command'
-            else:
-                ctx, pos, m = self.get_context_for_command(argv)
-                if ctx == None:
-                    print 'unable to determine correct context or function!!!'
-                    ctx = self.context
-                    pos = 0
-                #print 'dispatching : %s' % (argv[pos:])            
-                ctx.parser.dispatch(argv[pos:])
+
+            # We ignore accesslevel check now that this tool will not be customer-facing.
+            #if self.has_access(argv) == False:
+            #    print 'oops!!!! you do not have privileges to run this command'
+            #else:
+            ctx, pos, m = self.get_context_for_command(argv)
+            if ctx == None:
+                print 'unable to determine correct context or function!!!'
+                ctx = self.context
+                pos = 0
+            #print 'dispatching : %s' % (argv[pos:])
+            ctx.parser.dispatch(argv[pos:])
         except ConsoleExit:
             raise
         except SystemExit:
@@ -480,6 +482,7 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))
         self.root.add_sub_context(user.UserContext(self.config,'user'))
         self.root.add_sub_context(SMDebug.SMDebugContext(self.config, 'smdebug'))
+        self.root.add_sub_context(DMDebug.DMDebugContext(self.config, 'dmdebug'))
         scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
         scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
         scav.add_sub_context(scavenger.ScrubberContext(self.config, 'scrubber'))
