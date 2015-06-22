@@ -210,9 +210,9 @@ struct AmDispatcher : HasModuleProvider
                                             QuorumSvcRequestRespCb quorumCb,
                                             uint32_t timeout=0) const;
     template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
+    MultiPrimarySvcRequestPtr createMultiPrimaryRequest(ObjectID const& objId,
                                             boost::shared_ptr<Msg> const& payload,
-                                            QuorumSvcRequestRespCb quorumCb,
+                                            MultiPrimarySvcRequestRespCb quorumCb,
                                             uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
@@ -297,7 +297,7 @@ struct AmDispatcher : HasModuleProvider
      */
     void putObjectCb(AmRequest* amReq,
                      fds_uint64_t dltVersion,
-                     QuorumSvcRequest* svcReq,
+                     MultiPrimarySvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
 

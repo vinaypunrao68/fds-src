@@ -189,21 +189,36 @@ AmDispatcher::createQuorumRequest(fds_volid_t const& volId,
  * Look at the dmt to find possible destination SMs.
  */
 template<typename Msg>
-QuorumSvcRequestPtr
-AmDispatcher::createQuorumRequest(ObjectID const& objId,
-                                  boost::shared_ptr<Msg> const& payload,
-                                  QuorumSvcRequestRespCb cb,
-                                  uint32_t timeout) const {
+MultiPrimarySvcRequestPtr
+AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
+                                        boost::shared_ptr<Msg> const& payload,
+                                        MultiPrimarySvcRequestRespCb cb,
+                                        uint32_t timeout) const {
+    static size_t const num_primaries {2};
+
     auto const dlt = dltMgr->getDLT();
-    auto quorumReq = gSvcRequestPool->newQuorumSvcRequest(
-                            boost::make_shared<DltObjectIdEpProvider>(
-                                                         dlt->getNodes(objId)));
-    auto quorumCnt = dlt->getDepth()/2 + 1;
-    quorumReq->setQuorumCnt(quorumCnt);
-    quorumReq->onResponseCb(cb);
-    quorumReq->setTimeoutMs(timeout);
-    quorumReq->setPayload(message_type_id(*payload), payload);
-    return quorumReq;
+    auto token_group = dlt->getNodes(objId);
+
+    // TODO(bszmyd): Mon 22 Jun 2015 11:43:24 AM MDT
+    // Right now, assuming the first two (if any) nodes are the primaries and
+    // the rest are backups. Not sure if this is a safe assumption!
+    std::vector<fpi::SvcUuid> primaries, secondaries;
+    for (size_t i = 0; token_group->getLength() > i; ++i) {
+        auto uuid = token_group->get(i).toSvcUuid();
+        if (num_primaries > i) {
+            primaries.push_back(uuid);
+            continue;
+        }
+        secondaries.push_back(uuid);
+    }
+
+    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries);
+    // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
+    // Need to also set a onAllRespondedCb
+    multiReq->onPrimariesRespondedCb(cb);
+    multiReq->setTimeoutMs(timeout);
+    multiReq->setPayload(message_type_id(*payload), payload);
+    return multiReq;
 }
 
 template<typename Msg>
@@ -663,10 +678,10 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     auto const dlt = dltMgr->getAndLockCurrentDLT();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
                                      amReq, dlt->getVersion()));
-    auto asyncPutReq = createQuorumRequest(blobReq->obj_id,
-                                           putObjMsg,
-                                           respCb,
-                                           message_timeout_io);
+    auto asyncPutReq = createMultiPrimaryRequest(blobReq->obj_id,
+                                                 putObjMsg,
+                                                 respCb,
+                                                 message_timeout_io);
 
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     asyncPutReq->invoke();
@@ -678,7 +693,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 void
 AmDispatcher::putObjectCb(AmRequest* amReq,
                           fds_uint64_t dltVersion,
-                          QuorumSvcRequest* svcReq,
+                          MultiPrimarySvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
