@@ -20,7 +20,7 @@
 #include <fdsp/dm_api_types.h>
 #include <fdsp/fds_stream_types.h>
 
-#define FdsDmSysTaskId      0x8fffffff
+#define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
 #define FdsDmSysTaskPrio    5
 
 namespace fds {
@@ -332,7 +332,7 @@ class DmIoQueryCat: public dmCatReq {
 
   public:
     explicit DmIoQueryCat(boost::shared_ptr<fpi::QueryCatalogMsg>& qMsg)
-            : dmCatReq(qMsg->volume_id,
+            : dmCatReq(fds_volid_t(qMsg->volume_id),
                        qMsg->blob_name,
                        "",
                        qMsg->blob_version,
@@ -342,13 +342,13 @@ class DmIoQueryCat: public dmCatReq {
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
 
         opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
-        opReqLatencyCtx.reset_volid(qMsg->volume_id);
+        opReqLatencyCtx.reset_volid(io_vol_id);
 
         opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
-        opLatencyCtx.reset_volid(qMsg->volume_id);
+        opLatencyCtx.reset_volid(io_vol_id);
 
         opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(qMsg->volume_id);
+        opQoSWaitCtx.reset_volid(io_vol_id);
     }
 
     virtual std::string log_string() const override {
@@ -369,7 +369,7 @@ class DmIoFwdCat : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoFwdCat *req)> CbType;
     explicit DmIoFwdCat(boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
-            : dmCatReq(fwdMsg->volume_id, fwdMsg->blob_name, "", fwdMsg->blob_version,
+            : dmCatReq(fds_volid_t(fwdMsg->volume_id), fwdMsg->blob_name, "", fwdMsg->blob_version,
                        FDS_DM_FWD_CAT_UPD), fwdCatMsg(fwdMsg) {}
 
     virtual std::string log_string() const override {
@@ -397,20 +397,20 @@ class DmIoUpdateCat: public dmCatReq {
 
   public:
     explicit DmIoUpdateCat(boost::shared_ptr<fpi::UpdateCatalogMsg>& _updcatMsg)
-            : dmCatReq(_updcatMsg->volume_id, _updcatMsg->blob_name, "", _updcatMsg->blob_version,
+            : dmCatReq(fds_volid_t(_updcatMsg->volume_id), _updcatMsg->blob_name, "", _updcatMsg->blob_version,
             FDS_CAT_UPD), ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
             obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
 
         opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
-        opReqLatencyCtx.reset_volid(_updcatMsg->volume_id);
+        opReqLatencyCtx.reset_volid(io_vol_id);
 
         opLatencyCtx.type = PerfEventType::DM_TX_OP;
-        opLatencyCtx.reset_volid(_updcatMsg->volume_id);
+        opLatencyCtx.reset_volid(io_vol_id);
 
         opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(_updcatMsg->volume_id);
+        opQoSWaitCtx.reset_volid(io_vol_id);
     }
 
     virtual std::string log_string() const override {
@@ -436,7 +436,7 @@ class DmIoUpdateCatOnce : public dmCatReq {
     explicit DmIoUpdateCatOnce(
         boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& _updcatMsg,
         DmIoCommitBlobTx *_commitReq)
-            : dmCatReq(_updcatMsg->volume_id,
+            : dmCatReq(fds_volid_t(_updcatMsg->volume_id),
                        _updcatMsg->blob_name,
                        "",
                        _updcatMsg->blob_version,
@@ -482,20 +482,20 @@ class DmIoSetBlobMetaData: public dmCatReq {
 
   public:
     explicit DmIoSetBlobMetaData(boost::shared_ptr<fpi::SetBlobMetaDataMsg> & _setMDMsg)
-            : dmCatReq(_setMDMsg->volume_id, _setMDMsg->blob_name, "", _setMDMsg->blob_version,
+            : dmCatReq(fds_volid_t(_setMDMsg->volume_id), _setMDMsg->blob_name, "", _setMDMsg->blob_version,
             FDS_SET_BLOB_METADATA), ioBlobTxDesc(new BlobTxId(_setMDMsg->txId)),
             md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
 
         opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
-        opReqLatencyCtx.reset_volid(_setMDMsg->volume_id);
+        opReqLatencyCtx.reset_volid(io_vol_id);
 
         opLatencyCtx.type = PerfEventType::DM_TX_OP;
-        opLatencyCtx.reset_volid(_setMDMsg->volume_id);
+        opLatencyCtx.reset_volid(io_vol_id);
 
         opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(_setMDMsg->volume_id);
+        opQoSWaitCtx.reset_volid(io_vol_id);
     }
 
     virtual std::string log_string() const override {
@@ -578,18 +578,18 @@ struct DmIoStatVolume : dmCatReq {
     typedef std::function<void (const Error &e, DmIoStatVolume *req)> CbType;
 
     explicit DmIoStatVolume(boost::shared_ptr<fpi::StatVolumeMsg> message)
-            : dmCatReq(message->volume_id, "", "", 0, FDS_STAT_VOLUME), msg(message) {
+            : dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_STAT_VOLUME), msg(message) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
 
         opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
-        opReqLatencyCtx.reset_volid(message->volume_id);
+        opReqLatencyCtx.reset_volid(io_vol_id);
 
         opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
-        opLatencyCtx.reset_volid(message->volume_id);
+        opLatencyCtx.reset_volid(io_vol_id);
 
         opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(message->volume_id);
+        opQoSWaitCtx.reset_volid(io_vol_id);
     }
 
     boost::shared_ptr<fpi::StatVolumeMsg> msg;
@@ -601,7 +601,7 @@ struct DmIoSetVolumeMetaData : dmCatReq {
     typedef std::function<void (const Error &e, DmIoSetVolumeMetaData *req)> CbType;
 
     explicit DmIoSetVolumeMetaData(boost::shared_ptr<fpi::SetVolumeMetadataMsg> message)
-            : dmCatReq(message->volumeId, "", "", 0, FDS_SET_VOLUME_METADATA), msg(message) {
+            : dmCatReq(fds_volid_t(message->volumeId), "", "", 0, FDS_SET_VOLUME_METADATA), msg(message) {
     }
 
     boost::shared_ptr<fpi::SetVolumeMetadataMsg> msg;
@@ -625,7 +625,7 @@ struct DmIoVolumeOpen : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
 
     explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
-            : dmCatReq(message->volume_id, "", "", 0, FDS_OPEN_VOLUME),
+            : dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_OPEN_VOLUME),
               token(message->token),
               access_mode(message->mode) {
     }
@@ -671,7 +671,7 @@ class DmIoStatStream : public dmCatReq {
 struct DmIoGetSysStats : dmCatReq {
     boost::shared_ptr<fpi::GetDmStatsMsg> message;
     explicit DmIoGetSysStats(boost::shared_ptr<fpi::GetDmStatsMsg> message)
-            : message(message) , dmCatReq(message->volume_id, "", "", 0, FDS_DM_SYS_STATS) {}
+            : message(message) , dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_DM_SYS_STATS) {}
 };
 
 struct DmIoGetBucket : dmCatReq {
@@ -680,13 +680,13 @@ struct DmIoGetBucket : dmCatReq {
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
             : message(message),
               response(new fpi::GetBucketRspMsg()),
-              dmCatReq(message->volume_id, "", "", 0, FDS_LIST_BLOB) {}
+              dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_LIST_BLOB) {}
 };
 
 struct DmIoDeleteBlob: dmCatReq {
     boost::shared_ptr<fpi::DeleteBlobMsg> message;
     explicit DmIoDeleteBlob(boost::shared_ptr<fpi::DeleteBlobMsg> message)
-            : message(message) , dmCatReq(message->volume_id,
+            : message(message) , dmCatReq(fds_volid_t(message->volume_id),
                                           message->blob_name,
                                           "",
                                           message->blob_version,
@@ -700,7 +700,7 @@ struct DmIoReloadVolume : dmCatReq {
     explicit DmIoReloadVolume(boost::shared_ptr<fpi::ReloadVolumeMsg> msg)
             : message(msg),
               response(new fpi::ReloadVolumeRspMsg()),
-              dmCatReq(msg->volume_id, "", "", 0, FDS_DM_RELOAD_VOLUME) {
+              dmCatReq(fds_volid_t(msg->volume_id), "", "", 0, FDS_DM_RELOAD_VOLUME) {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoReloadVolume& io) {
@@ -715,7 +715,7 @@ struct DmIoMigration : dmCatReq {
     explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
               response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
-              dmCatReq(0, "", "", 0, FDS_DM_MIGRATION) {
+              dmCatReq(invalid_vol_id, "", "", 0, FDS_DM_MIGRATION) {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigration& io) {

@@ -24,3 +24,5 @@ Build/linux-x86_64.debug/tests/svcserver_gtest
 Build/linux-x86_64.debug/tests/svcmgr_gtest --fds-root=./config
 Build/linux-x86_64.debug/tests/svcrequestmgr_gtest --fds-root=./config
 Build/linux-x86_64.debug/tests/bitset_gtest
+Build/linux-x86_64.debug/tests/rs_container_ut
+Build/linux-x86_64.debug/tests/dmt_calc_gtest --fds-root=./config/ --dmt-width=4 --dmt-depth=4

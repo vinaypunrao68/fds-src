@@ -69,7 +69,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token);
+    void dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.
@@ -313,6 +313,11 @@ struct AmDispatcher : HasModuleProvider
      * Configurable timeouts and defaults (ms)
      */
     uint32_t message_timeout_io { 0 };
+
+    /**
+     * Number of DM primary replicas
+     */
+    uint32_t numDmPrimaries;
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;

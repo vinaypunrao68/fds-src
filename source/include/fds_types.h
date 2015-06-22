@@ -55,7 +55,6 @@
  */
 namespace fds {
 
-typedef fds_int64_t fds_volid_t;
 typedef fds_int64_t VolumeId;
 typedef fds_int64_t fds_qid_t;  // type for queue id
 
@@ -279,7 +278,6 @@ class FDS_IOType {
         DATA_MGR_IO
     } ioModule;
 
-    int         io_magic;
     fds_io_op_t io_type;
     fds_uint32_t io_req_id;
     fds_volid_t io_vol_id;

@@ -55,7 +55,7 @@ Error SmTierMigration::notifyHybridVolFlashPut(const ObjectID& oid) {
     // check if started filling in a new request, and need to schedule
     // qos work for writeback
     if (reqToEnq) {
-        err = dataStoreReqHandler->enqueueMsg(FdsSysTaskQueueId, reqToEnq);
+        err = dataStoreReqHandler->enqueueMsg(fds_volid_t(FdsSysTaskQueueId), reqToEnq);
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue moveTier request " << err;
             // should be ok to drop writeback requests, should be

@@ -113,7 +113,7 @@ class DmCommitLog : public Module {
     TxMap txMap_;    // in-memory state
     fds_mutex lockTxMap_;
 
-    fds_uint64_t volId_;
+    fds_volid_t volId_;
     fds_uint32_t objSize_;
     bool started_;
 

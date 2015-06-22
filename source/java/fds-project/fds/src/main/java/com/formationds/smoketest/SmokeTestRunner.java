@@ -26,6 +26,7 @@ public class SmokeTestRunner {
         addClass(HdfsSmokeTest.class);
         addClass(SyncAmTest.class);
         addClass(AsyncAmTest.class);
+        addClass(NfsTest.class);
     }
 
     void addClass(final Class klass) {

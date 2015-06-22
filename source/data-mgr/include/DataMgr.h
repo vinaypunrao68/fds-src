@@ -67,7 +67,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * TODO: Move to STD shared or unique pointers. That's
      * safer.
      */
-    std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
+    std::unordered_map<fds_volid_t, VolumeMeta*> vol_meta_map;
     /**
      * Catalog sync manager
      */
@@ -107,8 +107,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
         FDSGUARD(vol_map_mtx);
-        std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
-                vol_meta_map.find(volId);
+        auto iter = vol_meta_map.find(volId);
         return (vol_meta_map.end() != iter && iter->second ?
                 iter->second->vol_desc : 0);
     }
@@ -428,7 +427,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     virtual std::string getSysVolumeName(const fds_volid_t &volId) const override;
 
     virtual std::string getSnapDirName(const fds_volid_t &volId,
-                                       const int64_t snapId) const override;
+                                       const fds_volid_t snapId) const override;
 
     ///
     /// Cleanly shut down.
@@ -487,12 +486,12 @@ class CloseDMTTimerTask : public FdsTimerTask {
 
 namespace dmutil {
 // location of volume
-std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = 0);
+std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
 
 // location of all snapshots for a volume
 std::string getSnapshotDir(fds_volid_t volId);
 
-std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = 0);
+std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
 }  // namespace dmutil
 
 }  // namespace fds

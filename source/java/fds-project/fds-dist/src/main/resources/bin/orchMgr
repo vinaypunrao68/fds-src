@@ -23,14 +23,10 @@ do
   shift # past argument or value
 done
 
-export CLASSPATH=$FDS_ROOT/etc/
-export CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
-export CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
-
-for i in $FDS_ROOT/lib/java/*.jar;
-do
-   export CLASSPATH="$CLASSPATH:$i"
-done 
+CLASSPATH=$FDS_ROOT/lib/java/*
+CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/
+CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
+CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
 
 echo "FDS_ROOT  = $FDS_ROOT"
 echo "CLASSPATH = $CLASSPATH"

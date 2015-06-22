@@ -101,7 +101,7 @@ void DeleteDispatcher::run() {
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
-        volContainer->om_delete_vol(snapshot.snapshotId);
+        volContainer->om_delete_vol(fds_volid_t(snapshot.snapshotId));
     }
 }
 

@@ -444,17 +444,18 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
-    getReq->setVolId(getObjMsg->volume_id);
+    fds_volid_t volId(getObjMsg->volume_id);
+    getReq->setVolId(volId);
     getReq->setObjId(objId);
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     // perf-trace related data
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
     getReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_GET_OBJ_REQ;
-    getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opReqLatencyCtx.reset_volid(volId);
     getReq->opLatencyCtx.type = PerfEventType::SM_GET_IO;
-    getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opLatencyCtx.reset_volid(volId);
     getReq->opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
-    getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opQoSWaitCtx.reset_volid(volId);
 
     getReq->response_cb = std::bind(&SMSvcHandler::getObjectCb,
                                     this,
@@ -550,10 +551,11 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 #endif
 
     Error err(ERR_OK);
+    fds_volid_t volId(putObjMsg->volume_id);
     ObjectID objId(putObjMsg->data_obj_id.digest);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
-    putReq->setVolId(putObjMsg->volume_id);
+    putReq->setVolId(volId);
     putReq->dltVersion = asyncHdr->dlt_version;
     putReq->forwardedReq = putObjMsg->forwardedReq;
     putReq->setObjId(objId);
@@ -561,11 +563,11 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // perf-trace related data
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
     putReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_PUT_OBJ_REQ;
-    putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opReqLatencyCtx.reset_volid(volId);
     putReq->opLatencyCtx.type = PerfEventType::SM_PUT_IO;
-    putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opLatencyCtx.reset_volid(volId);
     putReq->opQoSWaitCtx.type = PerfEventType::SM_PUT_QOS_QUEUE_WAIT;
-    putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opQoSWaitCtx.reset_volid(volId);
 
     putReq->response_cb= std::bind(&SMSvcHandler::putObjectCb,
                                    this,
@@ -596,7 +598,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             /**
              * TODO(neil): This needs to be fixed. See FS-2229
              */
-            fds_assert(!"Hit FS-2229. This needs to be fixed.");
+            LOGWARN << "Hit FS-2229. This needs to be fixed.";
         }
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                  << err;
@@ -696,7 +698,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // Set delReq stuffs
     delReq->io_type = FDS_SM_DELETE_OBJECT;
 
-    delReq->setVolId(deleteObjMsg->volId);
+    delReq->setVolId(fds_volid_t(deleteObjMsg->volId));
     delReq->dltVersion = asyncHdr->dlt_version;
     delReq->setObjId(objId);
     delReq->forwardedReq = deleteObjMsg->forwardedReq;
@@ -800,7 +802,7 @@ void
 SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                            boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
 {
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
+    fds_volid_t volumeId(vol_msg->vol_desc.volUUID);
     VolumeDesc vdb(vol_msg->vol_desc);
     FDSP_NotifyVolFlag vol_flag = vol_msg->vol_flag;
     GLOGNOTIFY << "Received create for vol "
@@ -849,7 +851,7 @@ void
 SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                           boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg)
 {
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
+    fds_volid_t volumeId(vol_msg->vol_desc.volUUID);
     std::string volName  = vol_msg->vol_desc.vol_name;
 
     if (vol_msg->vol_flag == FDSP_NOTIFY_VOL_CHECK_ONLY) {
@@ -889,7 +891,7 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     Error err;
     VolumeDesc vdbc(vol_msg->vol_desc), * vdb = &vdbc;
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
+    fds_volid_t volumeId(vol_msg->vol_desc.volUUID);
     GLOGNOTIFY << "Received modify for vol "
                << "[" << std::hex << volumeId << std::dec << ", "
                << vdb->getName() << "]";

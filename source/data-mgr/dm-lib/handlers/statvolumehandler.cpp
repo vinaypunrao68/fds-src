@@ -25,10 +25,17 @@ StatVolumeHandler::StatVolumeHandler(DataMgr& dataManager)
 void StatVolumeHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::StatVolumeMsg>& message) {
+    fds_volid_t volId(message->volume_id);
     LOGTRACE << "Received a statVolume request for volume "
-             << message->volume_id;
+             << volId;
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(volId)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);

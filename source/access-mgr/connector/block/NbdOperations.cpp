@@ -23,32 +23,30 @@ static std::unordered_map<std::string, std::uint_fast16_t> assoc_map {};
 static std::mutex assoc_map_lock {};
 
 
-fds_bool_t
+void
 NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
-                                      fds_uint32_t len,
-                                      const Error& err) {
+                                      fds_uint32_t len) {
+    static boost::shared_ptr<std::string> const empty_buffer =
+        boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
     fds_assert(operation == READ);
-
-    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
-                     (err != ERR_BLOB_NOT_FOUND)) {
-        return true;
-    }
 
     // acquire the buffers
     bufVec.swap(buffers);
 
-    // return zeros for uninitialized objects
-    if (length > len) {
-        for (auto zero_data = length - len; 0 < zero_data;) {
-            auto buf_size = std::min(zero_data, maxObjectSizeInBytes);
-            bufVec.emplace_back(new std::string(buf_size, '\0'));
-            zero_data -= buf_size;
-        }
-    }
-    // Fill in any missing wholes with zero data
+    // Fill in any missing wholes with zero data, this is a special *block*
+    // semantic for NULL objects.
     for (auto& buf: bufVec) {
         if (!buf) {
-            buf = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
+            buf = empty_buffer;
+            len += maxObjectSizeInBytes;
+        }
+    }
+
+    // return zeros for uninitialized objects, again a special *block*
+    // semantic to PAD the read to the required length.
+    if (length > len) {
+        for (int64_t zero_data = length - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
+            bufVec.push_back(empty_buffer);
         }
     }
 
@@ -62,11 +60,10 @@ NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>
     // ...and the back
     if (length > firstObjLen) {
         auto lastObjLen = length - firstObjLen - (bufVec.size()-2) * maxObjectSizeInBytes;
-        if (0 < lastObjLen) {
+        if (0 < lastObjLen && maxObjectSizeInBytes != lastObjLen) {
             bufVec.back() = boost::make_shared<std::string>(bufVec.back()->data(), lastObjLen);
         }
     }
-    return true;
 }
 
 std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
@@ -86,10 +83,10 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
     boost::shared_ptr<std::string>& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
     if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND) ||
-        0 == len || retBuf->empty()) {
+        0 == len || !retBuf) {
         // we tried to read unwritten block, so create
         // an empty block buffer to place the data
-        fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, 0);
+        fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
         fauxBytes->replace(iOff, writeBytes->length(),
                            writeBytes->c_str(), writeBytes->length());
     } else {
@@ -289,11 +286,9 @@ NbdOperations::getBlobResp(const Error &error,
                            handle_type& requestId,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            int& length) {
-    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
-    fds_bool_t done = false;
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
              << error << ", handle " << handle
@@ -315,11 +310,12 @@ NbdOperations::getBlobResp(const Error &error,
 
     fds_verify(resp);
     if (!resp->isRead()) {
+        static NbdResponseVector::buffer_ptr_type const null_buff(nullptr);
         // this is a response for read during a write operation from NBD connector
         LOGDEBUG << "Write after read, handle 0x" << std::hex << handle << std::dec << " seqId " << seqId;
 
         // RMW only operates on a single buffer...
-        auto& buf = !bufs->empty() ? bufs->front() : empty_buffer;
+        auto& buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
 
         // apply the update from NBD connector to this object
         auto rwm_pair = resp->handleRMWResponse(buf, length, seqId, error);
@@ -339,29 +335,31 @@ NbdOperations::getBlobResp(const Error &error,
                                            objLength,
                                            off,
                                            emptyMeta);
-        } else {
-            done = true;
+            return;
         }
     } else {
-        // this is response for read operation, add buf to the response list
-        done = resp->handleReadResponse(*bufs, length, error);
+        // this is response for read operation,
+        if (error.ok() || (error == ERR_BLOB_OFFSET_INVALID) ||
+                          (error == ERR_BLOB_NOT_FOUND)) {
+            // Adjust the buffers in our vector so they align and are of the
+            // correct length according to the original request
+            resp->handleReadResponse(*bufs, length);
+        }
     }
 
-    if (done) {
-        bool response_removed = false;
-        {
-            // nbd connector will free resp
-            // remove from the wait list
-            fds_mutex::scoped_lock l(respLock);
-            response_removed = (1 == responses.erase(handle));
-        }
-        if (response_removed) {
-            // we are done collecting responses for this handle, notify nbd connector
-            nbdResp->readWriteResp(resp);
-        } else {
-            LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
-                      << " was missing from the response map!";
-        }
+    bool response_removed = false;
+    {
+        // nbd connector will free resp
+        // remove from the wait list
+        fds_mutex::scoped_lock l(respLock);
+        response_removed = (1 == responses.erase(handle));
+    }
+    if (response_removed) {
+        // we are done collecting responses for this handle, notify nbd connector
+        nbdResp->readWriteResp(resp);
+    } else {
+        LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
+                  << " was missing from the response map!";
     }
 }
 

@@ -24,9 +24,9 @@ struct ArchiveClient
     virtual Error connect() = 0;
 
     virtual Error putSnap(const fds_volid_t &volId,
-                 const int64_t &snapId) = 0;
+                 const fds_volid_t &snapId) = 0;
     virtual Error getSnap(const fds_volid_t &volId,
-                 const int64_t &snapId) = 0;
+                 const fds_volid_t &snapId) = 0;
     virtual Error getFile(const std::string &bucketName,
                           const std::string &objName,
                           const std::string &filePath)  = 0;
@@ -35,14 +35,14 @@ struct ArchiveClient
                           const std::string &filePath)  = 0;
 
  protected:
-    void populateSnapInfo_(const fds_volid_t &volId, const int64_t &snapId,
+    void populateSnapInfo_(const fds_volid_t &volId, const fds_volid_t &snapId,
                            std::string &snapName,
                            std::string &snapDirPath,
                            std::string &snapPath);
-    Error tarSnap_(uint64_t volId, uint64_t snapId,
+    Error tarSnap_(fds_volid_t volId, fds_volid_t snapId,
                  const std::string &snapDirPath,
                  const std::string &snapName);
-    Error untarSnap_(uint64_t volId, uint64_t snapId,
+    Error untarSnap_(fds_volid_t volId, fds_volid_t snapId,
                     const std::string &snapDirPath,
                     const std::string &snapName);
 
@@ -68,9 +68,9 @@ struct BotoArchiveClient : ArchiveClient
     virtual Error connect() override;
 
     virtual Error putSnap(const fds_volid_t &volId,
-                         const int64_t &snapId) override;
+                         const fds_volid_t &snapId) override;
     virtual Error getSnap(const fds_volid_t &volId,
-                         const int64_t &snapId) override;
+                         const fds_volid_t &snapId) override;
     virtual Error getFile(const std::string &bucketName,
                           const std::string &objName,
                           const std::string &filePath) override;

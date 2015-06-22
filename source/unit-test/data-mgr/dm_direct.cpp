@@ -30,12 +30,12 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
     // start tx
     DEFINE_SHARED_PTR(StartBlobTxMsg, startBlbTx);
 
-    startBlbTx->volume_id = volId;
+    startBlbTx->volume_id = volId.get();
     startBlbTx->blob_name = blobName;
     startBlbTx->txId = txnNum;
     startBlbTx->blob_mode = blobMode;
     startBlbTx->dmt_version = 1;
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
+    auto dmBlobTxReq = new DmIoStartBlobTx(volId,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
                                            startBlbTx->blob_mode,
@@ -53,11 +53,11 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     DMCallback cb;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
     DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
-    commitBlbTx->volume_id = dmTester->TESTVOLID;
+    commitBlbTx->volume_id = dmTester->TESTVOLID.get();
     commitBlbTx->blob_name = blobName;
     commitBlbTx->txId = txnNum;
 
-    auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
+    auto dmBlobTxReq1 = new DmIoCommitBlobTx(dmTester->TESTVOLID,
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version);
@@ -96,7 +96,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
     // start tx
     DEFINE_SHARED_PTR(UpdateCatalogOnceMsg, putBlobOnce);
 
-    putBlobOnce->volume_id = dmTester->TESTVOLID;
+    putBlobOnce->volume_id = dmTester->TESTVOLID.get();
     putBlobOnce->dmt_version = 1;
     TIMEDBLOCK("fill") {
         fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
@@ -112,7 +112,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
             putBlobOnce->txId = txnId;
 
 
-            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(putBlobOnce->volume_id,
+            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(dmTester->TESTVOLID,
                                                               putBlobOnce->blob_name,
                                                               putBlobOnce->blob_version,
                                                               putBlobOnce->dmt_version);
@@ -141,7 +141,7 @@ TEST_F(DmUnitTest, PutBlob) {
 
     // update
     DEFINE_SHARED_PTR(UpdateCatalogMsg, updcatMsg);
-    updcatMsg->volume_id = dmTester->TESTVOLID;
+    updcatMsg->volume_id = dmTester->TESTVOLID.get();
     TIMEDBLOCK("fill") {
         fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
     }
@@ -186,7 +186,7 @@ TEST_F(DmUnitTest, QueryCatalog) {
         for (uint i = 0; i < NUM_BLOBS; i++) {
             boost::shared_ptr<DMCallback> cb(new DMCallback());
             auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
-                dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
+                dmTester->TESTVOLID.get(), dmTester->getBlobName(i), 0);
 
             auto dmQryReq = new DmIoQueryCat(qryCat);
             dmQryReq->cb = BIND_OBJ_CALLBACK(*cb.get(),
@@ -219,7 +219,7 @@ TEST_F(DmUnitTest, SetMeta) {
         startTxn(dmTester->TESTVOLID, blobName, txnId);
 
         // update
-        auto setBlobMeta = SvcMsgFactory::newSetBlobMetaDataMsg(dmTester->TESTVOLID,
+        auto setBlobMeta = SvcMsgFactory::newSetBlobMetaDataMsg(dmTester->TESTVOLID.get(),
                                                                 dmTester->TESTBLOB);
         setBlobMeta->txId  = txnId;
         setBlobMeta->metaDataList.push_back(metaData);
@@ -246,8 +246,8 @@ TEST_F(DmUnitTest, GetMeta) {
         DMCallback cb;
         blobName = dmTester->getBlobName(i);
         auto getBlobMeta = SvcMsgFactory::newGetBlobMetaDataMsg(
-            dmTester->TESTVOLID, blobName);
-        auto dmReq = new DmIoGetBlobMetaData(getBlobMeta->volume_id,
+            dmTester->TESTVOLID.get(), blobName);
+        auto dmReq = new DmIoGetBlobMetaData(dmTester->TESTVOLID,
                                              getBlobMeta->blob_name,
                                              getBlobMeta->blob_version,
                                              getBlobMeta);
@@ -265,7 +265,7 @@ TEST_F(DmUnitTest, GetDMStats) {
     DMCallback cb;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
-    auto getDmStats = SvcMsgFactory::newGetDmStatsMsg(dmTester->TESTVOLID);
+    auto getDmStats = SvcMsgFactory::newGetDmStatsMsg(dmTester->TESTVOLID.get());
     auto dmRequest = new DmIoGetSysStats(getDmStats);
 
     dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
@@ -281,7 +281,7 @@ TEST_F(DmUnitTest, GetBucket) {
     DMCallback cb;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
-    auto message = SvcMsgFactory::newGetBucketMsg(dmTester->TESTVOLID, 0);
+    auto message = SvcMsgFactory::newGetBucketMsg(dmTester->TESTVOLID.get(), 0);
     message->pattern = ".*test.*";
     auto dmRequest = new DmIoGetBucket(message);
 
@@ -309,7 +309,7 @@ TEST_F(DmUnitTest, DeleteBlob) {
         startTxn(dmTester->TESTVOLID, blobName, txnId);
 
         // delete
-        auto message = SvcMsgFactory::newDeleteBlobMsg(dmTester->TESTVOLID, blobName);
+        auto message = SvcMsgFactory::newDeleteBlobMsg(dmTester->TESTVOLID.get(), blobName);
         message->txId = txnId;
         auto dmRequest = new DmIoDeleteBlob(message);
         dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);

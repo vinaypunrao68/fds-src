@@ -210,7 +210,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     for (RsContainer::const_iterator it = vol_ary.cbegin();
          it != vol_ary.cend();
          ++it) {
-        fds_uint64_t volid = ((*it)->rs_get_uuid()).uuid_get_val();
+        auto volid = fds_volid_t(((*it)->rs_get_uuid()).uuid_get_val());
         DmtColumnPtr cmt_col = dmtMgr->getCommittedNodeGroup(volid);
         DmtColumnPtr target_col = dmtMgr->getTargetNodeGroup(volid);
         fpi::FDSP_VolumeDescType vol_desc; // to be added to list

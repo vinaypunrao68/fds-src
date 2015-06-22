@@ -70,7 +70,7 @@ class VolumeCacheManager : public Module, boost::noncopyable {
         KvCache<K, V, _Hash> *cache;
         fds_rwlock *rwlock = new fds_rwlock();
         std::string cacheModName = "Cache module for ";
-        cacheModName += std::to_string(volId);
+        cacheModName += std::to_string(volId.get());
         switch (evictionType) {
             case LRU:
                 cache = new LruKvCache<K, V, _Hash>(cacheModName, maxEntries);

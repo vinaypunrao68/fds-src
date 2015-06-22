@@ -54,10 +54,10 @@ void addObj(TestObject & obj) {
 }
 
 void create(TestObject & obj) {
-    if (!volSet[obj.volId]) {
+    if (!volSet[obj.volId.get()]) {
         std::cout << "Creating cache for vol " << obj.volId << std::endl;
         strCacheManager.createCache(obj.volId, 50, fds::LRU);
-        volSet[obj.volId] = 1;
+        volSet[obj.volId.get()] = 1;
     }
     pool.schedule(addObj, obj);
 }
@@ -65,7 +65,7 @@ void create(TestObject & obj) {
 int
 main(int argc, char** argv) {
     VolumeCacheManager<fds_uint32_t, fds_uint32_t> cacheManager("Integer cache manager");
-    fds::fds_volid_t volId = 321;
+    fds::fds_volid_t volId(321);
     cacheManager.createCache(volId, 3, fds::LRU);
 
     fds_uint32_t k1 = 1;

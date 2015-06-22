@@ -1058,7 +1058,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         // we have to select tier based on volume policy with the highest tier policy
         StorMgrVolume* selectVol = NULL;
         for (auto volAssoc : msg.objectVolumeAssoc) {
-            fds_volid_t volId = volAssoc.volumeAssoc;
+            fds_volid_t volId(volAssoc.volumeAssoc);
             StorMgrVolume* vol = volumeTbl->getVolume(volId);
             //
             // TODO(Sean):  Volume table should be updated before token resync.

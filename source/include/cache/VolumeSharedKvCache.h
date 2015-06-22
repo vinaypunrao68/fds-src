@@ -63,7 +63,7 @@ struct VolumeSharedCacheManager
             return ERR_VOL_DUPLICATE;
         }
 
-        vol_cache_map[volId] = new cache_type(cacheModName + std::to_string(volId), maxEntries);
+        vol_cache_map[volId] = new cache_type(cacheModName + std::to_string(volId.get()), maxEntries);
 
         return ERR_OK;
     }

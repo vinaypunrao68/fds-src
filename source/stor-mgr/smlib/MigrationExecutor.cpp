@@ -80,6 +80,19 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     Error err(ERR_OK);
     ObjMetaData omd;
 
+    /**
+     * Take a scoped lock for retryDltTokens map as it's accessed several
+     * times in the method.
+     */
+    fds_mutex::scoped_lock l(retryDltTokensLock);
+
+    /**
+     * Return if no dlt tokens to retry migration for from the same source SM.
+     */
+    if (retryDltTokens.empty()) {
+        return err;
+    }
+
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
     // If we can't start trakcing IO request, then terminate this request.
@@ -432,9 +445,11 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
             case ERR_SM_NOT_READY_AS_MIGR_SRC:
                 LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
                            << " source SM " << sourceSmUuid << " not ready";
-
                 migrFailedRetryHandler(smTokenId);
-                retryDltTokens[dltToken] = seqId;
+                {
+                    fds_mutex::scoped_lock l(retryDltTokensLock);
+                    retryDltTokens[dltToken] = seqId;
+                }
                 break;
             default:
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
@@ -819,6 +834,13 @@ MigrationExecutor::abortMigration(const Error &err) {
     if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
         sendFinishResyncToClient();
     }
+}
+
+void
+MigrationExecutor::clearRetryDltTokenSet()
+{
+    fds_mutex::scoped_lock l(retryDltTokensLock);
+    retryDltTokens.clear();
 }
 
 }  // namespace fds

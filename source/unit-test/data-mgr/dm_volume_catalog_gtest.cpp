@@ -13,14 +13,14 @@
 #include <util/color.h>
 #include <PerfTrace.h>
 
-boost::shared_ptr<LatencyCounter> tpPutCounter(new LatencyCounter("threadpool put", 0, 0));
-boost::shared_ptr<LatencyCounter> tpGetCounter(new LatencyCounter("threadpool get", 0, 0));
-boost::shared_ptr<LatencyCounter> tpDeleteCounter(new LatencyCounter("threadpool delete", 0, 0));
+boost::shared_ptr<LatencyCounter> tpPutCounter(new LatencyCounter("threadpool put", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> tpGetCounter(new LatencyCounter("threadpool get", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> tpDeleteCounter(new LatencyCounter("threadpool delete", invalid_vol_id, 0));
 
-boost::shared_ptr<LatencyCounter> totalPutCounter(new LatencyCounter("end to end put", 0, 0));
-boost::shared_ptr<LatencyCounter> totalGetCounter(new LatencyCounter("end to end get", 0, 0));
+boost::shared_ptr<LatencyCounter> totalPutCounter(new LatencyCounter("end to end put", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> totalGetCounter(new LatencyCounter("end to end get", invalid_vol_id, 0));
 boost::shared_ptr<LatencyCounter> totalDeleteCounter(
-        new LatencyCounter("end to end delete", 0, 0));
+        new LatencyCounter("end to end delete", invalid_vol_id, 0));
 
 fds::concurrency::TaskStatus taskCount(0);
 

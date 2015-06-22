@@ -273,7 +273,7 @@ TestReqHandler::allocMeta(fds_uint16_t fileId,
     loc.obj_stor_offset = offset;
     loc.obj_tier = tier;
     meta->initialize(objId, 4096);
-    meta->updateAssocEntry(objId, 37);
+    meta->updateAssocEntry(objId, fds_volid_t(37));
     meta->updatePhysLocation(&loc);
     return meta;
 }

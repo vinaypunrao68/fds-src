@@ -169,7 +169,13 @@ class MigrationExecutor {
     /**
      * Abort migration for this executor.
      */
-     void abortMigration(const Error &err);
+    void abortMigration(const Error &err);
+
+    /**
+     * Erase the dlt tokens set for which migration was supposed
+     * to be retried from the same source SM.
+     */
+    void clearRetryDltTokenSet();
 
   private:
     /**
@@ -266,8 +272,10 @@ class MigrationExecutor {
     /**
      * Set of DLT tokens that failed to be migrated from source SM
      * because the source was not ready.
+     * And the lock protecting the DLT tokens map
      */
-     std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+    std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+    fds_mutex retryDltTokensLock;
 
     /**
      * Maintain messages from the source SM, so we don't lose it.  Each async message

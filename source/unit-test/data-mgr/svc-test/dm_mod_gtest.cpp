@@ -16,18 +16,18 @@ static fds_uint32_t NUM_VOLUMES = 1;
 static fds_uint32_t NUM_BLOBS = 1;
 static bool  profile = false;
 
-boost::shared_ptr<LatencyCounter> startTxCounter(new LatencyCounter("startBLobTx", 0, 0));
-boost::shared_ptr<LatencyCounter> updateTxCounter(new LatencyCounter("updateBlobTx", 0, 0));
-boost::shared_ptr<LatencyCounter> commitTxCounter(new LatencyCounter("commitBlobTx", 0, 0));
-boost::shared_ptr<LatencyCounter> getBlobMetaCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> qryCatCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> setBlobMetaCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> delCatObjCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> getBucketCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> updateCatOnceCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> dmStatsCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> delBlobCounter(new LatencyCounter("getBlobMeta", 0, 0));
-boost::shared_ptr<LatencyCounter> txCounter(new LatencyCounter("tx", 0, 0));
+boost::shared_ptr<LatencyCounter> startTxCounter(new LatencyCounter("startBLobTx", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> updateTxCounter(new LatencyCounter("updateBlobTx", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> commitTxCounter(new LatencyCounter("commitBlobTx", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> getBlobMetaCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> qryCatCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> setBlobMetaCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> delCatObjCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> getBucketCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> updateCatOnceCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> dmStatsCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> delBlobCounter(new LatencyCounter("getBlobMeta", invalid_vol_id, 0));
+boost::shared_ptr<LatencyCounter> txCounter(new LatencyCounter("tx", invalid_vol_id, 0));
 
 static fds_uint64_t txStartTs = 0;
 

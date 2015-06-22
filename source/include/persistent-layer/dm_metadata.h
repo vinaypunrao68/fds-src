@@ -202,7 +202,7 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 };
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {
-    fds::fds_volid_t    vol_uuid;   /* volume unique identifier */
+    fds_int64_t         vol_uuid;   /* volume unique identifier */
     fds_uint64_t        ref_cnt;    /* ref_cnt association to this volume */
     /* ref_cnt reconciliation during the token migration.
      * see meta_obj_map_t's migration_ver to determine
