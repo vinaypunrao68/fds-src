@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
 import os,re,sys
+import json
+import logging
+import logging.handlers
 from influxdb import client as influxdb
 
 def is_float(x):
@@ -50,6 +53,7 @@ class InfluxDb:
         ]
         print data
         self.db.write_points(data)
+        logger.info((json.dumps(data)))
 
 influx_db_config = {
     "ip" : "influxdb-ec2",
@@ -59,9 +63,21 @@ influx_db_config = {
     "db" : "perf",
 }
 
+
 if __name__ == "__main__":
     series = sys.argv[1]
     filein = sys.argv[2]
+    logfile = "/regress/log.log.bz2"
+    assert os.path.exists(os.path.dirname(logfile)), "Directory dos not exist: " + os.path.dirname(logfile)
+    FORMAT = '%(asctime)-15s PerfLog %(message)s'
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    handler = logging.handlers.RotatingFileHandler(
+        logfile, maxBytes=100*1024*1024, backupCount=500, encoding='bz2-codec')
+    formatter = logging.Formatter(FORMAT)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
     with open(filein, "r") as f:
         records = [ [re.sub(' ','',y) for y in x.split('=')] for x in filter(lambda x : x != "", re.split("[\n;,]+", f.read()))]
             
