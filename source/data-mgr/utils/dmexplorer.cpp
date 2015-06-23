@@ -2,12 +2,12 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#include <dmchk.h>
+#include <dmexplorer.h>
 #include <util/path.h>
 #include <util/stringutils.h>
 namespace fds {
 
-DmChecker::DmChecker(int argc,
+DMExplorer::DMExplorer(int argc,
                      char *argv[],
                      const std::string & config,
                      const std::string & basePath,
@@ -16,7 +16,7 @@ DmChecker::DmChecker(int argc,
         : FdsProcess(argc, argv, config, basePath, "stdout", vec) {
 }
 
-Error DmChecker::loadVolume(fds_volid_t volumeUuid) {
+Error DMExplorer::loadVolume(fds_volid_t volumeUuid) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     std::string volDir = util::strformat("%s/%ld",
                                          root->dir_sys_repo_dm().c_str(),
@@ -41,7 +41,7 @@ Error DmChecker::loadVolume(fds_volid_t volumeUuid) {
     return ERR_OK;
 }
 
-Error DmChecker::listBlobs(bool fStatsOnly) {
+Error DMExplorer::listBlobs(bool fStatsOnly) {
     fpi::BlobDescriptorListType blobDescrList;
     Error err = volCat->listBlobs(volDesc->volUUID, &blobDescrList);
     if (!err.ok()) {
@@ -96,7 +96,7 @@ Error DmChecker::listBlobs(bool fStatsOnly) {
     return ERR_OK;
 }
 
-void DmChecker::blobInfo(const std::string& blobname) {
+void DMExplorer::blobInfo(const std::string& blobname) {
     uint64_t expectedObjectCount = 0;
     uint64_t seenObjectCount = 0;
     ObjectID objId;
@@ -132,7 +132,7 @@ void DmChecker::blobInfo(const std::string& blobname) {
     }
 }
 
-void DmChecker::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {
+void DMExplorer::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     std::vector<std::string> vecNames;
 

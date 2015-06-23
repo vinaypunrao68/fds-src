@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <boost/program_options.hpp>
-#include <dmchk.h>
+#include <dmexplorer.h>
 #include <vector>
 namespace po = boost::program_options;
 
@@ -50,14 +50,14 @@ int main(int argc, char* argv[]) {
         fShowStats = true;
     }
 
-    Module *dmchkVec[] = {
+    Module *dmexploreVec[] = {
         nullptr
     };
     
-    DmChecker dmchk(argc, argv, "platform.conf", "fds.dm.", dmchkVec, "DM checker driver");
+    DMExplorer dmexplorer(argc, argv, "platform.conf", "fds.dm.", dmexploreVec, "DM checker driver");
 
     if (volumes.empty() || fShowVolumeList) {
-        dmchk.getVolumeIds(allVolumes);
+        dmexplorer.getVolumeIds(allVolumes);
     }
 
     if (volumes.empty()) {
@@ -77,8 +77,8 @@ int main(int argc, char* argv[]) {
     if (vm.count("blobs") || fShowStats) {
         bool fStatOnly = !vm.count("blobs");
         for (const auto v : volumes) {
-            if (dmchk.loadVolume(v).ok()) {
-                dmchk.listBlobs(fStatOnly);
+            if (dmexplorer.loadVolume(v).ok()) {
+                dmexplorer.listBlobs(fStatOnly);
             } else {
                 std::cout << "unable to load volume:" << v << std::endl;
             }
@@ -87,8 +87,8 @@ int main(int argc, char* argv[]) {
 
     if (vm.count("objects")) {
         for (const auto v : volumes) {
-            if (dmchk.loadVolume(v).ok()) {
-                dmchk.blobInfo(blobName);
+            if (dmexplorer.loadVolume(v).ok()) {
+                dmexplorer.blobInfo(blobName);
             } else {
                 std::cout << "unable to load volume:" << v << std::endl;
             }
