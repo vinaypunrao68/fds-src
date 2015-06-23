@@ -210,6 +210,10 @@ Error DMT::verify() const {
             }
             nodes.insert(uuid);
         }
+        // uuids in the same column must be unique
+        if (nodes.size() != depth) {
+            return ERR_INVALID_DMT;
+        }
     }
     return err;
 }
