@@ -9,15 +9,15 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <artifactId>fds-project</artifactId>
+    <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
-    <version>1.0</version>
+    <version>2015.06.19-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <name>${fds.project.name} Thrift</name>
-  <artifactId>fds-thrift</artifactId>
-  <version>1.0</version>
+  <name>${formationds.project.name} Thrift</name>
+  <artifactId>formationds-thrift</artifactId>
+  <version>2015.06.19-SNAPSHOT</version>
 
   <dependencies>
         <dependency>
