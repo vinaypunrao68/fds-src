@@ -1768,7 +1768,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // registered with OM and node must be in active state
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
             bool fAllowReRegistration = MODULEPROVIDER()->get_fds_config()->get<bool>
-                    ("fds.feature_toggle.om.allow_service_reregistration",false);
+                    ("fds.feature_toggle.om.allow_service_reregistration", true);
             if (pmNodes->hasRegistered(msg) && fAllowReRegistration) {
                 fPrevRegistered = true;
                 LOGDEBUG << "re registration : " << msg->service_uuid.uuid;

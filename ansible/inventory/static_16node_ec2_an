@@ -1,0 +1,50 @@
+# This inventory file works for an as-yet-undefined host group named ec2hosts.
+#  The group name is defined dynamically by way of running the
+#  'deploy_fds_ec2.yml' playbook and passing in the name of this file as the
+#  value for fds_cluster_name. This allows us to still use our
+#  FDS-specific variables that you can customize as you need, without having
+#  to hard-code any of them into the playbook.
+
+# The 'localhost' entry is mandatory! Ansible's EC2 module needs to be run
+#  against localhost, since it's just interacting with the EC2 APIs. You
+#  fortunately don't need anything more than this simple entry.
+# The 'awo-bh-01' is necessary for now, as Ansible's wait_for and
+#  delegate_to modules don't play nice together at this time.
+localhost
+awo-bh-01 fds_deploy_local_deps=False fds_build=release
+
+[static_16node_ec2_an]
+10.3.20.40
+10.3.20.41
+10.3.20.42
+10.3.20.43
+10.3.20.44
+10.3.20.45
+10.3.20.46
+10.3.20.47
+10.3.20.48
+10.3.20.49
+10.3.20.50
+10.3.20.51
+10.3.20.52
+10.3.20.53
+10.3.20.54
+10.3.20.55
+
+[static_16node_ec2_an:vars]
+instance_count=16
+ansible_ssh_user=deploy
+cluster_location=awo
+deploy_artifact=nightly
+fds_build=release
+fds_default_nic=eth0
+fds_deploy_local_deps=False
+fds_om_host=10.3.20.40
+fds_metrics_enabled=false
+fds_metricsdb_ip=192.168.2.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+fds_ft_common_enable_multi_om_support=false
+fds_om_host_count=3
+clean_fds=yes
+force=yes

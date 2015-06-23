@@ -44,3 +44,30 @@ class SnapshotContext(Context):
             return ' create snapshot for volume failed: {}'.format(vol_name)
 
 
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('volume', help= "volume name/id")
+    @arg('snapshot', help= "snapshot name/id")
+    def delete(self, volume, snapshot):
+        'create a snaphot of the given volume'
+        try:
+            if volume.isdigit():
+                volume_id = int(volume)
+            else:
+                volume_id  = ServiceMap.omConfig().getVolumeId(volume);
+            if snapshot.isdigit():
+                snapshot_id = int(snapshot)
+            else:
+                snapshots = ServiceMap.omConfig().listSnapshots(volume_id)
+                for snap in snapshots:
+                    if snapshot == snap.snapshotName:
+                        snapshot_id = snap.snapshotId
+                    else:
+                        snapshot_id = int(snapshot)
+            ServiceMap.omConfig().deleteSnapshot(volume_id, snapshot_id)
+            return 'ok'
+        except Exception, e:
+            log.exception(e)
+            return ' create snapshot for volume failed: {}'.format(vol_name)
+
+
