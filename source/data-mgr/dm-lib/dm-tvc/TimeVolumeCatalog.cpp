@@ -375,9 +375,9 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     COMMITLOG_GET(volId, commitLog);
 
     // serialize on blobId instead of blobName so collision detection is free from races
-    opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
-                             std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, volId, blobName, commitLog, txDesc, cb));
+    opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
+                                      std::bind(&DmTimeVolCatalog::commitBlobTxWork,
+                                                this, volId, blobName, commitLog, txDesc, cb));
     return ERR_OK;
 }
 
@@ -392,10 +392,10 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
              << std::hex << volId << std::dec << " blob " << blobName;
 
     // we don't go through commit log, but we need to serialized fwd updates
-    opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
-                             std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
-                                       this, volId, blobName, blobVersion,
-                                       objList, metaList, fwdCommitCb));
+    opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
+                                      std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
+                                                this, volId, blobName, blobVersion,
+                                                objList, metaList, fwdCommitCb));
 
     return ERR_OK;
 }

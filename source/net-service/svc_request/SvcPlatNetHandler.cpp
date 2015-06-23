@@ -168,13 +168,23 @@ void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::Async
 
     fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
 
-    /* Execute on synchronized task exector so that handling for requests
-     * with same id gets serialized
+    /* Execute on synchronized task executor so that handling for requests
+     * with same task id or executor id gets serialized
      */
-     taskExecutor_->schedule(header->msg_src_id,
-                           std::bind(&PlatNetSvcHandler::asyncRespHandler,
-                                     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
-                                     header, payload));
+    auto reqTracker = MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker();
+    auto asyncReq = reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
+    if (asyncReq->taskExecutorIdIsSet()) {
+        taskExecutor_->scheduleOnHashKey(asyncReq->getTaskExecutorId(),
+                                         std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                                   MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                                   header,
+                                                   payload));
+    } else {
+        taskExecutor_->scheduleOnTemplateKey(header->msg_src_id,
+                                             std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                                       MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                                       header, payload));
+    }
 }
 
 

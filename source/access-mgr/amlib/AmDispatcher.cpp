@@ -26,6 +26,8 @@
 
 namespace fds {
 
+std::hash<fds_volid_t> volIDHash;
+
 // Some logging routines have external linkage
 extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
 extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
@@ -288,6 +290,7 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
     /** What to do with the response */
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchOpenVolumeCb, amReq));
     auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volMDMsg, respCb);
+    asyncOpenVolReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncOpenVolReq->invoke();
 }
 
@@ -330,6 +333,7 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
         };
 
     auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, volMDMsg, cb);
+    asyncCloseVolReq->setTaskExecutorId(volIDHash(vol_id));
     asyncCloseVolReq->invoke();
     return ready.get();
 }
@@ -382,6 +386,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
     auto asyncSetVolMetadataReq = createMultiPrimaryRequest(amReq->io_vol_id,
                                                             volMetaMsg,
                                                             respCb);
+    asyncSetVolMetadataReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncSetVolMetadataReq->invoke();
 }
 
@@ -448,6 +453,7 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, amReq));
     auto asyncAbortBlobTxReq = createMultiPrimaryRequest(volId, stBlobTxMsg,respCb);
+    asyncAbortBlobTxReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncAbortBlobTxReq->invoke();
 
     LOGDEBUG << asyncAbortBlobTxReq->logString() << fds::logString(*stBlobTxMsg);
@@ -486,6 +492,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
     auto asyncStartBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id, startBlobTxMsg, respCb);
+    asyncStartBlobTxReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncStartBlobTxReq->invoke();
 
     LOGDEBUG << asyncStartBlobTxReq->logString()
@@ -522,6 +529,7 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
                                         this, amReq, std::placeholders::_1,
                                         std::placeholders::_2));
 
+    asyncReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncReq->invoke();
 }
 
@@ -575,6 +583,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
                                                        message_timeout_io);
 
     fds::PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
+    asyncUpdateCatReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
@@ -624,6 +633,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
                                                        message_timeout_io);
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
+    asyncUpdateCatReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
@@ -704,6 +714,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
                                                  message_timeout_io);
 
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
+    asyncPutReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
@@ -970,6 +981,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, amReq));
     auto asyncSetMDReq = createMultiPrimaryRequest(vol_id, setMDMsg, respCb);
+    asyncSetMDReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncSetMDReq->invoke();
 }
 
@@ -1030,6 +1042,7 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
     auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id, commitBlobTxMsg,respCb);
+    asyncCommitBlobTxReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
     asyncCommitBlobTxReq->invoke();
 
     LOGDEBUG << asyncCommitBlobTxReq->logString()
