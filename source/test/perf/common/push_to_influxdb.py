@@ -31,13 +31,14 @@ def dyn_cast(val):
         return val
 
 class InfluxDb:
-    def __init__(self, config):
+    def __init__(self, config, logging_enabled):
         self.ip = config["ip"]
         self.port = config["port"]
         self.user = config["user"]
         self.password = config["password"]
         self.dbname = config["db"]
         self.db = influxdb.InfluxDBClient(self.ip, self.port, self.user, self.password, self.dbname)
+        self.logging_enabled = logging_enabled
 
     def write_records(self, series, records):
         cols, vals = [list(x) for x in  zip(*records)]
@@ -53,7 +54,8 @@ class InfluxDb:
         ]
         print data
         self.db.write_points(data)
-        logger.info((json.dumps(data)))
+        if self.logging_enabled:
+            logger.info((json.dumps(data)))
 
 influx_db_config = {
     "ip" : "influxdb-ec2",
@@ -82,6 +84,6 @@ if __name__ == "__main__":
         records = [ [re.sub(' ','',y) for y in x.split('=')] for x in filter(lambda x : x != "", re.split("[\n;,]+", f.read()))]
             
     print "InfluxDB Config:", influx_db_config
-    db = InfluxDb(influx_db_config)
+    db = InfluxDb(influx_db_config, True)
     db.write_records(series, records)
 
