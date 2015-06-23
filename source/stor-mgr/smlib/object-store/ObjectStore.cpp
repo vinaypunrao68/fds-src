@@ -45,6 +45,31 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
+float_t ObjectStore::getUsedCapacityAsPct() {
+
+    float_t max = 0;
+    // For disks
+    for (auto diskId : diskMap->getDiskIds()) {
+        // Get the (used, total) pair
+        SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+
+        // Check to make sure we've got good data from the stat call
+        if (capacity.first == 0 || capacity.second == 0) {
+            // If we don't just return 0
+            LOGERROR << "Found disk used capacity of zero, possible error. DiskID = " << diskId
+                        << ". Disk path = " << diskMap->getDiskPath(diskId);
+            break;
+        }
+        float_t pct_used = (capacity.first * 1.) / capacity.second;
+
+        if (pct_used > max) {
+            max = pct_used;
+        }
+    }
+
+    return max * 100;
+}
+
 /**
  * Open metadata and data store for given SM tokens
  * Ok if metadata and data stores are already open for any of
