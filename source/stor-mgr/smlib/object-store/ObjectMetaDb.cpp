@@ -271,7 +271,7 @@ Error ObjectMetadataDb::remove(fds_volid_t volId,
 }
 
 
-std::string ObjectMetadataDb::getObjectMetaFilename(std::string diskPath, fds_token_id smTokId) {
+std::string ObjectMetadataDb::getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId) {
 
     std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
     return filename;

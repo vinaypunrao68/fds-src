@@ -121,7 +121,7 @@ class ObjectMetadataDb {
     /**
      * Return the file name of the object meta db for this token
      */
-    static std::string getObjectMetaFilename(std::string diskPath, fds_token_id smTokId);
+    static std::string getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId);
 
   private:  // methods
     /**
