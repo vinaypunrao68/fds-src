@@ -6,20 +6,22 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCXDI_H_
 
 #include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "fdsp/AsyncXdiServiceResponse.h"
-#include "concurrency/RwLock.h"
 
 namespace fds
 {
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>> {
  public:
-    using client_ptr = std::shared_ptr<apis::AsyncXdiServiceResponseClient>;
+    using client_type = apis::AsyncXdiServiceResponseClient;
+    using client_ptr = std::shared_ptr<client_type>;
     using client_map = std::unordered_map<std::string, client_ptr>;
 
  private:
@@ -27,26 +29,43 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     // We use a std rw lock here and vector or client pointers because
     // this lookup only happens once when the handshake is performed
-    static fds_rwlock client_lock;
+    static std::mutex map_lock;
     static client_map clients;
+    static constexpr size_t max_response_retries {1};
+
 
     /// Thrift client to response to XDI
+    std::mutex client_lock;
     client_ptr asyncRespClient;
     std::string serverIp;
     fds_uint32_t serverPort;
 
     void initiateClientConnect();
-    inline void checkClientConnect() {
-        if (!asyncRespClient && serverPort > 0) {
+
+    template<typename ... Args>
+    void xdiClientCall(void (client_type::*func)(Args...), Args&&... args) {
+        std::lock_guard<std::mutex> g(client_lock);
+        for (auto i = max_response_retries; i >= 0; --i) {
+        try {
+            if (!asyncRespClient) {
+                initiateClientConnect();
+            }
+            // Invoke the thrift method on our client
+            return ((asyncRespClient.get())->*(func))(std::forward<Args>(args)...);
+        } catch(const apache::thrift::transport::TTransportException& e) {
+            // Reset the pointer and re-try (if we have any left)
             initiateClientConnect();
         }
+        }
+        LOGERROR << "Unable to respond to XDI: "
+                 << "tcp://" << serverIp << ":" << serverPort;
     }
 
     boost::shared_ptr<fpi::ErrorCode> mappedErrorCode(Error const& error) const;
 
   public:
     explicit AmAsyncXdiResponse(std::string const& server_ip);
-    ~AmAsyncXdiResponse();
+    virtual ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
 
     // This only belongs to the Thrift interface, not the AmAsyncData interface

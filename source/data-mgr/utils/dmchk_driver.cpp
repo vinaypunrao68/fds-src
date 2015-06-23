@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     // Transform the provided uint64s into fds_volid_t's
     if (!vm["volumeid"].empty()) {
         auto parsedIds = vm["volumeid"].as<std::vector<uint64_t> >();
-        std::transform(parsedIds.begin(), parsedIds.end(), volumes.begin(),
+        std::transform(parsedIds.begin(), parsedIds.end(), std::back_inserter(volumes),
            [](uint64_t const& val) -> fds_volid_t { return fds_volid_t(val); });
     }
 
