@@ -5,8 +5,13 @@
 #include <string>
 #include <boost/lexical_cast.hpp>
 #include <fds_process.h>
+#include <net/SvcProcess.h>
+#include <net/SvcMgr.h>
+#include <fds_dmt.h>
 #include <LeveldbDiffer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
+#include <util/stringutils.h>
+#include <fdsp/ConfigurationService.h>
 
 namespace fds {
 
@@ -14,6 +19,7 @@ namespace fds {
 * @brief Interface for providing the environment necessary for running DM checker
 */
 struct DMCheckerEnv {
+    virtual ~DMCheckerEnv() = default;
     virtual std::list<fds_volid_t> getVolumeIds() const = 0;
     virtual uint32_t getReplicaCount(const fds_volid_t &volId) const = 0;
     virtual std::string getCatalogPath(const fds_volid_t &volId,
@@ -25,20 +31,46 @@ struct DMCheckerEnv {
 * At the moment offline mode requires OM to be up and all DM catalogs to be hosted
 * on same node
 */
-struct DMOfflineCheckerEnv : DMCheckerEnv {
-    virtual std::list<fds_volid_t> getVolumeIds() const {
-        // TODO(Rao):
-        return std::list<fds_volid_t>();
+struct DMOfflineCheckerEnv : SvcProcess, DMCheckerEnv {
+    DMOfflineCheckerEnv(int argc, char *argv[])
+    : SvcProcess(argc, argv, "platform.conf", "fds.checker.", "checker.log", nullptr) {
     }
-    virtual uint32_t getReplicaCount(const fds_volid_t &volId) const {
-        // TODO(Rao):
+    int main() override {
+        start_modules();
+        /* Get volumes from config api */
+        auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
+            "127.0.0.1", 9090, 4);
+        std::vector<fds::apis::VolumeDescriptor> volDescs;
+        configSvc->listVolumes(volDescs, "");
+        for_each(volDescs.begin(), volDescs.end(),
+                 [this](const fds::apis::VolumeDescriptor& d) {
+                    volumeList.push_back(static_cast<fds_volid_t>(d.volId));
+                 });
+
+        /* Get DMT */
+        svcMgr_->getDMT();
         return 0;
     }
-    virtual std::string getCatalogPath(const fds_volid_t &volId,
-                                       const uint32_t &replicaIdx) const {
-        // TODO(Rao):
-        return "";
+    int run() override { return 0; }
+    std::list<fds_volid_t> getVolumeIds() const override {
+        return volumeList;
     }
+    uint32_t getReplicaCount(const fds_volid_t &volId) const override {
+        return svcMgr_->getDMTNodesForVolume(volId)->getLength();
+    }
+    std::string getCatalogPath(const fds_volid_t &volId,
+                                       const uint32_t &replicaIdx) const override {
+        auto dmSvcUuid = svcMgr_->getDMTNodesForVolume(volId)->get(replicaIdx).toSvcUuid();
+        std::string nodeRoot = svcMgr_->getSvcProperty<std::string>(
+            SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
+            "fds_root");
+        return util::strformat("%s/sys-repo/%ld/%ld_vcat.ldb",
+                                 nodeRoot.c_str(), volId, volId);
+
+    }
+
+ protected:
+    std::list<fds_volid_t> volumeList;
 };
 
 /**
@@ -151,8 +183,8 @@ struct DMChecker {
 };
 } // namespace fds
 
-int main() {
-    DMOfflineCheckerEnv env;
+int main(int argc, char* argv[]) {
+    DMOfflineCheckerEnv env(argc, argv);
     fds::DMChecker checker(&env);
     auto ret = checker.run();
     return ret == 0 ? 0 : -1;
