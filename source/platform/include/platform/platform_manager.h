@@ -78,6 +78,10 @@ namespace fds
                 }
 
                 void addService (fpi::NotifyAddServiceMsgPtr const &addNodeMsg);
+                void removeService (fpi::NotifyRemoveServiceMsgPtr const &removeServiceMsg);
+
+                void startService (fpi::NotifyStartServiceMsgPtr const &startServiceMsg);
+                void stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg);
 
                 /**
                  * Update the service info properties with disk information,
@@ -117,6 +121,7 @@ namespace fds
                 void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);
                 std::string getProcName (int const index);
                 void updateNodeInfoDbPid (int processType, pid_t pid);
+                void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
                 void checkPidsDuringRestart();
                 bool procCheck (std::string procName, pid_t pid);
         };
