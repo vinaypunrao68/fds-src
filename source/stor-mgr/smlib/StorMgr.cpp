@@ -455,9 +455,9 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         LOGDEBUG << "Checking disk utilization!";
         float_t pct_used = objectStore->getUsedCapacityAsPct();
         if (pct_used >= ObjectStorMgr::ALERT_THRESHOLD) {
-            LOGDEBUG << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+            LOGNORMAL << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
         } else if (pct_used >= ObjectStorMgr::WARNING_THRESHOLD) {
-            LOGDEBUG << "SM is utilizing " << pct_used << " of available storage space!";
+            LOGWARN << "SM is utilizing " << pct_used << " of available storage space!";
         }
         sampleCounter = 0;
     }
