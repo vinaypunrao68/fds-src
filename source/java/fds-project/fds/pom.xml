@@ -20,6 +20,7 @@
   <version>1.0</version>
 
   <properties>
+    <formationds.thrift.version>2015.06.19-SNAPSHOT</formationds.thrift.version>
     <formationds.ext.model.version>2015.06.19-SNAPSHOT</formationds.ext.model.version>
   </properties>
 
@@ -27,8 +28,8 @@
     <!-- project module dependencies -->
     <dependency>
       <groupId>com.formationds</groupId>
-      <artifactId>fds-thrift</artifactId>
-      <version>${project.parent.version}</version>
+      <artifactId>formationds-thrift</artifactId>
+      <version>${formationds.thrift.version}</version>
     </dependency>
     <dependency>
       <groupId>com.formationds</groupId>
