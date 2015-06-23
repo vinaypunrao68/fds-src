@@ -10,11 +10,16 @@
 
 namespace fds {
 
+using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
     : DmReqHandler(DmReqHandle),
       OmStartMigrCb(NULL)
 {
 	migrState = MIGR_IDLE;
+	cleanUpInProgress = false;
+	maxExecutor = fds_uint64_t(MODULEPROVIDER()->get_fds_config()->
+							get<int>("fds.dm..migration.max_migrations"));
 }
 
 DmMigrationMgr::~DmMigrationMgr()
@@ -23,20 +28,183 @@ DmMigrationMgr::~DmMigrationMgr()
 }
 
 Error
+DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
+										const NodeUuid& mySvcUuid,
+										fpi::FDSP_VolumeDescType &vol,
+										MigrationType& migrationType,
+										fds_uint64_t uniqueId,
+										fds_uint16_t instanaceNum)
+{
+	Error err(ERR_OK);
+
+    SCOPEDWRITE(migrExecutorLock);
+	/**
+	 * Make sure that this isn't an ongoing operation.
+	 * Otherwise, OM bug?
+	 */
+	auto search = executorMap.find(fds_volid_t(vol.volUUID));
+	fds_assert(search == executorMap.end());
+
+	/**
+	 * Create a new instance of migration Executor
+	 */
+	LOGMIGRATE << "Creating migration instance for volume: " << vol.vol_name;
+	executorMap.emplace(fds_volid_t(vol.volUUID),
+			DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
+													srcDmUuid, mySvcUuid, vol,
+													std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
+															this, std::placeholders::_1,
+															std::placeholders::_2))));
+	return err;
+}
+
+Error
 DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &migrationMsg)
 {
 	Error err(ERR_OK);
+
+	// localMigrationMsg = migrationMsg;
+	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
+	NodeUuid destSvcUuid;
+	// TODO(Neil) fix this
+	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
+
+	/**
+	 * Make sure we're in a state able to dispatch migration.
+	 */
+	err = activateStateMachine(migrationMsg);
+
+	if (err != ERR_OK) {
+		return err;
+	}
+
 	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
 			vmg != migrationMsg->migrations.end(); vmg++) {
-		LOGMIGRATE << "DM MigrationMgr " << MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid
+		LOGMIGRATE << "DM MigrationMgr " << mySvcUuid.uuid_get_val()
 				<< "received migration group. Pull from node: " <<
 				vmg->source.svc_uuid << " the following volumes: ";
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
 				vdt != vmg->VolDescriptors.end(); vdt++) {
 			LOGMIGRATE << "Volume ID: " << vdt->volUUID << " name: " << vdt->vol_name;
+			destSvcUuid.uuid_set_val(vmg->source.svc_uuid);
+			err = createMigrationExecutor(destSvcUuid, mySvcUuid,
+									*vdt, localMigrationType,
+									fds_uint64_t(vdt->volUUID),
+									fds_uint16_t(1));
+			if (!err.OK()) {
+				LOGMIGRATE << "Error creating migrating task";
+				return err;
+			}
 		}
+	}
+
+	/**
+	 * For now, execute one at a time. Improve this later.
+	 */
+	for (DmMigrationExecMap::iterator mit = executorMap.begin();
+			mit != executorMap.end(); mit++) {
+		mit->second->execute();
+		if (isMigrationAborted()) {
+			/**
+			 * Abort everything
+			 */
+			err = ERR_DM_MIGRATION_ABORTED;
+			break;
+		}
+	}
+	return err;
+}
+
+Error
+DmMigrationMgr::activateStateMachine(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg)
+{
+	Error err(ERR_OK);
+
+	MigrationState expectedState(MIGR_IDLE);
+	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IN_PROGRESS)) {
+		// If not ABORTED state, then something wrong with OM FSM sending this migration msg
+		fds_verify(isMigrationAborted());
+		if (isMigrationAborted()) {
+			/**
+			 * If migration is in aborted state, don't do anything. Let the cleanup occur.
+			 * Once the cleanup is done, the state should go back to MIGR_IDLE.
+			 * In the meantime, do not serve anymore migrations.
+			 */
+			fds_verify(cleanUpInProgress);
+			LOGMIGRATE << "DM MigrationMgr cannot receive new requests as it is "
+					<< "currently in an error state and being cleaned up.";
+			err = ERR_NOT_READY;
+		}
+	} else {
+		/**
+		 * Migration should be idle
+		 */
+		fds_verify(ongoingMigrationCnt() == 0);
+		if (!(err = checkMaximumMigrations(msg).OK())) {
+			LOGMIGRATE << "This group of migration request exceeds the maximum allowed";
+		}
+	}
+	return err;
+}
+
+Error
+DmMigrationMgr::checkMaximumMigrations(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg)
+{
+	Error err(ERR_OK);
+	fds_uint64_t ongoingMigrations = 0;
+	fds_uint64_t reqMigrations = 0;
+
+	/**
+	 * Number of ongoing requests
+	 */
+	ongoingMigrations = ongoingMigrationCnt();
+	fds_verify(ongoingMigrations == 0);
+
+	/**
+	 * Number of requested migration in the incoming request.
+	 */
+	for (std::vector<fpi::DMVolumeMigrationGroup>::const_iterator mgi = msg->migrations.begin();
+			mgi != msg->migrations.end(); mgi++) {
+		for (std::vector<fpi::FDSP_VolumeDescType>::const_iterator vdi =
+				mgi->VolDescriptors.begin(); vdi != mgi->VolDescriptors.end();
+				vdi++) {
+			reqMigrations++;
+		}
+	}
+
+	if ((ongoingMigrations + reqMigrations) > maxExecutor) {
+		/**
+		 * RSYNC is being removed so this should be changed to a generic failure msg
+		 */
+		err = ERR_DM_RSYNC_FAILED;
 	}
 
 	return err;
 }
+
+void
+DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result)
+{
+	SCOPEDWRITE(migrExecutorLock);
+	MigrationState expectedState(MIGR_IN_PROGRESS);
+	/**
+	 * Make sure we can find it
+	 */
+	DmMigrationExecMap::iterator mapIter = executorMap.find(fds_volid_t(uniqueId));
+	fds_verify(mapIter != executorMap.end());
+
+	/**
+	 * TODO(Neil): error handling
+	 */
+	if (!result.OK()) {
+		fds_verify(isMigrationInProgress() || isMigrationAborted());
+		fds_verify(std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED));
+		LOGERROR << "Volume ID# " << uniqueId << " failed migration with error: " << result;
+	} else {
+		/**
+		 * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
+		 */
+	}
+}
+
 }  // namespace fds
