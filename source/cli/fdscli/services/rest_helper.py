@@ -19,13 +19,23 @@ class RESTHelper():
         response_writer.ResponseWriter.writeTabularData( response )
     
     def defaultErrorHandler(self, error):
-        errorText = json.loads( error.text )
+        
+        errorText = "";
         err_message = str(error.status_code) + ": "
+        
+        try:
+            errorText = json.loads( error.text )
+        except ValueError:
+            #do nothing and go on
+            pass
         
         if "message" in errorText:
             err_message += errorText["message"]
         else:
             err_message += error.reason
+        
+        if error.status_code == 404:
+            err_message = "The operation received a 404 response, this means there is a problem communicating with the FDS cluster."
         
         print err_message
         
