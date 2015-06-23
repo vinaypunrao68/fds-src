@@ -389,7 +389,6 @@ TEST(DmtCalculation, fail_rm_2prim) {
             }
         }
         EXPECT_TRUE(found);
-        delete newDmt;
     } else {
         EXPECT_TRUE(err.ok());
         err = newDmt->verify();
