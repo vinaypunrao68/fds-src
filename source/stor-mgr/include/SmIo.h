@@ -229,11 +229,11 @@ class SmIoAddObjRefReq : public SmIoReq {
     }
 
     fds_volid_t getSrcVolId() {
-        return addObjRefReq->srcVolId;
+        return fds_volid_t(addObjRefReq->srcVolId);
     }
 
     fds_volid_t getDestVolId() {
-        return addObjRefReq->destVolId;
+        return fds_volid_t(addObjRefReq->destVolId);
     }
 
     std::vector<fpi::FDS_ObjectIdType> & objIds() {

@@ -10,6 +10,7 @@
 
 #include <fds_process.h>
 #include <fds_module.h>
+#include <fds_resource.h>
 
 #include <net/SvcMgr.h>
 #include <dm-vol-cat/DmPersistVolCat.h>

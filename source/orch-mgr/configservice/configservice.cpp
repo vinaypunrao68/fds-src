@@ -149,6 +149,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
+    void deleteSnapshot(const int64_t volumeId, const int64_t snapshotId) {}
 
     // stubs to keep cpp compiler happy - END
 
@@ -856,17 +857,17 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
                               boost::shared_ptr<int64_t>& policyId) {
-        configDB->attachSnapshotPolicy(*volumeId, *policyId);
+        configDB->attachSnapshotPolicy(fds_volid_t(*volumeId), *policyId);
     }
 
     void listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & _return,
                                        boost::shared_ptr<int64_t>& volumeId) {
-        configDB->listSnapshotPoliciesForVolume(_return, *volumeId);
+        configDB->listSnapshotPoliciesForVolume(_return, fds_volid_t(*volumeId));
     }
 
     void detachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
                               boost::shared_ptr<int64_t>& policyId) {
-        configDB->detachSnapshotPolicy(*volumeId, *policyId);
+        configDB->detachSnapshotPolicy(fds_volid_t(*volumeId), *policyId);
     }
 
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return,
@@ -876,7 +877,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void listSnapshots(std::vector<fpi::Snapshot> & _return,
                        boost::shared_ptr<int64_t>& volumeId) {
-        configDB->listSnapshots(_return, *volumeId);
+        configDB->listSnapshots(_return, fds_volid_t(*volumeId));
     }
 
     /**
@@ -1036,7 +1037,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (*volPolicyId > 0) {
             desc.volPolicyId = *volPolicyId;
         }
-        desc.backupVolume = invalid_vol_id;
+        desc.backupVolume = invalid_vol_id.get();
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
@@ -1079,7 +1080,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
         }
 
-        return vol->vol_get_properties()->volUUID;
+        return vol->vol_get_properties()->volUUID.get();
     }
 
     void createSnapshot(boost::shared_ptr<int64_t>& volumeId,
@@ -1090,11 +1091,12 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
-        snapshot.snapshotId = configDB->getNewVolumeId();
-        if (invalid_vol_id == snapshot.snapshotId) {
+        auto snapshotId = configDB->getNewVolumeId();
+        if (invalid_vol_id == snapshotId) {
             LOGWARN << "unable to generate a new snapshot id";
             apiException("unable to generate a new snapshot id");
         }
+        snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
         snapshot.creationTimestamp = util::getTimeStampMillis();
         snapshot.retentionTimeSeconds = *retentionTime;
@@ -1103,7 +1105,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         snapshot.state = fpi::ResourceState::Loading;
         LOGDEBUG << "snapshot request for volume id:" << snapshot.volumeId
                  << " name:" << snapshot.snapshotName;
-
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
@@ -1116,6 +1117,24 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (om->enableSnapshotSchedule) {
             om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
         }
+    }
+
+    void deleteSnapshot(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& snapshotId) {
+        checkDomainStatus();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        fpi::Snapshot snapshot;
+
+        snapshot.volumeId = *volumeId;
+        snapshot.snapshotId = *snapshotId;
+        if (!om->getConfigDB()->getSnapshot(snapshot)) {
+            apiException(util::strformat("snapshot not found for [vol:%ld] - [snap:%ld]",*volumeId, *snapshotId));
+        }
+        snapshot.state = fpi::ResourceState::MarkedForDeletion;
+        // mark the snapshot for deletion
+        om->getConfigDB()->updateSnapshot(snapshot);
+
+        volContainer->om_delete_vol(fds_volid_t(snapshot.snapshotId));
     }
 };
 }  // namespace apis

@@ -115,7 +115,7 @@ void SmUnitTest::TearDown() {
 
 void SmUnitTest::setupTests(fds_uint32_t concurrency,
                             fds_uint32_t datasetSize) {
-    fds_volid_t volId = 98;
+    fds_volid_t volId(98);
 
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
     const std::string devPath = dir->dir_dev();
@@ -144,7 +144,7 @@ SmUnitTest::putSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::PutObjectMsg> putObjMsg(new fpi::PutObjectMsg());
-    putObjMsg->volume_id = volId;
+    putObjMsg->volume_id = volId.get();
     putObjMsg->data_obj = *objData;
     putObjMsg->data_obj_len = (*objData).size();
     putObjMsg->data_obj_id.digest =
@@ -152,17 +152,17 @@ SmUnitTest::putSm(fds_volid_t volId,
 
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
-    putReq->setVolId(putObjMsg->volume_id);
+    putReq->setVolId(volId);
     putReq->dltVersion = 1;
     putReq->forwardedReq = false;
     putReq->setObjId(objId);
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
     putReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_PUT_OBJ_REQ;
-    putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opReqLatencyCtx.reset_volid(volId);
     putReq->opLatencyCtx.type = PerfEventType::SM_PUT_IO;
-    putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opLatencyCtx.reset_volid(volId);
     putReq->opQoSWaitCtx.type = PerfEventType::SM_PUT_QOS_QUEUE_WAIT;
-    putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opQoSWaitCtx.reset_volid(volId);
 
     putReq->response_cb= std::bind(
         &SmUnitTest::putSmCb, this,
@@ -184,22 +184,22 @@ SmUnitTest::getSm(fds_volid_t volId,
     Error err(ERR_OK);
 
     boost::shared_ptr<fpi::GetObjectMsg> getObjMsg(new fpi::GetObjectMsg());
-    getObjMsg->volume_id = volId;
+    getObjMsg->volume_id = volId.get();
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
     auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
-    getReq->setVolId(getObjMsg->volume_id);
+    getReq->setVolId(volId);
     getReq->setObjId(objId);
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     getReq->opReqFailedPerfEventType = PerfEventType::SM_GET_OBJ_REQ_ERR;
     getReq->opReqLatencyCtx.type = PerfEventType::SM_E2E_GET_OBJ_REQ;
-    getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opReqLatencyCtx.reset_volid(volId);
     getReq->opLatencyCtx.type = PerfEventType::SM_GET_IO;
-    getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opLatencyCtx.reset_volid(volId);
     getReq->opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
-    getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opQoSWaitCtx.reset_volid(volId);
 
     getReq->response_cb = std::bind(
         &SmUnitTest::getSmCb, this,
@@ -219,7 +219,7 @@ SmUnitTest::putSmCb(const Error &err,
                     SmIoPutObjectReq* putReq)
 {
     fds_volid_t volId = putReq->getVolId();
-    ASSERT_EQ(volId, 98);
+    ASSERT_EQ(volId.get(), 98);
     fds_uint32_t dispatched = atomic_fetch_sub(&(volume1->dispatched_count), (fds_uint32_t)1);
     if (dispatched <= 1) {
         done_cond.notify_all();
@@ -236,7 +236,7 @@ SmUnitTest::getSmCb(const Error &err,
                     SmIoGetObjectReq *getReq)
 {
     fds_volid_t volId = getReq->getVolId();
-    ASSERT_EQ(volId, 98);
+    ASSERT_EQ(volId.get(), 98);
     TestVolume::ptr vol = volume1;
 
     // validate data
@@ -418,7 +418,7 @@ void SmUnitTest::handleDlt() {
 void SmUnitTest::addVolume(TestVolume::ptr volume)
 {
     Error err(ERR_OK);
-    fds_volid_t volumeId = 98;
+    fds_volid_t volumeId(98);
     FDSP_NotifyVolFlag vol_flag = FDSP_NOTIFY_VOL_NO_FLAG;
     FDSP_ResultType result = FDSP_ERR_OK;
     err = sm->registerVolume(volumeId, &volume1->voldesc_, vol_flag, result);

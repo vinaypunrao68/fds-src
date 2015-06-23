@@ -25,10 +25,18 @@ GetVolumeMetadataHandler::GetVolumeMetadataHandler(DataMgr& dataManager)
 void GetVolumeMetadataHandler::handleRequest(
     boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     boost::shared_ptr<fpi::GetVolumeMetadataMsg>& message) {
-    LOGTRACE << "Received a get volume metadata request for volume "
-             << message->volumeId;
 
-    auto err = dataManager.validateVolumeIsActive(message->volumeId);
+    fds_volid_t volId(message->volumeId);
+    LOGTRACE << "Received a get volume metadata request for volume "
+             << volId;
+
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(volId)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
@@ -38,7 +46,7 @@ void GetVolumeMetadataHandler::handleRequest(
 
     boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> response =
             boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
-    auto dmReq = new DmIoGetVolumeMetadata(message->volumeId, response);
+    auto dmReq = new DmIoGetVolumeMetadata(volId, response);
     dmReq->cb = BIND_MSG_CALLBACK(GetVolumeMetadataHandler::handleResponse, asyncHdr, response);
 
     addToQueue(dmReq);

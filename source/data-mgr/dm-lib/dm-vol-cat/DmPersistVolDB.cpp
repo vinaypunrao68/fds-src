@@ -44,7 +44,7 @@ DmPersistVolDB::~DmPersistVolDB() {
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
-                root->dir_sys_repo_dm()) + std::to_string(srcVolId_) +
+                root->dir_sys_repo_dm()) + std::to_string(srcVolId_.get()) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
         const std::string rm_cmd = "rm -rf  " + loc_src_db;
         int retcode = std::system((const char *)rm_cmd.c_str());
@@ -65,7 +65,7 @@ Error DmPersistVolDB::activate() {
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     } else {
         // snapshot
-        catName += std::to_string(srcVolId_) + "/snapshot";
+        catName += std::to_string(srcVolId_.get()) + "/snapshot";
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     }
 

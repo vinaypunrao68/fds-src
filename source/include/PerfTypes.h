@@ -10,12 +10,11 @@
 #include <string>
 #include <mutex>
 #include "fds_typedefs.h" //NOLINT
+#include "fds_volume.h"
 #include "util/enum_util.h"
 
 namespace fds {
 
-typedef fds_int64_t fds_volid_t;  // FIXME(matteo): this is ugly, needed to
-                                  // break header file circular dependency
 class FdsBaseCounter;
 
 DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,

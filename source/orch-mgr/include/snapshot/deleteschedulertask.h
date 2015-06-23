@@ -6,12 +6,13 @@
 #include <functional>
 #include <string>
 #include <ostream>
+#include "fds_volume.h"
 namespace fds {
 namespace snapshot {
 
 struct DeleteTask {
     /* volumeId of the volume whose snapshots should be deleted*/
-    uint64_t volumeId;
+    fds_volid_t volumeId;
     /* the latest time at which a snaphot belonging to the above volume
      is to be deleted*/
     uint64_t runAtTime;  // seconds

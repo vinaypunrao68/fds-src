@@ -481,13 +481,13 @@ int64_t Redis::hlen(const std::string& key) {
 
 bool Redis::hdel(const std::string& key, const std::string& field) {
     SCOPEDCXN();
-    Reply reply(redisCommand(cxn->ctx, "hget %s %s", key.c_str(), field.c_str()));
+    Reply reply(redisCommand(cxn->ctx, "hdel %s %s", key.c_str(), field.c_str()));
     return reply.getLong() > 0;
 }
 
 bool Redis::hdel(const std::string& key, int64_t field) {
     SCOPEDCXN();
-    Reply reply(redisCommand(cxn->ctx, "hget %s %ld", key.c_str(), field));
+    Reply reply(redisCommand(cxn->ctx, "hdel %s %ld", key.c_str(), field));
     return reply.getLong() > 0;
 }
 

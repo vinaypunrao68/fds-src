@@ -277,7 +277,7 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
 
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (destVolId == assoc_entry[i].vol_uuid) {
+        if (destVolId == fds_volid_t(assoc_entry[i].vol_uuid)) {
             GLOGWARN << "Entry already exists!";
             return;
         }
@@ -285,7 +285,7 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
 
     fds_uint32_t pos = 0;
     for (; pos < obj_map.obj_num_assoc_entry; ++pos) {
-        if (srcVolId == assoc_entry[pos].vol_uuid) {
+        if (srcVolId == fds_volid_t(assoc_entry[pos].vol_uuid)) {
             break;
         }
     }
@@ -295,7 +295,7 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
     }
 
     obj_assoc_entry_t new_association;
-    new_association.vol_uuid = destVolId;
+    new_association.vol_uuid = destVolId.get();
     new_association.ref_cnt = assoc_entry[pos].ref_cnt;
     obj_map.obj_refcnt += assoc_entry[pos].ref_cnt;
     assoc_entry.push_back(new_association);
@@ -310,14 +310,14 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
 void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (vol_id == assoc_entry[i].vol_uuid) {
+        if (vol_id == fds_volid_t(assoc_entry[i].vol_uuid)) {
             assoc_entry[i].ref_cnt++;
             obj_map.obj_refcnt++;
             return;
         }
     }
     obj_assoc_entry_t new_association;
-    new_association.vol_uuid = vol_id;
+    new_association.vol_uuid = vol_id.get();
     new_association.ref_cnt = 1UL;
     new_association.vol_migration_reconcile_ref_cnt = 0L;
     obj_map.obj_refcnt++;
@@ -335,7 +335,7 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
-        if (vol_id == (*it).vol_uuid) break;
+        if (vol_id == fds_volid_t((*it).vol_uuid)) break;
     }
     // If Volume did not put this objId then it delete is a noop
     if (it == assoc_entry.end()) return false;
@@ -362,10 +362,11 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) cons
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (assoc_entry[i].ref_cnt > 0UL) {
-            if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0UL) {
-                vol_refcnt[assoc_entry[i].vol_uuid] = 0UL;
+            fds_volid_t volId(assoc_entry[i].vol_uuid);
+            if (vol_refcnt.count(volId) == 0UL) {
+                vol_refcnt[volId] = 0UL;
             }
-            vol_refcnt[assoc_entry[i].vol_uuid] += assoc_entry[i].ref_cnt;
+            vol_refcnt[volId] += assoc_entry[i].ref_cnt;
         }
     }
 }
@@ -378,7 +379,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) cons
 fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
 {
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (vol_id == assoc_entry[i].vol_uuid) {
+        if (vol_id == fds_volid_t(assoc_entry[i].vol_uuid)) {
             return true;
         }
     }
@@ -393,7 +394,7 @@ std::vector<obj_assoc_entry_t>::iterator
 ObjMetaData::getAssociationIt(fds_volid_t volId) {
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
-        if (volId == (*it).vol_uuid) {
+        if (volId == fds_volid_t((*it).vol_uuid)) {
             break;
         }
     }
@@ -409,7 +410,7 @@ void ObjMetaData::getAssociatedVolumes(std::vector<fds_volid_t> &vols) const
 {
     vols.clear();
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        vols.push_back(assoc_entry[i].vol_uuid);
+        vols.push_back(fds_volid_t(assoc_entry[i].vol_uuid));
     }
 }
 
@@ -686,7 +687,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         std::vector<obj_assoc_entry_t>::iterator it;
         for (auto volAssoc : objMetaData.objectVolumeAssoc) {
 
-            it = getAssociationIt(volAssoc.volumeAssoc);
+            it = getAssociationIt(fds_volid_t(volAssoc.volumeAssoc));
 
             if (it != assoc_entry.end()) {
                 // found volume association, reconcile
@@ -723,7 +724,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
 
             if (!err.ok()) {
                 LOGERROR << "Cannot reconcile refcnt for volume "
-                         << std::hex << volAssoc.volumeAssoc << std::dec
+                         << fds_volid_t(volAssoc.volumeAssoc)
                          << " : existing refcnt "
                          << obj_map.obj_refcnt << ", diff from destination SM "
                          << volAssoc.volumeRefCnt;
@@ -829,7 +830,7 @@ ObjMetaData::initializeDelReconcile(const ObjectID& objId, fds_volid_t volId)
 
     obj_assoc_entry_t new_association;
 
-    new_association.vol_uuid = volId;
+    new_association.vol_uuid = volId.get();
     new_association.ref_cnt = 0UL;
     new_association.vol_migration_reconcile_ref_cnt = -1L;
     obj_map.obj_refcnt = 0UL;
@@ -889,7 +890,7 @@ ObjMetaData::reconcileDelObjMetaData(ObjectID objId,
 
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
-        if (volId == (*it).vol_uuid) {
+        if (volId == fds_volid_t((*it).vol_uuid)) {
             break;
         }
     }
@@ -897,7 +898,7 @@ ObjMetaData::reconcileDelObjMetaData(ObjectID objId,
     // While is Reconcile state, DELETE was called on this object.  We
     if (it == assoc_entry.end()) {
         obj_assoc_entry_t newAssociation;
-        newAssociation.vol_uuid = volId;
+        newAssociation.vol_uuid = volId.get();
         newAssociation.ref_cnt = 0;
         newAssociation.vol_migration_reconcile_ref_cnt = -1L;
         assoc_entry.push_back(newAssociation);
@@ -962,7 +963,7 @@ ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
 
         // If the volume is found, then reconcile that particular volume.
-        if (volId == (*it).vol_uuid) {
+        if (volId == fds_volid_t((*it).vol_uuid)) {
             break;
         }
     }
@@ -970,7 +971,7 @@ ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
     // New volume association.  Add a new entry.
     if (it == assoc_entry.end()) {
         obj_assoc_entry_t new_association;
-        new_association.vol_uuid = volId;
+        new_association.vol_uuid = volId.get();
         new_association.ref_cnt = 1L;
         new_association.vol_migration_reconcile_ref_cnt = 0L;
 
@@ -1042,7 +1043,7 @@ ObjMetaData::reconcileDeltaObjMetaData(const fpi::CtrlObjectMetaDataPropagate& o
 
     std::vector<obj_assoc_entry_t>::iterator it;
     for (auto volAssoc : objMetaData.objectVolumeAssoc) {
-        it = getAssociationIt(volAssoc.volumeAssoc);
+        it = getAssociationIt(fds_volid_t(volAssoc.volumeAssoc));
 
         if (assoc_entry.end() == it) {
             // new association.  no need to add.  Just add the association.

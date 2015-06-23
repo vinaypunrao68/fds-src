@@ -61,11 +61,15 @@ struct AmDispatcher : HasModuleProvider
      * Dispatches an open volume request to DM.
      */
     void dispatchOpenVolume(AmRequest *amReq);
+    void dispatchOpenVolumeCb(AmRequest* amReq,
+                              MultiPrimarySvcRequest* svcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload) const;
 
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token);
+    Error dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.
@@ -89,7 +93,7 @@ struct AmDispatcher : HasModuleProvider
      * Callback for set volume metadata responses.
      */
     void setVolumeMetadataCb(AmRequest* amReq,
-                             QuorumSvcRequest* svcReq,
+                             MultiPrimarySvcRequest* svcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
 
@@ -120,7 +124,7 @@ struct AmDispatcher : HasModuleProvider
      * Callback for start blob transaction responses.
      */
     void startBlobTxCb(AmRequest* amReq,
-                       QuorumSvcRequest* svcReq,
+                       MultiPrimarySvcRequest* svcReq,
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
@@ -133,7 +137,7 @@ struct AmDispatcher : HasModuleProvider
      * Callback for commit blob transaction responses.
      */
     void commitBlobTxCb(AmRequest* amReq,
-                       QuorumSvcRequest* svcReq,
+                       MultiPrimarySvcRequest* svcReq,
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
@@ -201,14 +205,14 @@ struct AmDispatcher : HasModuleProvider
     boost::shared_ptr<DMTManager> dmtMgr;
 
     template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(fds_volid_t const& volId,
+    MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
                                             boost::shared_ptr<Msg> const& payload,
-                                            QuorumSvcRequestRespCb quorumCb,
+                                            MultiPrimarySvcRequestRespCb mpCb,
                                             uint32_t timeout=0) const;
     template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
+    MultiPrimarySvcRequestPtr createMultiPrimaryRequest(ObjectID const& objId,
                                             boost::shared_ptr<Msg> const& payload,
-                                            QuorumSvcRequestRespCb quorumCb,
+                                            MultiPrimarySvcRequestRespCb mpCb,
                                             uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
@@ -224,7 +228,7 @@ struct AmDispatcher : HasModuleProvider
      * Callback for delete blob responses.
      */
     void abortBlobTxCb(AmRequest *amReq,
-                       QuorumSvcRequest* svcReq,
+                       MultiPrimarySvcRequest* svcReq,
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
@@ -232,7 +236,7 @@ struct AmDispatcher : HasModuleProvider
      * Callback for delete blob responses.
      */
     void deleteBlobCb(AmRequest *amReq,
-                      QuorumSvcRequest* svcReq,
+                      MultiPrimarySvcRequest* svcReq,
                       const Error& error,
                       boost::shared_ptr<std::string> payload);
 
@@ -264,7 +268,7 @@ struct AmDispatcher : HasModuleProvider
      * Callback for set metadata on blob responses.
      */
     void setBlobMetadataCb(AmRequest *amReq,
-                           QuorumSvcRequest* svcReq,
+                           MultiPrimarySvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
 
@@ -280,11 +284,11 @@ struct AmDispatcher : HasModuleProvider
      * Callback for update blob responses.
      */
     void updateCatalogOnceCb(AmRequest* amReq,
-                             QuorumSvcRequest* svcReq,
+                             MultiPrimarySvcRequest* svcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
     void updateCatalogCb(AmRequest* amReq,
-                         QuorumSvcRequest* svcReq,
+                         MultiPrimarySvcRequest* svcReq,
                          const Error& error,
                          boost::shared_ptr<std::string> payload);
 
@@ -293,7 +297,7 @@ struct AmDispatcher : HasModuleProvider
      */
     void putObjectCb(AmRequest* amReq,
                      fds_uint64_t dltVersion,
-                     QuorumSvcRequest* svcReq,
+                     MultiPrimarySvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
 
@@ -309,6 +313,11 @@ struct AmDispatcher : HasModuleProvider
      * Configurable timeouts and defaults (ms)
      */
     uint32_t message_timeout_io { 0 };
+
+    /**
+     * Number of primary replicas (right now DM/SM are identical)
+     */
+    uint32_t numPrimaries;
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;

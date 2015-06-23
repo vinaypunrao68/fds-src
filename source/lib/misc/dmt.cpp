@@ -69,7 +69,7 @@ DmtColumnPtr DMT::getNodeGroup(fds_uint32_t col_index) const {
  */
 DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     fds_verify(columns > 0);
-    fds_uint32_t col_index = volume_id % columns;
+    fds_uint32_t col_index = volume_id.get() % columns;
     return dmt_table->at(col_index);
 }
 
@@ -81,7 +81,7 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
 fds_uint32_t DMT::getNodeGroupIndex(fds_volid_t volume_id,
                                     fds_uint32_t num_columns) {
     fds_verify(num_columns > 0);
-    return (volume_id % num_columns);
+    return (volume_id.get() % num_columns);
 }
 
 /**
@@ -209,9 +209,6 @@ Error DMT::verify() const {
                 return ERR_INVALID_DMT;
             }
             nodes.insert(uuid);
-        }
-        if (nodes.size() != depth) {
-            return ERR_INVALID_DMT;
         }
     }
     return err;

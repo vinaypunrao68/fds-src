@@ -30,7 +30,7 @@ struct SectorLockMap {
     typedef E entry_type;
     static constexpr size_t size = N;
     typedef std::mutex lock_type;
-    typedef int64_t key_type;
+    typedef uint64_t key_type;
     typedef boost::lockfree::spsc_queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
     typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
     typedef typename map_type::iterator map_it;
@@ -84,8 +84,9 @@ struct SectorLockMap {
     map_type sector_map;
 };
 
-class NbdResponseVector {
-  public:
+struct NbdResponseVector {
+    using buffer_type = std::string;
+    using buffer_ptr_type = boost::shared_ptr<buffer_type>;
     enum NbdOperation {
         READ = 0,
         WRITE = 1
@@ -111,7 +112,7 @@ class NbdResponseVector {
     inline fds_uint32_t getLength() const { return length; }
     inline fds_uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
 
-    boost::shared_ptr<std::string> getNextReadBuffer(fds_uint32_t& context) {
+    buffer_ptr_type getNextReadBuffer(fds_uint32_t& context) {
         if (context >= bufVec.size()) {
             return nullptr;
         }
@@ -120,7 +121,7 @@ class NbdResponseVector {
 
     void keepBufferForWrite(fds_uint32_t const seqId,
                             fds_uint64_t const objectOff,
-                            boost::shared_ptr<std::string>& buf) {
+                            buffer_ptr_type& buf) {
         fds_assert(WRITE == operation);
         bufVec.emplace_back(buf);
         offVec.emplace_back(objectOff);
@@ -130,16 +131,15 @@ class NbdResponseVector {
         return offVec[seqId];
     }
 
-    boost::shared_ptr<std::string> getBuffer(fds_uint32_t const seqId) const {
+    buffer_ptr_type getBuffer(fds_uint32_t const seqId) const {
         return bufVec[seqId];
     }
 
     /**
      * \return true if all responses were received or operation error
      */
-    fds_bool_t handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
-                                  fds_uint32_t len,
-                                  const Error& err);
+    void handleReadResponse(std::vector<buffer_ptr_type>& buffers,
+                            fds_uint32_t len);
 
     /**
      * \return true if all responses were received
@@ -159,8 +159,8 @@ class NbdResponseVector {
      * Handle read response for read-modify-write
      * \return true if all responses were received or operation error
      */
-    std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
-        handleRMWResponse(boost::shared_ptr<std::string> retBuf,
+    std::pair<fds_uint64_t, buffer_ptr_type>
+        handleRMWResponse(buffer_ptr_type retBuf,
                           fds_uint32_t len,
                           fds_uint32_t seqId,
                           const Error& err);
@@ -177,7 +177,7 @@ class NbdResponseVector {
     Error opError;
 
     // to collect read responses or first and last buffer for write op
-    std::vector<boost::shared_ptr<std::string>> bufVec;
+    std::vector<buffer_ptr_type> bufVec;
     // when writing, we need to remember the object offsets for rwm buffers
     std::vector<fds_uint64_t> offVec;
 

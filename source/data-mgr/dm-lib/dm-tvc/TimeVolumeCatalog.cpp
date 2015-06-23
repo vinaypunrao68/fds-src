@@ -181,7 +181,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
     // COMMITLOG_GET(voldesc.srcVolumeId, commitLog);
     // fds_assert(commitLog);
 
-    if (origSrcVolume == 0) {
+    if (invalid_vol_id == origSrcVolume) {
         origSrcVolume = voldesc.srcVolumeId;
     }
     LOGDEBUG << "copying into volume [" << voldesc.volUUID
@@ -252,8 +252,8 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
 
     // Create message
     fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
-    addObjReq->srcVolId = srcVolId;
-    addObjReq->destVolId = destVolId;
+    addObjReq->srcVolId = srcVolId.get();
+    addObjReq->destVolId = destVolId.get();
     addObjReq->objIds = *objIds;
 
     // for (auto it : *objIds) {
@@ -623,7 +623,7 @@ void DmTimeVolCatalog::monitorLogs() {
                         if (!rc) {
                             fds_verify(0 == unlink(srcFile.c_str()));
                             processedEvent = true;
-                            fds_volid_t volId = std::atoll(d.c_str());
+                            fds_volid_t volId (std::atoll(d.c_str()));
                             TimeStamp startTime = 0;
                             dmGetCatJournalStartTime(volTLPath + f, &startTime);
                             dataManager_.timeline->addJournalFile(volId, startTime, volTLPath + f);

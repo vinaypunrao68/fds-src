@@ -109,7 +109,7 @@ struct DMTester :  SvcProcess {
                   << ":" << dataMgr->getPrefix()
                   << std::endl;
         return dataMgr->_process_add_vol(dataMgr->getPrefix() +
-                                        std::to_string(volumes[num]->volUUID),
+                                        std::to_string(volumes[num]->volUUID.get()),
                                         volumes[num]->volUUID, volumes[num].get(),
                                         false);
     }

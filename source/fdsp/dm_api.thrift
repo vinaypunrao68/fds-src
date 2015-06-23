@@ -74,7 +74,8 @@ struct GetVolumeMetadataMsgRsp {
 struct SetVolumeMetadataMsg {
   1: i64                        volumeId;
   2: dm_types.FDSP_MetaDataList metadataList;
-  3: optional i64               sequence_id;
+  /** Volume update sequencing */
+  3: required i64               sequence_id;
 }
 /**
  * Returns success if metadata was updated.
@@ -128,7 +129,7 @@ struct CreateVolumeCloneMsg {
      2:i64 cloneId,
      3:string cloneName,
      4:i64 VolumePolicyId
-}  
+}
 /**
  * Response contains the ID of the newly created clone
  * volume. This ID is equivalent to the volume's ID.
@@ -161,7 +162,8 @@ struct OpenVolumeMsg {
 struct OpenVolumeRspMsg {
   /** Token for volume access */
   1: required i64                       token;
-  2: optional i64                       sequence_id;
+  /** Volume update sequencing */
+  2: required i64                       sequence_id;
 }
 
 /**
@@ -216,7 +218,8 @@ struct CommitBlobTxMsg {
   3: i64                        blob_version;
   4: i64                        txId;
   5: i64                        dmt_version;
-  6: optional i64               sequence_id;
+  /** Volume update sequencing */
+  6: required i64               sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -252,7 +255,7 @@ struct AbortBlobTxRspMsg {
 
 /**
  * Updates an existing transaction with a new blob update. The update
- * is not applied until the transcation is committed. 
+ * is not applied until the transcation is committed.
  * Updates within a transaction are ordered so this update may overwrite
  * a previous update to the same offset in the same transaction context
  * when committed.
@@ -289,7 +292,8 @@ struct UpdateCatalogOnceMsg {
    /** List of object ids of the objects that this blob is being mapped to */
    7: dm_types.FDSP_BlobObjectList      obj_list;
    8: dm_types.FDSP_MetaDataList        meta_list;
-   9: optional i64                      sequence_id;
+   /** Volume update sequencing */
+   9: required i64                      sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -462,11 +466,20 @@ struct GetDmStatsRespMsg {
 }
 
 /* ------------------------------------------------------------
-   Operations for  Meta verifications 
+   Operations for Catalog Migration and Resync
    ------------------------------------------------------------*/
 
+/* This is a message from OM to the destination DM to start the
+ * migration
+ */
 struct CtrlNotifyDMStartMigrationMsg {
+  /* List of < source UUID, {list of volume descriptors} > to
+   * migrate.  The destination DM will receive the message, and
+   * pull associated volume descriptors from the source DM.
+   */
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
+
+  /* Verson of DMT associated with the migration */
   2: i64                     DMT_version;
 }
 
@@ -474,7 +487,10 @@ struct CtrlNotifyDMStartMigrationMsg {
  * ACK to the OM from DM of receiving a migration msg.
  */
 struct CtrlNotifyDMStartMigrationRspMsg {
-    // Empty response is fine. Nothing needed.
+  /* An empty reply from the Destination DM to the OM when the
+   * migration is complete.
+   * Any error code is stuffed in the async header.
+   */
 }
 
 /* ------------------------------------------------------------
@@ -552,6 +568,37 @@ struct ReloadVolumeMsg {
     1: i64 volume_id;
 }
 struct ReloadVolumeRspMsg {
+}
+
+/**
+ * current versions of the blobs on a given volume held by the sender DM
+ * - used to initiate static DM migration/resync
+ * - sent from sync destination to sync source.
+ */
+struct ResyncInitialBlobFilterSetMsg {
+  /** the volume in question */
+  1: i64                          volume_id;
+  /** the list of blobs held and the sequence id of the most recent write to each blob
+      NOTE: list should be sorted by Blob ID */
+  2: list<dm_types.BlobFilterSetEntry>           blob_filter_set;
+}
+
+/**
+ * 1st Response Message for ResyncInitialBlobFilterSetMsg
+ */
+struct ResyncUpdateBlobsMsg {
+  /** levelDB key-value pairs for insertion to the reciever.
+      list should be sorted to ensure blob descriptor is written after the object mappings */
+  1: dm_types.FDSP_MetaDataList          pairs;
+}
+
+/**
+ * 2nd Response Message for ResyncInitialBlobFilterSetMsg
+ */
+struct ResyncDeleteBlobsMsg {
+  /** A list of blob ids that exist on the receiver (sync destination) but not the
+      sender (sync source). These blobs should be deleted by the receiver. */
+  1: list<i64> blob_list;
 }
 
 /* ------------------------------------------------------------

@@ -26,7 +26,7 @@ namespace fds {
 
 static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
-static fds_volid_t singleVolId = 74;
+static fds_volid_t const singleVolId(74);
 
 /**
  * Load (performance) test for ObjectStore

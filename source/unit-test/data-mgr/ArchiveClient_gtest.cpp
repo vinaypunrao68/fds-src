@@ -30,12 +30,12 @@ using namespace fds;  // NOLINT
 struct ArchiveClientTest : public BaseTestFixture, DataMgrIf
 {
     ArchiveClientTest()
-        : volDesc_("dummy", 0)
+        : volDesc_("dummy", invalid_vol_id)
     {
         volDesc_.tennantId = 1;
     }
     bool prepareSnap(const fds_volid_t &volId,
-                     const int64_t &snapId) {
+                     const fds_volid_t &snapId) {
         /* Get home dir */
         std::string homeDir(getenv("HOME"));
         if (homeDir.empty()) {
@@ -72,7 +72,7 @@ struct ArchiveClientTest : public BaseTestFixture, DataMgrIf
         return snapDirBase_;
     }
     virtual std::string getSnapDirName(const fds_volid_t &volId,
-                                       const int64_t snapId) const override
+                                       const fds_volid_t snapId) const override
     {
         std::stringstream stream;
         stream << snapDirBase_ << "/" << volId << "/" << snapId;
@@ -90,8 +90,8 @@ struct ArchiveClientTest : public BaseTestFixture, DataMgrIf
 */
 TEST_F(ArchiveClientTest, put_get)
 {
-    fds_volid_t volId = 1;
-    int64_t snapId = 1;
+    fds_volid_t volId(1);
+    fds_volid_t snapId(1);
     std::string script = this->getArg<std::string>("script");
 
     ASSERT_TRUE(prepareSnap(volId, snapId));

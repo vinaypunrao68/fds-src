@@ -44,6 +44,7 @@ public class Main {
 
         try {
 
+
             Configuration cfg = new Configuration( "om-xdi", args );
             new Main(cfg).start(args);
 

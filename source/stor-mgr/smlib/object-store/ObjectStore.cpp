@@ -1058,7 +1058,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         // we have to select tier based on volume policy with the highest tier policy
         StorMgrVolume* selectVol = NULL;
         for (auto volAssoc : msg.objectVolumeAssoc) {
-            fds_volid_t volId = volAssoc.volumeAssoc;
+            fds_volid_t volId(volAssoc.volumeAssoc);
             StorMgrVolume* vol = volumeTbl->getVolume(volId);
             //
             // TODO(Sean):  Volume table should be updated before token resync.
@@ -1136,8 +1136,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             return err;
         }
 
-        // Notify tier engine of recent IO
-        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *selectVol->voldesc, useTier);
+
+        // Notify tier engine of recent IO if the volume information is available.
+        if (NULL != selectVol) {
+            tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *selectVol->voldesc, useTier);
+        }
 
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);

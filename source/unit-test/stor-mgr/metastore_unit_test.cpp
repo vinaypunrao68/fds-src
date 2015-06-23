@@ -78,13 +78,13 @@ class MetaStoreUTProc : public FdsProcess {
     int runSmokeTest();
 
     // wrappers for get/put/delete
-    Error get(fds_volid_t volId,
+    Error get(uint64_t volId,
               const ObjectID& objId,
               ObjMetaData::const_ptr &objMeta);
-    Error put(fds_volid_t volId,
+    Error put(uint64_t volId,
               const ObjectID& objId,
               ObjMetaData::const_ptr objMeta);
-    Error remove(fds_volid_t volId,
+    Error remove(uint64_t volId,
                  const ObjectID& objId);
 
   private:
@@ -226,20 +226,21 @@ MetaStoreUTProc::~MetaStoreUTProc() {
 }
 
 
-Error MetaStoreUTProc::get(fds_volid_t volId,
+Error MetaStoreUTProc::get(uint64_t volId,
                            const ObjectID& objId,
                            ObjMetaData::const_ptr &objMeta) {
+    fds_volid_t fdsVolId(volId);
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
         fds_verify(!store_ && !cache_);
-        objMeta = db_->get(volId, objId, err);
+        objMeta = db_->get(fdsVolId, objId, err);
     } else if (store_) {
         fds_verify(!db_ && !cache_);
-        objMeta = store_->getObjectMetadata(volId, objId, err);
+        objMeta = store_->getObjectMetadata(fdsVolId, objId, err);
     } else if (cache_) {
         fds_verify(!db_ && !store_);
-        objMeta = cache_->getObjectMetadata(volId, objId, err);
+        objMeta = cache_->getObjectMetadata(fdsVolId, objId, err);
     } else {
         fds_panic("no known modules are initialized for get operation!");
     }
@@ -247,27 +248,28 @@ Error MetaStoreUTProc::get(fds_volid_t volId,
 
     // record stat
     fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
-    StatsCollector::singleton()->recordEvent(volId,
+    StatsCollector::singleton()->recordEvent(fdsVolId,
                                              util::getTimeStampNanos(),
                                              STAT_AM_GET_OBJ,
                                              static_cast<double>(lat_nano) / 1000.0);
     return ERR_OK;
 }
 
-Error MetaStoreUTProc::put(fds_volid_t volId,
+Error MetaStoreUTProc::put(uint64_t volId,
                            const ObjectID& objId,
                            ObjMetaData::const_ptr objMeta) {
+    fds_volid_t fdsVolId(volId);
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
         fds_verify(!store_ && !cache_);
-        err = db_->put(volId, objId, objMeta);
+        err = db_->put(fdsVolId, objId, objMeta);
     } else if (store_) {
         fds_verify(!db_ && !cache_);
-        err = store_->putObjectMetadata(volId, objId, objMeta);
+        err = store_->putObjectMetadata(fdsVolId, objId, objMeta);
     } else if (cache_) {
         fds_verify(!db_ && !store_);
-        cache_->putObjectMetadata(volId, objId, objMeta);
+        cache_->putObjectMetadata(fdsVolId, objId, objMeta);
     } else {
         fds_panic("no known modules are initialized for put operation!");
     }
@@ -275,7 +277,7 @@ Error MetaStoreUTProc::put(fds_volid_t volId,
 
     // record stat
     fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
-    StatsCollector::singleton()->recordEvent(volId,
+    StatsCollector::singleton()->recordEvent(fdsVolId,
                                              util::getTimeStampNanos(),
                                              STAT_AM_PUT_OBJ,
                                              static_cast<double>(lat_nano) / 1000.0);
@@ -283,17 +285,18 @@ Error MetaStoreUTProc::put(fds_volid_t volId,
     return ERR_OK;
 }
 
-Error MetaStoreUTProc::remove(fds_volid_t volId,
+Error MetaStoreUTProc::remove(uint64_t volId,
                               const ObjectID& objId) {
+    fds_volid_t fdsVolId(volId);
     if (db_) {
         fds_verify(!store_ && !cache_);
-        return db_->remove(volId, objId);
+        return db_->remove(fdsVolId, objId);
     } else if (store_) {
         fds_verify(!db_ && !cache_);
-        return store_->removeObjectMetadata(volId, objId);
+        return store_->removeObjectMetadata(fdsVolId, objId);
     } else if (cache_) {
         fds_verify(!db_ && !store_);
-        cache_->removeObjectMetadata(volId, objId);
+        cache_->removeObjectMetadata(fdsVolId, objId);
         return ERR_OK;
     } else {
         fds_panic("no known modules are initialized for put operation!");
@@ -357,14 +360,14 @@ MetaStoreUTProc::allocRandomObjMeta(fds_uint32_t rnum,
     meta->initialize(objId,
                      getObjSize(rnum));
     if ((rnum % 3) == 0) {
-        meta->updateAssocEntry(objId, 5);
-        meta->updateAssocEntry(objId, 123);
-        meta->updateAssocEntry(objId, 1293);
+        meta->updateAssocEntry(objId, fds_volid_t(5));
+        meta->updateAssocEntry(objId, fds_volid_t(123));
+        meta->updateAssocEntry(objId, fds_volid_t(1293));
     } else if ((rnum %3) == 1) {
-        meta->updateAssocEntry(objId, 51);
-        meta->updateAssocEntry(objId, 323);
+        meta->updateAssocEntry(objId, fds_volid_t(51));
+        meta->updateAssocEntry(objId, fds_volid_t(323));
     } else {
-        meta->updateAssocEntry(objId, 34);
+        meta->updateAssocEntry(objId, fds_volid_t(34));
     }
     meta->updatePhysLocation(&loc);
 
@@ -385,14 +388,14 @@ MetaStoreUTProc::isValidObjMeta(ObjMetaData::const_ptr meta,
     if (meta->getObjSize() != getObjSize(rnum)) return false;
 
     if ((rnum % 3) == 0) {
-        if (!meta->isVolumeAssociated(5)) return false;
-        if (!meta->isVolumeAssociated(123)) return false;
-        if (!meta->isVolumeAssociated(1293)) return false;
+        if (!meta->isVolumeAssociated(fds_volid_t(5))) return false;
+        if (!meta->isVolumeAssociated(fds_volid_t(123))) return false;
+        if (!meta->isVolumeAssociated(fds_volid_t(1293))) return false;
     } else if ((rnum %3) == 1) {
-        if (!meta->isVolumeAssociated(51)) return false;
-        if (!meta->isVolumeAssociated(323)) return false;
+        if (!meta->isVolumeAssociated(fds_volid_t(51))) return false;
+        if (!meta->isVolumeAssociated(fds_volid_t(323))) return false;
     } else {
-        if (!meta->isVolumeAssociated(34)) return false;
+        if (!meta->isVolumeAssociated(fds_volid_t(34))) return false;
     }
     return true;
 }

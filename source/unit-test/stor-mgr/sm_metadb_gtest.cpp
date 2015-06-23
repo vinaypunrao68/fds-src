@@ -21,7 +21,7 @@ using ::testing::AtLeast;
 using ::testing::Return;
 
 static const fds_uint32_t bitsPerDltToken = 8;
-static const fds_volid_t volId = 34;
+static const fds_volid_t volId(34);
 
 namespace fds {
 

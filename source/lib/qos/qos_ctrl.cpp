@@ -55,7 +55,7 @@ void   FDS_QoSControl::setQosDispatcher(dispatchAlgoType algo_type,
 
 Error   FDS_QoSControl::registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq) {
     Error err(ERR_OK);
-    err = dispatcher->registerQueue(vol_uuid, volq);
+    err = dispatcher->registerQueue(vol_uuid.get(), volq);
     return err;
 }
 
@@ -65,33 +65,33 @@ Error FDS_QoSControl::modifyVolumeQosParams(fds_volid_t vol_uuid,
                                             fds_uint32_t prio)
 {
     Error err(ERR_OK);
-    err = dispatcher->modifyQueueQosParams(vol_uuid, iops_assured, iops_throttle, prio);
+    err = dispatcher->modifyQueueQosParams(vol_uuid.get(), iops_assured, iops_throttle, prio);
     return err;
 }
 
 
 Error   FDS_QoSControl::deregisterVolume(fds_volid_t vol_uuid) {
     Error err(ERR_OK);
-    err = dispatcher->deregisterQueue(vol_uuid);
+    err = dispatcher->deregisterQueue(vol_uuid.get());
     return err;
 }
 
 Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
     Error err(ERR_OK);
-    err = dispatcher->enqueueIO(volUUID, io);
+    err = dispatcher->enqueueIO(volUUID.get(), io);
     return err;
 }
 
 fds_uint32_t FDS_QoSControl::queueSize(fds_volid_t volId) {
-    return dispatcher->count(volId);
+    return dispatcher->count(volId.get());
 }
 
 FDS_VolumeQueue* FDS_QoSControl::getQueue(fds_volid_t queueId) {
-    return dispatcher->getQueue(queueId);
+    return dispatcher->getQueue(queueId.get());
 }
 
 void FDS_QoSControl::quieseceIOs(fds_volid_t volUUID) {
-    dispatcher->quiesceIOs(volUUID);
+    dispatcher->quiesceIOs(volUUID.get());
 }
 
 Error FDS_QoSControl::processIO(FDS_IOType *io_type) {

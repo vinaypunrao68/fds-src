@@ -53,18 +53,9 @@ MigrationExecutor::~MigrationExecutor()
 }
 
 void MigrationExecutor::handleTimeout() {
-
-    int round = 0;
-
-    if (this->state.load() == ME_FIRST_PHASE_APPLYING_DELTA ||
-        this->state.load() == ME_FIRST_PHASE_REBALANCE_START) {
-        round = 1;
-    } else if (this->state.load() == ME_SECOND_PHASE_APPLYING_DELTA ||
-               this->state.load() == ME_SECOND_PHASE_REBALANCE_START) {
-        round = 2;
-    }
-
-    this->timeoutCb(this->executorId, this->smTokenId, this->dltTokens, round, ERR_SM_TOK_MIGRATION_TIMEOUT);
+    this->timeoutCb(this->executorId, this->smTokenId,
+                    this->dltTokens, migrationRound(),
+                    ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
 void
@@ -88,6 +79,19 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 {
     Error err(ERR_OK);
     ObjMetaData omd;
+
+    /**
+     * Take a scoped lock for retryDltTokens map as it's accessed several
+     * times in the method.
+     */
+    fds_mutex::scoped_lock l(retryDltTokensLock);
+
+    /**
+     * Return if no dlt tokens to retry migration for from the same source SM.
+     */
+    if (retryDltTokens.empty()) {
+        return err;
+    }
 
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
@@ -376,7 +380,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // failure handling for migration.
         fiu_do_on("fail.sm.migration.sending.filter.set",
                   LOGDEBUG << "fault fail.sm.migration.sending.filter.set enabled"; \
-                  return ERR_SM_TOK_MIGRATION_ABORTED;);
+                  if (executorId % 20 == 0) { trackIOReqs.finishTrackIOReqs(); \
+                                              return ERR_SM_TOK_MIGRATION_ABORTED;});
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -440,15 +445,17 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
             case ERR_SM_NOT_READY_AS_MIGR_SRC:
                 LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
                            << " source SM " << sourceSmUuid << " not ready";
-
                 migrFailedRetryHandler(smTokenId);
-                retryDltTokens[dltToken] = seqId;
+                {
+                    fds_mutex::scoped_lock l(retryDltTokensLock);
+                    retryDltTokens[dltToken] = seqId;
+                }
                 break;
             default:
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
-                    handleMigrationRoundDone(error);
+                handleMigrationRoundDone(error);
         }
     }
 }
@@ -630,11 +637,22 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // move to the next state before sending the message, in case we get the reply
     // while still in this method
     MigrationExecutorState expectState = ME_SECOND_PHASE_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_SECOND_PHASE_APPLYING_DELTA)) {
-        // this must not happen
-        LOGERROR << "Executor " << std::hex << executorId << std::dec
-                 << ": Unexpected migration executor state " << state;
-        fds_panic("Unexpected migration executor state!");
+    bool stateChanged = std::atomic_compare_exchange_strong(&state,
+                                                            &expectState,
+                                                            ME_SECOND_PHASE_APPLYING_DELTA);
+    if (!stateChanged) {
+        //On error, expectState now has the current state of Migration Executor.
+        if (expectState != ME_ERROR && expectState != ME_DONE_WITH_ERROR) {
+            // this must not happen
+            LOGERROR << "Executor " << std::hex << executorId << std::dec
+                     << ": Unexpected migration executor state " << state;
+            fds_panic("Unexpected migration executor state!");
+        } else {
+            LOGNOTIFY << "Executor " << std::hex << executorId << std::dec
+                      << " is in error state. Do not start it's second phase.";
+            handleMigrationRoundDone(ERR_SM_TOK_MIGRATION_ABORTED);
+            return err;
+        }
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " ME_SECOND_PHASE_REBALANCE_START --> ME_SECOND_PHASE_APPLYING_DELTA state";
@@ -654,7 +672,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // failure handling for migration.
     fiu_do_on("fail.sm.migration.second.rebalance.req",
               LOGDEBUG << "fault fail.sm.migration.second.rebalance.req enabled"; \
-              return ERR_SM_TOK_MIGRATION_ABORTED;);
+              if (executorId % 20 == 0) return ERR_SM_TOK_MIGRATION_ABORTED;);
 
     return err;
 }
@@ -723,12 +741,13 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         }
     } else {
         MigrationExecutorState newState = ME_ERROR;
+        roundNum = migrationRound();
         if (std::atomic_exchange(&state, newState) == ME_ERROR) {
             /**
              * Ignore handling of migration round because migration executor
              * is already in error state. Error handling would have been done
              * the first time this executor saw an error and it's state was set
-             * to ME_ERROR.
+             * to ME_DONE_WITH_ERROR.
              */
             return;
         }
@@ -807,6 +826,21 @@ MigrationExecutor::waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid)
     LOGMIGRATE << "Completed all pending requests: "
                << " tok=" << tok
                << " NodeUuid=" << std::hex << nodeUuid.uuid_get_val() << std::dec;
+}
+
+void
+MigrationExecutor::abortMigration(const Error &err) {
+    setDoneWithError();
+    if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
+        sendFinishResyncToClient();
+    }
+}
+
+void
+MigrationExecutor::clearRetryDltTokenSet()
+{
+    fds_mutex::scoped_lock l(retryDltTokensLock);
+    retryDltTokens.clear();
 }
 
 }  // namespace fds

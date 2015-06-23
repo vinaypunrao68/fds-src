@@ -152,7 +152,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         } else {
             asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(am->getProcessor(), shared_from_this());
         }
-        auto desc = VolumeDesc(*volumeName, 5, 0, 0, 1);
+        auto desc = VolumeDesc(*volumeName, fds_volid_t(5), 0, 0, 1);
         desc.maxObjSizeInBytes = 4096;
         am->getProcessor()->registerVolume(desc);
     }

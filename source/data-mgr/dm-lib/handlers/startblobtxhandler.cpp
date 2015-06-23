@@ -38,14 +38,15 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         return;
     }
 
-    auto err = dataManager.validateVolumeIsActive(message->volume_id);
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 
-    auto dmReq = new DmIoStartBlobTx(message->volume_id,
+    auto dmReq = new DmIoStartBlobTx(volId,
                                      message->blob_name,
                                      message->blob_version,
                                      message->blob_mode,
@@ -67,8 +68,7 @@ void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
     // TODO(Anna) If this DM is not forwarding for this io's volume anymore
     // we reject start TX on DMT mismatch
     dataManager.vol_map_mtx->lock();
-    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator volMetaIter =
-            dataManager.vol_meta_map.find(typedRequest->volId);
+    auto volMetaIter = dataManager.vol_meta_map.find(typedRequest->volId);
     if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&

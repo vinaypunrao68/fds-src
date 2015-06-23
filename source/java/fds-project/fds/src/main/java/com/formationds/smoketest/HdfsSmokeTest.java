@@ -27,15 +27,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
 
 
 @Ignore
-public class HdfsSmokeTest {
+public class HdfsSmokeTest{
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
     private FdsFileSystem fileSystem;
 
@@ -84,7 +82,12 @@ public class HdfsSmokeTest {
     @Test
     public void testDeleteInexistentFile() throws Exception {
         Path f = new Path("/foo");
-        assertFalse(fileSystem.delete(f, false));
+        try{
+            fileSystem.delete(f, false);
+            fail("File does not exists to delete");
+        } catch (FileNotFoundException e) {
+
+        }
     }
 
     @Test
@@ -133,7 +136,7 @@ public class HdfsSmokeTest {
         touch (notDir);
         assertTrue(fileSystem.exists(notDir));
         FileStatus[] status = fileSystem.listStatus(notDir);
-        assertEquals(1,status.length);
+        assertEquals(1, status.length);
     }
 
     @Test
@@ -162,13 +165,22 @@ public class HdfsSmokeTest {
     public void testStatLargeFile() throws Exception {
         Path p = new Path("/foobar.txt");
         int size = 11 * 1024 * 1024;
-        byte[] contents = new byte[size];
-        contents[size - 1] = 42;
-        createWithContent(p, contents);
+        byte[] largeContents = new byte[size];
+        largeContents[size - 1] = 42;
+        createWithContent(p, largeContents);
         FileStatus st = fileSystem.getFileStatus(p);
         assertEquals(size, (int) st.getLen());
         byte[] result = org.apache.commons.io.IOUtils.toByteArray(fileSystem.open(p));
-        assertArrayEquals(contents, result);
+        assertArrayEquals(largeContents, result);
+
+        int smallSize = 1024;
+        byte[] smallContents = new byte[smallSize];
+        smallContents[smallSize - 1] = 43;
+        createWithContent(p, smallContents);
+        FileStatus status = fileSystem.getFileStatus(p);
+        assertEquals(smallSize, (int) status.getLen());
+        byte[] resultNew = org.apache.commons.io.IOUtils.toByteArray(fileSystem.open(p));
+        assertArrayEquals(smallContents, resultNew);
     }
 
     @Test
@@ -256,6 +268,13 @@ public class HdfsSmokeTest {
         DataInputStream dis = new DataInputStream(fileSystem.open(p));
         int foo = dis.readInt();
         assertEquals(-94529, foo);
+        dis.close();
+
+        dis = new DataInputStream(fileSystem.open(p));
+        for (int i = 0; i < contents.length; i++) {
+            int val = dis.readByte();
+            assertEquals(contents[i], val);
+        }
     }
 
     @Test
@@ -315,7 +334,6 @@ public class HdfsSmokeTest {
         fileSystem.mkdirs(p1);
         try {
             FSDataInputStream fsdi = fileSystem.open(p1);
-            int readResult = fsdi.read();
             fsdi.close();
             fail("should not be able to call open() on a directory");
         } catch (IOException ex) {

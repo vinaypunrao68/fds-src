@@ -213,9 +213,9 @@ class AmProcessor_impl
      * Generic callback for a few responses
      */
     void respond_and_delete(AmRequest *amReq, const Error& error)
-        { respond(amReq, error); delete amReq; }
+        { if (respond(amReq, error).ok()) { delete amReq; } }
 
-    void respond(AmRequest *amReq, const Error& error);
+    Error respond(AmRequest *amReq, const Error& error);
 
 };
 
@@ -227,8 +227,6 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     if (shut_down) {
         err = ERR_SHUTTING_DOWN;
     } else {
-        fds_verify(amReq->magicInUse() == true);
-
         amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
         err = volTable->enqueueRequest(amReq);
 
@@ -259,8 +257,8 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
 
 void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
-    fds_verify(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
-    fds_verify(amReq->magicInUse() == true);
+    fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
+    fds_assert(amReq->isCompleted() == true);
 
     /*
      * Drain the queue if we are shutting down.
@@ -371,10 +369,12 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     volTable->registerCallback(closure);
 }
 
-void
+Error
 AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
-    volTable->markIODone(amReq);
-    if (amReq->cb) {
+    // markIODone will return ERR_DUPLICATE if the request has already
+    // been responded to, in that case drop on the floor.
+    Error err = volTable->markIODone(amReq);
+    if (err.ok() && amReq->cb) {
         amReq->cb->call(error);
     }
 
@@ -383,6 +383,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     if (isShuttingDown()) {
         stop();
     }
+    return err;
 }
 
 void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
@@ -590,41 +591,45 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto& vol_desc = *vol->voldesc;
     if (err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
-                  << ", received access token: 0x" << std::hex << volReq->token << std::dec;
+                  << ", received access token: 0x" << std::hex << volReq->token
+                  << ", sequence id: 0x" << volReq->vol_sequence << std::dec;
+
+        // If this is a new token, create a access token for the volume
+        auto access_token = vol->access_token;
+        if (!access_token) {
+            access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                volReq->mode,
+                volReq->token,
+                [this, vol_id = vol_desc.volUUID] () mutable -> void {
+                this->renewToken(vol_id);
+                });
+            err = volTable->processAttach(vol_desc, access_token);
+        } else {
+            token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
+            access_token->setMode(volReq->mode);
+            access_token->setToken(volReq->token);
+        }
+
+        // Update the sequence ID for the volume according to DM,
+        // unless this is the first time we are getting an attach
+        // response we _should_ already have this value.
+        vol->setSequenceId(volReq->vol_sequence);
 
         if (err.ok()) {
-            // If this is a new token, create a access token for the volume
-            auto access_token = vol->access_token;
-            if (!access_token) {
-                access_token = boost::make_shared<AmVolumeAccessToken>(
-                    token_timer,
-                    volReq->mode,
-                    volReq->token,
-                    [this, vol_id = vol_desc.volUUID] () mutable -> void {
-                    this->renewToken(vol_id);
-                    });
-                err = volTable->processAttach(vol_desc, access_token);
-            } else {
-                token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
-                access_token->setMode(volReq->mode);
-                access_token->setToken(volReq->token);
-            }
+            // Renew this token at a regular interval
+            auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+                { LOGWARN << "Failed to schedule token renewal timer!"; }
 
-            if (err.ok()) {
-                // Renew this token at a regular interval
-                auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-                if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
-                    { LOGWARN << "Failed to schedule token renewal timer!"; }
+            // Create caches if we have a token
+            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
 
-                // Create caches if we have a token
-                txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
-
-                // If this is a real request, set the return data
-                if (amReq->cb) {
-                    auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
-                    cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
-                    cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
-                }
+            // If this is a real request, set the return data
+            if (amReq->cb) {
+                auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+                cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
+                cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
             }
         }
     }
