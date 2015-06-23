@@ -17,6 +17,9 @@ class DmIoReqHandler;
 typedef std::function<void (const Error&)> OmStartMigrationCBType;
 
 class DmMigrationMgr {
+
+	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+
   public:
     // explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
@@ -32,8 +35,8 @@ class DmMigrationMgr {
     };
 
     enum MigrationType {
-        MIGR_DM_ADD_NODE,
-        MIGR_DM_RESYNC
+        MIGR_DM_ADD_NODE, // If this migration is initiated by OM due to new DM node
+        MIGR_DM_RESYNC	  // If this migration is peer-initiated between DMs
     };
 
     inline fds_bool_t isMigrationInProgress() const {
@@ -58,7 +61,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &migrationMsg);
+    Error startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -66,6 +69,7 @@ class DmMigrationMgr {
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
+    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
     fds_rwlock migrExecutorLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
@@ -86,7 +90,7 @@ class DmMigrationMgr {
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
      */
-    Error activateStateMachine(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg);
+    Error activateStateMachine();
 
    /**
      * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
@@ -96,7 +100,7 @@ class DmMigrationMgr {
     /**
      * If accepting a new job would cause max to hit
      */
-    Error checkMaximumMigrations(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg);
+    Error checkMaximumMigrations();
 
      // Ack back to DM start migration from the Destination DM to OM.
     OmStartMigrationCBType OmStartMigrCb;

@@ -44,7 +44,6 @@ void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
     // Do some bookkeeping
 
     // Talk to migration handler.
-    LOGDEBUG << "NEIL DEBUG Start migration";
     dataManager.dmMigrationMgr->startMigration(typedRequest->message);
 
 
@@ -56,7 +55,6 @@ void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
-    LOGDEBUG << "NEIL DEBUG sending response for migration";
     asyncHdr->msg_code = e.GetErrno();
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId, *message);
 

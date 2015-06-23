@@ -31,7 +31,8 @@ class DmMigrationExecutor {
      */
     void execute();
 
-    fpi::FDSP_VolumeDescType getVolDesc();
+    // fpi::FDSP_VolumeDescType& getVolDesc();
+    boost::shared_ptr<fpi::FDSP_VolumeDescType> getVolDesc();
 
     typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
     typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
@@ -41,9 +42,9 @@ class DmMigrationExecutor {
     /**
      * Local copies of needed information to do migrations.
      */
-    NodeUuid _srcDmUuid;
-    NodeUuid _mySvcUuid;
-    fpi::FDSP_VolumeDescType _vol;
+    boost::shared_ptr <NodeUuid> srcDmUuid;
+    boost::shared_ptr <NodeUuid> mySvcUuid;
+    boost::shared_ptr <fpi::FDSP_VolumeDescType> vol;
 
     /**
      * Callback to talk to DM Migration Manager

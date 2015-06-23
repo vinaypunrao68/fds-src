@@ -10,8 +10,6 @@
 
 namespace fds {
 
-using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
-
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
     : DmReqHandler(DmReqHandle),
       OmStartMigrCb(NULL)
@@ -20,6 +18,7 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
 	cleanUpInProgress = false;
 	maxExecutor = fds_uint64_t(MODULEPROVIDER()->get_fds_config()->
 							get<int>("fds.dm..migration.max_migrations"));
+	migrationMsg = nullptr;
 }
 
 DmMigrationMgr::~DmMigrationMgr()
@@ -43,36 +42,40 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 	 * Otherwise, OM bug?
 	 */
 	auto search = executorMap.find(fds_volid_t(vol.volUUID));
-	fds_assert(search == executorMap.end());
-
-	/**
-	 * Create a new instance of migration Executor
-	 */
-	LOGMIGRATE << "Creating migration instance for volume: " << vol.vol_name;
-	executorMap.emplace(fds_volid_t(vol.volUUID),
-			DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
-													srcDmUuid, mySvcUuid, vol,
-													std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
-															this, std::placeholders::_1,
-															std::placeholders::_2))));
+	if (search == executorMap.end()) {
+		LOGMIGRATE << "Migration for volume " << vol.vol_name << " is a duplicated request.";
+		err = ERR_DUPLICATE;
+	} else {
+		/**
+		 * Create a new instance of migration Executor
+		 */
+		LOGMIGRATE << "Creating migration instance for volume: " << vol.vol_name;
+		executorMap.emplace(fds_volid_t(vol.volUUID),
+				DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
+														srcDmUuid, mySvcUuid, vol,
+														std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
+																this, std::placeholders::_1,
+																std::placeholders::_2))));
+	}
 	return err;
 }
 
 Error
-DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &migrationMsg)
+DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg)
 {
 	Error err(ERR_OK);
 
 	// localMigrationMsg = migrationMsg;
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
 	NodeUuid destSvcUuid;
+	migrationMsg = inMigrationMsg;
 	// TODO(Neil) fix this
 	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
 	/**
 	 * Make sure we're in a state able to dispatch migration.
 	 */
-	err = activateStateMachine(migrationMsg);
+	err = activateStateMachine();
 
 	if (err != ERR_OK) {
 		return err;
@@ -116,11 +119,12 @@ DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &migrationM
 }
 
 Error
-DmMigrationMgr::activateStateMachine(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg)
+DmMigrationMgr::activateStateMachine()
 {
 	Error err(ERR_OK);
 
 	MigrationState expectedState(MIGR_IDLE);
+	fds_verify(migrationMsg != nullptr);
 	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IN_PROGRESS)) {
 		// If not ABORTED state, then something wrong with OM FSM sending this migration msg
 		fds_verify(isMigrationAborted());
@@ -140,7 +144,7 @@ DmMigrationMgr::activateStateMachine(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg)
 		 * Migration should be idle
 		 */
 		fds_verify(ongoingMigrationCnt() == 0);
-		if (!(err = checkMaximumMigrations(msg).OK())) {
+		if (!(err = checkMaximumMigrations().OK())) {
 			LOGMIGRATE << "This group of migration request exceeds the maximum allowed";
 		}
 	}
@@ -148,12 +152,13 @@ DmMigrationMgr::activateStateMachine(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg)
 }
 
 Error
-DmMigrationMgr::checkMaximumMigrations(fpi::CtrlNotifyDMStartMigrationMsgPtr &msg)
+DmMigrationMgr::checkMaximumMigrations()
 {
 	Error err(ERR_OK);
 	fds_uint64_t ongoingMigrations = 0;
 	fds_uint64_t reqMigrations = 0;
 
+	fds_verify(migrationMsg != nullptr);
 	/**
 	 * Number of ongoing requests
 	 */
@@ -163,8 +168,9 @@ DmMigrationMgr::checkMaximumMigrations(fpi::CtrlNotifyDMStartMigrationMsgPtr &ms
 	/**
 	 * Number of requested migration in the incoming request.
 	 */
-	for (std::vector<fpi::DMVolumeMigrationGroup>::const_iterator mgi = msg->migrations.begin();
-			mgi != msg->migrations.end(); mgi++) {
+	for (std::vector<fpi::DMVolumeMigrationGroup>::const_iterator mgi =
+			migrationMsg->migrations.begin();
+			mgi != migrationMsg->migrations.end(); mgi++) {
 		for (std::vector<fpi::FDSP_VolumeDescType>::const_iterator vdi =
 				mgi->VolDescriptors.begin(); vdi != mgi->VolDescriptors.end();
 				vdi++) {
