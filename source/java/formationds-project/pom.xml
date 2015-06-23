@@ -31,8 +31,6 @@
     <sprint.name>Sprint ${sprint.version}</sprint.name>
     <sprint.start.date>2015-06-08 00:00:00.1 AM</sprint.start.date>
     <sprint.version>2015.06.19</sprint.version>
-
-    <formationds.thrift.version>2015.06.19-SNAPSHOT</formationds.thrift.version>
   </properties>
 
   <modules>
