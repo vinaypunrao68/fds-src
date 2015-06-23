@@ -10,7 +10,7 @@ namespace po = boost::program_options;
 
 int main(int argc, char* argv[]) {
     fds_volid_t volumeUuid = invalid_vol_id;
-    std::string blobName;
+    std::string blobName,root;
     // process command line options
     po::options_description desc("\nDM checker command line options");
     po::positional_options_description m_positional;
@@ -19,9 +19,9 @@ int main(int argc, char* argv[]) {
             ("list,l", "list all volumes")
             ("blobs,b", "list blob contents for given volume")
             ("stats,s", "show stats")
+            ("fds-root,f", po::value<std::string>(&root), "root dir")
             ("objects,o", po::value<std::string>(&blobName), "show objects for blob")
-            ("volumeid", po::value<std::vector<uint64_t> >()->composing());
-    m_positional.add("volumeid", -1);
+            ("volume,v", po::value<std::vector<uint64_t> >()->multitoken());
 
     po::variables_map vm;
     po::store(po::command_line_parser(argc, argv)
@@ -30,19 +30,24 @@ int main(int argc, char* argv[]) {
               .positional(m_positional)
               .run(), vm);
     po::notify(vm);
-
-    if (vm.count("help") || !(vm.count("list") || vm.count("blobs") || vm.count("stats") || vm.count("objects"))) {
+    bool fShowVolumeList =   vm.count("list") > 0;
+    bool fShowStats =   vm.count("stats") > 0;
+    if (vm.count("help")) {
         std::cout << desc << std::endl;
         return 0;
     }
 
     std::vector<fds_volid_t> volumes, allVolumes;
+    if (vm.count("volume")) {
+        auto parsedIds = vm["volume"].as<std::vector<uint64_t> >();
+        if (!parsedIds.empty()) {
+            std::transform(parsedIds.begin(), parsedIds.end(), std::back_inserter(volumes),
+                           [](uint64_t const& val) -> fds_volid_t { return fds_volid_t(val); });
+        }
+    }
 
-    // Transform the provided uint64s into fds_volid_t's
-    if (!vm["volumeid"].empty()) {
-        auto parsedIds = vm["volumeid"].as<std::vector<uint64_t> >();
-        std::transform(parsedIds.begin(), parsedIds.end(), std::back_inserter(volumes),
-           [](uint64_t const& val) -> fds_volid_t { return fds_volid_t(val); });
+    if (!(fShowVolumeList || vm.count("blobs") || fShowStats || vm.count("objects"))) {
+        fShowStats = true;
     }
 
     Module *dmchkVec[] = {
@@ -51,7 +56,7 @@ int main(int argc, char* argv[]) {
     
     DmChecker dmchk(argc, argv, "platform.conf", "fds.dm.", dmchkVec, "DM checker driver");
 
-    if (volumes.empty() || vm.count("list")) {
+    if (volumes.empty() || fShowVolumeList) {
         dmchk.getVolumeIds(allVolumes);
     }
 
@@ -59,7 +64,7 @@ int main(int argc, char* argv[]) {
         volumes = allVolumes;
     }
 
-    if (vm.count("list")) {
+    if (fShowVolumeList) {
         int count = 0;
         std::cout << "volumes in the system >> " << std::endl;
         std::cout << "no  :  volid " << std::endl;
@@ -69,7 +74,7 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
     }
     
-    if (vm.count("blobs") || vm.count("stats")) {
+    if (vm.count("blobs") || fShowStats) {
         bool fStatOnly = !vm.count("blobs");
         for (const auto v : volumes) {
             if (dmchk.loadVolume(v).ok()) {

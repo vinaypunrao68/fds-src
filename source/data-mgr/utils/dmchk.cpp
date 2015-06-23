@@ -108,7 +108,7 @@ void DmChecker::blobInfo(const std::string& blobname) {
 
     err = volCat->getBlobMeta(volDesc->volUUID, blobname, &blobVersion, &blobSize, &metaList);
     if (!err.ok()) {
-        std::cout << "unable to locate [" << blobname << "] in vol:" << volDesc->volUUID;
+        std::cout << "unable to locate [" << blobname << "] in vol:" << volDesc->volUUID << std::endl;
         return;
     }
     expectedObjectCount = std::ceil(blobSize*1.0/ volDesc->maxObjSizeInBytes);
