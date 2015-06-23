@@ -425,7 +425,8 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType*
 }
 
 Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobName,
-        const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId) {
+        const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId,
+        const sequence_id_t seq_id) {
     LOGDEBUG << "Will commit metadata for volume '" << std::hex << volId << std::dec <<
             "' blob '" << blobName << "'";
 
@@ -437,6 +438,7 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
             mergeMetaList(blobMeta.meta_list, *metaList);
         }
         blobMeta.desc.version += 1;
+        blobMeta.desc.sequence_id = seq_id;
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
             blobMeta.desc.blob_name = blobName;
         }
@@ -456,7 +458,7 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
 
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobObjList::const_ptr& blobObjList,
-        const BlobTxId::const_ptr& txId) {
+        const BlobTxId::const_ptr& txId, const sequence_id_t seq_id ) {
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'; " << *blobObjList;
     // do not use this method if blob_obj_list is empty
@@ -577,6 +579,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
+    blobMeta.desc.sequence_id = seq_id;
     blobMeta.desc.blob_size = newBlobSize;
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;
@@ -615,7 +618,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 // XXX: (JLL) commenting out this function doesn't seem to break anything
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
-        CatWriteBatch & wb, bool truncate /* = true */) {
+        CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate /* = true */) {
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'";
 
@@ -649,6 +652,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
+    blobMeta.desc.sequence_id = seq_id;
     blobMeta.desc.blob_size = newBlobSize;
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;

@@ -205,13 +205,15 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * Updates committed blob in the Volume Catalog.
      */
     Error putBlobMeta(fds_volid_t volId, const std::string& blobName,
-            const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId);
+            const MetaDataList::const_ptr& metaList,
+            const BlobTxId::const_ptr& txId, const sequence_id_t seq_id);
     Error putBlob(fds_volid_t volId, const std::string& blobName,
             const MetaDataList::const_ptr& metaList,
-            const BlobObjList::const_ptr& blobObjList, const BlobTxId::const_ptr& txId);
+            const BlobObjList::const_ptr& blobObjList,
+            const BlobTxId::const_ptr& txId, const sequence_id_t seq_id);
     Error putBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t blobSize,
             const MetaDataList::const_ptr& metaList,
-            CatWriteBatch & wb, bool truncate = true);
+            CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate = true);
 
     /**
      * Flushes given blob to the persistent storage. Blocking method, will

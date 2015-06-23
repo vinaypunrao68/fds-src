@@ -57,9 +57,10 @@ void DmVolumeCatalogTest::SetUp() {
 void DmVolumeCatalogTest::testPutBlob(fds_volid_t volId,
         boost::shared_ptr<const BlobDetails> blob) {
     boost::shared_ptr<BlobTxId> txId(new BlobTxId(++txCount));
+    static sequence_id_t sequence_id = 0;
     // Put
     fds_uint64_t startTs = util::getTimeStampNanos();
-    Error rc = volcat->putBlob(volId, blob->name, blob->metaList, blob->objList, txId);
+    Error rc = volcat->putBlob(volId, blob->name, blob->metaList, blob->objList, txId, ++sequence_id);
     fds_uint64_t endTs = util::getTimeStampNanos();
     putCounter->update(endTs - startTs);
     boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blob->name);

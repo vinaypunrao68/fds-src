@@ -47,7 +47,8 @@ void UpdateCatalogOnceHandler::handleRequest(
     auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(volId,
                                                       message->blob_name,
                                                       message->blob_version,
-                                                      message->dmt_version);
+                                                      message->dmt_version,
+                                                      message->sequence_id);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
     PerfTracer::tracePointBegin(dmCommitBlobOnceReq->opReqLatencyCtx);
@@ -113,6 +114,7 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
     PerfTracer::tracePointBegin(typedRequest->commitBlobReq->opLatencyCtx);
     helper.err = dataManager.timeVolCat_->commitBlobTx(
             typedRequest->volId, typedRequest->blob_name, typedRequest->ioBlobTxDesc,
+            typedRequest->updcatMsg->sequence_id,
             std::bind(&CommitBlobTxHandler::volumeCatalogCb,
                       static_cast<CommitBlobTxHandler*>(dataManager.handlers[FDS_COMMIT_BLOB_TX]),
                       std::placeholders::_1, std::placeholders::_2,

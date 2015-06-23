@@ -129,7 +129,7 @@ struct CreateVolumeCloneMsg {
      2:i64 cloneId,
      3:string cloneName,
      4:i64 VolumePolicyId
-}  
+}
 /**
  * Response contains the ID of the newly created clone
  * volume. This ID is equivalent to the volume's ID.
@@ -255,7 +255,7 @@ struct AbortBlobTxRspMsg {
 
 /**
  * Updates an existing transaction with a new blob update. The update
- * is not applied until the transcation is committed. 
+ * is not applied until the transcation is committed.
  * Updates within a transaction are ordered so this update may overwrite
  * a previous update to the same offset in the same transaction context
  * when committed.
@@ -473,7 +473,7 @@ struct GetDmStatsRespMsg {
  * migration
  */
 struct CtrlNotifyDMStartMigrationMsg {
-  /* List of < source UUID, {list of volume descriptors} > to 
+  /* List of < source UUID, {list of volume descriptors} > to
    * migrate.  The destination DM will receive the message, and
    * pull associated volume descriptors from the source DM.
    */
@@ -488,7 +488,7 @@ struct CtrlNotifyDMStartMigrationMsg {
  */
 struct CtrlNotifyDMStartMigrationRspMsg {
   /* An empty reply from the Destination DM to the OM when the
-   * migration is complete.  
+   * migration is complete.
    * Any error code is stuffed in the async header.
    */
 }
@@ -541,6 +541,7 @@ struct ForwardCatalogMsg {
   3: i64                          blob_version;
   4: dm_types.FDSP_BlobObjectList obj_list;
   5: dm_types.FDSP_MetaDataList   meta_list;
+  6: i64                          sequence_id;
 }
 /**
  * Forward catalog update response message

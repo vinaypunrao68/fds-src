@@ -371,6 +371,7 @@ Error
 DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
                                const std::string &blobName,
                                BlobTxId::const_ptr txDesc,
+                               const sequence_id_t seq_id,
                                const DmTimeVolCatalog::CommitCb &cb) {
     LOGDEBUG << "Will commit transaction " << *txDesc << " for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
@@ -380,7 +381,7 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     // serialize on blobId instead of blobName so collision detection is free from races
     opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
                              std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, volId, blobName, commitLog, txDesc, cb));
+                                       this, volId, blobName, commitLog, txDesc, seq_id, cb));
     return ERR_OK;
 }
 
@@ -390,6 +391,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
+                                         const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     LOGDEBUG << "Will apply committed blob update from another DM for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
@@ -398,7 +400,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
     opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
                              std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
                                        this, volId, blobName, blobVersion,
-                                       objList, metaList, fwdCommitCb));
+                                       objList, metaList, seq_id, fwdCommitCb));
 
     return ERR_OK;
 }
@@ -408,6 +410,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 				   const std::string &blobName,
                                    DmCommitLog::ptr &commitLog,
                                    BlobTxId::const_ptr txDesc,
+                                   const sequence_id_t seq_id,
                                    const DmTimeVolCatalog::CommitCb &cb) {
     Error e;
     blob_version_t blob_version = blob_version_invalid;
@@ -433,7 +436,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 	    e = Error(ERR_HASH_COLLISION);
 	} else {
-	    e = doCommitBlob(volid, blob_version, commit_data);
+	    e = doCommitBlob(volid, blob_version, seq_id, commit_data);
 	}
     }
     cb(e,
@@ -445,7 +448,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 Error
 DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-                               CommitLogTx::ptr commit_data) {
+                               const sequence_id_t seq_id, CommitLogTx::ptr commit_data) {
     Error e;
     if (commit_data->blobDelete) {
         e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
@@ -453,7 +456,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
     } else {
 #ifdef ACTIVE_TX_IN_WRITE_BATCH
         e = volcat->putBlob(volid, commit_data->name, commit_data->blobSize,
-                            commit_data->metaDataList, commit_data->wb,
+                            commit_data->metaDataList, commit_data->wb, seq_id,
                             0 != (commit_data->blobMode & blob::TRUNCATE));
 #else
         if (commit_data->blobObjList && !commit_data->blobObjList->empty()) {
@@ -461,10 +464,11 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
                 commit_data->blobObjList->setEndOfBlob();
             }
             e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
-                                commit_data->blobObjList, commit_data->txDesc);
+                                commit_data->blobObjList, commit_data->txDesc, seq_id);
         } else {
             e = volcat->putBlobMeta(volid, commit_data->name,
-                                    commit_data->metaDataList, commit_data->txDesc);
+                                    commit_data->metaDataList,
+                                    commit_data->txDesc, seq_id);
         }
         // Update the blob size in the commit data
         if (ERR_OK == e) {
@@ -485,6 +489,7 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
+                                         const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     Error err(ERR_OK);
     // TODO(xxx): use blob mode to tell if that's a deletion
@@ -504,15 +509,15 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
 
             if (metaList.size() > 0) {
                 MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
-                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr());
+                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr(), seq_id);
             } else {
                 err = volcat->putBlob(volid, blobName, MetaDataList::ptr(),
-                                      olist, BlobTxId::ptr());
+                                      olist, BlobTxId::ptr(), seq_id);
             }
         } else {
             fds_verify(metaList.size() > 0);
             MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
-            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr());
+            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr(), seq_id);
         }
     }
 

@@ -191,9 +191,11 @@ class DmIoCommitBlobTx: public dmCatReq {
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
                      const std::string &_blobName,
                      const blob_version_t &_blob_version,
-                     fds_uint64_t _dmt_version)
+                     fds_uint64_t _dmt_version,
+                     const sequence_id_t _seq_id)
             : dmCatReq(_volId, _blobName, "", _blob_version, FDS_COMMIT_BLOB_TX) {
         dmt_version = _dmt_version;
+        sequence_id = _seq_id;
 
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
@@ -225,6 +227,7 @@ class DmIoCommitBlobTx: public dmCatReq {
 
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
+    sequence_id_t sequence_id;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
 };
