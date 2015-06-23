@@ -34,10 +34,13 @@ typedef std::function<void (fds_uint64_t executorId,
 typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
 
 typedef std::function<void(fds_uint64_t,
-                   fds_uint32_t,
-                   const std::set<fds_uint32_t>&,
-                   fds_uint32_t,
-                   const fds::Error&)> timeoutCbFn;
+                           fds_uint32_t,
+                           const std::set<fds_uint32_t>&,
+                           fds_uint32_t,
+                           const fds::Error&)> TimeoutCb;
+
+typedef std::function<void(fds_uint64_t&,
+                           fds_token_id&)> MigrationAbortCb;
 
 class MigrationExecutor {
   public:
@@ -53,7 +56,8 @@ class MigrationExecutor {
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
-                      timeoutCbFn timeoutCb,
+                      TimeoutCb timeoutCb,
+                      MigrationAbortCb abortMigrationCb,
                       fds_uint32_t uniqId = 0,
                       fds_uint16_t instanceNum = 1);
     ~MigrationExecutor();
@@ -276,6 +280,12 @@ class MigrationExecutor {
     bool abortPending;
 
     /**
+     * To be called when abortPending is set by the Migration Manager indicating
+     * that migration needs to be aborted.
+     */
+    MigrationAbortCb abortMigrationCb;
+
+    /**
      * Set of DLT tokens that needs to be migrated from source SM
      * SM token contains one or more DLT tokens
      */
@@ -305,7 +315,7 @@ class MigrationExecutor {
      * Callback for the timeout handler
      */
 
-   timeoutCbFn timeoutCb;
+    TimeoutCb timeoutCb;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from

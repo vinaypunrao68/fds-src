@@ -27,7 +27,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      MigrationExecutorDoneHandler doneHandler,
                                      FdsTimerPtr& timeoutTimer,
                                      uint32_t timeoutDuration,
-                                     timeoutCbFn timeoutCb,
+                                     TimeoutCb timeoutCb,
+                                     MigrationAbortCb abortCallback,
                                      fds_uint32_t uid,
                                      fds_uint16_t iNum)
         : timeoutCb(timeoutCb),
@@ -42,6 +43,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           migrationType(migrType),
           onePhaseMigration(resync),
           seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this)),
+          abortMigrationCb(abortCallback),
           uniqueId(uid),
           instanceNum(iNum)
 {
@@ -89,6 +91,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                    << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -256,6 +259,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                    << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -436,8 +440,8 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                    << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
-        abortMigration();
-        return ERR_SM_TOK_MIGRATION_ABORTED;
+        abortMigrationCb(executorId, smTokenId);
+        return;
     }
 
     if (inErrorState()) {
@@ -508,6 +512,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                    << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -629,6 +634,7 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+        abortMigrationCb(executorId, smTokenId);
         return;
     }
 
@@ -679,6 +685,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                    << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -750,7 +757,7 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                    << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
-        abortMigration();
+        abortMigrationCb(executorId, smTokenId);
         return;
     }
 
