@@ -823,8 +823,8 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     auto volId = amReq->io_vol_id;
 
     LOGDEBUG << "blob name: " << amReq->getBlobName()
-             << " start offset: " << start_offset
-             << " end offset: " << end_offset
+             << " start offset: 0x" << std::hex << start_offset
+             << " end offset: 0x" << end_offset
              << " volid: " << volId;
     /*
      * TODO(Andrew): We should eventually specify the offset in the blob

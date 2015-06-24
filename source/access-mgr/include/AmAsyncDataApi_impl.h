@@ -71,9 +71,8 @@ void AmAsyncDataApi<H>::detachVolume(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
-    auto closure = [p = responseApi, volumeName](DetachCallback* cb, Error const& e) mutable -> void {
-        LOGDEBUG << "Detached volume: " << *volumeName;
-        p.reset();
+    auto closure = [p = responseApi, requestId](DetachCallback* cb, Error const& e) mutable -> void {
+        p->detachVolumeResp(e, requestId);
     };
 
     auto callback = create_async_handler<DetachCallback>(std::move(closure));

@@ -231,6 +231,9 @@ class NbdOperations
                           resp_api_type::shared_vol_descriptor_type& volDesc,
                           resp_api_type::shared_vol_mode_type& mode) override;
 
+    void detachVolumeResp(const resp_api_type::error_type &error,
+                          handle_type& requestId) override;
+
     // The two response types we do support
     void getBlobResp(const resp_api_type::error_type &error,
                      handle_type& requestId,

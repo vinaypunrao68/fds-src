@@ -158,6 +158,14 @@ NbdOperations::~NbdOperations() {
 }
 
 void
+NbdOperations::detachVolumeResp(const Error& error,
+                                handle_type& requestId) {
+    // Volume detach has completed, we shaln't use the volume again
+    LOGDEBUG << "Volume detach response: " << error;
+    amAsyncDataApi.reset();
+}
+
+void
 NbdOperations::read(fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
