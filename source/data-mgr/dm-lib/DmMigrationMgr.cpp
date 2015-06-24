@@ -145,47 +145,7 @@ DmMigrationMgr::activateStateMachine()
 		 * Migration should be idle
 		 */
 		fds_verify(ongoingMigrationCnt() == 0);
-		if (!(err = checkMaximumMigrations())) {
-			LOGMIGRATE << "This group of migration request exceeds the maximum allowed";
-		}
 	}
-	return err;
-}
-
-Error
-DmMigrationMgr::checkMaximumMigrations()
-{
-	Error err(ERR_OK);
-	fds_uint64_t ongoingMigrations = 0;
-	fds_uint64_t reqMigrations = 0;
-
-	fds_verify(migrationMsg != nullptr);
-	/**
-	 * Number of ongoing requests
-	 */
-	ongoingMigrations = ongoingMigrationCnt();
-	fds_verify(ongoingMigrations == 0);
-
-	/**
-	 * Number of requested migration in the incoming request.
-	 */
-	for (std::vector<fpi::DMVolumeMigrationGroup>::const_iterator mgi =
-			migrationMsg->migrations.begin();
-			mgi != migrationMsg->migrations.end(); mgi++) {
-		for (std::vector<fpi::FDSP_VolumeDescType>::const_iterator vdi =
-				mgi->VolDescriptors.begin(); vdi != mgi->VolDescriptors.end();
-				vdi++) {
-			reqMigrations++;
-		}
-	}
-
-	if ((ongoingMigrations + reqMigrations) > maxExecutor) {
-		/**
-		 * RSYNC is being removed so this should be changed to a generic failure msg
-		 */
-		err = ERR_DM_RSYNC_FAILED;
-	}
-
 	return err;
 }
 

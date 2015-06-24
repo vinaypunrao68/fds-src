@@ -103,11 +103,6 @@ class DmMigrationMgr {
      */
     std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr> executorMap;
 
-    /**
-     * If accepting a new job would cause max to hit
-     */
-    Error checkMaximumMigrations();
-
      // Ack back to DM start migration from the Destination DM to OM.
     OmStartMigrationCBType OmStartMigrCb;
 
@@ -121,7 +116,11 @@ class DmMigrationMgr {
      * Used to throttle the number of parallel ongoing DM Migrations
      */
     struct MigrationExecThrottle {
-    	MigrationExecThrottle() : max_tokens(1) {}
+    	MigrationExecThrottle() : max_tokens(1)
+    	{
+    		max_tokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+    				get<int>("fds.dm..migration.max_migrations"));
+    	}
 		fds_uint32_t max_tokens;
 		std::mutex m;
 		std::condition_variable cv;
