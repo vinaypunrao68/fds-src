@@ -48,7 +48,8 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosOutNum(10),
       volTbl(nullptr),
       qosCtrl(nullptr),
-      shuttingDown(false)
+      shuttingDown(false),
+      sampleCounter(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -448,6 +449,19 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
                                                  STAT_SM_CUR_DEDUP_BYTES,
                                                  dedup_bytes);
     }
+
+    // Piggyback on the timer that runs this to check disk capacity
+    if (sampleCounter % 5 == 0) {
+        LOGDEBUG << "Checking disk utilization!";
+        float_t pct_used = objectStore->getUsedCapacityAsPct();
+        if (pct_used >= ObjectStorMgr::ALERT_THRESHOLD) {
+            LOGNORMAL << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+        } else if (pct_used >= ObjectStorMgr::WARNING_THRESHOLD) {
+            LOGWARN << "SM is utilizing " << pct_used << " of available storage space!";
+        }
+        sampleCounter = 0;
+    }
+    sampleCounter++;
 }
 
 /* Initialize an instance specific vector of locks to cover the entire
