@@ -16,8 +16,6 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
 {
 	migrState = MIGR_IDLE;
 	cleanUpInProgress = false;
-	maxExecutor = fds_uint64_t(MODULEPROVIDER()->get_fds_config()->
-							get<int>("fds.dm..migration.max_migrations"));
 	migrationMsg = nullptr;
 }
 
@@ -42,7 +40,7 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 	 * Otherwise, OM bug?
 	 */
 	auto search = executorMap.find(fds_volid_t(vol.volUUID));
-	if (search == executorMap.end()) {
+	if (search != executorMap.end()) {
 		LOGMIGRATE << "Migration for volume " << vol.vol_name << " is a duplicated request.";
 		err = ERR_DUPLICATE;
 	} else {
@@ -106,6 +104,7 @@ DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigratio
 	 */
 	for (DmMigrationExecMap::iterator mit = executorMap.begin();
 			mit != executorMap.end(); mit++) {
+		migrationExecThrottle.getAccessToken();
 		mit->second->execute();
 		if (isMigrationAborted()) {
 			/**
@@ -144,47 +143,7 @@ DmMigrationMgr::activateStateMachine()
 		 * Migration should be idle
 		 */
 		fds_verify(ongoingMigrationCnt() == 0);
-		if (!(err = checkMaximumMigrations().OK())) {
-			LOGMIGRATE << "This group of migration request exceeds the maximum allowed";
-		}
 	}
-	return err;
-}
-
-Error
-DmMigrationMgr::checkMaximumMigrations()
-{
-	Error err(ERR_OK);
-	fds_uint64_t ongoingMigrations = 0;
-	fds_uint64_t reqMigrations = 0;
-
-	fds_verify(migrationMsg != nullptr);
-	/**
-	 * Number of ongoing requests
-	 */
-	ongoingMigrations = ongoingMigrationCnt();
-	fds_verify(ongoingMigrations == 0);
-
-	/**
-	 * Number of requested migration in the incoming request.
-	 */
-	for (std::vector<fpi::DMVolumeMigrationGroup>::const_iterator mgi =
-			migrationMsg->migrations.begin();
-			mgi != migrationMsg->migrations.end(); mgi++) {
-		for (std::vector<fpi::FDSP_VolumeDescType>::const_iterator vdi =
-				mgi->VolDescriptors.begin(); vdi != mgi->VolDescriptors.end();
-				vdi++) {
-			reqMigrations++;
-		}
-	}
-
-	if ((ongoingMigrations + reqMigrations) > maxExecutor) {
-		/**
-		 * RSYNC is being removed so this should be changed to a generic failure msg
-		 */
-		err = ERR_DM_RSYNC_FAILED;
-	}
-
 	return err;
 }
 
@@ -210,6 +169,12 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &resu
 		/**
 		 * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
 		 */
+		/**
+		 * TODO(Neil):
+		 * This will be moved to the callback when source client finishes and
+		 * talks to the destination manager.
+		 */
+		migrationExecThrottle.returnAccessToken();
 	}
 }
 
