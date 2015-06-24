@@ -50,8 +50,7 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosCtrl(nullptr),
       shuttingDown(false),
       sampleCounter(0),
-      hasReportedCapacityWarning(false),
-      hasReportedCapacityAlert(false)
+      lastCapacityMessageSentAt(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -456,12 +455,14 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         float_t pct_used = objectStore->getUsedCapacityAsPct();
-        if (pct_used >= ObjectStorMgr::ALERT_THRESHOLD && !hasReportedCapacityAlert) {
+        if (pct_used >= ObjectStorMgr::ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < ObjectStorMgr::ALERT_THRESHOLD) {
             LOGNORMAL << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
-            hasReportedCapacityAlert = true;
-        } else if (pct_used >= ObjectStorMgr::WARNING_THRESHOLD && !hasReportedCapacityWarning) {
+            lastCapacityMessageSentAt = pct_used;
+        } else if (pct_used >= ObjectStorMgr::WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < ObjectStorMgr::WARNING_THRESHOLD) {
             LOGWARN << "SM is utilizing " << pct_used << " of available storage space!";
-            hasReportedCapacityWarning = true;
+            lastCapacityMessageSentAt = pct_used;
         }
         sampleCounter = 0;
     }

@@ -338,8 +338,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
     // Tracks the number of time collect sample stats has run, to enable capacity tracking every N runs
     fds_uint8_t sampleCounter;
-    bool hasReportedCapacityAlert;
-    bool hasReportedCapacityWarning;
+    // Track when the last message was sent
+    float_t lastCapacityMessageSentAt;
 
 };
 

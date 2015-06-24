@@ -37,7 +37,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          currentState(OBJECT_STORE_INIT)
+          currentState(OBJECT_STORE_INIT),
+          lastCapacityMessageSentAt(0)
 {
 }
 
@@ -64,21 +65,25 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         float_t pct_used = (capacity.first * 1.) / capacity.second;
 
         // We want to log which disk is too full here
-        if (pct_used > ObjectStorMgr::WARNING_THRESHOLD) {
+        if (pct_used > ObjectStorMgr::WARNING_THRESHOLD &&
+            lastCapacityMessageSentAt < ObjectStorMgr::WARNING_THRESHOLD) {
             LOGWARN << "Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the warning threshold of "
                       << ObjectStorMgr::WARNING_THRESHOLD;
-        } else if (pct_used > ObjectStorMgr::ALERT_THRESHOLD) {
+            lastCapacityMessageSentAt = ObjectStorMgr::WARNING_THRESHOLD;
+        } else if (pct_used > ObjectStorMgr::ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < ObjectStorMgr::ALERT_THRESHOLD) {
             LOGNORMAL << "Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
                       << ObjectStorMgr::ALERT_THRESHOLD;
+            lastCapacityMessageSentAt = ObjectStorMgr::ALERT_THRESHOLD;
         }
 
         if (pct_used > max) {
             max = pct_used;
         }
     }
-    
+
     return max * 100;
 }
 
