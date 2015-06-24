@@ -963,6 +963,11 @@ int DataMgr::mod_init(SysParams const *const param)
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
+    /**
+     * Instantiate migration manager.
+     */
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this));
+
     return 0;
 }
 
