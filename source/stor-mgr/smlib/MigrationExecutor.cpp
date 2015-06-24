@@ -27,7 +27,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      MigrationExecutorDoneHandler doneHandler,
                                      FdsTimerPtr& timeoutTimer,
                                      uint32_t timeoutDuration,
-                                     timeoutCbFn timeoutCb,
+                                     TimeoutCb timeoutCb,
+                                     MigrationAbortCb abortCallback,
                                      fds_uint32_t uid,
                                      fds_uint16_t iNum)
         : timeoutCb(timeoutCb),
@@ -42,10 +43,12 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           migrationType(migrType),
           onePhaseMigration(resync),
           seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this)),
+          abortMigrationCb(abortCallback),
           uniqueId(uid),
           instanceNum(iNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
+    abortPending = false;
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -71,7 +74,7 @@ MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
     return (dltTokens.count(dltTok) > 0);
 }
 
-// DO NOT release snapshot here, becuase it maybe passed to other
+// DO NOT release snapshot here, because it maybe passed to other
 // migration executors
 Error
 MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
@@ -79,6 +82,18 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 {
     Error err(ERR_OK);
     ObjMetaData omd;
+
+    /**
+     * If abort is pending for this Executor. Exit.
+     */
+    if (isAbortPending()) {
+        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
+                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId << " target DLT version "
+                   << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     /**
      * Take a scoped lock for retryDltTokens map as it's accessed several
@@ -236,6 +251,18 @@ Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                         std::shared_ptr<leveldb::DB> db)
 {
+    /**
+     * If abort is pending for this Executor. Exit.
+     */
+    if (isAbortPending()) {
+        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
+                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId << " target DLT version "
+                   << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec
                << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId;
     Error err(ERR_OK);
@@ -405,6 +432,18 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
              << std::hex << executorId << std::dec << " DLT token " << dltToken
              << " " << error;
 
+    /**
+     * If abort is pending for this Executor. Exit.
+     */
+    if (isAbortPending()) {
+        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
+                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId << " target DLT version "
+                   << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
+        return;
+    }
+
     if (inErrorState()) {
         LOGDEBUG << "Ignoring CtrlObjectRebalanceFilterSet response for executor "
                  << std::hex << executorId << std::dec << " DLT token " << dltToken
@@ -464,6 +503,18 @@ Error
 MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
 {
     Error err(ERR_OK);
+
+    /**
+     * If abort is pending for this Executor. Exit.
+     */
+    if (isAbortPending()) {
+        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
+                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId << " target DLT version "
+                   << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     if (inErrorState()) {
         LOGDEBUG << "Ignoring delta set for executor " << std::hex << executorId
@@ -578,11 +629,12 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
     // if we are in error state, do not do anything anymore...
     MigrationExecutorState curState = atomic_load(&state);
-    if (inErrorState()) {
+    if (inErrorState() || isAbortPending()) {
         LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+        abortMigrationCb(executorId, smTokenId);
         return;
     }
 
@@ -624,6 +676,18 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 Error
 MigrationExecutor::startSecondObjectRebalanceRound() {
     Error err(ERR_OK);
+
+    /**
+     * If abort is pending for this Executor. Exit.
+     */
+    if (isAbortPending()) {
+        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
+                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId << " target DLT version "
+                   << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     // send message to source SM to request second delta set
     // just one message containing executor ID
@@ -684,6 +748,18 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 {
     LOGDEBUG << "Received second rebalance delta response for executor "
              << std::hex << executorId << std::dec << " " << error;
+
+    /**
+     * If abort is pending for this Executor. Exit.
+     */
+    if (isAbortPending()) {
+        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
+                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId << " target DLT version "
+                   << targetDltVersion;
+        abortMigrationCb(executorId, smTokenId);
+        return;
+    }
 
     if (inErrorState()) {
         LOGDEBUG << "Ignoring CtrlGetSecondRebalanceDeltaSet response for executor "
