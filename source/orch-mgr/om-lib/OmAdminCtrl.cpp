@@ -74,6 +74,15 @@ void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *di
 
 void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
+    // quick hack to allow system volumes
+    if (pVolDesc->isSystemVolume()) {
+
+        LOGDEBUG << "system volume : "
+                 << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
+                 << " admitted unconditionally";
+        return;
+    }
+    
     /* release  the resources since volume is deleted */
 
     // remember that volume descriptor has capacity in MB

@@ -227,7 +227,11 @@ void OrchMgr::defaultS3BucketPolicy()
     err = orchMgr->policy_mgr->createPolicy(policy_info);
     orchMgr->om_mutex->unlock();
 
-    LOGNORMAL << "Created  default S3 policy ";
+    LOGDEBUG << "CREATE:POLICY:" << err;
+    if ( err.ok() )
+    {
+        LOGDEBUG << "Created  default S3 policy ";
+    }
 }
 
 bool OrchMgr::loadFromConfigDB() {

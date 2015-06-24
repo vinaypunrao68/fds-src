@@ -134,7 +134,15 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
          asyncReqHandlers_.at(header->msg_type_id) (header, payload);
     } catch(std::out_of_range &e)
     {
-        fds_assert(!"Unregistered fdsp message type");
+        /*
+         * TODO Please justify why in debug mode this is an abort?
+         * 
+         * We don't even provide the message type id so we can troubleshoot it
+         * when we are in debug mode.
+         * 
+         * This make no sense, we log it in production and move on.
+         */
+//        fds_assert(!"Unregistered fdsp message type");
         LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id)
                 << " Ignoring";
     }
