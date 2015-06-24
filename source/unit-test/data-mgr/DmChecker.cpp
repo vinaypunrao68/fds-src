@@ -4,8 +4,7 @@
 #include <vector>
 #include <string>
 #include <boost/lexical_cast.hpp>
-#include <fds_process.h>
-#include <net/SvcProcess.h>
+#include <DmChecker.h>
 #include <net/SvcMgr.h>
 #include <fds_dmt.h>
 #include <LeveldbDiffer.h>
@@ -15,63 +14,45 @@
 
 namespace fds {
 
-/**
-* @brief Interface for providing the environment necessary for running DM checker
-*/
-struct DMCheckerEnv {
-    virtual ~DMCheckerEnv() = default;
-    virtual std::list<fds_volid_t> getVolumeIds() const = 0;
-    virtual uint32_t getReplicaCount(const fds_volid_t &volId) const = 0;
-    virtual std::string getCatalogPath(const fds_volid_t &volId,
-                                       const uint32_t &replicaIdx) const = 0;
-};
+DMOfflineCheckerEnv::DMOfflineCheckerEnv(int argc, char *argv[])
+ : SvcProcess(argc, argv, "platform.conf", "fds.checker.", "checker.log", nullptr) {
+}
 
-/**
-* @brief Checker environment implmementation for running checker in a offline mode
-* At the moment offline mode requires OM to be up and all DM catalogs to be hosted
-* on same node
-*/
-struct DMOfflineCheckerEnv : SvcProcess, DMCheckerEnv {
-    DMOfflineCheckerEnv(int argc, char *argv[])
-    : SvcProcess(argc, argv, "platform.conf", "fds.checker.", "checker.log", nullptr) {
-    }
-    int main() override {
-        start_modules();
-        /* Get volumes from config api */
-        auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
-            "127.0.0.1", 9090, 4);
-        std::vector<fds::apis::VolumeDescriptor> volDescs;
-        configSvc->listVolumes(volDescs, "");
-        for_each(volDescs.begin(), volDescs.end(),
-                 [this](const fds::apis::VolumeDescriptor& d) {
-                    volumeList.push_back(static_cast<fds_volid_t>(d.volId));
-                 });
+int DMOfflineCheckerEnv::main() {
+    start_modules();
+    /* Get volumes from config api */
+    auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
+        "127.0.0.1", 9090, 4);
+    std::vector<fds::apis::VolumeDescriptor> volDescs;
+    configSvc->listVolumes(volDescs, "");
+    for_each(volDescs.begin(), volDescs.end(),
+             [this](const fds::apis::VolumeDescriptor& d) {
+             volumeList.push_back(static_cast<fds_volid_t>(d.volId));
+             });
 
-        /* Get DMT */
-        svcMgr_->getDMT();
-        return 0;
-    }
-    int run() override { return 0; }
-    std::list<fds_volid_t> getVolumeIds() const override {
-        return volumeList;
-    }
-    uint32_t getReplicaCount(const fds_volid_t &volId) const override {
-        return svcMgr_->getDMTNodesForVolume(volId)->getLength();
-    }
-    std::string getCatalogPath(const fds_volid_t &volId,
-                                       const uint32_t &replicaIdx) const override {
-        auto dmSvcUuid = svcMgr_->getDMTNodesForVolume(volId)->get(replicaIdx).toSvcUuid();
-        std::string nodeRoot = svcMgr_->getSvcProperty<std::string>(
-            SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
-            "fds_root");
-        return util::strformat("%s/sys-repo/%ld/%ld_vcat.ldb",
-                                 nodeRoot.c_str(), volId, volId);
+    /* Get DMT */
+    svcMgr_->getDMT();
+    return 0;
+}
 
-    }
+std::list<fds_volid_t> DMOfflineCheckerEnv::getVolumeIds() const {
+    return volumeList;
+}
 
- protected:
-    std::list<fds_volid_t> volumeList;
-};
+uint32_t DMOfflineCheckerEnv::getReplicaCount(const fds_volid_t &volId) const {
+    return svcMgr_->getDMTNodesForVolume(volId)->getLength();
+}
+
+std::string DMOfflineCheckerEnv::getCatalogPath(const fds_volid_t &volId,
+                                                const uint32_t &replicaIdx) const {
+    auto dmSvcUuid = svcMgr_->getDMTNodesForVolume(volId)->get(replicaIdx).toSvcUuid();
+    std::string nodeRoot = svcMgr_->getSvcProperty<std::string>(
+        SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
+        "fds_root");
+    return util::strformat("%s/sys-repo/%ld/%ld_vcat.ldb",
+                           nodeRoot.c_str(), volId, volId);
+
+}
 
 /**
 * @brief Level db adpater specific to DmPersistVolDB used in diffing.
@@ -130,62 +111,52 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
     BlobObjKeyComparator comparator;
 };
 
-/**
-* @brief DM Checker
-*/
-struct DMChecker {
-    explicit DMChecker(DMCheckerEnv *env) {
-        this->env = env;
-        totalMismatches = 0;
-    }
-    void logMisMatch(const fds_volid_t &volId, const std::vector<DiffResult> &mismatches) {
-        totalMismatches += mismatches.size();
-    }
-    uint64_t run() {
-        auto volumeList  = env->getVolumeIds();
-        for (const auto &volId : volumeList) {
-            auto replicaCnt = env->getReplicaCount(volId);
+DMChecker::DMChecker(DMCheckerEnv *env) {
+    this->env = env;
+    totalMismatches = 0;
+}
 
-            auto primaryCatPath = env->getCatalogPath(volId, 0);
-            if (primaryCatPath.empty()) {
+void DMChecker::logMisMatch(const fds_volid_t &volId,
+                            const std::vector<DiffResult> &mismatches) {
+    totalMismatches += mismatches.size();
+}
+
+uint64_t DMChecker::run() {
+    DmPersistVolDBDiffAdapter diffAdapter;
+    auto volumeList  = env->getVolumeIds();
+    for (const auto &volId : volumeList) {
+        auto replicaCnt = env->getReplicaCount(volId);
+
+        auto primaryCatPath = env->getCatalogPath(volId, 0);
+        if (primaryCatPath.empty()) {
+            logMisMatch(volId,
+                        {{boost::lexical_cast<std::string>(volId),
+                        DiffResult::DELETED_KEY,
+                        "Primary db doesn't exist"}});
+            continue;
+        }
+
+        for (uint32_t i = 1; i < replicaCnt; i++) {
+            auto backupCatPath = env->getCatalogPath(volId, i);
+            if (backupCatPath.empty()) {
                 logMisMatch(volId,
                             {{boost::lexical_cast<std::string>(volId),
                             DiffResult::DELETED_KEY,
-                            "Primary db doesn't exist"}});
+                            "Replica db doesn't exist"}});
                 continue;
             }
 
-            for (uint32_t i = 1; i < replicaCnt; i++) {
-                auto backupCatPath = env->getCatalogPath(volId, i);
-                if (backupCatPath.empty()) {
-                    logMisMatch(volId,
-                                {{boost::lexical_cast<std::string>(volId),
-                                DiffResult::DELETED_KEY,
-                                "Replica db doesn't exist"}});
-                    continue;
-                }
-
-                LevelDbDiffer  differ(primaryCatPath, backupCatPath, &diffAdapter);
-                std::vector<DiffResult> diffs;
-                while (differ.diff(2048, diffs)) {
-                    if (diffs.size() > 0) {
-                        logMisMatch(volId, diffs);
-                        diffs.clear();
-                    }
+            LevelDbDiffer  differ(primaryCatPath, backupCatPath, &diffAdapter);
+            std::vector<DiffResult> diffs;
+            while (differ.diff(2048, diffs)) {
+                if (diffs.size() > 0) {
+                    logMisMatch(volId, diffs);
+                    diffs.clear();
                 }
             }
         }
-        return totalMismatches;
     }
-    DMCheckerEnv                                                *env;
-    DmPersistVolDBDiffAdapter                                   diffAdapter;
-    uint64_t                                                    totalMismatches;
-};
+    return totalMismatches;
+}
 } // namespace fds
 
-int main(int argc, char* argv[]) {
-    DMOfflineCheckerEnv env(argc, argv);
-    fds::DMChecker checker(&env);
-    auto ret = checker.run();
-    return ret == 0 ? 0 : -1;
-}
