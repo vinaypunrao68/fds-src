@@ -426,7 +426,7 @@ DynamicRRAlgorithm::demoteFailedPrimaries(DMT* newDmt,
                        (nonfailedUuid.uuid_get_val() != 0)) {
                     // this secondary also failed, try another one
                     ++secondary_j;
-                    if (secondary_j >= primDepth) {
+                    if (secondary_j >= newDmt->getDepth()) {
                         // ran out of secondaries... cannot demote anything
                         // in this column anymore
                         break;

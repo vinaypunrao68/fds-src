@@ -300,6 +300,9 @@ TEST(DmtCalculation, compute_then_fail_2prim) {
 
         placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED), newDmt, numPrimaryDMs);
         err = newDmt->verify();
+        if (!err.ok()) {
+            GLOGERROR << "DMT verify failed " << err;
+        }
         EXPECT_TRUE(err.ok());
 
         // commit DMT
