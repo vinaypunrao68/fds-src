@@ -47,6 +47,8 @@
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
 
+#include <DmMigrationMgr.h>
+
 #include "util/ExecutionGate.h"
 
 /* if defined, puts complete as soon as they
@@ -271,6 +273,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
+                case FDS_DM_MIGRATION:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
                                          io);
@@ -446,6 +449,11 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     	fds_verify(num > 0);
     	_numOfPrimary = num;
     }
+
+    /**
+     * Migration mgr for managing DM migrations
+     */
+    DmMigrationMgr::unique_ptr dmMigrationMgr;
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
