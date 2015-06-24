@@ -16,8 +16,6 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
 {
 	migrState = MIGR_IDLE;
 	cleanUpInProgress = false;
-	maxExecutor = fds_uint64_t(MODULEPROVIDER()->get_fds_config()->
-							get<int>("fds.dm..migration.max_migrations"));
 	migrationMsg = nullptr;
 }
 

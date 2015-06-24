@@ -74,7 +74,6 @@ class DmMigrationMgr {
     fds_rwlock migrExecutorLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
-    fds_uint64_t maxExecutor;
 
     /**
      * Throttles the number of max concurrent migrations
