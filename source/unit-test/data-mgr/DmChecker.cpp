@@ -23,6 +23,7 @@ int DMOfflineCheckerEnv::main() {
     /* Get volumes from config api */
     auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
         "127.0.0.1", 9090, 4);
+    // boost::shared_ptr<fds::apis::ConfigurationServiceClient> configSvc;
     std::vector<fds::apis::VolumeDescriptor> volDescs;
     configSvc->listVolumes(volDescs, "");
     for_each(volDescs.begin(), volDescs.end(),
@@ -148,12 +149,16 @@ uint64_t DMChecker::run() {
 
             LevelDbDiffer  differ(primaryCatPath, backupCatPath, &diffAdapter);
             std::vector<DiffResult> diffs;
-            while (differ.diff(2048, diffs)) {
+            do {
+                bool cont = differ.diff(2048, diffs);
                 if (diffs.size() > 0) {
                     logMisMatch(volId, diffs);
                     diffs.clear();
                 }
-            }
+                if (!cont) {
+                    break;
+                }
+            } while(true);
         }
     }
     return totalMismatches;
