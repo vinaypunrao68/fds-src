@@ -200,7 +200,7 @@ struct BasicBlobMeta: serialize::Serializable {
     uint32_t write(serialize::Serializer* s) const;
     uint32_t read(serialize::Deserializer* d);
 
-    BasicBlobMeta& operator=(const BasicBlobMeta& rhs);
+    BasicBlobMeta& operator=(const BasicBlobMeta& rhs) = default;
 };
 
 /**

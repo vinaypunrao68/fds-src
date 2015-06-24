@@ -132,14 +132,6 @@ uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
     return bytes;
 }
 
-BasicBlobMeta& BasicBlobMeta::operator=(const BasicBlobMeta &rhs) {
-    blob_name = rhs.blob_name;
-    version   = rhs.version;
-    sequence_id = rhs.sequence_id;
-    blob_size = rhs.blob_size;
-    return *this;
-}
-
 std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& desc) {
     out << "BasicBlobMeta: "
         << "name " << desc.blob_name
