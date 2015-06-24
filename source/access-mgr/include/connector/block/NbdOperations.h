@@ -217,7 +217,10 @@ class NbdOperations
     typedef std::unordered_map<fds_int64_t, NbdResponseVector*> response_map_type;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
-    ~NbdOperations();
+    explicit NbdOperations(NbdOperations const& rhs) = delete;
+    NbdOperations& operator=(NbdOperations const& rhs) = delete;
+    ~NbdOperations() = default;
+
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
     void init(req_api_type::shared_string_type vol_name,
               std::shared_ptr<AmProcessor> processor);
@@ -245,16 +248,21 @@ class NbdOperations
     void shutdown();
 
   private:
+    bool finishResponse(fds_int64_t const handle);
+
     fds_uint32_t getObjectCount(fds_uint32_t length,
                                 fds_uint64_t offset);
 
+    void detachVolume();
+
     // api we've built
-    std::unique_ptr<AmAsyncDataApi<handle_type>> amAsyncDataApi;
+    std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
     fds_uint32_t maxObjectSizeInBytes;
 
     // interface to respond to nbd passed down in constructor
-    NbdOperationsResponseIface* nbdResp;
+    std::unique_ptr<NbdOperationsResponseIface> nbdResp;
+    bool shutting_down {false};
 
     // for all reads/writes to AM
     boost::shared_ptr<std::string> blobName;
@@ -264,8 +272,8 @@ class NbdOperations
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
-    response_map_type responses;
     fds_mutex respLock;
+    response_map_type responses;
 
     sector_type sector_map;
 

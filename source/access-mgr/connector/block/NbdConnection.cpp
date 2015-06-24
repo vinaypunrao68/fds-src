@@ -110,7 +110,7 @@ NbdConnection::NbdConnection(int clientsd,
 }
 
 NbdConnection::~NbdConnection() {
-    LOGDEBUG << "NbdConnection going adios!";
+    LOGNORMAL << "NBD client disconnected for " << clientSocket;
     asyncWatcher->stop();
     ioWatcher->stop();
     shutdown(clientSocket, SHUT_RDWR);
