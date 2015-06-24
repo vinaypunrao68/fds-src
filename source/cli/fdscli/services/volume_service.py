@@ -78,7 +78,7 @@ class VolumeService( AbstractService ):
         ''' 
         clone from the given volume and snapshot ID
         '''
-        url = "{}{}{}{}".format(self.get_url_preamble(), "/volumes/", volume.id, "/snapshot/", snapshot_id)
+        url = "{}{}{}{}{}".format(self.get_url_preamble(), "/volumes/", volume.id, "/snapshot/", snapshot_id)
         data = VolumeConverter.to_json(volume)
         newVolume = self.rest_helper.post(self.session, url, data );
         
@@ -93,7 +93,7 @@ class VolumeService( AbstractService ):
         Use a time and volume QoS settings to clone a new volume
         '''
         
-        url = "{}{}{}/{}".format( self.get_url_preamble(), "/volumes/", volume.id, "/time/", fromTime )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume.id, "/time/", fromTime )
         data = VolumeConverter.to_json( volume )
         volume = self.rest_helper.post( self.session, url, data )
 
@@ -141,7 +141,7 @@ class VolumeService( AbstractService ):
         Delete a specific snapshot from a volume
         '''
         
-        url = "{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot", snapshot_id )
+        url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot", snapshot_id )
         return self.rest_helper.delete( url )
     
     def list_snapshots(self, volume_id):
