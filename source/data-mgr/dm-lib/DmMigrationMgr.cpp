@@ -42,7 +42,7 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 	 * Otherwise, OM bug?
 	 */
 	auto search = executorMap.find(fds_volid_t(vol.volUUID));
-	if (search == executorMap.end()) {
+	if (search != executorMap.end()) {
 		LOGMIGRATE << "Migration for volume " << vol.vol_name << " is a duplicated request.";
 		err = ERR_DUPLICATE;
 	} else {
@@ -106,6 +106,7 @@ DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigratio
 	 */
 	for (DmMigrationExecMap::iterator mit = executorMap.begin();
 			mit != executorMap.end(); mit++) {
+		migrationExecThrottle.getAccessToken();
 		mit->second->execute();
 		if (isMigrationAborted()) {
 			/**
@@ -144,7 +145,7 @@ DmMigrationMgr::activateStateMachine()
 		 * Migration should be idle
 		 */
 		fds_verify(ongoingMigrationCnt() == 0);
-		if (!(err = checkMaximumMigrations().OK())) {
+		if (!(err = checkMaximumMigrations())) {
 			LOGMIGRATE << "This group of migration request exceeds the maximum allowed";
 		}
 	}
@@ -210,6 +211,12 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &resu
 		/**
 		 * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
 		 */
+		/**
+		 * TODO(Neil):
+		 * This will be moved to the callback when source client finishes and
+		 * talks to the destination manager.
+		 */
+		migrationExecThrottle.returnAccessToken();
 	}
 }
 

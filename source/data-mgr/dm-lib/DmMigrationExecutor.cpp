@@ -14,7 +14,7 @@ DmMigrationExecutor::DmMigrationExecutor(DmIoReqHandler* _DmReqHandle,
 										 DmMigrationExecutorDoneHandler _handle)
     : DmReqHandler(_DmReqHandle)
 {
-	LOGMIGRATE << "Migration executor received for volume " << vol->vol_name;
+	LOGMIGRATE << "Migration executor received for volume " << _vol.vol_name;
 
 	srcDmUuid = boost::make_shared<NodeUuid> (_srcDmUuid);
 	mySvcUuid = boost::make_shared<NodeUuid> (_mySvcUuid);
