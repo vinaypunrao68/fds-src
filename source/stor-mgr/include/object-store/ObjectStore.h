@@ -99,6 +99,11 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
 
+    // Warning threshold for disk capacity
+    static constexpr float_t WARNING_THRESHOLD = 50.0;
+    // Alert threshold for disk capacity
+    static constexpr float_t ALERT_THRESHOLD = 85.0;
+
     /**
      * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
      * Does not consider tiering data in calculations, but does include SM metadata stored in SSDs.

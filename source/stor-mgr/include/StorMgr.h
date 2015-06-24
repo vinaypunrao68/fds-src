@@ -312,11 +312,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return ret.str();
      }
 
-     // Warning threshold
-     static constexpr float_t WARNING_THRESHOLD = 50.0;
-     // Alert threshold
-     static constexpr float_t ALERT_THRESHOLD = 85.0;
-
      friend class SmLoadProc;
      friend class SmUnitTest;
      friend class SMSvcHandler;
