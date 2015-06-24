@@ -159,9 +159,12 @@ NbdOperations::detachVolume() {
         std::unique_lock<std::mutex> lk(assoc_map_lock);
         if (0 == --assoc_map[*volumeName]) {
             handle_type reqId{0, 0};
-            amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+            return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
         }
     }
+    // If we weren't attached, pretend if we had been to be DRY
+    handle_type fake_req;
+    detachVolumeResp(ERR_OK, fake_req);
 }
 
 void
@@ -479,7 +482,7 @@ NbdOperations::shutdown()
     shutting_down = true;
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
-        amAsyncDataApi.reset();
+        detachVolume();
     }
 }
 
