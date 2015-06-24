@@ -470,13 +470,17 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
                                     commit_data->metaDataList,
                                     commit_data->txDesc, seq_id);
         }
-        // Update the blob size in the commit data
+
         if (ERR_OK == e) {
+            // Update the blob size in the commit data
             e = volcat->getBlobMeta(volid,
                                     commit_data->name,
                                     nullptr,
                                     &commit_data->blobSize,
                                     nullptr);
+
+            // if the operation suceeded, update cached copy of sequence_id
+            dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
 #endif
     }
@@ -518,6 +522,11 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
             fds_verify(metaList.size() > 0);
             MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
             err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr(), seq_id);
+        }
+
+        if (ERR_OK == err) {
+            // if the operation suceeded, update cached copy of sequence_id
+            dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
     }
 
