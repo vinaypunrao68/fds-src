@@ -78,9 +78,8 @@ float_t ObjectStore::getUsedCapacityAsPct() {
             max = pct_used;
         }
     }
-
-    max = max * 100;
-    return max;
+    
+    return max * 100;
 }
 
 /**
