@@ -999,8 +999,6 @@ DataMgr::~DataMgr()
 
 int DataMgr::run()
 {
-    // TODO(Rao): Move this into module init
-    initHandlers();
 
     _shutdownGate.waitUntilOpened();
 
