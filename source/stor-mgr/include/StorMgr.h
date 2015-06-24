@@ -312,6 +312,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return ret.str();
      }
 
+     // Warning threshold
+     static constexpr float_t WARNING_THRESHOLD = 50.0;
+     // Alert threshold
+     static constexpr float_t ALERT_THRESHOLD = 85.0;
+
      friend class SmLoadProc;
      friend class SmUnitTest;
      friend class SMSvcHandler;
@@ -333,10 +338,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
     // Tracks the number of time collect sample stats has run, to enable capacity tracking every N runs
     fds_uint8_t sampleCounter;
-    // Warning threshold
-    static constexpr float_t WARNING_THRESHOLD = 50.0;
-    // Alert threshold
-    static constexpr float_t ALERT_THRESHOLD = 85.0;
+    bool hasReportedCapacityAlert;
+    bool hasReportedCapacityWarning;
+
 };
 
 }  // namespace fds

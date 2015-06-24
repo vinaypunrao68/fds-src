@@ -16,6 +16,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 #include <object-store/TieringConfig.h>
+#include <StorMgr.h>
 
 namespace fds {
 
@@ -62,12 +63,24 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         }
         float_t pct_used = (capacity.first * 1.) / capacity.second;
 
+        // We want to log which disk is too full here
+        if (pct_used > ObjectStorMgr::WARNING_THRESHOLD) {
+            LOGWARN << "Disk at path " << diskMap->getDiskPath(diskId)
+                      << " is consuming " << pct_used << " space, which is more than the warning threshold of "
+                      << ObjectStorMgr::WARNING_THRESHOLD;
+        } else if (pct_used > ObjectStorMgr::ALERT_THRESHOLD) {
+            LOGNORMAL << "Disk at path " << diskMap->getDiskPath(diskId)
+                      << " is consuming " << pct_used << " space, which is more than the alert threshold of "
+                      << ObjectStorMgr::ALERT_THRESHOLD;
+        }
+
         if (pct_used > max) {
             max = pct_used;
         }
     }
 
-    return max * 100;
+    max = max * 100;
+    return max;
 }
 
 /**
