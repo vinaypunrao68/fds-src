@@ -249,9 +249,9 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
     fiu_do_on("mark.object.store.unavailable", markObjStoreUnavailable = true;\
-              LOGNOTIFY << "mark.object.store.unavailable fault point enabled");
+              LOGNOTIFY << "mark.object.store.unavailable fault point enabled";);
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true;\
-              LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled");
+              LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled";);
     if (markObjStoreUnavailable || objStorMgr->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
         // integrity check
@@ -1109,7 +1109,8 @@ SMSvcHandler::NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 {
     LOGDEBUG << "NotifyDLTCloseCB called with DLTversion="
-             << DLTCloseReq->closeDLTVersion;
+             << DLTCloseReq->closeDLTVersion
+             << " with error " << err;
 
     // send response
     asyncHdr->msg_code = err.GetErrno();
