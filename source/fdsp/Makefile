@@ -13,6 +13,7 @@ user_thrift      := \
 	dm_types.thrift \
 	om_types.thrift \
 	sm_types.thrift \
+	pm_types.thrift \
 	config_types.thrift \
 	fds_stream.thrift \
 	svc_api.thrift \
