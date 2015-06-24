@@ -108,6 +108,7 @@ public class AsyncWebapp extends HttpServlet {
 
         if (matchResult.isRoutingSuccessful()) {
             AsyncContext asyncContext = request.startAsync();
+            asyncContext.setTimeout(1000 * 60 * 5);
             LOG.debug(req.getMethod() + " " + req.getRequestURI());
             Function<HttpContext, CompletableFuture<Void>> handler = matchResult.getResult();
             response.addHeader("Access-Control-Allow-Origin", "*");
