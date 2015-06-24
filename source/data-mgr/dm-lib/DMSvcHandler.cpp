@@ -30,7 +30,6 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDMMigrateMeta, StartDMMetaMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownDM);
-    dataManager_.initHandlers();
 }
 
 // notifySvcChange

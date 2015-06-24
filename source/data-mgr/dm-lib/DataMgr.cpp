@@ -909,6 +909,7 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
+    initHandlers();
     standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
