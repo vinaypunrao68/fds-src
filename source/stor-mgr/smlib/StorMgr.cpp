@@ -354,6 +354,16 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
 }
 
 Error ObjectStorMgr::handleDltUpdate() {
+
+    if (true == MODULEPROVIDER()->get_fds_config()->\
+                    get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
+        auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
+                            get<int>("fds.sm.testing.sleep_duration_before_migration");
+        LOGNOTIFY << "Sleep for " << sleep_time
+                  << " before sending NotifyDLTUpdate response to OM";
+        sleep(sleep_time);
+    }
+
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens

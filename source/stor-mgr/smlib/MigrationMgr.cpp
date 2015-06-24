@@ -72,6 +72,10 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
 {
     Error err(ERR_OK);
 
+    fiu_do_on("abort.sm.migration",\
+              LOGNOTIFY << "abort.sm.migration fault point enabled";\
+              sleep(1); if (cb) { cb(ERR_NOT_READY); } return ERR_NOT_READY;);
+
     // Check if the migraion feature is enabled or disabled.
     if (false == enableMigrationFeature) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
@@ -1101,7 +1105,9 @@ MigrationMgr::handleDltClose(const DLT* dlt,
     }
 
     // Cancel retryTokenMigration Timer Task since we are done with migration.
-    mTimer.cancel(retryTokenMigrationTask);
+    if (retryTokenMigrationTask != nullptr) {
+        mTimer.cancel(retryTokenMigrationTask);
+    }
 
     LOGMIGRATE << "Will cleanup executors and migr clients";
     // Wait for all pending IOs to complete on Executors.
@@ -1113,7 +1119,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
 
     {
         SCOPEDWRITE(clientLock);
-        // Wait for all pending IOs to complete on Clieng.
+        // Wait for all pending IOs to complete on Client.
         coalesceClients();
         migrClients.clear();
     }
@@ -1173,7 +1179,9 @@ MigrationMgr::checkResyncDoneAndCleanup()
             }
 
             // Cancel retryTokenMigration Timer Task since we are done with migration.
-            mTimer.cancel(retryTokenMigrationTask);
+            if (retryTokenMigrationTask != nullptr) {
+                mTimer.cancel(retryTokenMigrationTask);
+            }
 
             LOGNOTIFY << "Token resync on restart / or being resync client completed for DLT version "
                       << targetDltVersion;
@@ -1243,7 +1251,9 @@ MigrationMgr::abortMigration(const Error& error)
     }
 
     // Cancel retryTokenMigration Timer Task since migration is aborting
-    mTimer.cancel(retryTokenMigrationTask);
+    if (retryTokenMigrationTask != nullptr) {
+        mTimer.cancel(retryTokenMigrationTask);
+    }
     setAbortPendingForExecutors();
 
     /**
