@@ -8,18 +8,18 @@
 import os
 import sys
 import sh
-import timeout_decorator
+#import timeout_decorator
 
-nbd_path = os.path.abspath(os.path.join('..', '..'))
+nbd_path = os.path.abspath(os.path.join('..', '..', '..', 'cinder'))
 sys.path.append(nbd_path)
 
 # import nbdadmin.py:
-from cinder.nbdadm import nbdlib
-from cinder.nbdadm import nbd_user_error
-from cinder.nbdadm import nbd_client_error
-from cinder.nbdadm import nbd_modprobe_error
-from cinder.nbdadm import nbd_volume_error
-from cinder.ndbadm import nbd_host_error
+from nbdadm import nbdlib
+from nbdadm import nbd_user_error
+from nbdadm import nbd_client_error
+from nbdadm import nbd_modprobe_error
+from nbdadm import nbd_volume_error
+from nbdadm import nbd_host_error
 
 class nbd_mount_error(Exception):
     def __init__(self, value):
@@ -46,6 +46,10 @@ class NBD(nbdlib):
             raise ValueError("hostname must be set")
         self.get_device_paths()
         self.host = hostname
+        super(NBD, self).__init__()
+
+    def attach(self, volume):
+        return super(NBD, self).attach(self.host, None, volume, True)
 
     def format_dev(self, device, fs_type):
         # build args to mkfs
@@ -53,11 +57,9 @@ class NBD(nbdlib):
         if fs_type is not None:
             arg_list.append('-t ')
             arg_list.append(fs_type)
-            arg_list.append(' ')
         arg_list.append(device)
-        arg_str = ''.join(arg_list)
         # call mkfs
-        response = sh.mkfs(arg_str)
+        response = sh.mkfs(arg_list)
         if result.exit_code is not 0:
             raise nbd_format_error("unknown error formatting device: {}".format(device))
 
@@ -79,7 +81,7 @@ class NBD(nbdlib):
         self.mount_device(dev, path)
         return dev
 
-    @timeout_decorator.timeout(30)
+    #@timeout_decorator.timeout(30)
     def unmount(self, path):
         if os.path.exists(path): 
             if os.path.ismount(path):
