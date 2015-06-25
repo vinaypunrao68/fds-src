@@ -15,8 +15,8 @@ raise "FDS_SRC_DIR must be set'" unless fds_src_dir
 # and /opt/fds-deps on all other platforms
 install_dir "#{default_root}/#{name}"
 
-#build_version Omnibus::BuildVersion.semver
-build_version '2015.06.05'
+mydir = File.dirname(__FILE__)
+build_version File.readlines("#{mydir}/../../../VERSION").first.chomp
 build_iteration 1
 
 # Creates required build directories
