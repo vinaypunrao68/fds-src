@@ -160,7 +160,7 @@ class nbdlib(object):
         else:
             nbd_args = ['nbd-client', '-N', vol_name, host, str(port), dev, '-b', '4096', '-t', '5']
 
-        print(nbd_args)
+        #print(nbd_args)
 
         nbd_client = subprocess.Popen(nbd_args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         # add timeout?
