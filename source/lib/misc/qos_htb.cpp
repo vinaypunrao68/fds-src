@@ -231,7 +231,6 @@ QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
     }
     auto& qstate = qstate_it->second;
     fds_assert(qstate);
-    qstate_map.erase(qstate_it);
 
     /* update total min and avail rates */
     assert(qstate->assured_rate <= total_assured_rate);
@@ -243,6 +242,7 @@ QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
     }
 
     avail_pool.modifyRate(new_total_avail_rate);
+    qstate_map.erase(qstate_it);
     qda_lock.write_unlock();
 
     LOGNOTIFY << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
