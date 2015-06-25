@@ -225,9 +225,9 @@ QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
     /* if error, still try to remove queue state first before returning */
 
     auto qstate_it = qstate_map.find(queue_id);
-    if (qstate_map.end() != qstate_it) {
+    if (qstate_map.end() == qstate_it) {
         qda_lock.write_unlock();
-        return ERR_DUPLICATE; /* we probably got same error from base class, but still good to check if queue state exists */
+        return ERR_NOT_FOUND; /* we probably got same error from base class, but good to check if queue state exists */
     }
     auto& qstate = qstate_it->second;
     fds_assert(qstate);
