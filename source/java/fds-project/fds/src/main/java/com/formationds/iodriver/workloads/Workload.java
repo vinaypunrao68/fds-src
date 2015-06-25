@@ -38,6 +38,41 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
 // @eclipseFormat:on
 {
     /**
+     * Get the type of endpoint this workload can use.
+     * 
+     * @return The current property value.
+     */
+    public final Class<EndpointT> getEndpointType()
+    {
+        return _endpointType;
+    }
+    
+    /**
+     * Get the type of operation this workload can execute.
+     * 
+     * @return The current property value.
+     */
+    public final Class<OperationT> getOperationType()
+    {
+        return _operationType;
+    }
+    
+    /**
+     * Constructor.
+     * 
+     * @param endpointType The type of endpoint this workload can use.
+     * @param operationType The type of operation this workload can run.
+     */
+    protected  Workload(Class<EndpointT> endpointType, Class<OperationT> operationType)
+    {
+        if (endpointType == null) throw new NullArgumentException("endpointType");
+        if (operationType == null) throw new NullArgumentException("operationType");
+        
+        _endpointType = endpointType;
+        _operationType = operationType;
+    }
+    
+    /**
      * Execute this workload.
      * 
      * @param endpoint Operations will be run on this endpoint.
@@ -265,6 +300,16 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
             throw new ExecutionException(e);
         }
     }
+
+    /**
+     * The type of endpoint this workload can use.
+     */
+    private final Class<EndpointT> _endpointType;
+
+    /**
+     * The type of operation this workload can run.
+     */
+    private final Class<OperationT> _operationType;
 
     /**
      * Workload body. Streams are run in parallel with each other.

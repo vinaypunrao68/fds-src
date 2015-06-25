@@ -26,14 +26,14 @@ import com.formationds.iodriver.operations.StatBucketVolume;
  * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
  * attempts to exceed those IOPS.
  */
-public final class S3SingleVolumeRateLimitTestWorkload extends S3Workload
+public final class S3RateLimitTestWorkload extends Workload<S3Endpoint, S3Operation>
 {
     /**
      * Constructor.
      * 
      * @param iops The number of IOPS to set throttle to.
      */
-    public S3SingleVolumeRateLimitTestWorkload(int iops)
+    public S3RateLimitTestWorkload(int iops)
     {
         if (iops <= 0)
         {
