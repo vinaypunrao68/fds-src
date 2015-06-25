@@ -1627,7 +1627,12 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         std::string nameLower = lower(snapshot.snapshotName);
 
         if (r.sismember("snapshot:names", nameLower)) {
-            throw ConfigException("another snapshot exists with name:" + snapshot.snapshotName); //NOLINT
+            LOGCRITICAL << "The specified snapshot ( " 
+                        << " ) " << snapshot.snapshotName
+                        << "name already exists";
+            return false;
+                
+//            throw ConfigException("another snapshot exists with name:" + snapshot.snapshotName); //NOLINT
         }
 
         r.sadd("snapshot:names", nameLower);
