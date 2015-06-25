@@ -231,23 +231,23 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
 /*
  * Removes volume from the map, returns error if volume does not exist
  */
-Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
+Error AmVolumeTable::removeVolume(std::string const& volName, fds_volid_t const volId)
 {
     WriteGuard wg(map_rwlock);
     /** Drain any wait queue into as any Error */
-    wait_queue->remove_if(volDesc.name,
+    wait_queue->remove_if(volName,
                           [] (AmRequest* amReq) {
                               if (amReq->cb)
                                   amReq->cb->call(ERR_VOL_NOT_FOUND);
                               delete amReq;
                               return true;
                           });
-    if (0 == volume_map.erase(volDesc.volUUID)) {
-        LOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
+    if (0 == volume_map.erase(volId)) {
+        LOGDEBUG << "Called for non-attached volume " << volId;
         return ERR_OK;
     }
-    LOGNOTIFY << "AmVolumeTable - Removed volume " << volDesc.volUUID;
-    return qos_ctrl->deregisterVolume(volDesc.volUUID);
+    LOGNOTIFY << "AmVolumeTable - Removed volume " << volId;
+    return qos_ctrl->deregisterVolume(volId);
 }
 
 /*
