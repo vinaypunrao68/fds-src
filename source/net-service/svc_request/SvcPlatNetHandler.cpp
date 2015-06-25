@@ -173,7 +173,7 @@ void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::Async
      */
     auto reqTracker = MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker();
     auto asyncReq = reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
-    if (asyncReq->taskExecutorIdIsSet()) {
+    if (asyncReq && asyncReq->taskExecutorIdIsSet()) {
         taskExecutor_->scheduleOnHashKey(asyncReq->getTaskExecutorId(),
                                          std::bind(&PlatNetSvcHandler::asyncRespHandler,
                                                    MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
