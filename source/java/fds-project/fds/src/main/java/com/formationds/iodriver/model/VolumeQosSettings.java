@@ -1,6 +1,6 @@
 package com.formationds.iodriver.model;
 
-import com.formationds.apis.MediaPolicy;
+import com.formationds.client.v08.model.MediaPolicy;
 
 /**
  * QoS settings for a volume.
