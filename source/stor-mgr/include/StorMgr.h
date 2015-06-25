@@ -333,10 +333,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
     // Tracks the number of time collect sample stats has run, to enable capacity tracking every N runs
     fds_uint8_t sampleCounter;
-    // Warning threshold
-    static constexpr float_t WARNING_THRESHOLD = 50.0;
-    // Alert threshold
-    static constexpr float_t ALERT_THRESHOLD = 85.0;
+    // Track when the last message was sent
+    float_t lastCapacityMessageSentAt;
+
 };
 
 }  // namespace fds
