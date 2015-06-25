@@ -76,6 +76,12 @@ float_t ObjectStore::getUsedCapacityAsPct() {
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
                       << ObjectStore::ALERT_THRESHOLD;
             lastCapacityMessageSentAt = ObjectStore::ALERT_THRESHOLD;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < ObjectStore::ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+            }
         }
 
         if (pct_used > max) {
