@@ -49,7 +49,8 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       volTbl(nullptr),
       qosCtrl(nullptr),
       shuttingDown(false),
-      sampleCounter(0)
+      sampleCounter(0),
+      lastCapacityMessageSentAt(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -464,10 +465,24 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         float_t pct_used = objectStore->getUsedCapacityAsPct();
-        if (pct_used >= ObjectStorMgr::ALERT_THRESHOLD) {
-            LOGNORMAL << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
-        } else if (pct_used >= ObjectStorMgr::WARNING_THRESHOLD) {
-            LOGWARN << "SM is utilizing " << pct_used << " of available storage space!";
+        if (pct_used >= ObjectStore::ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < ObjectStore::ALERT_THRESHOLD) {
+            LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send thrift message to OM alerting it that we've hit capacity
+
+
+        } else if (pct_used >= ObjectStore::WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < ObjectStore::WARNING_THRESHOLD) {
+            LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < ObjectStore::ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+            }
         }
         sampleCounter = 0;
     }

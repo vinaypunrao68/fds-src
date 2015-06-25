@@ -29,27 +29,21 @@ import java.util.UUID;
 public class XdiClientFactory {
     protected static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
 
-    private final ThriftClientFactory<XdiService.Iface>             amService;
-    private final ThriftClientFactory<AsyncXdiServiceRequest.Iface> onewayAmService;
+    private final ThriftClientFactory<AsyncXdiServiceRequest.Iface> onewayAsyncAmService;
     private final ThriftClientFactory<Iface>                       configService;
 
 
     public XdiClientFactory() {
         configService = ConfigServiceClientFactory.newConfigService();
-        amService = AmServiceClientFactory.newAmService();
-        onewayAmService = AmServiceClientFactory.newOneWayAsyncAmService();
+        onewayAsyncAmService = AmServiceClientFactory.newOneWayAsyncAmService();
     }
 
     public ConfigurationService.Iface remoteOmService(String host, int port) {
         return configService.getClient(host, port);
     }
 
-    public XdiService.Iface remoteAmService(String host, int port) {
-        return amService.getClient(host, port);
-    }
-
-    public AsyncXdiServiceRequest.Iface remoteOnewayAm(String host, int port) {
-        return onewayAmService.getClient(host, port);
+    public AsyncXdiServiceRequest.Iface remoteOnewayAsyncAm(String host, int port) {
+        return onewayAsyncAmService.getClient(host, port);
     }
 
     public AsyncResourcePool<ThriftClientConnection<XdiService.AsyncIface>> makeAmAsyncPool(String host, int port) throws
