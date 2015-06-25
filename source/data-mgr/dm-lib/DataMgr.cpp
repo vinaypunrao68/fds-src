@@ -631,6 +631,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
         if (!err.ok()) {
+            LOGERROR << "failed to read persisted sequence id for vol: " << vol_uuid << " error: " << err;
             return err;
         }else{
             volmeta->setSequenceId(seq_id);

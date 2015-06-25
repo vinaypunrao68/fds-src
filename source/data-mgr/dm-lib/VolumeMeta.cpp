@@ -23,6 +23,9 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
+
+    // this should be overwritten when volume add triggers read of the persisted value
+    sequence_id = 0;
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
@@ -30,6 +33,8 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_log* _dm_log,
                        VolumeDesc* _desc)
         : VolumeMeta(_name, _uuid, _desc) {
+    // this should be overwritten when volume add triggers read of the persisted value
+    sequence_id = 0;
 }
 
 VolumeMeta::~VolumeMeta() {
