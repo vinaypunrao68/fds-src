@@ -545,6 +545,10 @@ template<typename D>
 bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
 {
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
+    // If we've nothing to read, done
+    fds_assert(0 != len); // Know about this in DEBUG...logic error?
+    if (0 == len) return true;
+
     ssize_t nread = read_from_socket(fd, data, off, len);
     if (0 > nread) {
         switch (0 > nread ? errno : EPIPE) {
@@ -573,11 +577,6 @@ template<typename M>
 bool get_message_header(int fd, M& message) {
     fds_assert(message.header_off >= 0);
     ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
-
-    // Some defensive coding...I don't think this can happen,
-    // but it's the only thing I've to go on for some BoC failures.
-    fds_assert(0 != to_read);      // DEBUG
-    if (0 == to_read) return true; // RELEASE
 
     auto buffer = reinterpret_cast<uint8_t*>(&message.header);
     if (nbd_read(fd, buffer, message.header_off, to_read))
