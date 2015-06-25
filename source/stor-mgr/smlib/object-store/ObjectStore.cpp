@@ -48,6 +48,17 @@ ObjectStore::~ObjectStore() {
 
 float_t ObjectStore::getUsedCapacityAsPct() {
 
+    // Error injection points
+    // Causes the method to return ObjectStore::ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_alert", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " << ObjectStore::ALERT_THRESHOLD + 1; \
+              return ObjectStore::ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return ObjectStore::WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_warn", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " << ObjectStore::WARNING_THRESHOLD + 1; \
+              return ObjectStore::WARNING_THRESHOLD + 1; );
+
     float_t max = 0;
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
