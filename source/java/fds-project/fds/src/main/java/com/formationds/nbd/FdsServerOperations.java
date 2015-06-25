@@ -127,9 +127,10 @@ public class FdsServerOperations implements NbdServerOperations {
                 LOG.error("error reading bytes", e);
                 result.completeExceptionally(e);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                LOG.error("error reading bytes", e);
+                Thread.currentThread().interrupt();
             } catch (ExecutionException e) {
-                e.printStackTrace();
+                result.completeExceptionally(e.getCause());
             }
         });
         return result;
@@ -182,16 +183,17 @@ public class FdsServerOperations implements NbdServerOperations {
                     try {
                         asyncAm.abortBlobTx(FDS, exportName, BLOCK_DEV_NAME, txId).get();
                     } catch (InterruptedException e1) {
-                        e1.printStackTrace();
+                        Thread.currentThread().interrupt();
                     } catch (ExecutionException e1) {
-                        e1.printStackTrace();
+                        result.completeExceptionally(e.getCause());
                     }
                 }
                 result.completeExceptionally(e);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                LOG.error("error writing bytes", e);
+                Thread.currentThread().interrupt();
             } catch (ExecutionException e) {
-                e.printStackTrace();
+                result.completeExceptionally(e.getCause());
             }
         });
         return result;
