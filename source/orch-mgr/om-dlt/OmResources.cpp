@@ -1753,6 +1753,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         rmNodes.clear();
                         
                         OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+                        smNodes->om_splice_nodes_pend( &addNodes, &rmNodes );
                         cm->updateMap( fpi::FDSP_STOR_MGR, addNodes, rmNodes );
                         cm->resetPendServices( fpi::FDSP_STOR_MGR );
                     }
@@ -1762,6 +1763,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         rmNodes.clear();
                        
                         OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
+                        dmNodes->om_splice_nodes_pend( &addNodes, &rmNodes );
                         cm->updateMap( fpi::FDSP_DATA_MGR, addNodes, rmNodes );
                         cm->resetPendServices( fpi::FDSP_DATA_MGR );
                     }
