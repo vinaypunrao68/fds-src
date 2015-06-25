@@ -100,6 +100,51 @@ void calculateFirstDMT(fds_uint32_t numDMs,
     cmap->resetPendServices(fpi::FDSP_DATA_MGR);
 }
 
+TEST(DmtCalculation, dmt_class) {
+    fds_uint32_t cols = pow(2, dmtWidth);
+    fds_uint64_t version = 1;
+    fds_uint32_t numDMs = 4;
+
+    GLOGNORMAL << "Unit testing DMT class. "
+               << "Width: " << dmtWidth << ", columns " << cols;
+
+    DMT* dmtA = new DMT(dmtWidth, dmtDepth, version);
+    DMT* dmtB = new DMT(dmtWidth, dmtDepth, version+1);
+
+    // at this point, DMT should be invalid
+    Error err = dmtA->verify();
+    EXPECT_EQ(err, ERR_INVALID_DMT);
+
+    // fill in simple DMT -- both DMTs are the same
+    EXPECT_EQ(dmtA->getNumColumns(), cols);
+    for (fds_uint32_t i = 0; i < cols; ++i) {
+        for (fds_uint32_t j = 0; j < dmtDepth; ++j) {
+            NodeUuid uuid(0xaa + j);
+            dmtA->setNode(i, j, uuid);
+            dmtB->setNode(i, j, uuid);
+        }
+    }
+    // both DMTs must be valid
+    err = dmtA->verify();
+    EXPECT_EQ(err, ERR_INVALID_DMT);
+    err = dmtB->verify();
+    EXPECT_EQ(err, ERR_INVALID_DMT);
+
+    // DMTs must be equal
+    EXPECT_TRUE(*dmtA == *dmtB);
+
+    // change one cell in dmtB
+    NodeUuid newUuid(0xcc00);
+    dmtB->setNode(0, 0, newUuid);
+
+    // should be still valid
+    err = dmtB->verify();
+    EXPECT_EQ(err, ERR_INVALID_DMT);
+
+    // DMTs must be not equal anymore
+    EXPECT_FALSE(*dmtA == *dmtB);
+}
+
 TEST(DmtCalculation, compute_add) {
     fds_uint32_t cols = pow(2, dmtWidth);
     fds_uint64_t version = 1;

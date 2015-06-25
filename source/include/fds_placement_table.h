@@ -43,6 +43,17 @@ namespace fds {
         NodeUuid& operator[] (int index) {
             return p[index];
         }
+        inline fds_bool_t operator==(const TableColumn &rhs) const {
+            if (length != rhs.length) {
+                return false;
+            }
+            for (uint32_t i = 0; i < length; i++) {
+                if (p[i] != rhs.p[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         /**
          * Returns the row # of the column of which the Node resides.
