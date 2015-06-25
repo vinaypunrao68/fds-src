@@ -10,9 +10,20 @@ namespace fds {
 // Forward declaration.
 class DmIoReqHandler;
 
+/**
+ * Callback for once client is finished with migration.
+ */
+typedef std::function<void (fds_uint64_t clientId,
+                            const Error& error)> DmMigrationClientDoneHandler;
+
 class DmMigrationClient {
   public:
-    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle);
+    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
+    		const NodeUuid& _myUuid,
+			NodeUuid& _destDmUuid,
+			fds_volid_t& _volId,
+			std::vector<fpi::BlobFilterSetEntry>& _filterSet,
+			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
@@ -20,6 +31,19 @@ class DmMigrationClient {
 
   private:
     DmIoReqHandler* DmReqHandler;
+
+    /**
+     * Local copies
+     */
+    boost::shared_ptr <NodeUuid> mySvcUuid;
+    boost::shared_ptr <NodeUuid> destDmUuid;
+    boost::shared_ptr <fds_volid_t> volID;
+    boost::shared_ptr <std::vector<fpi::BlobFilterSetEntry>> blob_filter_set;
+
+    /**
+     * Callback to talk to DM Migration Manager
+     */
+    DmMigrationClientDoneHandler migrDoneHandler;
 
 };  // DmMigrationClient
 

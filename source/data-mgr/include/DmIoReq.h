@@ -47,6 +47,7 @@ extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::ResyncInitialBlobFilterSetMsg& msg);
 // ======
 
     /*
@@ -719,9 +720,26 @@ struct DmIoMigration : dmCatReq {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigration& io) {
-        return out << "DmIoMigration vol ";
+        return out << "DmIoMigration vol " << io.volId.get();
     }
 
+};
+
+struct DmIoResyncInitialBlob : dmCatReq {
+	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> message;
+	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetRspMsg> response;
+	NodeUuid destNodeUuid;
+    explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> msg,
+    		NodeUuid &_destNodeUuid)
+            : message(msg),
+              response(new fpi::ResyncInitialBlobFilterSetRspMsg()),
+              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNCINITBLOB),
+			  destNodeUuid(_destNodeUuid) {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoResyncInitialBlob& io) {
+    	return out << "DmIoResyncInitialBlob vol " << io.volId.get();
+    }
 };
 
 }  // namespace fds

@@ -582,6 +582,8 @@ struct ResyncInitialBlobFilterSetMsg {
       NOTE: list should be sorted by Blob ID */
   2: list<dm_types.BlobFilterSetEntry>           blob_filter_set;
 }
+struct ResyncInitialBlobFilterSetRspMsg {
+}
 
 /**
  * 1st Response Message for ResyncInitialBlobFilterSetMsg

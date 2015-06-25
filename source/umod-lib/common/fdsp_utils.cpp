@@ -140,6 +140,13 @@ std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::ResyncInitialBlobFilterSetMsg &msg)
+{
+	std::ostringstream oss;
+	oss << " ResyncInitialBlobFilterSetMsg Vol Id: " << msg.volume_id;
+	return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
 {
     std::ostringstream oss;

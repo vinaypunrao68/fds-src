@@ -7,6 +7,7 @@
 
 #include <fds_error.h>
 #include <DmMigrationExecutor.h>
+#include <DmMigrationClient.h>
 #include <condition_variable>
 
 namespace fds {
@@ -58,11 +59,26 @@ class DmMigrationMgr {
     }
 
     /**
-     * Method to invoke migration operations.
+     * Destination side DM:
+     * Method to invoke migration operations requested by the OM.
+     * This is the entry point and it'll decode the migration message. For each of the
+     * volume that it needs to pull, it'll spawn off executors who are in charge of
+     * contacting the correct source DM, which will then do handshaking between the
+     * volume diffs, and then do the sync.
+     * This method will spawn off an executor and return once all the executors have
+     * been spawned successfully. In the case where more volume migrations are requestsed
+     * than allowed parallely, then this will block.
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
     Error startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg);
+
+    /**
+     * Source side DM:
+     * Method to receive a request from a Destination DM.
+     * Will spawn off a client to handle this specific request.
+     */
+    Error startMigrationClient(fpi::ResyncInitialBlobFilterSetMsgPtr &migReq, NodeUuid &_dest);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -72,6 +88,7 @@ class DmMigrationMgr {
     DmIoReqHandler* DmReqHandler;
     fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
     fds_rwlock migrExecutorLock;
+    fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
 
@@ -81,10 +98,12 @@ class DmMigrationMgr {
     fds_uint32_t executorTokens;
 
     /**
+     * Destination side DM:
      * Create an executor instance. Does bookkeeping.
      * Returns ERR_OK if the executor instance was created successfully.
+     * Uses the executorMap to store the created instances.
      */
-    Error createMigrationExecutor(NodeUuid& srcDmUuid,
+    Error createMigrationExecutor(NodeUuid& destDmUuid,
 									const NodeUuid& mySvcUuid,
 									fpi::FDSP_VolumeDescType &vol,
 									MigrationType& migrationType,
@@ -92,26 +111,53 @@ class DmMigrationMgr {
 									fds_uint16_t instanaceNum = 1);
 
     /**
+     * Source side DM:
+     * Create a client instance. Does book keeping.
+     * Returns ERR_OK if the client instance was created successfully.
+     * Uses the clientMap to store the created instances.
+     */
+    Error createMigrationClient(NodeUuid& srcDmUuid,
+    								const NodeUuid& mySvcUuid,
+									fpi::ResyncInitialBlobFilterSetMsgPtr& rvmp,
+									fds_uint64_t uniqueId = 0);
+
+    /**
+     * Destination side DM:
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
      */
     Error activateStateMachine();
 
    /**
+     * Destination side DM:
      * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
      */
     std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr> executorMap;
+
+    /**
+     * Source side DM:
+     * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
+     */
+    std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr> clientMap;
 
      // Ack back to DM start migration from the Destination DM to OM.
     OmStartMigrationCBType OmStartMigrCb;
 
     /**
-     * Callback for migrationExecutor. Not the callback from client.
+     * Destination side DM:
+     * Callback for migrationExecutor.
      */
     void migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result);
 
+    /**
+     * Source side DM:
+     * Callback for migrationClient.
+     */
+    void migrationClientDoneCb(fds_uint64_t uniqueId, const Error &result);
+
 
     /**
+     * Destination side DM:
      * Used to throttle the number of parallel ongoing DM Migrations
      */
     struct MigrationExecThrottle {
