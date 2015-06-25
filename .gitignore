@@ -60,6 +60,7 @@ source/include/net-proxies/iomsg.h
 source/include/xdi/*.cpp
 source/include/xdi/*.h
 source/java/fds-project/*/target
+source/java/formationds-project/*/target
 source/java/${build.dir}/
 source/java/${project.build.dir}
 source/java/.idea
