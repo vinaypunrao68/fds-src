@@ -553,11 +553,6 @@ TEST(DmtCalculation, fail_add_2prim) {
     EXPECT_FALSE(dmtMgr->hasTargetDMT());
     err = dmtMgr->add(thirdDmt, DMT_TARGET);
     EXPECT_TRUE(err.ok());
-
-    // we expect new DMT be exactly the same as commited DMT
-    expectEqualDmts(dmtMgr->getDMT(DMT_COMMITTED),
-                    dmtMgr->getDMT(DMT_TARGET));
-
     err = dmtMgr->commitDMT(true);
     EXPECT_TRUE(err.ok());
     ++version;

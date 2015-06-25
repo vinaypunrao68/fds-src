@@ -34,7 +34,7 @@ class DmtRowBalancer {
 
     void balanceWithinColumn(DMT* dmt, fds_uint32_t max_depth);
     void balance(DMT* dmt);
-    void balancePrimary(DMT* dmt, fds_uint32_t primDepth);
+    Error balancePrimary(DMT* dmt, fds_uint32_t primDepth);
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const DmtRowBalancer& balancer);
@@ -153,11 +153,14 @@ void DmtRowBalancer::balance(DMT* dmt) {
  * already in this column.
  * The method does not replace non-empty cell with a node that is not in the column.
  */
-void DmtRowBalancer::balancePrimary(DMT* dmt, fds_uint32_t primDepth) {
+Error DmtRowBalancer::balancePrimary(DMT* dmt, fds_uint32_t primDepth) {
+    Error err(ERR_OK);
     // first try to balance without introducing new nodes in the column
     balanceWithinColumn(dmt, primDepth);
 
     // If there are empty cells -- balance by introducing new nodes in the column
+    // if we cannot find nodes to replace, the cells will remain zero, and the method
+    // returns ERR_NOT_FOUND
     for (fds_uint32_t i = 0; i < dmt->getNumColumns(); ++i) {
         DmtColumnPtr col = dmt->getNodeGroup(i);
         NodeUuid my_row_uuid = col->get(my_row);
@@ -165,11 +168,16 @@ void DmtRowBalancer::balancePrimary(DMT* dmt, fds_uint32_t primDepth) {
             // will give this cell to node that needs it most
             NodeUuid new_node;
             double diff = getMaxDiffNode(&new_node, col);
-            fds_verify(new_node.uuid_get_val() != 0);
-            transferOne(my_row_uuid, new_node);
-            dmt->setNode(i, my_row, new_node);
+            if (new_node.uuid_get_val() != 0) {
+                transferOne(my_row_uuid, new_node);
+                dmt->setNode(i, my_row, new_node);
+            } else {
+                err = ERR_NOT_FOUND;
+            }
         }
     }
+
+    return err;
 }
 
 std::ostream& operator<< (std::ostream &oss,
@@ -407,9 +415,9 @@ DynamicRRAlgorithm::demoteFailedPrimaries(DMT* newDmt,
         LOGDEBUG << "Column " << i << ", failed primary DMs " << failedDms
                  <<" Number of primary rows " << primDepth;
         if ((failedDms >= primDepth) && (!computeNew)) {
-            // all primary DMs failed, not demoting anything
-            // since nothing in this column to sync from
-            continue;
+            // all primary DMs failed, will promote secondaries to their place
+            LOGNORMAL << "All primary DMs failed in column " << i
+                      << " , but we are going to promote secondaries to their place";
         }
         if (failedDms == 0) {
             // none of the primaries failed in this column
@@ -447,6 +455,61 @@ DynamicRRAlgorithm::demoteFailedPrimaries(DMT* newDmt,
                     // ran out of secondaries... cannot demote anything
                     // in this column anymore
                     break;  // with next column
+                }
+            }
+        }
+        // if we couldn't replace failed primaries, but there is at least one non-failed
+        // DM from which we can resync, set the failed primary cell to 0, so that
+        // another non-failed DM can replace it
+        // note that at this point, we already promoted non-failed secondary DMs into primary
+        // slots. So, if we still have all primaries failed in newDMT -- this means that
+        // all DMs failed and nothing we can do
+        if (!computeNew) {
+            fds_uint32_t failedCnt = 0;
+            DmtColumnPtr modifiedColumn = newDmt->getNodeGroup(i);
+            for (fds_uint32_t j = 0; j < primDepth; ++j) {
+                NodeUuid uuid = modifiedColumn->get(j);
+                if (nonFailedDms.count(uuid) == 0) {
+                    ++failedCnt;
+                }
+            }
+            if (failedCnt == primDepth) {
+                // nothing we can do in this column...
+                LOGWARN << "Column " << i << " has all DMs failed";
+                continue;
+            } else if (failedCnt == 0) {
+                continue;
+            }
+
+            // we have at least one primary from which we can resync
+            // replace failed DMs with 0
+            fds_uint32_t maxCnt = nonFailedDms.size();
+            fds_verify(maxCnt > 0);  // because we have at least one non-failed DM
+            --maxCnt;
+            for (fds_uint32_t j = 0; j < primDepth; ++j) {
+                if (maxCnt == 0) {
+                    // there are not enough non-failed DMs to replace 0s
+                    // so leave remaining failed DMs where they are
+                    break;
+                }
+                NodeUuid uuid = modifiedColumn->get(j);
+                if (nonFailedDms.count(uuid) == 0) {
+                    newDmt->setNode(i, j, 0);
+                    --maxCnt;
+                }
+            }
+
+            // make sure we don't have first row set to 0
+            modifiedColumn = newDmt->getNodeGroup(i);
+            NodeUuid firstUuid = modifiedColumn->get(0);
+            if (firstUuid.uuid_get_val() == 0) {
+                for (fds_uint32_t j = 1; j < primDepth; ++j) {
+                    NodeUuid uuid = modifiedColumn->get(j);
+                    if (uuid.uuid_get_val() != 0) {
+                        newDmt->setNode(i, 0, uuid);
+                        newDmt->setNode(i, j, 0);
+                        break;
+                    }
                 }
             }
         }
@@ -525,14 +588,15 @@ Error DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
     demoteFailedPrimaries(newDmt, numPrimaryDMs, nonFailedDms, false);
 
     // balance first row -- this row excludes just added nodes
+    // primary rows will exclude failed and added DMs, unless there
+    // are no DMs left to fill in emty/failed cells, then primary rows
+    // may include added/failed DMs
     NodeUuidSet nodes;
-    for (ClusterMap::const_dm_iterator cit = curMap->cbegin_dm();
-         cit != curMap->cend_dm();
-         ++cit) {
-        if (addNodes.count(cit->first) == 0) {
-            nodes.insert(cit->first);
-        }
-    }
+    nodes.insert(nonFailedDms.begin(), nonFailedDms.end());
+ 
+    // balance the first row -- this row excludes just added nodes
+    // because it only balances within column (and existing column
+    // will not have any new nodes)
     DmtRowBalancerPtr prim_balancer(new DmtRowBalancer(nodes, newDmt, 0, NULL));
     LOGDEBUG << "Before balance: " << *prim_balancer;
     // actually balance the primary row
@@ -544,7 +608,6 @@ Error DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
     LOGDEBUG << "After balance: " << *prim_balancer;
 
     // include added nodes in the list of nodes and balance replica rows
-    nodes.insert(addNodes.begin(), addNodes.end());
     std::vector<DmtRowBalancerPtr> row_balancers;
     row_balancers.push_back(prim_balancer);
     for (fds_uint32_t j = 1; j < newDmt->getDepth(); ++j) {
@@ -553,7 +616,26 @@ Error DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
             new DmtRowBalancer(nodes, newDmt, j, prev_row_balancer.get()));
         LOGDEBUG << "Before balance: " << *j_balancer;
         if (j < numPrimaryDMs) {
-            j_balancer->balancePrimary(newDmt, numPrimaryDMs);
+            Error balErr = j_balancer->balancePrimary(newDmt, numPrimaryDMs);
+            if ((!balErr.ok() || (j == (numPrimaryDMs-1)))) {
+                // if we couldn't fill in cells with non-failed DMs
+                // most likely remaining primary rows will not be able to be
+                // filled in -- so start filling in with failed DMs
+                // similarly, ok to fill in secondary rows with failed DMs
+                nodes.clear();
+                nodes = curMap->getServiceUuids(fpi::FDSP_DATA_MGR);
+                nodes.insert(addNodes.begin(), addNodes.end());
+            }
+            if (!balErr.ok()) {
+                // retry with all DMs (including failed)
+                DmtRowBalancerPtr j_balancer2(
+                    new DmtRowBalancer(nodes, newDmt, j, prev_row_balancer.get()));
+                balErr = j_balancer2->balancePrimary(newDmt, numPrimaryDMs);
+                fds_verify(balErr.ok());   // can this happen?
+                LOGDEBUG << "After balance: " << *j_balancer2;
+                row_balancers.push_back(j_balancer2);
+                continue;
+            }
         } else {
             j_balancer->balance(newDmt);
         }
