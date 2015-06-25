@@ -152,9 +152,27 @@ NbdOperations::attachVolumeResp(const Error& error,
     nbdResp->attachResp(error, volDesc);
 }
 
-NbdOperations::~NbdOperations() {
-    delete nbdResp;
-    nbdResp = nullptr;
+void
+NbdOperations::detachVolume() {
+    if (volumeName) {
+        // Only close the volume if it's the last connection
+        std::unique_lock<std::mutex> lk(assoc_map_lock);
+        if (0 == --assoc_map[*volumeName]) {
+            handle_type reqId{0, 0};
+            return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+        }
+    }
+    // If we weren't attached, pretend if we had been to be DRY
+    handle_type fake_req;
+    detachVolumeResp(ERR_OK, fake_req);
+}
+
+void
+NbdOperations::detachVolumeResp(const Error& error,
+                                handle_type& requestId) {
+    // Volume detach has completed, we shaln't use the volume again
+    LOGDEBUG << "Volume detach response: " << error;
+    amAsyncDataApi.reset();
 }
 
 void
@@ -347,13 +365,7 @@ NbdOperations::getBlobResp(const Error &error,
         }
     }
 
-    bool response_removed = false;
-    {
-        // nbd connector will free resp
-        // remove from the wait list
-        fds_mutex::scoped_lock l(respLock);
-        response_removed = (1 == responses.erase(handle));
-    }
+    bool response_removed = finishResponse(handle);
     if (response_removed) {
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readWriteResp(resp);
@@ -435,36 +447,43 @@ NbdOperations::updateBlobResp(const Error &error,
     fds_verify(resp);
     fds_bool_t done = resp->handleWriteResponse(seqId, error);
     if (done) {
-        {
-            // nbd connector will free resp
-            // remove from the wait list
-            fds_mutex::scoped_lock l(respLock);
-            if (1 != responses.erase(handle)) {
-                LOGERROR << "Handle 0x" << std::hex
-                         << handle << std::dec
-                         << " was missing from the response map!";
-            }
+        if (finishResponse(handle)) {
+            // we are done collecting responses for this handle, notify nbd connector
+            nbdResp->readWriteResp(resp);
+        } else {
+            LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
+                      << " was missing from the response map!";
         }
-
-        // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(resp);
     }
+}
+
+bool
+NbdOperations::finishResponse(fds_int64_t const handle) {
+    // nbd connector will free resp, just accounting here
+    bool done_responding, response_removed;
+    {
+        fds_mutex::scoped_lock l(respLock);
+        response_removed = (1 == responses.erase(handle));
+        done_responding = responses.empty();
+    }
+    // Only one response will ever see shutting_down == true and
+    // no responses left, safe to do this now.
+    if (shutting_down && done_responding) {
+        LOGDEBUG << "Nbd responses drained, finalizing detach from: " << *volumeName;
+        detachVolume();
+    }
+    return response_removed;
 }
 
 void
 NbdOperations::shutdown()
 {
-    // If NbdConnection has not received the command to attach, volumeName
-    // will still be NULL
-    if (volumeName) {
-        // Only close the volume if it's the last connection
-        std::unique_lock<std::mutex> lk(assoc_map_lock);
-        if (0 == --assoc_map[*volumeName]) {
-            handle_type reqId{0, 0};
-            amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
-        }
+    fds_mutex::scoped_lock l(respLock);
+    shutting_down = true;
+    // If we don't have any outstanding requests, we're done
+    if (responses.empty()) {
+        detachVolume();
     }
-    amAsyncDataApi.reset();
 }
 
 /**

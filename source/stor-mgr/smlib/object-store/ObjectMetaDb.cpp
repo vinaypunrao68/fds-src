@@ -7,6 +7,7 @@
 #include <fds_process.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
+#include <sys/statvfs.h>
 
 namespace fds {
 
@@ -109,7 +110,7 @@ Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
-    std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
+    std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, smTokId);
     // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
     SCOPEDWRITE(dbmapLock_);
@@ -269,4 +270,10 @@ Error ObjectMetadataDb::remove(fds_volid_t volId,
     return odb->Delete(objId);
 }
 
+
+std::string ObjectMetadataDb::getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId) {
+
+    std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
+    return filename;
+}
 }  // namespace fds
