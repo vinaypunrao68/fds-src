@@ -72,11 +72,7 @@
                             </td>
 
                             <td class="consume">
-                                {{volume.status.currentUsage.value}}{{volume.status.currentUsage.unit}}
-<!--
-                                <span ng-show="volume.data_connector.attributes.size">/</span>
-                                {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
--->
+                                {{getCapacityString( volume.status.currentUsage ) }}
                             </td>
                             
                             <td class="firebreak">
