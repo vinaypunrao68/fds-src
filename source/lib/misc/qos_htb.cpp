@@ -77,7 +77,9 @@ QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
      *  TODO: should we scale down all volumes' assured rates? */
     qda_lock.write_lock();
 
-    if ((q_assured_rate + total_assured_rate) > total_iops) {
+    // we also do not want total assured rate to be equal total rate, so that we have at least
+    // one IOP for available (non-reserved rate)
+    if ((q_assured_rate + total_assured_rate) >= total_iops) {
         qda_lock.write_unlock();
         LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_assured_rate: " << q_assured_rate
                  << " total_assured_rate: " << total_assured_rate << " total_iops: " << total_iops;
@@ -155,8 +157,10 @@ QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
 
     /* for now, do not allow total assured rate to increase above total rate -- return error
      *  TODO: should we scale down all volumes' assured rates? */
+    // we also do not want total assured rate to be equal total rate, so that we have at least
+    // one IOP for available (non-reserved rate)
     if ((q_assured_rate > qstate->assured_rate) &&
-        ((q_assured_rate - qstate->assured_rate + total_assured_rate) > total_iops)) {
+        ((q_assured_rate - qstate->assured_rate + total_assured_rate) >= total_iops)) {
         qda_lock.write_unlock();
         LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_assured_rate: "
                  << q_assured_rate << " total_throttle_rate: "
