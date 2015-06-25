@@ -42,6 +42,12 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
         if (reporter == null) throw new NullArgumentException("reporter");
 
         JSONObject request = new JSONObject();
+//        JSONObject qosPolicy = new JSONObject();
+//        request.put("qosPolicy", qosPolicy);
+//        qosPolicy.put("priority", _input.getPriority());
+//        qosPolicy.put("iopsMin", _input.getIopsAssured());
+//        qosPolicy.put("iopsMax", _input.getIopsThrottle());
+        
         request.put("sla", _input.getIopsAssured());
         request.put("priority", _input.getPriority());
         request.put("limit", _input.getIopsThrottle());

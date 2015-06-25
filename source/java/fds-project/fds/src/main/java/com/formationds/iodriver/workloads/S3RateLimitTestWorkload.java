@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -21,6 +22,8 @@ import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.operations.SetBucketQos;
 import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.validators.RateLimitValidator;
+import com.formationds.iodriver.validators.Validator;
 
 /**
  * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
@@ -28,6 +31,12 @@ import com.formationds.iodriver.operations.StatBucketVolume;
  */
 public final class S3RateLimitTestWorkload extends S3Workload
 {
+    @Override
+    public Optional<Validator> getSuggestedValidator()
+    {
+        return Optional.of(new RateLimitValidator());
+    }
+    
     /**
      * Constructor.
      * 

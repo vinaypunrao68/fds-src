@@ -149,7 +149,7 @@ public final class CreateObject extends S3Operation
      */
     static
     {
-        IO_COST = 2;
+        IO_COST = 3;
     }
     
     /**

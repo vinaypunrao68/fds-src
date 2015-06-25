@@ -12,6 +12,7 @@ import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.S3Workload;
 
 /**
@@ -117,12 +118,14 @@ public final class Main
                                             listener.stopped,
                                             listener.volumeAdded))
         {
+            S3Workload workload = config.getSelectedWorkload(S3Endpoint.class, S3Operation.class);
+            Validator validator = workload.getSuggestedValidator().orElse(config.getValidator());
+            
             Driver<?, ?> driver =
                     new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
-                                                       config.getSelectedWorkload(S3Endpoint.class,
-                                                                                  S3Operation.class),
+                                                       workload,
                                                        listener,
-                                                       config.getValidator());
+                                                       validator);
             driver.runWorkload();
             int result = driver.getResult();
 

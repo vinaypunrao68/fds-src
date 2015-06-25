@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +23,7 @@ import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.validators.Validator;
 
 /**
  * A basic skeleton for a workload.
@@ -63,13 +65,24 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * @param endpointType The type of endpoint this workload can use.
      * @param operationType The type of operation this workload can run.
      */
-    protected  Workload(Class<EndpointT> endpointType, Class<OperationT> operationType)
+    protected Workload(Class<EndpointT> endpointType, Class<OperationT> operationType)
     {
         if (endpointType == null) throw new NullArgumentException("endpointType");
         if (operationType == null) throw new NullArgumentException("operationType");
         
         _endpointType = endpointType;
         _operationType = operationType;
+    }
+    
+    /**
+     * Get a validator that will interpret this workload well.
+     * 
+     * @return The current property value, or {@link Optional#empty()} if there is no sensible
+     *         default.
+     */
+    public Optional<Validator> getSuggestedValidator()
+    {
+        return Optional.empty();
     }
     
     /**
@@ -98,10 +111,6 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
             Thread workerThread =
                     new Thread(() ->
                     {
-                        // Synchronize all worker threads.
-                        ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
-                                                                      ExecutionException.class);
-
                         ExceptionThrowingConsumer<OperationT, ExecutionException> exec =
                                 op -> endpoint.doVisit(op, listener);
 
@@ -120,6 +129,10 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                         Consumer<OperationT> tunneledExec =
                                 ExceptionHelper.<OperationT, ExecutionException>
                                                tunnel(exec, ExecutionException.class);
+
+                        // Synchronize all worker threads.
+                        ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
+                                                                      ExecutionException.class);
 
                         // Execute each operation, tunneling any exceptions.
                         work.forEach(tunneledExec);

@@ -3,6 +3,7 @@ package com.formationds.iodriver.workloads;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -18,19 +19,26 @@ import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
-import com.formationds.iodriver.operations.DeleteBucket;
 import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.operations.SetBucketQos;
 import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.validators.AssuredRateValidator;
+import com.formationds.iodriver.validators.Validator;
 
 /**
  * Workload that ensures that a volume always receives its assured IOPS rate.
  */
 public final class S3AssuredRateTestWorkload extends S3Workload
 {
+    @Override
+    public Optional<Validator> getSuggestedValidator()
+    {
+        return Optional.of(new AssuredRateValidator());
+    }
+    
     /**
      * Constructor.
      *
@@ -97,8 +105,9 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     @Override
     protected Stream<S3Operation> createTeardown()
     {
-        return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
-                            .map(bucketName -> new DeleteBucket(bucketName));
+        //return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
+        //                    .map(bucketName -> new DeleteBucket(bucketName));
+        return Stream.empty();
     }
 
     /**
@@ -214,9 +223,9 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      */
     private Stream<S3Operation> createSetupAssuredBucket()
     {
-        int minAssuredIops = (_competingBuckets + 1) * VOLUME_HARD_MIN;
+        int minAssuredIops = _competingBuckets * VOLUME_HARD_MIN;
         int headroom = _systemThrottle - minAssuredIops;
-        int testAssured = VOLUME_HARD_MIN + headroom / 100;
+        int testAssured = headroom - 1;  // Leave 1 IOPS for the system, it insists.
 
         return createSetupBucket(_assuredBucketName, testAssured);
     }
