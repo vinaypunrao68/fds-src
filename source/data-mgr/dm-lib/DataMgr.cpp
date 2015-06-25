@@ -909,6 +909,7 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
+    initHandlers();
     standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
@@ -1005,8 +1006,6 @@ DataMgr::~DataMgr()
 
 int DataMgr::run()
 {
-    // TODO(Rao): Move this into module init
-    initHandlers();
 
     _shutdownGate.waitUntilOpened();
 

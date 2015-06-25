@@ -125,9 +125,10 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     {  // compute DMT
         fds_mutex::scoped_lock l(placementMutex);
         if (dmtMgr->hasCommittedDMT()) {
-            placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED), newDmt);
+            placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED),
+                                 newDmt, getNumOfPrimaryDMs());
         } else {
-            placeAlgo->computeDMT(cmap, newDmt);
+            placeAlgo->computeDMT(cmap, newDmt, getNumOfPrimaryDMs());
         }
     }
 
