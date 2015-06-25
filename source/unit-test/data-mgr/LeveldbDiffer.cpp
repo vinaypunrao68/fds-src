@@ -4,8 +4,16 @@
 
 namespace fds {
 
+std::ostream& operator << (std::ostream &os, const DiffResult &res) {
+    static const char* TypeStr[] = {"MATCH","DELETED_KEY","ADDITIONAL_KEY","VALUE_MISMATCH"};
+    os << res.key  << " " << TypeStr[res.mismatchType] << " " << res.additionalDetail;
+    return os;
+}
+
 LevelDbDiffer::LevelDbDiffer(const std::string &path1, const std::string &path2,
                              LevelDbDiffAdapter *adapter) {
+    this->adapter = adapter;
+
     db1 = openDb_(path1);
     itr1 = db1->NewIterator(leveldb::ReadOptions());
     itr1->SeekToFirst();
@@ -14,7 +22,6 @@ LevelDbDiffer::LevelDbDiffer(const std::string &path1, const std::string &path2,
     itr2 = db2->NewIterator(leveldb::ReadOptions());
     itr2->SeekToFirst();
 
-    this->adapter = adapter;
     diffDone = false;
 }
 
@@ -32,6 +39,9 @@ LevelDbDiffer::~LevelDbDiffer() {
 leveldb::DB* LevelDbDiffer::openDb_(const std::string &path) {
     leveldb::DB* db;
     leveldb::Options options;
+    if (adapter->getComparator()) {
+        options.comparator = adapter->getComparator();
+    }
     leveldb::Status status = leveldb::DB::Open(options, path, &db);
     assert(status.ok());
     return db;
@@ -73,10 +83,10 @@ DiffResult LevelDbDiffer::compare(leveldb::Iterator *itr1, leveldb::Iterator *it
     fds_verify(itr1->Valid() || itr2->Valid());
 
     if (!itr1->Valid()) {
-        return {itr2->key().ToString(), DiffResult::DELETED_KEY, ""};
+        return {adapter->keyAsString(itr2), DiffResult::DELETED_KEY, ""};
     }
     if (!itr2->Valid()) {
-        return {itr1->key().ToString(), DiffResult::ADDITIONAL_KEY, ""};
+        return {adapter->keyAsString(itr1), DiffResult::ADDITIONAL_KEY, ""};
     }
 
     int res = adapter->compareKeys(itr1, itr2);

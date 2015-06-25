@@ -7,6 +7,7 @@
 #include <string>
 #include <array>
 #include <vector>
+#include <ostream>
 #include <leveldb/db.h>
 
 namespace fds {
@@ -22,6 +23,7 @@ struct DiffResult {
     Type                    mismatchType;
     std::string             additionalDetail;
 };
+std::ostream& operator << (std::ostream &os, const DiffResult &res);
 // const char* DiffResult::TypeStr[];
 
 /**
@@ -46,7 +48,10 @@ struct LevelDbDiffAdapter {
     }
     virtual std::string keyAsString(leveldb::Iterator *itr) const {
         return itr->key().ToString();
-   } 
+    } 
+    virtual leveldb::Comparator* getComparator() {
+        return nullptr;
+    }
 };
 
 /**

@@ -29,6 +29,7 @@ struct DMCheckerFixture : fds::DMCheckerEnv, BaseTestFixture {
         /* Create new ones.  One volume db for each DM */
         leveldb::Options options;
         options.create_if_missing = true;
+        options.comparator = &cmp;
         auto status = leveldb::DB::Open(options, db1Path, &db1);
         ASSERT_TRUE(status.ok());
         status = leveldb::DB::Open(options, db2Path, &db2);
@@ -72,6 +73,7 @@ struct DMCheckerFixture : fds::DMCheckerEnv, BaseTestFixture {
     std::string db2Path;
     leveldb::DB* db1;
     leveldb::DB* db2;
+    BlobObjKeyComparator cmp;
 };
 
 TEST_F(DMCheckerFixture, nomismatches) {
@@ -89,16 +91,33 @@ TEST_F(DMCheckerFixture, nomismatches) {
 }
 
 TEST_F(DMCheckerFixture, mismatches) {
-    putBlob(db1, BlobObjKey(1,1), "val1");
-    putBlob(db1, BlobObjKey(1,2), "val2");
+    putBlob(db1, BlobObjKey(1,1), "val1_1");
+    putBlob(db1, BlobObjKey(1,2), "val1_2");
+    putBlob(db1, BlobObjKey(1,4), "val1_4");
 
-    putBlob(db2, BlobObjKey(1,1), "val1");
+    putBlob(db2, BlobObjKey(1,1), "val1_1");
+    putBlob(db2, BlobObjKey(1,3), "val1_3");
+    putBlob(db1, BlobObjKey(1,4), "val1_?");
 
     closeDbs();
 
     fds::DMChecker checker(this);
     auto mismatches = checker.run();
-    ASSERT_EQ(mismatches, 1);
+    ASSERT_EQ(mismatches, 3);
+}
+
+TEST_F(DMCheckerFixture, lotofmismatches) {
+    for (uint32_t i = 0; i < 2000; ++i) {
+        putBlob(db1, BlobObjKey(i,i), "val1_1");
+    }
+    for (uint32_t i = 1000; i < 4000; ++i) {
+        putBlob(db2, BlobObjKey(i,i), "val1_1");
+    }
+    closeDbs();
+
+    fds::DMChecker checker(this);
+    auto mismatches = checker.run();
+    ASSERT_EQ(mismatches, 3000);
 }
 
 int main(int argc, char** argv) {

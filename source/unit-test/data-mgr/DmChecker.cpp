@@ -99,6 +99,10 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
         return ss.str();
     }
 
+    leveldb::Comparator* getComparator() override {
+        return &comparator;
+    }
+
     static bool isVolumeDescriptor(leveldb::Iterator *itr) {
         const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
         return key->blobId == VOL_META_ID;
@@ -120,6 +124,9 @@ DMChecker::DMChecker(DMCheckerEnv *env) {
 void DMChecker::logMisMatch(const fds_volid_t &volId,
                             const std::vector<DiffResult> &mismatches) {
     totalMismatches += mismatches.size();
+    for (const auto mismatch : mismatches) {
+        LOGERROR << volId << " " << mismatch;
+    }
 }
 
 uint64_t DMChecker::run() {
