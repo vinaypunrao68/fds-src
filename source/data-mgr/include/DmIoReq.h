@@ -733,7 +733,7 @@ struct DmIoResyncInitialBlob : dmCatReq {
     		NodeUuid &_destNodeUuid)
             : message(msg),
               response(new fpi::ResyncInitialBlobFilterSetRspMsg()),
-              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNCINITBLOB),
+              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNC_INIT_BLOB),
 			  destNodeUuid(_destNodeUuid) {
     }
 

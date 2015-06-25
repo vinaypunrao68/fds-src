@@ -11,14 +11,14 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 										const NodeUuid& _myUuid,
 										NodeUuid& _destDmUuid,
 										fds_volid_t& _volId,
-										std::vector<fpi::BlobFilterSetEntry>& _filterSet,
+										// std::vector<fpi::BlobFilterSetEntry>& _filterSet,
+										std::vector<fpi::BlobFilterSetEntryPtr>& _filterSet,
 										DmMigrationClientDoneHandler _handle)
-    : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle)
+    : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
+	  destDmUuid(_destDmUuid), volID(_volId)
 {
-	mySvcUuid = boost::make_shared<NodeUuid> (_myUuid);
-	destDmUuid = boost::make_shared<NodeUuid> (_destDmUuid);
-	volID = boost::make_shared<fds_volid_t> (_volId);
-	blob_filter_set = boost::make_shared<std::vector<fpi::BlobFilterSetEntry>> (_filterSet);
+	blob_filter_set =
+			boost::make_shared<std::vector<fpi::BlobFilterSetEntryPtr>> (_filterSet);
 }
 
 DmMigrationClient::~DmMigrationClient()

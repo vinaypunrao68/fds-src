@@ -274,7 +274,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
                 case FDS_DM_MIGRATION:
-                case FDS_DM_RESYNCINITBLOB:
+                case FDS_DM_RESYNC_INIT_BLOB:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
                                          io);

@@ -160,6 +160,15 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		err = ERR_DUPLICATE;
 	} else {
 		/**
+		 * Before creating a new instance of client, let's create a vector of corresponding
+		 * pointers to the blob_filter_set so we don't duplicate information.
+		 */
+		std::vector<fpi::BlobFilterSetEntryPtr> blobFilterSetPtrs;
+		for (auto i : ribfsm->blob_filter_set) {
+			blobFilterSetPtrs.emplace_back(boost::make_shared<fpi::BlobFilterSetEntry>(i));
+		}
+
+		/**
 		 * Create a new instance of client
 		 */
 		LOGMIGRATE << "Creating migration client for volume ID# " << ribfsm->volume_id;
@@ -167,7 +176,8 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		clientMap.emplace(myUniqueId,
 				DmMigrationClient::unique_ptr(new DmMigrationClient(DmReqHandler,
 												mySvcUuid, destDmUuid, myUniqueId,
-												ribfsm->blob_filter_set,
+												// ribfsm->blob_filter_set,
+												blobFilterSetPtrs,
 												std::bind(&DmMigrationMgr::migrationClientDoneCb,
 												this, std::placeholders::_1,
 												std::placeholders::_2))));

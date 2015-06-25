@@ -79,7 +79,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
-    fds_verify(dmReq->io_type == FDS_DM_RESYNCINITBLOB);
+    fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
 
     addToQueue(dmReq);
 

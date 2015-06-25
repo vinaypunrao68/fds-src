@@ -22,7 +22,8 @@ class DmMigrationClient {
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
 			fds_volid_t& _volId,
-			std::vector<fpi::BlobFilterSetEntry>& _filterSet,
+			// std::vector<fpi::BlobFilterSetEntry>& _filterSet,
+			std::vector<fpi::BlobFilterSetEntryPtr>& _filterSet,
 			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
 
@@ -35,10 +36,12 @@ class DmMigrationClient {
     /**
      * Local copies
      */
-    boost::shared_ptr <NodeUuid> mySvcUuid;
-    boost::shared_ptr <NodeUuid> destDmUuid;
-    boost::shared_ptr <fds_volid_t> volID;
-    boost::shared_ptr <std::vector<fpi::BlobFilterSetEntry>> blob_filter_set;
+    NodeUuid mySvcUuid;
+    NodeUuid destDmUuid;
+    fds_volid_t volID;
+    // boost::shared_ptr <std::vector<fpi::BlobFilterSetEntry>> blob_filter_set;
+    // boost::shared_ptr <std::vector<fpi::BlobFilterSetEntryPtr>> blob_filter_set;
+    boost::shared_ptr<std::vector<fpi::BlobFilterSetEntryPtr>> blob_filter_set;
 
     /**
      * Callback to talk to DM Migration Manager

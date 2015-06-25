@@ -48,15 +48,9 @@ DmMigrationExecutor::execute()
     fpi::ResyncInitialBlobFilterSetMsgPtr message (new fpi::ResyncInitialBlobFilterSetMsg());
     message->volume_id = vol->volUUID;
     /**
-     * DUMMY - replace with real message getter later
+     * TODO - This is where the message's blob_id and sequence_id should
+     * be filled out.
      */
-    fpi::BlobFilterSetEntry oneEntry;
-    for (int i=0; i < 5; i++) {
-    	oneEntry.blob_id = i+10;
-    	oneEntry.sequence_id = i;
-    }
-    message->blob_filter_set.push_back(oneEntry);
-    // End dummy
 
     auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     fpi::SvcUuid tempUuid;
