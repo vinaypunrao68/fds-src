@@ -97,6 +97,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::shared_ptr<ObjectStore> ptr;
 
     /**
+     * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
+     * Does not consider tiering data in calculations, but does include SM metadata stored in SSDs.
+     * Returns 0 and logs an error if either the used capacity or the total capacity is 0.
+     */
+    float_t getUsedCapacityAsPct();
+
+    /**
      * Open store for a given set of SM tokens. One or more
      * SM tokens may be already opened, which is ok.
      * Called when SM starts migrating new tokens for which it gained

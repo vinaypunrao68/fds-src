@@ -134,6 +134,14 @@ AmAsyncXdiResponse::attachVolumeResp(const Error &error,
 }
 
 void
+AmAsyncXdiResponse::detachVolumeResp(const Error &error,
+                                     boost::shared_ptr<apis::RequestId>& requestId) {
+    // XXX(bszmyd): Mon 22 Jun 2015 08:59:38 AM MDT
+    // Not implemented for Xdi
+    return;
+}
+
+void
 AmAsyncXdiResponse::startBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId,
                                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {

@@ -115,6 +115,18 @@ class MigrationMgr {
     Error abortMigrationForSMToken(fds_token_id &smToken, const Error &err);
 
     /**
+     * Callback notifying Migration Manager that Executor has acknowledged
+     * abort migration request from the Manager and is ready to be aborted.
+     */
+    void abortMigrationCb(fds_uint64_t& executorId, fds_token_id& smToken);
+
+    /**
+     * Set abort pending for all Migration Executors. This is called in
+     * response to CtrlNotifyAbortMigration message received from OM.
+     */
+    void setAbortPendingForExecutors();
+
+    /**
      * Start migration for the next executor or if none found
      * move on to the next phase.
      */
@@ -341,6 +353,15 @@ class MigrationMgr {
     void abortMigration(const Error& error);
 
     /**
+     * Try aborting migration. This method will check if
+     * any smToken migration is in progress. If not, then
+     * abort the migration. Otherwise wait till all migration
+     * executors for smTokens in progress reply back
+     * acknowledging migration abort.
+     */
+    void tryAbortingMigration();
+
+    /**
      * Set a given list of DLT tokens to available
      * for data operations.
      */
@@ -434,6 +455,8 @@ class MigrationMgr {
     /// SM token for which retry token migration is going on.
     fds_token_id retrySmTokenInProgress;
 
+    boost::shared_ptr<FdsTimerTask> retryTokenMigrationTask;
+
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
      * passed in constructor, does not own
@@ -507,6 +530,16 @@ class MigrationMgr {
      * was not ready.
      */
      FdsTimer mTimer;
+
+    /**
+     * Timer for handling abort migration gracefully.
+     */
+    FdsTimer abortTimer;
+
+    /**
+     * Try abortMigration task.
+     */
+    boost::shared_ptr<FdsTimerTask> tryAbortingMigrationTask;
 
     /**
      * Unique ID that will be used to identify what migrations to restart

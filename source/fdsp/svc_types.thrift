@@ -55,14 +55,10 @@ enum  FDSPMsgTypeId {
   DeactivateServicesMsgTypeId               = 1021;
   /* Node & Service control messages */
   NotifyEventMsgTypeId                      = 1022;
-  NotifyStartNodeMsgTypeId                  = 1023;
-  NotifyStopNodeMsgTypeId                   = 1024;
-  NotifyAddNodeMsgTypeId                    = 1025;
-  NotifyRemoveNodeMsgTypeId                 = 1026;
-  NotifyStartServiceMsgTypeId               = 1027;
-  NotifyStopServiceMsgTypeId                = 1028;
-  NotifyAddServiceMsgTypeId                 = 1029;
-  NotifyRemoveServiceMsgTypeId              = 1030;
+  NotifyStartServiceMsgTypeId               = 1023;
+  NotifyStopServiceMsgTypeId                = 1024;
+  NotifyAddServiceMsgTypeId                 = 1025;
+  NotifyRemoveServiceMsgTypeId              = 1036;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;

@@ -48,7 +48,8 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosOutNum(10),
       volTbl(nullptr),
       qosCtrl(nullptr),
-      shuttingDown(false)
+      shuttingDown(false),
+      sampleCounter(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -354,6 +355,16 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
 }
 
 Error ObjectStorMgr::handleDltUpdate() {
+
+    if (true == MODULEPROVIDER()->get_fds_config()->\
+                    get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
+        auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
+                            get<int>("fds.sm.testing.sleep_duration_before_migration");
+        LOGNOTIFY << "Sleep for " << sleep_time
+                  << " before sending NotifyDLTUpdate response to OM";
+        sleep(sleep_time);
+    }
+
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
@@ -448,6 +459,19 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
                                                  STAT_SM_CUR_DEDUP_BYTES,
                                                  dedup_bytes);
     }
+
+    // Piggyback on the timer that runs this to check disk capacity
+    if (sampleCounter % 5 == 0) {
+        LOGDEBUG << "Checking disk utilization!";
+        float_t pct_used = objectStore->getUsedCapacityAsPct();
+        if (pct_used >= ObjectStorMgr::ALERT_THRESHOLD) {
+            LOGNORMAL << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+        } else if (pct_used >= ObjectStorMgr::WARNING_THRESHOLD) {
+            LOGWARN << "SM is utilizing " << pct_used << " of available storage space!";
+        }
+        sampleCounter = 0;
+    }
+    sampleCounter++;
 }
 
 /* Initialize an instance specific vector of locks to cover the entire
