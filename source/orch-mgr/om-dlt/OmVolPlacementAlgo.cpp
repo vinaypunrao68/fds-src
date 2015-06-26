@@ -598,14 +598,18 @@ Error DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
     // because it only balances within column (and existing column
     // will not have any new nodes)
     DmtRowBalancerPtr prim_balancer(new DmtRowBalancer(nodes, newDmt, 0, NULL));
-    LOGDEBUG << "Before balance: " << *prim_balancer;
-    // actually balance the primary row
-    fds_uint32_t balanceDepth = newDmt->getDepth();
-    if ((numPrimaryDMs > 0) && (numPrimaryDMs < newDmt->getDepth())) {
-        balanceDepth = numPrimaryDMs;
+    // do not balance first primaries if we are changing the DMT due to failed DMs only
+    // so that we are not doing too much domain rebalance in that case
+    if ((addNodes.size() > 0) || (rmNodes.size() > 0)) {
+        LOGDEBUG << "Before balance: " << *prim_balancer;
+        // actually balance the primary row
+        fds_uint32_t balanceDepth = newDmt->getDepth();
+        if ((numPrimaryDMs > 0) && (numPrimaryDMs < newDmt->getDepth())) {
+            balanceDepth = numPrimaryDMs;
+        }
+        prim_balancer->balanceWithinColumn(newDmt, balanceDepth);
+        LOGDEBUG << "After balance: " << *prim_balancer;
     }
-    prim_balancer->balanceWithinColumn(newDmt, balanceDepth);
-    LOGDEBUG << "After balance: " << *prim_balancer;
 
     // include added nodes in the list of nodes and balance replica rows
     std::vector<DmtRowBalancerPtr> row_balancers;
