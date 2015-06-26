@@ -88,6 +88,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
 
+    // Track when the last capacity message was sent
+    float_t lastCapacityMessageSentAt;
+
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
@@ -95,6 +98,18 @@ class ObjectStore : public Module, public boost::noncopyable {
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
+
+    // Warning threshold for disk capacity
+    static constexpr float_t WARNING_THRESHOLD = 50.0;
+    // Alert threshold for disk capacity
+    static constexpr float_t ALERT_THRESHOLD = 85.0;
+
+    /**
+     * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
+     * Does not consider tiering data in calculations, but does include SM metadata stored in SSDs.
+     * Returns 0 and logs an error if either the used capacity or the total capacity is 0.
+     */
+    float_t getUsedCapacityAsPct();
 
     /**
      * Open store for a given set of SM tokens. One or more

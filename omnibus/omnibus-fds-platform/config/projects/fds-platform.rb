@@ -21,7 +21,9 @@ homepage "http://www.formationds.com"
 
 install_dir "/fds"
 
-fds_version = "2015.06.05"
+mydir = File.dirname(__FILE__)
+fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
+#fds_version = "2015.06.19"
 build_number = ENV['BUILD_NUMBER']
 git_sha = `git rev-parse --short HEAD`.chomp unless build_number
 

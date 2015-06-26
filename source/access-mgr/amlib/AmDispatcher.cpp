@@ -239,8 +239,8 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
                                     uint32_t timeout) const {
     // Only issue reads from primaries.
     DmtColumnPtr dmsForVol = dmtMgr->getCommittedNodeGroup(volId);
-    DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numPrimaries);
     auto numNodes = std::min(dmsForVol->getLength(), numPrimaries);
+    DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numNodes);
     for (uint32_t i = 0; numNodes > i; ++i) {
         dmPrimariesForVol->set(i, dmsForVol->get(i));
     }
@@ -260,9 +260,16 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
                                   FailoverSvcRequestRespCb cb,
                                   uint32_t timeout) const {
     auto const dlt = dltMgr->getDLT();
+    auto token_group = dlt->getNodes(objId);
+
+    // Build a group of only the primaries for this read
+    auto numNodes = std::min(token_group->getLength(), numPrimaries);
+    auto primary_nodes = boost::make_shared<DltTokenGroup>(numNodes);
+    for (uint32_t i = 0; numNodes > i; ++i) {
+       primary_nodes->set(i, token_group->get(i));
+    }
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(
-                            boost::make_shared<DltObjectIdEpProvider>(
-                                                         dlt->getNodes(objId)));
+                            boost::make_shared<DltObjectIdEpProvider>(primary_nodes));
     failoverReq->onResponseCb(cb);
     failoverReq->setTimeoutMs(timeout);
     failoverReq->setPayload(message_type_id(*payload), payload);
@@ -816,8 +823,8 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     auto volId = amReq->io_vol_id;
 
     LOGDEBUG << "blob name: " << amReq->getBlobName()
-             << " start offset: " << start_offset
-             << " end offset: " << end_offset
+             << " start offset: 0x" << std::hex << start_offset
+             << " end offset: 0x" << end_offset
              << " volid: " << volId;
     /*
      * TODO(Andrew): We should eventually specify the offset in the blob

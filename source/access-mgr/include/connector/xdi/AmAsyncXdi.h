@@ -76,54 +76,62 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
     void attachVolumeResp(const api_type::error_type &error,
                           api_type::handle_type& requestId,
                           api_type::shared_vol_descriptor_type& volDesc,
-                          api_type::shared_vol_mode_type& mode);
+                          api_type::shared_vol_mode_type& mode) override;
+
+    void detachVolumeResp(const api_type::error_type &error,
+                          api_type::handle_type& requestId) override;
 
     void startBlobTxResp(const api_type::error_type &error,
                          api_type::handle_type& requestId,
-                         boost::shared_ptr<apis::TxDescriptor>& txDesc);
+                         boost::shared_ptr<apis::TxDescriptor>& txDesc) override;
+
     void abortBlobTxResp(const api_type::error_type &error,
-                         api_type::handle_type& requestId);
+                         api_type::handle_type& requestId) override;
+
     void commitBlobTxResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId);
+                          api_type::handle_type& requestId) override;
 
     void updateBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId);
+                        api_type::handle_type& requestId) override;
+
     void updateBlobOnceResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId);
+                            api_type::handle_type& requestId) override;
+
     void updateMetadataResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId);
+                            api_type::handle_type& requestId) override;
+
     void deleteBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId);
+                        api_type::handle_type& requestId) override;
 
     void statBlobResp(const api_type::error_type &error,
                       api_type::handle_type& requestId,
-                      api_type::shared_descriptor_type& blobDesc);
+                      api_type::shared_descriptor_type& blobDesc) override;
+
     void volumeStatusResp(const api_type::error_type &error,
                           api_type::handle_type& requestId,
-                          api_type::shared_status_type& volumeStatus);
-    void volumeContentsResp(
-        const api_type::error_type &error,
-        api_type::handle_type& requestId,
-        api_type::shared_descriptor_vec_type& volContents);
+                          api_type::shared_status_type& volumeStatus) override;
 
-    void setVolumeMetadataResp(
-        const api_type::error_type &error,
-        api_type::handle_type& requestId);
+    void volumeContentsResp(const api_type::error_type &error,
+                            api_type::handle_type& requestId,
+                            api_type::shared_descriptor_vec_type& volContents) override;
 
-    void getVolumeMetadataResp(
-        const api_type::error_type &error,
-        api_type::handle_type& requestId,
-        api_type::shared_meta_type& metadata);
+    void setVolumeMetadataResp(const api_type::error_type &error,
+                               api_type::handle_type& requestId) override;
+
+    void getVolumeMetadataResp(const api_type::error_type &error,
+                               api_type::handle_type& requestId,
+                               api_type::shared_meta_type& metadata) override;
 
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
                      const api_type::shared_buffer_array_type& bufs,
-                     api_type::size_type& length);
+                     api_type::size_type& length) override;
+
     void getBlobWithMetaResp(const api_type::error_type &error,
                              api_type::handle_type& requestId,
                              const api_type::shared_buffer_array_type& bufs,
                              api_type::size_type& length,
-                             api_type::shared_descriptor_type& blobDesc);
+                             api_type::shared_descriptor_type& blobDesc) override;
 };
 
 // This structure provides one feature and is to implement the thrift interface
@@ -166,7 +174,7 @@ struct AmAsyncXdiRequest
         LOGIO << " op [" << op
               << "] handle [" << handle
               << "] blob [" << *blobName
-              << "] offset {" << std::hex << offset
+              << "] offset {" << std::hex << offset->value
               << "} length {" << std::dec << *length << "}";
     }
 

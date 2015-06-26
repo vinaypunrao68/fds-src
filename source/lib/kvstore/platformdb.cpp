@@ -35,6 +35,20 @@ bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
     }
+
+    LOGDEBUG << "Updated nodeInfo record stored in redis with: uuid " << nodeInfo.uuid <<
+                                                              ", am " << nodeInfo.fHasAm <<
+                                                              ", dm " << nodeInfo.fHasDm <<
+                                                              ", sm " << nodeInfo.fHasSm <<
+                                                         ", bam pid " << nodeInfo.bareAMPid <<
+                                                         ", jam pid " << nodeInfo.javaAMPid <<
+                                                          ", dm pid " << nodeInfo.dmPid <<
+                                                          ", sm pid " << nodeInfo.smPid <<
+                                                         ", bam ste " << nodeInfo.bareAMState <<
+                                                         ", jam ste " << nodeInfo.javaAMState <<
+                                                          ", dm ste " << nodeInfo.dmState <<
+                                                          ", sm ste " << nodeInfo.smState;
+
     return true;
 }
 
