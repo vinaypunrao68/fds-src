@@ -495,7 +495,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-        if (err.ok()) fActivated = true;
+        if (err.ok()) {
+            fActivated = true;
+        }
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {

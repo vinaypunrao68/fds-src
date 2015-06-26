@@ -581,7 +581,7 @@ struct ResyncInitialBlobFilterSetMsg {
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob ID, sequence number> */
-  2: map<i64, i64>      blobFilterSet;
+  2: map<i64, i64>      blobFilterMap;
 }
 
 /**

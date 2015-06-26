@@ -26,13 +26,18 @@ class DmMigrationExecutor {
 								 DmMigrationExecutorDoneCb _callback);
     ~DmMigrationExecutor();
 
+    typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
+    typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
+
     /**
      * Executes the specified executor and runs the callback once done.
      */
     Error startMigration();
 
-    typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
-    typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
+    /**
+     * process initial filter set of blobs to be sent to the source DM.
+     */
+    Error processInitialBlobFilterSet();
 
   private:
     /** Reference to the DataManager
@@ -45,7 +50,7 @@ class DmMigrationExecutor {
 
     /** Cache the volume id for easy lookup.
      */
-    fds_volid_t volumeId;
+    fds_volid_t volumeUuid;
 
     /**
      * Volume descriptor owned by this executor.
