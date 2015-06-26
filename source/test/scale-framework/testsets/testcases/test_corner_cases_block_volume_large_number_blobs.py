@@ -108,7 +108,7 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
         port = config.FDS_REST_PORT
         try:
 
-		self.bv.create_block_volumes(1, volume_name, 100, 'GB')
+		self.bv.create_volumes(1, volume_name, "100", 'GB')
 		volume_name = "block_volume_ts1325_0"  #API appends _0 to volume name 
 
             	#create mount point
