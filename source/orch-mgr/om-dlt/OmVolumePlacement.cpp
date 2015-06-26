@@ -98,7 +98,7 @@ VolumePlacement::setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type)
     fds_verify(placeAlgo != NULL);
 }
 
-void
+Error
 VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
     Error err(ERR_OK);
@@ -125,8 +125,29 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     {  // compute DMT
         fds_mutex::scoped_lock l(placementMutex);
         if (dmtMgr->hasCommittedDMT()) {
-            placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED),
-                                 newDmt, getNumOfPrimaryDMs());
+            err = placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED),
+                                       newDmt, getNumOfPrimaryDMs());
+            if (err == ERR_INVALID_ARG) {
+                LOGWARN << "Couldn't update DMT most likely because we tried to "
+                        << " remove all primary DMs from at least one DMT column";
+                // DMT was not updated, because we are not supporting the update
+                // with some combination of removed DMs. Returning an error
+                delete newDmt;  // delete since not adding to dmtMgr
+                return err;
+            }
+            fds_verify(err.ok());
+            // if we ended up computing exactly the same DMT, do not
+            // make it a target, just return an error so that state machine
+            // knows not to proceed with commiting it, etc...
+            DMTPtr commitedDmt = dmtMgr->getDMT(DMT_COMMITTED);
+            if (*commitedDmt == *newDmt) {
+                LOGDEBUG << "Newly computed DMT is the same as committed DMT."
+                         << " Not going to commit";
+                LOGDEBUG << *dmtMgr;
+                LOGDEBUG << "Computed DMT (same as commited)" << *newDmt;
+                delete newDmt;  // delete since not adding to dmtMgr
+                return ERR_NOT_READY;
+            }
         } else {
             placeAlgo->computeDMT(cmap, newDmt, getNumOfPrimaryDMs());
         }
@@ -148,6 +169,7 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 
     LOGNORMAL << "Version: " << newDmt->getVersion();
     LOGDEBUG << "Computed new DMT: " << *newDmt;
+    return err;
 }
 
 /**

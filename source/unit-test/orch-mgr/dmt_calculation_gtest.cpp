@@ -126,9 +126,9 @@ TEST(DmtCalculation, dmt_class) {
     }
     // both DMTs must be valid
     err = dmtA->verify();
-    EXPECT_EQ(err, ERR_INVALID_DMT);
+    EXPECT_TRUE(err.ok());
     err = dmtB->verify();
-    EXPECT_EQ(err, ERR_INVALID_DMT);
+    EXPECT_TRUE(err.ok());
 
     // DMTs must be equal
     EXPECT_TRUE(*dmtA == *dmtB);
@@ -139,7 +139,7 @@ TEST(DmtCalculation, dmt_class) {
 
     // should be still valid
     err = dmtB->verify();
-    EXPECT_EQ(err, ERR_INVALID_DMT);
+    EXPECT_TRUE(err.ok());
 
     // DMTs must be not equal anymore
     EXPECT_FALSE(*dmtA == *dmtB);

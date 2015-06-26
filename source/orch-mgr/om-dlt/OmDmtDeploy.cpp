@@ -523,7 +523,14 @@ void DmtDplyFSM::WaitingTimerTask::runTimerTask()
 
 /** 
  * GRD_DplyStart
- * @return true if there are any pending added or removed DMs, otherwise false
+ * Computes DMT and sets as target version if DMT is different from currently
+ * commited DMT
+ * @return true if DMT changes, otherwise returns false
+ *         In pre-beta2 version, returns true if there are any pending added
+ *         of removed DMs, otherwise false
+ *         In GA version, with 2primary DMs consistency model, DMT may be recomputed
+ *         if services failed/came back since last DMT computation. In that case,
+ *         the method returns true.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
@@ -542,11 +549,38 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
     fds_uint32_t added_nodes = (cm->getAddedServices(fpi::FDSP_DATA_MGR)).size();
     fds_uint32_t rm_nodes = (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size();
+    fds_uint32_t nonFailedDms = cm->getNumNonfailedMembers(fpi::FDSP_DATA_MGR);
+    fds_uint32_t totalDms = cm->getNumMembers(fpi::FDSP_DATA_MGR);
 
     LOGDEBUG << "Added DMs size: " << added_nodes
-             << " Removed DMs size: " << rm_nodes;
+             << " Removed DMs size: " << rm_nodes
+             << " Total DMs: " << totalDms
+             << " Non-failed DMs: " << nonFailedDms;
 
-    bret = ((added_nodes > 0) || (rm_nodes > 0));
+    // this method computes new DMT and sets as target *only* if
+    // newly computed DMT is different from the current commited DMT
+    err = vp->computeDMT(cm);
+    bret = err.ok();
+    if (err == ERR_INVALID_ARG) {
+        // this should not happen if we don't have any removed DMs
+        fds_verify(rm_nodes > 0);
+        // Only happens with new consistency model (2primary)
+        // TODO(Anna) need to handle this error. Should recompute
+        // DMT without removing some of the DMs. TBD the approach
+        // for now not commiting this DMT; If this is the case when
+        // we are trying to remove just one DM, if a failed DM that
+        // was primary together with the removed DM comes back, next recompute
+        // will succeed; so we may still recover
+    } else if (err == ERR_NOT_READY) {
+        // this is ok -- no changes in the domain to recompute a DMT
+        LOGDEBUG << "Not continuing DMT commit cycle since no changes in "
+                 << " in the domain that cause DMT re-computation";
+    } else if (!err.ok()) {
+        LOGERROR << "Unexpected error from computeDMT " << err
+                 << " Not commiting new DMT and ignoring error "
+                 << " FIX IT!";
+    }
+
     LOGNORMAL << "Start DMT compute and deploying new DMT? " << bret;
     return bret;
 }
@@ -634,7 +668,10 @@ DmtDplyFSM::DACT_ComputeDb::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
 /* DACT_Compute
  * ------------
- * Re-compute DMT and send Push Meta message to DMs that need
+ * Even though this method is called DACT_Compute, we don't compute DMT
+ * here anymore; We do this before starting DMT commit cycle. VolumePlacement
+ * should already have target DMT set to newly computed DMT
+ * Send Push Meta message to DMs that need
  * to push meta to other DMs (that take over some volumes).
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -645,14 +682,9 @@ DmtDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
-    fds_uint32_t added_nodes = (cm->getAddedServices(fpi::FDSP_DATA_MGR)).size();
-    fds_uint32_t rm_nodes = (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size();
 
-    // if we are here, we must have at least one added or removed DM
-    fds_verify((added_nodes > 0) || (rm_nodes > 0));
-
-    // compute DMT
-    vp->computeDMT(cm);
+    // if we are here, we must have target DMT, but this will be checked by
+    // beginRebalance
 
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
