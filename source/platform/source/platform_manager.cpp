@@ -255,7 +255,7 @@ LOGDEBUG << "In PlatformManager::checkPidsDuringRestart()";
                 command = JAVA_PROCESS_NAME;
 
                 args.push_back ("-classpath");
-                args.push_back (JAVA_CLASSPATH_OPTIONS);
+                args.push_back (rootDir+JAVA_CLASSPATH_OPTIONS);
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;
