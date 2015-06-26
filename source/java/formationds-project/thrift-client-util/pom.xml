@@ -6,7 +6,7 @@
 	<parent>
 		<artifactId>formationds</artifactId>
 		<groupId>com.formationds</groupId>
-		<version>2015.07.03-SNAPSHOT</version>
+		<version>2015.07.17-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
 	</parent>
 
@@ -17,7 +17,7 @@
 		<dependency>
 			<groupId>com.formationds</groupId>
 			<artifactId>formationds-thrift</artifactId>
-			<version>2015.07.03-SNAPSHOT</version>
+			<version>${formationds.thrift.version}</version>
 		</dependency>
 
 		<dependency>
