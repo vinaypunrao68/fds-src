@@ -110,7 +110,7 @@ class TestFDSInstall(TestCase.FDSTestCase):
             self.log.warn("FDS installation directory, %s, exists on node %s." %
                           (fds_dir, node.nd_conf_dict['node-name']))
 
-        # Populate product configuration directory if necessary.
+        # Populate application configuration directory if necessary.
         # It should be necessary since we did not do a package install.
         dest_config_dir = fds_dir + "/etc"
         # Check to see if the etc directory is already there.
@@ -152,24 +152,6 @@ class TestFDSInstall(TestCase.FDSTestCase):
         if status != 0:
             self.log.error("FDS platform configuration file modification failed.")
             return False
-
-        # Populate product lib directory if necessary.
-        # It should be necessary since we did not do a package install.
-        dest_lib_dir = fds_dir + "/lib"
-        # Check to see if the etc directory is already there.
-        if not os.path.exists(dest_lib_dir):
-            # Not there.
-            self.log.info("FDS lib directory, %s, nonexistent on node %s. Attempting to create it via soft link." %
-                          (dest_lib_dir, node.nd_conf_dict['node-name']))
-            src_lib_dir = node.nd_agent.get_lib_dir(debug=False)
-            status = node.nd_agent.exec_wait('ln -s ' + src_lib_dir + ' ' + dest_lib_dir)
-            if status != 0:
-                self.log.error("FDS lib directory creation on node %s returned status %d." %
-                               (node.nd_conf_dict['node-name'], status))
-                return False
-        else:
-            self.log.warn("FDS lib directory, %s, exists on node %s." %
-                          (dest_lib_dir, node.nd_conf_dict['node-name']))
 
         return True
 

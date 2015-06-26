@@ -4,15 +4,15 @@ args=$*
 
 JAVA_OPTS="-Xmx1024M -Xms20M"
 
-FDS_ROOT=/fds
-FDS_OM_HOST=localhost
-
 for i in "$@"
 do
   key="$1"
 
+  FDS_ROOT=/fds
+  FDS_OM_HOST=localhost
+
   case $i in
-    --fds-root=*)
+    --fds-root=)
     FDS_ROOT="${i#*=}"
     shift # past argument
     ;;
