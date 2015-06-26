@@ -43,7 +43,6 @@ DmMigrationExecutor::execute()
 	 * For now, shoot fake bullets for testing.
 	 * TODO(Neil) remove this when real messages can be sent.
 	 */
-	LOGMIGRATE << "Firing migrate message for vol " << vol->vol_name;
 
     fpi::ResyncInitialBlobFilterSetMsgPtr message (new fpi::ResyncInitialBlobFilterSetMsg());
     message->volume_id = vol->volUUID;
@@ -57,6 +56,8 @@ DmMigrationExecutor::execute()
     tempUuid.svc_uuid = srcDmUuid->uuid_get_val();
     auto request = svcMgr->newEPSvcRequest(tempUuid);
     request->setPayload (FDSP_MSG_TYPEID (fpi::ResyncInitialBlobFilterSetMsg), message);
+	LOGMIGRATE << "Firing migrate message for vol ID: " << vol->volUUID << " name: "
+			<< vol->vol_name << " to Node UUID: " << srcDmUuid->uuid_get_val();
     request->invoke();
 
 

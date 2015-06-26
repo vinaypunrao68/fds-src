@@ -57,14 +57,17 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 }
 
 Error
-DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg)
+DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 {
 	Error err(ERR_OK);
 
-	// localMigrationMsg = migrationMsg;
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
 	NodeUuid destSvcUuid;
-	migrationMsg = inMigrationMsg;
+    DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
+    dmReqPtr = dmRequest;
+	migrationMsg = typedRequest->message;
+	OmStartMigrCb = typedRequest->localCb;
+	asyncPtr = typedRequest->asyncHdrPtr;
 	// TODO(Neil) fix this
 	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -117,7 +120,19 @@ DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigratio
 			break;
 		}
 	}
+	/**
+	 * TODO(Neil): move the following to when this Dest DM receives a msg from the source clients
+	 * saying that the whole set of clients are done.
+	 */
+	ackMigrationComplete(err);
 	return err;
+}
+
+void
+DmMigrationMgr::ackMigrationComplete(Error &status)
+{
+	fds_verify(OmStartMigrCb != NULL);
+	OmStartMigrCb(asyncPtr, migrationMsg, status, dmReqPtr);
 }
 
 Error
@@ -182,6 +197,12 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 												this, std::placeholders::_1,
 												std::placeholders::_2))));
 	}
+
+	/**
+	 * TODO - remove this once we're done with the callback which talks to the Dest DM
+	 * and to ack back to the OM.
+	 */
+	clientMap.erase(fds_volid_t(uniqueId));
 
 	return err;
 }

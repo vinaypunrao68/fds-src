@@ -303,6 +303,9 @@ struct DmMigrationHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
+    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
 };
 
 struct DmMigrationBlobFilterHandler : Handler {

@@ -713,6 +713,9 @@ struct DmIoReloadVolume : dmCatReq {
 struct DmIoMigration : dmCatReq {
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationRspMsg> response;
+    std::function<void(fpi::AsyncHdrPtr&, fpi::CtrlNotifyDMStartMigrationMsgPtr&,
+    		const Error &e, dmCatReq *dmRequest)> localCb = NULL;
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdrPtr = NULL;
     explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
               response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),

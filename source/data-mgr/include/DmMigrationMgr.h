@@ -15,15 +15,16 @@ namespace fds {
 // Forward declaration
 class DmIoReqHandler;
 
-// callback for start migration ack back to OM.
-typedef std::function<void (const Error&)> OmStartMigrationCBType;
 
 class DmMigrationMgr {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr>;
+	// callback for start migration ack back to OM.
+	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
+			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
 
   public:
-    // explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
     ~DmMigrationMgr();
 
@@ -71,7 +72,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg);
+    Error startMigration(dmCatReq* dmRequest);
 
     /**
      * Source side DM:
@@ -87,10 +88,12 @@ class DmMigrationMgr {
   private:
     DmIoReqHandler* DmReqHandler;
     fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
+    fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
+    dmCatReq* dmReqPtr = nullptr;
 
     /**
      * Throttles the number of max concurrent migrations
@@ -132,15 +135,17 @@ class DmMigrationMgr {
      * Destination side DM:
      * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
      */
-    std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr> executorMap;
+    DmMigrationExecMap executorMap;
 
     /**
      * Source side DM:
      * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
      */
-    std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr> clientMap;
+    DmMigrationClientMap clientMap;
 
-     // Ack back to DM start migration from the Destination DM to OM.
+    /**
+     * Real callback from dest DM to OM to say "I'm done with migration completely"
+     */
     OmStartMigrationCBType OmStartMigrCb;
 
     /**
@@ -155,6 +160,11 @@ class DmMigrationMgr {
      */
     void migrationClientDoneCb(fds_uint64_t uniqueId, const Error &result);
 
+    /**
+     * Destination side DM:
+     * Ack back to the OM saying migration is finished
+     */
+    void ackMigrationComplete(Error &status);
 
     /**
      * Destination side DM:
