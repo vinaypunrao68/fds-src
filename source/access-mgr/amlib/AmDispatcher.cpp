@@ -861,7 +861,8 @@ AmDispatcher::missingBlobStatusCb(AmRequest* amReq,
     // could mean we're just reading something we haven't written
     // before.
     if ((ERR_CAT_ENTRY_NOT_FOUND == error) ||
-        (ERR_BLOB_NOT_FOUND == error)) {
+        (ERR_BLOB_NOT_FOUND == error) ||
+        (ERR_BLOB_OFFSET_INVALID)) {
         return true;
     }
     return false;
@@ -877,65 +878,66 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     if (!amReq->isCompleted()) { return; }
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
-    auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
-
-    if (error != ERR_OK) {
+    Error err = ERR_OK;
+    if (error != ERR_OK && error != ERR_BLOB_OFFSET_INVALID) {
         // TODO(Andrew): We should consider logging this error at a
         // higher level when the volume is not block
         LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
                  << amReq->blob_offset << " Error: " << error;
-        amReq->proc_cb(error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : error);
-        return;
+        err = (error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : error);
     }
 
+    auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(err, payload);
     LOGDEBUG << svcReq->logString() << logString(*qryCatRsp);
 
-    // Copy the metadata into the callback, if needed
-    auto blobReq = static_cast<GetBlobReq *>(amReq);
-    if (true == blobReq->get_metadata) {
-        auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-        // Fill in the data here
-        cb->blobDesc = boost::make_shared<BlobDescriptor>();
-        cb->blobDesc->setBlobName(amReq->getBlobName());
-        cb->blobDesc->setBlobSize(qryCatRsp->byteCount);
-        for (const auto& meta : qryCatRsp->meta_list) {
-            cb->blobDesc->addKvMeta(meta.key,  meta.value);
+    if (err.ok()) {
+        // Copy the metadata into the callback, if needed
+        auto blobReq = static_cast<GetBlobReq *>(amReq);
+        if (true == blobReq->get_metadata) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            // Fill in the data here
+            cb->blobDesc = boost::make_shared<BlobDescriptor>();
+            cb->blobDesc->setBlobName(amReq->getBlobName());
+            cb->blobDesc->setBlobSize(qryCatRsp->byteCount);
+            for (const auto& meta : qryCatRsp->meta_list) {
+                cb->blobDesc->addKvMeta(meta.key,  meta.value);
+            }
         }
-    }
 
-    auto new_ids = std::vector<ObjectID::ptr>();
+        auto new_ids = std::vector<ObjectID::ptr>();
 
-    for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
-         it != qryCatRsp->obj_list.cend();
-         ++it) {
-        fds_uint64_t cur_offset = it->offset;
-        if (cur_offset >= amReq->blob_offset || cur_offset <= amReq->blob_offset_end) {
-            // found offset!!!
-            // TODO(bszmyd): Thu 21 May 2015 12:36:15 PM MDT
-            // Fix this when we support unaligned reads.
-            // Number of objects required to request given data length
-            auto objId = new ObjectID((*it).data_obj_id.digest);
-            GLOGTRACE << "Found object id: " << *objId
-                      << " for offset: 0x" << std::hex << cur_offset << std::dec;
-            new_ids.emplace_back(objId);
+        for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
+             it != qryCatRsp->obj_list.cend();
+             ++it) {
+            fds_uint64_t cur_offset = it->offset;
+            if (cur_offset >= amReq->blob_offset || cur_offset <= amReq->blob_offset_end) {
+                // found offset!!!
+                // TODO(bszmyd): Thu 21 May 2015 12:36:15 PM MDT
+                // Fix this when we support unaligned reads.
+                // Number of objects required to request given data length
+                auto objId = new ObjectID((*it).data_obj_id.digest);
+                GLOGTRACE << "Found object id: " << *objId
+                          << " for offset: 0x" << std::hex << cur_offset << std::dec;
+                new_ids.emplace_back(objId);
+            }
         }
-    }
 
-    // TODO(bszmyd): Mon 23 Mar 2015 02:49:01 AM PDT
-    // This is the matching error scenario from the trickery
-    // in AmProcessor::getBlobCb due to the write/read race
-    // between DM/SM. If this is a retry then the object id should be
-    // anything but what it was...or we should be able to get the object
-    if (blobReq->retry && !std::equal(new_ids.begin(),
-                                      new_ids.end(),
-                                      blobReq->object_ids.begin(),
-                                      [](ObjectID::ptr const& a, ObjectID::ptr const& b)
-                                        { return *a == *b; })) {
-        blobReq->retry = false; // We've gotten a new Id we're not insane
+        // TODO(bszmyd): Mon 23 Mar 2015 02:49:01 AM PDT
+        // This is the matching error scenario from the trickery
+        // in AmProcessor::getBlobCb due to the write/read race
+        // between DM/SM. If this is a retry then the object id should be
+        // anything but what it was...or we should be able to get the object
+        if (blobReq->retry && !std::equal(new_ids.begin(),
+                                          new_ids.end(),
+                                          blobReq->object_ids.begin(),
+                                          [](ObjectID::ptr const& a, ObjectID::ptr const& b)
+                                            { return *a == *b; })) {
+            blobReq->retry = false; // We've gotten a new Id we're not insane
+        }
+        blobReq->object_ids.swap(new_ids);
+        blobReq->object_ids.shrink_to_fit();
     }
-    blobReq->object_ids.swap(new_ids);
-    blobReq->object_ids.shrink_to_fit();
-    amReq->proc_cb(ERR_OK);
+    amReq->proc_cb(err);
 }
 
 void
