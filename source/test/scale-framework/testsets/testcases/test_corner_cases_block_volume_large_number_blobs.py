@@ -171,7 +171,7 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 		else:
 			test_passed=False
 		
-		if self.bv.delete_block_volume(volume_name) == True:
+		if self.bv.delete_volume(volume_name) == True:
 			self.log.info('Volume %s has been deleted' %volume_name)
 
 		else:
