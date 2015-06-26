@@ -559,7 +559,7 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     // this method computes new DMT and sets as target *only* if
     // newly computed DMT is different from the current commited DMT
-    err = vp->computeDMT(cm);
+    Error err = vp->computeDMT(cm);
     bret = err.ok();
     if (err == ERR_INVALID_ARG) {
         // this should not happen if we don't have any removed DMs
