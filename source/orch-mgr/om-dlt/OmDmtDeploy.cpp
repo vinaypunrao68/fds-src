@@ -119,7 +119,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         FdsTimerPtr waitingTimer;
         FdsTimerTaskPtr waitingTimerTask;
     };
-    struct DST_Compute : public msm::front::state<>
+    struct DST_Rebalance : public msm::front::state<>
     {
         typedef mpl::vector<DmtPushMetaAckEvt> deferred_events;
 
@@ -127,10 +127,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Compute. Evt: " << e.logString();
+            LOGDEBUG << "DST_Rebalance. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Compute. Evt: " << e.logString();
+            LOGDEBUG << "DST_Rebalance. Evt: " << e.logString();
         }
 
         NodeUuidSet dms_to_ack;
@@ -247,12 +247,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-    struct DACT_Compute
-    {
-        template <class Evt, class Fsm, class SrcST, class TgtST>
-        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
-    };
-    struct DACT_ComputeDb
+    struct DACT_Rebalance
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -306,7 +301,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-    struct GRD_DmtCompute
+    struct GRD_DmtRebal
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -342,11 +337,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     msf::Row< DST_Idle    , DmtDeployEvt   , DST_Waiting , DACT_Waiting  , GRD_DplyStart>,
     msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_BcastAM , DACT_Commit   ,   msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Waiting , DmtTimeoutEvt  , DST_Compute , DACT_Start    ,  msf::none   >,
+    msf::Row< DST_Waiting , DmtTimeoutEvt  , DST_Rebalance, DACT_Start   , msf::none   >,
     msf::Row< DST_Waiting , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute  ,GRD_DmtCompute>,
-    msf::Row< DST_Compute , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
+    msf::Row< DST_Rebalance, DmtVolAckEvt  , DST_Commit  , DACT_Rebalance,GRD_DmtRebal  >,
+    msf::Row< DST_Rebalance, DmtEndErrorEvt, DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit  , DmtPushMetaAckEvt, DST_BcastAM, DACT_Commit   , GRD_Commit  >,
     msf::Row< DST_Commit  , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
@@ -633,12 +628,12 @@ DmtDplyFSM::DACT_Waiting::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 }
 
 /** 
- * GRD_DmtCompute
+ * GRD_DmtRebal
  * @return true if we got all acks for volume notify, otherwise false
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
-DmtDplyFSM::GRD_DmtCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DmtDplyFSM::GRD_DmtRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     DmtVolAckEvt volAckEvt = (DmtVolAckEvt)evt;
     if (volAckEvt.dm_uuid.uuid_get_val() > 0) {
@@ -656,27 +651,14 @@ DmtDplyFSM::GRD_DmtCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     return bret;
 }
 
-/* DACT_ComputeDb
+/* DACT_Rebalance
  * ------------
+ * Start rebalance metadata (DMs) due to DMT recomputation.
+ * VolumePlacement has target DMT set to newly computed DMT
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
-DmtDplyFSM::DACT_ComputeDb::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
-{
-    LOGDEBUG << "FSM DACT_ComputeDb";
-}
-
-/* DACT_Compute
- * ------------
- * Even though this method is called DACT_Compute, we don't compute DMT
- * here anymore; We do this before starting DMT commit cycle. VolumePlacement
- * should already have target DMT set to newly computed DMT
- * Send Push Meta message to DMs that need
- * to push meta to other DMs (that take over some volumes).
- */
-template <class Evt, class Fsm, class SrcST, class TgtST>
-void
-DmtDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     Error err(ERR_OK);
     OM_Module* om = OM_Module::om_singleton();
