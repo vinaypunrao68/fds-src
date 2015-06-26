@@ -36,6 +36,7 @@
     <module>formationds-thrift</module>
     <module>formationds-commons</module>
     <module>formationds-external</module>
+    <module>thrift-client-util</module>
   </modules>
 
   <dependencyManagement>

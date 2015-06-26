@@ -16,8 +16,7 @@
 
   <name>${fds.project.name} JAR</name>
   <artifactId>fds</artifactId>
-  <version>1.0</version>
-
+  
   <dependencies>
     <!-- project module dependencies -->
     <dependency>
@@ -29,6 +28,11 @@
       <groupId>com.formationds</groupId>
       <artifactId>formationds-ext-model</artifactId>
       <version>${formationds.ext.model.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>thrift-client-util</artifactId>
+        <version>${formationds.thrift-client-util.version}</version>
     </dependency>
 
     <!-- third party dependencies -->
