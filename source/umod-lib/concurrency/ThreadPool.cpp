@@ -22,7 +22,7 @@ class thpool_worker
     thp_state_e           wk_prev_state;  // the thread's private state.
     boost::condition      wk_condition;   // synchronize this thread alone.
     fds_threadpool       *wk_owner;
-    std::unique_ptr<boost::thread> wk_thread;      // private to the worker thread.
+    boost::thread        *wk_thread;      // private to the worker thread.
     thpool_req           *wk_act_task;    // owner set, pick up by this thread.
 
     /** \wk_verify_obj
@@ -124,6 +124,7 @@ thpool_worker::thpool_worker(fds_threadpool *owner, int index)
  */
 thpool_worker::~thpool_worker()
 {
+    /* TODO: not sure what to do with wk_thread */
     wk_verify_obj();
     fds_assert(wk_act_task == nullptr);
     fds_assert(dlist_empty(&wk_link));
@@ -144,8 +145,7 @@ thpool_worker::wk_spawn_thread(void)
 
     fds_assert(dlist_empty(&wk_link));
     wk_curr_state = SPAWNING;
-    wk_thread.reset(new boost::thread(boost::bind(&thpool_worker::wk_loop, this)));
-    wk_thread->detach();
+    wk_thread = new boost::thread(boost::bind(&thpool_worker::wk_loop, this));
     return true;
 }
 

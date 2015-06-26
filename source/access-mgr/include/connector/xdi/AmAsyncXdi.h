@@ -174,7 +174,7 @@ struct AmAsyncXdiRequest
         LOGIO << " op [" << op
               << "] handle [" << handle
               << "] blob [" << *blobName
-              << "] offset {" << std::hex << offset->value
+              << "] offset {" << std::hex << offset
               << "} length {" << std::dec << *length << "}";
     }
 
