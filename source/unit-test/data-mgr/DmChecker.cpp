@@ -15,11 +15,17 @@
 namespace fds {
 
 DMOfflineCheckerEnv::DMOfflineCheckerEnv(int argc, char *argv[])
- : SvcProcess(argc, argv, "platform.conf", "fds.checker.", "checker.log", nullptr) {
+ : SvcProcess(argc, argv, "platform.conf", "fds.test.", "checker.log", nullptr) {
 }
 
 int DMOfflineCheckerEnv::main() {
+    /* To force registration with OM set standalone to false */
+    auto config = get_fds_config();
+    config->set("fds.test.testing.standalone", false);
+
+    /* Go through normal startup sequence where we register with OM */
     start_modules();
+
     /* Get volumes from config api */
     auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
         "127.0.0.1", 9090, 4);

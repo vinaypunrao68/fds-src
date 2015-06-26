@@ -4,6 +4,7 @@
 
 int main(int argc, char* argv[]) {
     fds::DMOfflineCheckerEnv env(argc, argv);
+    env.main();
     fds::DMChecker checker(&env);
     auto ret = checker.run();
     return ret == 0 ? 0 : -1;
