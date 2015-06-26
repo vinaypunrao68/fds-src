@@ -12,10 +12,10 @@
 
 namespace fds {
 
-SmDiskMap::SmDiskMap(const std::string& modName)
+SmDiskMap::SmDiskMap(const std::string& modName, DiskChangeFnObj diskChangeFn)
         : Module(modName.c_str()),
           bitsPerToken_(0),
-          superblock(new SmSuperblockMgr()),
+          superblock(new SmSuperblockMgr(std::move(diskChangeFn))),
           ssdIdxMap(nullptr),
           test_mode(false) {
     for (int i = 0; i < 60; ++i) {
@@ -401,4 +401,8 @@ SmDiskMap::getTotalDisks(diskio::DataTier tier) const {
     return 0;
 }
 
+bool
+SmDiskMap::isAllDisksSSD() const {
+    return ((ssd_ids.size() > 0) && (hdd_ids.size() == 0));
+}
 }  // namespace fds

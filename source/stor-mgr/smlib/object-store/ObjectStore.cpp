@@ -27,7 +27,11 @@ ObjectStore::ObjectStore(const std::string &modName,
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           conf_verify_data(true),
-          diskMap(new SmDiskMap("SM Disk Map Module")),
+          diskMap(new SmDiskMap("SM Disk Map Module",
+                                std::bind(&ObjectStore::handleDiskChanges,
+                                          this,
+                                          std::placeholders::_1,
+                                          std::placeholders::_2))),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")),
@@ -1278,6 +1282,40 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
 fds_uint32_t
 ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
+}
+
+/**
+ * Handle disk removal from the system.
+ * For Hybrid Storage System(2SSD - 10HDD default config):
+ *                    Metadata is stored on SSDs and data on HDDs.
+ * For All SSD system:
+ *                    Metadata and data are stored on the same SSD.
+ *
+ * If HDD is removed: Delete the corresponding metadata levelDBs
+ *                    for the smTokens whose token files are lost
+ *                    due to disk removal.
+ * If SSD is removed: For hybrid system, remove token files of lost
+ *                    smTokens.
+ *                    For all SSD system, since data and metadata
+ *                    was stored on the same disk. Nothing to be
+ *                    done.
+ */
+void
+ObjectStore::handleDiskChanges(const DiskType& diskType,
+                               const SmTokenSet& smTokens) {
+    if (!diskMap->isAllDisksSSD()) {
+        switch (diskType) {
+            case DiskType::DISK_TYPE_HDD:
+                metaStore->closeAndDeleteMetadataDbs(smTokens);
+                break;
+            case DiskType::DISK_TYPE_SSD:
+                dataStore->closeAndDeleteSmTokensStore(smTokens);
+                break;
+            default:
+                fds_panic("Unidentified disk type");
+                LOGWARN << "Unidentified disk type removed. No disk failure handling done";
+        }
+    }
 }
 
 /**

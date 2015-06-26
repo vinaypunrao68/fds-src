@@ -261,8 +261,9 @@ SmSuperblock::operator ==(const SmSuperblock& rhs) const {
  * SuperblockMgr Ifaces
  */
 
-SmSuperblockMgr::SmSuperblockMgr()
-        : noDltReceived(true)
+SmSuperblockMgr::SmSuperblockMgr(DiskChangeFnObj diskChangeFunc)
+        : noDltReceived(true),
+          diskChangeFn(diskChangeFunc)
 {
 }
 
@@ -509,12 +510,14 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
     addedSSDs = diffDiskSet(newSSDs, persistentSSDs);
 
     /* Check if the disk topology has changed.
-     * For now, if the For now, if the disk topology has changed, then just panic.
      */
     if ((removedHDDs.size() > 0) ||
         (addedHDDs.size() > 0)) {
         LOGNOTIFY << "Disk Topology Changed: removed HDDs=" << removedHDDs.size()
                   << ", added HDDs=" << addedHDDs.size();
+        for (auto &removedDiskId : removedHDDs) {
+            diskChangeFn(DiskType::DISK_TYPE_HDD, getSmOwnedTokens(removedDiskId));
+        }
         recomputed |= SmTokenPlacement::recompute(persistentHDDs,
                                                   addedHDDs,
                                                   removedHDDs,
@@ -526,6 +529,9 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
         (addedSSDs.size() > 0)) {
         LOGNOTIFY << "Disk Topology Changed: removed SSDs=" << removedSSDs.size()
                   << ", added SSDs=" << addedSSDs.size();
+        for (auto &removedDiskId : removedSSDs) {
+            diskChangeFn(DiskType::DISK_TYPE_SSD, getSmOwnedTokens(removedDiskId));
+        }
         recomputed |= SmTokenPlacement::recompute(persistentSSDs,
                                                   addedSSDs,
                                                   removedSSDs,

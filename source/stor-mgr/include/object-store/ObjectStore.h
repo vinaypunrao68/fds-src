@@ -254,6 +254,11 @@ class ObjectStore : public Module, public boost::noncopyable {
     fds_uint32_t getDiskCount() const;
 
     /**
+     * Handle disk change.
+     */
+    void handleDiskChanges(const DiskType& diskType, const SmTokenSet& smTokens);
+
+    /**
      * Check if object store is ready to serve IO/become source for SM token
      * migration.
      */

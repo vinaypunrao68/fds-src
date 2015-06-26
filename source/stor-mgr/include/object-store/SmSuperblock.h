@@ -7,7 +7,7 @@
 #include <string>
 #include <set>
 #include <map>
-
+#include <functional>
 #include <concurrency/RwLock.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
@@ -19,6 +19,13 @@ typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 
 typedef uint32_t fds_checksum32_t;
+
+typedef enum DiskType {
+    DISK_TYPE_SSD,
+    DISK_TYPE_HDD
+}DiskType;
+
+typedef std::function<void (const DiskType&, const SmTokenSet&)> DiskChangeFnObj;
 
 /*
  * Some constants for SM superblock.
@@ -249,7 +256,7 @@ static_assert((sizeof(struct SmSuperblock) % SM_SUPERBLOCK_SECTOR_SIZE) == 0,
  */
 class SmSuperblockMgr {
   public:
-    SmSuperblockMgr();
+    explicit SmSuperblockMgr(DiskChangeFnObj diskChangeFunc=DiskChangeFnObj());
     ~SmSuperblockMgr();
 
     typedef std::unique_ptr<SmSuperblockMgr> unique_ptr;
@@ -275,7 +282,8 @@ class SmSuperblockMgr {
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
-    /* Reconcile superblocks, is there is inconsistency.
+    /**
+     * Reconcile superblocks, if there is inconsistency.
      */
     Error reconcileSuperblock();
 
@@ -375,6 +383,8 @@ class SmSuperblockMgr {
 
     /// Name of the superblock file.
     const std::string superblockName = "SmSuperblock";
+
+    fds::DiskChangeFnObj diskChangeFn;
 };
 
 std::ostream& operator<< (std::ostream &out,
