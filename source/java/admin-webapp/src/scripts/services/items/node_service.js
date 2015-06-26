@@ -77,7 +77,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
             node.serviceMap.DM = [dm];
             node.serviceMap.SM = [sm];
             
-            $http_fds.post( webPrefix + '/nodes/' + node.id, node )
+            $http_fds.post( webPrefix + '/nodes/' + node.uid, node )
                 .then( getNodes );
 //            console.log( '/api/config/services/' + node.uuid + ' BODY: {am: ' + node.am + ', sm:' + node.sm + ', dm: ' + node.dm + '}' );
         });
@@ -86,7 +86,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.removeNode = function( node, callback ){
         
         // right now we stop all services when we deactivate a node
-        $http_fds.delete( webPrefix + '/nodes/' + node.id, node )
+        $http_fds.delete( webPrefix + '/nodes/' + node.uid, node )
             .then( function(){
                 if ( angular.isFunction( callback ) ){
                     callback();
