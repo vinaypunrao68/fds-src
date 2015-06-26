@@ -773,4 +773,9 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, blob_version_t& se
     return vol->getLatestSequenceId(seq_id);
 }
 
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getAllBlobsWithSequenceId(blobsSeqId);
+}
+
 }  // namespace fds

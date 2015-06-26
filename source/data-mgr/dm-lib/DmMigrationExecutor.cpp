@@ -8,40 +8,37 @@
 namespace fds {
 
 DmMigrationExecutor::DmMigrationExecutor(DmIoReqHandler* _DmReqHandle,
-    							 	 	 NodeUuid& _srcDmUuid,
-	 	 								 const NodeUuid& _mySvcUuid,
-	 	 								 fpi::FDSP_VolumeDescType& _vol,
-										 DmMigrationExecutorDoneHandler _handle)
-    : DmReqHandler(_DmReqHandle)
+    							 	 	 const NodeUuid& _srcDmUuid,
+	 	 								 fpi::FDSP_VolumeDescType& _volDesc,
+										 DmMigrationExecutorDoneCb _callback)
+    : DmReqHandler(_DmReqHandle),
+      srcDmSvcUuid(_srcDmUuid),
+      volDesc(_volDesc),
+      migrDoneCb(_callback)
 {
-	LOGMIGRATE << "Migration executor received for volume " << _vol.vol_name;
-
-	srcDmUuid = boost::make_shared<NodeUuid> (_srcDmUuid);
-	mySvcUuid = boost::make_shared<NodeUuid> (_mySvcUuid);
-	vol = boost::make_shared<fpi::FDSP_VolumeDescType> (_vol);
-    migrDoneHandler = _handle;
+	LOGMIGRATE << "DmMigrationExecutor: " << volDesc;
 }
 
 DmMigrationExecutor::~DmMigrationExecutor()
 {
 }
 
-boost::shared_ptr<fpi::FDSP_VolumeDescType>
-DmMigrationExecutor::getVolDesc()
-{
-	return vol;
-}
-
-void
-DmMigrationExecutor::execute()
+Error
+DmMigrationExecutor::startMigration()
 {
 	Error err(ERR_OK);
-	/**
-	 * For now, shoot blanks
-	 */
-	LOGMIGRATE << "Firing migrate message for vol " << vol->vol_name;
-	if (migrDoneHandler) {
-		migrDoneHandler(fds_uint64_t(vol->volUUID), err);
+
+	LOGMIGRATE << "starting migration for VolDesc: " << volDesc;
+
+    /**
+     * TODO(Sean):  Fire off message
+     */
+
+	if (migrDoneCb) {
+		migrDoneCb(volDesc.volUUID, err);
 	}
+
+    return err;
 }
+
 }  // namespace fds
