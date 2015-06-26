@@ -143,6 +143,33 @@ TEST(DmtCalculation, dmt_class) {
 
     // DMTs must be not equal anymore
     EXPECT_FALSE(*dmtA == *dmtB);
+
+    // the first column must have intersection of (depth - 1) uuids
+    DmtColumnPtr firstColA = dmtA->getNodeGroup(0);
+    DmtColumnPtr firstColB = dmtB->getNodeGroup(0);
+    NodeUuidSet sameUuids = firstColB->getIntersection(*firstColA);
+    if (dmtDepth > 0) {
+        EXPECT_EQ(sameUuids.size(), dmtDepth - 1);
+    }
+
+    // new DM in firstColB must be newUuid only
+    NodeUuidSet newDms = firstColB->getNewAndNewPrimaryUuids(*firstColA, 0);
+    EXPECT_EQ(newDms.size(), 1);
+    EXPECT_EQ(newDms.count(newUuid), 1);
+
+    if (dmtDepth > 2) {
+        // exchange row 1 and 2 in firstColB
+        NodeUuid uuid1 = firstColB->get(1);
+        NodeUuid uuid2 = firstColB->get(2);
+        firstColB->set(2, uuid1);
+        firstColB->set(1, uuid2);
+        newDms = firstColB->getNewAndNewPrimaryUuids(*firstColA, 2);
+        EXPECT_EQ(newDms.size(), 2);
+        // uuid2 moved from secondary to primary
+        EXPECT_EQ(newDms.count(uuid2), 1);
+        // newUuid must still be a new added uuid
+        EXPECT_EQ(newDms.count(newUuid), 1);
+    }
 }
 
 TEST(DmtCalculation, compute_add) {
