@@ -195,6 +195,11 @@ enum ServiceStatus {
     SVC_STATUS_INVALID      = 0x0000;
     SVC_STATUS_ACTIVE       = 0x0001;
     SVC_STATUS_INACTIVE     = 0x0002;
+/*
+ * We really need some way to determine that a "PM service" is in a
+ * "discovered" state to allow us to add it on first registration
+ */
+    SVC_STATUS_DISCOVERED   = 0x0003;
 }
 
 /* ------------------------------------------------------------

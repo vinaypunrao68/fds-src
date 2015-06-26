@@ -26,19 +26,19 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
 
     service.getOverallStatus = function( node ){
 
-        if ( node.am === service.DOWN ||
-            node.om === service.DOWN ||
-            node.sm === service.DOWN ||
-            node.hw === service.DOWN ||
-            node.dm === service.DOWN ){
-            return service.DOWN;
+        if ( node.am === service.FDS_DOWN ||
+            node.om === service.FDS_DOWN ||
+            node.sm === service.FDS_DOWN ||
+            node.hw === service.FDS_DOWN ||
+            node.dm === service.FDS_DOWN ){
+            return service.FDS_DOWN;
         }
 
-        if ( node.am === service.UNKNOWN ||
-            node.om === service.UNKNOWN ||
-            node.sm === service.UNKNOWN ||
-            node.hw === service.UNKNOWN ||
-            node.dm === service.UNKNOWN ){
+        if ( node.am === service.FDS_UNKNOWN ||
+            node.om === service.FDS_UNKNOWN ||
+            node.sm === service.FDS_UNKNOWN ||
+            node.hw === service.FDS_UNKNOWN ||
+            node.dm === service.FDS_UNKNOWN ){
             return service.FDS_NODE_ATTENTION;
         }
 
@@ -112,7 +112,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
                     
                     var node = data[i];
                     
-                    if ( node.state === service.DISCOVERED ){
+                    if ( node.state === service.FDS_DISCOVERED ){
                         service.detachedNodes.push( node );
                     }
                     else {
