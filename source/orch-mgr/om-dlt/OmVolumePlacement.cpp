@@ -251,8 +251,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // Populate volume descriptor
         volinfo->vol_fmt_desc_pkt(&vol_desc);
 
-        // for each DM in target column, find all DMs that
-        // that got added to that column
+        // for each DM in target column, find all DMs that will need to
+        // sync volume metadata
         NodeUuidSet new_dms = target_col->getNewAndNewPrimaryUuids(*cmt_col, getNumOfPrimaryDMs());
         LOGDEBUG << "Found " << new_dms.size() << " DMs that need to get"
                  << " meta for vol " << volid;
@@ -269,6 +269,12 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // if all DMs need resync, this means that we moved a secondary to be
         // a primary (both primaries failed)
         if (new_dms.size() == target_col->getLength()) {
+            // this should not happen if num primary DMs = 0 (if we did not
+            // care about resyncing secondaries). If that happen, it means
+            // that DMT calculation algorithm managed to put all new DMs into
+            // the same column.
+            fds_verify(getNumOfPrimaryDMs() > 0);  // FIX DMT computation algorithm
+
             // there must be one DM that is in committed and target column
             // and in a primary row. Otherwise, all DMs failed in that column
             NodeUuidSet intersectDMs = target_col->getIntersection(*cmt_col);
@@ -295,7 +301,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 srcCandidates.insert(nosyncDm);
             } else {
                 LOGWARN << "Looks like the whole column for volume "
-                        << volid << " failed; not sending rebalance msg";
+                        << volid << " failed; no DM to sync from";
                 continue;
             }
         }
