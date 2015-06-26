@@ -862,7 +862,7 @@ AmDispatcher::missingBlobStatusCb(AmRequest* amReq,
     // before.
     if ((ERR_CAT_ENTRY_NOT_FOUND == error) ||
         (ERR_BLOB_NOT_FOUND == error) ||
-        (ERR_BLOB_OFFSET_INVALID)) {
+        (ERR_BLOB_OFFSET_INVALID == error)) {
         return true;
     }
     return false;
@@ -888,9 +888,9 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     }
 
     auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(err, payload);
-    LOGDEBUG << svcReq->logString() << logString(*qryCatRsp);
 
     if (err.ok()) {
+        LOGDEBUG << svcReq->logString() << logString(*qryCatRsp);
         // Copy the metadata into the callback, if needed
         auto blobReq = static_cast<GetBlobReq *>(amReq);
         if (true == blobReq->get_metadata) {
