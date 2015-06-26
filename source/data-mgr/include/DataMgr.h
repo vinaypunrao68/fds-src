@@ -226,14 +226,14 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
         /// Defines a serialization key based on volume ID and blob name
         using SerialKey = std::pair<fds_volid_t, std::string>;
-        static std::hash<fds_volid_t> volIdHash;
-        static std::hash<std::string> blobNameHash;
+        static const std::hash<fds_volid_t> volIdHash;
+        static const std::hash<std::string> blobNameHash;
         struct SerialKeyHash {
             size_t operator()(const SerialKey &key) const {
                 return volIdHash(key.first) + blobNameHash(key.second);
             }
         };
-        static SerialKeyHash keyHash;
+        static const SerialKeyHash keyHash;
 
         /// Enables request serialization for a generic size_t key
         /// Using size allows different keys to be used by the same
