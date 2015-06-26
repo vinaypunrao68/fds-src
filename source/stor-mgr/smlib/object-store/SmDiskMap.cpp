@@ -9,7 +9,6 @@
 #include <utility>
 #include <net/SvcMgr.h>
 #include <object-store/ObjectMetaDb.h>
-#include <object-store/ObjectStore.h>
 
 namespace fds {
 
@@ -77,15 +76,15 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 
     // Cause method to return capacity
     fiu_do_on("sm.diskmap.cause_used_capacity_alert", \
-              LOGDEBUG << "Err injection: (" << ObjectStore::ALERT_THRESHOLD + 1
+              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
                        << ", 100). This should cause an alert."; \
-              SmDiskMap::capacity_tuple retVals (ObjectStore::ALERT_THRESHOLD + 1, 100);
+              SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_ALERT_THRESHOLD + 1, 100);
               return retVals; );
 
     fiu_do_on("sm.diskmap.cause_used_capacity_warn", \
-              LOGDEBUG << "Err injection: (" << ObjectStore::WARNING_THRESHOLD + 1
+              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
                        << ", 100). This should cause a warning."; \
-              SmDiskMap::capacity_tuple retVals (ObjectStore::WARNING_THRESHOLD + 1, 100);
+              SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_WARNING_THRESHOLD + 1, 100);
               return retVals; );
 
     struct statvfs statbuf;

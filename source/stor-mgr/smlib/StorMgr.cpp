@@ -465,22 +465,22 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         float_t pct_used = objectStore->getUsedCapacityAsPct();
-        if (pct_used >= ObjectStore::ALERT_THRESHOLD &&
-            lastCapacityMessageSentAt < ObjectStore::ALERT_THRESHOLD) {
+        if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
             // Send thrift message to OM alerting it that we've hit capacity
 
 
-        } else if (pct_used >= ObjectStore::WARNING_THRESHOLD &&
-                   lastCapacityMessageSentAt < ObjectStore::WARNING_THRESHOLD) {
+        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
-            if (pct_used < ObjectStore::ALERT_THRESHOLD) {
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
             }
         }
