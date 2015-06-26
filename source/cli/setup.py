@@ -71,7 +71,8 @@ setup(
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
                         'tabulate>=0.7.4',
-                        'requests>=2.4.3'
+                        'requests>=2.4.3',
+                        'readline>=6.2.4'
                         ],
 
     # List additional groups of dependencies here (e.g. development
