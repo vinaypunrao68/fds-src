@@ -54,15 +54,15 @@ struct LockfreeWorker {
     }
 
     void start() {
-        worker.reset(new std::thread(&LockfreeWorker::workLoop, this));
-        worker->detach();
+        worker = new std::thread(&LockfreeWorker::workLoop, this);
     }
 
     void finish()
     {
         workLoopTerminate = true;
         my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
-        worker.reset();
+        worker->join();
+        delete worker;
     }
 
     void enqueue(LockFreeTask *t)
@@ -222,7 +222,7 @@ struct LockfreeWorker {
 
     // synchronization
     std::atomic<bool> workLoopTerminate;
-    std::unique_ptr<std::thread> worker;
+    std::thread* worker;
     /* Counters */
     uint64_t completedCntr;
 };
