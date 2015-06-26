@@ -162,7 +162,6 @@ void
 NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 {
     if (ep->ep_is_connection() == true) {
-        // TODO(Andrew): We're not joining on this thread right now...
         ep_register_thread.reset(
             new boost::thread(boost::bind(
                 &NetMgr::ep_register_thr, this, ep, update_domain)));
