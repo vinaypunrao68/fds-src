@@ -2,21 +2,22 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#include <DmIoReq.h>
+#include <DataMgr.h>
 #include <DmMigrationExecutor.h>
 
 namespace fds {
 
-DmMigrationExecutor::DmMigrationExecutor(DmIoReqHandler* _DmReqHandle,
+DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
     							 	 	 const NodeUuid& _srcDmUuid,
 	 	 								 fpi::FDSP_VolumeDescType& _volDesc,
 										 DmMigrationExecutorDoneCb _callback)
-    : DmReqHandler(_DmReqHandle),
+    : dataMgr(_dataMgr),
       srcDmSvcUuid(_srcDmUuid),
       volDesc(_volDesc),
       migrDoneCb(_callback)
 {
-	LOGMIGRATE << "DmMigrationExecutor: " << volDesc;
+    volumeId = volDesc.volUUID;
+	LOGMIGRATE << "DmMigrationExecutor(volumeId):  " << volDesc;
 }
 
 DmMigrationExecutor::~DmMigrationExecutor()
@@ -30,13 +31,8 @@ DmMigrationExecutor::startMigration()
 
 	LOGMIGRATE << "starting migration for VolDesc: " << volDesc;
 
-    /**
-     * TODO(Sean):  Fire off message
-     */
 
-	if (migrDoneCb) {
-		migrDoneCb(volDesc.volUUID, err);
-	}
+
 
     return err;
 }

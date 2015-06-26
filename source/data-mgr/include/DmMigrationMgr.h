@@ -22,8 +22,7 @@ class DmMigrationMgr {
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
 
   public:
-    // explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
-    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
+    explicit DmMigrationMgr(DataMgr& _dataMgr);
     ~DmMigrationMgr();
 
     /**
@@ -69,8 +68,19 @@ class DmMigrationMgr {
 
   protected:
   private:
-    DmIoReqHandler* DmReqHandler;
+    /**
+     * Local reference to the DataManager
+     */
+    DataMgr& dataMgr;
+
+    /**
+     * current state of the migraiton mgr.
+     */
     std::atomic<MigrationState> migrState;
+
+    /**
+     * Clean up state, if migration failed.
+     */
     std::atomic<fds_bool_t> cleanUpInProgress;
 
     /**
@@ -91,9 +101,17 @@ class DmMigrationMgr {
      * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
      */
 	DmMigrationExecMap executorMap;
+
+    /**
+     * Synchronization protecting the exectorMap.
+     */
     fds_rwlock migrExecutorLock;
 
-    // Ack back to DM start migration from the Destination DM to OM.
+    /**
+     * Ack back to DM start migration from the Destination DM to OM.
+     * This is called only when the migration completes or aborts.  The error
+     * stuffed in the asynchdr determines if the migration completed successfully or not.
+     */
     OmStartMigrationCBType OmStartMigrCb;
 
     /**

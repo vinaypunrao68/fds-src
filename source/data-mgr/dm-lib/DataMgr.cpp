@@ -967,7 +967,7 @@ int DataMgr::mod_init(SysParams const *const param)
     /**
      * Instantiate migration manager.
      */
-    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this));
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
 
     return 0;
 }

@@ -9,17 +9,21 @@ namespace fds {
 
 // Forward declaration.
 class DmIoReqHandler;
+class DataMgr;
 
 class DmMigrationClient {
   public:
-    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle);
+    explicit DmMigrationClient(DataMgr& _dataMgr);
     ~DmMigrationClient();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
   private:
-    DmIoReqHandler* DmReqHandler;
+    /**
+     * Reference to the Data Manager.
+     */
+    DataMgr& dataMgr;
 
 };  // DmMigrationClient
 

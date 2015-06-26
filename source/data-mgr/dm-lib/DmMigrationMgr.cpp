@@ -10,10 +10,11 @@
 
 namespace fds {
 
-DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
-    : DmReqHandler(DmReqHandle),
+DmMigrationMgr::DmMigrationMgr(DataMgr& _dataMgr)
+    : dataMgr(_dataMgr),
       OmStartMigrCb(NULL)
 {
+    // TODO(sean): Need start migration message callback.  Called when the migration completes or aborts.
 	migrState = MIGR_IDLE;
 	cleanUpInProgress = false;
 }
@@ -47,7 +48,7 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
                    << " name=" << vol.vol_name;
 
 		executorMap.emplace(fds_volid_t(vol.volUUID),
-				            DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
+				            DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataMgr,
 														                            srcDmUuid,
                                                                                     vol,
 														                            std::bind(&DmMigrationMgr::migrationExecutorDoneCb,

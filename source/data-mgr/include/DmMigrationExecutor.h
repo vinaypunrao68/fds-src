@@ -9,6 +9,7 @@ namespace fds {
 
 // Forward declaration.
 class DmIoReqHandler;
+class DataMgr;
 
 /**
  * 	Simple callback to ensure that firing off the migration msg was ok
@@ -19,10 +20,10 @@ typedef std::function<void (fds_volid_t volumeId,
 
 class DmMigrationExecutor {
   public:
-    explicit DmMigrationExecutor(DmIoReqHandler* DmReqHandle,
-    							 const NodeUuid& srcDmUuid,
-								 fpi::FDSP_VolumeDescType& volDesc,
-								 DmMigrationExecutorDoneCb callback);
+    explicit DmMigrationExecutor(DataMgr& _dataMgr,
+    							 const NodeUuid& _srcDmUuid,
+								 fpi::FDSP_VolumeDescType& _volDesc,
+								 DmMigrationExecutorDoneCb _callback);
     ~DmMigrationExecutor();
 
     /**
@@ -34,12 +35,17 @@ class DmMigrationExecutor {
     typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
 
   private:
-    /** DataManager IO request handler */
-    DmIoReqHandler* DmReqHandler;
+    /** Reference to the DataManager
+     */
+    DataMgr& dataMgr;
 
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;
+
+    /** Cache the volume id for easy lookup.
+     */
+    fds_volid_t volumeId;
 
     /**
      * Volume descriptor owned by this executor.
