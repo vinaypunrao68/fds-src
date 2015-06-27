@@ -3,6 +3,8 @@
  */
 #include <string>
 #include <fds_process.h>
+#include <fiu-local.h>
+#include <fiu-control.h>
 #include <net/SvcMgr.h>
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
@@ -31,6 +33,8 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
     test_mode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 
+    LOGNOTIFY << "Init SM disk map module";
+    sleep(g_fdsprocess->get_fds_config()->get<int>("fds.sm.testing.sleep_to_inject_fault"));
     // get list of HDD and SSD devices
     getDiskMap();
 
@@ -181,11 +185,23 @@ void SmDiskMap::getDiskMap() {
         LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid
                   << ", idx " << idx;
         if (strstr(path.c_str(), "hdd") != NULL) {
-            fds_verify(hdd_ids.count(idx) == 0);
-            hdd_ids.insert(idx);
+            bool faultEnabled = false;
+            fiu_do_on("sm.skip.adding.hdd",\
+                      LOGNOTIFY << "sm.skip.adding.hdd fault point enabled";\
+                      fiu_disable("sm.skip.adding.hdd"); faultEnabled = true;);
+            if (!faultEnabled) {
+                fds_verify(hdd_ids.count(idx) == 0);
+                hdd_ids.insert(idx);
+            }
         } else if (strstr(path.c_str(), "ssd") != NULL) {
-            fds_verify(ssd_ids.count(idx) == 0);
-            ssd_ids.insert(idx);
+            bool faultEnabled = false;
+            fiu_do_on("sm.skip.adding.ssd",\
+                      LOGNOTIFY << "sm.skip.adding.ssd fault point enabled";\
+                      fiu_disable("sm.skip.adding.ssd"); faultEnabled = true;);
+            if (!faultEnabled) {
+                fds_verify(ssd_ids.count(idx) == 0);
+                ssd_ids.insert(idx);
+            }
         } else {
             fds_panic("Unknown path: %s\n", path.c_str());
         }

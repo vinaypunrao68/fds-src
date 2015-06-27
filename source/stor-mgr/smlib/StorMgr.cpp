@@ -359,7 +359,7 @@ Error ObjectStorMgr::handleDltUpdate() {
     if (true == MODULEPROVIDER()->get_fds_config()->\
                     get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
         auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
-                            get<int>("fds.sm.testing.sleep_duration_before_migration");
+                            get<int>("fds.sm.testing.sleep_to_inject_fault");
         LOGNOTIFY << "Sleep for " << sleep_time
                   << " before sending NotifyDLTUpdate response to OM";
         sleep(sleep_time);
