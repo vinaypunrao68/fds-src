@@ -1385,6 +1385,12 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             spoofRegisterSvcs( smSvcs );
             spoofRegisterSvcs( dmSvcs );
             spoofRegisterSvcs( amSvcs );
+						
+						OM_Module *om = OM_Module::om_singleton();
+						DataPlacement *dp = om->om_dataplace_mod();
+						VolumePlacement* vp = om->om_volplace_mod();
+						dp->commitDlt();
+						vp->commitDMT();
             
             om_load_volumes();
             local_domain_event( NoPersistEvt( ) );
