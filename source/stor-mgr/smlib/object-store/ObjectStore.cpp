@@ -48,6 +48,22 @@ ObjectStore::~ObjectStore() {
 
 float_t ObjectStore::getUsedCapacityAsPct() {
 
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("sm.objstore.get_used_capacity_error", \
+            LOGDEBUG << "Err inection: returning max used disk capacity as " << DISK_CAPACITY_ERROR_THRESHOLD; \
+            return DISK_CAPACITY_ERROR_THRESHOLD; );
+    
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_alert", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_warn", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
     float_t max = 0;
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
@@ -64,22 +80,22 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         float_t pct_used = (capacity.first * 1.) / capacity.second;
 
         // We want to log which disk is too full here
-        if (pct_used > ObjectStore::WARNING_THRESHOLD &&
-            lastCapacityMessageSentAt < ObjectStore::WARNING_THRESHOLD) {
+        if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGWARN << "Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the warning threshold of "
-                      << ObjectStore::WARNING_THRESHOLD;
-            lastCapacityMessageSentAt = ObjectStore::WARNING_THRESHOLD;
-        } else if (pct_used > ObjectStore::ALERT_THRESHOLD &&
-                   lastCapacityMessageSentAt < ObjectStore::ALERT_THRESHOLD) {
+                      << DISK_CAPACITY_WARNING_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGNORMAL << "Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
-                      << ObjectStore::ALERT_THRESHOLD;
-            lastCapacityMessageSentAt = ObjectStore::ALERT_THRESHOLD;
+                      << DISK_CAPACITY_ALERT_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
-            if (pct_used < ObjectStore::ALERT_THRESHOLD) {
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
             }
         }
