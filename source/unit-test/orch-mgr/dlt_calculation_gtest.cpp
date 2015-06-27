@@ -49,17 +49,20 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     EXPECT_NE(cmap, nullptr);
 
     // create DLT object
-    newDlt = new(std::nothrow) DLT(dltWidth,
-                                   dltDepth,
-                                   version,
-                                   true);
+    DLT* newDlt = new(std::nothrow) DLT(dltWidth,
+                                        dltDepth,
+                                        version,
+                                        true);
     EXPECT_NE(newDlt, nullptr);
     if (newDlt == nullptr) {
         return nullptr;
     }
 
     // at this point, DLT should be invalid
-    Error err = newDlt->verify();
+    NodeUuidSet expectedUuids;
+    NodeUuid nullUuid;
+    expectedUuids.insert(nullUuid);
+    Error err = newDlt->verify(expectedUuids);
     EXPECT_EQ(err, ERR_INVALID_DLT);
 
     // Create cluster map with 4 SMs
@@ -76,7 +79,7 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     placeAlgo->computeNewDlt(cmap, nullptr, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     GLOGNORMAL << *newDlt;
@@ -95,32 +98,30 @@ TEST(DltCalculation, dlt_class) {
                << "Width: " << dltWidth << ", columns " << cols;
 
     // create 2 DLT objects
-    DMT* dltA = new(std::nothrow) DLT(dltWidth, dltDepth, version);
+    DLT* dltA = new(std::nothrow) DLT(dltWidth, dltDepth, version);
     EXPECT_NE(dltA, nullptr);
-    DMT* dltB = new(std::nothrow) DLT(dltWidth, dltDepth, version+1);
+    DLT* dltB = new(std::nothrow) DLT(dltWidth, dltDepth, version+1);
     EXPECT_NE(dltB, nullptr);
     if ((dltB == nullptr) || (dltA == nullptr)) {
         // done with this test
         return;
     }
 
-    // at this point, DLTs should be invalid
-    Error err = dltA->verify();
-    EXPECT_EQ(err, ERR_INVALID_DLT);
-
     // fill in simple DLT -- both DLTs are the same
-    EXPECT_EQ(dmtA->getNumTokens(), cols);
+    EXPECT_EQ(dltA->getNumTokens(), cols);
+    NodeUuidSet expectedUuids;
     for (fds_uint32_t i = 0; i < cols; ++i) {
         for (fds_uint32_t j = 0; j < dltDepth; ++j) {
             NodeUuid uuid(0xaa + j);
-            dmtA->setNode(i, j, uuid);
-            dmtB->setNode(i, j, uuid);
+            dltA->setNode(i, j, uuid);
+            dltB->setNode(i, j, uuid);
+            expectedUuids.insert(uuid);
         }
     }
     // both DLTs must be valid
-    err = dltA->verify();
+    Error err = dltA->verify(expectedUuids);
     EXPECT_TRUE(err.ok());
-    err = dltB->verify();
+    err = dltB->verify(expectedUuids);
     EXPECT_TRUE(err.ok());
 
     // DLTs must be equal
@@ -129,9 +130,10 @@ TEST(DltCalculation, dlt_class) {
     // change one cell in dltB
     NodeUuid newUuid(0xcc00);
     dltB->setNode(0, 0, newUuid);
+    expectedUuids.insert(newUuid);
 
     // should be still valid
-    err = dltB->verify();
+    err = dltB->verify(expectedUuids);
     EXPECT_TRUE(err.ok());
 
     // DLTs must be not equal anymore
@@ -139,7 +141,8 @@ TEST(DltCalculation, dlt_class) {
 }
 
 TEST(DltCalculation, compute_add) {
-    fds_uint32_t cols = pow(2, dmtWidth);
+    Error err(ERR_OK);
+    fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
     fds_uint32_t numSMs = 4;
     ClusterMap* cmap = new ClusterMap();
@@ -183,7 +186,7 @@ TEST(DltCalculation, compute_add) {
         placeAlgo->computeNewDlt(cmap, dlt, newDlt);
         // Compute DLT's reverse node to token map
         newDlt->generateNodeTokenMap();
-        err = newDlt->verify();
+        err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
         EXPECT_TRUE(err.ok());
 
         // commit DLT
@@ -206,23 +209,23 @@ TEST(DltCalculation, compute_add) {
 }
 
 TEST(DltCalculation, compute_2prim) {
-    fds_uint32_t cols = pow(2, dmtWidth);
+    fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
     fds_uint32_t numPrimarySMs = 0;  // TODO(Anna) change to 2
 
     for (fds_uint32_t numSMs = 1; numSMs <= 8; ++numSMs) {
         for (fds_uint32_t numFailedSms = 0;
              numFailedSms <= numSMs;
-             ++numFailedSMs) {
+             ++numFailedSms) {
             GLOGNORMAL << "Will calculate DLT with " << numSMs << " SMs. "
                        << "Width: " << dltWidth << ", columns " << cols
-                       << ". Number of primary SMs = " << numPrimaryDMs
-                       << ", number of failed SMs = " << numFailedDms;
+                       << ". Number of primary SMs = " << numPrimarySMs
+                       << ", number of failed SMs = " << numFailedSms;
 
             // create new DLT
             fds_uint32_t depth = dltDepth;
             if (depth > numSMs) {
-                depth = numDSs;
+                depth = numSMs;
             }
             DLT* dlt = new DLT(dltWidth, dltDepth, version, true);
             EXPECT_NE(dlt, nullptr);
@@ -274,13 +277,13 @@ TEST(DltCalculation, compute_2prim) {
             placeAlgo->computeNewDlt(cmap, nullptr, dlt);
             // Compute DLT's reverse node to token map
             dlt->generateNodeTokenMap();
-            err = dlt->verify();
+            Error err = dlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
             EXPECT_TRUE(err.ok());
 
             LOGNORMAL << *dlt;
 
             if (numPrimarySMs <= cmap->getNumNonfailedMembers(fpi::FDSP_STOR_MGR)) {
-                // Primary DMs must be non-failed SMs
+                // Primary SMs must be non-failed SMs
                 for (fds_uint32_t i = 0; i < cols; ++i) {
                     DltTokenGroupPtr column = dlt->getNodes(i);
                     for (fds_uint32_t j = 0; j < numPrimarySMs; ++j) {
@@ -304,9 +307,9 @@ TEST(DltCalculation, compute_then_fail_2prim) {
     fds_uint32_t numSMs = 6;
     fds_uint32_t numPrimarySMs = 2;
 
-    GLOGNORMAL << "Will calculate DLT with " << numSMs << " DMs."
+    GLOGNORMAL << "Will calculate DLT with " << numSMs << " SMs."
                << "Width: " << dltWidth << ", columns " << cols
-               <<", number of primary DMS " << numPrimarySMs
+               <<", number of primary SMS " << numPrimarySMs
                << ". And fail SMs one at a time";
 
     fds_uint32_t numFailedSms = 1;
@@ -344,13 +347,13 @@ TEST(DltCalculation, compute_then_fail_2prim) {
         placeAlgo->computeNewDlt(cmap, dlt, newDlt);
         // Compute DLT's reverse node to token map
         newDlt->generateNodeTokenMap();
-        err = newDlt->verify();
+        err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
         EXPECT_TRUE(err.ok());
 
         // 'dlt' is commited DLT and 'newDlt' is a target DLT
         // TODO(Anna) what else do we need to check here?
 
-        // commit DMT
+        // commit DLT
         delete dlt;
         dlt = newDlt;
         newDlt = nullptr;
@@ -367,7 +370,7 @@ TEST(DltCalculation, compute_then_fail_2prim) {
 
 TEST(DltCalculation, fail_rm_2prim) {
     Error err(ERR_OK);
-    fds_uint32_t cols = pow(2, dmtWidth);
+    fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
     fds_uint32_t numSMs = 8;
     fds_uint32_t numPrimarySMs = 0;  // TODO(Anna) set to 2
@@ -394,7 +397,7 @@ TEST(DltCalculation, fail_rm_2prim) {
     ++version;
 
     // remove one SM and fail one SM
-    DMT* newDlt = new DLT(dltWidth, dltDepth, version, true);
+    DLT* newDlt = new DLT(dltWidth, dltDepth, version, true);
     NodeList::iterator it = firstNodes.begin();
     OM_NodeAgent::pointer failedAgent = *it;
     failedAgent->set_node_state(fpi::FDS_Node_Down);
@@ -414,7 +417,7 @@ TEST(DltCalculation, fail_rm_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     // cleanup
@@ -426,9 +429,9 @@ TEST(DltCalculation, fail_rm_2prim) {
     delete placeAlgo;
 }
 
-TEST(DmtCalculation, rm_add_2prim) {
+TEST(DltCalculation, rm_add_2prim) {
     Error err(ERR_OK);
-    fds_uint32_t cols = pow(2, dmtWidth);
+    fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
     fds_uint32_t numSMs = 8;
     fds_uint32_t numPrimarySMs = 2;
@@ -455,7 +458,7 @@ TEST(DmtCalculation, rm_add_2prim) {
     ++version;
 
     // remove one SM
-    DMT* newDlt = new DLT(dltWidth, dltDepth, version, true);
+    DLT* newDlt = new DLT(dltWidth, dltDepth, version, true);
     NodeList::iterator it = firstNodes.begin();
     EXPECT_NE(it, firstNodes.end());   // test with numSMs > 2
     rmNodes.push_back(*it);
@@ -470,7 +473,7 @@ TEST(DmtCalculation, rm_add_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     // commit DLT
@@ -500,7 +503,7 @@ TEST(DmtCalculation, rm_add_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     GLOGNORMAL << *newDlt;
@@ -514,7 +517,7 @@ TEST(DmtCalculation, rm_add_2prim) {
 
 TEST(DltCalculation, fail_add_2prim) {
     Error err(ERR_OK);
-    fds_uint32_t cols = pow(2, dmtWidth);
+    fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
     fds_uint32_t numSMs = 8;
     fds_uint32_t numPrimarySMs = 2;
@@ -541,7 +544,7 @@ TEST(DltCalculation, fail_add_2prim) {
     ++version;
 
     // fail one SM
-    DMT* newDlt = new DLT(dltWidth, dltDepth, version, true);
+    DLT* newDlt = new DLT(dltWidth, dltDepth, version, true);
     NodeList::iterator it = firstNodes.begin();
     EXPECT_NE(it, firstNodes.end());   // we must have numSMs at least 1
     OM_NodeAgent::pointer failedAgent = *it;
@@ -555,7 +558,7 @@ TEST(DltCalculation, fail_add_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     // commit DLT
@@ -566,7 +569,7 @@ TEST(DltCalculation, fail_add_2prim) {
 
     GLOGNORMAL << *dlt;
 
-    // unfail DM that previously failed
+    // unfail SM that previously failed
     newDlt = new DLT(dltWidth, dltDepth, version, true);
     failedAgent->set_node_state(fpi::FDS_Node_Up);
     GLOGNORMAL << "Un-failing SM service with UUID 0x" <<
@@ -578,7 +581,7 @@ TEST(DltCalculation, fail_add_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     // commit DLT
@@ -604,7 +607,7 @@ TEST(DltCalculation, fail_add_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     // commit DLT
@@ -631,7 +634,7 @@ TEST(DltCalculation, fail_add_2prim) {
     placeAlgo->computeNewDlt(cmap, dlt, newDlt);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
-    err = newDlt->verify();
+    err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
 
     // commit DLT
@@ -660,10 +663,10 @@ int main(int argc, char * argv[]) {
             ("help,h", "Help Message")
             ("dlt-width",
              po::value<fds_uint32_t>(&fds::dltWidth)->default_value(4),
-             "DMT width")
+             "DLT width")
             ("dlt-depth",
              po::value<fds_uint32_t>(&fds::dltDepth)->default_value(4),
-             "DMT depth");
+             "DLT depth");
     po::variables_map varMap;
     po::parsed_options parsedOpt =
             po::command_line_parser(argc, argv).options(progDesc).allow_unregistered().run();
