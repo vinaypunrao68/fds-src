@@ -176,6 +176,10 @@ struct LockfreeWorker {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                                return;
+                            }
+
                             cpu_relax();
                         } else {
                             ++cmpxchgMissed;
@@ -386,6 +390,10 @@ struct LFSQThreadpool {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                                return;
+                            }
+
                             cpu_relax();
                         } else {
                             ++cmpxchgMissed;
