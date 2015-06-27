@@ -113,16 +113,16 @@ struct LockfreeWorker {
 
                 task = NULL;
                 if (queueCnt == 0) {
-                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
-                        return;
-                    }
-
                     // block if the queueCnt is 0.  The actual value of queueCnt and
                     // expected value is atomically checked.
                     // Although we intially entered this scope due to queueCnt == 0,
                     // by the time we get here, the state can change where we don't
                     // block here.
                     my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
 
                     // TODO(Sean)
                     // This cmpxchg loop and the the one in the next block is the same.
@@ -318,16 +318,16 @@ struct LFSQThreadpool {
                 task = NULL;
 
                 if (queueCnt == 0) {
-                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
-                        return;
-                    }
-
                     // block if the queueCnt is 0.  The actual value of queueCnt and
                     // expected value is atomically checked.
                     // Although we intially entered this scope due to queueCnt == 0,
                     // by the time we get here, the state can change where we don't
                     // block here.
                     my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
 
                     // TODO(Sean)
                     // This cmpxchg loop and the the one in the next block is the same.
