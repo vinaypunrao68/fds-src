@@ -98,9 +98,9 @@ TEST(DltCalculation, dlt_class) {
                << "Width: " << dltWidth << ", columns " << cols;
 
     // create 2 DLT objects
-    DLT* dltA = new(std::nothrow) DLT(dltWidth, dltDepth, version);
+    DLT* dltA = new(std::nothrow) DLT(dltWidth, dltDepth, version, true);
     EXPECT_NE(dltA, nullptr);
-    DLT* dltB = new(std::nothrow) DLT(dltWidth, dltDepth, version+1);
+    DLT* dltB = new(std::nothrow) DLT(dltWidth, dltDepth, version+1, true);
     EXPECT_NE(dltB, nullptr);
     if ((dltB == nullptr) || (dltA == nullptr)) {
         // done with this test
@@ -227,7 +227,7 @@ TEST(DltCalculation, compute_2prim) {
             if (depth > numSMs) {
                 depth = numSMs;
             }
-            DLT* dlt = new DLT(dltWidth, dltDepth, version, true);
+            DLT* dlt = new DLT(dltWidth, depth, version, true);
             EXPECT_NE(dlt, nullptr);
             if (dlt == nullptr) {
                 // no point of continuing this test
