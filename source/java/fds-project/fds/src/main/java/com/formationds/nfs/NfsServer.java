@@ -1,6 +1,5 @@
 package com.formationds.nfs;
 
-import com.formationds.apis.AsyncXdiServiceRequest;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
@@ -10,31 +9,40 @@ import com.formationds.xdi.XdiConfigurationApi;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
 import org.dcache.nfs.v3.NfsServerV3;
-import org.dcache.nfs.v4.*;
-import org.dcache.nfs.vfs.*;
+import org.dcache.nfs.v4.DeviceManager;
+import org.dcache.nfs.v4.MDSOperationFactory;
+import org.dcache.nfs.v4.NFSServerV41;
+import org.dcache.nfs.vfs.VirtualFileSystem;
 import org.dcache.xdr.OncRpcProgram;
 import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
 
-import java.io.File;
+import java.io.IOException;
 
 
 public class NfsServer {
+
     public static void main(String[] args) throws Exception {
-        new Configuration("NFS", new String[] {"--console"});
+        new Configuration("NFS", new String[]{"--console"});
         XdiClientFactory clientFactory = new XdiClientFactory();
         XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
         config.startCacheUpdaterThread(1000);
 
         AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
+        new NfsServer().start(config, asyncAm);
 
+        System.in.read();
+    }
+
+    public void start(XdiConfigurationApi config, AsyncAm asyncAm) throws IOException {
         // specify file with export entries
-        ExportFile exportFile = new ExportFile(new File("./exports"));
-        ExportResolver resolver = new ExportResolver(exportFile);
+        DynamicExports dynamicExports = new DynamicExports(config);
+        dynamicExports.start();
+        ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem vfs = new AmVfs(asyncAm, config, resolver);
+        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
@@ -43,7 +51,6 @@ public class NfsServer {
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
                 .build();
-
 
 
         // create NFS v4.1 server
@@ -64,8 +71,6 @@ public class NfsServer {
 
         // start RPC service
         nfsSvc.start();
-
-        System.in.read();
     }
 }
 

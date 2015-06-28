@@ -1,16 +1,18 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.*;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.commons.Fds;
 import com.formationds.nfs.AmVfs;
 import com.formationds.nfs.ExportResolver;
 import com.formationds.nfs.NfsPath;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.ServerPortFinder;
-import com.formationds.xdi.*;
-import com.google.common.collect.Lists;
-import org.dcache.nfs.ExportFile;
-import org.dcache.nfs.FsExport;
+import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.RealAsyncAm;
+import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
 import org.dcache.nfs.vfs.VirtualFileSystem;
@@ -24,7 +26,9 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,12 +37,8 @@ import static org.mockito.Mockito.when;
 public class NfsTest extends BaseAmTest {
     @Test
     public void testAmVfs() throws Exception {
-        ExportFile exportFile = mock(ExportFile.class);
-        when(exportFile.getExports()).thenReturn(Lists.newArrayList(
-                new FsExport.FsExportBuilder().build(volumeName)
-        ));
-
-        ExportResolver resolver = new ExportResolver(exportFile);
+        ExportResolver resolver = mock(ExportResolver.class);
+        when(resolver.exportId(anyString())).thenReturn(0);
         AmVfs amVfs = new AmVfs(asyncAm, new XdiConfigurationApi(config), resolver);
         NfsPath nfsPath = new NfsPath(volumeName, "/");
         int length = 1024 * 1024 * 13;

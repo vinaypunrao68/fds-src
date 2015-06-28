@@ -22,6 +22,7 @@ public class AmIO implements Chunker.ChunkIo {
 
     @Override
     public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
+        LOG.debug("Reading " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue());
         try {
             return unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
         } catch (ApiException e) {
