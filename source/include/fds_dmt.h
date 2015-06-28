@@ -70,6 +70,7 @@ namespace fds {
         uint32_t virtual write(serialize::Serializer* s) const;
         uint32_t virtual read(serialize::Deserializer* d);
 
+        fds_bool_t operator==(const DMT &rhs) const;
         friend std::ostream& operator<< (std::ostream &out, const DMT& dmt);
 
         /**

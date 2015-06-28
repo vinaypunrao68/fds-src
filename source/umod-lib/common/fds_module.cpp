@@ -253,7 +253,7 @@ ModuleVector::mod_mk_sysparams()
 
     desc.add_options()
             ("help,h", "Show this help text")
-            ("fds-root", po::value<std::string>()->default_value("/fds"),
+            ("fds-root,f", po::value<std::string>()->default_value("/fds"),
              "Set the storage root directory");
 
     // Save a copy (or clone?) in case individual module needs it.
