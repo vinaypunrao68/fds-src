@@ -19,11 +19,15 @@ name "fds-platform-#{build_type}"
 maintainer "Formation Data Systems"
 homepage "http://www.formationds.com"
 
-install_dir "/fds"
 
 mydir = File.dirname(__FILE__)
 fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
-#fds_version = "2015.06.19"
+
+if ENV['ENABLE_VERSION_INSTALL'] == 'true'
+  install_dir "/opt/fds/#{fds_version}"
+else
+  install_dir "/fds"
+end
 build_number = ENV['BUILD_NUMBER']
 git_sha = `git rev-parse --short HEAD`.chomp unless build_number
 
@@ -32,7 +36,6 @@ if build_number.nil?
 else
     build_iteration build_number
 end
-
 
 build_version fds_version
 
