@@ -1,7 +1,7 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_UNIT_TEST_DATA_MGR_LEVELDBDIFFER_H_
-#define SOURCE_UNIT_TEST_DATA_MGR_LEVELDBDIFFER_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_CHECKER_LEVELDBDIFFER_H_
+#define SOURCE_DATA_MGR_INCLUDE_CHECKER_LEVELDBDIFFER_H_
 
 #include <fds_assert.h>
 #include <string>
@@ -77,4 +77,4 @@ struct LevelDbDiffer {
     bool                        diffDone;
 };
 }  // namespace fds
-#endif   // SOURCE_UNIT_TEST_DATA_MGR_LEVELDBDIFFER_H_
+#endif   // SOURCE_DATA_MGR_INCLUDE_CHECKER_LEVELDBDIFFER_H_

@@ -2,7 +2,7 @@
  */
 #include <cstdlib>
 #include <fds_process.h>
-#include <LeveldbDiffer.h>
+#include <checker/LeveldbDiffer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
 
 #define GTEST_USE_OWN_TR1_TUPLE 0

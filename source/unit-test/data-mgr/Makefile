@@ -16,15 +16,13 @@ user_bin_exe      := \
     dm_timelinedb \
     archive_gtest \
     ldb_differ_gtest \
-    dmchecker_gtest \
-    dmchecker
+    dmchecker_gtest
 
 dm_volume_catalog_gtest     := dm_volume_catalog_gtest.cpp
 dm_direct := dm_direct.cpp
 dm_timelinedb := timelinedb.cpp
 archive_gtest := ArchiveClient_gtest.cpp
-ldb_differ_gtest := LeveldbDiffer.cpp LeveldbDiffer_gtest.cpp
-dmchecker_gtest := LeveldbDiffer.cpp DmChecker.cpp DmChecker_gtest.cpp 
-dmchecker := LeveldbDiffer.cpp DmChecker.cpp DmCheckerMain.cpp
+ldb_differ_gtest := LeveldbDiffer_gtest.cpp
+dmchecker_gtest := DmChecker_gtest.cpp 
 
 include $(test_topdir)/Makefile.dm

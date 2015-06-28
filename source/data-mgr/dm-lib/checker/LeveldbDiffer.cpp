@@ -1,6 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include <LeveldbDiffer.h>
+#include <checker/LeveldbDiffer.h>
 
 namespace fds {
 

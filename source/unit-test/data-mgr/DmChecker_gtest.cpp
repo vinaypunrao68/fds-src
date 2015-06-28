@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <fds_process.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
-#include <DmChecker.h>
+#include <checker/DmChecker.h>
 
 #define GTEST_USE_OWN_TR1_TUPLE 0
 

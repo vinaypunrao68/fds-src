@@ -4,10 +4,10 @@
 #include <vector>
 #include <string>
 #include <boost/lexical_cast.hpp>
-#include <DmChecker.h>
+#include <checker/DmChecker.h>
 #include <net/SvcMgr.h>
 #include <fds_dmt.h>
-#include <LeveldbDiffer.h>
+#include <checker/LeveldbDiffer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
 #include <util/stringutils.h>
 #include <fdsp/ConfigurationService.h>
@@ -171,7 +171,7 @@ uint64_t DMChecker::run() {
                 if (!cont) {
                     break;
                 }
-            } while(true);
+            } while (true);
         }
     }
     return totalMismatches;

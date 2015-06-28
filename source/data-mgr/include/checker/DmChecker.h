@@ -1,14 +1,14 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_UNIT_TEST_DATA_MGR_DMCHECKER_H_
-#define SOURCE_UNIT_TEST_DATA_MGR_DMCHECKER_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_CHECKER_DMCHECKER_H_
+#define SOURCE_DATA_MGR_INCLUDE_CHECKER_DMCHECKER_H_
 
 #include <vector>
 #include <list>
 #include <string>
 #include <fds_volume.h>
 #include <net/SvcProcess.h>
-#include <LeveldbDiffer.h>
+#include <checker/LeveldbDiffer.h>
 
 namespace fds {
 /**
@@ -55,4 +55,4 @@ struct DMChecker {
 };
 }  // namespace fds
 
-#endif    // SOURCE_UNIT_TEST_DATA_MGR_DMCHECKER_H_
+#endif    // SOURCE_DATA_MGR_INCLUDE_CHECKER_DMCHECKER_H_
