@@ -374,7 +374,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
         // empty blob
         return rc;
     } else if (startOffset >= *blobSize) {
-        return ERR_CAT_ENTRY_NOT_FOUND;
+        return ERR_BLOB_OFFSET_INVALID;
     } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
     }
