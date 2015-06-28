@@ -34,6 +34,7 @@
 {% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
+{% set dm_req_serialization = fds_dm_req_serialization if fs_dm_req_serialization is defined else 'true' %}
 {#
    fds.sm. specific entries
 #}
