@@ -48,9 +48,8 @@ public class PlatformModelConverter
       if( address == null || externalService.getType( )
                                             .equals( ServiceType.PM ) )
       {
-
         state = convertToExternalNodeState( internalService.getNode_state( ) );
-        nodeId = internalService.getNode_uuid( );
+          nodeId = internalService.getNode_uuid( );
 
         Inet4Address ipv4
                 = ( Inet4Address ) InetAddress.getByAddress(
@@ -308,9 +307,9 @@ public class PlatformModelConverter
     switch( internalState )
     {
       case FDS_Node_Down:
-      case FDS_Node_Discovered:
         externalState = Optional.of( ServiceState.NOT_RUNNING );
         break;
+      case FDS_Node_Discovered:
       case FDS_Node_Up:
         externalState = Optional.of( ServiceState.RUNNING );
         break;

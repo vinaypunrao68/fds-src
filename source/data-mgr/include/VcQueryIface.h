@@ -129,6 +129,8 @@ class VolumeCatalogQueryIface {
 
     virtual Error getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) = 0;
 
+    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) = 0;
+
     virtual Error activateCatalog(fds_volid_t volId) {
         return ERR_OK;
     };

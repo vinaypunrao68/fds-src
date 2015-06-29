@@ -35,7 +35,7 @@ namespace fds
         const std::string SM_NAME            = "StorMgr";
         const std::string JAVA_PROCESS_NAME  = "java";
 
-        const std::string JAVA_CLASSPATH_OPTIONS      = "/fds/lib/java/*";                  // No spaces in this value
+        const std::string JAVA_CLASSPATH_OPTIONS      = "/lib/java/*";  // No spaces in this value. ${FDS_ROOT} will be prepended.
 
         constexpr uint64_t NANO_SECONDS_IN_1_SECOND   = 1000000000;
         constexpr uint64_t PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS = 500000000;         // 500,000,000 = 1/2 sconds
