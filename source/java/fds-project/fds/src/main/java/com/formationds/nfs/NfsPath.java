@@ -1,19 +1,11 @@
 package com.formationds.nfs;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.fs.Path;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.StringTokenizer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class NfsPath {
     private String volume;
