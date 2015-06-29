@@ -22,8 +22,7 @@ class DmMigrationMgr {
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
 
   public:
-    // explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
-    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
+    explicit DmMigrationMgr(DataMgr& _dataMgr);
     ~DmMigrationMgr();
 
     /**
@@ -69,27 +68,28 @@ class DmMigrationMgr {
 
   protected:
   private:
-    DmIoReqHandler* DmReqHandler;
-    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
-    fds_rwlock migrExecutorLock;
-    std::atomic<MigrationState> migrState;
-    std::atomic<fds_bool_t> cleanUpInProgress;
+    /**
+     * Local reference to the DataManager
+     */
+    DataMgr& dataMgr;
 
     /**
-     * Throttles the number of max concurrent migrations
+     * current state of the migraiton mgr.
      */
-    fds_uint32_t executorTokens;
+    std::atomic<MigrationState> migrState;
+
+    /**
+     * Clean up state, if migration failed.
+     */
+    std::atomic<fds_bool_t> cleanUpInProgress;
 
     /**
      * Create an executor instance. Does bookkeeping.
      * Returns ERR_OK if the executor instance was created successfully.
      */
-    Error createMigrationExecutor(NodeUuid& srcDmUuid,
-									const NodeUuid& mySvcUuid,
-									fpi::FDSP_VolumeDescType &vol,
-									MigrationType& migrationType,
-									fds_uint64_t uniqueId = 0,
-									fds_uint16_t instanaceNum = 1);
+    Error createMigrationExecutor(const NodeUuid& srcDmUuid,
+							      fpi::FDSP_VolumeDescType &vol,
+							      MigrationType& migrationType);
 
     /**
      * Makes sure that the state machine is idle, and activate it.
@@ -97,56 +97,28 @@ class DmMigrationMgr {
      */
     Error activateStateMachine();
 
-   /**
+    /**
      * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
      */
-    std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr> executorMap;
+	DmMigrationExecMap executorMap;
 
-     // Ack back to DM start migration from the Destination DM to OM.
+    /**
+     * Synchronization protecting the exectorMap.
+     */
+    fds_rwlock migrExecutorLock;
+
+    /**
+     * Ack back to DM start migration from the Destination DM to OM.
+     * This is called only when the migration completes or aborts.  The error
+     * stuffed in the asynchdr determines if the migration completed successfully or not.
+     */
     OmStartMigrationCBType OmStartMigrCb;
 
     /**
      * Callback for migrationExecutor. Not the callback from client.
      */
-    void migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result);
+    void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
 
-
-    /**
-     * Used to throttle the number of parallel ongoing DM Migrations
-     */
-    struct MigrationExecThrottle {
-    	MigrationExecThrottle() : max_tokens(1)
-    	{
-    		max_tokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
-    				get<int>("fds.dm..migration.max_migrations"));
-    	}
-		fds_uint32_t max_tokens;
-		std::mutex m;
-		std::condition_variable cv;
-
-    	/**
-    	 * Blocks until an access token is gotten
-    	 */
-    	void getAccessToken() {
-    		std::unique_lock<std::mutex> lk(m);
-    		while (max_tokens == 0) {
-    			cv.wait(lk);
-    		}
-    		fds_verify(max_tokens > 0);
-    		max_tokens--;
-    		lk.unlock();
-    	}
-
-    	/**
-    	 * Returns a token and wakes up waiters
-    	 */
-    	void returnAccessToken() {
-    		std::unique_lock<std::mutex> lk(m);
-    		max_tokens++;
-    		cv.notify_all();
-    		lk.unlock();
-    	}
-    } migrationExecThrottle;
 };  // DmMigrationMgr
 
 }  // namespace fds
