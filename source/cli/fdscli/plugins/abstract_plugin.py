@@ -18,6 +18,7 @@ class AbstractPlugin( object ):
     media_policy_str = "media_policy"
     volume_name_str = "volume_name"
     volume_id_str = "volume_id"
+    volume_ids_str = "volume_ids"
     format_str = "format"
     name_str = "name"
     data_str = "data"
@@ -55,6 +56,9 @@ class AbstractPlugin( object ):
     tenant_id_str = "tenant_id"
     block_size_str= "block_size"
     block_size_unit_str = "block_size_unit"
+    metrics_str = "metrics"
+    start_str = "start"
+    end_str = "end"
 
     def __init__(self, session):
         self.__session = session

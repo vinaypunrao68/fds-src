@@ -5,7 +5,7 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
-from fdscli.FDSShell import FDSShell
+from FDSShell import FDSShell
 from services.fds_auth import FdsAuth
 
 sys.path.append( os.path.dirname( os.path.abspath( __file__ ) ) )
