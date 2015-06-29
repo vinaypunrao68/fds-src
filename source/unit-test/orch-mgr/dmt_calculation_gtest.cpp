@@ -100,6 +100,78 @@ void calculateFirstDMT(fds_uint32_t numDMs,
     cmap->resetPendServices(fpi::FDSP_DATA_MGR);
 }
 
+TEST(DmtCalculation, dmt_class) {
+    fds_uint32_t cols = pow(2, dmtWidth);
+    fds_uint64_t version = 1;
+    fds_uint32_t numDMs = 4;
+
+    GLOGNORMAL << "Unit testing DMT class. "
+               << "Width: " << dmtWidth << ", columns " << cols;
+
+    DMT* dmtA = new DMT(dmtWidth, dmtDepth, version);
+    DMT* dmtB = new DMT(dmtWidth, dmtDepth, version+1);
+
+    // at this point, DMT should be invalid
+    Error err = dmtA->verify();
+    EXPECT_EQ(err, ERR_INVALID_DMT);
+
+    // fill in simple DMT -- both DMTs are the same
+    EXPECT_EQ(dmtA->getNumColumns(), cols);
+    for (fds_uint32_t i = 0; i < cols; ++i) {
+        for (fds_uint32_t j = 0; j < dmtDepth; ++j) {
+            NodeUuid uuid(0xaa + j);
+            dmtA->setNode(i, j, uuid);
+            dmtB->setNode(i, j, uuid);
+        }
+    }
+    // both DMTs must be valid
+    err = dmtA->verify();
+    EXPECT_TRUE(err.ok());
+    err = dmtB->verify();
+    EXPECT_TRUE(err.ok());
+
+    // DMTs must be equal
+    EXPECT_TRUE(*dmtA == *dmtB);
+
+    // change one cell in dmtB
+    NodeUuid newUuid(0xcc00);
+    dmtB->setNode(0, 0, newUuid);
+
+    // should be still valid
+    err = dmtB->verify();
+    EXPECT_TRUE(err.ok());
+
+    // DMTs must be not equal anymore
+    EXPECT_FALSE(*dmtA == *dmtB);
+
+    // the first column must have intersection of (depth - 1) uuids
+    DmtColumnPtr firstColA = dmtA->getNodeGroup(0);
+    DmtColumnPtr firstColB = dmtB->getNodeGroup(0);
+    NodeUuidSet sameUuids = firstColB->getIntersection(*firstColA);
+    if (dmtDepth > 0) {
+        EXPECT_EQ(sameUuids.size(), dmtDepth - 1);
+    }
+
+    // new DM in firstColB must be newUuid only
+    NodeUuidSet newDms = firstColB->getNewAndNewPrimaryUuids(*firstColA, 0);
+    EXPECT_EQ(newDms.size(), 1);
+    EXPECT_EQ(newDms.count(newUuid), 1);
+
+    if (dmtDepth > 2) {
+        // exchange row 1 and 2 in firstColB
+        NodeUuid uuid1 = firstColB->get(1);
+        NodeUuid uuid2 = firstColB->get(2);
+        firstColB->set(2, uuid1);
+        firstColB->set(1, uuid2);
+        newDms = firstColB->getNewAndNewPrimaryUuids(*firstColA, 2);
+        EXPECT_EQ(newDms.size(), 2);
+        // uuid2 moved from secondary to primary
+        EXPECT_EQ(newDms.count(uuid2), 1);
+        // newUuid must still be a new added uuid
+        EXPECT_EQ(newDms.count(newUuid), 1);
+    }
+}
+
 TEST(DmtCalculation, compute_add) {
     fds_uint32_t cols = pow(2, dmtWidth);
     fds_uint64_t version = 1;

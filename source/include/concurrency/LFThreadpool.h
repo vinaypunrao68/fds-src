@@ -54,15 +54,15 @@ struct LockfreeWorker {
     }
 
     void start() {
-        worker.reset(new std::thread(&LockfreeWorker::workLoop, this));
-        worker->detach();
+        worker = new std::thread(&LockfreeWorker::workLoop, this);
     }
 
     void finish()
     {
         workLoopTerminate = true;
         my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
-        worker.reset();
+        worker->join();
+        delete worker;
     }
 
     void enqueue(LockFreeTask *t)
@@ -113,16 +113,16 @@ struct LockfreeWorker {
 
                 task = NULL;
                 if (queueCnt == 0) {
-                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
-                        return;
-                    }
-
                     // block if the queueCnt is 0.  The actual value of queueCnt and
                     // expected value is atomically checked.
                     // Although we intially entered this scope due to queueCnt == 0,
                     // by the time we get here, the state can change where we don't
                     // block here.
                     my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
 
                     // TODO(Sean)
                     // This cmpxchg loop and the the one in the next block is the same.
@@ -176,6 +176,10 @@ struct LockfreeWorker {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                                return;
+                            }
+
                             cpu_relax();
                         } else {
                             ++cmpxchgMissed;
@@ -222,7 +226,7 @@ struct LockfreeWorker {
 
     // synchronization
     std::atomic<bool> workLoopTerminate;
-    std::unique_ptr<std::thread> worker;
+    std::thread* worker;
     /* Counters */
     uint64_t completedCntr;
 };
@@ -318,16 +322,16 @@ struct LFSQThreadpool {
                 task = NULL;
 
                 if (queueCnt == 0) {
-                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
-                        return;
-                    }
-
                     // block if the queueCnt is 0.  The actual value of queueCnt and
                     // expected value is atomically checked.
                     // Although we intially entered this scope due to queueCnt == 0,
                     // by the time we get here, the state can change where we don't
                     // block here.
                     my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
 
                     // TODO(Sean)
                     // This cmpxchg loop and the the one in the next block is the same.
@@ -386,6 +390,10 @@ struct LFSQThreadpool {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                                return;
+                            }
+
                             cpu_relax();
                         } else {
                             ++cmpxchgMissed;

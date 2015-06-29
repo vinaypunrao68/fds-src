@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
+import com.formationds.util.io.ContentLengthInputStream;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.http.HttpStatus;
@@ -35,11 +36,17 @@ public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationTok
             ctx.setResponseStatus(HttpStatus.OK_200);
 
             InputStream inputStream = ctx.getInputStream();
+            if(ctx.getRequestHeader("Content-Length") != null) {
+                long length = Long.parseLong(ctx.getRequestHeader("Content-Length"));
+                inputStream = new ContentLengthInputStream(inputStream, length);
+            }
+            final InputStream fInputStream = inputStream;
+
             return xdi.statBlob(token, S3Endpoint.FDS_S3, bucket, object)
                     .thenApply(bd -> bd.getMetadata())
                     .exceptionally(e -> new HashMap<>())
                     .thenApply(metadata -> updateMetadata(ctx, metadata))
-                    .thenCompose(metadata -> xdi.put(token, S3Endpoint.FDS_S3, bucket, object, inputStream, metadata))
+                    .thenCompose(metadata -> xdi.put(token, S3Endpoint.FDS_S3, bucket, object, fInputStream, metadata))
                     .thenAccept(result -> {
                         String etagValue = formatEtag(Hex.encodeHexString(result.digest));
                         ctx.addResponseHeader("ETag", etagValue);
