@@ -5,14 +5,15 @@
 #
 
 name "fds-deploy"
-maintainer "CHANGE ME"
-homepage "https://CHANGE-ME.com"
+maintainer "Formation Data Systems"
+homepage "http://www.formationds.com"
 
 # Defaults to C:/fds-deploy on Windows
 # and /opt/fds-deploy on all other platforms
 install_dir "#{default_root}/#{name}"
 
-build_version "2015.06.05"
+mydir = File.dirname(__FILE__)
+build_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
 build_iteration 1
 
 # Creates required build directories

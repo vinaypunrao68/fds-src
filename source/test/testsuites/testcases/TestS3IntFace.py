@@ -607,9 +607,6 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
         self.passedBucket=bucket
 
-    def test_S3LoadLBLOBCb(self, so_far, total):
-        self.log.info(str(so_far) + "B Downloaded");
-
     def test_S3LoadLBLOB(self):
         """
         Test Case:
@@ -680,7 +677,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             k = Key(s3.bucket1)
             k.key = 'large'
 
-            k.get_contents_to_filename(filename=dest_path, cb=self.test_S3LoadLBLOBCb)
+            k.get_contents_to_filename(filename=dest_path)
 
             test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
             if not test_passed:

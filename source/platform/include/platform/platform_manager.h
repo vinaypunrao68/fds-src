@@ -14,6 +14,7 @@
 #include <fds_typedefs.h>
 #include <disk_plat_module.h>
 
+#include "fdsp/node_svc_api_types.h"
 #include "fdsp/pm_service_types.h"
 
 namespace fds
@@ -76,6 +77,12 @@ namespace fds
                     return m_nodeInfo;
                 }
 
+                void addService (fpi::NotifyAddServiceMsgPtr const &addNodeMsg);
+                void removeService (fpi::NotifyRemoveServiceMsgPtr const &removeServiceMsg);
+
+                void startService (fpi::NotifyStartServiceMsgPtr const &startServiceMsg);
+                void stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg);
+
                 /**
                  * Update the service info properties with disk information,
                  * the node uuid, and fds_root.
@@ -109,12 +116,12 @@ namespace fds
                 bool                                m_autoRestartFailedProcesses;
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
-
                 void childProcessMonitor();
                 void startQueueMonitor();
                 void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);
                 std::string getProcName (int const index);
                 void updateNodeInfoDbPid (int processType, pid_t pid);
+                void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
                 void checkPidsDuringRestart();
                 bool procCheck (std::string procName, pid_t pid);
         };

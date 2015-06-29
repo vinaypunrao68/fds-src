@@ -246,6 +246,10 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
                 volTable->enqueueRequest(attachReq);
             }
             err = amDispatcher->attachVolume(amReq->volume_name);
+            if (ERR_NOT_READY == err) {
+                // We don't have domain tables yet...just reject.
+                return volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+            }
         }
     }
 

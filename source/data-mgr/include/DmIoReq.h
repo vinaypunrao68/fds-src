@@ -715,7 +715,7 @@ struct DmIoMigration : dmCatReq {
     explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
               response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
-              dmCatReq(invalid_vol_id, "", "", 0, FDS_DM_MIGRATION) {
+              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_MIGRATION) {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigration& io) {

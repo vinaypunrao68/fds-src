@@ -909,7 +909,8 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
-    standalone = false;
+    initHandlers();
+    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;
     scheduleRate = 10000;
     shuttingDown = false;
@@ -953,6 +954,12 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.volume_open_support", false));
 
+    // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
+    // requests for a given serialization key are applied in the order they
+    // are received.
+    features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.dm.req_serialization", false));
+
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
     /*
@@ -962,6 +969,11 @@ int DataMgr::mod_init(SysParams const *const param)
 				  get<int>("fds.dm.number_of_primary");
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
+
+    /**
+     * Instantiate migration manager.
+     */
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this));
 
     return 0;
 }
@@ -999,8 +1011,6 @@ DataMgr::~DataMgr()
 
 int DataMgr::run()
 {
-    // TODO(Rao): Move this into module init
-    initHandlers();
 
     _shutdownGate.waitUntilOpened();
 
@@ -1033,7 +1043,7 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    fds_uint32_t diskIOPsMin = features.isTestMode() ? 60*1000 :
+    fds_uint32_t diskIOPsMin = standalone ? 60*1000 :
             svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
                                                  "node_iops_min");
 
@@ -1075,7 +1085,7 @@ void DataMgr::mod_enable_service() {
 
     // enable collection of local stats in DM
     StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
-    if (!features.isTestMode()) {
+    if (!standalone) {
         // since aggregator is in the same module, for stats that need to go to
         // local aggregator, we just directly stream to aggregator (not over network)
         StatsCollector::singleton()->startStreaming(
