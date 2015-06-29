@@ -68,13 +68,14 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
 
     fds_volid_t volumeId (vol_msg->vol_desc.volUUID);
-    VolumeDesc vdb(vol_msg->vol_desc);
-    GLOGNOTIFY << "Received create for vol "
-               << "[" << volumeId << ", "
-               << vdb.getName() << "]";
 
     Error err(ERR_OK);
     VolumeDesc desc(vol_msg->vol_desc);
+
+    GLOGNOTIFY << "Received create for vol "
+               << "[" << volumeId << ", "
+               << desc.getName() << "]";
+
     err = dataManager_._process_add_vol(dataManager_.getPrefix() + std::to_string(vol_uuid.get()),
                                         vol_uuid,
                                         &desc,
