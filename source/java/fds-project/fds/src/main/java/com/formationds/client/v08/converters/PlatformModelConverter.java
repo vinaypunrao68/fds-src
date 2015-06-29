@@ -4,8 +4,8 @@ import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Node.NodeAddress;
 import com.formationds.client.v08.model.Node.NodeState;
 import com.formationds.client.v08.model.Service;
-import com.formationds.client.v08.model.ServiceType;
 import com.formationds.client.v08.model.Service.ServiceState;
+import com.formationds.client.v08.model.ServiceType;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.formationds.client.v08.model.Service.ServiceState;
 import static com.formationds.client.v08.model.Service.ServiceStatus;
 
 @SuppressWarnings( "unused" )
@@ -217,10 +216,17 @@ public class PlatformModelConverter
 	return internalStatus;
   }
   //Currently used by AddNode.java
-  public static SvcInfo convertServiceToSvcInfoType(Service service)
+  public static SvcInfo convertServiceToSvcInfoType( final String nodeIp, Service service)
   {
-	SvcUuid svcUid = new SvcUuid(service.getId());
-	SvcID sId = new SvcID(svcUid, service.getType().name());
+      final Long newId = -1L;
+      if( service.getId( ) == null )
+      {
+          service.setId( newId );
+      }
+
+      SvcUuid svcUid = new SvcUuid( service.getId( ) );
+      SvcID sId = new SvcID( svcUid, service.getType( )
+                                            .name( ) );
 	
 	Optional<FDSP_MgrIdType> optType
 	  	    = convertToInternalServiceType(service.getType());
@@ -232,11 +238,12 @@ public class PlatformModelConverter
 	com.formationds.protocol.svc.types.ServiceStatus internalStatus
 	                         = convertToInternalServiceStatus(externalServiceState);
 
-	SvcInfo svcInfo = new SvcInfo(sId,
-			                      service.getPort(),
-			                      optType.get(),
-			                      internalStatus,
-			                      null,null,0,null,null);
+	SvcInfo svcInfo = new SvcInfo( sId,
+                                   service.getPort( ),
+                                   optType.get( ),
+                                   internalStatus,
+                                   "auto-name", nodeIp, 0, "name",
+                                   new HashMap<>());
 	
 	  return svcInfo;	  
   }

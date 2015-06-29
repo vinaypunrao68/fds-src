@@ -3,35 +3,29 @@
  */
 package com.formationds.om.webkit.rest.v08.platform;
 
-import com.formationds.protocol.FDSP_Uuid;
-import com.formationds.protocol.svc.types.SvcInfo;
-import com.formationds.protocol.pm.NotifyAddServiceMsg;
-import com.formationds.apis.FDSP_ActivateOneNodeType;
+import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
-import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.pm.NotifyAddServiceMsg;
+import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
-
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Optional;
 
 
 public class AddNode
@@ -56,16 +50,18 @@ public class AddNode
         logger.debug( "Trying to add node: " + nodeUuid );
         
         final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
-        //Node node = ObjectModelHelper.toObject( reader, Node.class );
-        Node node = (new GetNode()).getNode(nodeUuid);
+        Node node = ObjectModelHelper.toObject( reader, Node.class );
+//        Node node = (new GetNode()).getNode(nodeUuid);
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         boolean pmPresent = false;
-        
+
+        logger.trace( "NODE::" + node.toString() );
         for(List<Service> svcList : node.getServices().values())
         {
         	for(Service svc : svcList)
         	{
-        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType(svc);
+        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType( node.getAddress().getHostAddress(),
+                                                                                      svc);
         		svcInfList.add(svcInfo);
         		
         		pmPresent = (svc.getType() == ServiceType.PM);

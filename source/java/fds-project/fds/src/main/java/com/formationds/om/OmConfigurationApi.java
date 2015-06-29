@@ -133,18 +133,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         this.configClientFactory = configClientFactory;
 
         map = new ConcurrentHashMap<>();
-        map.compute(KEY, (k, v) -> {
-            try {
-                return new ConfigurationCache(configClientFactory.getClient());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        map.compute( KEY, ( k, v ) -> {
+            try
+            {
+                return new ConfigurationCache(
+                    configClientFactory.getClient( ) );
             }
-        });
+            catch( Exception e )
+            {
+                throw new RuntimeException( e );
+            }
+        } );
     }
 
     void startStatStreamRegistrationHandler( final String urlHostname, final int urlPortNo) {
         this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
-        this.statStreamRegistrationHandler.start();
+        this.statStreamRegistrationHandler.start( );
     }
 
     void startConfigurationUpdater() {
@@ -350,7 +354,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     /**
      * Add service to the specified Node.
      *
-     * @param act_serv_req - NotifyAddServiceMsg: Struct identifying node and its services to be activated.
+     * @param add_svc_req - NotifyAddServiceMsg: Struct identifying node and its services to be activated.
      *
      * @return int 0 is successful. Not 0 otherwise.
      *
@@ -359,7 +363,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
             throws org.apache.thrift.TException {
-    	LOG.debug("OmConfigurationApi::AddService entered");
+    	LOG.debug("OmConfigurationApi::AddService entered " + add_svc_req.toString() );
     	return getConfig().AddService(add_svc_req);
     }
 

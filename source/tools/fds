@@ -211,7 +211,7 @@ function startApp() {
 
     case "$appname" in
         om|all)
-            activate
+            # activate
             ;;
     esac
 }
@@ -552,7 +552,8 @@ function clean() {
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
 
-				rm -rf /${node}/var/logs
+		rm -rf /${node}/var/logs/*.log*
+		rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null
         fi
@@ -706,14 +707,14 @@ case "${CMD}" in
     restart)
             stopApp $APP
             startApp $APP
-            waitForAll
+ #            waitForAll
             statusApp $APP
             ;;
     cleanstart|startclean)
         stopApp "all"
         clean
         startApp "all"
-        waitForAll
+#         waitForAll
         statusApp "all"
         ;;
     gdb)
