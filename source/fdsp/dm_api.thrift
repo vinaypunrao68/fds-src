@@ -493,6 +493,33 @@ struct CtrlNotifyDMStartMigrationRspMsg {
    */
 }
 
+/**
+ * delta blob  set from the source DM to  destination DM.
+ */
+struct CtrlNotifyDeltaBlobs {
+  1: i64                     volume_id;
+  2: i64                     blob_id;
+  3: i64                     sequence_id;
+  4: bool                    last_sequence_id;
+}
+
+
+struct CtrlNotifyRequestDeltaBlobDesc {
+  /* An empty reply from the Destination DM to the source DM after 
+   * all the blobs applied to the destination DM. This is a empty message
+   */
+}
+
+/**
+ * delta blob  set from the source DM to  destination DM.
+ */
+struct CtrlNotifyDeltaBlobDesc {
+  1: i64                     volume_id;
+  2: i64                     blob_id;
+  3: i64                     sequence_id;
+  4: bool                    last_sequence_id;
+}
+
 /* ------------------------------------------------------------
    Operations for Replication
    ------------------------------------------------------------*/
