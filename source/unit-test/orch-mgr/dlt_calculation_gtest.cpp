@@ -1,5 +1,5 @@
 /**
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 
 #include <unistd.h>
@@ -49,14 +49,11 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     EXPECT_NE(cmap, nullptr);
 
     // create DLT object
-    DLT* newDlt = new(std::nothrow) DLT(dltWidth,
-                                        dltDepth,
-                                        version,
-                                        true);
+    DLT* newDlt = new DLT(dltWidth,
+                          dltDepth,
+                          version,
+                          true);
     EXPECT_NE(newDlt, nullptr);
-    if (newDlt == nullptr) {
-        return nullptr;
-    }
 
     // at this point, DLT should be invalid
     NodeUuidSet expectedUuids;
@@ -69,8 +66,8 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     NodeList rmNodes;
     for (fds_uint32_t i = 0; i < numSMs; ++i) {
         NodeUuid uuid(0xAB00+i);
-        OM_NodeAgent::pointer agent(new(std::nothrow) OM_NodeAgent(uuid,
-                                                                   fpi::FDSP_STOR_MGR));
+        OM_NodeAgent::pointer agent(new OM_NodeAgent(uuid,
+                                                     fpi::FDSP_STOR_MGR));
         addNodes.push_back(agent);
     }
     cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
@@ -98,14 +95,8 @@ TEST(DltCalculation, dlt_class) {
                << "Width: " << dltWidth << ", columns " << cols;
 
     // create 2 DLT objects
-    DLT* dltA = new(std::nothrow) DLT(dltWidth, dltDepth, version, true);
-    EXPECT_NE(dltA, nullptr);
-    DLT* dltB = new(std::nothrow) DLT(dltWidth, dltDepth, version+1, true);
-    EXPECT_NE(dltB, nullptr);
-    if ((dltB == nullptr) || (dltA == nullptr)) {
-        // done with this test
-        return;
-    }
+    DLT* dltA = new DLT(dltWidth, dltDepth, version, true);
+    DLT* dltB = new DLT(dltWidth, dltDepth, version+1, true);
 
     // fill in simple DLT -- both DLTs are the same
     EXPECT_EQ(dltA->getNumTokens(), cols);
@@ -153,8 +144,7 @@ TEST(DltCalculation, compute_add) {
                << "Width: " << dltWidth << ", columns " << cols;
 
     PlacementAlgorithm *placeAlgo = nullptr;
-    placeAlgo = new(std::nothrow) ConsistHashAlgorithm();
-    EXPECT_NE(placeAlgo, nullptr);
+    placeAlgo = new ConsistHashAlgorithm();
     DLT* dlt = calculateFirstDLT(numSMs, cmap, addNodes, placeAlgo, 0);
     EXPECT_NE(dlt, nullptr);
     if (dlt == nullptr) {
@@ -176,8 +166,8 @@ TEST(DltCalculation, compute_add) {
         GLOGNORMAL << "Adding one SM service with UUID 0x" <<
                 std::hex << newUuid.uuid_get_val() << std::dec;
 
-        OM_NodeAgent::pointer agent(new(std::nothrow) OM_NodeAgent(newUuid,
-                                                               fpi::FDSP_STOR_MGR));
+        OM_NodeAgent::pointer agent(new OM_NodeAgent(newUuid,
+                                                     fpi::FDSP_STOR_MGR));
         addNodes.push_back(agent);
         cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
 
@@ -247,8 +237,8 @@ TEST(DltCalculation, compute_2prim) {
             NodeUuidSet failedSms;
             for (fds_uint32_t i = 0; i < numSMs; ++i) {
                 NodeUuid uuid(0xAB00+i);
-                OM_NodeAgent::pointer agent(new(std::nothrow) OM_NodeAgent(uuid,
-                                                                           fpi::FDSP_STOR_MGR));
+                OM_NodeAgent::pointer agent(new OM_NodeAgent(uuid,
+                                                             fpi::FDSP_STOR_MGR));
                 if (failedCnt < numFailedSms) {
                     agent->set_node_state(fpi::FDS_Node_Down);
                     failedSms.insert(uuid);
@@ -267,13 +257,7 @@ TEST(DltCalculation, compute_2prim) {
 
             // calculate DLT
             PlacementAlgorithm *placeAlgo = nullptr;
-            placeAlgo = new(std::nothrow) ConsistHashAlgorithm();
-            EXPECT_NE(placeAlgo, nullptr);
-            if (placeAlgo == nullptr) {
-                // not point to continue this test
-                return;
-            }
-
+            placeAlgo = new ConsistHashAlgorithm();
             placeAlgo->computeNewDlt(cmap, nullptr, dlt);
             // Compute DLT's reverse node to token map
             dlt->generateNodeTokenMap();
@@ -315,10 +299,8 @@ TEST(DltCalculation, compute_then_fail_2prim) {
     fds_uint32_t numFailedSms = 1;
 
     PlacementAlgorithm *placeAlgo = nullptr;
-    placeAlgo = new(std::nothrow) ConsistHashAlgorithm();
-    EXPECT_NE(placeAlgo, nullptr);
-    ClusterMap* cmap = new(std::nothrow) ClusterMap();
-    EXPECT_NE(cmap, nullptr);
+    placeAlgo = new ConsistHashAlgorithm();
+    ClusterMap* cmap = new ClusterMap();
     NodeList addNodes;
 
     // calculate DLT
@@ -381,10 +363,8 @@ TEST(DltCalculation, fail_rm_2prim) {
                << ". And fail+rm SMs";
 
     PlacementAlgorithm *placeAlgo = nullptr;
-    placeAlgo = new(std::nothrow) ConsistHashAlgorithm();
-    EXPECT_NE(placeAlgo, nullptr);
-    ClusterMap* cmap = new(std::nothrow) ClusterMap();
-    EXPECT_NE(cmap, nullptr);
+    placeAlgo = new ConsistHashAlgorithm();
+    ClusterMap* cmap = new ClusterMap();
     NodeList firstNodes, rmNodes, addNodes;
 
     // calculate DLT
@@ -442,10 +422,8 @@ TEST(DltCalculation, rm_add_2prim) {
                << ". And rm then add SMs";
 
     PlacementAlgorithm *placeAlgo = nullptr;
-    placeAlgo = new(std::nothrow) ConsistHashAlgorithm();
-    EXPECT_NE(placeAlgo, nullptr);
-    ClusterMap* cmap = new(std::nothrow) ClusterMap();
-    EXPECT_NE(cmap, nullptr);
+    placeAlgo = new ConsistHashAlgorithm();
+    ClusterMap* cmap = new ClusterMap();
     NodeList firstNodes, rmNodes, addNodes;
 
     // calculate DLT
@@ -491,8 +469,8 @@ TEST(DltCalculation, rm_add_2prim) {
     // add one SM
     newDlt = new DLT(dltWidth, dltDepth, version, true);
     NodeUuid addUuid(0xCC0A);
-    OM_NodeAgent::pointer addAgent(new(std::nothrow) OM_NodeAgent(addUuid,
-                                                                  fpi::FDSP_STOR_MGR));
+    OM_NodeAgent::pointer addAgent(new OM_NodeAgent(addUuid,
+                                                    fpi::FDSP_STOR_MGR));
     addNodes.push_back(addAgent);
     cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     GLOGNORMAL << "Adding SM service with UUID 0x" <<
@@ -528,10 +506,8 @@ TEST(DltCalculation, fail_add_2prim) {
                << ". And fail/add SMs";
 
     PlacementAlgorithm *placeAlgo = nullptr;
-    placeAlgo = new(std::nothrow) ConsistHashAlgorithm();
-    EXPECT_NE(placeAlgo, nullptr);
-    ClusterMap* cmap = new(std::nothrow) ClusterMap();
-    EXPECT_NE(cmap, nullptr);
+    placeAlgo = new ConsistHashAlgorithm();
+    ClusterMap* cmap = new ClusterMap();
     NodeList firstNodes, rmNodes, addNodes;
 
     // calculate DLT
@@ -621,8 +597,8 @@ TEST(DltCalculation, fail_add_2prim) {
     // add one more SM
     newDlt = new DLT(dltWidth, dltDepth, version, true);
     NodeUuid addUuid(0xCC0A);
-    OM_NodeAgent::pointer addAgent(new(std::nothrow) OM_NodeAgent(addUuid,
-                                                                  fpi::FDSP_STOR_MGR));
+    OM_NodeAgent::pointer addAgent(new OM_NodeAgent(addUuid,
+                                                    fpi::FDSP_STOR_MGR));
     addNodes.push_back(addAgent);
     cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     GLOGNORMAL << "Adding SM service with UUID 0x" <<
