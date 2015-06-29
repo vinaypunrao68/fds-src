@@ -170,44 +170,6 @@ class DmMigrationMgr {
      * Ack back to the OM saying migration is finished
      */
     void ackMigrationComplete(const Error &status);
-
-    /**
-     * Destination side DM:
-     * Used to throttle the number of parallel ongoing DM Migrations
-     */
-    struct MigrationExecThrottle {
-    	MigrationExecThrottle() : max_tokens(1)
-    	{
-    		max_tokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
-    				get<int>("fds.dm..migration.max_migrations"));
-    	}
-		fds_uint32_t max_tokens;
-		std::mutex m;
-		std::condition_variable cv;
-
-    	/**
-    	 * Blocks until an access token is gotten
-    	 */
-    	void getAccessToken() {
-    		std::unique_lock<std::mutex> lk(m);
-    		while (max_tokens == 0) {
-    			cv.wait(lk);
-    		}
-    		fds_verify(max_tokens > 0);
-    		max_tokens--;
-    		lk.unlock();
-    	}
-
-    	/**
-    	 * Returns a token and wakes up waiters
-    	 */
-    	void returnAccessToken() {
-    		std::unique_lock<std::mutex> lk(m);
-    		max_tokens++;
-    		cv.notify_all();
-    		lk.unlock();
-    	}
-    } migrationExecThrottle;
 };  // DmMigrationMgr
 
 }  // namespace fds
