@@ -188,7 +188,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         metadataPair.value = vdesc->name;
         fpi::FDSP_MetaDataList setMetadataList;
         setMetadataList.push_back(metadataPair);
-        rc = volcat->setVolumeMetadata(vdesc->volUUID, setMetadataList);
+        rc = volcat->setVolumeMetadata(vdesc->volUUID, setMetadataList, 0);
         EXPECT_TRUE(rc.ok());
 
         fpi::FDSP_MetaDataList getMetadataList;

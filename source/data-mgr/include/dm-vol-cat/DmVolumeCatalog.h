@@ -135,11 +135,13 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * existed are overwritten and previously set keys are left unchanged.
      * @param[in] volId The ID of the volume's catalog to update
      * @param[in] metadataList A list of metadata key value pairs to set.
+     * @param[in] seq_id sequence id for the operation.
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog.
      */
     Error setVolumeMetadata(fds_volid_t volId,
-                            const fpi::FDSP_MetaDataList &metadataList);
+                            const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
 
     /**
      * Gets the key-value metadata pairs for the volume.

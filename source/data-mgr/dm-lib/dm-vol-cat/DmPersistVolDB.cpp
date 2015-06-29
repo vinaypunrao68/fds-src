@@ -118,7 +118,7 @@ Error DmPersistVolDB::activate() {
 
     // Write out the initial superblock descriptor into the volume
     fpi::FDSP_MetaDataList emptyMetadataList;
-    VolumeMetaDesc volMetaDesc(emptyMetadataList);
+    VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
     if (ERR_OK != putVolumeMetaDesc(volMetaDesc)) {
         return ERR_DM_VOL_NOT_ACTIVATED;
     }
@@ -202,14 +202,29 @@ Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
         }
     }
 
+    Error err;
     if (dbIt->status().ok()) {
-        return ERR_OK;
-    }else{
+        fpi::FDSP_MetaDataList emptyMetadataList;
+        VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
+
+        err = getVolumeMetaDesc(volMetaDesc);
+
+        if (err.ok()) {
+            if (max < volMetaDesc.sequence_id) {
+                max = volMetaDesc.sequence_id;
+            }
+        } else {
+            LOGERROR << "Error searching volume descriptor for latest sequence id for volume "
+                     << volId_ << ": " << err;
+        }
+    } else {
         LOGERROR << "Error searching latest sequence id for volume " << volId_
                  << ": " << dbIt->status().ToString();
 
-        return status2error(dbIt->status());
+        err = status2error(dbIt->status());
     }
+
+    return err;
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offset,

@@ -200,7 +200,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * to volume catalog.
      */
     Error setVolumeMetadata(fds_volid_t volId,
-                            const fpi::FDSP_MetaDataList &metadataList);
+                            const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
 
     /**
      * Starts a new transaction for blob

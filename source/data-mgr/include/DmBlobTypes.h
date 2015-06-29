@@ -234,6 +234,7 @@ struct VolumeMetaDesc : serialize::Serializable {
     /// Descriptor of the volume that the catalog is backing
     // TODO(Andrew): Add this back when we do restartability work.
     // VolumeDesc volDesc;
+    sequence_id_t sequence_id;
     /// List of user defined volume specific key-value metadata
     MetaDataList  meta_list;
 
@@ -244,7 +245,8 @@ struct VolumeMetaDesc : serialize::Serializable {
      * Constructs invalid VolumeMetaDesc object, must initialize
      * to valid fields after the constructor.
      */
-    explicit VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList);
+    explicit VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
     virtual ~VolumeMetaDesc();
 
     uint32_t write(serialize::Serializer* s) const;

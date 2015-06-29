@@ -310,8 +310,9 @@ DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
 
 Error
 DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
-                                    const fpi::FDSP_MetaDataList &metadataList) {
-    return volcat->setVolumeMetadata(volId, metadataList);
+                                    const fpi::FDSP_MetaDataList &metadataList,
+                                    const sequence_id_t seq_id) {
+    return volcat->setVolumeMetadata(volId, metadataList, seq_id);
 }
 
 Error

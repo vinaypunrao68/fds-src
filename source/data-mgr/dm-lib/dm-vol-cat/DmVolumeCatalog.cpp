@@ -269,11 +269,12 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
 }
 
 Error DmVolumeCatalog::setVolumeMetadata(fds_volid_t volId,
-                                         const fpi::FDSP_MetaDataList &metadataList) {
+                                         const fpi::FDSP_MetaDataList &metadataList,
+                                         const sequence_id_t seq_id) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
-    VolumeMetaDesc volMetaDesc(metadataList);
+    VolumeMetaDesc volMetaDesc(metadataList, seq_id);
     return vol->putVolumeMetaDesc(volMetaDesc);
 }
 
@@ -282,7 +283,7 @@ Error DmVolumeCatalog::getVolumeMetadata(fds_volid_t volId,
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
-    VolumeMetaDesc volMetaDesc(metadataList);
+    VolumeMetaDesc volMetaDesc(metadataList, 0);
     Error rc = vol->getVolumeMetaDesc(volMetaDesc);
     if (!rc.ok()) {
         LOGERROR << "Unable to get metadata for volume " << volId << ", " << rc;
