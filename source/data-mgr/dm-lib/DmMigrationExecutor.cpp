@@ -15,8 +15,10 @@ DmMigrationExecutor::DmMigrationExecutor(DmIoReqHandler* _DmReqHandle,
     							 	 	 NodeUuid& _srcDmUuid,
 	 	 								 const NodeUuid& _mySvcUuid,
 	 	 								 fpi::FDSP_VolumeDescType& _vol,
+										 const fds_bool_t& _autoIncrement,
 										 DmMigrationExecutorDoneHandler _handle)
-    : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle)
+    : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle),
+	  autoIncrement(_autoIncrement)
 {
 	LOGMIGRATE << "Migration executor received for volume " << _vol.vol_name;
 

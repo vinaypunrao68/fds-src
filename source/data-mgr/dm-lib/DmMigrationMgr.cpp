@@ -9,12 +9,14 @@
 namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
-    : DmReqHandler(DmReqHandle),
-      OmStartMigrCb(NULL)
+    : DmReqHandler(DmReqHandle), OmStartMigrCb(NULL), maxTokens(1),
+	  firedTokens(0), mit(NULL)
 {
 	migrState = MIGR_IDLE;
 	cleanUpInProgress = false;
 	migrationMsg = nullptr;
+	maxTokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+				get<int>("fds.dm..migration.max_migrations"));
 }
 
 DmMigrationMgr::~DmMigrationMgr()
@@ -28,7 +30,7 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 										fpi::FDSP_VolumeDescType &vol,
 										MigrationType& migrationType,
 										fds_uint64_t uniqueId,
-										fds_uint16_t instanaceNum)
+										const fds_bool_t& autoIncrement)
 {
 	Error err(ERR_OK);
 
@@ -48,7 +50,7 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 		LOGMIGRATE << "Creating migration instance for volume: " << vol.vol_name;
 		executorMap.emplace(fds_volid_t(vol.volUUID),
 				DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
-													srcDmUuid, mySvcUuid, vol,
+													srcDmUuid, mySvcUuid, vol, autoIncrement,
 													std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
 													this, std::placeholders::_1,
 													std::placeholders::_2))));
@@ -68,6 +70,8 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	migrationMsg = typedRequest->message;
 	OmStartMigrCb = typedRequest->localCb;
 	asyncPtr = typedRequest->asyncHdrPtr;
+	fds_bool_t autoIncrement = false;
+	fds_bool_t loopFireNext = true;
 	// TODO(Neil) fix this
 	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -80,6 +84,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 		return err;
 	}
 
+	firedTokens = 0;
 	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
 			vmg != migrationMsg->migrations.end(); vmg++) {
 		LOGMIGRATE << "DM MigrationMgr " << mySvcUuid.uuid_get_val()
@@ -89,10 +94,20 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 				vdt != vmg->VolDescriptors.end(); vdt++) {
 			LOGMIGRATE << "Volume ID: " << vdt->volUUID << " name: " << vdt->vol_name;
 			destSvcUuid.uuid_set_val(vmg->source.svc_uuid);
+			/**
+			 * If this is the last executor to be fired, anything from this point on should
+			 * have the autoIncrement flag set.
+			 */
+			fds_verify(maxTokens > 0);
+			firedTokens++;
+			if (firedTokens == maxTokens) {
+				autoIncrement = true;
+				// from this point on, all the other executors must have autoIncrement == TRUE
+			}
 			err = createMigrationExecutor(destSvcUuid, mySvcUuid,
 									*vdt, localMigrationType,
 									fds_uint64_t(vdt->volUUID),
-									fds_uint16_t(1));
+									autoIncrement);
 			if (!err.OK()) {
 				LOGMIGRATE << "Error creating migrating task";
 				return err;
@@ -108,9 +123,10 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	 * sides communicate with each other before we allow the call to unblock and returns
 	 * a OK response.
 	 */
-	for (DmMigrationExecMap::iterator mit = executorMap.begin();
-			mit != executorMap.end(); mit++) {
-		migrationExecThrottle.getAccessToken();
+	SCOPEDWRITE(migrExecutorLock);
+	mit = executorMap.begin();
+	while (loopFireNext && (mit != executorMap.end())) {
+		loopFireNext = !(mit->second->shouldAutoExecuteNext());
 		mit->second->execute();
 		if (isMigrationAborted()) {
 			/**
@@ -118,18 +134,15 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 			 */
 			err = ERR_DM_MIGRATION_ABORTED;
 			break;
+		} else if (loopFireNext) {
+			mit++;
 		}
 	}
-	/**
-	 * TODO(Neil): move the following to when this Dest DM receives a msg from the source clients
-	 * saying that the whole set of clients are done.
-	 */
-	ackMigrationComplete(err);
 	return err;
 }
 
 void
-DmMigrationMgr::ackMigrationComplete(Error &status)
+DmMigrationMgr::ackMigrationComplete(const Error &status)
 {
 	fds_verify(OmStartMigrCb != NULL);
 	OmStartMigrCb(asyncPtr, migrationMsg, status, dmReqPtr);
@@ -240,7 +253,8 @@ DmMigrationMgr::activateStateMachine()
 void
 DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result)
 {
-	SCOPEDWRITE(migrExecutorLock);
+	LOGMIGRATE << "NEIL DEBUG entering executor callback";
+	// SCOPEDWRITE(migrExecutorLock);
 	MigrationState expectedState(MIGR_IN_PROGRESS);
 	/**
 	 * Make sure we can find it
@@ -264,7 +278,16 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &resu
 		 * This will be moved to the callback when source client finishes and
 		 * talks to the destination manager.
 		 */
-		migrationExecThrottle.returnAccessToken();
+		if (mit->second->shouldAutoExecuteNext()) {
+			mit++;
+			if (mit != executorMap.end()) {
+				LOGMIGRATE << "NEIL DEBUG executing next";
+				mit->second->execute();
+			} else {
+				LOGMIGRATE << "NEIL DEBUG done executing doing ack";
+				ackMigrationComplete(result);
+			}
+		}
 	}
 }
 

@@ -23,6 +23,7 @@ class DmMigrationExecutor {
     							 NodeUuid& srcDmUuid,
 								 const NodeUuid& mySvcUuid,
 								 fpi::FDSP_VolumeDescType& vol,
+								 const fds_bool_t& _autoIncrement,
 								 DmMigrationExecutorDoneHandler handle);
     ~DmMigrationExecutor();
 
@@ -37,6 +38,11 @@ class DmMigrationExecutor {
     typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
     typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
 
+    inline fds_bool_t shouldAutoExecuteNext()
+    {
+    	return autoIncrement;
+    }
+
   private:
     DmIoReqHandler* DmReqHandler;
     /**
@@ -50,6 +56,11 @@ class DmMigrationExecutor {
      * Callback to talk to DM Migration Manager
      */
     DmMigrationExecutorDoneHandler migrDoneHandler;
+
+    /**
+     * Means that the callback above should now call the next executor
+     */
+    fds_bool_t autoIncrement;
 
 };  // DmMigrationExecutor
 

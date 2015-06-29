@@ -97,8 +97,13 @@ class DmMigrationMgr {
 
     /**
      * Throttles the number of max concurrent migrations
+     * Below are protected by migrExecutorLock.
      */
     fds_uint32_t executorTokens;
+    fds_uint32_t maxTokens;
+    fds_uint32_t firedTokens;
+    // Bookmark for last fired executor
+    DmMigrationExecMap::iterator mit;
 
     /**
      * Destination side DM:
@@ -111,7 +116,7 @@ class DmMigrationMgr {
 									fpi::FDSP_VolumeDescType &vol,
 									MigrationType& migrationType,
 									fds_uint64_t uniqueId = 0,
-									fds_uint16_t instanaceNum = 1);
+									const fds_bool_t& autoIncrement = false);
 
     /**
      * Source side DM:
@@ -164,7 +169,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Ack back to the OM saying migration is finished
      */
-    void ackMigrationComplete(Error &status);
+    void ackMigrationComplete(const Error &status);
 
     /**
      * Destination side DM:
