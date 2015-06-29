@@ -87,23 +87,22 @@ DataPlacement::computeDlt() {
     // Will change to be relative to the current.
     fds_uint64_t version;
     
-//    fds_verify( newDlt == NULL );
+    fds_verify( newDlt == NULL );
     
-    LOGDEBUG << "NEW DLT " << newDlt << " COMMITED DLT " << commitedDlt;
-    
-    if ( ( newDlt == NULL ) && ( commitedDlt != NULL ) )
+    if (commitedDlt == NULL) 
     {
-        return;
-    }
-    if (commitedDlt == NULL) {
         version = DLT_VER_INVALID + 1;
-    } else {
+    } 
+    else 
+    {
         version = commitedDlt->getVersion() + 1;
     }
+    
     // If we have fewer members than total replicas
     // use the number of members as the replica count
     fds_uint32_t depth = curDltDepth;
-    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) {
+    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) 
+    {
         depth = curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR);
     }
 
@@ -122,7 +121,8 @@ DataPlacement::computeDlt() {
 
     // store the dlt to config db
     fds_verify(configDB != NULL);
-    if (!configDB->storeDlt(*newDlt, "next")) {
+    if (!configDB->storeDlt(*newDlt, "next")) 
+    {
         GLOGWARN << "unable to store dlt to config db "
                 << "[" << newDlt->getVersion() << "]";
     }
@@ -146,7 +146,8 @@ DataPlacement::beginRebalance() {
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
 
-    if (!commitedDlt) {
+    if (!commitedDlt) 
+    {
         LOGNOTIFY << "Not going to rebalance data, because this is "
                   << " the first DLT we computed";
         placementMutex->unlock();
@@ -155,11 +156,13 @@ DataPlacement::beginRebalance() {
 
     for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
          cit != curClusterMap->cend_sm();
-         ++cit) {
+         ++cit) 
+    {
         // see if this node has any new tokens it is responsible for
         // this includes primary, secondary, other responsibilities
         const TokenList& new_toks = newDlt->getTokens(cit->first);
-        if (!commitedDlt) {
+        if (!commitedDlt) 
+        {
             // this node did not have tokens before, and now it does
             rebalanceNodes.insert(cit->first);
             break;
@@ -169,10 +172,13 @@ DataPlacement::beginRebalance() {
         // TODO(anna) TokenList should be a set so we can easily
         // search rather than vector -- anyway we shouldn't have duplicate
         // tokens in the TokenList
-        for (fds_uint32_t i = 0; i < new_toks.size(); ++i) {
+        for (fds_uint32_t i = 0; i < new_toks.size(); ++i) 
+        {
             fds_bool_t found = false;
-            for (fds_uint32_t j = 0; j < old_toks.size(); ++j) {
-                if (new_toks[i] == old_toks[j]) {
+            for (fds_uint32_t j = 0; j < old_toks.size(); ++j) 
+            {
+                if (new_toks[i] == old_toks[j]) 
+                {
                     found = true;
                     break;
                 }

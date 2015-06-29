@@ -130,7 +130,7 @@
       <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
     </snapshotRepository>
   </distributionManagement>
-
+  
   <pluginRepositories>
     <pluginRepository>
       <id>thrift-plugin</id>
