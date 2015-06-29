@@ -80,6 +80,9 @@ namespace fds
             case fpi::SVC_STATUS_ACTIVE:
                 nodeInfo.node_state = fpi::FDS_Node_Up;
                 break;
+            case fpi::SVC_STATUS_DISCOVERED:
+                nodeInfo.node_state = fpi::FDS_Node_Discovered;
+                break;    
         }
 
         return nodeInfo;
