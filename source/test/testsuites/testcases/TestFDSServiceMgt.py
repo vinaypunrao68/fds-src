@@ -2008,7 +2008,7 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
                                              "Test setting fault injection")
         self.passedNode = node
         self.passedService = service
-        self.passedFaultName = faultName
+        self.passedFaultName = faultName.split(' ')
 
     def test_ServiceFaultInjection(self):
         """
@@ -2041,8 +2041,12 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         '''
         chosenFault = random.choice(self.passedFaultName)
 
-        self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
-            chosenFault, self.passedService, self.passedNode))
+        if self.passedNode is not None and self.passedNode != "random_node":
+            self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
+                chosenFault, self.passedService, self.passedNode.nd_conf_dict['node-name']))
+        else:
+            self.log.info("Selected {} as random fault to inject for {} on node {} ".format(
+                chosenFault, self.passedService, self.passedNode))
 
         res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
         if res:
