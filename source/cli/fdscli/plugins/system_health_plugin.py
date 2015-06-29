@@ -8,6 +8,7 @@ for that operation
 
 @author: nate
 '''
+from services.stats_service import StatsService
 class SystemHealthPlugin( abstract_plugin.AbstractPlugin):
     
     def __init__(self, session):
@@ -18,8 +19,13 @@ class SystemHealthPlugin( abstract_plugin.AbstractPlugin):
     '''
     def build_parser(self, parentParser, session): 
         
+        self.__stat_service = StatsService(session)
+        
         self.__parser = parentParser.add_parser( "system_health", help="Query the system health" )
-        self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
+        
+        self.add_format_arg(self.__parser)
+        
+        self.__parser.set_defaults( func=self.get_health, format="tabular")
     
     '''
     @see: AbstractPlugin
@@ -27,3 +33,15 @@ class SystemHealthPlugin( abstract_plugin.AbstractPlugin):
     def detect_shortcut(self, args):
         
         return None
+    
+    def get_stat_service(self):
+        return self.__stat_service
+    
+    def get_health(self, args):
+        '''
+        get the overall health of the system
+        '''
+        health = self.get_stat_service().get_system_health_report()
+        
+        
+        

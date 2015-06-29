@@ -6,6 +6,9 @@ from model.volume.volume import Volume
 from model.statistics.date_range import DateRange
 from model.statistics.metrics import Metric
 from utils.converters.statistics.metric_query_converter import MetricQueryConverter
+from utils.converters.health.system_health_converter import SystemHealthConverter
+from model.health.health_state import HealthState
+from model.health.health_category import HealthCategory
 
 class TestStatistics(BaseCliTest):
     '''
@@ -54,3 +57,17 @@ class TestStatistics(BaseCliTest):
         real_str = '{"contexts": [{"status": {"lastCapacityFirebreak": {"seconds": 0, "nanos": 0}, "state": "ACTIVE", "lastPerformanceFirebreak": {"seconds": 0, "nanos": 0}, "currentUsage": {"value": 0, "unit": "GB"}}, "dataProtectionPolicy": {"snapshotPolicies": [], "commitLogRetention": {"seconds": 86400, "nanos": 0}, "presetId": -1}, "uid": -1, "created": {"seconds": 0, "nanos": 0}, "settings": {"type": "OBJECT"}, "application": "None", "qosPolicy": {"priority": 7, "iopsMin": 0, "iopsMax": 0}, "mediaPolicy": "HYBRID", "name": "TestVol"}], "range": {"start": 1000, "end": 3000}, "seriesType": ["GETS", "PUTS", "SSD_GETS"]}'
         
         assert j_str == real_str
+        
+    def test_system_health_conversion(self):
+        
+        j_str = '{"overall":"ACCEPTABLE","status":[{"state":"GOOD","category":"CAPACITY","message":"No message"},{"state":"BAD","category":"SERVICES","message":"Cool message"}]}'
+        
+        sys_health = SystemHealthConverter.build_system_health_from_json(j_str)
+        
+        assert len(sys_health.health_records) == 2
+        assert sys_health.overall_health == HealthState.ACCETPABLE
+        assert sys_health.health_records[0].category == HealthCategory.CAPACITY
+        assert sys_health.health_records[1].category == HealthCategory.SERVICES
+        assert sys_health.health_records[0].state == HealthState.GOOD
+        assert sys_health.health_records[1].state == HealthState.BAD
+        

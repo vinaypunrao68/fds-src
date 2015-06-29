@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 from utils.converters.statistics.metric_query_converter import MetricQueryConverter
 from utils.converters.statistics.statistics_converter import StatisticsConverter
+from utils.converters.health.system_health_converter import SystemHealthConverter
 
 class StatsService( AbstractService ):
     '''
@@ -45,4 +46,11 @@ class StatsService( AbstractService ):
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/systemhealth" )
-        return self.rest_helper().get( self.session, url )
+        sys_health = self.rest_helper.get( self.session, url )
+        
+        if sys_health is None:
+            return 
+        
+        sys_health  = SystemHealthConverter.build_system_health_from_json(sys_health)
+        
+        return sys_health

@@ -35,6 +35,9 @@ class MetricQueryConverter(object):
             
         q_json["seriesType"] = metrics
         
+        if query.points is not None:
+            q_json["points"] = query.points
+        
         q_json = json.dumps(q_json)
         
         return q_json

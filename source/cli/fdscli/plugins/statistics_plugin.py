@@ -1,14 +1,5 @@
 from abstract_plugin import AbstractPlugin
 import time
-
-'''
-Created on Apr 13, 2015
-
-Configure all the parsing for the stats queries and map those options
-to the appropriate REST calls
-
-@author: nate
-'''
 from model.statistics.metric_query_criteria import MetricQueryCriteria
 from model.statistics.date_range import DateRange
 from services.volume_service import VolumeService
@@ -17,8 +8,17 @@ from services.stats_service import StatsService
 from services.response_writer import ResponseWriter
 from model.statistics.statistics import Statistics
 from utils.converters.statistics.statistics_converter import StatisticsConverter
+import json
+
 class StatisticsPlugin( AbstractPlugin):
+    '''
+    Created on Apr 13, 2015
     
+    Configure all the parsing for the stats queries and map those options
+    to the appropriate REST calls
+    
+    @author: nate
+    '''
     def __init__(self, session):
         AbstractPlugin.__init__(self, session)
     
@@ -42,8 +42,13 @@ class StatisticsPlugin( AbstractPlugin):
         query_parser.add_argument( self.arg_str + AbstractPlugin.metrics_str, help="A list of metrics to return with this query.", nargs="+",  required=True)
         query_parser.add_argument( self.arg_str + AbstractPlugin.start_str, help="A time (in seconds from epoch) where you would like the query to begin from.", type=int, default=0)
         query_parser.add_argument( self.arg_str + AbstractPlugin.end_str, help="A time (in seconds from epoch) where you would like the query to end.", type=int, default=(time.time()/1000.0))
+        query_parser.add_argument( self.arg_str + AbstractPlugin.points_str, help="The number of datapoints that you wish to receive from this query.", type=int, default=None)
         
         query_parser.set_defaults( func=self.query_volumes )
+        
+    def create_firebreak_query_parser(self, subparser):
+        
+        fb_parser = subparser.add_parser( "firebreak", help="Submit a query for firebreak information")
         
     '''
     @see: AbstractPlugin
@@ -70,6 +75,9 @@ class StatisticsPlugin( AbstractPlugin):
             for vol_id in args[AbstractPlugin.volume_ids_str]:
                 volume = VolumeService().get_volume( vol_id )
                 query.contexts.append( volume )
+                
+        if args[AbstractPlugin.points_str] is not None:
+            query.points = args[AbstractPlugin.points_str]
             
         for metric_name in args[AbstractPlugin.metrics_str]:
             metric = Metric.DICT[metric_name]
@@ -79,5 +87,6 @@ class StatisticsPlugin( AbstractPlugin):
         
         if isinstance(stats, Statistics):
             j_str = StatisticsConverter.to_json( stats )
+            j_str = json.loads(j_str)
             ResponseWriter.writeJson( j_str )
         

@@ -59,6 +59,7 @@ class AbstractPlugin( object ):
     metrics_str = "metrics"
     start_str = "start"
     end_str = "end"
+    points_str = "points"
 
     def __init__(self, session):
         self.__session = session
