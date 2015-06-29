@@ -134,3 +134,12 @@ struct DMVolumeMigrationDiff {
   3: list<DMBlobDescriptorDiff> blob_diff_list;
 }
 
+struct DMBlobObjListDiff {
+  1: i64                        obj_offset,
+  2: common.FDS_ObjectIdType    obj_id;
+}
+
+struct DMBlobDescListDiff {
+  1: i64                        blob_id,
+  2: common.BlobDescriptor      blob_desc;
+}
