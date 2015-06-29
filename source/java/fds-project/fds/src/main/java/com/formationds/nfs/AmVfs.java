@@ -24,19 +24,20 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
+// TODO: update atime/ctime
 public class AmVfs implements VirtualFileSystem {
     private static final Logger LOG = Logger.getLogger(AmVfs.class);
+    public static final String DOMAIN = "nfs";
     private AsyncAm asyncAm;
     private XdiConfigurationApi config;
     private ExportResolver resolver;
-    public static final String DOMAIN = "nfs";
     private SimpleIdMap idMap;
     private final Chunker chunker;
+    private final FileIdAllocator idAllocator;
 
     public AmVfs(AsyncAm asyncAm, XdiConfigurationApi config, ExportResolver resolver) {
         this.asyncAm = asyncAm;
@@ -44,6 +45,7 @@ public class AmVfs implements VirtualFileSystem {
         this.config = config;
         this.resolver = resolver;
         idMap = new SimpleIdMap();
+        idAllocator = new FileIdAllocator(asyncAm);
     }
 
     @Override
@@ -312,7 +314,8 @@ public class AmVfs implements VirtualFileSystem {
 
     public Inode createInode(Stat.Type type, Subject subject, int mode, NfsPath path) throws IOException {
         Inode childInode = path.asInode(type, resolver);
-        NfsAttributes attributes = new NfsAttributes(type, subject, mode, nextFileId(), 0);
+        long fileId = idAllocator.nextId(path.getVolume());
+        NfsAttributes attributes = new NfsAttributes(type, subject, mode, fileId, 0);
 
         try {
             updateMetadata(path, attributes);
@@ -347,11 +350,15 @@ public class AmVfs implements VirtualFileSystem {
                 Sets.newHashSet(),
                 Sets.newHashSet());
 
-        createInode(Stat.Type.DIRECTORY, unixRootUser, 0755, new NfsPath(volume, "/"));
-    }
+        NfsPath path = new NfsPath(volume, "/");
+        NfsAttributes attributes = new NfsAttributes(Stat.Type.DIRECTORY, unixRootUser, 0755, FileIdAllocator.EXPORT_ROOT_VALUE, 0);
 
-    private long nextFileId() {
-        return Math.abs(UUID.randomUUID().getLeastSignificantBits());
+        try {
+            updateMetadata(path, attributes);
+        } catch (Exception e) {
+            logError("updateBlobOnce()", path, e);
+            throw new IOException(e);
+        }
     }
 
     private NfsEntry tryLoad(Inode inode) throws IOException {

@@ -30,12 +30,16 @@ public class NfsServer {
 
         AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
-        new NfsServer().start(config, asyncAm);
+        new NfsServer().start(config, asyncAm, 2050);
 
         System.in.read();
     }
 
     public void start(XdiConfigurationApi config, AsyncAm asyncAm) throws IOException {
+        start(config, asyncAm, 2049);
+    }
+
+    public void start(XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
         // specify file with export entries
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
@@ -46,7 +50,7 @@ public class NfsServer {
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
-                .withPort(2049)
+                .withPort(serverPort)
                 .withTCP()
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
