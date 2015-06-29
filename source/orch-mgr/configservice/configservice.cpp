@@ -109,6 +109,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
+    int32_t AddService(const fpi::NotifyAddServiceMsg& add_svc_msg) { return 0;}
     void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
     void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& ret, const int32_t ignore) {}
     void removeLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
@@ -436,6 +437,35 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGERROR << "Orch Mgr encountered exception while "
                      << "processing activate all nodes";
             err = Error(ERR_NOT_FOUND);  // need some better error code
+        }
+
+        return err.GetErrno();
+    }
+
+    int32_t AddService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyAddServiceMsg>& add_svc_msg) {
+
+        LOGDEBUG << "ConfigServiceCPP::AddService entered";
+        Error err(ERR_OK);
+        fpi::SvcUuid pmUuid;
+        try {
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            std::vector<fpi::SvcInfo> svcInfos = add_svc_msg->services;
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+
+                if (svcInfo.svc_type == fpi::FDSP_PLATFORM)
+                {
+                    pmUuid = svcInfo.svc_id.svc_uuid;
+                }
+            }
+            LOGNORMAL << "Received Add Service Req";
+
+            err = local->om_add_service(pmUuid, svcInfos);
+        }
+        catch(...) {
+            LOGERROR <<"Orch Mgr encountered exception while "
+                     << "processing add service";
+            err = Error(ERR_NOT_FOUND);
         }
 
         return err.GetErrno();

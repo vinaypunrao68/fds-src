@@ -6,6 +6,7 @@
 include "config_types.thrift"
 
 include "common.thrift"
+include "node_svc_api.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -174,6 +175,10 @@ service ConfigurationService {
    */
   i32 RemoveServices(1:config_types.FDSP_RemoveServicesType rm_node_req),
 
+  /**
+   * Add Service - node specific command
+   */
+  i32 AddService(1:node_svc_api.NotifyAddServiceMsg req),
   /**
    * Create a new tenant.
    *

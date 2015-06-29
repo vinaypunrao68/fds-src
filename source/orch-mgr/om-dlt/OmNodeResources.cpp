@@ -1069,6 +1069,28 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     return err;
 }
 
+Error
+OM_PmAgent::send_add_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos)
+{
+    TRACEFUNC;
+    LOGDEBUG << "OM_PmAgent::send_add_service entered";
+    Error err(ERR_OK);
+
+    // we only activate services from 'discovered' state or
+    // 'node up' state
+
+    fpi::NotifyAddServiceMsgPtr addServiceMsg = boost::make_shared<fpi::NotifyAddServiceMsg>();
+    std::vector<fpi::SvcInfo>& svcInfoVector = addServiceMsg->services;
+
+    svcInfoVector = svcInfos;
+
+    auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
+    //req->invoke();
+
+    return err;
+}
+
 /**
  * Execute "remove services" message for the specified services.
  *
@@ -1786,6 +1808,22 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
     return agent->send_activate_services(activate_sm,
                                          activate_dm,
                                          activate_am);
+}
+
+Error
+OM_NodeContainer::om_add_service(const fpi::SvcUuid& svc_uuid, std::vector<fpi::SvcInfo> svcInfos) {
+
+    TRACEFUNC;
+    LOGDEBUG << "OM_NodeContainer::om_add_service entered";
+    NodeUuid node_uuid(svc_uuid);
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "add node services: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+    return agent->send_add_service(svc_uuid, svcInfos);
 }
 
 /**

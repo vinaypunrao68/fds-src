@@ -364,6 +364,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             throws org.apache.thrift.TException {
         return getConfig().ActivateNode(act_serv_req);
     }
+    
+    /**
+     * Add service to the specified Node.
+     *
+     * @param act_serv_req - NotifyAddServiceMsg: Struct identifying node and its services to be activated.
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
+            throws org.apache.thrift.TException {
+    	LOG.debug("OmConfigurationApi::AddService entered");
+    	return getConfig().AddService(add_svc_req);
+    }
 
     /**
      * List all currently defined Services for the given Local Domain.

@@ -5,9 +5,13 @@ import com.formationds.client.v08.model.Node.NodeAddress;
 import com.formationds.client.v08.model.Node.NodeState;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
+import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.SvcID;
+import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.SvcInfo;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -82,6 +86,45 @@ public class PlatformModelConverter
 
     return node;
   }
+  
+//Currently used by AddNode.java
+public static SvcInfo convertServiceToSvcInfoType(Service service)
+{
+	SvcUuid svcUid = new SvcUuid(service.getId());
+	SvcID sId = new SvcID(svcUid, service.getType().name());
+	
+	Optional<FDSP_MgrIdType> optType
+	  	    = convertToInternalServiceType(service.getType());
+
+	// Need to convert model.Service.ServiceStatus to svc.types.ServiceStatus
+	// that is used in SvcInfo initialization
+	com.formationds.protocol.svc.types.ServiceStatus internalState;
+	ServiceState externalServiceState = service.getStatus().getServiceState();
+
+	switch(externalServiceState){
+	case DEGRADED:
+	case LIMITED:
+	case NOT_RUNNING:
+	case ERROR:
+	case UNEXPECTED_EXIT:
+		internalState = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+		break;
+	case UNREACHABLE:
+		internalState = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
+        break;
+	default: //Running,Initializing,Shutting Down
+        internalState = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
+        break;
+	}
+
+	SvcInfo svcInfo = new SvcInfo(sId,
+			                      service.getPort(),
+			                      optType.get(),
+			                      internalState,
+			                      null,null,0,null,null);
+	
+	  return svcInfo;	  
+}
 
   public static List<FDSP_Node_Info_Type> convertToInternalNode( Node node )
   {
