@@ -4,7 +4,6 @@ package com.formationds.am;
  */
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.nfs.NfsServer;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -169,7 +168,7 @@ public class Main {
                 httpsConfiguration,
                 httpConfiguration).start(), "S3 service thread").start();
 
-        new NfsServer().start(configCache, asyncAm);
+        //new NfsServer().start(configCache, asyncAm);
         startStreamingServer(pmPort + streamingPortOffset, configCache);
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port
