@@ -1033,6 +1033,27 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         if (!configDB->nodeExists(get_uuid())) {
             // for now store only if the node was not known to DB
             configDB->addNode(*getNodeInfo());
+            switch ( node_state() )
+            {
+                case fpi::FDS_Node_Discovered:
+                case fpi::FDS_Node_Up:
+                    fds::change_service_state( configDB, 
+                                               get_uuid().uuid_get_val(),
+                                               fpi::SVC_STATUS_ACTIVE );
+                    break;
+                case fpi::FDS_Start_Migration: 
+                    fds::change_service_state( configDB, 
+                                               get_uuid().uuid_get_val(), 
+                                               fpi::SVC_STATUS_INVALID );
+                    break;
+                case fpi::FDS_Node_Down:    
+                case fpi::FDS_Node_Rmvd:
+                    fds::change_service_state( configDB, 
+                                               get_uuid().uuid_get_val(),
+                                               fpi::SVC_STATUS_INACTIVE );
+                    break;    
+            }
+            
             LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec
                 << " in configDB";
