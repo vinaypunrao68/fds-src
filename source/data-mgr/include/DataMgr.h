@@ -331,10 +331,10 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                     // it up to the connector.
                     if ((parentDm->features.isSerializeReqsEnabled()) &&
                         (volType != fpi::FDSP_VOL_BLKDEV_TYPE)) {
-                        serialExecutor->schedule(keyHash(key),
-                                                 std::bind(&dm::Handler::handleQueueItem,
-                                                           parentDm->handlers.at(io->io_type),
-                                                           io));
+                        serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                          std::bind(&dm::Handler::handleQueueItem,
+                                                                    parentDm->handlers.at(io->io_type),
+                                                                    io));
                     } else {
                         threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
