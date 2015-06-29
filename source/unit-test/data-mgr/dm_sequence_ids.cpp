@@ -14,9 +14,11 @@
 
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
+static sequence_id_t _global_seq_id;
 
 struct SeqIdTest : ::testing::Test {
     virtual void SetUp() override {
+        _global_seq_id = 0;
         static int i = 0;
         dmTester->addVolume(i);
         dmTester->TESTVOLID = dmTester->volumes[i]->volUUID;
@@ -56,7 +58,6 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
 
 void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     DMCallback cb;
-    static sequence_id_t seq_id = 0;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
     DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
     commitBlbTx->volume_id = dmTester->TESTVOLID.get();
@@ -67,13 +68,40 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version,
-                                             ++seq_id);
+                                             ++_global_seq_id);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
     dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
 
     TIMEDBLOCK("commit") {
         dataMgr->handlers[FDS_COMMIT_BLOB_TX]->handleQueueItem(dmBlobTxReq1);
+        cb.wait();
+    }
+    EXPECT_EQ(ERR_OK, cb.e);
+}
+
+void putVolMeta() {
+    DMCallback cb;
+    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
+    DEFINE_SHARED_PTR(SetVolumeMetadataMsg, setVolMeta);
+
+    // Set/get/check some metadata for the volume
+    fpi::FDSP_MetaDataPair metadataPair;
+    metadataPair.key = "Volume Name";
+    metadataPair.value = dmTester->volumes.back()->name;
+    fpi::FDSP_MetaDataList setMetadataList;
+    setMetadataList.push_back(metadataPair);
+
+    setVolMeta->volumeId = dmTester->TESTVOLID.get();
+    setVolMeta->sequence_id = ++_global_seq_id;
+    setVolMeta->metadataList = setMetadataList;
+
+    auto dmReq = new DmIoSetVolumeMetaData(setVolMeta);
+
+    dmReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+
+    TIMEDBLOCK("set vol meta") {
+        dataMgr->handlers[FDS_SET_VOLUME_METADATA]->handleQueueItem(dmReq);
         cb.wait();
     }
     EXPECT_EQ(ERR_OK, cb.e);
@@ -123,7 +151,6 @@ void putBlobOnce(){
     uint64_t txnId;
     std::string blobName;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-    sequence_id_t seq_id = 0;
 
     taskCount.reset(NUM_BLOBS);
 
@@ -139,7 +166,7 @@ void putBlobOnce(){
         blobName = dmTester->getBlobName(i);
         updcatMsg->blob_name = blobName;
         updcatMsg->txId = txnId;
-        updcatMsg->sequence_id = ++seq_id;
+        updcatMsg->sequence_id = ++_global_seq_id;
 
         fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
 
@@ -147,7 +174,7 @@ void putBlobOnce(){
                                                           updcatMsg->blob_name,
                                                           updcatMsg->blob_version,
                                                           updcatMsg->dmt_version,
-                                                          seq_id);
+                                                          _global_seq_id);
         dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(updcatMsg->txId));
         dmCommitBlobOnceReq->cb =
             BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
@@ -161,44 +188,92 @@ void putBlobOnce(){
 }
 
 TEST_F(SeqIdTest, SequenceIncrementPutOnce){
-    sequence_id_t seq_id;
+    sequence_id_t tmp_seq_id;
 
     MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
     BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
     NUM_BLOBS = 1024;
 
     TIMEDBLOCK("Scan For Max SeqId - Empty") {
-        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, seq_id);
-        EXPECT_EQ(0, seq_id);
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(0, tmp_seq_id);
     }
 
     putBlobOnce();
 
     TIMEDBLOCK("Scan For Max SeqId - Confirmation") {
-        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, seq_id);
-        EXPECT_EQ(NUM_BLOBS, seq_id);
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(NUM_BLOBS, tmp_seq_id);
     }
 
     printStats();
 }
 
 TEST_F(SeqIdTest, SequenceIncrementCommitTx){
-    sequence_id_t seq_id;
+    sequence_id_t tmp_seq_id;
 
     MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
     BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
     NUM_BLOBS = 1024;
 
     TIMEDBLOCK("Scan For Max SeqId - Empty") {
-        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, seq_id);
-        EXPECT_EQ(0, seq_id);
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(0, tmp_seq_id);
     }
 
     putBlob();
 
     TIMEDBLOCK("Scan For Max SeqId - Confirmation") {
-        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, seq_id);
-        EXPECT_EQ(NUM_BLOBS, seq_id);
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(NUM_BLOBS, tmp_seq_id);
+    }
+
+    printStats();
+}
+
+TEST_F(SeqIdTest, SequenceIncrementVolMetaLast){
+    sequence_id_t tmp_seq_id;
+
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    TIMEDBLOCK("Scan For Max SeqId - Empty") {
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(0, tmp_seq_id);
+    }
+
+    putBlobOnce();
+
+    putVolMeta();
+
+    TIMEDBLOCK("Scan For Max SeqId - Confirmation") {
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(NUM_BLOBS+1, tmp_seq_id);
+    }
+
+    printStats();
+}
+
+TEST_F(SeqIdTest, SequenceIncrementVolMetaFirst){
+    sequence_id_t tmp_seq_id;
+
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    TIMEDBLOCK("Scan For Max SeqId - Empty") {
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(0, tmp_seq_id);
+    }
+
+    putVolMeta();
+
+    putBlobOnce();
+
+    TIMEDBLOCK("Scan For Max SeqId - Confirmation") {
+        dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(dmTester->TESTVOLID, tmp_seq_id);
+        EXPECT_EQ(NUM_BLOBS+1, tmp_seq_id);
     }
 
     printStats();
