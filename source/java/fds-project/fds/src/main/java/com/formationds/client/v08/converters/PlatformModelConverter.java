@@ -86,45 +86,6 @@ public class PlatformModelConverter
 
     return node;
   }
-  
-//Currently used by AddNode.java
-public static SvcInfo convertServiceToSvcInfoType(Service service)
-{
-	SvcUuid svcUid = new SvcUuid(service.getId());
-	SvcID sId = new SvcID(svcUid, service.getType().name());
-	
-	Optional<FDSP_MgrIdType> optType
-	  	    = convertToInternalServiceType(service.getType());
-
-	// Need to convert model.Service.ServiceStatus to svc.types.ServiceStatus
-	// that is used in SvcInfo initialization
-	com.formationds.protocol.svc.types.ServiceStatus internalState;
-	ServiceState externalServiceState = service.getStatus().getServiceState();
-
-	switch(externalServiceState){
-	case DEGRADED:
-	case LIMITED:
-	case NOT_RUNNING:
-	case ERROR:
-	case UNEXPECTED_EXIT:
-		internalState = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
-		break;
-	case UNREACHABLE:
-		internalState = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
-        break;
-	default: //Running,Initializing,Shutting Down
-        internalState = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
-        break;
-	}
-
-	SvcInfo svcInfo = new SvcInfo(sId,
-			                      service.getPort(),
-			                      optType.get(),
-			                      internalState,
-			                      null,null,0,null,null);
-	
-	  return svcInfo;	  
-}
 
   public static List<FDSP_Node_Info_Type> convertToInternalNode( Node node )
   {
@@ -229,6 +190,56 @@ public static SvcInfo convertServiceToSvcInfoType(Service service)
     //TODO:  The IP addresses
 
     return nodeInfo;
+  }
+
+  public static com.formationds.protocol.svc.types.ServiceStatus convertToInternalServiceStatus
+  (
+  ServiceState externalServiceState
+  )
+  {
+	com.formationds.protocol.svc.types.ServiceStatus internalStatus;
+	
+	switch(externalServiceState){
+	case DEGRADED:
+	case LIMITED:
+	case NOT_RUNNING:
+	case ERROR:
+	case UNEXPECTED_EXIT:
+		internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+		break;
+	case UNREACHABLE:
+		internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
+        break;
+	default: //Running,Initializing,Shutting Down
+        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
+        break;
+	}
+
+	return internalStatus;
+  }
+  //Currently used by AddNode.java
+  public static SvcInfo convertServiceToSvcInfoType(Service service)
+  {
+	SvcUuid svcUid = new SvcUuid(service.getId());
+	SvcID sId = new SvcID(svcUid, service.getType().name());
+	
+	Optional<FDSP_MgrIdType> optType
+	  	    = convertToInternalServiceType(service.getType());
+
+	
+	ServiceState externalServiceState = service.getStatus().getServiceState();
+	// Need to convert model.Service.ServiceStatus to svc.types.ServiceStatus
+	// that is used in SvcInfo initialization
+	com.formationds.protocol.svc.types.ServiceStatus internalStatus
+	                         = convertToInternalServiceStatus(externalServiceState);
+
+	SvcInfo svcInfo = new SvcInfo(sId,
+			                      service.getPort(),
+			                      optType.get(),
+			                      internalStatus,
+			                      null,null,0,null,null);
+	
+	  return svcInfo;	  
   }
 
   public static Optional<ServiceType> convertToExternalServiceType( FDSP_MgrIdType type )

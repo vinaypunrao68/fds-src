@@ -73,16 +73,16 @@ public class AddNode
         	}
         }
         
-//        int status =
-//        		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
         int status =
+        		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
+/*        int status =
             getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
                                      0,
                                      new FDSP_Uuid( nodeUuid ),
                                      activateService(ServiceType.SM,node),
                                      activateService(ServiceType.AM,node),
                                      activateService(ServiceType.DM,node) ) );
-
+*/
         if( status != 0 ) {
 
             status= HttpServletResponse.SC_BAD_REQUEST;
