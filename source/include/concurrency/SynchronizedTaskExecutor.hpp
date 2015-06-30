@@ -27,7 +27,7 @@ class SynchronizedTaskExecutor
 
  protected:
     /* Lock around taskMap_ */    
-    fds_spinlock lock_;
+    fds_mutex lock_;
     /* Threadpool to execute task functions */
     fds_threadpool &threadpool_;
     /* Map of task qs */
@@ -71,7 +71,7 @@ run_(const KeyT &k, const SynchronizedTaskExecutor::TaskT &task)
 
             (*taskP)();
 
-            fds_scoped_spinlock l(lock_);
+            fds_scoped_lock l(lock_);
             sameIdTasks.pop_front();
             if (sameIdTasks.size() == 0) {
                 /* No more tasks with same id left.  Exit */

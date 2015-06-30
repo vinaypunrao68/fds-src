@@ -27,7 +27,7 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
 
     SVCPERF(req->ts.rqStartTs = util::getTimeStampNanos());
 
-    fds_scoped_spinlock l(svcReqMaplock_);
+    fds_scoped_lock l(svcReqMaplock_);
     auto pair = std::make_pair(id, req);
     auto ret = svcReqMap_.insert(pair);
     return ret.second;
@@ -42,7 +42,7 @@ SvcRequestTracker::popFromTracking(const SvcRequestId& id)
 {
     DBG(GLOGDEBUG << "Req Id: " << id);
 
-    fds_scoped_spinlock l(svcReqMaplock_);
+    fds_scoped_lock l(svcReqMaplock_);
     auto itr = svcReqMap_.find(id);
     if (itr != svcReqMap_.end()) {
         auto r = itr->second;
@@ -60,7 +60,7 @@ SvcRequestTracker::popFromTracking(const SvcRequestId& id)
 SvcRequestIfPtr
 SvcRequestTracker::getSvcRequest(const SvcRequestId& id)
 {
-    fds_scoped_spinlock l(svcReqMaplock_);
+    fds_scoped_lock l(svcReqMaplock_);
     auto itr = svcReqMap_.find(id);
     if (itr != svcReqMap_.end()) {
         return itr->second;

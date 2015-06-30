@@ -94,8 +94,8 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
     // as the configuration will not be refreshed frequently, we can read it without lock
     FdsConfigAccessor configHelper_;
 
-    fds_spinlock cacheLock_;
-    fds_spinlock metaLock_;
+    fds_mutex cacheLock_;
+    fds_mutex metaLock_;
 
     // methods
     Error getOIDArrayMmap(fds_uint64_t id, boost::shared_ptr<DmOIDArrayMmap> & oidArrayMap,

@@ -11,14 +11,14 @@
 namespace fds
 {
 
-struct fds_spin_lock {
-    explicit fds_spin_lock(const std::string& name = "none") :
+struct fds_spinlock {
+    explicit fds_spinlock(const std::string& name = "none") :
         _name(name)
         { _lock.clear(); }
 
-    fds_spin_lock(fds_spin_lock const& rhs) = delete;
-    fds_spin_lock& operator=(fds_spin_lock const& rhs) = delete;
-    virtual ~fds_spin_lock() = default;
+    fds_spinlock(fds_spinlock const& rhs) = delete;
+    fds_spinlock& operator=(fds_spinlock const& rhs) = delete;
+    virtual ~fds_spinlock() = default;
 
     std::string get_name() const
         { return _name; }
@@ -37,13 +37,13 @@ struct fds_spin_lock {
 
     struct scoped_lock {
       public:
-        fds_spin_lock& _lock;
+        fds_spinlock& _lock;
 
         /*
          * The constructor creates a boost scoped lock
          * using the mutex provided.
          */
-        explicit scoped_lock(fds_spin_lock &l)  // NOLINT(*)
+        explicit scoped_lock(fds_spinlock &l)  // NOLINT(*)
                 : _lock(l) {
             _lock.lock();
         }
@@ -58,7 +58,7 @@ struct fds_spin_lock {
     std::atomic_flag _lock;
 };
 
-typedef fds_spin_lock::scoped_lock fds_scoped_spin_lock;
+typedef fds_spinlock::scoped_lock fds_scoped_spinlock;
 
 }  // namespace fds
 

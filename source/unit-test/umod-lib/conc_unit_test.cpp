@@ -24,7 +24,7 @@ class ConcUnitTest {
   std::list<std::string>  unit_tests;
   fds_mutex        *global_mutex;
   fds_rwlock       *global_rwlock;
-  fds_spin_lock    *global_spin_lock;
+  fds_spinlock     *global_spinlock;
   fds_uint32_t      global_int;
   fds_notification *global_notify;
   fds_uint32_t      global_waiters;
@@ -63,7 +63,7 @@ class ConcUnitTest {
     boost::xtime xt;
     boost::xtime_get(&xt, boost::TIME_UTC_);
 
-    ut->global_spin_lock->lock();
+    ut->global_spinlock->lock();
 
     for (int i = its; i >= 0; i--) {
       std::cout << "Thread " << seed << " has " << i
@@ -73,7 +73,7 @@ class ConcUnitTest {
     }
     std::cout << "Thread " << seed << " is exiting" << std::endl;
 
-    ut->global_spin_lock->unlock();
+    ut->global_spinlock->unlock();
   }
 
   static void rw_thread_loop(ConcUnitTest *ut, rw_modes mode, int seed, int its) {
@@ -353,7 +353,7 @@ class ConcUnitTest {
   explicit ConcUnitTest() {
     global_mutex   = new fds_mutex("global mutex");
     global_rwlock  = new fds_rwlock();
-    global_spin_lock = new fds_spin_lock;
+    global_spinlock = new fds_spinlock;
     global_int     = 0;
     global_notify  = new fds_notification();
     global_waiters = 0;
@@ -370,7 +370,7 @@ class ConcUnitTest {
 
   ~ConcUnitTest() {
     delete global_mutex;
-    delete global_spin_lock;
+    delete global_spinlock;
     delete global_rwlock;
     delete global_notify;
   }
