@@ -42,6 +42,21 @@ extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj)
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 
+/**
+ * See Serialization enumeration for interpretation.
+ */
+static const char* SerialNames[] = {
+    "none",
+    "volume",
+    "blob"
+};
+
+enum class Serialization {
+    SERIAL_NONE,      // May result in inconsistencies between members of redundancy groups.
+    SERIAL_VOLUME,    // Prevents inconsistencies, but offers less concurrency than SERIAL_BLOB.
+    SERIAL_BLOB       // Prevents inconsistencies and offers the greatest degree of concurrency.
+} serialization;
+
 static constexpr uint32_t DmDefaultPrimaryCnt { 2 };
 static const std::string DefaultSerialization { "volume" };
 

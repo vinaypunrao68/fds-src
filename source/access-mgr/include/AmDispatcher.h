@@ -322,18 +322,6 @@ struct AmDispatcher : HasModuleProvider
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
 
-    const char* SerialNames[3] = {
-            "none",
-            "volume",
-            "blob"
-    };
-
-    enum class Serialization {
-        SERIAL_NONE,  // May result in inconsistencies between members of redundancy groups.
-        SERIAL_VOLUME,    // Prevents inconsistencies, but offers less concurrency than SERIAL_BLOB.
-        SERIAL_BLOB       // Prevents inconsistencies and offers the greatest degree of concurrency.
-    } serialization;
-
     /**
      * Sets the configured request serialization.
      */
