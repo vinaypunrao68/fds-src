@@ -313,8 +313,8 @@ class VolumePlugin( AbstractPlugin):
                 
                 volume.data_protection_policy = t_preset
                 volume.data_protection_policy.preset_id = t_preset.id
-#             else:
-#                 volume.data_protection_policy.commit_log_retention = duration
+            else:
+                volume.data_protection_policy.commit_log_retention = args[AbstractPlugin.continuous_protection_str]
         
         response = self.get_volume_service().create_volume( volume )
         

@@ -24,6 +24,9 @@ public class Chunker {
 
         for (long i = 0; i < totalObjects; i++) {
             int toBeWritten = Math.min(length, (objectSize - startOffset));
+            if (toBeWritten == 0) {
+                return;
+            }
             ByteBuffer newChunk = null;
             try {
                 ByteBuffer existing = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));

@@ -70,6 +70,12 @@ typedef fds_uint64_t fds_off_t;
 typedef fds_uint32_t fds_token_id;
 
 /**
+ * a sequence id serializes AM <-> DM operations
+ * and versions blobs at a volume level, across delete and recreation
+ */
+typedef fds_uint64_t sequence_id_t;
+
+/**
  * A blob version identifies a unique
  * version instance of a blob.
  */
@@ -258,7 +264,8 @@ typedef enum {
     FDS_DM_RELOAD_VOLUME,
     FDS_OP_INVALID,
     FDS_DM_LIST_BLOBS_BY_PATTERN,
-    FDS_DM_MIGRATION
+    FDS_DM_MIGRATION,
+	FDS_DM_RESYNC_INIT_BLOB
 } fds_io_op_t;
 
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);

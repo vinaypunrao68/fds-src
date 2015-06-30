@@ -32,7 +32,7 @@ class SynchronizedTaskExecutor
     fds_threadpool &threadpool_;
 
     /* Lock around task maps */
-    fds_spinlock lock_;
+    fds_mutex lock_;
 
     /**
      * Depending upon the requirements of the task as determined by

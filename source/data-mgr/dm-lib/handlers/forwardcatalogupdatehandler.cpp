@@ -50,6 +50,7 @@ void ForwardCatalogUpdateHandler::handleQueueItem(dmCatReq* dmRequest) {
             typedRequest->blob_version,
             typedRequest->fwdCatMsg->obj_list,
             typedRequest->fwdCatMsg->meta_list,
+            typedRequest->fwdCatMsg->sequence_id,
             std::bind(&ForwardCatalogUpdateHandler::handleUpdateFwdCommittedBlob, this,
                       std::placeholders::_1, typedRequest));
 

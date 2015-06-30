@@ -26,7 +26,7 @@ extern "C" {
 
 #define COMMITLOG_GET(_volId_, _commitLog_)                             \
     do {                                                                \
-        fds_scoped_spinlock l(commitLogLock_);                          \
+        fds_scoped_lock l(commitLogLock_);                               \
         try {                                                           \
             _commitLog_ = commitLogs_.at(_volId_);                      \
         } catch(const std::out_of_range &oor) {                         \
@@ -113,7 +113,7 @@ void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
-    fds_scoped_spinlock l(commitLogLock_);
+    fds_scoped_lock l(commitLogLock_);
     commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
                                                                    voldesc.maxObjSizeInBytes);
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
@@ -129,7 +129,8 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fds_int64_t& token,
-                             fpi::VolumeAccessMode const& mode) {
+                             fpi::VolumeAccessMode const& mode,
+                             sequence_id_t& sequence_id) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -148,6 +149,8 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
             err = it->second->getToken(token, mode, vol_tok_lease_time);
         }
     }
+
+    sequence_id = dataManager_.getVolumeMeta(volId, false)->getSequenceId();
 
     return err;
 }
@@ -228,7 +231,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
 
 #if 0
     // disable the ObjRef count  login for now. will revisit this  once  we have complete
-    // design in place 
+    // design in place
         for (auto it : tokenOidMap) {
             incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
             // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
@@ -296,7 +299,7 @@ Error
 DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
     Error err = volcat->deleteEmptyCatalog(volId);
     if (err.ok()) {
-        fds_scoped_spinlock l(commitLogLock_);
+        fds_scoped_lock l(commitLogLock_);
         if (commitLogs_.count(volId) > 0) {
             // found commit log
             commitLogs_.erase(volId);
@@ -307,8 +310,9 @@ DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
 
 Error
 DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
-                                    const fpi::FDSP_MetaDataList &metadataList) {
-    return volcat->setVolumeMetadata(volId, metadataList);
+                                    const fpi::FDSP_MetaDataList &metadataList,
+                                    const sequence_id_t seq_id) {
+    return volcat->setVolumeMetadata(volId, metadataList, seq_id);
 }
 
 Error
@@ -368,6 +372,7 @@ Error
 DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
                                const std::string &blobName,
                                BlobTxId::const_ptr txDesc,
+                               const sequence_id_t seq_id,
                                const DmTimeVolCatalog::CommitCb &cb) {
     LOGDEBUG << "Will commit transaction " << *txDesc << " for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
@@ -377,7 +382,7 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     // serialize on blobId instead of blobName so collision detection is free from races
     opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
                                       std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                                this, volId, blobName, commitLog, txDesc, cb));
+                                       this, volId, blobName, commitLog, txDesc, seq_id, cb));
     return ERR_OK;
 }
 
@@ -387,6 +392,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
+                                         const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     LOGDEBUG << "Will apply committed blob update from another DM for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
@@ -395,7 +401,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
     opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
                                       std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
                                                 this, volId, blobName, blobVersion,
-                                                objList, metaList, fwdCommitCb));
+                                       objList, metaList, seq_id, fwdCommitCb));
 
     return ERR_OK;
 }
@@ -405,6 +411,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 				   const std::string &blobName,
                                    DmCommitLog::ptr &commitLog,
                                    BlobTxId::const_ptr txDesc,
+                                   const sequence_id_t seq_id,
                                    const DmTimeVolCatalog::CommitCb &cb) {
     Error e;
     blob_version_t blob_version = blob_version_invalid;
@@ -430,7 +437,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 	    e = Error(ERR_HASH_COLLISION);
 	} else {
-	    e = doCommitBlob(volid, blob_version, commit_data);
+	    e = doCommitBlob(volid, blob_version, seq_id, commit_data);
 	}
     }
     cb(e,
@@ -442,7 +449,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 Error
 DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-                               CommitLogTx::ptr commit_data) {
+                               const sequence_id_t seq_id, CommitLogTx::ptr commit_data) {
     Error e;
     if (commit_data->blobDelete) {
         e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
@@ -450,7 +457,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
     } else {
 #ifdef ACTIVE_TX_IN_WRITE_BATCH
         e = volcat->putBlob(volid, commit_data->name, commit_data->blobSize,
-                            commit_data->metaDataList, commit_data->wb,
+                            commit_data->metaDataList, commit_data->wb, seq_id,
                             0 != (commit_data->blobMode & blob::TRUNCATE));
 #else
         if (commit_data->blobObjList && !commit_data->blobObjList->empty()) {
@@ -458,18 +465,23 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
                 commit_data->blobObjList->setEndOfBlob();
             }
             e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
-                                commit_data->blobObjList, commit_data->txDesc);
+                                commit_data->blobObjList, commit_data->txDesc, seq_id);
         } else {
             e = volcat->putBlobMeta(volid, commit_data->name,
-                                    commit_data->metaDataList, commit_data->txDesc);
+                                    commit_data->metaDataList,
+                                    commit_data->txDesc, seq_id);
         }
-        // Update the blob size in the commit data
+
         if (ERR_OK == e) {
+            // Update the blob size in the commit data
             e = volcat->getBlobMeta(volid,
                                     commit_data->name,
                                     nullptr,
                                     &commit_data->blobSize,
                                     nullptr);
+
+            // if the operation suceeded, update cached copy of sequence_id
+            dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
 #endif
     }
@@ -482,6 +494,7 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
+                                         const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     Error err(ERR_OK);
     // TODO(xxx): use blob mode to tell if that's a deletion
@@ -501,15 +514,20 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
 
             if (metaList.size() > 0) {
                 MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
-                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr());
+                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr(), seq_id);
             } else {
                 err = volcat->putBlob(volid, blobName, MetaDataList::ptr(),
-                                      olist, BlobTxId::ptr());
+                                      olist, BlobTxId::ptr(), seq_id);
             }
         } else {
             fds_verify(metaList.size() > 0);
             MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
-            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr());
+            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr(), seq_id);
+        }
+
+        if (ERR_OK == err) {
+            // if the operation suceeded, update cached copy of sequence_id
+            dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
     }
 
@@ -655,13 +673,13 @@ void DmTimeVolCatalog::monitorLogs() {
         // get the list of volumes in the system
         std::vector<fds_volid_t> vecVolIds;
         {
-            fds_scoped_spinlock l(commitLogLock_);
+            fds_scoped_lock l(commitLogLock_);
             vecVolIds.reserve(commitLogs_.size());
             for (const auto& item : commitLogs_) {
                 vecVolIds.push_back(item.first);
             }
         }
-        
+
         // now check for each volume if the commit log time has been exceeded
         TimeStamp now = fds::util::getTimeStampMicros();
         std::vector<JournalFileInfo> vecJournalFiles;
@@ -691,7 +709,7 @@ void DmTimeVolCatalog::monitorLogs() {
                     }
                 }
             }
-        }        
+        }
 
 
         do {

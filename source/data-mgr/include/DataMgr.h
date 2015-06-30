@@ -321,6 +321,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
+                case FDS_DM_RESYNC_INIT_BLOB:
                     // If serialization in enabled, serialize on the key
                     // otherwise just schedule directly.
                     // Note: We avoid this serialization in the block connector

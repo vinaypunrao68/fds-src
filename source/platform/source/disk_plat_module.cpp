@@ -70,7 +70,7 @@ namespace fds
         dsk_rescan();
         dsk_discover_mount_pts();
 
-        if ((dsk_devices->disk_read_label(label_manager, false) == true) &&
+        if ((dsk_devices->disk_read_label(label_manager, false) == true) ||
             (dsk_devices->dsk_need_simulation() == false))
         {
             label_manager->clear();

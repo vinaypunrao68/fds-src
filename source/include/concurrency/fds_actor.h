@@ -51,7 +51,7 @@ protected:
     virtual void request_loop();
 
     fds_threadpoolPtr threadpool_;
-    fds_spinlock lock_;
+    fds_mutex lock_;
     bool scheduled_;
     // TODO(rao):  Change to lockfree queue
     FdsActorRequestQueue queue_;

@@ -122,7 +122,7 @@ public class Configuration {
 
     private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
         Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
-        properties.put("log4j.rootLogger", "FATAL, rolling");
+        properties.put("log4j.rootLogger", "ERROR, rolling");
         properties.put("log4j.appender.rolling", "org.apache.log4j.DailyRollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
         properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
@@ -154,13 +154,11 @@ public class Configuration {
     }
 
     public Path getPlatformConfigPath() {
-        
         return Paths.get(getFdsRoot(), "etc", "platform.conf");
         
     }
     
     public ParsedConfig getPlatformConfig() {
-
         Path path = getPlatformConfigPath();
         return getParserFacade(path);
 

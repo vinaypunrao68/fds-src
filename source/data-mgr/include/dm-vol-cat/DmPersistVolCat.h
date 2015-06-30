@@ -138,6 +138,8 @@ class DmPersistVolCat {
 
     virtual Error getLatestSequenceId(blob_version_t & max) = 0;
 
+    virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsWithSeqId) = 0;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
 
