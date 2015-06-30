@@ -225,7 +225,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     {
         int minAssuredIops = _competingBuckets * VOLUME_HARD_MIN;
         int headroom = _systemThrottle - minAssuredIops;
-        int testAssured = headroom - 1;  // Leave 1 IOPS for the system, it insists.
+        int testAssured = headroom - 20;  // Leave 20 IOPS for the system, it insists.
 
         return createSetupBucket(_assuredBucketName, testAssured);
     }
