@@ -334,34 +334,73 @@ namespace fds {
             RoundRobin  = 0,
             ConsistHash = 1,
         };
+        /**
+         * If 'currDlt' is null, calculates DLT from scratch; otherwise
+         * calculated DLT based on previous DLT 'currDlt' and places newly
+         * calculated DLT into newDlt
+         * @param numPrimarySMs If 0, uses original algorithm which
+         * does not take into account state of SM services (failed/not failed)
+         *        otherwise, number of primary SMs
+         */
         virtual Error computeNewDlt(const ClusterMap *currMap,
                                     const DLT        *currDlt,
-                                    DLT              *newDlt) = 0;
+                                    DLT              *newDlt,
+                                    fds_uint32_t numPrimarySMs) = 0;
         virtual ~PlacementAlgorithm() {}
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
+        /**
+         * numPrimarySMs is ignored
+         */
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            DLT              *newDlt);
+                            DLT              *newDlt,
+                            fds_uint32_t numPrimarySMs);
     };
 
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
+        /**
+         * If 'currDlt' is null, calculates DLT from scratch; otherwise
+         * calculated DLT based on previous DLT 'currDlt' and places newly
+         * calculated DLT into newDlt
+         * @param[in] numPrimarySMs If 0, uses original algorithm which
+         * does not take into account state of SM services (failed/not failed)
+         *        otherwise, number of primary SMs
+         * @return ERR_OK on success; ERR_INVALID_ARG if at least one column
+         * in DLT has all primary SMs removed
+         */
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            DLT              *newDlt);
+                            DLT              *newDlt,
+                            fds_uint32_t numPrimarySMs);
 
   private:
         void computeInitialDlt(const ClusterMap *curMap,
-                                DLT *newDLT);
-        void fillEmptyReplicaCells(fds_uint32_t numNodes,
-                                   fds_uint64_t numTokens,
-                                   DLT *newDLT);
+                               DLT *newDLT,
+                               fds_uint32_t numPrimarySMs);
+        /// 'allSms' is ignored if numPrimarySMs == 0
+        void fillEmptyCells(fds_uint64_t numTokens,
+                            DLT *newDLT,
+                            fds_uint32_t numPrimarySMs,
+                            const NodeUuidSet& nonFailedSms,
+                            const NodeUuidSet& allSms);
         void handleDltChange(const ClusterMap *curMap,
                              const DLT *curDlt,
                              DLT *newDlt);
+        Error checkUpdateValid(const ClusterMap *curMap,
+                               const DLT *curDlt,
+                               fds_uint32_t numPrimarySMs,
+                               const NodeUuidSet& rmNodes);
+        fds_uint32_t numOfFailedSMsInToken(const DltTokenGroupPtr& col,
+                                           fds_uint32_t tokenId,
+                                           fds_uint32_t checkDepth,
+                                           const NodeUuidSet& nonFailedSms);
+        void demoteFailedPrimaries(DLT* newDLT,
+                                   fds_uint32_t numPrimarySMs,
+                                   const NodeUuidSet& nonFailedSms);
     };
 
     /**

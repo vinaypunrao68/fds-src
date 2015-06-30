@@ -103,7 +103,7 @@ DataPlacement::computeDlt() {
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
                              commitedDlt,
-                             newDlt);
+                             newDlt, 0);
 
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
