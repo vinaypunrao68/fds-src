@@ -548,13 +548,6 @@ namespace fds {
 
   private:  // methods
         /**
-         * Checks if DLT matches the set of given SMs and does basic
-         * sanity check -- basic correctness independent of placement
-         * algorithm.
-         */
-        Error checkDltValid(const DLT* dlt, const NodeUuidSet& sm_services);
-
-        /**
         * Response callback for StartMigration messages sent
         * in rebalance method.
         */

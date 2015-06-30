@@ -85,7 +85,8 @@ def findVolumeBySnapId( an_id ):
     return volume
 
 def createSnapshot( snapshot ):
-    return responseOk
+    
+    return snapshot
 
 def listSnapshots( volumeName ):
     snapshot = Snapshot()
@@ -222,8 +223,8 @@ def listUsers(tenant_id=1):
     
     return [user]
 
-def createUser(username):
-    return listUsers()
+def createUser(user):
+    return user
 
 def listTenants():
     tenant = Tenant()
@@ -232,11 +233,9 @@ def listTenants():
     tenant.users = listUsers()
     return [tenant]
 
-def createTenant(name):
-    tenant = Tenant()
-    tenant.name = name
+def createTenant(tenant):
     tenant.id = 2
-    return [tenant]
+    return tenant
 
 def assignUser(tenant_id, user_id):
     return responseOk

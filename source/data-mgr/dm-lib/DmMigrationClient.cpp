@@ -2,18 +2,26 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#include <DmIoReq.h>
+#include <DataMgr.h>
 #include <DmMigrationClient.h>
 
 namespace fds {
 
-DmMigrationClient::DmMigrationClient(DmIoReqHandler* DmReqHandle)
-    : DmReqHandler(DmReqHandle)
+DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
+										DataMgr& _dataMgr,
+										const NodeUuid& _myUuid,
+										NodeUuid& _destDmUuid,
+										fpi::ResyncInitialBlobFilterSetMsgPtr& _ribfsm,
+										DmMigrationClientDoneHandler _handle)
+    : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
+	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm)
 {
+
 }
 
 DmMigrationClient::~DmMigrationClient()
 {
+
 }
 
 

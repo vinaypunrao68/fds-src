@@ -47,6 +47,7 @@ extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::ResyncInitialBlobFilterSetMsg& msg);
 // ======
 
     /*
@@ -712,6 +713,9 @@ struct DmIoReloadVolume : dmCatReq {
 struct DmIoMigration : dmCatReq {
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationRspMsg> response;
+    std::function<void(fpi::AsyncHdrPtr&, fpi::CtrlNotifyDMStartMigrationMsgPtr&,
+    		const Error &e, dmCatReq *dmRequest)> localCb = NULL;
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdrPtr = NULL;
     explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
               response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
@@ -719,9 +723,26 @@ struct DmIoMigration : dmCatReq {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigration& io) {
-        return out << "DmIoMigration vol ";
+        return out << "DmIoMigration vol " << io.volId.get();
     }
 
+};
+
+struct DmIoResyncInitialBlob : dmCatReq {
+	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> message;
+	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetRspMsg> response;
+	NodeUuid destNodeUuid;
+    explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> msg,
+    		NodeUuid &_destNodeUuid)
+            : message(msg),
+              response(new fpi::ResyncInitialBlobFilterSetRspMsg()),
+              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNC_INIT_BLOB),
+			  destNodeUuid(_destNodeUuid) {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoResyncInitialBlob& io) {
+    	return out << "DmIoResyncInitialBlob vol " << io.volId.get();
+    }
 };
 
 }  // namespace fds
