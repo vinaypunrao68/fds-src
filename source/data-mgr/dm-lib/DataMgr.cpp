@@ -246,6 +246,23 @@ std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
     return stream.str();
 }
 
+const VolumeDesc* DataMgr::getVolumeDesc(fds_volid_t volId) const {
+    FDSGUARD(vol_map_mtx);
+    auto iter = vol_meta_map.find(volId);
+    return (vol_meta_map.end() != iter && iter->second ?
+            iter->second->vol_desc : 0);
+}
+
+void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) {
+    vecVolIds.reserve(vol_meta_map.size());
+    for (const auto& iter : vol_meta_map) {
+        const VolumeDesc* vdesc = iter.second->vol_desc;
+        if (vdesc->isStateActive() && !vdesc->isSnapshot()) {
+            vecVolIds.push_back(vdesc->volUUID);
+        }
+    }
+}
+
 std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
                                     const fds_volid_t snapId) const
 {
@@ -871,7 +888,7 @@ int DataMgr::mod_init(SysParams const *const param)
      * Retrieves the number of primary DMs from the config file.
      */
     int primary_check = MODULEPROVIDER()->get_fds_config()->
-				  get<int>("fds.dm.number_of_primary");
+                                  get<int>("fds.dm.number_of_primary");
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
@@ -936,6 +953,7 @@ void DataMgr::mod_startup()
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
+        features.setTestMode(true);
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
@@ -1003,15 +1021,11 @@ void DataMgr::mod_enable_service() {
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
     }
+
+    expungeMgr.reset(new ExpungeManager(this));
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
 
-    // register expunge callback
-    // TODO(Andrew): Move the expunge work down to the volume
-    // catalog so this callback isn't needed
-    timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
-        &DataMgr::expungeObjectsIfPrimary, this,
-        std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
 
     // Register the DLT manager with service layer so that
@@ -1143,23 +1157,23 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  */
 fds_bool_t
 DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
-	if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
-		const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
-		fds_verify(nodes->getLength() > 0);
-		const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+        if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+                const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
+                fds_verify(nodes->getLength() > 0);
+                const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
 
         if (topPrimary) {
-        	// Only the 0th element is considered top Primary
-        	return (myUuid == nodes->get(0).toSvcUuid());
+                // Only the 0th element is considered top Primary
+                return (myUuid == nodes->get(0).toSvcUuid());
         } else {
-        	// Anything else within number_of_primary is within primary group
-        	const int numberOfPrimaryDMs = getNumOfPrimary();
-        	fds_verify(numberOfPrimaryDMs > 0);
-        	for (int i = 0; i < numberOfPrimaryDMs; i++) {
-        		if (nodes->get(i).toSvcUuid() == myUuid) {
-        			return true;
-        		}
-        	}
+                // Anything else within number_of_primary is within primary group
+                const int numberOfPrimaryDMs = getNumOfPrimary();
+                fds_verify(numberOfPrimaryDMs > 0);
+                for (int i = 0; i < numberOfPrimaryDMs; i++) {
+                        if (nodes->get(i).toSvcUuid() == myUuid) {
+                                return true;
+                        }
+                }
         }
     }
     return false;
@@ -1167,12 +1181,12 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
 
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-	return (_amIPrimaryImpl(volUuid, true));
+        return (_amIPrimaryImpl(volUuid, true));
 }
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
-	return (_amIPrimaryImpl(volUuid, false));
+        return (_amIPrimaryImpl(volUuid, false));
 }
 
 /**
@@ -1258,76 +1272,6 @@ DataMgr::initSmMsgHdr(fpi::FDSP_MsgHdrTypePtr msgHdr) {
 
     msgHdr->err_code = ERR_OK;
     msgHdr->result   = fpi::FDSP_ERR_OK;
-}
-
-/**
- * Issues delete calls for a set of objects in 'oids' list
- * if DM is primary for volume 'volid'
- */
-Error
-DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
-                                 const std::vector<ObjectID>& oids) {
-    Error err(ERR_OK);
-    if (features.isTimelineEnabled()) return err; // No immediate deletes
-    if (runMode == TEST_MODE) return err;  // no SMs, no one to notify
-    if (amIPrimary(volid) == false) return err;  // not primary
-
-    for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
-         cit != oids.cend();
-         ++cit) {
-        err = expungeObject(volid, *cit);
-        fds_verify(err == ERR_OK);
-    }
-    return err;
-}
-
-/**
- * Issues delete calls for an object when it is dereferenced
- * by a blob. Objects should only be expunged whenever a
- * blob's reference to a object is permanently removed.
- *
- * @param[in] The volume in which the obj is being deleted
- * @param[in] The object to expunge
- * return The result of the expunge
- */
-Error
-DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
-    Error err(ERR_OK);
-
-    // Create message
-    fpi::DeleteObjectMsgPtr expReq(new fpi::DeleteObjectMsg());
-
-    // Set message parameters
-    expReq->volId = volId.get();
-    fds::assign(expReq->objId, objId);
-
-    // Make RPC call
-    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
-    // get DLT and increment refcount so that DM will respond to
-    // DLT commit of the next DMT only after all deletes with this DLT complete
-    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
-
-    auto asyncExpReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
-    asyncExpReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
-    asyncExpReq->setTimeoutMs(5000);
-    asyncExpReq->onResponseCb(RESPONSE_MSG_HANDLER(DataMgr::expungeObjectCb,
-                                                   dlt->getVersion()));
-    asyncExpReq->invoke();
-    return err;
-}
-
-/**
- * Callback for expungeObject call
- */
-void
-DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
-                         QuorumSvcRequest* svcReq,
-                         const Error& error,
-                         boost::shared_ptr<std::string> payload) {
-    DBG(GLOGDEBUG << "Expunge cb called");
-    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
-    dltMgr->decDLTRefcnt(dltVersion);
 }
 
 void DataMgr::InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr)
