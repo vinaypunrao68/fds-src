@@ -143,11 +143,18 @@ struct DMBlobObjListDiff {
   2: common.FDS_ObjectIdType    obj_id;
 }
 
+struct DMMigrationiObjListDiff {
+  1: i64                        blob_id;
+  2: list<DMBlobObjListDiff> blob_diff_list;
+}
+
 /**
  * blob Id and blob  descriptor  pairs send  from Source DM 
- * to destination DM
+ * to destination DM.  This message is overloaded to migrate
+ * volume descriptor. second filed beeing string , we will have to send
+ * the serialized verion of the descriptors. 
  */
 struct DMBlobDescListDiff {
-  1: i64                        blob_id,
-  2: common.BlobDescriptor      blob_desc;
+  1: i64                        vol_blob_id,
+  2: string                     vol_blob_desc;
 }

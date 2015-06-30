@@ -498,15 +498,14 @@ struct CtrlNotifyDMStartMigrationRspMsg {
  */
 struct CtrlNotifyDeltaBlobs {
   1: i64                     volume_id;
-  2: i64                     blob_id;
   /* message sequence  id  for tracking the messages 
    * between source DM and destination DM
    */
-  3: i64                     msg_id;
-  4: bool                    last_msg_id;
+  2: i64                     msg_id;
+  3: bool                    last_msg_id;
   /* list of <offset, oid> in give volume 
    */
-  5: list<dm_types.DMBlobObjListDiff> blob_obj_list;
+  4: list<dm_types.DMMigrationiObjListDiff> blob_obj_list;
 }
 
 
