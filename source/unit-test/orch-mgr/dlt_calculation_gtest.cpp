@@ -65,7 +65,7 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     // Create cluster map with 4 SMs
     NodeList rmNodes;
     for (fds_uint32_t i = 0; i < numSMs; ++i) {
-        NodeUuid uuid(0xAB00+i);
+        NodeUuid uuid(i+1);
         OM_NodeAgent::pointer agent(new OM_NodeAgent(uuid,
                                                      fpi::FDSP_STOR_MGR));
         addNodes.push_back(agent);
@@ -73,7 +73,7 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
 
     // calculate DLT
-    placeAlgo->computeNewDlt(cmap, nullptr, newDlt);
+    placeAlgo->computeNewDlt(cmap, nullptr, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -84,6 +84,20 @@ DLT* calculateFirstDLT(fds_uint32_t numSMs,
     // done with pending services in cluster map
     cmap->resetPendServices(fpi::FDSP_STOR_MGR);
     return newDlt;
+}
+
+void verifyNonFailedPrimaries(fds_uint32_t cols,
+                              const DLT* dlt,
+                              fds_uint32_t numPrimarySMs,
+                              const NodeUuidSet& failedSms) {
+    // Primary SMs must be non-failed SMs
+    for (fds_uint32_t i = 0; i < cols; ++i) {
+        DltTokenGroupPtr column = dlt->getNodes(i);
+        for (fds_uint32_t j = 0; j < numPrimarySMs; ++j) {
+            NodeUuid uuid = column->get(j);
+            EXPECT_EQ(failedSms.count(uuid), 0);
+        }
+    }
 }
 
 TEST(DltCalculation, dlt_class) {
@@ -141,7 +155,9 @@ TEST(DltCalculation, compute_add) {
     NodeList addNodes, rmNodes;
 
     GLOGNORMAL << "Will calculate DLT with " << numSMs << " SMs."
-               << "Width: " << dltWidth << ", columns " << cols;
+               << "Width: " << dltWidth << ", columns " << cols
+               << ". Computation with no failed SMs should produce same "
+               << " result as original algorithm (ignoring failed state)";
 
     PlacementAlgorithm *placeAlgo = nullptr;
     placeAlgo = new ConsistHashAlgorithm();
@@ -153,18 +169,31 @@ TEST(DltCalculation, compute_add) {
     }
     ++version;
 
+    // compute with number of primaries = 2, should produce same result
+    // because we are not setting any SM state = failed
+    ClusterMap* cmap2 = new ClusterMap();
+    NodeList addNodes2;
+    DLT* dlt2 = calculateFirstDLT(numSMs, cmap2, addNodes2, placeAlgo, 2);
+    EXPECT_TRUE(*dlt == *dlt2);
+
     // done with pending services
     addNodes.clear();
     rmNodes.clear();
 
+    // will not use cmap2 anymore, re-using cmap
+    delete cmap2;
+    cmap2 = nullptr;
+
     // Add 4 SMs, one SM at a time
     DLT* newDlt = nullptr;
+    DLT* newDlt2 = nullptr;
     for (fds_uint32_t j = 0; j < 4; ++j) {
         newDlt = new DLT(dltWidth, dltDepth, version, true);
-        NodeUuid newUuid(0xCC01 + j);
+        newDlt2 = new DLT(dltWidth, dltDepth, version, true);
+        NodeUuid newUuid(numSMs + j + 1);
 
-        GLOGNORMAL << "Adding one SM service with UUID 0x" <<
-                std::hex << newUuid.uuid_get_val() << std::dec;
+        GLOGNORMAL << "Adding one SM service with UUID "
+                   << newUuid.uuid_get_val();
 
         OM_NodeAgent::pointer agent(new OM_NodeAgent(newUuid,
                                                      fpi::FDSP_STOR_MGR));
@@ -173,16 +202,23 @@ TEST(DltCalculation, compute_add) {
 
         // 'dlt' is a commited DLT, update DLT based on an SM addition
         // updated DLT will be computed into 'newDlt'
-        placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+        placeAlgo->computeNewDlt(cmap, dlt, newDlt, 0);
+        placeAlgo->computeNewDlt(cmap, dlt2, newDlt2, 0);
         // Compute DLT's reverse node to token map
         newDlt->generateNodeTokenMap();
+        newDlt2->generateNodeTokenMap();
         err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
         EXPECT_TRUE(err.ok());
+        // both DLTs must be the same
+        EXPECT_TRUE(*newDlt == *newDlt2);
 
         // commit DLT
         delete dlt;
+        delete dlt2;
         dlt = newDlt;
         newDlt = nullptr;
+        dlt2 = newDlt2;
+        newDlt2 = nullptr;
         ++version;
 
         GLOGNORMAL << *dlt;
@@ -194,6 +230,7 @@ TEST(DltCalculation, compute_add) {
     }
 
     delete dlt;
+    delete dlt2;
     delete cmap;
     delete placeAlgo;
 }
@@ -201,7 +238,7 @@ TEST(DltCalculation, compute_add) {
 TEST(DltCalculation, compute_2prim) {
     fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
-    fds_uint32_t numPrimarySMs = 0;  // TODO(Anna) change to 2
+    fds_uint32_t numPrimarySMs = 2;
 
     for (fds_uint32_t numSMs = 1; numSMs <= 8; ++numSMs) {
         for (fds_uint32_t numFailedSms = 0;
@@ -218,34 +255,23 @@ TEST(DltCalculation, compute_2prim) {
                 depth = numSMs;
             }
             DLT* dlt = new DLT(dltWidth, depth, version, true);
-            EXPECT_NE(dlt, nullptr);
-            if (dlt == nullptr) {
-                // no point of continuing this test
-                return;
-            }
 
             // Create cluster map with numSMs SM services
             ClusterMap* cmap = new ClusterMap();
-            EXPECT_NE(cmap, nullptr);
-            if (cmap == nullptr) {
-                // no point of continuing this test
-                return;
-            }
-
             NodeList addNodes, rmNodes;
             fds_uint32_t failedCnt = 0;
             NodeUuidSet failedSms;
             for (fds_uint32_t i = 0; i < numSMs; ++i) {
-                NodeUuid uuid(0xAB00+i);
+                NodeUuid uuid(i+1);
                 OM_NodeAgent::pointer agent(new OM_NodeAgent(uuid,
                                                              fpi::FDSP_STOR_MGR));
                 if (failedCnt < numFailedSms) {
                     agent->set_node_state(fpi::FDS_Node_Down);
                     failedSms.insert(uuid);
                     ++failedCnt;
-                    LOGNORMAL << "Failed SM " << std::hex << uuid.uuid_get_val() << std::dec;
+                    LOGNORMAL << "Failed SM " << uuid.uuid_get_val();
                 } else {
-                    LOGNORMAL << "Active SM " << std::hex << uuid.uuid_get_val() << std::dec;
+                    LOGNORMAL << "Active SM " << uuid.uuid_get_val();
                 }
                 addNodes.push_back(agent);
             }
@@ -258,7 +284,7 @@ TEST(DltCalculation, compute_2prim) {
             // calculate DLT
             PlacementAlgorithm *placeAlgo = nullptr;
             placeAlgo = new ConsistHashAlgorithm();
-            placeAlgo->computeNewDlt(cmap, nullptr, dlt);
+            placeAlgo->computeNewDlt(cmap, nullptr, dlt, numPrimarySMs);
             // Compute DLT's reverse node to token map
             dlt->generateNodeTokenMap();
             Error err = dlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -266,15 +292,13 @@ TEST(DltCalculation, compute_2prim) {
 
             LOGNORMAL << *dlt;
 
-            if (numPrimarySMs <= cmap->getNumNonfailedMembers(fpi::FDSP_STOR_MGR)) {
+            fds_uint32_t nonFailedSmCount = cmap->getNumNonfailedMembers(fpi::FDSP_STOR_MGR);
+            if (numPrimarySMs <= nonFailedSmCount) {
                 // Primary SMs must be non-failed SMs
-                for (fds_uint32_t i = 0; i < cols; ++i) {
-                    DltTokenGroupPtr column = dlt->getNodes(i);
-                    for (fds_uint32_t j = 0; j < numPrimarySMs; ++j) {
-                        NodeUuid uuid = column->get(j);
-                        EXPECT_EQ(failedSms.count(uuid), 0);
-                    }
-                }
+                GLOGNORMAL << "Primary SMs must be non-failed SMs. Num of primary: "
+                           << numPrimarySMs << ", Non failed SMs count = "
+                           << nonFailedSmCount;
+                verifyNonFailedPrimaries(cols, dlt, numPrimarySMs, failedSms);
             }
 
             delete dlt;
@@ -314,19 +338,21 @@ TEST(DltCalculation, compute_then_fail_2prim) {
 
     // Pretend a SM fails, from one to all SMs
     DLT* newDlt = nullptr;
+    NodeUuidSet failedSms;
     for (fds_uint32_t j = 0; j < numSMs; ++j) {
         newDlt = new DLT(dltWidth, dltDepth, version, true);
         OM_NodeAgent::pointer agent = addNodes.front();
         agent->set_node_state(fpi::FDS_Node_Down);
+        failedSms.insert(agent->get_uuid());
         addNodes.push_back(agent);
         addNodes.pop_front();
 
-        GLOGNORMAL << "Failing SM service with UUID 0x" <<
-                std::hex << agent->get_uuid().uuid_get_val() << std::dec;
+        GLOGNORMAL << "Failing SM service with UUID "
+                   << agent->get_uuid().uuid_get_val();
 
         // 'dlt' is a commited DLT, update DLT based on an SM failure
         // updated DLT will be computed into 'newDlt'
-        placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+        placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
         // Compute DLT's reverse node to token map
         newDlt->generateNodeTokenMap();
         err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -334,6 +360,33 @@ TEST(DltCalculation, compute_then_fail_2prim) {
 
         // 'dlt' is commited DLT and 'newDlt' is a target DLT
         // TODO(Anna) what else do we need to check here?
+        fds_uint32_t nonFailedCnt = numSMs - failedSms.size();
+        if (numPrimarySMs <= nonFailedCnt) {
+            // it is possible that the whole column failed, even if there are enough
+            // non-failed SMs, check this first
+            fds_bool_t atLeastOneColumnFailed = false;
+            for (fds_uint32_t i = 0; i < cols; ++i) {
+                DltTokenGroupPtr column = newDlt->getNodes(i);
+                fds_uint32_t failedCnt = 0;
+                for (fds_uint32_t j = 0; j < newDlt->getDepth(); ++j) {
+                    NodeUuid uuid = column->get(j);
+                    if (failedSms.count(uuid) > 0) {
+                        ++failedCnt;
+                    }
+                }
+                if (failedCnt == newDlt->getDepth()) {
+                    atLeastOneColumnFailed = true;
+                    break;
+                }
+            }
+            if (!atLeastOneColumnFailed) {
+                GLOGNORMAL << "Primary SMs must be non-failed SMs. Verifying... "
+                           << " num prim " << numPrimarySMs << ", non failed " << nonFailedCnt;
+                verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
+            }
+        } else {
+            EXPECT_TRUE(*dlt == *newDlt);
+        }
 
         // commit DLT
         delete dlt;
@@ -355,7 +408,7 @@ TEST(DltCalculation, fail_rm_2prim) {
     fds_uint32_t cols = pow(2, dltWidth);
     fds_uint64_t version = 1;
     fds_uint32_t numSMs = 8;
-    fds_uint32_t numPrimarySMs = 0;  // TODO(Anna) set to 2
+    fds_uint32_t numPrimarySMs = 2;
 
     GLOGNORMAL << "Will calculate DLT with " << numSMs << " SMs."
                << "Width: " << dltWidth << ", columns " << cols
@@ -366,6 +419,7 @@ TEST(DltCalculation, fail_rm_2prim) {
     placeAlgo = new ConsistHashAlgorithm();
     ClusterMap* cmap = new ClusterMap();
     NodeList firstNodes, rmNodes, addNodes;
+    NodeUuidSet failedSms;
 
     // calculate DLT
     DLT* dlt = calculateFirstDLT(numSMs, cmap, firstNodes, placeAlgo, numPrimarySMs);
@@ -381,6 +435,7 @@ TEST(DltCalculation, fail_rm_2prim) {
     NodeList::iterator it = firstNodes.begin();
     OM_NodeAgent::pointer failedAgent = *it;
     failedAgent->set_node_state(fpi::FDS_Node_Down);
+    failedSms.insert(failedAgent->get_uuid());
     GLOGNORMAL << "Failing SM service with UUID 0x" <<
             std::hex << failedAgent->get_uuid().uuid_get_val() << std::dec;
     ++it;
@@ -394,11 +449,16 @@ TEST(DltCalculation, fail_rm_2prim) {
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
+
+    if (numSMs > (numPrimarySMs + 1)) {
+        // primaries should be 'non-failed'
+        verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
+    }
 
     // cleanup
     rmNodes.clear();
@@ -448,7 +508,7 @@ TEST(DltCalculation, rm_add_2prim) {
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -468,7 +528,7 @@ TEST(DltCalculation, rm_add_2prim) {
 
     // add one SM
     newDlt = new DLT(dltWidth, dltDepth, version, true);
-    NodeUuid addUuid(0xCC0A);
+    NodeUuid addUuid(numSMs + 1);
     OM_NodeAgent::pointer addAgent(new OM_NodeAgent(addUuid,
                                                     fpi::FDSP_STOR_MGR));
     addNodes.push_back(addAgent);
@@ -478,7 +538,7 @@ TEST(DltCalculation, rm_add_2prim) {
 
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -509,6 +569,7 @@ TEST(DltCalculation, fail_add_2prim) {
     placeAlgo = new ConsistHashAlgorithm();
     ClusterMap* cmap = new ClusterMap();
     NodeList firstNodes, rmNodes, addNodes;
+    NodeUuidSet failedSms;
 
     // calculate DLT
     DLT* dlt = calculateFirstDLT(numSMs, cmap, firstNodes, placeAlgo, numPrimarySMs);
@@ -525,17 +586,23 @@ TEST(DltCalculation, fail_add_2prim) {
     EXPECT_NE(it, firstNodes.end());   // we must have numSMs at least 1
     OM_NodeAgent::pointer failedAgent = *it;
     failedAgent->set_node_state(fpi::FDS_Node_Down);
-    GLOGNORMAL << "Failing SM service with UUID 0x" <<
-            std::hex << failedAgent->get_uuid().uuid_get_val() << std::dec;
+    failedSms.insert(failedAgent->get_uuid());
+    GLOGNORMAL << "Failing SM service with UUID "
+               << failedAgent->get_uuid().uuid_get_val();
 
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
+
+    if (numSMs > numPrimarySMs) {
+        // primaries should be 'non-failed'
+        verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
+    }
 
     // commit DLT
     delete dlt;
@@ -548,13 +615,14 @@ TEST(DltCalculation, fail_add_2prim) {
     // unfail SM that previously failed
     newDlt = new DLT(dltWidth, dltDepth, version, true);
     failedAgent->set_node_state(fpi::FDS_Node_Up);
-    GLOGNORMAL << "Un-failing SM service with UUID 0x" <<
-            std::hex << failedAgent->get_uuid().uuid_get_val() << std::dec;
+    failedSms.clear();
+    GLOGNORMAL << "Un-failing SM service with UUID "
+               << failedAgent->get_uuid().uuid_get_val();
 
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -574,17 +642,23 @@ TEST(DltCalculation, fail_add_2prim) {
     ++it;
     EXPECT_NE(it, firstNodes.end());   // test with numSMs > 2
     (*it)->set_node_state(fpi::FDS_Node_Down);
-    GLOGNORMAL << "Failing SM service with UUID 0x" <<
-            std::hex << (*it)->get_uuid().uuid_get_val() << std::dec;
+    failedSms.insert((*it)->get_uuid());
+    GLOGNORMAL << "Failing SM service with UUID "
+               << (*it)->get_uuid().uuid_get_val();
 
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
+
+    if (numSMs > numPrimarySMs) {
+        // primaries should be 'non-failed'
+        verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
+    }
 
     // commit DLT
     delete dlt;
@@ -596,22 +670,27 @@ TEST(DltCalculation, fail_add_2prim) {
 
     // add one more SM
     newDlt = new DLT(dltWidth, dltDepth, version, true);
-    NodeUuid addUuid(0xCC0A);
+    NodeUuid addUuid(numSMs + 2);
     OM_NodeAgent::pointer addAgent(new OM_NodeAgent(addUuid,
                                                     fpi::FDSP_STOR_MGR));
     addNodes.push_back(addAgent);
     cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
-    GLOGNORMAL << "Adding SM service with UUID 0x" <<
-            std::hex << addAgent->get_uuid().uuid_get_val() << std::dec;
+    GLOGNORMAL << "Adding SM service with UUID "
+               << addAgent->get_uuid().uuid_get_val();
 
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt);
+    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
     EXPECT_TRUE(err.ok());
+
+    if (numSMs > numPrimarySMs) {
+        // primaries should be 'non-failed'
+        verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
+    }
 
     // commit DLT
     delete dlt;
