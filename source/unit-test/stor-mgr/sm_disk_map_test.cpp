@@ -22,6 +22,8 @@
 
 #include <sm_ut_utils.h>
 
+#include <persistent-layer/dm_io.h>
+
 /**
  * Unit test for SmDiskMap class
  */
@@ -90,6 +92,25 @@ printSmTokens(const SmDiskMap::const_ptr& smDiskMap) {
          ++cit) {
         GLOGDEBUG << "Token " << *cit << " disk path: "
                   << smDiskMap->getDiskPath(*cit, tier);
+    }
+}
+
+TEST(SmDiskMap, getDiskConsumedSize) {
+    fds_uint32_t sm_count = 1;
+
+    // start clean
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string devPath = dir->dir_dev();
+    SmUtUtils::cleanAllInDir(devPath);
+
+    // create our own disk map
+    SmUtUtils::setupDiskMap(dir, 10, 2);
+    SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
+
+    for (auto diskId : smDiskMap->getDiskIds()) {
+        SmDiskMap::capacity_tuple cap_info = smDiskMap->getDiskConsumedSize(diskId);
+        ASSERT_TRUE(cap_info.first < cap_info.second);
+        ASSERT_TRUE(cap_info.second > 0);
     }
 }
 

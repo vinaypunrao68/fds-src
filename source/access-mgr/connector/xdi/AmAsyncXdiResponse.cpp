@@ -26,37 +26,19 @@ namespace fds {
 namespace xdi_att = apache::thrift::transport;
 namespace xdi_atp = apache::thrift::protocol;
 
-#define XDICLIENTCALL(func)                           \
-    checkClientConnect();                             \
-    try {                                             \
-        SCOPEDREAD(client_lock);                      \
-        if (asyncRespClient) {                        \
-            asyncRespClient->func;                    \
-        } else {                                      \
-            LOGDEBUG << "No response channel, dropping response message!"; \
-        }                                             \
-    } catch(const xdi_att::TTransportException& e) {  \
-        SCOPEDWRITE(client_lock);                     \
-        asyncRespClient.reset();                      \
-        LOGERROR << "Unable to respond to XDI: "      \
-                 << "tcp://" << serverIp << ":" << serverPort \
-                 << "; Dropping response and uninitializing the connection!"; \
-    }
-
-fds_rwlock AmAsyncXdiResponse::client_lock;
+std::mutex AmAsyncXdiResponse::map_lock;
 AmAsyncXdiResponse::client_map AmAsyncXdiResponse::clients;
 
 AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip)
         : serverIp(server_ip),
-          serverPort(9876) {
-    // Set client to unitialized
-    asyncRespClient.reset();
-}
+          serverPort(9876),
+          asyncRespClient(nullptr)
+{ }
 
 AmAsyncXdiResponse::~AmAsyncXdiResponse() {
     // See if we're the last connected to this client
     // if so we need to remove it from the client vector
-    SCOPEDWRITE(client_lock);
+    std::lock_guard<std::mutex> g(map_lock);
     if (asyncRespClient.use_count() <= 2) {
         std::string tcp_nexus(serverIp + ":" + std::to_string(serverPort));
         auto client_it = clients.find(tcp_nexus);
@@ -71,14 +53,24 @@ AmAsyncXdiResponse::initiateClientConnect() {
     std::string tcp_nexus(serverIp + ":" + std::to_string(serverPort));
     // First see if we're already connected to this client
     // if so, reuse response path
-    SCOPEDWRITE(client_lock);
+    std::lock_guard<std::mutex> g(map_lock);
     auto client_it = clients.find(tcp_nexus);
 
+    // Lookup current client for this nexus
     if (client_it != clients.end())
     {
         LOGTRACE << "Found response channel!";
-        asyncRespClient = client_it->second;
-    } else {
+        // If the client is different than ours, use that one
+        if (asyncRespClient == client_it->second) {
+            // Otherwise trash this one...it must be broken.
+            clients.erase(client_it);
+            asyncRespClient.reset();
+        } else {
+            asyncRespClient = client_it->second;
+        }
+    }
+
+    if (!asyncRespClient) {
         LOGNORMAL << "Setting up response channel to: "
                   << "tcp://" << serverIp << ":" << serverPort;
         // Setup the async response client
@@ -124,7 +116,7 @@ void
 AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
                        boost::shared_ptr<int32_t>& port) {
     serverPort = *port;
-    XDICLIENTCALL(handshakeComplete(requestId));
+    xdiClientCall(&client_type::handshakeComplete, requestId);
 }
 
 void
@@ -135,10 +127,18 @@ AmAsyncXdiResponse::attachVolumeResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(attachVolumeResponse(requestId, mode));
+        xdiClientCall(&client_type::attachVolumeResponse, requestId, mode);
     }
+}
+
+void
+AmAsyncXdiResponse::detachVolumeResp(const Error &error,
+                                     boost::shared_ptr<apis::RequestId>& requestId) {
+    // XXX(bszmyd): Mon 22 Jun 2015 08:59:38 AM MDT
+    // Not implemented for Xdi
+    return;
 }
 
 void
@@ -148,9 +148,9 @@ AmAsyncXdiResponse::startBlobTxResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(startBlobTxResponse(requestId, txDesc));
+        xdiClientCall(&client_type::startBlobTxResponse, requestId, txDesc);
     }
 }
 
@@ -160,9 +160,9 @@ AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(abortBlobTxResponse(requestId));
+        xdiClientCall(&client_type::abortBlobTxResponse, requestId);
     }
 }
 
@@ -172,9 +172,9 @@ AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(commitBlobTxResponse(requestId));
+        xdiClientCall(&client_type::commitBlobTxResponse, requestId);
     }
 }
 
@@ -184,9 +184,9 @@ AmAsyncXdiResponse::updateBlobResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(updateBlobResponse(requestId));
+        xdiClientCall(&client_type::updateBlobResponse, requestId);
     }
 }
 
@@ -196,9 +196,9 @@ AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(updateBlobOnceResponse(requestId));
+        xdiClientCall(&client_type::updateBlobOnceResponse, requestId);
     }
 }
 
@@ -208,9 +208,9 @@ AmAsyncXdiResponse::updateMetadataResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(updateMetadataResponse(requestId));
+        xdiClientCall(&client_type::updateMetadataResponse, requestId);
     }
 }
 
@@ -220,9 +220,9 @@ AmAsyncXdiResponse::deleteBlobResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(deleteBlobResponse(requestId));
+        xdiClientCall(&client_type::deleteBlobResponse, requestId);
     }
 }
 
@@ -233,9 +233,9 @@ AmAsyncXdiResponse::statBlobResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(statBlobResponse(requestId, blobDesc));
+        xdiClientCall(&client_type::statBlobResponse, requestId, blobDesc);
     }
 }
 
@@ -246,9 +246,9 @@ AmAsyncXdiResponse::volumeStatusResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(volumeStatus(requestId, volumeStatus));
+        xdiClientCall(&client_type::volumeStatus, requestId, volumeStatus);
     }
 }
 
@@ -260,9 +260,9 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(volumeContents(requestId, volContents));
+        xdiClientCall(&client_type::volumeContents, requestId, volContents);
     }
 }
 
@@ -272,9 +272,9 @@ AmAsyncXdiResponse::setVolumeMetadataResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(setVolumeMetadataResponse(requestId));
+        xdiClientCall(&client_type::setVolumeMetadataResponse, requestId);
     }
 }
 
@@ -285,9 +285,9 @@ AmAsyncXdiResponse::getVolumeMetadataResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        XDICLIENTCALL(getVolumeMetadataResponse(requestId, metadata));
+        xdiClientCall(&client_type::getVolumeMetadataResponse, requestId, metadata);
     }
 }
 
@@ -300,14 +300,14 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
         // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
         // When Xdi and AmProc support vectored reads, return the whole
         // vector, not just the front element. For now assume one object.
         // A nullptr (with ERR_OK), indicates a zero'd out object
         auto& buf = (bufs && !bufs->empty()) ? bufs->front() : empty_buffer;
-        XDICLIENTCALL(getBlobResponse(requestId, buf));
+        xdiClientCall(&client_type::getBlobResponse, requestId, buf);
     }
 }
 
@@ -321,14 +321,14 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
-        XDICLIENTCALL(completeExceptionally(requestId, errorCode, message));
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
         // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
         // When Xdi and AmProc support vectored reads, return the whole
         // vector, not just the front element. For now assume one object.
         // A nullptr (with ERR_OK), indicates a zero'd out object
         auto& buf = (bufs && !bufs->empty()) ? bufs->front() : empty_buffer;
-        XDICLIENTCALL(getBlobWithMetaResponse(requestId, buf, blobDesc));
+        xdiClientCall(&client_type::getBlobWithMetaResponse, requestId, buf, blobDesc);
     }
 }
 

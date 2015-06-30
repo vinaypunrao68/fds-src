@@ -210,11 +210,32 @@ Error DMT::verify() const {
             }
             nodes.insert(uuid);
         }
+        // uuids in the same column must be unique
         if (nodes.size() != depth) {
             return ERR_INVALID_DMT;
         }
     }
     return err;
+}
+
+fds_bool_t DMT::operator==(const DMT &rhs) const {
+    // number of rows and columns has to match
+    if ((depth != rhs.depth) || (columns != rhs.columns)) {
+        return false;
+    }
+
+    // every column should match
+    for (fds_uint32_t i = 0; i < columns; ++i) {
+        DmtColumnPtr myCol = dmt_table->at(i);
+        DmtColumnPtr col = rhs.dmt_table->at(i);
+        if ((myCol == nullptr) || (col == nullptr)) {
+            return false;
+        }
+        if (!(*myCol == *col)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**

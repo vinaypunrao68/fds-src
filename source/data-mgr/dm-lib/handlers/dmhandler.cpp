@@ -87,7 +87,7 @@ void Handler::addToQueue(dmCatReq *dmRequest) {
          */
         dmRequest->cb(err, dmRequest);
     } else {
-        LOGTRACE << "dmrequest added to queue successfully";
+        LOGTRACE << "dmrequest " << dmRequest << " added to queue successfully";
     }
 }
 

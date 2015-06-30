@@ -23,17 +23,6 @@
     tags:
         - post-install
 
-#-   name: render deploy_formation.conf
-#    template:
-#        src=../../source/test/formation.conf.j2
-#        dest=/fds/sbin/deploy_formation.conf
-#        owner=root
-#        group=root
-#        mode=0644
-#    tags:
-#        - post-install
-#        - fdsconfig
-
 -   name: render /fds/etc config files
     template:
         src=../../source/config/etc/{{item}}.conf.j2
@@ -113,6 +102,8 @@
         - sm
         - dm
         - pm
+        - redis
+
     tags:
         - post-install
         - init

@@ -36,13 +36,76 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          currentState(OBJECT_STORE_INIT)
+          currentState(OBJECT_STORE_INIT),
+          lastCapacityMessageSentAt(0)
 {
 }
 
 ObjectStore::~ObjectStore() {
     dataStore.reset();
     metaStore.reset();
+}
+
+float_t ObjectStore::getUsedCapacityAsPct() {
+
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("sm.objstore.get_used_capacity_error", \
+            LOGDEBUG << "Err inection: returning max used disk capacity as " << DISK_CAPACITY_ERROR_THRESHOLD; \
+            return DISK_CAPACITY_ERROR_THRESHOLD; );
+    
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_alert", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_warn", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
+    float_t max = 0;
+    // For disks
+    for (auto diskId : diskMap->getDiskIds()) {
+        // Get the (used, total) pair
+        SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+
+        // Check to make sure we've got good data from the stat call
+        if (capacity.first == 0 || capacity.second == 0) {
+            // If we don't just return 0
+            LOGERROR << "Found disk used capacity of zero, possible error. DiskID = " << diskId
+                        << ". Disk path = " << diskMap->getDiskPath(diskId);
+            break;
+        }
+        float_t pct_used = (capacity.first * 1.) / capacity.second;
+
+        // We want to log which disk is too full here
+        if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+            LOGWARN << "Disk at path " << diskMap->getDiskPath(diskId)
+                      << " is consuming " << pct_used << " space, which is more than the warning threshold of "
+                      << DISK_CAPACITY_WARNING_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+            LOGNORMAL << "Disk at path " << diskMap->getDiskPath(diskId)
+                      << " is consuming " << pct_used << " space, which is more than the alert threshold of "
+                      << DISK_CAPACITY_ALERT_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+            }
+        }
+
+        if (pct_used > max) {
+            max = pct_used;
+        }
+    }
+
+    return max * 100;
 }
 
 /**
@@ -1136,8 +1199,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             return err;
         }
 
-        // Notify tier engine of recent IO
-        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *selectVol->voldesc, useTier);
+
+        // Notify tier engine of recent IO if the volume information is available.
+        if (NULL != selectVol) {
+            tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *selectVol->voldesc, useTier);
+        }
 
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);

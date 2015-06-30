@@ -77,7 +77,9 @@ QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
      *  TODO: should we scale down all volumes' assured rates? */
     qda_lock.write_lock();
 
-    if ((q_assured_rate + total_assured_rate) > total_iops) {
+    // we also do not want total assured rate to be equal total rate, so that we have at least
+    // one IOP for available (non-reserved rate)
+    if ((q_assured_rate + total_assured_rate) >= total_iops) {
         qda_lock.write_unlock();
         LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_assured_rate: " << q_assured_rate
                  << " total_assured_rate: " << total_assured_rate << " total_iops: " << total_iops;
@@ -155,8 +157,10 @@ QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
 
     /* for now, do not allow total assured rate to increase above total rate -- return error
      *  TODO: should we scale down all volumes' assured rates? */
+    // we also do not want total assured rate to be equal total rate, so that we have at least
+    // one IOP for available (non-reserved rate)
     if ((q_assured_rate > qstate->assured_rate) &&
-        ((q_assured_rate - qstate->assured_rate + total_assured_rate) > total_iops)) {
+        ((q_assured_rate - qstate->assured_rate + total_assured_rate) >= total_iops)) {
         qda_lock.write_unlock();
         LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_assured_rate: "
                  << q_assured_rate << " total_throttle_rate: "
@@ -221,13 +225,12 @@ QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
     /* if error, still try to remove queue state first before returning */
 
     auto qstate_it = qstate_map.find(queue_id);
-    if (qstate_map.end() != qstate_it) {
+    if (qstate_map.end() == qstate_it) {
         qda_lock.write_unlock();
-        return ERR_DUPLICATE; /* we probably got same error from base class, but still good to check if queue state exists */
+        return ERR_NOT_FOUND; /* we probably got same error from base class, but good to check if queue state exists */
     }
     auto& qstate = qstate_it->second;
     fds_assert(qstate);
-    qstate_map.erase(qstate_it);
 
     /* update total min and avail rates */
     assert(qstate->assured_rate <= total_assured_rate);
@@ -239,6 +242,7 @@ QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
     }
 
     avail_pool.modifyRate(new_total_avail_rate);
+    qstate_map.erase(qstate_it);
     qda_lock.write_unlock();
 
     LOGNOTIFY << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
