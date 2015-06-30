@@ -40,7 +40,7 @@ class RESTHelper():
         
         print err_message
         
-        return error
+        return err_message
             
     def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         response = requests.post( url, data=data, headers=self.buildHeader( session ), verify=False )
