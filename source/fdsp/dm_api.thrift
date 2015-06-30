@@ -621,6 +621,8 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
       map<blob ID, sequence number> */
   2: map<i64, i64>      blobFilterMap;
 }
+struct ResyncInitialBlobFilterSetRspMsg {
+}
 
 
 /* ------------------------------------------------------------
