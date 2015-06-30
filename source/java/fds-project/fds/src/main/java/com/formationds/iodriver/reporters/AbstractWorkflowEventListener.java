@@ -1,8 +1,11 @@
 package com.formationds.iodriver.reporters;
 
+import java.time.Instant;
 import java.util.Set;
+import java.util.Map.Entry;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.patterns.Subject;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
@@ -60,6 +63,26 @@ public abstract class AbstractWorkflowEventListener
     }
 
     /**
+     * Notifies when the workload is finished running.
+     */
+    public final Subject<Void> finished;
+
+    /**
+     * Notifies when the workload has started the main body.
+     */
+    public final Subject<Entry<String, Instant>> started;
+
+    /**
+     * Notifies when the workload has stopped the main body.
+     */
+    public final Subject<Entry<String, Instant>> stopped;
+
+    /**
+     * Notifies when the workload has added a volume.
+     */
+    public final Subject<Entry<String, VolumeQosSettings>> volumeAdded;
+
+    /**
      * Call when the workload adds a volume.
      * 
      * @param name The volume name.
@@ -113,4 +136,12 @@ public abstract class AbstractWorkflowEventListener
      * @param volume The volume name.
      */
     public abstract void reportStop(String volume);
+    
+    protected AbstractWorkflowEventListener()
+    {
+        finished = new Subject<>();
+        started = new Subject<>();
+        stopped = new Subject<>();
+        volumeAdded = new Subject<>();
+    }
 }

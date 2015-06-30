@@ -10,9 +10,10 @@ import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.NullWorkflowEventListener;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.S3Workload;
 
@@ -47,7 +48,11 @@ public final class Main
             }
             else
             {
-                result = runWorkload(config);
+                result = runWorkloadDry(config);
+                if (result == 0)
+                {
+                    result = runWorkload(config);
+                }
             }
         }
         catch (Exception ex)
@@ -112,7 +117,7 @@ public final class Main
     {
         if (config == null) throw new NullArgumentException("config");
 
-        WorkflowEventListener listener = config.getListener();
+        AbstractWorkflowEventListener listener = config.getListener();
         try (ConsoleProgressReporter reporter =
                 new ConsoleProgressReporter(System.out,
                                             listener.started,
@@ -127,19 +132,39 @@ public final class Main
                                                        workload,
                                                        listener,
                                                        validator);
-            
-            driver.setListener(new NullWorkflowEventListener());
             driver.runWorkload();
-            driver.setListener(listener);
-            driver.runWorkload();
-            
-            int result = driver.getResult();
-
-            return result;
+            return driver.getResult();
         }
         catch (Exception e)
         {
             throw new ExecutionException("Error executing workload.", e);
+        }
+    }
+    
+    private static int runWorkloadDry(Config config) throws ExecutionException
+    {
+        if (config == null) throw new NullArgumentException("config");
+        
+        AbstractWorkflowEventListener listener = new NullWorkflowEventListener();
+        try (ConsoleProgressReporter reporter =
+                new ConsoleProgressReporter(System.out,
+                                            listener.started,
+                                            listener.stopped,
+                                            listener.volumeAdded))
+        {
+            S3Workload workload = config.getSelectedWorkload(S3Endpoint.class, S3Operation.class);
+            Validator validator = new NullValidator();
+            
+            Driver<?, ?> driver = new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
+                                                                     workload,
+                                                                     listener,
+                                                                     validator);
+            driver.runWorkload();
+            return driver.getResult();
+        }
+        catch (Exception e)
+        {
+            throw new ExecutionException("Error executing dry-run of workload.", e);
         }
     }
 }

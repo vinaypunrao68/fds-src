@@ -19,6 +19,7 @@ import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
+import com.formationds.iodriver.operations.DeleteBucket;
 import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
@@ -105,9 +106,8 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     @Override
     protected Stream<S3Operation> createTeardown()
     {
-        //return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
-        //                    .map(bucketName -> new DeleteBucket(bucketName));
-        return Stream.empty();
+        return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
+                            .map(bucketName -> new DeleteBucket(bucketName));
     }
 
     /**

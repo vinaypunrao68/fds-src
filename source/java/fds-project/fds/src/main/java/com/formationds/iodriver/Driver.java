@@ -29,7 +29,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      */
     public Driver(EndpointT endpoint,
                   WorkloadT workload,
-                  WorkflowEventListener listener,
+                  AbstractWorkflowEventListener listener,
                   Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -131,17 +131,6 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     {
         return _workload;
     }
-
-    /**
-     * Get whether this is a dry run (no stats will be collected, changes will still be made to
-     * the target system).
-     * 
-     * @return The current property value.
-     */
-    public boolean isDryRun()
-    {
-        return _dryRun;
-    }
     
     /**
      * Run the {@link #getWorkload() workload}.
@@ -180,12 +169,6 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      */
     private final EndpointT _endpoint;
 
-    /**
-     * Whether this is a dry run to warm up any classloading or other things that may lead to
-     * inconsistent results.
-     */
-    private boolean _dryRun;
-    
     /**
      * Whether {@link #_workload} has run its setup routine on {@link #_endpoint} without running
      * teardown after.

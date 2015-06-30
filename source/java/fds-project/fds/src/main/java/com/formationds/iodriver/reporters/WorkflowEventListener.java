@@ -21,26 +21,6 @@ import com.formationds.iodriver.model.VolumeQosSettings;
 public final class WorkflowEventListener extends AbstractWorkflowEventListener
 {
     /**
-     * Notifies when the workload is finished running.
-     */
-    public final Subject<Void> finished;
-
-    /**
-     * Notifies when the workload has started the main body.
-     */
-    public final Subject<Entry<String, Instant>> started;
-
-    /**
-     * Notifies when the workload has stopped the main body.
-     */
-    public final Subject<Entry<String, Instant>> stopped;
-
-    /**
-     * Notifies when the workload has added a volume.
-     */
-    public final Subject<Entry<String, VolumeQosSettings>> volumeAdded;
-
-    /**
      * Constructor.
      */
     public WorkflowEventListener()
@@ -73,11 +53,6 @@ public final class WorkflowEventListener extends AbstractWorkflowEventListener
             }
             _volumeOps.put(volumeName, new VolumeQosStats(value));
         }
-
-        finished = new Subject<>();
-        started = new Subject<>();
-        stopped = new Subject<>();
-        volumeAdded = new Subject<>();
     }
 
     @Override
