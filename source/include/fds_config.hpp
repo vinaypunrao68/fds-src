@@ -41,7 +41,7 @@ class FdsConfig {
 
     template<class T> T get(const std::string &key) {
         T val;
-        fds_spinlock::scoped_lock l(lock_);
+        fds_mutex::scoped_lock l(lock_);
         if (!config_.lookupValue(key, val)) {
             throw fds::Exception("Failed to lookup " + key);
         }
@@ -69,7 +69,7 @@ class FdsConfig {
     
   private:
     /* Config object */
-    fds_spinlock lock_;
+    fds_mutex lock_;
     libconfig::Config config_;
 };
 typedef boost::shared_ptr<FdsConfig> FdsConfigPtr;
