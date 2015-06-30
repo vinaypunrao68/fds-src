@@ -53,7 +53,7 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
     for (const auto& snap : vecDirs) {
         snapId = std::atoll(snap.c_str());
         //now add the snap
-        VolumeDesc *desc = new VolumeDesc("", invalid_vol_id);
+        VolumeDesc *desc = new VolumeDesc(*(dm->getVolumeDesc(volid)));
         desc->fSnapshot = true;
         desc->srcVolumeId = volid;
         desc->lookupVolumeId = volid;
