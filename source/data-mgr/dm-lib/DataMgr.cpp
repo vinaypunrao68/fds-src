@@ -975,7 +975,7 @@ int DataMgr::mod_init(SysParams const *const param)
     /**
      * Instantiate migration manager.
      */
-    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
 
     return 0;
 }
@@ -1002,6 +1002,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
+    handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
 }
 
 DataMgr::~DataMgr()
