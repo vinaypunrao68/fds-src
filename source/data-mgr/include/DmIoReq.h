@@ -47,7 +47,7 @@ extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
-extern std::string logString(const FDS_ProtocolInterface::ResyncInitialBlobFilterSetMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
 // ======
 
     /*
@@ -729,10 +729,10 @@ struct DmIoMigration : dmCatReq {
 };
 
 struct DmIoResyncInitialBlob : dmCatReq {
-	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> message;
+	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
 	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetRspMsg> response;
 	NodeUuid destNodeUuid;
-    explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> msg,
+    explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
             : message(msg),
               response(new fpi::ResyncInitialBlobFilterSetRspMsg()),

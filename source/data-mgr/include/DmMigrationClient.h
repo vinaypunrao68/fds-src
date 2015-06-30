@@ -23,7 +23,7 @@ class DmMigrationClient {
     		DataMgr& _dataMgr,
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
-			fpi::ResyncInitialBlobFilterSetMsgPtr& _ribfsm,
+			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
 			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
 
@@ -43,7 +43,7 @@ class DmMigrationClient {
     NodeUuid mySvcUuid;
     NodeUuid destDmUuid;
     fds_volid_t volID;
-    fpi::ResyncInitialBlobFilterSetMsgPtr& ribfsm;
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
 
     /**
      * Callback to talk to DM Migration Manager

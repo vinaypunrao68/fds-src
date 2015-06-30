@@ -159,7 +159,7 @@ DmMigrationMgr::ackMigrationComplete(const Error &status)
 }
 
 Error
-DmMigrationMgr::startMigrationClient(fpi::ResyncInitialBlobFilterSetMsgPtr &migReqMsg, NodeUuid &_dest)
+DmMigrationMgr::startMigrationClient(fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &migReqMsg, NodeUuid &_dest)
 {
 	Error err(ERR_OK);
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
@@ -174,7 +174,7 @@ DmMigrationMgr::startMigrationClient(fpi::ResyncInitialBlobFilterSetMsgPtr &migR
 Error
 DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 										const NodeUuid& mySvcUuid,
-										fpi::ResyncInitialBlobFilterSetMsgPtr& ribfsm,
+										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm,
 										fds_uint64_t uniqueId)
 {
 	Error err(ERR_OK);
