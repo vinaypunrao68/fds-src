@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 
 from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
+from model.fds_error import FdsError
 
 class SnapshotPolicyService( AbstractService ):
     '''
@@ -22,7 +23,7 @@ class SnapshotPolicyService( AbstractService ):
         data = SnapshotPolicyConverter.to_json( policy )
         j_policy =  self.rest_helper.post( self.session, url, data )
         
-        if j_policy is None:
+        if isinstance(j_policy, FdsError):
             return
         
         policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
@@ -36,7 +37,12 @@ class SnapshotPolicyService( AbstractService ):
         '''
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies/", policy_id)
-        return self.rest_helper.delete( self.session, url )
+        response = self.rest_helper.delete( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return
+        
+        return response
     
     def edit_snapshot_policy(self, volume_id, policy ):
         '''
@@ -49,7 +55,7 @@ class SnapshotPolicyService( AbstractService ):
         data = SnapshotPolicyConverter.to_json(policy)
         j_policy = self.rest_helper.put( self.session, url, data )
         
-        if j_policy is None:
+        if isinstance(j_policy, FdsError):
             return
         
         policy = SnapshotPolicyConverter.build_snapshot_policy_from_json(j_policy)
@@ -62,6 +68,9 @@ class SnapshotPolicyService( AbstractService ):
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id, "/snapshot_policies")
         j_policies = self.rest_helper.get( self.session, url )
+        
+        if isinstance(j_policies, FdsError):
+            return        
         
         policies = []
         

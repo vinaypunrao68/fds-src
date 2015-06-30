@@ -1,4 +1,5 @@
 from abstract_service import AbstractService
+from model.fds_error import FdsError
 
 class EventService( AbstractService ):
     '''
@@ -18,4 +19,9 @@ class EventService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/events")
         #TODO convert the filter to JSON
         data = "" 
-        return self.rest_helper().put( self.session, url, data )
+        response = self.rest_helper().put( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return
+        
+        return response        

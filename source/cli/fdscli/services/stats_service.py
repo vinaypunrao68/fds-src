@@ -3,6 +3,7 @@ from utils.converters.statistics.metric_query_converter import MetricQueryConver
 from utils.converters.statistics.statistics_converter import StatisticsConverter
 from utils.converters.health.system_health_converter import SystemHealthConverter
 from utils.converters.statistics.firebreak_query_converter import FirebreakQueryConverter
+from model.fds_error import FdsError
 
 class StatsService( AbstractService ):
     '''
@@ -24,7 +25,7 @@ class StatsService( AbstractService ):
         data = MetricQueryConverter.to_json(metrics_filter)
         stat_json = self.rest_helper.put( self.session, url, data)
         
-        if stat_json is None:
+        if isinstance(stat_json, FdsError):
             return
         
         stats = StatisticsConverter.build_statistics_from_json(stat_json)
@@ -41,7 +42,7 @@ class StatsService( AbstractService ):
         data = FirebreakQueryConverter.to_json(metrics_filter)
         stats = self.rest_helper.put( self.session, url, data)
         
-        if stats is None:
+        if isinstance(stats, FdsError):
             return
         
         stats = StatisticsConverter.build_statistics_from_json(stats)
@@ -56,7 +57,7 @@ class StatsService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/systemhealth" )
         sys_health = self.rest_helper.get( self.session, url )
         
-        if sys_health is None:
+        if isinstance(sys_health, FdsError):
             return 
         
         sys_health  = SystemHealthConverter.build_system_health_from_json(sys_health)

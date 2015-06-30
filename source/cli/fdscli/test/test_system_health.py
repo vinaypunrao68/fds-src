@@ -1,6 +1,6 @@
-from test.base_cli_test import BaseCliTest
 from mock import patch
-from test import mock_functions
+import mock_functions
+from base_cli_test import BaseCliTest
 
 class TestSystemHealth(BaseCliTest):
     '''

@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 
 from utils.converters.volume.snapshot_converter import SnapshotConverter
+from model.fds_error import FdsError
 
 class SnapshotService( AbstractService ):
 
@@ -24,7 +25,7 @@ class SnapshotService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/", an_id )
         response = self.rest_helper.get( self.session, url )
         
-        if response is None:
+        if isinstance(response, FdsError):
             return
         
         snapshot = SnapshotConverter.build_snapshot_from_json( response )

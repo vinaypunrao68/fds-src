@@ -6,6 +6,7 @@ Created on Apr 3, 2015
 import requests
 import json
 import response_writer
+from model.fds_error import FdsError
 
 class RESTHelper():
     
@@ -39,14 +40,14 @@ class RESTHelper():
         
         print err_message
         
-        return
+        return error
             
     def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         response = requests.post( url, data=data, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
+            return FdsError( error=response )
         
         rj = response.json()
         return rj
@@ -56,7 +57,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
+            return FdsError( error=response )
         
         rj = response.json()
         return rj    
@@ -67,7 +68,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
+            return FdsError( error=response )
         
         rj = response.json()
         return rj
@@ -78,7 +79,7 @@ class RESTHelper():
         
         if ( response.ok is False ):
             failureCallback( self, response )
-            return
+            return FdsError( error=response )
         
         rj = response.json()
         return rj
