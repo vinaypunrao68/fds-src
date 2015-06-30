@@ -149,7 +149,7 @@ void FdsTimer::destroy()
 bool FdsTimer::cancel(const FdsTimerTaskPtr& task)
 {
     {
-        fds_spinlock::scoped_lock l(task->lock_);
+        fds_mutex::scoped_lock l(task->lock_);
         if (!task->scheduled_) {
             return false;
         }
