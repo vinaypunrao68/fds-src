@@ -71,7 +71,7 @@ run_(const KeyT &k, const SynchronizedTaskExecutor::TaskT &task)
 
             (*taskP)();
 
-            fds_scoped_lock l(lock_);
+            fds_scoped_spinlock l(lock_);
             sameIdTasks.pop_front();
             if (sameIdTasks.size() == 0) {
                 /* No more tasks with same id left.  Exit */
