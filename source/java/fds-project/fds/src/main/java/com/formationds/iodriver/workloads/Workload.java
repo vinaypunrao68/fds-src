@@ -22,7 +22,7 @@ import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 
 /**
@@ -94,7 +94,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(EndpointT endpoint, WorkflowEventListener listener)
+    public final void runOn(EndpointT endpoint, AbstractWorkflowEventListener listener)
             throws ExecutionException
     // @eclipseFormat:on
     {
@@ -196,7 +196,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      */
     // @eclipseFormat:off
     public final void setUp(EndpointT endpoint,
-                            WorkflowEventListener listener) throws ExecutionException
+                            AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -222,7 +222,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      */
     // @eclipseFormat:off
     public final void tearDown(EndpointT endpoint,
-                               WorkflowEventListener listener) throws ExecutionException
+                               AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");

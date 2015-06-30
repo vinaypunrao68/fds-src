@@ -11,6 +11,7 @@ import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
+import com.formationds.iodriver.reporters.NullWorkflowEventListener;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.S3Workload;
@@ -126,7 +127,12 @@ public final class Main
                                                        workload,
                                                        listener,
                                                        validator);
+            
+            driver.setListener(new NullWorkflowEventListener());
             driver.runWorkload();
+            driver.setListener(listener);
+            driver.runWorkload();
+            
             int result = driver.getResult();
 
             return result;

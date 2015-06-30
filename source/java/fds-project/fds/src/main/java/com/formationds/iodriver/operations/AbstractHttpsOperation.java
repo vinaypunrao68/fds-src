@@ -6,6 +6,7 @@ import javax.net.ssl.HttpsURLConnection;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.AbstractHttpsEndpoint;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 /**
@@ -22,7 +23,8 @@ extends AbstractHttpOperation<ThisT, EndpointT>
 // @eclipseFormat:on
 {
     @Override
-    public void accept(EndpointT endpoint, WorkflowEventListener listener) throws ExecutionException
+    public void accept(EndpointT endpoint,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
@@ -41,12 +43,12 @@ extends AbstractHttpOperation<ThisT, EndpointT>
      */
     public abstract void exec(EndpointT endpoint,
                               HttpsURLConnection connection,
-                              WorkflowEventListener reporter) throws ExecutionException;
+                              AbstractWorkflowEventListener reporter) throws ExecutionException;
 
     @Override
     public final void exec(EndpointT endpoint,
                            HttpURLConnection connection,
-                           WorkflowEventListener reporter) throws ExecutionException
+                           AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

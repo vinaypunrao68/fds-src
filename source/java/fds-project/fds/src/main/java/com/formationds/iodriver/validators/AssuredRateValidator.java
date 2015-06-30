@@ -6,13 +6,13 @@ import java.time.Instant;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
-import com.formationds.iodriver.reporters.WorkflowEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQosStats;
 
 public class AssuredRateValidator implements Validator
 {
     @Override
-    public boolean isValid(WorkflowEventListener listener)
+    public boolean isValid(AbstractWorkflowEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
         

@@ -24,7 +24,7 @@ import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.AbstractHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Basic HTTP endpoint.
@@ -77,7 +77,7 @@ extends Endpoint<ThisT, OperationT>
     @Override
     // @eclipseFormat:off
     public void doVisit(OperationT operation,
-                        WorkflowEventListener listener) throws ExecutionException
+                        AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
@@ -96,7 +96,7 @@ extends Endpoint<ThisT, OperationT>
      */
     // @eclipseFormat:off
     public void visit(OperationT operation,
-                      WorkflowEventListener listener) throws ExecutionException
+                      AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");

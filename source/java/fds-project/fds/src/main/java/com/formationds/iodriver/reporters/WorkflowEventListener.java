@@ -11,7 +11,6 @@ import java.util.Set;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.Strings;
-import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
 /**
@@ -19,59 +18,8 @@ import com.formationds.iodriver.model.VolumeQosSettings;
  * 
  * Gathers statistics from those events. Passes on events to multiple consumers.
  */
-public final class WorkflowEventListener
+public final class WorkflowEventListener extends AbstractWorkflowEventListener
 {
-    /**
-     * QoS statistics used by this class.
-     */
-    public final static class VolumeQosStats
-    {
-        /**
-         * QoS parameters.
-         */
-        public final VolumeQosSettings params;
-
-        /**
-         * Workload statistics.
-         */
-        public final VolumeQosPerformance performance;
-
-        /**
-         * Constructor.
-         * 
-         * @param params QoS parameters.
-         */
-        public VolumeQosStats(VolumeQosSettings params)
-        {
-            this(params, new VolumeQosPerformance());
-        }
-
-        /**
-         * Duplicate this object.
-         * 
-         * @return A deep copy of this object.
-         */
-        public VolumeQosStats copy()
-        {
-            return new VolumeQosStats(params.copy(), performance.copy());
-        }
-
-        /**
-         * Constructor.
-         * 
-         * @param params QoS parameters.
-         * @param performance Workload statistics.
-         */
-        private VolumeQosStats(VolumeQosSettings params, VolumeQosPerformance performance)
-        {
-            if (params == null) throw new NullArgumentException("params");
-            if (performance == null) throw new NullArgumentException("performance");
-
-            this.params = params;
-            this.performance = performance;
-        }
-    }
-
     /**
      * Notifies when the workload is finished running.
      */
@@ -132,12 +80,7 @@ public final class WorkflowEventListener
         volumeAdded = new Subject<>();
     }
 
-    /**
-     * Call when the workload adds a volume.
-     * 
-     * @param name The volume name.
-     * @param params The volume's QoS parameters.
-     */
+    @Override
     public void addVolume(String name, VolumeQosSettings params)
     {
         if (name == null) throw new NullArgumentException("name");
@@ -152,7 +95,7 @@ public final class WorkflowEventListener
 
         volumeAdded.send(new SimpleEntry<>(name, params));
     }
-
+    
     /**
      * Call when the workload is completely done.
      */
@@ -184,14 +127,7 @@ public final class WorkflowEventListener
         return stats.performance.getStart();
     }
 
-    /**
-     * Get the statistics for a given volume.
-     * 
-     * @param volume The name of the volume to look up.
-     * 
-     * @return The current statistics for the volume. These may not be complete if the workload has
-     *         not finished.
-     */
+    @Override
     public VolumeQosStats getStats(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -217,11 +153,7 @@ public final class WorkflowEventListener
         return stats.performance.getStop();
     }
 
-    /**
-     * Get the names of all volumes that have been reported to this listener.
-     * 
-     * @return A set of unique volume names.
-     */
+    @Override
     public Set<String> getVolumes()
     {
         return new HashSet<>(_volumeOps.keySet());
@@ -239,12 +171,7 @@ public final class WorkflowEventListener
         reportIo(volume, 1);
     }
 
-    /**
-     * Call when an I/O operation occurs and the number of I/Os must be specified.
-     * 
-     * @param volume The volume that received the I/O.
-     * @param count The number of I/Os sent.
-     */
+    @Override
     public void reportIo(String volume, int count)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -254,12 +181,7 @@ public final class WorkflowEventListener
         stats.performance.addOps(count);
     }
 
-    /**
-     * Call when the main body of a workload is starting. Must not be called more than once for a
-     * given volume.
-     * 
-     * @param volume The volume name.
-     */
+    @Override
     public void reportStart(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -270,13 +192,7 @@ public final class WorkflowEventListener
         started.send(new SimpleEntry<>(volume, start));
     }
 
-    /**
-     * Call when the main body of a workload is finishing. Must not be called prior to
-     * {@link #reportStart(String)} for {@code volume}, and must not be called more than once for a
-     * given volume.
-     * 
-     * @param volume The volume name.
-     */
+    @Override
     public void reportStop(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");

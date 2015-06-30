@@ -15,7 +15,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Get the QoS settings for a volume.
@@ -40,7 +40,7 @@ public final class StatVolume extends OrchestrationManagerOperation
     @Override
     public void exec(OrchestrationManagerEndpoint endpoint,
                      HttpsURLConnection connection,
-                     WorkflowEventListener reporter) throws ExecutionException
+                     AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

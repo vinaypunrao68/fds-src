@@ -8,7 +8,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Get the stats for the volume backing an S3 bucket.
@@ -33,7 +33,7 @@ public final class StatBucketVolume extends S3Operation
     // @eclipseFormat:off
     public void exec(S3Endpoint endpoint,
                      AmazonS3Client client,
-                     WorkflowEventListener listener) throws ExecutionException
+                     AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");

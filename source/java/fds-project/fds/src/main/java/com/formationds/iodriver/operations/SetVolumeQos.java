@@ -13,7 +13,7 @@ import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Set the QoS parameters on a volume.
@@ -35,19 +35,13 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
     @Override
     public void exec(OrchestrationManagerEndpoint endpoint,
                      HttpsURLConnection connection,
-                     WorkflowEventListener reporter) throws ExecutionException
+                     AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
         if (reporter == null) throw new NullArgumentException("reporter");
 
         JSONObject request = new JSONObject();
-//        JSONObject qosPolicy = new JSONObject();
-//        request.put("qosPolicy", qosPolicy);
-//        qosPolicy.put("priority", _input.getPriority());
-//        qosPolicy.put("iopsMin", _input.getIopsAssured());
-//        qosPolicy.put("iopsMax", _input.getIopsThrottle());
-        
         request.put("sla", _input.getIopsAssured());
         request.put("priority", _input.getPriority());
         request.put("limit", _input.getIopsThrottle());
