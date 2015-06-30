@@ -4,19 +4,10 @@
  */
 package com.formationds.om;
 
-import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
-import com.formationds.apis.SnapshotPolicy;
-import com.formationds.apis.StreamingRegistrationMsg;
-import com.formationds.apis.Tenant;
-import com.formationds.apis.User;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
-import com.formationds.om.events.OmEvents;
-import com.formationds.apis.FDSP_ModifyVolType;
-import com.formationds.apis.FDSP_GetVolInfoReqType;
 import com.formationds.om.events.EventManager;
+import com.formationds.om.events.OmEvents;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
@@ -25,15 +16,10 @@ import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -167,10 +153,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     private Iface getConfig() {
         return configClientFactory.getClient();
-    }
-
-    public static String systemFolderName(long tenantId) {
-        return "SYSTEM_VOLUME_" + tenantId;
     }
 
     @Override
@@ -761,6 +743,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         getConfig().createSnapshot(volumeId, snapshotName, retentionTime, timelineTime);
         // TODO: is there a generated snapshot id?
         EventManager.notifyEvent(OmEvents.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime);
+    }
+
+    @Override
+    public void deleteSnapshot(long volumeId, long snapshotId)
+        throws TException {
+        getConfig().deleteSnapshot(volumeId, snapshotId);
     }
 
     @Override

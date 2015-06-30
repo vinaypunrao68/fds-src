@@ -110,7 +110,7 @@ NbdConnection::NbdConnection(int clientsd,
 }
 
 NbdConnection::~NbdConnection() {
-    LOGDEBUG << "NbdConnection going adios!";
+    LOGNORMAL << "NBD client disconnected for " << clientSocket;
     asyncWatcher->stop();
     ioWatcher->stop();
     shutdown(clientSocket, SHUT_RDWR);
@@ -545,6 +545,10 @@ template<typename D>
 bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
 {
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
+    // If we've nothing to read, done
+    fds_assert(0 != len); // Know about this in DEBUG...logic error?
+    if (0 == len) return true;
+
     ssize_t nread = read_from_socket(fd, data, off, len);
     if (0 > nread) {
         switch (0 > nread ? errno : EPIPE) {

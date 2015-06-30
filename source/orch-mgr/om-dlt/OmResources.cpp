@@ -1560,9 +1560,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     try
     {
         /*
-        * TODO(OM team): This registration should be handled in synchronized manner (single thread
-        * handling is better) to avoid race conditions.
-        */
+         * TODO(OM team): This registration should be handled in synchronized 
+         * manner (single thread handling is better) to avoid race conditions.
+         */
 
         LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
 
@@ -1581,28 +1581,38 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             /*
              * FS-1587 Tinius
              */
-            if ( isKnownPM( *svcInfo ) && isPlatformSvc( *svcInfo ) )
+            if ( isPlatformSvc( *svcInfo ) )
             {
-                LOGDEBUG << "Found well known platform service UUID ( "
-                         << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec
-                         << " ), telling the platformd which services to start";
+                if ( isKnownPM( *svcInfo ) )
+                {
+                    LOGDEBUG << "Found well known platform service UUID ( "
+                             << std::hex 
+                             << svcInfo->svc_id.svc_uuid.svc_uuid 
+                             << std::dec
+                             << " ), telling the platformd which services to start";
 
-                 /*
-                  * delay the start of the scheduled thread.
-                  */
-                NodeUuid pmUuid;
-                pmUuid.uuid_set_type( (svcInfo->svc_id).svc_uuid.svc_uuid, fpi::FDSP_PLATFORM );
-                MODULEPROVIDER()->proc_thrpool()->schedule(
-                    &OM_NodeDomainMod::om_activate_known_services,
-                    this,
-                    pmUuid,
-                    3000 );
-            }
-            else
-            {
-                LOGDEBUG << "Platform Manager Service UUID ( "
-                         << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec
-                         << " ) is a new node.";
+                     /*
+                      * delay the start of the scheduled thread.
+                      */
+                    NodeUuid pmUuid;
+                    pmUuid.uuid_set_type( ( svcInfo->svc_id).svc_uuid.svc_uuid, 
+                                            fpi::FDSP_PLATFORM );
+                    MODULEPROVIDER()->proc_thrpool()->schedule(
+                        &OM_NodeDomainMod::om_activate_known_services,
+                        this,
+                        pmUuid,
+                        3000 );
+                }
+                else
+                {
+                    LOGDEBUG << "Platform Manager Service UUID ( "
+                             << std::hex 
+                             << svcInfo->svc_id.svc_uuid.svc_uuid 
+                             << std::dec
+                             << " ) is a new node.";
+                    
+                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                }
             }
             /*
              * FS-1587 Tinius
@@ -1768,7 +1778,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // registered with OM and node must be in active state
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
             bool fAllowReRegistration = MODULEPROVIDER()->get_fds_config()->get<bool>
-                    ("fds.feature_toggle.om.allow_service_reregistration",false);
+                    ("fds.feature_toggle.om.allow_service_reregistration", true);
             if (pmNodes->hasRegistered(msg) && fAllowReRegistration) {
                 fPrevRegistered = true;
                 LOGDEBUG << "re registration : " << msg->service_uuid.uuid;
@@ -1798,8 +1808,14 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         /**
          * schedule the broadcast with a 3s delay.
          */
-        MODULEPROVIDER()->proc_thrpool()->schedule(&OM_NodeDomainMod::setupNewNode,
-                                                   this, uuid, msg, newNode, 3000, fPrevRegistered);
+        MODULEPROVIDER()->proc_thrpool()->schedule(
+            &OM_NodeDomainMod::setupNewNode,
+            this, 
+            uuid, 
+            msg, 
+            newNode, 
+            3000, 
+            fPrevRegistered );
     }
     return err;
 }
@@ -1847,7 +1863,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
         om_locDomain->om_bcast_new_node(newNode, msg);
 
-        if (fpi::FDSP_CONSOLE == msg->node_type || fpi::FDSP_TEST_APP == msg->node_type) {
+        if ( fpi::FDSP_CONSOLE == msg->node_type || 
+             fpi::FDSP_TEST_APP == msg->node_type ) {
             return;
         }
 

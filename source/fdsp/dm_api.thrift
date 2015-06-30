@@ -573,13 +573,34 @@ struct ReloadVolumeRspMsg {
 
 /**
  * current versions of the blobs on a given volume held by the sender DM
- * used to initial static DM migration/resync
+ * - used to initiate static DM migration/resync
+ * - sent from sync destination to sync source.
  */
-struct InitialBlobFilterSetMsg {
-  // the volume in question
-  1: i64                          volume_id;
-  // the list of blobs held and the sequence id of the most recent write to each blob
-  2: list<dm_types.BlobFilterSetEntry>           blob_filter_set;
+struct ResyncInitialBlobFilterSetMsg {
+  /** the volume in question */
+  1: i64                volumeId;
+  /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
+      order, since it uses std::map<>.
+      map<blob ID, sequence number> */
+  2: map<i64, i64>      blobFilterMap;
+}
+
+/**
+ * 1st Response Message for ResyncInitialBlobFilterSetMsg
+ */
+struct ResyncUpdateBlobsMsg {
+  /** levelDB key-value pairs for insertion to the reciever.
+      list should be sorted to ensure blob descriptor is written after the object mappings */
+  1: dm_types.FDSP_MetaDataList          pairs;
+}
+
+/**
+ * 2nd Response Message for ResyncInitialBlobFilterSetMsg
+ */
+struct ResyncDeleteBlobsMsg {
+  /** A list of blob ids that exist on the receiver (sync destination) but not the
+      sender (sync source). These blobs should be deleted by the receiver. */
+  1: list<i64> blob_list;
 }
 
 /* ------------------------------------------------------------

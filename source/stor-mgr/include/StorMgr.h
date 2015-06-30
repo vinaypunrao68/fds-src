@@ -327,6 +327,15 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void setTestDlt(DLT* dlt) {
          standaloneTestDlt = dlt;
      }
+    /**
+     * Used for disk capacity tracking
+     */
+
+    // Tracks the number of time collect sample stats has run, to enable capacity tracking every N runs
+    fds_uint8_t sampleCounter;
+    // Track when the last message was sent
+    float_t lastCapacityMessageSentAt;
+
 };
 
 }  // namespace fds

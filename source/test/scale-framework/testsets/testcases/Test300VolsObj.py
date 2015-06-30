@@ -94,7 +94,7 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
         Undo it.
         '''
         for bucket in self.buckets:
-            self.block_volume.delete_block_volume(bucket)
+            self.block_volume.delete_volume(bucket)
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
