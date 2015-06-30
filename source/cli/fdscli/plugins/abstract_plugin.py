@@ -60,6 +60,8 @@ class AbstractPlugin( object ):
     start_str = "start"
     end_str = "end"
     points_str = "points"
+    most_recent_str = "most_recent"
+    size_for_value_str = "size_for_value"
 
     def __init__(self, session):
         self.__session = session

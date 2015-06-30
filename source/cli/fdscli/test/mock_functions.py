@@ -9,6 +9,14 @@ from model.admin.user import User
 from model.admin.tenant import Tenant
 from model.volume.data_protection_policy_preset import DataProtectionPolicyPreset
 from model.platform.address import Address
+from model.health.system_health import SystemHealth
+from model.health.health_record import HealthRecord
+from model.health.health_state import HealthState
+from model.health.health_category import HealthCategory
+from model.statistics.statistics import Statistics
+from model.statistics.series import Series
+from model.statistics.datapoint import Datapoint
+from model.statistics.calculated import Calculated
 
 '''
 Created on Apr 22, 2015
@@ -252,3 +260,33 @@ def whoami():
     user.username = "me"
     user.id = 100
     return user
+
+def getSystemHealth():
+    health = SystemHealth()
+    cap = HealthRecord(state=HealthState.BAD,category=HealthCategory.CAPACITY,message="l_capacity_bad_rate")
+    serv = HealthRecord(state=HealthState.GOOD,category=HealthCategory.SERVICES,message="l_services_good")
+    fb = HealthRecord(state=HealthState.GOOD,category=HealthCategory.FIREBREAK,message="l_firebreak_good")
+    
+    health.health_records.append( cap )
+    health.health_records.append( serv )
+    health.health_records.append( fb )
+    
+    health.overall_health = HealthState.MARGINAL
+    
+    return health
+
+def fakeStats( query ):
+    
+    stats = Statistics()
+    series = Series()
+    
+    series.context = Volume( an_id=1,name="TestVol" )
+    series.type = "GETS"
+    series.datapoints.append( Datapoint(x=0, y=1) )
+    series.datapoints.append( Datapoint(x=20, y=100) )
+    
+    stats.series_list.append( series )
+    
+    stats.calculated_values.append( Calculated(key="total", value=3000 ) )
+    
+    return stats

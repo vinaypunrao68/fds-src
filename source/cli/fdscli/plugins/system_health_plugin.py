@@ -1,18 +1,22 @@
-import abstract_plugin
-
-'''
-Created on Apr 13, 2015
-
-A plugin to gather the system health data and set the parsing up 
-for that operation
-
-@author: nate
-'''
+from abstract_plugin import AbstractPlugin
 from services.stats_service import StatsService
-class SystemHealthPlugin( abstract_plugin.AbstractPlugin):
+from utils.converters.health.system_health_converter import SystemHealthConverter
+from services.response_writer import ResponseWriter
+import json
+from model.health.health_state import HealthState
+
+class SystemHealthPlugin( AbstractPlugin):
+    '''
+    Created on Apr 13, 2015
+    
+    A plugin to gather the system health data and set the parsing up 
+    for that operation
+    
+    @author: nate
+    '''
     
     def __init__(self, session):
-        abstract_plugin.AbstractPlugin.__init__(self, session)    
+        AbstractPlugin.__init__(self, session)    
     
     '''
     @see: AbstractPlugin
@@ -43,5 +47,17 @@ class SystemHealthPlugin( abstract_plugin.AbstractPlugin):
         '''
         health = self.get_stat_service().get_system_health_report()
         
-        
+        if AbstractPlugin.format_str in args and args[AbstractPlugin.format_str] == "json":
+            j_str = SystemHealthConverter.to_json(health)
+            j_str = json.loads(j_str)
+            
+            ResponseWriter.writeJson(j_str)
+        else:
+            t_data = ResponseWriter.prep_system_health_for_table(health)
+            ResponseWriter.writeTabularData(t_data)
+            
+            for record in health.health_records:
+                print record.category + ": " + HealthState.MESSAGES[record.message]
+                
+            print ""
         
