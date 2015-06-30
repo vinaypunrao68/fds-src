@@ -26,7 +26,7 @@ extern "C" {
 
 #define COMMITLOG_GET(_volId_, _commitLog_)                             \
     do {                                                                \
-        fds_scoped_spinlock l(commitLogLock_);                          \
+        fds_scoped_lock l(commitLogLock_);                               \
         try {                                                           \
             _commitLog_ = commitLogs_.at(_volId_);                      \
         } catch(const std::out_of_range &oor) {                         \
@@ -113,7 +113,7 @@ void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
-    fds_scoped_spinlock l(commitLogLock_);
+    fds_scoped_lock l(commitLogLock_);
     commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
                                                                    voldesc.maxObjSizeInBytes);
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
@@ -296,7 +296,7 @@ Error
 DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
     Error err = volcat->deleteEmptyCatalog(volId);
     if (err.ok()) {
-        fds_scoped_spinlock l(commitLogLock_);
+        fds_scoped_lock l(commitLogLock_);
         if (commitLogs_.count(volId) > 0) {
             // found commit log
             commitLogs_.erase(volId);
@@ -655,7 +655,7 @@ void DmTimeVolCatalog::monitorLogs() {
         // get the list of volumes in the system
         std::vector<fds_volid_t> vecVolIds;
         {
-            fds_scoped_spinlock l(commitLogLock_);
+            fds_scoped_lock l(commitLogLock_);
             vecVolIds.reserve(commitLogs_.size());
             for (const auto& item : commitLogs_) {
                 vecVolIds.push_back(item.first);

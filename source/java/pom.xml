@@ -118,19 +118,19 @@
     <module>fds-project</module>
   </modules>
 
-  <distributionManagement>
-    <repository>
-      <id>release</id>
-      <name>artifacts-releases</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </repository>
-    <snapshotRepository>
-      <id>snapshot</id>
-      <name>artifacts-snapshots</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </snapshotRepository>
-  </distributionManagement>
-  
+  <!--<distributionManagement>-->
+    <!--<repository>-->
+      <!--<id>release</id>-->
+      <!--<name>artifacts-releases</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</repository>-->
+    <!--<snapshotRepository>-->
+      <!--<id>snapshot</id>-->
+      <!--<name>artifacts-snapshots</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</snapshotRepository>-->
+  <!--</distributionManagement>-->
+
   <pluginRepositories>
     <pluginRepository>
       <id>thrift-plugin</id>
@@ -146,17 +146,17 @@
     -->
 
     <!-- Formation Data System, INC. maven repo -->
-    <repository>
-      <id>release</id>
-      <name>artifacts-releases</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </repository>
+    <!--<repository>-->
+      <!--<id>release</id>-->
+      <!--<name>artifacts-releases</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</repository>-->
 
-    <repository>
-      <id>snapshot</id>
-      <name>artifacts-snapshots</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </repository>
+    <!--<repository>-->
+      <!--<id>snapshot</id>-->
+      <!--<name>artifacts-snapshots</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</repository>-->
 
     <repository>
       <id>central</id>

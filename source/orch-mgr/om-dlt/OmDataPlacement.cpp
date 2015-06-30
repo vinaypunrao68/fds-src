@@ -487,7 +487,7 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     Error err(ERR_OK);
 
     if (commitedDlt) {
-        err = checkDltValid(commitedDlt, sm_services);
+        err = commitedDlt->verify(sm_services);
         if (err.ok()) {
             LOGDEBUG << "DLT is valid!";
             // but we must not have any target DLT at this point
@@ -534,7 +534,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
             // check if DLT is valid with respect to nodes
             // i.e. only contains node uuis that are in nodes' set
             // does not contain any zeroes, etc.
-            err = checkDltValid(dlt, sm_services);
+            err = dlt->verify(sm_services);
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
                 // we will set newDLT because we don't know yet if
@@ -595,49 +595,4 @@ void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
     this->configDB = configDB;
 }
 
-//
-// Checks if DLT matches the set of given nodes:
-// -- DLT must not contain any uuids that are not in nodes set
-// -- DLT should not have any cells with 0
-// -- nodes in each DLT column must be unique
-//
-Error DataPlacement::checkDltValid(const DLT* dlt,
-                                   const NodeUuidSet& sm_services) {
-    Error err(ERR_OK);
-    fds_uint32_t col_depth = dlt->getDepth();
-    fds_uint32_t num_tokens = dlt->getNumTokens();
-
-    // we should not have more rows than nodes
-    if (col_depth > sm_services.size()) {
-        LOGERROR << "DLT has more rows (" << col_depth
-                 << ") than nodes (" << sm_services.size() << ")";
-        return Error(ERR_INVALID_DLT);
-    }
-
-    // check each column in DLT
-    NodeUuidSet col_set;
-    for (fds_token_id i = 0; i < num_tokens; ++i) {
-        col_set.clear();
-        DltTokenGroupPtr column = dlt->getNodes(i);
-        for (fds_uint32_t j = 0; j < col_depth; ++j) {
-            NodeUuid cur_uuid = column->get(j);
-            if ((cur_uuid.uuid_get_val() == 0) ||
-                (sm_services.count(cur_uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
-                         << cur_uuid.uuid_get_val() << std::dec;
-                return Error(ERR_INVALID_DLT);
-            }
-            col_set.insert(cur_uuid);
-        }
-
-        // make sure that column contains all unique uuids
-        if (col_set.size() < col_depth) {
-            LOGERROR << "Found non-unique uuids in DLT column " << i;
-            return Error(ERR_INVALID_DLT);
-        }
-    }
-
-    return err;
-}
 }  // namespace fds

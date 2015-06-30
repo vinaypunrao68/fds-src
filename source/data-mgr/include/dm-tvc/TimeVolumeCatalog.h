@@ -33,7 +33,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     DataMgr& dataManager_;
 
     /* Lock around commit log */
-    fds_spinlock commitLogLock_;
+    fds_mutex commitLogLock_;
 
     /**
      * Log the manages recent and currently active
