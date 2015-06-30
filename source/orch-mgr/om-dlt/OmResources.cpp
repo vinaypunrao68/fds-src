@@ -1363,34 +1363,23 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) )
         {
             LOGDEBUG << "OM Restart, Found ( returned ) " 
-                     << pmSvcs.size() << " PMs.";
-            LOGDEBUG << "OM Restart, Found ( returned ) " 
-                     << amSvcs.size() << " AMs.";
-            LOGDEBUG << "OM Restart, Found ( returned ) " 
-                     << dmSvcs.size() << " DMs.";
-            LOGDEBUG << "OM Restart, Found ( returned ) " 
+                     << pmSvcs.size() << " PMs. "
+                     << amSvcs.size() << " AMs. "
+                     << dmSvcs.size() << " DMs. "
                      << smSvcs.size() << " SMs.";
     
-            /*
-             * restart of OM with local domains still active.
-             */
             LOGNOTIFY << "OM Restarted, while domains still active.";
             
-            /*
-             * spoof service registration, 
-             *  i.e. cluster map
-             *  i.e. populate containers
-             */
+            OM_Module *om = OM_Module::om_singleton();
+            DataPlacement *dp = om->om_dataplace_mod();
+            VolumePlacement* vp = om->om_volplace_mod();
+            dp->commitDlt();
+            vp->commitDMT();
+                        
             spoofRegisterSvcs( pmSvcs );
             spoofRegisterSvcs( smSvcs );
             spoofRegisterSvcs( dmSvcs );
             spoofRegisterSvcs( amSvcs );
-						
-						OM_Module *om = OM_Module::om_singleton();
-						DataPlacement *dp = om->om_dataplace_mod();
-						VolumePlacement* vp = om->om_volplace_mod();
-						dp->commitDlt();
-						vp->commitDMT();
             
             om_load_volumes();
             local_domain_event( NoPersistEvt( ) );
