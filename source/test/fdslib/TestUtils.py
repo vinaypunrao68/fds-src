@@ -20,7 +20,7 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
     #logging.basicConfig(level=log_level,
     #            format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
     #            datefmt='%Y-%m-%d %H:%M:%S')
-    log = logging.getLogger(logger_name)
+    log = logging.getLogger("")
     log.setLevel(log_level)
     logging.addLevelName(100, "REPORT")
 

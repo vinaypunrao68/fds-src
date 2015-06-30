@@ -108,7 +108,7 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
         port = config.FDS_REST_PORT
         try:
 
-		self.bv.create_block_volumes(1, volume_name, 100, 'GB')
+		self.bv.create_volumes(1, volume_name, "100", 'GB')
 		volume_name = "block_volume_ts1325_0"  #API appends _0 to volume name 
 
             	#create mount point
@@ -171,7 +171,7 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 		else:
 			test_passed=False
 		
-		if self.bv.delete_block_volume(volume_name) == True:
+		if self.bv.delete_volume(volume_name) == True:
 			self.log.info('Volume %s has been deleted' %volume_name)
 
 		else:

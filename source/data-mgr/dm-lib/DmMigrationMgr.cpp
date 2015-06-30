@@ -10,13 +10,13 @@
 
 namespace fds {
 
-DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
-    : DmReqHandler(DmReqHandle),
+DmMigrationMgr::DmMigrationMgr(DataMgr& _dataMgr)
+    : dataMgr(_dataMgr),
       OmStartMigrCb(NULL)
 {
+    // TODO(sean): Need start migration message callback.  Called when the migration completes or aborts.
 	migrState = MIGR_IDLE;
 	cleanUpInProgress = false;
-	migrationMsg = nullptr;
 }
 
 DmMigrationMgr::~DmMigrationMgr()
@@ -25,12 +25,9 @@ DmMigrationMgr::~DmMigrationMgr()
 }
 
 Error
-DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
-										const NodeUuid& mySvcUuid,
+DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 										fpi::FDSP_VolumeDescType &vol,
-										MigrationType& migrationType,
-										fds_uint64_t uniqueId,
-										fds_uint16_t instanaceNum)
+										MigrationType& migrationType)
 {
 	Error err(ERR_OK);
 
@@ -47,26 +44,28 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 		/**
 		 * Create a new instance of migration Executor
 		 */
-		LOGMIGRATE << "Creating migration instance for volume: " << vol.vol_name;
+		LOGMIGRATE << "Creating migration instance for volume id=: " << vol.volUUID
+                   << " name=" << vol.vol_name;
+
 		executorMap.emplace(fds_volid_t(vol.volUUID),
-				DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
-														srcDmUuid, mySvcUuid, vol,
-														std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
-																this, std::placeholders::_1,
-																std::placeholders::_2))));
+				            DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataMgr,
+														                            srcDmUuid,
+                                                                                    vol,
+														                            std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
+																                              this,
+                                                                                              std::placeholders::_1,
+																                              std::placeholders::_2))));
 	}
 	return err;
 }
 
 Error
-DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg)
+DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &migrationMsg)
 {
 	Error err(ERR_OK);
 
-	// localMigrationMsg = migrationMsg;
-	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
-	NodeUuid destSvcUuid;
-	migrationMsg = inMigrationMsg;
+	NodeUuid srcDmSvcUuid;
+
 	// TODO(Neil) fix this
 	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -80,20 +79,25 @@ DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigratio
 	}
 
 	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
-			vmg != migrationMsg->migrations.end(); vmg++) {
-		LOGMIGRATE << "DM MigrationMgr " << mySvcUuid.uuid_get_val()
-				<< "received migration group. Pull from node: " <<
-				vmg->source.svc_uuid << " the following volumes: ";
+		 vmg != migrationMsg->migrations.end();
+         ++vmg) {
+
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
-				vdt != vmg->VolDescriptors.end(); vdt++) {
-			LOGMIGRATE << "Volume ID: " << vdt->volUUID << " name: " << vdt->vol_name;
-			destSvcUuid.uuid_set_val(vmg->source.svc_uuid);
-			err = createMigrationExecutor(destSvcUuid, mySvcUuid,
-									*vdt, localMigrationType,
-									fds_uint64_t(vdt->volUUID),
-									fds_uint16_t(1));
+			 vdt != vmg->VolDescriptors.end();
+             ++vdt) {
+
+
+			srcDmSvcUuid.uuid_set_val(vmg->source.svc_uuid);
+
+            LOGMIGRATE << "Pull Volume ID: " << vdt->volUUID
+                       << " Name: " << vdt->vol_name
+                       << " from SrcDmSvcUuid: " << vmg->source.svc_uuid;
+
+			err = createMigrationExecutor(srcDmSvcUuid,
+                                          *vdt,
+									      localMigrationType);
 			if (!err.OK()) {
-				LOGMIGRATE << "Error creating migrating task";
+				LOGERROR << "Error creating migrating task.  err=" << err;
 				return err;
 			}
 		}
@@ -103,9 +107,9 @@ DmMigrationMgr::startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigratio
 	 * For now, execute one at a time. Improve this later.
 	 */
 	for (DmMigrationExecMap::iterator mit = executorMap.begin();
-			mit != executorMap.end(); mit++) {
-		migrationExecThrottle.getAccessToken();
-		mit->second->execute();
+		 mit != executorMap.end();
+         ++mit) {
+		mit->second->startMigration();
 		if (isMigrationAborted()) {
 			/**
 			 * Abort everything
@@ -123,7 +127,7 @@ DmMigrationMgr::activateStateMachine()
 	Error err(ERR_OK);
 
 	MigrationState expectedState(MIGR_IDLE);
-	fds_verify(migrationMsg != nullptr);
+
 	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IN_PROGRESS)) {
 		// If not ABORTED state, then something wrong with OM FSM sending this migration msg
 		fds_verify(isMigrationAborted());
@@ -148,14 +152,14 @@ DmMigrationMgr::activateStateMachine()
 }
 
 void
-DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result)
+DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 {
 	SCOPEDWRITE(migrExecutorLock);
 	MigrationState expectedState(MIGR_IN_PROGRESS);
 	/**
 	 * Make sure we can find it
 	 */
-	DmMigrationExecMap::iterator mapIter = executorMap.find(fds_volid_t(uniqueId));
+	DmMigrationExecMap::iterator mapIter = executorMap.find(volId);
 	fds_verify(mapIter != executorMap.end());
 
 	/**
@@ -164,17 +168,11 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &resu
 	if (!result.OK()) {
 		fds_verify(isMigrationInProgress() || isMigrationAborted());
 		fds_verify(std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED));
-		LOGERROR << "Volume ID# " << uniqueId << " failed migration with error: " << result;
+		LOGERROR << "Volume=" << volId << " failed migration with error: " << result;
 	} else {
 		/**
 		 * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
 		 */
-		/**
-		 * TODO(Neil):
-		 * This will be moved to the callback when source client finishes and
-		 * talks to the destination manager.
-		 */
-		migrationExecThrottle.returnAccessToken();
 	}
 }
 

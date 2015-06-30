@@ -44,14 +44,14 @@ NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>
 
     // return zeros for uninitialized objects, again a special *block*
     // semantic to PAD the read to the required length.
-    if (length > len) {
-        for (int64_t zero_data = length - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
+    fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+    if (len < (length + iOff)) {
+        for (int64_t zero_data = (length + iOff) - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
             bufVec.push_back(empty_buffer);
         }
     }
 
     // Trim the data as needed from the front...
-    fds_uint32_t iOff = offset % maxObjectSizeInBytes;
     auto firstObjLen = std::min(length, maxObjectSizeInBytes - iOff);
     if (maxObjectSizeInBytes != firstObjLen) {
         bufVec.front() = boost::make_shared<std::string>(bufVec.front()->data() + iOff, firstObjLen);
@@ -59,7 +59,8 @@ NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>
 
     // ...and the back
     if (length > firstObjLen) {
-        auto lastObjLen = length - firstObjLen - (bufVec.size()-2) * maxObjectSizeInBytes;
+        auto padding = (2 < bufVec.size()) ? (bufVec.size() - 2) * maxObjectSizeInBytes : 0;
+        auto lastObjLen = length - firstObjLen - padding;
         if (0 < lastObjLen && maxObjectSizeInBytes != lastObjLen) {
             bufVec.back() = boost::make_shared<std::string>(bufVec.back()->data(), lastObjLen);
         }
