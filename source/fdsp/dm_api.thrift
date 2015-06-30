@@ -505,7 +505,7 @@ struct CtrlNotifyDeltaBlobs {
   3: bool                    last_msg_seq_id;
   /* list of <offset, oid> in give volume 
    */
-  4: list<dm_types.DMMigrationiObjListDiff> blob_obj_list;
+  4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 

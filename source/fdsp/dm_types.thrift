@@ -143,7 +143,7 @@ struct DMBlobObjListDiff {
   2: common.FDS_ObjectIdType    obj_id;
 }
 
-struct DMMigrationiObjListDiff {
+struct DMMigrationObjListDiff {
   1: i64                        blob_id;
   2: list<DMBlobObjListDiff> blob_diff_list;
 }
