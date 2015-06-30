@@ -13,9 +13,17 @@ namespace fds
     // ------------------------------------------------------------------------------------
     // Disk Label Formater
     // ------------------------------------------------------------------------------------
-    DiskLabel::DiskLabel(PmDiskObj::pointer owner) : dl_link(this), dl_label(NULL),
-        dl_disk_uuids(NULL), dl_owner(owner)
+    DiskLabel::DiskLabel(PmDiskObj::pointer owner) : dl_link(this), dl_label(NULL), dl_disk_uuids(NULL), dl_owner(owner), m_conf(g_fdsprocess->get_conf_helper()), m_use_new_superblock(false)
     {
+        try
+        {
+            m_use_new_superblock = m_conf.get_abs<bool>("fds.feature_toggle.pm.use_new_superblock");
+            LOGDEBUG << "Use new superblock location:  " << m_use_new_superblock;
+        }
+        catch (fds::Exception e)
+        {
+            LOGDEBUG << e.what();
+        }
     }
 
     DiskLabel::~DiskLabel()
