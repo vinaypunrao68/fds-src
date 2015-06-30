@@ -381,7 +381,7 @@ namespace fds {
         void computeInitialDlt(const ClusterMap *curMap,
                                DLT *newDLT,
                                fds_uint32_t numPrimarySMs);
-        /// 'allSms' is ignored if numPrimarySMs == 0
+        /// 'nonFailedSms' must be same as 'allSMs" if numPrimarySMs == 0
         void fillEmptyCells(fds_uint64_t numTokens,
                             DLT *newDLT,
                             fds_uint32_t numPrimarySMs,

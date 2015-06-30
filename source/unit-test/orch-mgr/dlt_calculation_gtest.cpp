@@ -384,9 +384,7 @@ TEST(DltCalculation, compute_then_fail_2prim) {
                            << " num prim " << numPrimarySMs << ", non failed " << nonFailedCnt;
                 verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
             }
-        } else if (nonFailedCnt == 0) {
-            // newDlt must remain the same as dlt, since no non-failed services
-            // to rotate...
+        } else {
             EXPECT_TRUE(*dlt == *newDlt);
         }
 

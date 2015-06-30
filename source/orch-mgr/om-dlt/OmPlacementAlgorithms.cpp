@@ -702,6 +702,7 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
 
     // check if DLT update is valid
     NodeUuidSet rmNodes = currMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet addNodes = currMap->getAddedServices(fpi::FDSP_STOR_MGR);
     err = checkUpdateValid(currMap, currDlt, numPrimarySMs, rmNodes);
     if (!err.ok()) {
         LOGERROR << "DLT update is not valid " << err;
@@ -720,9 +721,13 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
         }
     }
 
-    // re-compute DLT without taking into account failed SMs
-    handleDltChange(currMap, currDlt, newDlt);
-    LOGDEBUG << "ConsistHash: Finished updating DLT (no failed SM part)";
+    // if there are no SM additions/deletions, do not re-shuffle, since
+    // we want resync due to failed services to be minimal
+    if ((rmNodes.size() > 0) || (addNodes.size() > 0)) {
+        // re-compute DLT without taking into account failed SMs
+        handleDltChange(currMap, currDlt, newDlt);
+        LOGDEBUG << "ConsistHash: Finished updating DLT (no failed SM part)";
+    }
 
     if (numPrimarySMs > 0) {
         // try not to have failed services as primaries
@@ -1182,7 +1187,8 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
             (numPrimarySMs >= col_depth)) {
             // we don't have enough non-failed SMs to place into primaries
             // just fill in cells with uuids independent whether they failed or not
-            fillEmptyCells(numTokens, newDLT, 0, nonFailedSms, emptySet);
+            fillEmptyCells(numTokens, newDLT, 0, curMap->getServiceUuids(fpi::FDSP_STOR_MGR),
+                           curMap->getServiceUuids(fpi::FDSP_STOR_MGR));
             return;
         }
 
@@ -1212,7 +1218,8 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
     }
 
     // Fill in the remaining rows
-    fillEmptyCells(numTokens, newDLT, 0, emptySet, emptySet);
+    fillEmptyCells(numTokens, newDLT, 0, curMap->getServiceUuids(fpi::FDSP_STOR_MGR),
+                   curMap->getServiceUuids(fpi::FDSP_STOR_MGR));
 }
 
 //
@@ -1278,7 +1285,8 @@ ConsistHashAlgorithm::fillEmptyCells(fds_uint64_t numTokens,
             // then find unique uuid by walking the ring
             cur_uuid = newDLT->getPrimary(ind);
             while ((col_set.count(cur_uuid) != 0) ||
-                   (cur_uuid.uuid_get_val() == 0)) {
+                   (cur_uuid.uuid_get_val() == 0) ||
+                   (nonFailedSms.count(cur_uuid) == 0)) {
                 ind = (ind + 1) % numTokens;
                 cur_uuid = newDLT->getPrimary(ind);
                 ++walkCount;
@@ -1296,9 +1304,6 @@ ConsistHashAlgorithm::fillEmptyCells(fds_uint64_t numTokens,
         }
         // case when numPrimarySMs > 0, fill in secondary empty slots with
         // uuids of failed or non-failed SMs
-        // note that above, since we are filling with UUIDs from primary row
-        // they are all 'non-failed', unless there are not enough non-failed
-        // SMs to fill in primary rows
         NodeUuidSet::const_iterator it = allSms.cbegin();
         while (col_set.size() < col_depth) {
             fds_verify(cur_row < col_depth);
