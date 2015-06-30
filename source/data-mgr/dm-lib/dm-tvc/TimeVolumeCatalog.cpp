@@ -644,7 +644,7 @@ void DmTimeVolCatalog::monitorLogs() {
                             fds_volid_t volId (std::atoll(d.c_str()));
                             TimeStamp startTime = 0;
                             dmGetCatJournalStartTime(volTLPath + f, &startTime);
-                            dataManager_.timeline->addJournalFile(volId, startTime, volTLPath + f);
+                            dataManager_.timelineMgr->getDB()->addJournalFile(volId, startTime, volTLPath + f);
                         } else {
                             LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
                                     << rc << "'";
@@ -682,7 +682,7 @@ void DmTimeVolCatalog::monitorLogs() {
 
         // now check for each volume if the commit log time has been exceeded
         TimeStamp now = fds::util::getTimeStampMicros();
-        std::vector<JournalFileInfo> vecJournalFiles;
+        std::vector<timeline::JournalFileInfo> vecJournalFiles;
         TimeStamp retention = 0;
         int rc;
         for (const auto& volid : vecVolIds) {
@@ -696,7 +696,7 @@ void DmTimeVolCatalog::monitorLogs() {
             // TODO(prem) : remove this soon
             bool fRemoveOldLogs = false;
             if (retention > 0 && fRemoveOldLogs) {
-                dataManager_.timeline->removeOldJournalFiles(volid,
+                dataManager_.timelineMgr->getDB()->removeOldJournalFiles(volid,
                                                              now - retention,
                                                              vecJournalFiles);
                 LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
@@ -796,9 +796,9 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
                                            util::TimeStamp fromTime,
                                            util::TimeStamp toTime) {
     Error err(ERR_INVALID);
-    std::vector<JournalFileInfo> vecJournalInfos;
+    std::vector<timeline::JournalFileInfo> vecJournalInfos;
     std::vector<std::string> journalFiles;
-    dataManager_.timeline->getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
+    dataManager_.timelineMgr->getDB()->getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
 
     journalFiles.reserve(vecJournalInfos.size());
     for (auto& item : vecJournalInfos) {

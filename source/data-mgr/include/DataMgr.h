@@ -43,18 +43,19 @@
 #include <functional>
 
 #include <dm-tvc/TimeVolumeCatalog.h>
-#include <dm-tvc/TimelineDB.h>
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
 
 #include <DmMigrationMgr.h>
 
 #include "util/ExecutionGate.h"
-
+#include <timeline/timelinemanager.h>
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
 #undef FDS_TEST_DM_NOOP
+
+
 
 namespace fds {
 
@@ -201,7 +202,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    boost::shared_ptr<TimelineDB> timeline;
+    boost::shared_ptr<timeline::TimelineManager> timelineMgr;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
