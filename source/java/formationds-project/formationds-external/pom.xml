@@ -10,7 +10,6 @@
     <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
     <version>2015.07.03-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <name>${formationds.external.project.name} Project POM</name>

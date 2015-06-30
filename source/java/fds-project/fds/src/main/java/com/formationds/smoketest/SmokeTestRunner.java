@@ -24,7 +24,6 @@ public class SmokeTestRunner {
     public SmokeTestRunner() {
         addClass(S3SmokeTest.class);
         addClass(HdfsSmokeTest.class);
-        addClass(SyncAmTest.class);
         addClass(AsyncAmTest.class);
         addClass(NfsTest.class);
     }

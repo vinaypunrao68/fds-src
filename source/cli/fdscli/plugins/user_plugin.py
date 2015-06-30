@@ -5,7 +5,6 @@ from services.users_service import UsersService
 from utils.converters.admin.user_converter import UserConverter
 import json
 from services.response_writer import ResponseWriter
-from collections import OrderedDict
 from model.admin.user import User
 
 class UserPlugin(AbstractPlugin):    

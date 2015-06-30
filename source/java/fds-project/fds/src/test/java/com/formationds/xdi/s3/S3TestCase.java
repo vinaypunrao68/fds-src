@@ -101,7 +101,7 @@ public class S3TestCase {
 
         config.createVolume("fds", "Volume1", new VolumeSettings(1024 * 4, VolumeType.BLOCK, new Size(20, SizeUnit.GB).totalBytes(),0,MediaPolicy.HDD_ONLY), 0);
         Thread.sleep(2000);
-        am.attachVolume("fds", "Volume1");
+     //   am.attachVolume("fds", "Volume1");
     }
 
     //@Test

@@ -577,10 +577,11 @@ struct ReloadVolumeRspMsg {
  */
 struct ResyncInitialBlobFilterSetMsg {
   /** the volume in question */
-  1: i64                          volume_id;
-  /** the list of blobs held and the sequence id of the most recent write to each blob
-      NOTE: list should be sorted by Blob ID */
-  2: list<dm_types.BlobFilterSetEntry>           blob_filter_set;
+  1: i64                volumeId;
+  /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
+      order, since it uses std::map<>.
+      map<blob ID, sequence number> */
+  2: map<i64, i64>      blobFilterMap;
 }
 struct ResyncInitialBlobFilterSetRspMsg {
 }

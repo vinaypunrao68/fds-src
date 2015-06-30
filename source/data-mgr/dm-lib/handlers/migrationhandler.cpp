@@ -29,6 +29,10 @@ void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 
     auto dmReq = new DmIoMigration(FdsDmSysTaskId, message);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationHandler::handleResponse, asyncHdr, message);
+    dmReq->localCb = std::bind(&DmMigrationHandler::handleResponseReal, this,
+    							std::placeholders::_1, std::placeholders::_2,
+								std::placeholders::_3, std::placeholders::_4);
+    dmReq->asyncHdrPtr = asyncHdr;
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIGRATION);
@@ -42,15 +46,23 @@ void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
     DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
 
     // Do some bookkeeping
+    helper.skipImplicitCb = true;
 
     // Talk to migration handler.
-    dataManager.dmMigrationMgr->startMigration(typedRequest->message);
-
-
+    dataManager.dmMigrationMgr->startMigration(dmRequest);
 }
 
 void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
+                                         Error const& e, dmCatReq* dmRequest)
+{
+	/**
+	 * Do nothing - this should be skipped as skipImplicitCb is set to true
+	 */
+}
+
+void DmMigrationHandler::handleResponseReal(fpi::AsyncHdrPtr& asyncHdr,
+                                         fpi::CtrlNotifyDMStartMigrationMsgPtr& message,
                                          Error const& e, dmCatReq* dmRequest) {
 
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
@@ -79,7 +91,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
-    fds_verify(dmReq->io_type == FDS_DM_RESYNCINITBLOB);
+    fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
 
     addToQueue(dmReq);
 

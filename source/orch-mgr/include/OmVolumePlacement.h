@@ -156,8 +156,12 @@ namespace fds {
          * Recompute DMT based on added/removed DMs in cluster map
          * The new DMT becomes a target DMT, which can be commited
          * via commitDMT()
+         * @return ERR_OK if new DMT was successfully computed and
+         *          target DMT is set to the newly computed DMT
+         *         ERR_NOT_READY if newly computed DMT is the same
+         *          as currently commited DMT
          */
-        void computeDMT(const ClusterMap* cmap);
+        Error computeDMT(const ClusterMap* cmap);
 
         /**
          * Start rebalance volume meta among DM nodes

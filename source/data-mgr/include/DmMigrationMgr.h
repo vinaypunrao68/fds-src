@@ -15,16 +15,17 @@ namespace fds {
 // Forward declaration
 class DmIoReqHandler;
 
-// callback for start migration ack back to OM.
-typedef std::function<void (const Error&)> OmStartMigrationCBType;
 
 class DmMigrationMgr {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr>;
+	// callback for start migration ack back to OM.
+	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
+			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
 
   public:
-    // explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
-    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
+    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
     ~DmMigrationMgr();
 
     /**
@@ -71,7 +72,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(fpi::CtrlNotifyDMStartMigrationMsgPtr &inMigrationMsg);
+    Error startMigration(dmCatReq* dmRequest);
 
     /**
      * Source side DM:
@@ -87,15 +88,22 @@ class DmMigrationMgr {
   private:
     DmIoReqHandler* DmReqHandler;
     fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
+    fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
+    dmCatReq* dmReqPtr = nullptr;
+    DataMgr& dataManager;
 
     /**
      * Throttles the number of max concurrent migrations
+     * Below are protected by migrExecutorLock.
      */
-    fds_uint32_t executorTokens;
+    fds_uint32_t maxTokens;
+    fds_uint32_t firedTokens;
+    // Bookmark for last fired executor
+    DmMigrationExecMap::iterator mit;
 
     /**
      * Destination side DM:
@@ -103,12 +111,10 @@ class DmMigrationMgr {
      * Returns ERR_OK if the executor instance was created successfully.
      * Uses the executorMap to store the created instances.
      */
-    Error createMigrationExecutor(NodeUuid& destDmUuid,
-									const NodeUuid& mySvcUuid,
-									fpi::FDSP_VolumeDescType &vol,
-									MigrationType& migrationType,
-									fds_uint64_t uniqueId = 0,
-									fds_uint16_t instanaceNum = 1);
+    Error createMigrationExecutor(const NodeUuid& srcDmUuid,
+							      fpi::FDSP_VolumeDescType &vol,
+							      MigrationType& migrationType,
+								  const fds_bool_t& autoIncrement = false);
 
     /**
      * Source side DM:
@@ -132,22 +138,13 @@ class DmMigrationMgr {
      * Destination side DM:
      * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
      */
-    std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr> executorMap;
+    DmMigrationExecMap executorMap;
 
     /**
      * Source side DM:
      * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
      */
-    std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr> clientMap;
-
-     // Ack back to DM start migration from the Destination DM to OM.
-    OmStartMigrationCBType OmStartMigrCb;
-
-    /**
-     * Destination side DM:
-     * Callback for migrationExecutor.
-     */
-    void migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result);
+    DmMigrationClientMap clientMap;
 
     /**
      * Source side DM:
@@ -155,44 +152,24 @@ class DmMigrationMgr {
      */
     void migrationClientDoneCb(fds_uint64_t uniqueId, const Error &result);
 
-
     /**
      * Destination side DM:
-     * Used to throttle the number of parallel ongoing DM Migrations
+     * Ack back to the OM saying migration is finished
      */
-    struct MigrationExecThrottle {
-    	MigrationExecThrottle() : max_tokens(1)
-    	{
-    		max_tokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
-    				get<int>("fds.dm..migration.max_migrations"));
-    	}
-		fds_uint32_t max_tokens;
-		std::mutex m;
-		std::condition_variable cv;
+    void ackMigrationComplete(const Error &status);
 
-    	/**
-    	 * Blocks until an access token is gotten
-    	 */
-    	void getAccessToken() {
-    		std::unique_lock<std::mutex> lk(m);
-    		while (max_tokens == 0) {
-    			cv.wait(lk);
-    		}
-    		fds_verify(max_tokens > 0);
-    		max_tokens--;
-    		lk.unlock();
-    	}
+	/*
+     * Ack back to DM start migration from the Destination DM to OM.
+     * This is called only when the migration completes or aborts.  The error
+     * stuffed in the asynchdr determines if the migration completed successfully or not.
+     */
+    OmStartMigrationCBType OmStartMigrCb;
 
-    	/**
-    	 * Returns a token and wakes up waiters
-    	 */
-    	void returnAccessToken() {
-    		std::unique_lock<std::mutex> lk(m);
-    		max_tokens++;
-    		cv.notify_all();
-    		lk.unlock();
-    	}
-    } migrationExecThrottle;
+    /**
+     * Callback for migrationExecutor. Not the callback from client.
+     */
+    void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
+
 };  // DmMigrationMgr
 
 }  // namespace fds

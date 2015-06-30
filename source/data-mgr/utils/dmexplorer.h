@@ -38,6 +38,8 @@ class DMExplorer : public FdsProcess {
 
     Error loadVolume(fds_volid_t volumeUuid);
     Error listBlobs(bool fStatsOnly = false);
+    Error listBlobsWithObject(std::string strObjId);
+
     void blobInfo(const std::string& blobname);
     void getVolumeIds(std::vector<fds_volid_t>& vecVolumes);
   private:

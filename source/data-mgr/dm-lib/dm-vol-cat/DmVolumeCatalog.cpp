@@ -374,7 +374,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
         // empty blob
         return rc;
     } else if (startOffset >= *blobSize) {
-        return ERR_CAT_ENTRY_NOT_FOUND;
+        return ERR_BLOB_OFFSET_INVALID;
     } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
     }
@@ -771,6 +771,11 @@ DmPersistVolCat::ptr DmVolumeCatalog::getVolume(fds_volid_t volId) {
 Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getLatestSequenceId(seq_id);
+}
+
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getAllBlobsWithSequenceId(blobsSeqId);
 }
 
 }  // namespace fds

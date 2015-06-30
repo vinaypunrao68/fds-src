@@ -103,7 +103,7 @@ class FDSCoroner(object):
             basename = os.path.basename(path)
             path_base = os.path.dirname(path)
             logging.info("Collecting %s" % path)
-            cmd = ["/bin/tar", "-C", path_base, "-czf",
+            cmd = ["/bin/tar", "-C", path_base, "-chzf",
                    mydir + '/' + basename + '.tar.gz', basename]
             subprocess.call(cmd)
 
@@ -115,7 +115,7 @@ class FDSCoroner(object):
         for path in paths:
             for file_path in glob.glob(path):
                 if os.path.exists(file_path):
-                    logging.debug("Copying %s to %s" % (file_path, mydir))
+                    logging.info("Copying %s to %s" % (file_path, mydir))
                     subprocess.call(['cp', file_path, mydir ])
 
     def collect_cmd(self, command, name=None):
@@ -232,6 +232,7 @@ def run_collect(opts):
     bodybag.collect_cmd(command='/bin/netstat -ni', name='netstat_interfaces')
     bodybag.collect_cmd(command='/bin/netstat -ns', name='netstat_stats')
     bodybag.collect_cmd(command='/sbin/fdisk -l', name='fdisk_list')
+    bodybag.collect_cmd(command='/bin/ls -l /corefiles', name='ls_corefiles')
     bodybag.collect_cmd(
         command='/opt/fds-deps/embedded/sbin/parted --list --script',
         name='parted'

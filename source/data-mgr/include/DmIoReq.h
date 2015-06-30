@@ -713,6 +713,9 @@ struct DmIoReloadVolume : dmCatReq {
 struct DmIoMigration : dmCatReq {
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationRspMsg> response;
+    std::function<void(fpi::AsyncHdrPtr&, fpi::CtrlNotifyDMStartMigrationMsgPtr&,
+    		const Error &e, dmCatReq *dmRequest)> localCb = NULL;
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdrPtr = NULL;
     explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
               response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
@@ -733,7 +736,7 @@ struct DmIoResyncInitialBlob : dmCatReq {
     		NodeUuid &_destNodeUuid)
             : message(msg),
               response(new fpi::ResyncInitialBlobFilterSetRspMsg()),
-              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNCINITBLOB),
+              dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNC_INIT_BLOB),
 			  destNodeUuid(_destNodeUuid) {
     }
 

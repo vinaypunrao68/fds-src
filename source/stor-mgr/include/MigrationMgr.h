@@ -471,7 +471,7 @@ class MigrationMgr {
     NodeUuid objStoreMgrUuid;
 
     /**
-     * Vector of requests (static). Equals to the number of tokens. 
+     * Vector of requests (static). Equals to the number of tokens.
      * TODO(matteo): it seems I cannot create this dynamically and destroy it
      * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
      * actually reused after it is popped out the QoS queue. Likely need more investigation
