@@ -623,12 +623,20 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     // Primary is responsible for persisting the latest seq number.
     // latest seq_number is provided to AM on volume open.
+    // XXX: (JLL) However, if we aren't the primary we can still become primary,
+    // so we should also set the SequenceId when we sync with the primary. And we
+    // should do the calculation if the primary fails over to us. but if we set it
+    // here, before failover, we could have a seq_id ahead of the primary.
+    // is this a problem?
     if (fPrimary) {
-        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid,
-                                                             volmeta->seq_id);
+        sequence_id_t seq_id;
+        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
         if (!err.ok()) {
+            LOGERROR << "failed to read persisted sequence id for vol: " << vol_uuid << " error: " << err;
             return err;
+        }else{
+            volmeta->setSequenceId(seq_id);
         }
     }
 

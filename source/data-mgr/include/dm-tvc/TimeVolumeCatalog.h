@@ -142,7 +142,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     Error openVolume(fds_volid_t const volId,
                      fds_int64_t& token,
-                     fpi::VolumeAccessMode const& mode);
+                     fpi::VolumeAccessMode const& mode,
+                     sequence_id_t& sequence_id);
 
     /**
      * Attempt to "close" this volume from a previous open
@@ -199,7 +200,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * to volume catalog.
      */
     Error setVolumeMetadata(fds_volid_t volId,
-                            const fpi::FDSP_MetaDataList &metadataList);
+                            const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
 
     /**
      * Starts a new transaction for blob
@@ -268,6 +270,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error commitBlobTx(fds_volid_t volId,
                        const std::string &blobName,
                        BlobTxId::const_ptr txDesc,
+                       sequence_id_t seq_id,
                        const DmTimeVolCatalog::CommitCb &commitCb);
 
     /**
@@ -299,6 +302,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                  blob_version_t blobVersion,
                                  const fpi::FDSP_BlobObjectList &objList,
                                  const fpi::FDSP_MetaDataList &metaList,
+                                 const sequence_id_t seq_id,
                                  const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
 
     /**
@@ -312,16 +316,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 			  const std::string &blobName,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
+                          sequence_id_t seq_id,
                           const DmTimeVolCatalog::CommitCb &cb);
 
     Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-            CommitLogTx::ptr commit_data);
+            sequence_id_t seq_id, CommitLogTx::ptr commit_data);
 
     void updateFwdBlobWork(fds_volid_t volId,
                            const std::string &blobName,
                            blob_version_t blobVersion,
                            const fpi::FDSP_BlobObjectList &objList,
                            const fpi::FDSP_MetaDataList &metaList,
+                           const sequence_id_t seq_id,
                            const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
     Error getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog);
 
