@@ -9,6 +9,7 @@ namespace fds {
 
 // Forward declaration.
 class DmIoReqHandler;
+class DataMgr;
 
 /**
  * Callback for once client is finished with migration.
@@ -19,11 +20,10 @@ typedef std::function<void (fds_uint64_t clientId,
 class DmMigrationClient {
   public:
     explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
+    		DataMgr& _dataMgr,
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
-			fds_volid_t& _volId,
-			// std::vector<fpi::BlobFilterSetEntry>& _filterSet,
-			std::vector<fpi::BlobFilterSetEntryPtr>& _filterSet,
+			fpi::ResyncInitialBlobFilterSetMsgPtr& _ribfsm,
 			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
 
@@ -31,6 +31,10 @@ class DmMigrationClient {
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
   private:
+    /**
+     * Reference to the Data Manager.
+     */
+    DataMgr& dataMgr;
     DmIoReqHandler* DmReqHandler;
 
     /**
@@ -39,9 +43,7 @@ class DmMigrationClient {
     NodeUuid mySvcUuid;
     NodeUuid destDmUuid;
     fds_volid_t volID;
-    // boost::shared_ptr <std::vector<fpi::BlobFilterSetEntry>> blob_filter_set;
-    // boost::shared_ptr <std::vector<fpi::BlobFilterSetEntryPtr>> blob_filter_set;
-    boost::shared_ptr<std::vector<fpi::BlobFilterSetEntryPtr>> blob_filter_set;
+    fpi::ResyncInitialBlobFilterSetMsgPtr& ribfsm;
 
     /**
      * Callback to talk to DM Migration Manager

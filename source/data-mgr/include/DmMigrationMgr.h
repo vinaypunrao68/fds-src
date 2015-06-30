@@ -25,7 +25,7 @@ class DmMigrationMgr {
 			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
 
   public:
-    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle);
+    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
     ~DmMigrationMgr();
 
     /**
@@ -94,12 +94,12 @@ class DmMigrationMgr {
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
     dmCatReq* dmReqPtr = nullptr;
+    DataMgr& dataManager;
 
     /**
      * Throttles the number of max concurrent migrations
      * Below are protected by migrExecutorLock.
      */
-    fds_uint32_t executorTokens;
     fds_uint32_t maxTokens;
     fds_uint32_t firedTokens;
     // Bookmark for last fired executor
@@ -111,12 +111,10 @@ class DmMigrationMgr {
      * Returns ERR_OK if the executor instance was created successfully.
      * Uses the executorMap to store the created instances.
      */
-    Error createMigrationExecutor(NodeUuid& destDmUuid,
-									const NodeUuid& mySvcUuid,
-									fpi::FDSP_VolumeDescType &vol,
-									MigrationType& migrationType,
-									fds_uint64_t uniqueId = 0,
-									const fds_bool_t& autoIncrement = false);
+    Error createMigrationExecutor(const NodeUuid& srcDmUuid,
+							      fpi::FDSP_VolumeDescType &vol,
+							      MigrationType& migrationType,
+								  const fds_bool_t& autoIncrement = false);
 
     /**
      * Source side DM:
@@ -149,17 +147,6 @@ class DmMigrationMgr {
     DmMigrationClientMap clientMap;
 
     /**
-     * Real callback from dest DM to OM to say "I'm done with migration completely"
-     */
-    OmStartMigrationCBType OmStartMigrCb;
-
-    /**
-     * Destination side DM:
-     * Callback for migrationExecutor.
-     */
-    void migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result);
-
-    /**
      * Source side DM:
      * Callback for migrationClient.
      */
@@ -170,6 +157,19 @@ class DmMigrationMgr {
      * Ack back to the OM saying migration is finished
      */
     void ackMigrationComplete(const Error &status);
+
+	/*
+     * Ack back to DM start migration from the Destination DM to OM.
+     * This is called only when the migration completes or aborts.  The error
+     * stuffed in the asynchdr determines if the migration completed successfully or not.
+     */
+    OmStartMigrationCBType OmStartMigrCb;
+
+    /**
+     * Callback for migrationExecutor. Not the callback from client.
+     */
+    void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
+
 };  // DmMigrationMgr
 
 }  // namespace fds

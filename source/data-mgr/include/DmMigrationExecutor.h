@@ -9,34 +9,36 @@ namespace fds {
 
 // Forward declaration.
 class DmIoReqHandler;
+class DataMgr;
 
 /**
  * 	Simple callback to ensure that firing off the migration msg was ok
  */
-typedef std::function<void (fds_uint64_t executorId,
-                            const Error& error)> DmMigrationExecutorDoneHandler;
+typedef std::function<void (fds_volid_t volumeId,
+                            const Error& error)> DmMigrationExecutorDoneCb;
 
 
 class DmMigrationExecutor {
   public:
-    explicit DmMigrationExecutor(DmIoReqHandler* DmReqHandle,
-    							 NodeUuid& srcDmUuid,
-								 const NodeUuid& mySvcUuid,
-								 fpi::FDSP_VolumeDescType& vol,
+    explicit DmMigrationExecutor(DataMgr& _dataMgr,
+    							 const NodeUuid& _srcDmUuid,
+								 fpi::FDSP_VolumeDescType& _volDesc,
 								 const fds_bool_t& _autoIncrement,
-								 DmMigrationExecutorDoneHandler handle);
+								 DmMigrationExecutorDoneCb _callback);
     ~DmMigrationExecutor();
+
+    typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
+    typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
 
     /**
      * Executes the specified executor and runs the callback once done.
      */
-    void execute();
+    Error startMigration();
 
-    // fpi::FDSP_VolumeDescType& getVolDesc();
-    boost::shared_ptr<fpi::FDSP_VolumeDescType> getVolDesc();
-
-    typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
-    typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
+    /**
+     * process initial filter set of blobs to be sent to the source DM.
+     */
+    Error processInitialBlobFilterSet();
 
     inline fds_bool_t shouldAutoExecuteNext()
     {
@@ -44,18 +46,27 @@ class DmMigrationExecutor {
     }
 
   private:
-    DmIoReqHandler* DmReqHandler;
-    /**
-     * Local copies of needed information to do migrations.
+    /** Reference to the DataManager
      */
-    boost::shared_ptr <NodeUuid> srcDmUuid;
-    boost::shared_ptr <NodeUuid> mySvcUuid;
-    boost::shared_ptr <fpi::FDSP_VolumeDescType> vol;
+    DataMgr& dataMgr;
+
+    /** Uuid of source DM
+     */
+    NodeUuid srcDmSvcUuid;
+
+    /** Cache the volume id for easy lookup.
+     */
+    fds_volid_t volumeUuid;
+
+    /**
+     * Volume descriptor owned by this executor.
+     */
+    VolumeDesc volDesc;
 
     /**
      * Callback to talk to DM Migration Manager
      */
-    DmMigrationExecutorDoneHandler migrDoneHandler;
+    DmMigrationExecutorDoneCb migrDoneCb;
 
     /**
      * Means that the callback above should now call the next executor

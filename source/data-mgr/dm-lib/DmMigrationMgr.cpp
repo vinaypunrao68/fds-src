@@ -8,10 +8,11 @@
 
 namespace fds {
 
-DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle)
-    : DmReqHandler(DmReqHandle), OmStartMigrCb(NULL), maxTokens(1),
-	  firedTokens(0), mit(NULL)
+DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
+    : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
+	  maxTokens(1), firedTokens(0), mit(NULL)
 {
+    // TODO(sean): Need start migration message callback.  Called when the migration completes or aborts.
 	migrState = MIGR_IDLE;
 	cleanUpInProgress = false;
 	migrationMsg = nullptr;
@@ -24,12 +25,11 @@ DmMigrationMgr::~DmMigrationMgr()
 
 }
 
+
 Error
-DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
-										const NodeUuid& mySvcUuid,
+DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 										fpi::FDSP_VolumeDescType &vol,
 										MigrationType& migrationType,
-										fds_uint64_t uniqueId,
 										const fds_bool_t& autoIncrement)
 {
 	Error err(ERR_OK);
@@ -47,13 +47,18 @@ DmMigrationMgr::createMigrationExecutor(NodeUuid& srcDmUuid,
 		/**
 		 * Create a new instance of migration Executor
 		 */
-		LOGMIGRATE << "Creating migration instance for volume: " << vol.vol_name;
+		LOGMIGRATE << "Creating migration instance for volume id=: " << vol.volUUID
+                   << " name=" << vol.vol_name;
+
 		executorMap.emplace(fds_volid_t(vol.volUUID),
-				DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(DmReqHandler,
-													srcDmUuid, mySvcUuid, vol, autoIncrement,
-													std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
-													this, std::placeholders::_1,
-													std::placeholders::_2))));
+				            DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataManager,
+														                            srcDmUuid,
+                                                                                    vol,
+																					autoIncrement,
+														                            std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
+																                              this,
+                                                                                              std::placeholders::_1,
+																                              std::placeholders::_2))));
 	}
 	return err;
 }
@@ -72,6 +77,8 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	asyncPtr = typedRequest->asyncHdrPtr;
 	fds_bool_t autoIncrement = false;
 	fds_bool_t loopFireNext = true;
+	NodeUuid srcDmSvcUuid;
+
 	// TODO(Neil) fix this
 	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -86,14 +93,11 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 
 	firedTokens = 0;
 	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
-			vmg != migrationMsg->migrations.end(); vmg++) {
-		LOGMIGRATE << "DM MigrationMgr " << mySvcUuid.uuid_get_val()
-				<< "received migration group. Pull from node: " <<
-				vmg->source.svc_uuid << " the following volumes: ";
+		 vmg != migrationMsg->migrations.end();
+         ++vmg) {
+
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
 				vdt != vmg->VolDescriptors.end(); vdt++) {
-			LOGMIGRATE << "Volume ID: " << vdt->volUUID << " name: " << vdt->vol_name;
-			destSvcUuid.uuid_set_val(vmg->source.svc_uuid);
 			/**
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
@@ -104,12 +108,18 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 				autoIncrement = true;
 				// from this point on, all the other executors must have autoIncrement == TRUE
 			}
-			err = createMigrationExecutor(destSvcUuid, mySvcUuid,
-									*vdt, localMigrationType,
-									fds_uint64_t(vdt->volUUID),
-									autoIncrement);
+			srcDmSvcUuid.uuid_set_val(vmg->source.svc_uuid);
+
+            LOGMIGRATE << "Pull Volume ID: " << vdt->volUUID
+                       << " Name: " << vdt->vol_name
+                       << " from SrcDmSvcUuid: " << vmg->source.svc_uuid;
+
+			err = createMigrationExecutor(srcDmSvcUuid,
+                                          *vdt,
+									      localMigrationType,
+										  autoIncrement);
 			if (!err.OK()) {
-				LOGMIGRATE << "Error creating migrating task";
+				LOGERROR << "Error creating migrating task.  err=" << err;
 				return err;
 			}
 		}
@@ -127,7 +137,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	mit = executorMap.begin();
 	while (loopFireNext && (mit != executorMap.end())) {
 		loopFireNext = !(mit->second->shouldAutoExecuteNext());
-		mit->second->execute();
+		mit->second->startMigration();
 		if (isMigrationAborted()) {
 			/**
 			 * Abort everything
@@ -154,17 +164,9 @@ DmMigrationMgr::startMigrationClient(fpi::ResyncInitialBlobFilterSetMsgPtr &migR
 	Error err(ERR_OK);
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
 	NodeUuid destDmUuid(_dest);
-	LOGMIGRATE << "received msg for volume " << migReqMsg->volume_id;
-	/**
-	 * DEBUG
-	 */
-	for (std::vector<fpi::BlobFilterSetEntry>::const_iterator iter = migReqMsg->blob_filter_set.begin();
-			iter != migReqMsg->blob_filter_set.end(); iter++) {
-		LOGMIGRATE << "NEIL DEBUG blob id" << iter->blob_id << " sequence " << iter->sequence_id;
-	}
-	/* END DEBUG */
+	LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
-	err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, migReqMsg->volume_id);
+	err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, migReqMsg->volumeId);
 
 	return err;
 }
@@ -181,31 +183,22 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 	 * Make sure that this isn't an ongoing operation.
 	 * Otherwise, DM bug
 	 */
-	auto search = clientMap.find(fds_volid_t(ribfsm->volume_id));
+	auto search = clientMap.find(fds_volid_t(ribfsm->volumeId));
 	if (search != clientMap.end()) {
-		LOGMIGRATE << "Client received request for volume " << ribfsm->volume_id
+		LOGMIGRATE << "Client received request for volume " << ribfsm->volumeId
 				<< " but it already exists";
 		err = ERR_DUPLICATE;
 	} else {
 		/**
-		 * Before creating a new instance of client, let's create a vector of corresponding
-		 * pointers to the blob_filter_set so we don't duplicate information.
-		 */
-		std::vector<fpi::BlobFilterSetEntryPtr> blobFilterSetPtrs;
-		for (auto i : ribfsm->blob_filter_set) {
-			blobFilterSetPtrs.emplace_back(boost::make_shared<fpi::BlobFilterSetEntry>(i));
-		}
-
-		/**
 		 * Create a new instance of client
 		 */
-		LOGMIGRATE << "Creating migration client for volume ID# " << ribfsm->volume_id;
+		LOGMIGRATE << "Creating migration client for volume ID# " << ribfsm->volumeId;
 		auto myUniqueId = fds_volid_t(uniqueId);
 		clientMap.emplace(myUniqueId,
-				DmMigrationClient::unique_ptr(new DmMigrationClient(DmReqHandler,
-												mySvcUuid, destDmUuid, myUniqueId,
+				DmMigrationClient::unique_ptr(new DmMigrationClient(DmReqHandler, dataManager,
+												mySvcUuid, destDmUuid, ribfsm,
 												// ribfsm->blob_filter_set,
-												blobFilterSetPtrs,
+												// blobFilterSetPtrs,
 												std::bind(&DmMigrationMgr::migrationClientDoneCb,
 												this, std::placeholders::_1,
 												std::placeholders::_2))));
@@ -226,7 +219,7 @@ DmMigrationMgr::activateStateMachine()
 	Error err(ERR_OK);
 
 	MigrationState expectedState(MIGR_IDLE);
-	fds_verify(migrationMsg != nullptr);
+
 	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IN_PROGRESS)) {
 		// If not ABORTED state, then something wrong with OM FSM sending this migration msg
 		fds_verify(isMigrationAborted());
@@ -251,15 +244,13 @@ DmMigrationMgr::activateStateMachine()
 }
 
 void
-DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &result)
+DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 {
-	LOGMIGRATE << "NEIL DEBUG entering executor callback";
-	// SCOPEDWRITE(migrExecutorLock);
 	MigrationState expectedState(MIGR_IN_PROGRESS);
 	/**
 	 * Make sure we can find it
 	 */
-	DmMigrationExecMap::iterator mapIter = executorMap.find(fds_volid_t(uniqueId));
+	DmMigrationExecMap::iterator mapIter = executorMap.find(volId);
 	fds_verify(mapIter != executorMap.end());
 
 	/**
@@ -268,7 +259,7 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &resu
 	if (!result.OK()) {
 		fds_verify(isMigrationInProgress() || isMigrationAborted());
 		fds_verify(std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED));
-		LOGERROR << "Volume ID# " << uniqueId << " failed migration with error: " << result;
+		LOGERROR << "Volume=" << volId << " failed migration with error: " << result;
 	} else {
 		/**
 		 * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
@@ -277,14 +268,15 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_uint64_t uniqueId, const Error &resu
 		 * TODO(Neil):
 		 * This will be moved to the callback when source client finishes and
 		 * talks to the destination manager.
+		 * Also, we're commenting this lock out because this isn't technically supposed to
+		 * be here but I'm leaving the lock here to remind ourselves that lock is required.
 		 */
+		// SCOPEDWRITE(migrExecutorLock);
 		if (mit->second->shouldAutoExecuteNext()) {
 			mit++;
 			if (mit != executorMap.end()) {
-				LOGMIGRATE << "NEIL DEBUG executing next";
-				mit->second->execute();
+				mit->second->startMigration();
 			} else {
-				LOGMIGRATE << "NEIL DEBUG done executing doing ack";
 				ackMigrationComplete(result);
 			}
 		}
