@@ -501,11 +501,6 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // called to clear any waiting requests with an error and
     // remove the QoS allocations
     err = volTable->removeVolume(volDesc);
-
-    if (shut_down && volTable->drained())
-    {
-       shutdown_cb();
-    }
     return err;
 }
 
