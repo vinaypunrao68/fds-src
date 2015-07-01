@@ -9,7 +9,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.formationds.commons.NullArgumentException;
-import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.Strings;
 import com.formationds.iodriver.model.VolumeQosSettings;
 

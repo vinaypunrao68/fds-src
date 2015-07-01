@@ -4,7 +4,6 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 

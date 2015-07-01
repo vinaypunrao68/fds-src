@@ -10,6 +10,7 @@ import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.Collection;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -348,7 +349,10 @@ public final class Config
         Method workloadFactoryMethod;
         try
         {
-            workloadFactoryMethod = myClass.getMethod(workloadName);
+            // HACK: We should allow the annotation to specify the workload name, and then store
+            //       a map. We definitely shouldn't be adding and removing the pre/suffixes in two
+            //       very different places (see getAvailableWorkloadNames()).
+            workloadFactoryMethod = myClass.getMethod("get" + workloadName + "Workload");
         }
         catch (NoSuchMethodException | SecurityException e)
         {
@@ -573,6 +577,13 @@ public final class Config
             Predicate<Method> methodHasNoArguments = method -> method.getParameterCount() == 0;
             Predicate<Method> methodHasCorrectReturnType =
                     method -> Workload.class.isAssignableFrom(method.getReturnType());
+            Function<Method, String> getWorkloadName =
+                    method ->
+                    {
+                        return method.getName()
+                                     .replaceAll("^get", "")
+                                     .replaceAll("Workload$", "");
+                    };
 
             Stream<Method> myMethods = Stream.of(myClass.getMethods());
             Stream<Method> myPublicMethods = myMethods.filter(memberIsPublic);
@@ -580,10 +591,10 @@ public final class Config
             Stream<Method> methodsWithNoArguments = myAnnotatedMethods.filter(methodHasNoArguments);
             Stream<Method> methodsWithCorrectReturnType =
                     methodsWithNoArguments.filter(methodHasCorrectReturnType);
-            Stream<String> availableWorkloadMethodNames =
-                    methodsWithCorrectReturnType.map(method -> method.getName());
+            Stream<String> availableWorkloadNames =
+                    methodsWithCorrectReturnType.map(getWorkloadName);
 
-            _availableWorkloadNames = availableWorkloadMethodNames.collect(Collectors.toSet());
+            _availableWorkloadNames = availableWorkloadNames.collect(Collectors.toSet());
         }
         return _availableWorkloadNames;
     }
@@ -636,7 +647,8 @@ public final class Config
                                  "workload",
                                  true,
                                  "The workload to run. Available options are "
-                                         + String.join(", ", getAvailableWorkloadNames()) + ".");
+                                 + String.join(", ", getAvailableWorkloadNames())
+                                 + ".");
 
             _options = newOptions;
         }

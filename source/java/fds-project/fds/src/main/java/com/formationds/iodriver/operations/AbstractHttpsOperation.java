@@ -7,7 +7,6 @@ import javax.net.ssl.HttpsURLConnection;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.AbstractHttpsEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 /**
  * Much the same as {@link AbstractHttpOperation}, but only HTTPS connections are allowed.
