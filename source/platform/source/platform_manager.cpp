@@ -726,9 +726,6 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                             m_startQueue.push_back (BARE_AM);
                             m_startQueue.push_back (JAVA_AM);
                         }
-                        m_startQueueCondition.notify_one();
-                        m_nodeInfo.fHasAm = true;
-
                     } break;
 
                     case fpi::FDSP_DATA_MGR:
@@ -749,9 +746,6 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                             std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                             m_startQueue.push_back (DATA_MANAGER);
                         }
-                        m_startQueueCondition.notify_one();
-                        m_nodeInfo.fHasDm = true;
-
                     } break;
 
                     case fpi::FDSP_STOR_MGR:
@@ -771,8 +765,6 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                             std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                             m_startQueue.push_back (STORAGE_MANAGER);
                         }
-                        m_startQueueCondition.notify_one();
-                        m_nodeInfo.fHasSm = true;
                     } break;
 
                     default:
@@ -782,6 +774,8 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                     } break;
                 }
             }
+
+            m_startQueueCondition.notify_one();
         }
 
         void PlatformManager::stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg)

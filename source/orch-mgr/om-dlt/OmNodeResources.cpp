@@ -1834,6 +1834,7 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_am) {
     TRACEFUNC;
     OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
     if (agent == NULL) {
         LOGERROR << "activate node services: platform service is not "
                  << "running (or node uuid is not correct) on node "
@@ -1851,7 +1852,7 @@ OM_NodeContainer::om_add_service(const fpi::SvcUuid& svc_uuid, std::vector<fpi::
 
     TRACEFUNC;
     LOGDEBUG << "OM_NodeContainer::om_add_service entered";
-    NodeUuid node_uuid(svc_uuid);
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
     OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
 
     if (agent == NULL) {
