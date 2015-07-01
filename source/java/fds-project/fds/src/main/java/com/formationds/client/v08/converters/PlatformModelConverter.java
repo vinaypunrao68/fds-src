@@ -218,19 +218,18 @@ public class PlatformModelConverter
   //Currently used by AddNode.java
   public static SvcInfo convertServiceToSvcInfoType( final String nodeIp, Service service)
   {
-      final Long newId = -1L;
-      if( service.getId( ) == null )
-      {
-          service.setId( newId );
-      }
+    final Long newId = -1L;
+    if( service.getId( ) == null )
+    {
+      service.setId( newId );
+    }
 
-      SvcUuid svcUid = new SvcUuid( service.getId( ) );
-      SvcID sId = new SvcID( svcUid, service.getType( )
+    SvcUuid svcUid = new SvcUuid( service.getId( ) );
+    SvcID sId = new SvcID( svcUid, service.getType( )
                                             .name( ) );
 	
 	Optional<FDSP_MgrIdType> optType
 	  	    = convertToInternalServiceType(service.getType());
-
 	
 	ServiceState externalServiceState = service.getStatus().getServiceState();
 	// Need to convert model.Service.ServiceStatus to svc.types.ServiceStatus

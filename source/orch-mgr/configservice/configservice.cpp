@@ -110,6 +110,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
     int32_t AddService(const fpi::NotifyAddServiceMsg& add_svc_msg) { return 0;}
+    int32_t StartService(const fpi::NotifyStartServiceMsg& start_svc_mgs) { return 0; }
     void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
     void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& ret, const int32_t ignore) {}
     void removeLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
@@ -452,13 +453,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             std::vector<fpi::SvcInfo> svcInfos = add_svc_msg->services;
 
             for (fpi::SvcInfo svcInfo : svcInfos) {
-
-                if (svcInfo.svc_type == fpi::FDSP_PLATFORM)
-                {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
                     pmUuid = svcInfo.svc_id.svc_uuid;
                 }
             }
-            LOGNORMAL << "Received Add Service Req";
+            LOGNORMAL << "Received Add Service request";
 
             err = local->om_add_service(pmUuid, svcInfos);
         }
@@ -467,7 +466,31 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                      << "processing add service";
             err = Error(ERR_NOT_FOUND);
         }
+        return err.GetErrno();
+    }
 
+    int32_t StartService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyStartServiceMsg>& start_svc_msg) {
+        LOGDEBUG << "configService.cpp StartService entered";
+        Error err(ERR_OK);
+        fpi::SvcUuid pmUuid;
+        try {
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            std::vector<fpi::SvcInfo> svcInfos = start_svc_msg->services;
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    pmUuid = svcInfo.svc_id.svc_uuid;
+                }
+            }
+            LOGNORMAL << "Received Start Service request";
+
+            err = local->om_start_service(pmUuid, svcInfos);
+        }
+        catch(...){
+            LOGERROR <<"Orch Mgr encountered exception while "
+                     << "processing start service";
+            err = Error(ERR_NOT_FOUND);
+        }
         return err.GetErrno();
     }
 

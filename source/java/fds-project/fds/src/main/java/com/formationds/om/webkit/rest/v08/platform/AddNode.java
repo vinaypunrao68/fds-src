@@ -4,6 +4,9 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import com.formationds.client.v08.converters.PlatformModelConverter;
+// to be removed
+import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
@@ -12,6 +15,7 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
+import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
@@ -51,7 +55,7 @@ public class AddNode
         
         final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
         Node node = ObjectModelHelper.toObject( reader, Node.class );
-//        Node node = (new GetNode()).getNode(nodeUuid);
+
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         boolean pmPresent = false;
 
@@ -64,34 +68,44 @@ public class AddNode
                                                                                       svc);
         		svcInfList.add(svcInfo);
         		
-        		pmPresent = (svc.getType() == ServiceType.PM);
+        		if (svc.getType() == ServiceType.PM) {
+        			pmPresent = true;
+        		}
         		
         	}
         }
         
+        if (!pmPresent)
+        {
+        	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
+        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType( node.getAddress().getHostAddress(),
+                    pmSvc);
+        	svcInfList.add(svcInfo);
+        }
+        
         int status =
         		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
-/*        int status =
-            getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
-                                     0,
-                                     new FDSP_Uuid( nodeUuid ),
-                                     activateService(ServiceType.SM,node),
-                                     activateService(ServiceType.AM,node),
-                                     activateService(ServiceType.DM,node) ) );
-*/
-        if( status != 0 ) {
-
+                //getConfigApi().ActivateNode(new FDSP_ActivateOneNodeType(0,new FDSP_Uuid(nodeUuid), true, true, true));
+        if( status != 0 )
+        {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
                                       nodeUuid );
-
-        } else {
-
+        }
+        status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
+       
+        if( status != 0 )
+        {
+            status= HttpServletResponse.SC_BAD_REQUEST;
+            EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
+                                      nodeUuid );
+        }
+        else
+        {
             EventManager.notifyEvent( OmEvents.ADD_NODE,
                                       nodeUuid );
-
         }
-
+        
         Node newNode = (new GetNode()).getNode( nodeUuid );
         
         String jsonString = ObjectModelHelper.toJSON( newNode );

@@ -136,6 +136,12 @@ public class StubConfigurationApi implements ConfigurationApi {
             throws TException {
         return 0;
     }
+    
+    @Override
+    public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
+            throws TException {
+        return 0;
+    }
 
     @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)

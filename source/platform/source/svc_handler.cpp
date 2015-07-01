@@ -42,6 +42,7 @@ namespace fds
 
         void SvcHandler::addService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyAddServiceMsg> &addServiceMessage)
         {
+            platform->addService(addServiceMessage);
             sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 
@@ -52,6 +53,7 @@ namespace fds
 
         void SvcHandler::startService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStartServiceMsg> &startServiceMessage)
         {
+            platform->startService(startServiceMessage);
             sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 

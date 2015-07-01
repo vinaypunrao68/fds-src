@@ -354,7 +354,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     /**
      * Add service to the specified Node.
      *
-     * @param add_svc_req - NotifyAddServiceMsg: Struct identifying node and its services to be activated.
+     * @param add_svc_req - NotifyAddServiceMsg: Struct containing list of services associated with node
      *
      * @return int 0 is successful. Not 0 otherwise.
      *
@@ -365,6 +365,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             throws org.apache.thrift.TException {
     	LOG.debug("OmConfigurationApi::AddService entered " + add_svc_req.toString() );
     	return getConfig().AddService(add_svc_req);
+    }
+    
+    /**
+     * Start service on the specified Node.
+     *
+     * @param start_svc_req - NotifyStartServiceMsg: Struct containing list of services associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
+            throws org.apache.thrift.TException {
+    	LOG.debug("OmConfigurationApi::StartService entered " + start_svc_req.toString() );
+    	return getConfig().StartService(start_svc_req);
     }
 
     /**

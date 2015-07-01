@@ -180,6 +180,10 @@ service ConfigurationService {
    */
   i32 AddService(1:node_svc_api.NotifyAddServiceMsg req),
   /**
+   * Start Service - node specific command
+   */
+  i32 StartService(1:node_svc_api.NotifyStartServiceMsg req),
+  /**
    * Create a new tenant.
    *
    * @param identifier a string representing the tenants identifier or name
