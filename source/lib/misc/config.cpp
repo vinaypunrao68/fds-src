@@ -102,13 +102,13 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
 }
 
 bool FdsConfig::exists(const std::string &key) {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     return config_.exists(key);
 }
 
 template<> 
 std::string  FdsConfig::get<std::string> (const std::string &key) {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     Setting &s = getHierarchialValue(config_, key);
     switch (s.getType()) {
         case Setting::TypeInt64:
@@ -128,7 +128,7 @@ std::string  FdsConfig::get<std::string> (const std::string &key) {
 
 template<> 
 fds_int32_t  FdsConfig::get<fds_int32_t> (const std::string &key) {
-    fds_spinlock::scoped_lock l(lock_);        
+    fds_mutex::scoped_lock l(lock_);        
     Setting &s = getHierarchialValue(config_, key);
     switch (s.getType()) {
         case Setting::TypeInt64:
@@ -152,7 +152,7 @@ fds_uint32_t FdsConfig::get<fds_uint32_t>(const std::string &key) {
 }
 
 template<> fds_bool_t FdsConfig::get<fds_bool_t>  (const std::string &key) {
-    fds_spinlock::scoped_lock l(lock_);        
+    fds_mutex::scoped_lock l(lock_);        
     Setting &s = getHierarchialValue(config_, key);
     switch (s.getType()) {
         case Setting::TypeInt64:
@@ -172,7 +172,7 @@ template<> fds_bool_t FdsConfig::get<fds_bool_t>  (const std::string &key) {
 
 template<> 
 fds_int64_t FdsConfig::get<fds_int64_t>(const std::string &key) {
-    fds_spinlock::scoped_lock l(lock_);        
+    fds_mutex::scoped_lock l(lock_);        
     Setting &s = getHierarchialValue(config_, key);
     switch (s.getType()) {
         case Setting::TypeInt64:
@@ -194,7 +194,7 @@ fds_uint64_t FdsConfig::get<fds_uint64_t>(const std::string &key) {
 
 template<>
 double FdsConfig::get<double> (const std::string &key) {
-    fds_spinlock::scoped_lock l(lock_);        
+    fds_mutex::scoped_lock l(lock_);        
     Setting &s = getHierarchialValue(config_, key);
     switch (s.getType()) {
         case Setting::TypeInt64:
@@ -214,7 +214,7 @@ void FdsConfig::set(const std::string &key, const char * value) {
 }
 
 void FdsConfig::set(const std::string &key, const std::string& value) {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     if (config_.exists(key)) {
         Setting& s = config_.lookup(key);
         switch (s.getType()) {
@@ -248,7 +248,7 @@ void FdsConfig::set(const std::string &key, const std::string& value) {
 }
 
 #define SETDATA(OP,TYPE)                                 \
-    fds_spinlock::scoped_lock l(lock_);                  \
+    fds_mutex::scoped_lock l(lock_);                  \
     if (config_.exists(key)) {                           \
         Setting& s = config_.lookup(key);                \
         s = (OP) value;                                  \

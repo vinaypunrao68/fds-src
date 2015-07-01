@@ -27,7 +27,7 @@ class SynchronizedTaskExecutor
 
  protected:
     /* Lock around taskMap_ */    
-    fds_spinlock lock_;
+    fds_mutex lock_;
     /* Threadpool to execute task functions */
     fds_threadpool &threadpool_;
     /* Map of task qs */

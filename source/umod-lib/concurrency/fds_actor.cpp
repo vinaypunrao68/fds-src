@@ -44,13 +44,13 @@ void FdsRequestQueueActor::init(fds_threadpoolPtr threadpool)
 
 int FdsRequestQueueActor::get_queue_size()
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     return queue_.size();
 }
 
 Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
 
     /* Shutdown check.  We will not accept any more requests after
      * shutdown has been issued
@@ -84,7 +84,7 @@ void FdsRequestQueueActor::request_loop() {
     while (true) {
         FdsActorRequestPtr req;
         {
-            fds_spinlock::scoped_lock l(lock_);
+            fds_mutex::scoped_lock l(lock_);
             fds_assert(scheduled_ == true);
             if (queue_.empty()) {
                 scheduled_ = false;

@@ -849,8 +849,10 @@ class OM_NodeDomainMod : public Module
      * its name produces UUID that already mapped to an existing node
      * name (should ask the user to pick another node name).
      */
-    virtual Error
-    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+    virtual Error om_reg_node_info( const NodeUuid &uuid, 
+                                    const FdspNodeRegPtr msg );
+    virtual Error om_handle_restart( const NodeUuid&      uuid,
+                                     const FdspNodeRegPtr msg );
 
     void setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
@@ -985,9 +987,22 @@ class OM_NodeDomainMod : public Module
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
-    bool isKnownPM(fpi::SvcInfo svcInfo);
-    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
-                fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
+    bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
+    bool isDataMgrSvc( fpi::SvcInfo svcInfo );
+    bool isStorageMgrSvc( fpi::SvcInfo svcInfo );
+    bool isKnownPM( fpi::SvcInfo svcInfo );
+    void fromSvcInfoToFDSP_RegisterNodeTypePtr( 
+        fpi::SvcInfo svc, 
+        fpi::FDSP_RegisterNodeTypePtr& reg_node_req );
+    void fromSvcInfoToFDSP_RegisterNodeTypePtr( 
+        boost::shared_ptr<fpi::SvcInfo>& svcInfo,
+        fpi::FDSP_RegisterNodeTypePtr& reg_node_req );
+    bool isAnyNonePlatformSvcActive( std::vector<fpi::SvcInfo>* pmSvcs,
+                                     std::vector<fpi::SvcInfo>* amSvcs,
+                                     std::vector<fpi::SvcInfo>* smSvcs,
+                                     std::vector<fpi::SvcInfo>* dmSvcs );
+    void spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs );
+    
 
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;
