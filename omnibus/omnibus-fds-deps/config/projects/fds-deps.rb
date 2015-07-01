@@ -12,13 +12,25 @@ fds_src_dir = ENV['FDS_SRC_DIR']
 raise "FDS_SRC_DIR must be set'" unless fds_src_dir
 
 mydir = File.dirname(__FILE__)
-build_version File.readlines("#{mydir}/../../../VERSION").first.chomp
-build_iteration 1
+fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
+
+build_number = ENV['BUILD_NUMBER']
+git_sha = `git rev-parse --short HEAD`.chomp unless build_number
+
+if build_number.nil?
+  build_iteration git_sha
+else
+  build_iteration build_number
+end
 
 if ENV['ENABLE_VERSION_INSTALL'] == 'true'
-  install_dir "/opt/fds-deps/#{build_version}"
+  install_dir "/opt/fds-deps/#{fds_version}"
+  name "fds-deps-#{fds_version}"
+  build_version "1"
+  build_iteration git_sha
 else
   install_dir "#{default_root}/#{name}"
+  build_version fds_version
 end
 
 # Creates required build directories

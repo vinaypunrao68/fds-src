@@ -15,7 +15,6 @@ else
 end
 
 
-name "fds-platform-#{build_type}"
 maintainer "Formation Data Systems"
 homepage "http://www.formationds.com"
 
@@ -23,21 +22,27 @@ homepage "http://www.formationds.com"
 mydir = File.dirname(__FILE__)
 fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
 
-if ENV['ENABLE_VERSION_INSTALL'] == 'true'
-  install_dir "/opt/fds/#{fds_version}"
-else
-  install_dir "/fds"
-end
 build_number = ENV['BUILD_NUMBER']
 git_sha = `git rev-parse --short HEAD`.chomp unless build_number
 
 if build_number.nil?
-    build_iteration git_sha
+  build_iteration git_sha
 else
-    build_iteration build_number
+  build_iteration build_number
 end
 
-build_version fds_version
+if ENV['ENABLE_VERSION_INSTALL'] == 'true'
+  install_dir "/opt/fds/#{fds_version}"
+  name "fds-platform-#{build_type}-#{fds_version}"
+  build_version "1"
+  # We override the build_iteration in this case
+  build_iteration git_sha
+else
+  # Continue to use legacy configuration
+  install_dir "/fds"
+  name "fds-platform-#{build_type}"
+  build_version fds_version
+end
 
 # Creates required build directories
 dependency "preparation"
