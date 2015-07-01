@@ -32,7 +32,7 @@ class DmMigrationClient {
 
 
     // XXX: only public so we can unit test it
-    Error diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& dest,
+    static Error diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& dest,
                         const std::map<fds_uint64_t, sequence_id_t>& source,
                         std::vector<fds_uint64_t>& update_list,
                         std::vector<fds_uint64_t>& delete_list);

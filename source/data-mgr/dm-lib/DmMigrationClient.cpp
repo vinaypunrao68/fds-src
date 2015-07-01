@@ -25,7 +25,7 @@ DmMigrationClient::~DmMigrationClient()
 }
 
 /**
- *  Diff algorithm operates on two sorted lists:
+ *  Diff algorithm operates on two sorted lists of (blob_id, sequence_id) pairs:
  *
  *    Dest | Source |   Action    | State Transition
  *   ______|________|_____________|_____________________
