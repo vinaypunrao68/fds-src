@@ -274,7 +274,7 @@ class TestDMChecker(TestCase.FDSTestCase):
         nodes = fdscfg.rt_obj.cfg_nodes
         n1 = nodes[0]
         import pdb; pdb.set_trace()
-        status, stdout = n1.nd_agent.exec_wait('bash -c \"(nohup %s/dmchecker) \"' %
+        status, stdout = n1.nd_agent.exec_wait('bash -c \"(nohup %s/DmChecker) \"' %
                                                 (bin_dir), return_stdin=True)
 
         if status != 0:

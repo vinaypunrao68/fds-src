@@ -1,5 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
+#include <sys/stat.h>
 #include <list>
 #include <vector>
 #include <string>
@@ -56,8 +57,21 @@ std::string DMOfflineCheckerEnv::getCatalogPath(const fds_volid_t &volId,
     std::string nodeRoot = svcMgr_->getSvcProperty<std::string>(
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
-    return util::strformat("%s/sys-repo/%ld/%ld_vcat.ldb",
-                           nodeRoot.c_str(), volId, volId);
+    std::string path;
+    if (nodeRoot[nodeRoot.size()-1] == '/') {
+        path = util::strformat("%ssys-repo/dm-names/%ld/%ld_vcat.ldb",
+                               nodeRoot.c_str(), volId, volId);
+    } else {
+        path = util::strformat("%s/sys-repo/dm-names/%ld/%ld_vcat.ldb",
+                               nodeRoot.c_str(), volId, volId);
+    }
+
+    struct stat buffer;   
+    if (stat(path.c_str(), &buffer) == 0) {
+        return path;
+    } else {
+        return "";
+    }
 
 }
 
@@ -139,6 +153,14 @@ uint64_t DMChecker::run() {
     DmPersistVolDBDiffAdapter diffAdapter;
     auto volumeList  = env->getVolumeIds();
     for (const auto &volId : volumeList) {
+#if 0
+        // TODO(Rao): Need a better mechanism for figuring out a system volume
+        if (volId < fds_volid_t(3)) {
+            LOGNORMAL << "Ignoring system volume: " << volId;
+            /* Ignore checking on system volume for now */
+            continue;
+        }
+#endif
         auto replicaCnt = env->getReplicaCount(volId);
 
         auto primaryCatPath = env->getCatalogPath(volId, 0);
@@ -151,6 +173,7 @@ uint64_t DMChecker::run() {
         }
 
         for (uint32_t i = 1; i < replicaCnt; i++) {
+            LOGNORMAL << "Checking volId: " << volId << " primary against replica idx: " << i;
             auto backupCatPath = env->getCatalogPath(volId, i);
             if (backupCatPath.empty()) {
                 logMisMatch(volId,
