@@ -10,6 +10,7 @@ import unittest
 import traceback
 import TestCase
 from fdslib.TestUtils import findNodeFromInv
+from fdslib.TestUtils import check_localhost
 # Module-specific requirements
 import sys
 import os
@@ -286,15 +287,3 @@ class TestVolumeDelete(TestCase.FDSTestCase):
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     unittest.main()
-
-def check_localhost(ip):
-    ipad = socket.gethostbyname(ip)
-    if ipad.count('.') == 4:
-        hostName = socket.gethostbyaddr(ipad)[0]
-    else:
-        hostName = ip
-
-    if (hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1'):
-        return True
-    else:
-        return False
