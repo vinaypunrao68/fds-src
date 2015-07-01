@@ -79,7 +79,7 @@ class DmMigrationMgr {
      * Method to receive a request from a Destination DM.
      * Will spawn off a client to handle this specific request.
      */
-    Error startMigrationClient(fpi::ResyncInitialBlobFilterSetMsgPtr &migReq, NodeUuid &_dest);
+    Error startMigrationClient(fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &migReq, NodeUuid &_dest);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -124,7 +124,7 @@ class DmMigrationMgr {
      */
     Error createMigrationClient(NodeUuid& srcDmUuid,
     								const NodeUuid& mySvcUuid,
-									fpi::ResyncInitialBlobFilterSetMsgPtr& rvmp,
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
 									fds_uint64_t uniqueId = 0);
 
     /**
