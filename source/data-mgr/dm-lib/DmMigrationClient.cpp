@@ -40,8 +40,8 @@ DmMigrationClient::~DmMigrationClient()
  *  Algorithm runtime is linear in the size of the input.
  */
 Error
-DmMigrationClient::diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& dest,
-                                 const std::map<fds_uint64_t, sequence_id_t>& source,
+DmMigrationClient::diffBlobLists(const std::map<long int, long int>& dest,
+                                 const std::map<long int, long int>& source,
                                  std::vector<fds_uint64_t>& update_list,
                                  std::vector<fds_uint64_t>& delete_list)
 {
