@@ -46,8 +46,8 @@ class RESTHelper():
         response = requests.post( url, data=data, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return FdsError( error=response )
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj
@@ -56,8 +56,8 @@ class RESTHelper():
         response = requests.put( url, data=data, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return FdsError( error=response )
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj    
@@ -67,8 +67,8 @@ class RESTHelper():
         response = requests.get( url, params=params, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return FdsError( error=response )
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj
@@ -78,8 +78,8 @@ class RESTHelper():
         response = requests.delete( url, params=params, headers=self.buildHeader(session), verify=False)
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return FdsError( error=response )
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj

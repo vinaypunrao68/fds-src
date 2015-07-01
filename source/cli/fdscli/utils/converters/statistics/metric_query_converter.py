@@ -14,9 +14,9 @@ class MetricQueryConverter(object):
     @staticmethod
     def to_json(query):
         
-        if not isinstance(query, MetricQueryCriteria):
-            raise TypeError("Must be a metric query criteria.")
-        
+#         if not isinstance(query, MetricQueryCriteria):
+#             raise TypeError("Must be a metric query criteria.")
+#         
         q_json = dict()
         
         context_array = []

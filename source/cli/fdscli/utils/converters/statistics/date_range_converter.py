@@ -11,9 +11,9 @@ class DateRangeConverter(object):
     @staticmethod
     def to_json(date_range):
         
-        if not isinstance(date_range,DateRange):
-            raise TypeError()
-        
+#         if not isinstance(date_range,DateRange):
+#             raise TypeError()
+#         
         dr_json = dict()
         
         dr_json["start"] = date_range.start

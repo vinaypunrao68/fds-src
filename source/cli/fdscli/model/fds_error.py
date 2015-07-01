@@ -6,8 +6,9 @@ class FdsError(object):
     @author: nate
     '''
     
-    def __init__(self, error=None):
-        self.__error = error
+    def __init__(self, error=None, message=None):
+        self.error = error
+        self.message = message
         
     @property
     def error(self):
@@ -16,3 +17,13 @@ class FdsError(object):
     @error.setter
     def error(self, error):
         self.__error = error
+        
+    @property
+    def message(self):
+        return self.__message
+    
+    @message.setter
+    def message(self, message):
+        self.__message = message
+        
+    

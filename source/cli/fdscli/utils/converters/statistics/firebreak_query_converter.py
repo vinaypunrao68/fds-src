@@ -14,9 +14,9 @@ class FirebreakQueryConverter(object):
     @staticmethod
     def to_json(query):
         
-        if not isinstance(query, FirebreakQueryCriteria):
-            raise TypeError()
-        
+#         if not isinstance(query, FirebreakQueryCriteria):
+#             raise TypeError()
+#         
         q_json = dict()
         
         context_array = []
