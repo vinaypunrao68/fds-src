@@ -102,7 +102,7 @@ void SvcRequestIf::setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
  * @param error
  */
 void SvcRequestIf::complete(const Error& error) {
-    DBG(GLOGDEBUG << logString() << error);
+    DBG(GLOGDEBUG << logString() << " " << error);
 
     fds_assert(state_ != SVC_REQUEST_COMPLETE);
     state_ = SVC_REQUEST_COMPLETE;

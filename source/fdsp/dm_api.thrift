@@ -541,6 +541,7 @@ struct ForwardCatalogMsg {
   3: i64                          blob_version;
   4: dm_types.FDSP_BlobObjectList obj_list;
   5: dm_types.FDSP_MetaDataList   meta_list;
+  6: i64                          sequence_id;
 }
 /**
  * Forward catalog update response message
@@ -582,6 +583,8 @@ struct ResyncInitialBlobFilterSetMsg {
       order, since it uses std::map<>.
       map<blob ID, sequence number> */
   2: map<i64, i64>      blobFilterMap;
+}
+struct ResyncInitialBlobFilterSetRspMsg {
 }
 
 /**

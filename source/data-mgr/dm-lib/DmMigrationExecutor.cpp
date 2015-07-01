@@ -7,19 +7,25 @@
 #include <fdsp/dm_types_types.h>
 #include <fdsp/dm_api_types.h>
 
+#include "fds_module_provider.h"
+#include <net/SvcMgr.h>
+#include <net/SvcRequestPool.h>
+
 namespace fds {
 
 DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
     							 	 	 const NodeUuid& _srcDmUuid,
 	 	 								 fpi::FDSP_VolumeDescType& _volDesc,
+										 const fds_bool_t& _autoIncrement,
 										 DmMigrationExecutorDoneCb _callback)
-    : dataMgr(_dataMgr),
+	: dataMgr(_dataMgr),
       srcDmSvcUuid(_srcDmUuid),
       volDesc(_volDesc),
+	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback)
 {
     volumeUuid = volDesc.volUUID;
-	LOGMIGRATE << "DmMigrationExecutor(volumeId):  " << volDesc;
+	LOGMIGRATE << "Migration executor received for volume ID " << volDesc;
 }
 
 DmMigrationExecutor::~DmMigrationExecutor()
@@ -50,23 +56,26 @@ DmMigrationExecutor::startMigration()
                                    volumeUuid,
                                    &volDesc,
                                    false);
-    if (!err.ok()) {
+
+    // OM could have sent the volume descriptor over already
+    if (err.ok() || (err == ERR_DUPLICATE)) {
+    	/**
+    	 * If the volume is successfully created with the given volume descriptor, process and generate the
+    	 * initial blob filter set to be sent to the source DM.
+    	 */
+    	err = processInitialBlobFilterSet();
+    	if (!err.ok()) {
+    		LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
+    				<< " with error=" << err;
+    	}
+    } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
-        return err;
     }
 
-    /**
-     * If the volume is successfully created with the given volume descriptor, process and generate the
-     * initial blob filter set to be sent to the source DM.
-     */
-    err = processInitialBlobFilterSet();
-    if (!err.ok()) {
-        LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
-                 << " with error=" << err;
-        return err;
-    }
-
+	if (migrDoneCb) {
+		migrDoneCb(volDesc.volUUID, err);
+	}
     return err;
 }
 
@@ -74,7 +83,6 @@ Error
 DmMigrationExecutor::processInitialBlobFilterSet()
 {
 	Error err(ERR_OK);
-
 	LOGMIGRATE << "starting migration for VolDesc: " << volDesc;
 
     /**
