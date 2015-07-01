@@ -74,20 +74,30 @@ void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *di
 
 void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
+    // quick hack to allow system volumes
+    if (pVolDesc->isSystemVolume()) {
+
+        LOGDEBUG << "system volume : "
+                 << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
+                 << " admitted unconditionally";
+        return;
+    }
+    
     /* release  the resources since volume is deleted */
 
     // remember that volume descriptor has capacity in MB
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
 
-    LOGNOTIFY<< "desc iops_assured: " << pVolDesc->iops_assured
-             << "desc iops_throttle: " << pVolDesc->iops_throttle
-             << "desc capacity (MB): " << pVolDesc->capacity
-             << "total iops assured : " << total_vol_iops_assured
-             << "total iops throttle: " << total_vol_iops_throttle
-             << "total capacity (GB): " << total_vol_disk_cap_GB;
-    fds_verify(pVolDesc->iops_assured <= total_vol_iops_assured);
-    fds_verify(pVolDesc->iops_throttle <= total_vol_iops_throttle);
+    LOGDEBUG << "desc iops_assured: " << pVolDesc->iops_assured
+             << " desc iops_throttle: " << pVolDesc->iops_throttle
+             << " desc capacity (MB): " << pVolDesc->capacity
+             << " total iops assured : " << total_vol_iops_assured
+             << " total iops throttle: " << total_vol_iops_throttle
+             << " total capacity (GB): " << total_vol_disk_cap_GB;
+        
+    fds_verify(pVolDesc->iops_assured <= total_vol_iops_assured);            
+    fds_verify(pVolDesc->iops_throttle <= total_vol_iops_throttle);          
     fds_verify(vol_capacity_GB <= total_vol_disk_cap_GB);
 
     total_vol_iops_assured -= pVolDesc->iops_assured;
@@ -122,9 +132,9 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // quick hack to allow system volumes
     if (pVolDesc->isSystemVolume()) {
         pVolDesc->iops_assured = 0;
-        LOGWARN << "system volume : "
-                << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
-                << " admitted unconditionally";
+        LOGDEBUG << "system volume : "
+                 << "[" << pVolDesc->name << "-" << pVolDesc->volUUID << "]"
+                 << " admitted unconditionally";
         return err;
     }
 
