@@ -276,11 +276,9 @@ AmVolumeTable::getVolumes() const
     volumes.reserve(volume_map.size());
 
     // Create a vector of volume pointers from the values in our map
-    std::transform(volume_map.begin(),
-                   volume_map.end(),
-                   std::back_inserter(volumes),
-                   [] (std::pair<fds_volid_t, volume_ptr_type> const& kv) -> volume_ptr_type
-                     { return kv.second; });
+    for (auto const& kv : volume_map) {
+      volumes.push_back(kv.second);
+    }
     return volumes;
 }
 
