@@ -268,13 +268,20 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
     return ret_vol;
 }
 
-void
-AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const
+std::vector<AmVolumeTable::volume_ptr_type>
+AmVolumeTable::getVolumes() const
 {
+    std::vector<volume_ptr_type> volumes;
     ReadGuard rg(map_rwlock);
-    for (auto const& vol_pair: volume_map) {
-        tokens.push_back(std::make_pair(vol_pair.first, vol_pair.second->getToken()));
-    }
+    volumes.reserve(volume_map.size());
+
+    // Create a vector of volume pointers from the values in our map
+    std::transform(volume_map.begin(),
+                   volume_map.end(),
+                   std::back_inserter(volumes),
+                   [] (std::pair<fds_volid_t, volume_ptr_type> const& kv) -> volume_ptr_type
+                     { return kv.second; });
+    return volumes;
 }
 
 fds_uint32_t

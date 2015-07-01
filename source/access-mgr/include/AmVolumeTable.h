@@ -6,9 +6,9 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 
 #include <string>
-#include <deque>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include <fds_error.h>
 #include <fds_types.h>
@@ -54,7 +54,7 @@ struct AmVolumeTable : public HasLogger {
     /**
      * Return tokens to all attached volumes
      */
-    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
+    std::vector<volume_ptr_type> getVolumes() const;
 
     /**
      * Returns the volumes max object size
