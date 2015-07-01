@@ -18,6 +18,7 @@ static sequence_id_t _global_seq_id;
 
 struct SeqIdTest : ::testing::Test {
     virtual void SetUp() override {
+        // XXX: kinda assumes one volume per test :(
         _global_seq_id = 0;
         static int i = 0;
         dmTester->addVolume(i);
@@ -279,6 +280,139 @@ TEST_F(SeqIdTest, SequenceIncrementVolMetaFirst){
     printStats();
 }
 
+TEST_F(SeqIdTest, BlobDiffIdentical){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId1 =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    SetUp();
+    auto volId2 =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    auto update_list = std::vector<fds_uint64_t>();
+    auto delete_list = std::vector<fds_uint64_t>();
+
+    auto dest = std::map<long int, long int>();
+    auto source = std::map<long int, long int>();
+
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+
+    TIMEDBLOCK("diff") {
+        Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
+    }
+
+    EXPECT_EQ(update_list.size(), 0);
+    EXPECT_EQ(delete_list.size(), 0);
+
+    printStats();
+}
+
+TEST_F(SeqIdTest, BlobDiffUpdate){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId1 =  dmTester->TESTVOLID;
+    putBlobOnce();
+
+    SetUp();
+    --NUM_BLOBS;
+
+    auto volId2 =  dmTester->TESTVOLID;
+    putBlobOnce();
+
+    auto update_list = std::vector<fds_uint64_t>();
+    auto delete_list = std::vector<fds_uint64_t>();
+
+    auto dest = std::map<long int, long int>();
+    auto source = std::map<long int, long int>();
+
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+
+    TIMEDBLOCK("diff") {
+        Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
+    }
+
+    EXPECT_EQ(update_list.size(), 1);
+    EXPECT_EQ(delete_list.size(), 0);
+
+    printStats();
+}
+
+TEST_F(SeqIdTest, BlobDiffDelete){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId1 =  dmTester->TESTVOLID;
+    putBlobOnce();
+
+    SetUp();
+    ++NUM_BLOBS;
+
+    auto volId2 =  dmTester->TESTVOLID;
+    putBlobOnce();
+
+    auto update_list = std::vector<fds_uint64_t>();
+    auto delete_list = std::vector<fds_uint64_t>();
+
+    auto dest = std::map<long int, long int>();
+    auto source = std::map<long int, long int>();
+
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+
+    TIMEDBLOCK("diff") {
+        Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
+    }
+
+    EXPECT_EQ(update_list.size(), 0);
+    EXPECT_EQ(delete_list.size(), 1);
+
+    printStats();
+}
+
+TEST_F(SeqIdTest, BlobDiffOverwrite){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId1 =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    SetUp();
+    auto volId2 =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+    putBlobOnce();
+
+    auto update_list = std::vector<fds_uint64_t>();
+    auto delete_list = std::vector<fds_uint64_t>();
+
+    auto dest = std::map<long int, long int>();
+    auto source = std::map<long int, long int>();
+
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+
+    TIMEDBLOCK("diff") {
+        Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
+    }
+
+    EXPECT_EQ(update_list.size(), NUM_BLOBS);
+    EXPECT_EQ(delete_list.size(), 0);
+
+    printStats();
+}
+
 int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock
     // (and Google Test) before running the tests.
@@ -298,7 +432,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    NUM_VOLUMES = ::testing::UnitTest::GetInstance()->total_test_count();
+    NUM_VOLUMES = ::testing::UnitTest::GetInstance()->total_test_count()*2;
 
     dmTester = new fds::DMTester(argc, argv);
     dmTester->start();
