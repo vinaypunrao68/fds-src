@@ -52,7 +52,7 @@ struct AmVolumeTable : public HasLogger {
     volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     /**
-     * Return tokens to all attached volumes
+     * Return volumes that we are currently attached to
      */
     std::vector<volume_ptr_type> getVolumes() const;
 
