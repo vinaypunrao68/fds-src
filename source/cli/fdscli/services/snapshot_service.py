@@ -26,7 +26,7 @@ class SnapshotService( AbstractService ):
         response = self.rest_helper.get( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         snapshot = SnapshotConverter.build_snapshot_from_json( response )
         

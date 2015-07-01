@@ -21,7 +21,7 @@ class UsersService( AbstractService ):
         j_users = self.rest_helper.get( self.session, url )
         
         if isinstance(j_users, FdsError):
-            return
+            return j_users
         
         users = []
         
@@ -41,7 +41,7 @@ class UsersService( AbstractService ):
         user = self.rest_helper.post( self.session, url, data )
         
         if isinstance(user, FdsError):
-            return
+            return user
         
         user= UserConverter.build_user_from_json(user)
         return user
@@ -56,7 +56,7 @@ class UsersService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response
     
@@ -68,7 +68,7 @@ class UsersService( AbstractService ):
         response = self.rest_helper.post( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
     
         return response
     
@@ -81,7 +81,7 @@ class UsersService( AbstractService ):
         me = self.rest_helper.get( self.session, url )
         
         if isinstance(me, FdsError):
-            return
+            return me
         
         real_me = UserConverter.build_user_from_json(me)
         return real_me

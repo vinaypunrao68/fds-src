@@ -22,6 +22,6 @@ class EventService( AbstractService ):
         response = self.rest_helper().put( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        

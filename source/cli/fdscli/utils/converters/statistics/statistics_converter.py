@@ -50,8 +50,8 @@ class StatisticsConverter(object):
     @staticmethod
     def to_json( stats ):
         
-        if not isinstance(stats, Statistics):
-            raise TypeError()
+#         if not isinstance(stats, Statistics):
+#             raise TypeError()
         
         j_str = dict()
         
@@ -80,8 +80,8 @@ class StatisticsConverter(object):
     @staticmethod 
     def series_to_json(series):
         
-        if not isinstance(series, Series):
-            raise TypeError()
+#         if not isinstance(series, Series):
+#             raise TypeError()
         
         j_series = dict()
         
@@ -102,8 +102,8 @@ class StatisticsConverter(object):
     @staticmethod
     def datapoint_to_json(dp):
         
-        if not isinstance(dp, Datapoint):
-            raise TypeError()
+#         if not isinstance(dp, Datapoint):
+#             raise TypeError()
         
         j_dp = dict()
         

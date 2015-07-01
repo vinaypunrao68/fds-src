@@ -26,7 +26,7 @@ class StatsService( AbstractService ):
         stat_json = self.rest_helper.put( self.session, url, data)
         
         if isinstance(stat_json, FdsError):
-            return
+            return stat_json
         
         stats = StatisticsConverter.build_statistics_from_json(stat_json)
         
@@ -43,7 +43,7 @@ class StatsService( AbstractService ):
         stats = self.rest_helper.put( self.session, url, data)
         
         if isinstance(stats, FdsError):
-            return
+            return stats
         
         stats = StatisticsConverter.build_statistics_from_json(stats)
         
@@ -58,7 +58,7 @@ class StatsService( AbstractService ):
         sys_health = self.rest_helper.get( self.session, url )
         
         if isinstance(sys_health, FdsError):
-            return 
+            return  sys_health
         
         sys_health  = SystemHealthConverter.build_system_health_from_json(sys_health)
         

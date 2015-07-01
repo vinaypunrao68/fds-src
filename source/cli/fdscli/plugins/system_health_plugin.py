@@ -4,6 +4,7 @@ from utils.converters.health.system_health_converter import SystemHealthConverte
 from services.response_writer import ResponseWriter
 import json
 from model.health.health_state import HealthState
+from model.fds_error import FdsError
 
 class SystemHealthPlugin( AbstractPlugin):
     '''
@@ -46,6 +47,9 @@ class SystemHealthPlugin( AbstractPlugin):
         get the overall health of the system
         '''
         health = self.get_stat_service().get_system_health_report()
+        
+        if not isinstance( health, FdsError ):        
+            return
         
         if AbstractPlugin.format_str in args and args[AbstractPlugin.format_str] == "json":
             j_str = SystemHealthConverter.to_json(health)

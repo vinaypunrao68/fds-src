@@ -28,7 +28,7 @@ class NodeService( AbstractService ):
         j_nodes = self.rest_helper.get( self.session, url )
         
         if isinstance(j_nodes, FdsError):
-            return        
+            return j_nodes
         
         nodes = []
         
@@ -51,7 +51,7 @@ class NodeService( AbstractService ):
         node = self.rest_helper.post( self.session, url, data )
         
         if isinstance(node, FdsError):
-            return
+            return node
         
         node = NodeConverter.build_node_from_json(node)
         return node
@@ -67,7 +67,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response
     
@@ -82,7 +82,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )    
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -97,7 +97,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.delete( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -111,7 +111,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.get(self.session, url)
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         node = NodeConverter.build_node_from_json(response)
         
@@ -128,7 +128,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -143,7 +143,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )   
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -155,7 +155,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.delete( self.session, url ) 
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -170,7 +170,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.post( self.session, url, data ) 
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -185,7 +185,7 @@ class NodeService( AbstractService ):
         response = self.rest_helper.get(self.session, url)
         
         if isinstance(response, FdsError):
-            return        
+            return response     
         
         service = ServiceConverter.build_service_from_json(response)
         

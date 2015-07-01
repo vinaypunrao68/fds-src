@@ -24,7 +24,7 @@ class SnapshotPolicyService( AbstractService ):
         j_policy =  self.rest_helper.post( self.session, url, data )
         
         if isinstance(j_policy, FdsError):
-            return
+            return j_policy
         
         policy = SnapshotPolicyConverter.build_snapshot_policy_from_json( j_policy )
         return policy
@@ -40,7 +40,7 @@ class SnapshotPolicyService( AbstractService ):
         response = self.rest_helper.delete( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response
     
@@ -56,7 +56,7 @@ class SnapshotPolicyService( AbstractService ):
         j_policy = self.rest_helper.put( self.session, url, data )
         
         if isinstance(j_policy, FdsError):
-            return
+            return j_policy
         
         policy = SnapshotPolicyConverter.build_snapshot_policy_from_json(j_policy)
         return policy
@@ -70,7 +70,7 @@ class SnapshotPolicyService( AbstractService ):
         j_policies = self.rest_helper.get( self.session, url )
         
         if isinstance(j_policies, FdsError):
-            return        
+            return j_policies    
         
         policies = []
         

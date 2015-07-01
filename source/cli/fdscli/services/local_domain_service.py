@@ -32,7 +32,7 @@ class LocalDomainService( AbstractService ):
         j_domains = self.rest_helper.get( self.session, url )
         
         if isinstance(j_domains, FdsError):
-            return
+            return j_domains
         
         domains = []
         
@@ -53,7 +53,7 @@ class LocalDomainService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
     
@@ -68,7 +68,7 @@ class LocalDomainService( AbstractService ):
         response = self.rest_helper.put( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response        
         

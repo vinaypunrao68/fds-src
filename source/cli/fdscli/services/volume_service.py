@@ -38,7 +38,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.get( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         volumes = []
         
@@ -57,7 +57,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.get(self.session, url)
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         volume = VolumeConverter.build_volume_from_json(response) 
         return volume
@@ -73,7 +73,7 @@ class VolumeService( AbstractService ):
         j_volume = self.rest_helper.post( self.session, url, data )
 
         if isinstance(j_volume, FdsError):
-            return
+            return j_volume
 
         volume = VolumeConverter.build_volume_from_json( j_volume )
         return volume
@@ -87,7 +87,7 @@ class VolumeService( AbstractService ):
         newVolume = self.rest_helper.post(self.session, url, data );
         
         if isinstance(newVolume, FdsError):
-            return
+            return newVolume
         
         newVolume = VolumeConverter.build_volume_from_json(newVolume);
         return newVolume;
@@ -102,7 +102,7 @@ class VolumeService( AbstractService ):
         volume = self.rest_helper.post( self.session, url, data )
 
         if isinstance(volume, FdsError):
-            return
+            return volume
 
         volume = VolumeConverter.build_volume_from_json( volume )
         return volume
@@ -118,7 +118,7 @@ class VolumeService( AbstractService ):
         j_volume = self.rest_helper.put( self.session, url, data )
         
         if isinstance(j_volume, FdsError):
-            return
+            return j_volume
         
         volume = VolumeConverter.build_volume_from_json(j_volume)
         return volume
@@ -132,7 +132,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.delete( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response
     
@@ -146,7 +146,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.post( self.session, url, data )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response
     
@@ -159,7 +159,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.delete( url )
         
         if isinstance(response, FdsError):
-            return
+            return response
         
         return response
     
@@ -172,7 +172,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.get( self.session, url )
         
         if isinstance(response, FdsError):
-            return
+            return response
     
         snapshots = []
         
@@ -191,7 +191,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.get( self.session, url )
         
         if isinstance(response, FdsError):
-            return        
+            return response
         
         presets = []
         
@@ -214,7 +214,7 @@ class VolumeService( AbstractService ):
         response = self.rest_helper.get( self.session, url )
         
         if isinstance(response, FdsError):
-            return        
+            return response   
         
         presets = []
         

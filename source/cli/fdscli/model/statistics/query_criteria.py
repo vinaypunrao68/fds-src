@@ -21,8 +21,8 @@ class QueryCriteria(object):
     @date_range.setter
     def date_range(self, date_range):
         
-        if not isinstance(date_range, DateRange):
-            raise TypeError()
+#         if not isinstance(date_range, DateRange):
+#             raise TypeError()
         
         self.__date_range = date_range
         

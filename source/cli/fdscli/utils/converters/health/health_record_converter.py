@@ -11,8 +11,8 @@ class HealthRecordConverter(object):
     @staticmethod
     def to_json(health_record):
         
-        if not isinstance(health_record, HealthRecord):
-            raise TypeError()
+#         if not isinstance(health_record, HealthRecord):
+#             raise TypeError()
         
         j_str = dict()
         

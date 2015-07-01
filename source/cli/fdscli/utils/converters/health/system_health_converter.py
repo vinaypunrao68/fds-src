@@ -12,8 +12,8 @@ class SystemHealthConverter(object):
     @staticmethod
     def to_json(system_health):
         
-        if not isinstance(system_health, SystemHealth):
-            raise TypeError()
+#         if not isinstance(system_health, SystemHealth):
+#             raise TypeError()
         
         j_str = dict()
         
