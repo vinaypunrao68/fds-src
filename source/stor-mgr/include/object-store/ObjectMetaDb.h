@@ -46,7 +46,8 @@ class ObjectMetadataDb {
      * @param[in] smToks set of SM tokens to open
      */
     Error openMetadataDb(const SmDiskMap::const_ptr& diskMap,
-                         const SmTokenSet& smToks);
+                         const SmTokenSet& smToks,
+                         const fds_uint16_t& diskId = INVALID_DISK_ID);
 
     /**
      * Closes object metadata DB
@@ -61,6 +62,12 @@ class ObjectMetadataDb {
      * for at least one token in the given set of SM tokens
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    /**
+     * Destroy levelDBs of sm Tokens if the object DBs were not present.
+     */
+    Error deleteMetadataDb(const std::string& diskPath,
+                           const fds_token_id& smToken);
 
     /**
      * Set number of bits per (global) token

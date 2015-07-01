@@ -44,13 +44,19 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * @param[in] smToks set of SM tokens for which to open store
      */
     Error openMetadataStore(const SmDiskMap::const_ptr& diskMap,
-                            const SmTokenSet& smToks);
+                            const SmTokenSet& smToks,
+                            const fds_uint16_t& diskId = INVALID_DISK_ID);
 
     /**
      * Closes and removes metadata stores for given set of SM tokens
      * @param[in] set of SM tokens for which this SM lost ownership
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    /**
+     * Delete metadata DBs of given SM tokens
+     */
+    Error deleteMetadataDb(const std::string& diskPath,const fds_token_id& smTokenLost);
 
     /**
      * Retrieves metadata for given object with ID 'objId'

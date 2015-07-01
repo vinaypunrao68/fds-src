@@ -25,7 +25,11 @@ typedef enum DiskType {
     DISK_TYPE_HDD
 }DiskType;
 
-typedef std::function<void (const DiskType&, const SmTokenSet&)> DiskChangeFnObj;
+const fds_uint16_t INVALID_DISK_ID = -1;
+
+typedef std::function<void (const DiskType&,
+                            const std::set<std::pair<fds_token_id, fds_uint16_t>>&
+                            )> DiskChangeFnObj;
 
 /*
  * Some constants for SM superblock.
@@ -322,8 +326,11 @@ class SmSuperblockMgr {
      */
     SmTokenSet getSmOwnedTokens();
     SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
+    SmTokenSet getSmOwnedTokensNoLock(fds_uint16_t diskId);
     fds_uint16_t getWriteFileId(fds_token_id smToken,
                                 diskio::DataTier tier);
+    fds_uint16_t getWriteFileIdNoLock(fds_token_id smToken,
+                                      diskio::DataTier tier);
     fds_bool_t compactionInProgress(fds_token_id smToken,
                                     diskio::DataTier tier);
     Error changeCompactionState(fds_token_id smToken,

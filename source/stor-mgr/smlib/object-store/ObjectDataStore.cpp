@@ -44,6 +44,14 @@ ObjectDataStore::closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost) {
 }
 
 Error
+ObjectDataStore::deleteObjectDataFile(const std::string& diskPath,
+                                      const fds_token_id& smToken,
+                                      const fds_uint16_t& diskId,
+                                      const fds_uint16_t& fileId) {
+    return persistData->deleteObjectDataFile(diskPath, smToken, diskId, fileId);
+}
+
+Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                diskio::DataTier tier,

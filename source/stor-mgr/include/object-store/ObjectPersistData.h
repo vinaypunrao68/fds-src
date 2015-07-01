@@ -150,6 +150,14 @@ class ObjectPersistData : public Module,
     Error closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost);
 
     /**
+     * Deletes SM token file for a given SM Token.
+     */
+    Error deleteObjectDataFile(const std::string& diskPath,
+                               const fds_token_id& smToken,
+                               const fds_uint16_t& diskId,
+                               const fds_uint16_t& fileId);
+
+    /**
      * Peristently stores object data.
      */
     Error writeObjectData(const ObjectID& objId,

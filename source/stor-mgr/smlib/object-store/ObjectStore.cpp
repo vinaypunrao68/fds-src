@@ -1302,14 +1302,32 @@ ObjectStore::getDiskCount() const {
  */
 void
 ObjectStore::handleDiskChanges(const DiskType& diskType,
-                               const SmTokenSet& smTokens) {
+                               const TokenDiskIdPairSet& tokenDiskPairs) {
     if (!diskMap->isAllDisksSSD()) {
         switch (diskType) {
             case DiskType::DISK_TYPE_HDD:
-                metaStore->closeAndDeleteMetadataDbs(smTokens);
+                if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
+                    LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
+                    /**
+                     * Delete persisted levelDB for given SM Tokens.
+                     */
+                    for (auto& tokenPair: tokenDiskPairs) {
+                        LOGNOTIFY << tokenPair.first;
+                        metaStore->deleteMetadataDb(diskMap->getDiskPath(tokenPair.second),
+                                                    tokenPair.first);
+                    }
+                }
                 break;
             case DiskType::DISK_TYPE_SSD:
-                dataStore->closeAndDeleteSmTokensStore(smTokens);
+                LOGNOTIFY << "Close and delete token files for smTokens ";
+                for (auto& tokenPair: tokenDiskPairs) {
+                    LOGNOTIFY << tokenPair.first;
+                    //dataStore->deleteSmTokenStore(smTokens);
+                    fds_uint16_t fileId = diskMap->getWriteFileId(tokenPair.first,
+                                                                  diskio::diskTier);
+                    dataStore->deleteObjectDataFile(diskMap->getDiskPath(tokenPair.second),
+                                                    tokenPair.first, tokenPair.second, fileId);
+                }
                 break;
             default:
                 fds_panic("Unidentified disk type");

@@ -33,8 +33,12 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
     test_mode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 
-    LOGNOTIFY << "Init SM disk map module";
-    sleep(g_fdsprocess->get_fds_config()->get<int>("fds.sm.testing.sleep_to_inject_fault"));
+    auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
+                        get<int>("fds.sm.testing.sleep_to_inject_fault");
+    LOGNOTIFY << "Sleep for " << sleep_time
+              << " during mod_init";
+    sleep(sleep_time);
+
     // get list of HDD and SSD devices
     getDiskMap();
 
@@ -64,6 +68,15 @@ int SmDiskMap::mod_init(SysParams const *const param) {
 
 Error
 SmDiskMap::loadPersistentState() {
+
+    fiu_do_on("sm.skip.adding.hdd",\
+              LOGNOTIFY << "sm.skip.adding.hdd fault point enabled";\
+              fiu_disable("sm.skip.adding.hdd"); hdd_ids.erase(hdd_ids.begin()););
+
+    fiu_do_on("sm.skip.adding.ssd",\
+          LOGNOTIFY << "sm.skip.adding.ssd fault point enabled";\
+          fiu_disable("sm.skip.adding.ssd"); ssd_ids.erase(ssd_ids.begin()););
+
     // Load superblock, tell superblock about disk map
     // it will handle changes in diskmap (vs. its persisted state)
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map);
@@ -185,23 +198,11 @@ void SmDiskMap::getDiskMap() {
         LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid
                   << ", idx " << idx;
         if (strstr(path.c_str(), "hdd") != NULL) {
-            bool faultEnabled = false;
-            fiu_do_on("sm.skip.adding.hdd",\
-                      LOGNOTIFY << "sm.skip.adding.hdd fault point enabled";\
-                      fiu_disable("sm.skip.adding.hdd"); faultEnabled = true;);
-            if (!faultEnabled) {
-                fds_verify(hdd_ids.count(idx) == 0);
-                hdd_ids.insert(idx);
-            }
+            fds_verify(hdd_ids.count(idx) == 0);
+            hdd_ids.insert(idx);
         } else if (strstr(path.c_str(), "ssd") != NULL) {
-            bool faultEnabled = false;
-            fiu_do_on("sm.skip.adding.ssd",\
-                      LOGNOTIFY << "sm.skip.adding.ssd fault point enabled";\
-                      fiu_disable("sm.skip.adding.ssd"); faultEnabled = true;);
-            if (!faultEnabled) {
-                fds_verify(ssd_ids.count(idx) == 0);
-                ssd_ids.insert(idx);
-            }
+            fds_verify(ssd_ids.count(idx) == 0);
+            ssd_ids.insert(idx);
         } else {
             fds_panic("Unknown path: %s\n", path.c_str());
         }

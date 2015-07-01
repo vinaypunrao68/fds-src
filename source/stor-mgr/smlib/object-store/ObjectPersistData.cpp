@@ -369,6 +369,26 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
     return err;
 }
 
+Error
+ObjectPersistData::deleteObjectDataFile(const std::string& diskPath,
+                                        const fds_token_id& smToken,
+                                        const fds_uint16_t& diskId,
+                                        const fds_uint16_t& fileId) {
+    std::string filename = diskPath + "/tokenFile_" + std::to_string(smToken)
+                           + "_" + std::to_string(fileId);
+    typedef std::unique_ptr<diskio::FilePersisDataIO> Fptr;
+    Fptr fdesc = Fptr(new(std::nothrow) diskio::FilePersisDataIO(filename.c_str(),
+                                                                 fileId,
+                                                                 diskId));
+    Error err = fdesc->delete_file();
+    if (!err.ok()) {
+        LOGWARN << "Failed to delete file, tier " << diskio::diskTier
+                << " smToken " << smToken << " fileId" << fileId
+                << ", but ok, ignoring " << err;
+    }
+    return err;
+}
+
 void
 ObjectPersistData::closeTokenFile(diskio::DataTier tier,
                                   fds_token_id smTokId,

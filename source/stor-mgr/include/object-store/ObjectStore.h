@@ -256,7 +256,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Handle disk change.
      */
-    void handleDiskChanges(const DiskType& diskType, const SmTokenSet& smTokens);
+    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
+    void handleDiskChanges(const DiskType& diskType,
+                           const TokenDiskIdPairSet& tokenDiskPairs);
 
     /**
      * Check if object store is ready to serve IO/become source for SM token

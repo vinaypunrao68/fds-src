@@ -102,6 +102,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     fds_uint32_t getTotalDisks() const;
     fds_uint32_t getTotalDisks(diskio::DataTier tier) const;
 
+
     /**
      * Checks and returns the type of storage this SM has.
      * All SSD or hybrid.
@@ -141,6 +142,11 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Get current (i.e. closed DLT) from persitent storage.
      */
     fds_uint64_t getDLTVersion();
+
+    inline fds_uint16_t getWriteFileId(fds_token_id smToken,
+                                       diskio::DataTier tier) const {
+        return superblock->getWriteFileIdNoLock(smToken, tier);
+    }
 
     /**
      * Module methods
