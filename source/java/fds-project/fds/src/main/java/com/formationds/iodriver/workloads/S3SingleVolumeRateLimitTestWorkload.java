@@ -32,9 +32,12 @@ public final class S3SingleVolumeRateLimitTestWorkload extends S3Workload
      * Constructor.
      * 
      * @param iops The number of IOPS to set throttle to.
+     * @param logOperations Whether to log all operations executed by this workload.
      */
-    public S3SingleVolumeRateLimitTestWorkload(int iops)
+    public S3SingleVolumeRateLimitTestWorkload(int iops, boolean logOperations)
     {
+        super(logOperations);
+        
         if (iops <= 0)
         {
             throw new IllegalArgumentException("Must have some IOPS to test. " + iops

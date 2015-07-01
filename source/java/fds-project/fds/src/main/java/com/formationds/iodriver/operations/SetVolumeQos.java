@@ -2,6 +2,8 @@ package com.formationds.iodriver.operations;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -69,6 +71,13 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
         return apiBase.relativize(putVolume);
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("input", _input)));
+    }
+    
     /**
      * The parameters to set.
      */

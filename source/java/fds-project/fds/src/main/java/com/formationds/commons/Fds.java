@@ -219,7 +219,7 @@ public final class Fds
          * Runtime platform.conf.
          */
         private ParsedConfig _platformConfig;
-
+        
         /**
          * Get the runtime configuration.
          * 
@@ -416,6 +416,8 @@ public final class Fds
     @Replacement("OM_PORT")
     public static int getOmPort()
     {
+        // FIXME: This is calculated. See
+        //        https://github.com/FDS-Dev/fds-src/commit/5954882bd7f47854a0f32588822ebb160c743532
         return 7443;
     }
 

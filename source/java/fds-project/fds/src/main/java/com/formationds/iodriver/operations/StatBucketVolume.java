@@ -1,6 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 
@@ -45,6 +47,13 @@ public final class StatBucketVolume extends S3Operation
         omEndpoint.doVisit(_statVolumeOp, listener);
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("statVolumeOp", _statVolumeOp)));
+    }
+    
     /**
      * The OM operation to stat the volume backing the requested S3 bucket.
      */

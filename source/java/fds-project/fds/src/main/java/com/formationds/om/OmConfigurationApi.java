@@ -805,6 +805,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
+                    // FIXME: In the very rare circumstance where this is okay, it must be
+                    //        commented. Send review to davec@.
                 }
                 map.compute(KEY, (k, v) -> {
                     try {

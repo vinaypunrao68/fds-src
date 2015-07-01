@@ -4,7 +4,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -153,6 +155,17 @@ public final class CreateObject extends S3Operation
     static
     {
         IO_COST = 3;
+    }
+    
+    @Override
+    protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("bucketName", _bucketName),
+                                       memberToString("contentLength", _contentLength),
+                                       memberToString("doReporting", _doReporting),
+                                       memberToString("input", _input),
+                                       memberToString("key", _key)));
     }
     
     /**

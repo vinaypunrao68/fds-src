@@ -1,11 +1,12 @@
 package com.formationds.iodriver.reporters;
 
 import java.time.Instant;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.Subject;
+import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
@@ -96,6 +97,16 @@ public abstract class AbstractWorkflowEventListener
     public abstract void finished();
 
     /**
+     * Get the default logger.
+     *
+     * @return Something to log to that will hopefully get a message to a user.
+     */
+    public Logger getLogger()
+    {
+        return _logger;
+    }
+    
+    /**
      * Get the statistics for a given volume.
      * 
      * @param volume The name of the volume to look up.
@@ -137,11 +148,25 @@ public abstract class AbstractWorkflowEventListener
      */
     public abstract void reportStop(String volume);
     
-    protected AbstractWorkflowEventListener()
+    /**
+     * Constructor.
+     *
+     * @param logger Someplace people can log stuff in an emergency.
+     */
+    protected AbstractWorkflowEventListener(Logger logger)
     {
+        if (logger == null) throw new NullArgumentException("logger");
+        
         finished = new Subject<>();
         started = new Subject<>();
         stopped = new Subject<>();
         volumeAdded = new Subject<>();
+        
+        _logger = logger;
     }
+    
+    /**
+     * A last-resort place to report user-readable strings.
+     */
+    private final Logger _logger;
 }

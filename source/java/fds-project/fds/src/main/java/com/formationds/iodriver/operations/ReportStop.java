@@ -1,5 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.stream.Stream;
+
 import com.amazonaws.services.s3.AmazonS3Client;
 
 import com.formationds.commons.NullArgumentException;
@@ -37,6 +40,13 @@ public class ReportStop extends S3Operation
         reporter.reportStop(_bucketName);
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("bucketName", _bucketName)));
+    }
+    
     /**
      * The bucket to report end for.
      */

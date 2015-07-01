@@ -1,5 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.stream.Stream;
+
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
 
@@ -43,6 +46,13 @@ public class CreateBucket extends S3Operation
         }
     }
 
+    @Override
+    protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("bucketName", _bucketName)));
+    }
+    
     /**
      * The name of the bucket to create.
      */

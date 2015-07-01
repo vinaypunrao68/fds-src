@@ -1,5 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.stream.Stream;
+
 import com.amazonaws.services.s3.AmazonS3Client;
 
 import com.formationds.commons.NullArgumentException;
@@ -57,6 +60,13 @@ public class LambdaS3Operation extends S3Operation
         _delegate.exec(endpoint, client, reporter);
     }
 
+    @Override
+    protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("delegate", _delegate)));
+    }
+    
     /**
      * The delegate to call when this operation is executed.
      */

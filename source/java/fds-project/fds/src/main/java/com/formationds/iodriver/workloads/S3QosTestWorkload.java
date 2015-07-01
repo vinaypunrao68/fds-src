@@ -30,20 +30,27 @@ import com.formationds.iodriver.operations.StatBucketVolume;
 // TODO: This was intended to test the fairness QOS with multiple queues. Not complete.
 public final class S3QosTestWorkload extends S3Workload
 {
-    public S3QosTestWorkload(Collection<IoParams> bucketParams, Duration duration)
+    public S3QosTestWorkload(Collection<IoParams> bucketParams,
+                             Duration duration,
+                             boolean logOperations)
     {
-        this(bucketParams, duration, null);
+        this(bucketParams, duration, null, logOperations);
     }
 
-    public S3QosTestWorkload(Collection<IoParams> bucketParams, ZonedDateTime stopTime)
+    public S3QosTestWorkload(Collection<IoParams> bucketParams,
+                             ZonedDateTime stopTime,
+                             boolean logOperations)
     {
-        this(bucketParams, null, stopTime);
+        this(bucketParams, null, stopTime, logOperations);
     }
 
     private S3QosTestWorkload(Collection<IoParams> bucketParams,
                               Duration duration,
-                              ZonedDateTime stopTime)
+                              ZonedDateTime stopTime,
+                              boolean logOperations)
     {
+        super(logOperations);
+        
         if (bucketParams == null) throw new NullArgumentException("bucketParams");
         if ((duration == null) == (stopTime == null))
         {

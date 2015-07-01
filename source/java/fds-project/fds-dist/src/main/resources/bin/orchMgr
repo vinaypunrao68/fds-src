@@ -1,47 +1,40 @@
 #!/bin/bash
 
-JAVA_OPTS='-Xmx1024M -Xms20M'
+args=$*
 
-FDS_ROOT='/fds'
-FDS_OM_HOST='localhost'
+JAVA_OPTS="-Xmx1024M -Xms20M"
+
+FDS_ROOT=/fds
+FDS_OM_HOST=localhost
 
 for i in "$@"
 do
-  key="${1}"
-
-  case "${i}" in
+  case $i in
     --fds-root=*)
       FDS_ROOT="${i#*=}"
-      shift # past argument
       ;;
-
+    
     --debug-port=*)
       DEBUG_PORT="${i#*=}"
-      shift # past argument
       ;;
-
+      
     *)
       # unknown option
-      # FIXME: Should we throw an error here, or is forward-compatibility desired?
       ;;
   esac
-
   shift # past argument or value
 done
 
-CLASSPATH="${FDS_ROOT}"'/lib/java/'*
-CLASSPATH="${CLASSPATH}"':'"${$FDS_ROOT}"'/etc/'
-CLASSPATH="${$CLASSPATH}"':'"${FDS_ROOT}"'/etc/ssl'
-CLASSPATH="${CLASSPATH}"':'"${FDS_ROOT}"'/etc/ssl/dev'
+CLASSPATH=$FDS_ROOT/lib/java/*
+CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/
+CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
+CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
 
-echo "FDS_ROOT  = \"${FDS_ROOT}\""
-echo "CLASSPATH = \"${CLASSPATH}\""
+echo "FDS_ROOT  = $FDS_ROOT"
+echo "CLASSPATH = $CLASSPATH"
 
-if [ ! -z "${DEBUG_PORT}" ];
-    DEBUG_OPTS='agentlib:jdwp=transport=dt socket,server=y,suspend=n,address='"${DEBUG_PORT}"
+if [[ ! -z "${DEBUG_PORT}" ]]; then
+    DEBUG_OPTS='-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address='"${DEBUG_PORT}"
 fi
 
-java $JAVA_OPTS \
-     -classpath "${CLASSPATH}" \
-     "${DEBUG_OPTS}" \
-     com.formationds.om.Main "${@}"
+java $JAVA_OPTS -classpath $CLASSPATH ${DEBUG_OPTS} com.formationds.om.Main $args

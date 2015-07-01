@@ -1,6 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 
@@ -43,6 +45,14 @@ public class AddToReporter extends S3Operation
         reporter.addVolume(_bucketName, stats);
     }
 
+    @Override
+    protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("bucketName", _bucketName),
+                                       memberToString("statsGetter", _statsGetter)));
+    }
+    
     /**
      * The name of the bucket to add.
      */

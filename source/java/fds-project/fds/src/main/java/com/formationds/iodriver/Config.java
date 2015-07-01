@@ -9,11 +9,14 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -42,6 +45,17 @@ import com.formationds.iodriver.workloads.Workload;
  */
 public final class Config
 {
+    /**
+     * Actions that can be logged.
+     */
+    public enum LogTargets
+    {
+        /**
+         * Log all operations performed.
+         */
+        OPERATIONS
+    }
+    
     /**
      * The interactive console.
      */
@@ -153,7 +167,7 @@ public final class Config
                 // Should be impossible.
                 throw new IllegalStateException(e);
             }
-            _listener = new WorkflowEventListener();
+            _listener = new WorkflowEventListener(newLogger);
             _logger = newLogger;
             _validator = new RateLimitValidator();
         }
@@ -210,14 +224,18 @@ public final class Config
      * @return A workload.
      *
      * @throws ConfigUndefinedException when the system throttle IOPS rate is not defined.
+     * @throws ParseException when the command-line cannot be parsed.
      */
     @WorkloadProvider
-    public S3AssuredRateTestWorkload getAssuredWorkload() throws ConfigUndefinedException
+    public S3AssuredRateTestWorkload getAssuredWorkload() throws ConfigUndefinedException,
+                                                                 ParseException
     {
         final int competingBuckets = 2;
         final int systemThrottle = getSystemIopsMax();
         
-        return new S3AssuredRateTestWorkload(competingBuckets, systemThrottle);
+        return new S3AssuredRateTestWorkload(competingBuckets,
+                                             systemThrottle,
+                                             getOperationLogging());
     }
     
     /**
@@ -257,6 +275,33 @@ public final class Config
     }
 
     /**
+     * Things that should be logged.
+     * 
+     * @return The current property value.
+     * @throws ParseException when the command-line cannot be parsed.
+     */
+    public EnumSet<LogTargets> getLogTargets() throws ParseException
+    {
+        if (_logTargets == null)
+        {
+            CommandLine commandLine = getCommandLine();
+            if (commandLine.hasOption("debug"))
+            {
+                _logTargets = EnumSet.copyOf(StreamSupport.stream(
+                        Arrays.asList(commandLine.getOptionValues("debug")).spliterator(),
+                        false).map(logTarget -> Enum.valueOf(LogTargets.class, logTarget))
+                              .collect(Collectors.toList()));
+            }
+            else
+            {
+                _logTargets = EnumSet.noneOf(LogTargets.class);
+            }
+        }
+        
+        return _logTargets;
+    }
+    
+    /**
      * Get the configured logger.
      * 
      * @return A logger.
@@ -267,6 +312,17 @@ public final class Config
         return Defaults.getLogger();
     }
 
+    /**
+     * Get whether to log individual operations.
+     * 
+     * @return The configured property value.
+     * @throws ParseException when the command-line cannot be parsed.
+     */
+    public boolean getOperationLogging() throws ParseException
+    {
+        return getLogTargets().contains(LogTargets.OPERATIONS);
+    }
+    
     /**
      * Get the maximum IOPS this system will allow.
      * 
@@ -308,9 +364,11 @@ public final class Config
      * 
      * @throws ConfigurationException when the system assured and throttle IOPS rates are not within
      *             a testable range.
+     * @throws ParseException when the command-line cannot be parsed.
      */
     @WorkloadProvider
-    public S3RateLimitTestWorkload getRateLimitWorkload() throws ConfigurationException
+    public S3RateLimitTestWorkload getRateLimitWorkload() throws ConfigurationException,
+                                                                 ParseException
     {
         final int systemAssured = getSystemIopsMin();
         final int systemThrottle = getSystemIopsMax();
@@ -329,7 +387,7 @@ public final class Config
                                              + systemAssured + " IOPS.");
         }
 
-        return new S3RateLimitTestWorkload(systemAssured + headroomNeeded);
+        return new S3RateLimitTestWorkload(systemAssured + headroomNeeded, getOperationLogging());
     }
 
     // @eclipseFormat:off
@@ -534,6 +592,11 @@ public final class Config
     private int _disk_iops_min;
 
     /**
+     * Things that should be logged.
+     */
+    private EnumSet<LogTargets> _logTargets;
+    
+    /**
      * The command-line options supported. {@code null} prior to {@link #getOptions()}.
      */
     private Options _options;
@@ -642,6 +705,16 @@ public final class Config
         if (_options == null)
         {
             Options newOptions = new Options();
+            newOptions.addOption("d",
+                                 "debug",
+                                 true,
+                                 "Operations to debug. Available operations are "
+                                 + String.join(", ",
+                                               StreamSupport.stream(Arrays.asList(LogTargets.values())
+                                                                          .spliterator(),
+                                                                    false)
+                                                            .map(logTarget -> logTarget.toString())
+                                                            .collect(Collectors.toList())));
             newOptions.addOption("h", "help", false, "Show this help screen.");
             newOptions.addOption("w",
                                  "workload",

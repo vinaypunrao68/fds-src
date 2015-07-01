@@ -1,6 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 
@@ -53,6 +55,13 @@ public final class SetBucketQos extends S3Operation
         omEndpoint.doVisit(getSetVolumeQosOp(), listener);
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("statsSupplier", _statsSupplier)));
+    }
+    
     /**
      * Supplies parameters to set.
      */

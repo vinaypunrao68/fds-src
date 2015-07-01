@@ -10,6 +10,7 @@ import java.util.Set;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Strings;
+import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
 /**
@@ -22,9 +23,9 @@ public final class WorkflowEventListener extends AbstractWorkflowEventListener
     /**
      * Constructor.
      */
-    public WorkflowEventListener()
+    public WorkflowEventListener(Logger logger)
     {
-        this(new HashMap<>());
+        this(new HashMap<>(), logger);
     }
 
     /**
@@ -32,8 +33,10 @@ public final class WorkflowEventListener extends AbstractWorkflowEventListener
      * 
      * @param params QoS statistics.
      */
-    public WorkflowEventListener(Map<String, VolumeQosSettings> params)
+    public WorkflowEventListener(Map<String, VolumeQosSettings> params, Logger logger)
     {
+        super(logger);
+        
         if (params == null) throw new NullArgumentException("params");
 
         _volumeOps = new HashMap<>();

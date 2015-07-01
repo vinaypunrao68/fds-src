@@ -1,7 +1,9 @@
 package com.formationds.iodriver.operations;
 
 import java.net.URI;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -104,6 +106,14 @@ public final class StatVolume extends OrchestrationManagerOperation
         return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("consumer", _consumer),
+                                       memberToString("volumeName", _volumeName)));
+    }
+    
     /**
      * Where to send the settings.
      */

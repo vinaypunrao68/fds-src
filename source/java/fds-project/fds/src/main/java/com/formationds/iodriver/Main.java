@@ -6,7 +6,6 @@ package com.formationds.iodriver;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
@@ -30,10 +29,13 @@ public final class Main
     public static void main(String[] args)
     {
         int result = Integer.MIN_VALUE;
+        Logger logger = null;
         try
         {
             if (args == null) throw new NullArgumentException("args");
 
+            logger = Config.Defaults.getLogger();
+            
             Config config = new Config(args);
             if (handleHelp(config))
             {
@@ -48,16 +50,19 @@ public final class Main
             }
             else
             {
-                result = runWorkloadDry(config);
-                if (result == 0)
-                {
+                //result = runWorkloadDry(config);
+                //if (result == 0)
+                //{
                     result = runWorkload(config);
-                }
+                //}
             }
         }
         catch (Exception ex)
         {
-            LOGGER.logError("Unexpected exception.", ex);
+            if (logger != null)
+            {
+                logger.logError("Unexpected exception.", ex);
+            }
             result = 1;
         }
 
@@ -71,16 +76,6 @@ public final class Main
     {
         throw new UnsupportedOperationException("Trying to instantiate a utility class.");
     }
-
-    static
-    {
-        LOGGER = new ConsoleLogger();
-    }
-
-    /**
-     * This class's logger.
-     */
-    private static final Logger LOGGER;
 
     /**
      * Display help if necessary.
@@ -145,7 +140,7 @@ public final class Main
     {
         if (config == null) throw new NullArgumentException("config");
         
-        AbstractWorkflowEventListener listener = new NullWorkflowEventListener();
+        AbstractWorkflowEventListener listener = new NullWorkflowEventListener(config.getLogger());
         try (ConsoleProgressReporter reporter =
                 new ConsoleProgressReporter(System.out,
                                             listener.started,

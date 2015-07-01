@@ -20,6 +20,7 @@ import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.commons.util.NullableMutableReference;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
 import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
@@ -48,7 +49,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
     {
         return _endpointType;
     }
-    
+
     /**
      * Get the type of operation this workload can execute.
      * 
@@ -60,21 +61,6 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
     }
     
     /**
-     * Constructor.
-     * 
-     * @param endpointType The type of endpoint this workload can use.
-     * @param operationType The type of operation this workload can run.
-     */
-    protected Workload(Class<EndpointT> endpointType, Class<OperationT> operationType)
-    {
-        if (endpointType == null) throw new NullArgumentException("endpointType");
-        if (operationType == null) throw new NullArgumentException("operationType");
-        
-        _endpointType = endpointType;
-        _operationType = operationType;
-    }
-    
-    /**
      * Get a validator that will interpret this workload well.
      * 
      * @return The current property value, or {@link Optional#empty()} if there is no sensible
@@ -83,6 +69,44 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
     public Optional<Validator> getSuggestedValidator()
     {
         return Optional.empty();
+    }
+    
+    /**
+     * Constructor.
+     * 
+     * @param endpointType The type of endpoint this workload can use.
+     * @param operationType The type of operation this workload can run.
+     * @param logOperations Log operations executed by this workload.
+     */
+    protected Workload(Class<EndpointT> endpointType,
+                       Class<OperationT> operationType,
+                       boolean logOperations)
+    {
+        if (endpointType == null) throw new NullArgumentException("endpointType");
+        if (operationType == null) throw new NullArgumentException("operationType");
+        
+        _endpointType = endpointType;
+        _operationType = operationType;
+        _logOperations = logOperations;
+    }
+    
+    private ExceptionThrowingConsumer<OperationT, ExecutionException> debugWrap(
+            ExceptionThrowingConsumer<OperationT, ExecutionException> exec, Logger logger)
+    {
+        if (exec == null) throw new NullArgumentException("exec");
+        
+        if (logger == null)
+        {
+            return exec;
+        }
+        else
+        {
+            return op -> 
+                   {
+                       logger.logDebug("Executing: " + op);
+                       exec.accept(op);
+                   };
+        }
     }
     
     /**
@@ -114,6 +138,10 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                         ExceptionThrowingConsumer<OperationT, ExecutionException> exec =
                                 op -> endpoint.doVisit(op, listener);
 
+                        // Log operations if requested.
+                        ExceptionThrowingConsumer<OperationT, ExecutionException> loggingExec =
+                                debugWrap(exec, getLogOperations() ? listener.getLogger() : null); 
+
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
                         // but hits this compiler bug:
                         //
@@ -128,8 +156,8 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                         // tunnel(...) with a static import.
                         Consumer<OperationT> tunneledExec =
                                 ExceptionHelper.<OperationT, ExecutionException>
-                                               tunnel(exec, ExecutionException.class);
-
+                                               tunnel(loggingExec, ExecutionException.class);
+                        
                         // Synchronize all worker threads.
                         ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
                                                                       ExecutionException.class);
@@ -208,7 +236,8 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
         ExceptionHelper.<OperationT, ExecutionException>
                        tunnel(ExecutionException.class,
                               from -> _setup.forEach(from),
-                              (OperationT op) -> endpoint.doVisit(op, listener));
+                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
+                                        getLogOperations() ? listener.getLogger() : null));
     }
 
     /**
@@ -234,7 +263,8 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
         ExceptionHelper.<OperationT, ExecutionException>
                        tunnel(ExecutionException.class,
                               from -> _teardown.forEach(from),
-                              (OperationT op) -> endpoint.doVisit(op, listener));
+                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
+                                        getLogOperations() ? listener.getLogger() : null));
     }
 
     /**
@@ -294,6 +324,16 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
     }
 
     /**
+     * Return whether to log operations executed by this workload.
+     * 
+     * @return The current property value.
+     */
+    protected final boolean getLogOperations()
+    {
+        return _logOperations;
+    }
+    
+    /**
      * Wait to a gate to be released.
      * 
      * @param gate The gate to wait on.
@@ -318,7 +358,12 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * The type of endpoint this workload can use.
      */
     private final Class<EndpointT> _endpointType;
-
+    
+    /**
+     * Log operations executed by this workload.
+     */
+    private boolean _logOperations;
+    
     /**
      * The type of operation this workload can run.
      */
