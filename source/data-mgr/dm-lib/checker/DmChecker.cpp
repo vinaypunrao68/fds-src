@@ -10,6 +10,7 @@
 #include <fds_dmt.h>
 #include <checker/LeveldbDiffer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
+#include <DmBlobTypes.h>
 #include <util/stringutils.h>
 #include <fdsp/ConfigurationService.h>
 
@@ -90,25 +91,41 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
         /* Note this call assumes keys are equal */
 
         /* For now physical diff should be enough */
+        if (isTimestampEntry(itr1)) {
+            /* Ignore timestamp entry */
+            return true;
+        }
         return itr1->value() == itr2->value();
 
-#if 0       // Possible logical diff implementation
-        if (isVolumeDescriptor(itr1)) {
-            VolumeMetaDesc volDesc1;
+#if 0   /* Enable if logical diff is needed */
+        bool ret = false;
+
+        if (isTimestampEntry(itr1)) {
+            /* Ignore timestamp entry */
+            ret = true;
+        } else if (isVolumeDescriptor(itr1)) {
+            VolumeMetaDesc volDesc1 = VolumeMetaDesc(fpi::FDSP_MetaDataList());
             auto status = volDesc1.loadSerialized(itr1->value().ToString());
             fds_verify(status == ERR_OK);
 
-            VolumeMetaDesc volDesc2;
-            auto status = volDesc2.loadSerialized(itr2->value().ToString());
+            VolumeMetaDesc volDesc2 = VolumeMetaDesc(fpi::FDSP_MetaDataList());
+            status = volDesc2.loadSerialized(itr2->value().ToString());
             fds_verify(status == ERR_OK);
-            return volDesc1 == volDesc2;
+            ret = (volDesc1 == volDesc2);
         } else if (isBlobDescriptor(itr1)) {
-            /* For now physical diff should be enough */
-            return itr1->value() == itr2->value();
+            BlobMetaDesc blobDesc1;
+            auto status = blobDesc1.loadSerialized(itr1->value().ToString());
+            fds_verify(status == ERR_OK);
+
+            BlobMetaDesc blobDesc2;
+            status = blobDesc2.loadSerialized(itr2->value().ToString());
+            fds_verify(status == ERR_OK);
+            ret = (blobDesc1 == blobDesc2);
         } else {
             /* For now physical diff should be enough */
-            return itr1->value() == itr2->value();
+            ret = (itr1->value() == itr2->value());
         }
+        return ret;
 #endif
     }
 
@@ -123,6 +140,10 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
         return &comparator;
     }
 
+    static bool isTimestampEntry(leveldb::Iterator *itr) {
+        const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
+        return key->objIndex == 0 && key->blobId == 0;
+    }
     static bool isVolumeDescriptor(leveldb::Iterator *itr) {
         const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
         return key->blobId == VOL_META_ID;
@@ -153,14 +174,6 @@ uint64_t DMChecker::run() {
     DmPersistVolDBDiffAdapter diffAdapter;
     auto volumeList  = env->getVolumeIds();
     for (const auto &volId : volumeList) {
-#if 0
-        // TODO(Rao): Need a better mechanism for figuring out a system volume
-        if (volId < fds_volid_t(3)) {
-            LOGNORMAL << "Ignoring system volume: " << volId;
-            /* Ignore checking on system volume for now */
-            continue;
-        }
-#endif
         auto replicaCnt = env->getReplicaCount(volId);
 
         auto primaryCatPath = env->getCatalogPath(volId, 0);

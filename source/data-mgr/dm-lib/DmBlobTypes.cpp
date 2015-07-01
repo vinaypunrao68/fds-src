@@ -89,6 +89,12 @@ MetaDataList& MetaDataList::operator=(const MetaDataList &rhs) {
     return *this;
 }
 
+bool MetaDataList::operator==(const MetaDataList& rhs) const {
+    bool ret = (size() == rhs.size() &&
+            std::equal(begin(), end(), rhs.begin()));
+    return ret;
+}
+
 std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
     out << "Metadata: ";
     if (metaList.size() == 0) {
@@ -136,6 +142,13 @@ BasicBlobMeta& BasicBlobMeta::operator=(const BasicBlobMeta &rhs) {
     return *this;
 }
 
+bool BasicBlobMeta::operator==(const BasicBlobMeta& rhs) const {
+    bool ret = (blob_name == rhs.blob_name &&
+                version == rhs.version &&
+                blob_size == rhs.blob_size);
+    return ret;
+}
+
 std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& desc) {
     out << "BasicBlobMeta: "
         << "name " << desc.blob_name
@@ -176,6 +189,12 @@ BlobMetaDesc& BlobMetaDesc::operator=(const BlobMetaDesc &rhs) {
     desc      = rhs.desc;
     meta_list = rhs.meta_list;
     return *this;
+}
+
+bool BlobMetaDesc::operator==(const BlobMetaDesc &rhs) const {
+    bool ret = (desc == rhs.desc &&
+                meta_list == rhs.meta_list);
+    return ret;
 }
 
 std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc) {
@@ -381,6 +400,10 @@ uint32_t VolumeMetaDesc::read(serialize::Deserializer* d) {
 }
 
 VolumeMetaDesc& VolumeMetaDesc::operator=(const VolumeMetaDesc &rhs) = default;
+
+bool VolumeMetaDesc::operator==(const VolumeMetaDesc& rhs) const {
+    return meta_list == rhs.meta_list;
+}
 
 std::ostream& operator<<(std::ostream& out, const VolumeMetaDesc& blobMetaDesc) {
     out << "VolumeMeta: ";
