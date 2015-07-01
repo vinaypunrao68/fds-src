@@ -47,6 +47,7 @@ public class S3SignatureTest {
 
             ctx.test(client -> client.getObject("potato", "ole"));
             ctx.test(client -> client.putObject("muffins", "beans", makeStream(), new ObjectMetadata()));
+            // ctx.test(client -> client.putObject("muffins", "meatloaf", makeStream(4096 * 100), new ObjectMetadata()));
             ctx.test(client -> client.putObject("muffins", "beans", makeStream(), weirdContentType));
             ctx.test(client -> client.deleteObject("mop", "cand"));
             ctx.test(client -> client.deleteObjects(new DeleteObjectsRequest("mop").withKeys("sped", "maff", "parp")));
@@ -75,6 +76,15 @@ public class S3SignatureTest {
 
     private InputStream makeStream() {
         return new ByteArrayInputStream(new byte[]{1, 2, 3, 4});
+    }
+
+    private InputStream makeStream(int size) {
+        byte[] data = new byte[size];
+        for (int i = 0; i < size; i++) {
+            data[i] = (byte) (i & 0xFF);
+        }
+
+        return new ByteArrayInputStream(data);
     }
 
     class SignatureGeneratorTestContext implements AutoCloseable {
@@ -168,7 +178,7 @@ public class S3SignatureTest {
             lastSecurityException = null;
             AuthenticationNormalizer normalizer = new AuthenticationNormalizer();
             try {
-                HttpContext authCtx = normalizer.authenticatedContext(credentials, context);
+                HttpContext authCtx = normalizer.authenticatingContext(credentials, context);
                 byte[] data = IoStreamUtil.buffer(authCtx.getInputStream());
             } catch(SecurityException ex) {
                 lastSecurityException = ex;

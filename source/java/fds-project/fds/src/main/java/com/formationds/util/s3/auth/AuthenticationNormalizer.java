@@ -4,9 +4,10 @@ import com.amazonaws.auth.AWSCredentials;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.s3.auth.stream.ChunkAuthenticationInputStream;
 import com.formationds.util.s3.auth.stream.FullContentAuthenticationInputStream;
-
 import java.io.InputStream;
+import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Optional;
 
 public class AuthenticationNormalizer {
 
@@ -34,7 +35,30 @@ public class AuthenticationNormalizer {
         return AuthenticationMode.Unknown;
     }
 
-    public HttpContext authenticatedContext(AWSCredentials credentials, HttpContext ctx) throws SecurityException {
+    public Optional<String> getPrincipalName(HttpContext ctx) {
+        String authHeader =  ctx.getRequestHeader(AUTHORIZATION);
+        if(authHeader == null)
+            return Optional.empty();
+
+        switch(authenticationMode(ctx)) {
+            case v2:
+                String pattern = "AWS {0}:{1}";
+                try {
+                    Object[] parsed = new MessageFormat(pattern).parse(authHeader);
+                    return Optional.of((String) parsed[0]);
+                } catch (Exception e) {
+                    throw new SecurityException("invalid credentials");
+                }
+            case v4Chunked:
+            case v4FullRequest:
+                V4AuthHeader header = new V4AuthHeader(authHeader);
+                return Optional.of(header.getUserId());
+        }
+
+        return Optional.empty();
+    }
+
+    public HttpContext authenticatingContext(AWSCredentials credentials, HttpContext ctx) throws SecurityException {
         String authHeader =  ctx.getRequestHeader(AUTHORIZATION);
         switch(authenticationMode(ctx)) {
             case v2: {
@@ -55,6 +79,7 @@ public class AuthenticationNormalizer {
                 ChunkSignatureSequence css = new ChunkSignatureSequence(credentials.getAWSSecretKey(), srd, header.getScope());
                 if(!Arrays.equals(css.getSeedSignature(), header.getSignatureBytes()))
                     throw new SecurityException("chunked mode signature mismatch");
+
                 InputStream validatingInputStream =
                         new ChunkAuthenticationInputStream(ctx.getInputStream(), css);
                 return ctx.withInputWrapper(validatingInputStream);

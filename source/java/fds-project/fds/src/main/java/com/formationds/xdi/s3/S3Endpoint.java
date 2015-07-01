@@ -105,8 +105,13 @@ public class S3Endpoint {
     private CompletableFuture<Void> executeAsync(HttpContext ctx, BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> function) {
         CompletableFuture<Void> cf = null;
         try {
-            AuthenticationToken token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
-            cf = function.apply(ctx, token);
+            HttpContext localContext = ctx;
+            S3Authenticator s3auth = new S3Authenticator(xdi.getAuthorizer(), secretKey);
+            AuthenticationToken token = s3auth.getIdentityClaim(localContext);
+            if(token != AuthenticationToken.ANONYMOUS)
+                localContext = s3auth.buildAuthenticatingContext(localContext);
+
+            cf = function.apply(localContext, token);
         } catch (Exception e) {
             cf.completeExceptionally(e);
         }
@@ -135,10 +140,14 @@ public class S3Endpoint {
         webApp.route(path, ctx -> CompletableFuture.runAsync(() -> {
                     Resource resource = new TextResource("");
                     try {
-                        AuthenticationToken token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
-                        AuthenticatedRequestContext.begin(token);
+                        HttpContext localContext = ctx;
+                        S3Authenticator authenticator =  new S3Authenticator(xdi.getAuthorizer(), secretKey);
+                        AuthenticationToken identityClaim = authenticator.getIdentityClaim(localContext);
+                        if(identityClaim != AuthenticationToken.ANONYMOUS)
+                            localContext = authenticator.buildAuthenticatingContext(localContext);
+                        AuthenticatedRequestContext.begin(identityClaim);
                         Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
-                        resource = errorHandler.apply(token).handle(ctx);
+                        resource = errorHandler.apply(identityClaim).handle(localContext);
                     } catch (Throwable t) {
                         if (t instanceof ExecutionException) {
                             t = t.getCause();
