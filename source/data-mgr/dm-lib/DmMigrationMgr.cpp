@@ -10,12 +10,10 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-	  maxTokens(1), firedTokens(0), mit(NULL)
+	  maxTokens(1), firedTokens(0), mit(NULL), DmStartMigClientCb(NULL),
+	  migrState(MIGR_IDLE), cleanUpInProgress(false), migrationMsg(nullptr),
+	  migReqMsg(nullptr)
 {
-    // TODO(sean): Need start migration message callback.  Called when the migration completes or aborts.
-	migrState = MIGR_IDLE;
-	cleanUpInProgress = false;
-	migrationMsg = nullptr;
 	maxTokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
 				get<int>("fds.dm..migration.max_migrations"));
 }
@@ -158,12 +156,26 @@ DmMigrationMgr::ackMigrationComplete(const Error &status)
 	OmStartMigrCb(asyncPtr, migrationMsg, status, dmReqPtr);
 }
 
+
+void
+DmMigrationMgr::ackInitialBlobFilter(const Error &status)
+{
+	fds_verify(DmStartMigClientCb != NULL);
+	DmStartMigClientCb(asyncPtr, migReqMsg, status, dmReqPtr);
+}
+
+// See note in header file for design decisions
 Error
-DmMigrationMgr::startMigrationClient(fpi::ResyncInitialBlobFilterSetMsgPtr &migReqMsg, NodeUuid &_dest)
+DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
 {
 	Error err(ERR_OK);
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
-	NodeUuid destDmUuid(_dest);
+    DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
+	NodeUuid destDmUuid(typedRequest->destNodeUuid);
+    dmReqPtr = dmRequest;
+    migReqMsg = typedRequest->message;
+	DmStartMigClientCb = typedRequest->localCb;
+
 	LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
 	err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, migReqMsg->volumeId);
@@ -197,8 +209,6 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		clientMap.emplace(myUniqueId,
 				DmMigrationClient::unique_ptr(new DmMigrationClient(DmReqHandler, dataManager,
 												mySvcUuid, destDmUuid, ribfsm,
-												// ribfsm->blob_filter_set,
-												// blobFilterSetPtrs,
 												std::bind(&DmMigrationMgr::migrationClientDoneCb,
 												this, std::placeholders::_1,
 												std::placeholders::_2))));

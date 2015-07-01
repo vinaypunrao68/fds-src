@@ -316,6 +316,9 @@ struct DmMigrationBlobFilterHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
+    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
 };
 
 }  // namespace dm
