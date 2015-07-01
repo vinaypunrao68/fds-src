@@ -80,7 +80,7 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
          ++cit) {
         std::string diskPath;
         // invalid diskId
-        if (diskId == INVALID_DISK_ID) {
+        if (diskId == SM_INVALID_DISK_ID) {
             diskPath = diskMap->getDiskPath(*cit, tier);
         } else {
             diskPath = diskMap->getDiskPath(diskId);

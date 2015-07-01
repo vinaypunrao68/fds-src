@@ -69,14 +69,6 @@ int SmDiskMap::mod_init(SysParams const *const param) {
 Error
 SmDiskMap::loadPersistentState() {
 
-    fiu_do_on("sm.skip.adding.hdd",\
-              LOGNOTIFY << "sm.skip.adding.hdd fault point enabled";\
-              fiu_disable("sm.skip.adding.hdd"); hdd_ids.erase(hdd_ids.begin()););
-
-    fiu_do_on("sm.skip.adding.ssd",\
-          LOGNOTIFY << "sm.skip.adding.ssd fault point enabled";\
-          fiu_disable("sm.skip.adding.ssd"); ssd_ids.erase(ssd_ids.begin()););
-
     // Load superblock, tell superblock about disk map
     // it will handle changes in diskmap (vs. its persisted state)
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map);

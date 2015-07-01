@@ -25,8 +25,6 @@ typedef enum DiskType {
     DISK_TYPE_HDD
 }DiskType;
 
-const fds_uint16_t INVALID_DISK_ID = -1;
-
 typedef std::function<void (const DiskType&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;

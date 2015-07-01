@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <SmTypes.h>
 #include <SmIo.h>
 #include <object-store/ObjectMetaCache.h>
 #include <object-store/ObjectMetaDb.h>
@@ -45,7 +46,7 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      */
     Error openMetadataStore(const SmDiskMap::const_ptr& diskMap,
                             const SmTokenSet& smToks,
-                            const fds_uint16_t& diskId = INVALID_DISK_ID);
+                            const fds_uint16_t& diskId = SM_INVALID_DISK_ID);
 
     /**
      * Closes and removes metadata stores for given set of SM tokens

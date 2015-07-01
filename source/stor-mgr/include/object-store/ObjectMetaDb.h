@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <fds_types.h>
+#include <SmTypes.h>
 #include <concurrency/RwLock.h>
 #include <ObjMeta.h>
 #include <odb.h>
@@ -47,7 +48,7 @@ class ObjectMetadataDb {
      */
     Error openMetadataDb(const SmDiskMap::const_ptr& diskMap,
                          const SmTokenSet& smToks,
-                         const fds_uint16_t& diskId = INVALID_DISK_ID);
+                         const fds_uint16_t& diskId = SM_INVALID_DISK_ID);
 
     /**
      * Closes object metadata DB
