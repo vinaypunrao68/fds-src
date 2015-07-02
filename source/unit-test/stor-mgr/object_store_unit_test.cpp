@@ -545,7 +545,7 @@ TEST_F(SmObjectStoreTest, concurrent_gets_2mb) {
 
 TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     fds_uint32_t sm_count = 4;
-    fds_uint32_t cols = 4;
+    fds_uint32_t cols = 3;
 
     DLT* dlt = new DLT(16, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
@@ -556,7 +556,7 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
 
     for (auto obj : srcNodeMap) {
-         ASSERT_EQ(obj.first, NodeUuid(srcSm));
+         ASSERT_EQ(obj.first, NodeUuid(DLT_VER_INVALID));
     }
 
     destSm = 3; // destination SM id
@@ -572,7 +572,7 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     destSm = 10000; // destination SM id
     srcNodeMap.clear();
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
-    ASSERT_EQ(srcNodeMap.size(), 0);
+    ASSERT_EQ(srcNodeMap.size(), NodeUuid(DLT_VER_INVALID));
 
     delete dlt;
 }
