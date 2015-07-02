@@ -16,7 +16,7 @@ namespace fds { namespace util {
  * This is a non- thread safe bloom filter
  */
 struct BloomFilter {
-    BloomFilter(uint32_t totalBits=1*MB, uint8_t bitsPerKey=8);
+    explicit BloomFilter(uint32_t totalBits=1*MB, uint8_t bitsPerKey=8);
     void add(const ObjectID& ojID);
     void add(const std::string& data);
     bool lookup(const ObjectID& ojID) const;

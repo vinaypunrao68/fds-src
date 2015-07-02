@@ -42,19 +42,20 @@ bool BloomFilter::lookup(const std::string& data) const {
 
 void BloomFilter::add(const std::vector<uint32_t>& positions) {
     for (uint i = 0 ; i < bitsPerKey ; i++) {
-        bits->set(i, true);
+        bits->set(positions[i], true);
     }
 }
 
 bool BloomFilter::lookup(const std::vector<uint32_t>& positions) const {
     for (uint i = 0 ; i < bitsPerKey ; i++) {
-        if (!bits->test(i)) return false;
+        if (!bits->test(positions[i])) return false;
     }
     return true;
 }
 
 std::vector<uint32_t> BloomFilter::generatePositions(const void* data, uint32_t len) const {
-    std::vector<uint32_t> positions(bitsPerKey);
+    std::vector<uint32_t> positions;
+    positions.reserve(bitsPerKey);
     for (uint i = 0 ; i < bitsPerKey ; i++) {
         positions.push_back(MurmurHash2(data, len, seed[i]) % totalBits);
     }
