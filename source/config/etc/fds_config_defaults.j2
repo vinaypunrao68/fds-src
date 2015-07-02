@@ -21,6 +21,10 @@
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {#
+   Redis Deployment defaults
+#}
+{% set redis_port = fds_redis_port if fds_redis_port is defined else '6379' %}
+{#
    fds.pm. specific entries
 #}
 {% set pm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
