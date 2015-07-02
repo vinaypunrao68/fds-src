@@ -47,7 +47,7 @@ extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
-extern std::string logString(const FDS_ProtocolInterface::ResyncInitialBlobFilterSetMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
 // ======
 
     /*
@@ -192,9 +192,11 @@ class DmIoCommitBlobTx: public dmCatReq {
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
                      const std::string &_blobName,
                      const blob_version_t &_blob_version,
-                     fds_uint64_t _dmt_version)
+                     fds_uint64_t _dmt_version,
+                     const sequence_id_t _seq_id)
             : dmCatReq(_volId, _blobName, "", _blob_version, FDS_COMMIT_BLOB_TX) {
         dmt_version = _dmt_version;
+        sequence_id = _seq_id;
 
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
@@ -226,6 +228,7 @@ class DmIoCommitBlobTx: public dmCatReq {
 
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
+    sequence_id_t sequence_id;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
 };
@@ -633,6 +636,7 @@ struct DmIoVolumeOpen : dmCatReq {
 
     fds_int64_t token;
     fpi::VolumeAccessMode access_mode;
+    sequence_id_t sequence_id;
 
     // response callback
     CbType dmio_get_volmd_resp_cb;
@@ -729,10 +733,10 @@ struct DmIoMigration : dmCatReq {
 };
 
 struct DmIoResyncInitialBlob : dmCatReq {
-	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> message;
+	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
 	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetRspMsg> response;
 	NodeUuid destNodeUuid;
-    explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg> msg,
+    explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
             : message(msg),
               response(new fpi::ResyncInitialBlobFilterSetRspMsg()),

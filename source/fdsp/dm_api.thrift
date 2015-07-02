@@ -493,6 +493,44 @@ struct CtrlNotifyDMStartMigrationRspMsg {
    */
 }
 
+/**
+ * delta blob  set from the source DM to  destination DM.
+ */
+struct CtrlNotifyDeltaBlobs {
+  1: i64                     volume_id;
+  /* message sequence  id  for tracking the messages 
+   * between source DM and destination DM
+   */
+  2: i64                     msg_seq_id;
+  3: bool                    last_msg_seq_id;
+  /* list of <offset, oid> in give volume 
+   */
+  4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
+}
+
+
+struct CtrlNotifyDeltaBlobDescRsp {
+  /* An empty reply from the Destination DM to the source DM after 
+   * all the blobs applied to the destination DM. This is a empty message
+   */
+}
+
+/**
+ * delta blob  set from the source DM to  destination DM.
+ */
+struct CtrlNotifyDeltaBlobDesc {
+  1: i64                     volume_id;
+  /* message sequence  id  for tracking the messages 
+   * between source DM and destination DM
+   */
+  3: i64                     msg_seq_id;
+  4: bool                    last_msg_seq_id;
+  /* list of <blob, blob descriptor> in give volume 
+   * empty blob descriptor  for delete operation
+   */
+  5: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+}
+
 /* ------------------------------------------------------------
    Operations for Replication
    ------------------------------------------------------------*/
@@ -541,6 +579,7 @@ struct ForwardCatalogMsg {
   3: i64                          blob_version;
   4: dm_types.FDSP_BlobObjectList obj_list;
   5: dm_types.FDSP_MetaDataList   meta_list;
+  6: i64                          sequence_id;
 }
 /**
  * Forward catalog update response message
@@ -575,7 +614,7 @@ struct ReloadVolumeRspMsg {
  * - used to initiate static DM migration/resync
  * - sent from sync destination to sync source.
  */
-struct ResyncInitialBlobFilterSetMsg {
+struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
   1: i64                volumeId;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
@@ -586,23 +625,6 @@ struct ResyncInitialBlobFilterSetMsg {
 struct ResyncInitialBlobFilterSetRspMsg {
 }
 
-/**
- * 1st Response Message for ResyncInitialBlobFilterSetMsg
- */
-struct ResyncUpdateBlobsMsg {
-  /** levelDB key-value pairs for insertion to the reciever.
-      list should be sorted to ensure blob descriptor is written after the object mappings */
-  1: dm_types.FDSP_MetaDataList          pairs;
-}
-
-/**
- * 2nd Response Message for ResyncInitialBlobFilterSetMsg
- */
-struct ResyncDeleteBlobsMsg {
-  /** A list of blob ids that exist on the receiver (sync destination) but not the
-      sender (sync source). These blobs should be deleted by the receiver. */
-  1: list<i64> blob_list;
-}
 
 /* ------------------------------------------------------------
    Other specified services

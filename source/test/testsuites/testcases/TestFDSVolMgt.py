@@ -10,9 +10,11 @@ import unittest
 import traceback
 import TestCase
 from fdslib.TestUtils import findNodeFromInv
+from fdslib.TestUtils import check_localhost
 # Module-specific requirements
 import sys
 import os
+import socket
 
 
 # This class contains the attributes and methods to test
@@ -140,8 +142,10 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             port = int(node.nd_conf_dict['fds_port']) + offset
             self.log.info("Attach volume %s on node %s." % (volName, am_node))
             cmd = ('attach %s:%s %s' % (ip, port, volName))
-
-            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+            if check_localhost(ip):
+                cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+            else:
+                cinder_dir= os.path.join('/fds/sbin')
             status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
                                                         (cinder_dir, cmd), return_stdin=True)
             if (status != 0) or self.expect_to_fail:
@@ -207,6 +211,9 @@ class TestVolumeDetach(TestCase.FDSTestCase):
                 if am_node == node.nd_conf_dict['node-name']:
                     break;
             ip = node.nd_conf_dict['ip']
+            if not check_localhost(ip):
+                log_dir = '/tmp'
+
             offset = 3809
             port = int(node.nd_conf_dict['fds_port']) + offset
             self.log.info("Detach volume %s on node %s." % (volName, am_node))

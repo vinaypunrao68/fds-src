@@ -118,7 +118,7 @@ Error DmPersistVolDB::activate() {
 
     // Write out the initial superblock descriptor into the volume
     fpi::FDSP_MetaDataList emptyMetadataList;
-    VolumeMetaDesc volMetaDesc(emptyMetadataList);
+    VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
     if (ERR_OK != putVolumeMetaDesc(volMetaDesc)) {
         return ERR_DM_VOL_NOT_ACTIVATED;
     }
@@ -194,7 +194,7 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blob
                 return ERR_SERIALIZE_FAILED;
             }
             blobsSeqId.emplace(reinterpret_cast<const BlobObjKey *>(dbKey.data())->blobId,
-                               blobMeta.desc.version);
+                               blobMeta.desc.sequence_id);
         }
     }
 
@@ -207,7 +207,7 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blob
     }
 }
 
-Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
+Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
     Catalog::catalog_roptions_t opts;
     auto dbIt = getSnapshotIter(opts);
     if (!dbIt) {
@@ -226,20 +226,35 @@ Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
                 return ERR_SERIALIZE_FAILED;
             }
 
-            if (max < blobMeta.desc.version) {
-                max = blobMeta.desc.version;
+            if (max < blobMeta.desc.sequence_id) {
+                max = blobMeta.desc.sequence_id;
             }
         }
     }
 
+    Error err;
     if (dbIt->status().ok()) {
-        return ERR_OK;
-    }else{
+        fpi::FDSP_MetaDataList emptyMetadataList;
+        VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
+
+        err = getVolumeMetaDesc(volMetaDesc);
+
+        if (err.ok()) {
+            if (max < volMetaDesc.sequence_id) {
+                max = volMetaDesc.sequence_id;
+            }
+        } else {
+            LOGERROR << "Error searching volume descriptor for latest sequence id for volume "
+                     << volId_ << ": " << err;
+        }
+    } else {
         LOGERROR << "Error searching latest sequence id for volume " << volId_
                  << ": " << dbIt->status().ToString();
 
-        return status2error(dbIt->status());
+        err = status2error(dbIt->status());
     }
+
+    return err;
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offset,
