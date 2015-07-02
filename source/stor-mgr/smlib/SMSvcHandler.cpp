@@ -457,6 +457,9 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     getReq->opQoSWaitCtx.type = PerfEventType::SM_GET_QOS_QUEUE_WAIT;
     getReq->opQoSWaitCtx.reset_volid(volId);
 
+    // Set the client's ID to use to serialization
+    getReq->setClientSvcId(asyncHdr->msg_src_uuid);
+
     getReq->response_cb = std::bind(&SMSvcHandler::getObjectCb,
                                     this,
                                     asyncHdr,
@@ -558,6 +561,9 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->dltVersion = asyncHdr->dlt_version;
     putReq->forwardedReq = putObjMsg->forwardedReq;
     putReq->setObjId(objId);
+
+    // Set the client's ID to use to serialization
+    putReq->setClientSvcId(asyncHdr->msg_src_uuid);
 
     // perf-trace related data
     putReq->opReqFailedPerfEventType = PerfEventType::SM_PUT_OBJ_REQ_ERR;
@@ -693,6 +699,9 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error err(ERR_OK);
     ObjectID objId(deleteObjMsg->objId.digest);
     auto delReq = new SmIoDeleteObjectReq(deleteObjMsg);
+
+    // Set the client's ID to use to serialization
+    delReq->setClientSvcId(asyncHdr->msg_src_uuid);
 
     // Set delReq stuffs
     delReq->io_type = FDS_SM_DELETE_OBJECT;
@@ -941,6 +950,9 @@ void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     addObjRefReq->dltVersion = asyncHdr->dlt_version;
     addObjRefReq->forwardedReq = addObjRefMsg->forwardedReq;
+
+    // Set the client's ID to use to serialization
+    addObjRefReq->setClientSvcId(asyncHdr->msg_src_uuid);
 
     // perf-trace related data
     addObjRefReq->opReqFailedPerfEventType = PerfEventType::SM_ADD_OBJ_REF_REQ_ERR;
