@@ -248,7 +248,8 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
             err = amDispatcher->attachVolume(amReq->volume_name);
             if (ERR_NOT_READY == err) {
                 // We don't have domain tables yet...just reject.
-                return volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+                volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+                return err;
             }
         }
     }
@@ -479,8 +480,12 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     LOGNORMAL << "Removing volume: " << volDesc.name;
     Error err{ERR_OK};
 
+    // Remove the volume from QoS/VolumeTable, this is
+    // called to clear any waiting requests with an error and
+    // remove the QoS allocations
+    auto vol = volTable->removeVolume(volDesc);
+
     // If we had a token for a volume, give it back to DM
-    auto vol = volTable->getVolume(volDesc.volUUID);
     if (vol) {
         // If we had a cache token for this volume, close it
         fds_int64_t token = vol->getToken();
@@ -497,10 +502,6 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // Remove the volume from the caches (if there is one)
     txMgr->removeVolume(volDesc);
 
-    // Remove the volume from QoS/VolumeTable, this is
-    // called to clear any waiting requests with an error and
-    // remove the QoS allocations
-    err = volTable->removeVolume(volDesc);
     return err;
 }
 
@@ -583,7 +584,10 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
     auto vol = getVolume(amReq);
-    if (!vol) return;
+    if (!vol) {
+      respond_and_delete(amReq, ERR_VOL_NOT_FOUND);
+      return;
+    }
 
     auto& vol_desc = *vol->voldesc;
     if (err.ok()) {
@@ -602,6 +606,8 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                 this->renewToken(vol_id);
                 });
             err = volTable->processAttach(vol_desc, access_token);
+            // Create caches if we have a token
+            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
         } else {
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
@@ -617,9 +623,6 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
             auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
             if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
                 { LOGWARN << "Failed to schedule token renewal timer!"; }
-
-            // Create caches if we have a token
-            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
 
             // If this is a real request, set the return data
             if (amReq->cb) {

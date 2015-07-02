@@ -231,7 +231,8 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
 /*
  * Removes volume from the map, returns error if volume does not exist
  */
-Error AmVolumeTable::removeVolume(std::string const& volName, fds_volid_t const volId)
+AmVolumeTable::volume_ptr_type
+AmVolumeTable::removeVolume(std::string const& volName, fds_volid_t const volId)
 {
     WriteGuard wg(map_rwlock);
     /** Drain any wait queue into as any Error */
@@ -242,12 +243,16 @@ Error AmVolumeTable::removeVolume(std::string const& volName, fds_volid_t const 
                               delete amReq;
                               return true;
                           });
-    if (0 == volume_map.erase(volId)) {
+    auto volIt = volume_map.find(volId);
+    if (volume_map.end() == volIt) {
         LOGDEBUG << "Called for non-attached volume " << volId;
-        return ERR_OK;
+        return nullptr;
     }
+    auto vol = volIt->second;
+    volume_map.erase(volIt);
     LOGNOTIFY << "AmVolumeTable - Removed volume " << volId;
-    return qos_ctrl->deregisterVolume(volId);
+    qos_ctrl->deregisterVolume(volId);
+    return vol;
 }
 
 /*
