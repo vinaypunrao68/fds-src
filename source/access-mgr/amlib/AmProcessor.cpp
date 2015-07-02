@@ -583,6 +583,8 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
     auto vol = getVolume(amReq);
+    if (!vol) return;
+
     auto& vol_desc = *vol->voldesc;
     if (err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
