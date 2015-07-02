@@ -4,7 +4,42 @@
 #include <DataMgr.h>
 #include <net/net_utils.h>
 #include "fdsp/sm_api_types.h"
+#include <util/stringutils.h>
 namespace fds {
+
+ExpungeDB::ExpungeDB() : db(dmutil::getExpungeDBPath()){
+}
+
+uint32_t ExpungeDB::increment(fds_volid_t volId, const ObjectID &objId) {
+    uint32_t value = getExpungeCount(volId, objId);
+    value++;
+    db.Update(getKey(volId, objId), util::strformat("%d", value));
+    return value;
+}
+
+uint32_t ExpungeDB::getExpungeCount(fds_volid_t volId, const ObjectID &objId) {
+    std::string value;
+    Error err = db.Query(getKey(volId, objId), &value);
+    if (err.ok()) {
+        return *((uint32_t*)value.data());
+    }
+    return 0;
+}
+
+void ExpungeDB::discard(fds_volid_t volId, const ObjectID &objId) {
+    if (!db.Delete(getKey(volId, objId))) {
+        LOGWARN << "unable to delete from expungedb vol:" << volId
+                << " obj:" << objId;
+    }
+}
+
+std::string ExpungeDB::getKey(fds_volid_t volId, const ObjectID &objId) {
+    return util::strformat("%ld:%b", volId, objId.GetId(),objId.getDigestLength());
+}
+
+ExpungeDB::~ExpungeDB() {
+
+}
 
 ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
     auto efp = (Error (ExpungeManager::*)(fds_volid_t, const std::vector<ObjectID>&, bool))&ExpungeManager::expunge;
@@ -12,6 +47,7 @@ ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
         efp, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
     dm->timeVolCat_->queryIface()->registerExpungeObjectsCb(func);
+    expungeDB.reset(new ExpungeDB());
 }
 
 Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& vecObjIds, bool force) {
@@ -74,23 +110,39 @@ void ExpungeManager::onDeleteResponse(fds_uint64_t dltVersion,
             (FDSP_MSG_TYPEID(fpi::DeleteObjectMsg));
     ObjectID objId(delobj->objId.digest);
     LOGDEBUG << "received response for volid:" << delobj->volId
-             << " objId:" << objId;
+             << " objId:" << objId
+             << " err:" << error;
 
     DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
     taskStatus->done();
 }
 
-void ExpungeManager::threadTask(fds_volid_t volId, ObjectID objId, bool force) {
-    if (force) {
-        LOGDEBUG << "skipping verification for vol:" << volId
-                 << " obj:" << objId;
+void ExpungeManager::threadTask(fds_volid_t volId, ObjectID objId, bool fFromSnapshot) {
+    uint32_t count = 0;
+    bool fIsInSnapshot = dm->timelineMgr->isObjectInSnapshot(objId, volId);
+    if (fIsInSnapshot) {
+        if (fFromSnapshot) {
+            // nothing to do here
+            return;
+        } else {
+            expungeDB->increment(volId, objId);
+        }
     } else {
-        LOGWARN << "checking before objId deletion NOT IMPLEMENTED";
-    }
+        uint32_t count = expungeDB->getExpungeCount(volId, objId);
+        if (count == 0) {
+            LOGWARN << "count should NOT be zero "
+                    << "vol:" << volId << " obj:" << objId;
+        } else {
+            LOGDEBUG << "will [" << count << "] send delete requests for "
+                     << "vol:" << volId << " obj:" << objId;
+        }
 
-    // do objId checks
-    sendDeleteRequest(volId, objId);
+        for (; count > 0; count--) {
+            sendDeleteRequest(volId, objId);
+        }
+        expungeDB->discard(volId, objId);
+    }
 }
 
 }  // namespace fds
