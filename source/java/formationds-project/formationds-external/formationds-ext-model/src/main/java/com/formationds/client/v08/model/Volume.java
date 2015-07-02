@@ -298,7 +298,7 @@ public class Volume extends AbstractResource<Long> {
      * 
      * @param policy the policy to switch to
      */
-    public void setDataProtectionPolicy( DataProtectionPolicy policy ){
+    public void setDataProtectionPolicy( DataProtectionPolicy policy ) {
     	this.dataProtectionPolicy = policy;
     }
 
@@ -312,7 +312,7 @@ public class Volume extends AbstractResource<Long> {
      * 
      * @param policy the policy to set the QOS policy to
      */
-    public void setQosPolicy( QosPolicy policy ){
+    public void setQosPolicy( QosPolicy policy ) {
     	this.qosPolicy = policy;
     }
     
@@ -326,7 +326,7 @@ public class Volume extends AbstractResource<Long> {
      * 
      * @param policy the new access policy for this volume
      */
-    public void setAccessPolicy( VolumeAccessPolicy policy ){
+    public void setAccessPolicy( VolumeAccessPolicy policy ) {
     	this.accessPolicy = policy;
     }
 }
