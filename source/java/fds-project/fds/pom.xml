@@ -12,7 +12,6 @@
     <artifactId>fds-project</artifactId>
     <groupId>com.formationds</groupId>
     <version>1.0</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <name>${fds.project.name} JAR</name>

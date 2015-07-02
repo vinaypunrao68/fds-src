@@ -694,18 +694,19 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void GetVolInfo(fpi::FDSP_VolumeDescType& _return, boost::shared_ptr<FDSP_GetVolInfoReqType>& vol_info_req) {
-        LOGNOTIFY << "Received Get volume info request for volume: "
-                  << vol_info_req->vol_name;
+        LOGDEBUG << "Received Get volume info request for volume: "
+                 << vol_info_req->vol_name;
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer vol_list = local->om_vol_mgr();
         VolumeInfo::pointer vol = vol_list->get_volume(vol_info_req->vol_name);
         if (vol) {
             vol->vol_fmt_desc_pkt(&_return);
-            LOGNOTIFY << "Volume " << vol_info_req->vol_name
-                      << " -- min iops (assured) " << _return.iops_assured << ",max iops (throttle) "
-                      << _return.iops_throttle << ", prio " << _return.rel_prio
-                      << " media policy " << _return.mediaPolicy;
+            LOGDEBUG << "Volume " << vol_info_req->vol_name
+                     << " -- min iops (assured) " << _return.iops_assured 
+                     << ",max iops (throttle) " << _return.iops_throttle 
+                     << ", prio " << _return.rel_prio
+                     << " media policy " << _return.mediaPolicy;
         } else {
             LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
             FDSP_VolumeNotFound except;

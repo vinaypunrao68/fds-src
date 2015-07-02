@@ -471,7 +471,6 @@ fds: {
         xdi_service_port_offset=1899
         streaming_port_offset=1911
         memory_backend=false
-        fdsn_server_threads=30
         qos_threads=4
 
         /* Frequency (seconds) to notify DM we are using a volume */
@@ -589,7 +588,7 @@ fds: {
         http_port=7777
         https_port=7443
         configdb: {
-            port=6379
+            port={{ redis_port }}
         }
 
         influxdb: {

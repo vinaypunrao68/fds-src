@@ -465,13 +465,18 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         float_t pct_used = objectStore->getUsedCapacityAsPct();
-        if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
             // Send thrift message to OM alerting it that we've hit capacity
-
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {

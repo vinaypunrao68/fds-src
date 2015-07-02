@@ -9,10 +9,8 @@
 #include "AccessMgr.h"
 #include "AmProcessor.h"
 #include <net/SvcMgr.h>
-#include <AmDataApi.h>
 
 #include "connector/xdi/AmAsyncService.h"
-#include "connector/xdi/fdsn-server.h"
 #include "connector/block/NbdConnector.h"
 
 namespace fds {
@@ -61,20 +59,12 @@ void AccessMgr::mod_enable_service()
     getDMT();
     getDLT();
 
-    /**
-     * Initialize the old synchronous Xdi interface
-     */
-    dataApi = boost::make_shared<AmDataApi>(amProcessor);
     fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(
         "fds.pm.platform_port");
     if (!standalone_mode) {
         pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
     }
     LOGTRACE << "Platform port " << pmPort;
-
-    // Init the FDSN server to serve XDI data requests
-    fdsnServer = std::unique_ptr<FdsnServer>(new FdsnServer(dataApi, pmPort));
-    fdsnServer->start();
 
     /**
      * Initialize the async server
@@ -101,7 +91,6 @@ AccessMgr::run() {
 
     LOGDEBUG << "Processing layer has shutdown, stop external services.";
     asyncServer->stop();
-    fdsnServer->stop();
     blkConnector->stop();
 }
 

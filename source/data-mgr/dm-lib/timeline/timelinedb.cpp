@@ -4,10 +4,10 @@
 #include <string>
 #include <vector>
 #include <DataMgr.h>
-#include <dm-tvc/TimelineDB.h>
+#include <timeline/timelinedb.h>
 #include <util/stringutils.h>
 
-std::ostream& operator<<(std::ostream& os, const fds::JournalFileInfo& fileinfo) {
+std::ostream& operator<<(std::ostream& os, const fds::timeline::JournalFileInfo& fileinfo) {
     os << "[start:" << fileinfo.startTime << " file:" << fileinfo.journalFile << "]";
     return os;
 }
@@ -31,7 +31,7 @@ std::ostream& operator<<(std::ostream& os, const fds::JournalFileInfo& fileinfo)
         return ERR_INVALID;                                             \
     }
 
-namespace fds {
+namespace fds { namespace timeline {
 
 TimelineDB::TimelineDB() {
 }
@@ -271,4 +271,5 @@ TimelineDB::~TimelineDB() {
     close();
 }
 
+}  // namespace timeline
 }  // namespace fds
