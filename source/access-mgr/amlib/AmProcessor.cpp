@@ -601,7 +601,6 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                 });
             err = volTable->processAttach(vol_desc, access_token);
         } else {
-            token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
         }
@@ -614,7 +613,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
         if (err.ok()) {
             // Renew this token at a regular interval
             auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+            if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
                 { LOGWARN << "Failed to schedule token renewal timer!"; }
 
             // Create caches if we have a token
@@ -634,7 +633,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                   << ") write(" << volReq->mode.can_write
                   << ") error(" << err << ")";
         // Flush the volume's wait queue and return errors for pending requests
-        volTable->removeVolume(vol_desc);
+        removeVolume(vol_desc);
     }
     respond_and_delete(amReq, err);
 }
