@@ -15,7 +15,7 @@ namespace fds {
  * Callback type to expunge a list of objects
  */
 typedef std::function<Error (fds_volid_t volid,
-                             const std::vector<ObjectID>& oids)> expunge_objs_cb_t;
+                             const std::vector<ObjectID>& oids, bool)> expunge_objs_cb_t;
 
 /**
  * Interface to Volume Catalog for querying commited versions of
