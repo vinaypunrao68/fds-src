@@ -184,9 +184,9 @@ struct UpdateCatalogOnceHandler : Handler {
     void handleQueueItem(dmCatReq* dmRequest);
     void handleCommitBlobOnceResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       Error const& e, dmCatReq* dmRequest);
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                                Error const& e, dmCatReq* dmRequest);
 };
 
 struct SetBlobMetaDataHandler : Handler {
@@ -302,6 +302,19 @@ struct DmMigrationHandler : Handler {
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+struct DmMigrationBlobFilterHandler : Handler {
+	explicit DmMigrationBlobFilterHandler(DataMgr &dataManager);
+	void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 

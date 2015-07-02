@@ -98,6 +98,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getLatestSequenceId(blob_version_t & max) override;
 
+    virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) override;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
 

@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <uuid/uuid.h>
+
 #include <cstdlib>
 #include <cmath>
 #include <string>
@@ -44,7 +46,7 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false)
+        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false), m_nodeRedisKeyId ("")
         {
         }
 
@@ -52,7 +54,8 @@ namespace fds
         {
             fdsConfig = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-            m_db = new kvstore::PlatformDB (rootDir, fdsConfig->get<std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
+            loadRedisKeyId();
+            m_db = new kvstore::PlatformDB (m_nodeRedisKeyId, rootDir, fdsConfig->get<std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
 
             if (!m_db->isConnected())
             {
@@ -159,6 +162,49 @@ namespace fds
             m_startupAuditComplete = true;
         }
 
+        /*
+         *  Load the key to the redis DB contents for this node or generate a new key and store is on the disk.
+         *
+         */
+
+        void PlatformManager::loadRedisKeyId()
+        {
+            std::string const hostRedisKeyFilename = rootDir + "/var/.redis.id";
+
+            std::ifstream redisKeyFile (hostRedisKeyFilename, std::ifstream::in);
+
+            char redisUuidStr[64];
+
+            if (redisKeyFile.fail())
+            {
+                uuid_t redisUuid;
+
+                uuid_generate (redisUuid);
+                uuid_unparse (redisUuid, redisUuidStr);
+
+                std::ofstream redisKeyFileWrite (hostRedisKeyFilename, std::ifstream::out);
+
+                if (redisKeyFileWrite.fail())
+                {
+                    LOGERROR << "Failed to open: '" << hostRedisKeyFilename << "' for write access.  Going to use the RedisKeyId of '" << redisUuidStr << "' for this platform instance.";
+                }
+                else
+                {
+                    LOGDEBUG << "Created " << hostRedisKeyFilename << " with " << redisUuidStr;
+                    redisKeyFileWrite << redisUuidStr;
+                    redisKeyFileWrite.close();
+                }
+            }
+            else
+            {
+                redisKeyFile >> redisUuidStr;
+                redisKeyFile.close();
+                LOGDEBUG << "Loaded redisUUID of " << redisUuidStr << " from " << hostRedisKeyFilename;
+            }
+
+            m_nodeRedisKeyId = redisUuidStr;
+        }
+
         bool PlatformManager::procCheck (std::string const procName, pid_t pid)
         {
            std::ostringstream procCommFilename;
@@ -256,7 +302,7 @@ namespace fds
                 command = JAVA_PROCESS_NAME;
 
                 args.push_back ("-classpath");
-                args.push_back (JAVA_CLASSPATH_OPTIONS);
+                args.push_back (rootDir+JAVA_CLASSPATH_OPTIONS);
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;

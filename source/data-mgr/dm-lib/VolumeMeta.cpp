@@ -23,6 +23,9 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
+
+    // this should be overwritten when volume add triggers read of the persisted value
+    sequence_id = 0;
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
@@ -30,6 +33,8 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_log* _dm_log,
                        VolumeDesc* _desc)
         : VolumeMeta(_name, _uuid, _desc) {
+    // this should be overwritten when volume add triggers read of the persisted value
+    sequence_id = 0;
 }
 
 VolumeMeta::~VolumeMeta() {
@@ -75,6 +80,20 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->qosQueueId = pVol->qosQueueId;
     v_desc->contCommitlogRetention = pVol->contCommitlogRetention;
     v_desc->timelineTime = pVol->timelineTime;
+}
+
+void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
+    fds_mutex::scoped_lock l(sequence_lock);
+
+    if (new_seq_id > sequence_id) {
+        sequence_id = new_seq_id;
+    }
+}
+
+sequence_id_t VolumeMeta::getSequenceId(){
+    fds_mutex::scoped_lock l(sequence_lock);
+
+    return sequence_id;
 }
 
 }  // namespace fds

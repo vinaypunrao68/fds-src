@@ -1469,7 +1469,6 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
     LOGDEBUG << "rcvd cmd resp [cmd:" << cmd_type <<"]"
              <<"  [type:" << type << "]";
 
-
     switch (type) {
         case om_notify_vol_add:
             // TODO(gurpreet) In addition to checking for timeout error
@@ -1478,7 +1477,9 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
             // service being down.
             if (resp_err.ok() ||
                 resp_err == ERR_SVC_REQUEST_TIMEOUT ||
-                resp_err == ERR_SVC_REQUEST_INVOCATION) {
+                resp_err == ERR_SVC_REQUEST_INVOCATION ||
+                resp_err == ERR_VOL_DUPLICATE ||
+                resp_err == ERR_DUPLICATE ) {
                 vol->vol_event(VolCrtOkEvt(true, vol.get()));
                 dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
             } else {

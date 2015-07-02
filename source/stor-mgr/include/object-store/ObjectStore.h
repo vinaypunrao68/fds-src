@@ -88,6 +88,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
 
+    // Track when the last capacity message was sent
+    float_t lastCapacityMessageSentAt;
+
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,

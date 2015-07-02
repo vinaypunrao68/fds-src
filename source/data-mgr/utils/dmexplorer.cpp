@@ -25,7 +25,7 @@ Error DMExplorer::loadVolume(fds_volid_t volumeUuid) {
     if (!util::dirExists(volDir)) {
         return ERR_VOL_NOT_FOUND;
     }
-    
+
     volCat = boost::make_shared<DmVolumeCatalog>("DM checker");
     volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid.get()), volumeUuid);
     // TODO(Andrew): We're just making up a max object size because the catalog add
@@ -51,9 +51,6 @@ Error DMExplorer::listBlobs(bool fStatsOnly) {
 
     fds_uint32_t counter = 0;
     uint64_t  totalSize = 0;
-    if (!fStatsOnly) {
-        std::cout << "no.  : name   :  size  : numObjects" << std::endl;
-    }
 
     uint64_t expectedObjectCount = 0;
     uint64_t seenObjectCount = 0;
@@ -63,21 +60,26 @@ Error DMExplorer::listBlobs(bool fStatsOnly) {
     fpi::FDSP_MetaDataList metaList;
     fds_uint64_t blobSize;
 
+    if (!fStatsOnly && !blobDescrList.empty()) {
+        std::cout << "no.  : name   :  size  : numObjects" << std::endl;
+    }
+
+
     for (const auto &it : blobDescrList) {
         counter++;
         objList.clear();
         expectedObjectCount = std::ceil(it.byteCount*1.0/ volDesc->maxObjSizeInBytes);
         if (!fStatsOnly) {
             std::cout << counter << " : " << it.name
-                      << " : " << it.byteCount << " bytes" 
+                      << " : " << it.byteCount << " bytes"
                       << " : " << expectedObjectCount
                       << std::endl;
             // verify if this has the correct no.of objects in the blob
-            
+
             volCat->getBlob(volDesc->volUUID,
                             it.name, 0, expectedObjectCount*volDesc->maxObjSizeInBytes,
                             &blobVersion, &metaList, &objList, &blobSize);
-            
+
             if (expectedObjectCount != objList.size()) {
                 std::cout << "error : num objects"
                           << "[" <<  objList.size() << "]"
@@ -116,7 +118,7 @@ void DMExplorer::blobInfo(const std::string& blobname) {
     err = volCat->getBlob(volDesc->volUUID,
                           blobname, 0, expectedObjectCount* volDesc->maxObjSizeInBytes,
                           &blobVersion, &metaList, &objList, &blobSize);
-    
+
     fds_uint32_t counter = 0;
     std::cout << "Meta Data::::" << std::endl;
     std::cout << "  name : " << blobname << std::endl;
@@ -130,6 +132,59 @@ void DMExplorer::blobInfo(const std::string& blobname) {
         objId.SetId(obj.data_obj_id.digest);
         std::cout << ++counter << " : " << objId.ToString() << std::endl;
     }
+}
+
+Error DMExplorer::listBlobsWithObject(std::string strObjId) {
+    fpi::BlobDescriptorListType blobDescrList;
+    std::string digest;
+    Error err = volCat->listBlobs(volDesc->volUUID, &blobDescrList);
+    if (!err.ok()) {
+        std::cout << "error: " << err << volDesc->volUUID << std::endl;
+        return err;
+    }
+
+    fds_uint32_t counter = 0, numOccurInBlob = 0, numOccur = 0;
+    uint64_t  totalSize = 0;
+
+    uint64_t expectedObjectCount = 0;
+    uint64_t seenObjectCount = 0;
+    ObjectID objId, objId2;
+    fpi::FDSP_BlobObjectList objList;
+    blob_version_t blobVersion;
+    fpi::FDSP_MetaDataList metaList;
+    fds_uint64_t blobSize;
+
+    if (strObjId.find("0x",0,2) == std::string::npos) {
+        strObjId.insert(0,"0x");
+    }
+    objId = strObjId;
+    digest = std::string((const char *)objId.GetId(), objId.getDigestLength());
+
+    for (const auto &it : blobDescrList) {
+        objList.clear();
+        expectedObjectCount = std::ceil(it.byteCount*1.0/ volDesc->maxObjSizeInBytes);
+
+        volCat->getBlob(volDesc->volUUID,
+                        it.name, 0, expectedObjectCount*volDesc->maxObjSizeInBytes,
+                        &blobVersion, &metaList, &objList, &blobSize);
+
+        numOccurInBlob = 0;
+        for (const auto& obj : objList) {
+            if (obj.data_obj_id.digest == digest) numOccurInBlob++;
+        }
+
+        if (numOccurInBlob) {
+            counter++;
+            numOccur += numOccurInBlob;
+            std::cout << it.name << " : " << numOccurInBlob << std::endl;
+        }
+    }
+    if (numOccur) {
+        std::cout << "vol:" << volDesc->volUUID
+                  << " in [" << counter << "] blobs "
+                  << " occur:" << numOccur << std::endl;
+    }
+    return err;
 }
 
 void DMExplorer::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {

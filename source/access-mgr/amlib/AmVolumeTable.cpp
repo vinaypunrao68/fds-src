@@ -231,23 +231,23 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
 /*
  * Removes volume from the map, returns error if volume does not exist
  */
-Error AmVolumeTable::removeVolume(const VolumeDesc& volDesc)
+Error AmVolumeTable::removeVolume(std::string const& volName, fds_volid_t const volId)
 {
     WriteGuard wg(map_rwlock);
     /** Drain any wait queue into as any Error */
-    wait_queue->remove_if(volDesc.name,
+    wait_queue->remove_if(volName,
                           [] (AmRequest* amReq) {
                               if (amReq->cb)
                                   amReq->cb->call(ERR_VOL_NOT_FOUND);
                               delete amReq;
                               return true;
                           });
-    if (0 == volume_map.erase(volDesc.volUUID)) {
-        LOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
+    if (0 == volume_map.erase(volId)) {
+        LOGDEBUG << "Called for non-attached volume " << volId;
         return ERR_OK;
     }
-    LOGNOTIFY << "AmVolumeTable - Removed volume " << volDesc.volUUID;
-    return qos_ctrl->deregisterVolume(volDesc.volUUID);
+    LOGNOTIFY << "AmVolumeTable - Removed volume " << volId;
+    return qos_ctrl->deregisterVolume(volId);
 }
 
 /*
@@ -268,13 +268,18 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
     return ret_vol;
 }
 
-void
-AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const
+std::vector<AmVolumeTable::volume_ptr_type>
+AmVolumeTable::getVolumes() const
 {
+    std::vector<volume_ptr_type> volumes;
     ReadGuard rg(map_rwlock);
-    for (auto const& vol_pair: volume_map) {
-        tokens.push_back(std::make_pair(vol_pair.first, vol_pair.second->getToken()));
+    volumes.reserve(volume_map.size());
+
+    // Create a vector of volume pointers from the values in our map
+    for (auto const& kv : volume_map) {
+      volumes.push_back(kv.second);
     }
+    return volumes;
 }
 
 fds_uint32_t

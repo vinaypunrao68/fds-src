@@ -11,7 +11,7 @@ import sys
 nbd_path = os.path.abspath(os.path.join('..', 'utils'))
 sys.path.append(nbd_path)
 
-import utils.nbd as nbd
+import nbd as nbd
 
 class TestNbd(unittest.TestCase):
 
@@ -21,19 +21,16 @@ class TestNbd(unittest.TestCase):
     log = logging.getLogger(__name__)
 
     def setUp(self):
-        self.nbd_obj = nbd.NBD(hostname="10.2.10.200", mount_point="/fdsmount")
+        self.nbd_obj = nbd.NBD(hostname="10.2.10.200")
 
     def test_format_disk(self):
         volume = "fdsnbdtest"
         mount_point = "/fdsmount"
-        (device, code) = self.nbd_obj.attach(volume)
-        self.assertEqual(code, 0)
-        status = self.nbd_obj.format_disk(device)
-        self.assertTrue(status)
+        device = self.nbd_obj.attach(volume)
+        self.nbd_obj.format_disk(device)
         # mount the device
-        code = self.nbd_obj.mount(mount_point, device)
-        self.assertEqual(code, 0)
-        self.assertEqual(self.nbd_obj.detach(volume), 0)
+        self.nbd_obj.mount(mount_point, device)
+        self.nbd_obj.detach(volume)
 
 
 if __name__ == '__main__':
