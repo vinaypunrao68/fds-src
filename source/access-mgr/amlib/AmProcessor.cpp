@@ -401,12 +401,8 @@ bool AmProcessor_impl::stop() {
     shut_down = true;
     if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
-        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
-        volTable->getVolumeTokens(tokens);
-        for (auto const& token_pair: tokens) {
-            if (invalid_vol_token != token_pair.second) {
-                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
-            }
+        for (auto const& vol : volTable->getVolumes()) {
+          removeVolume(*vol->voldesc);
         }
         shutdown_cb();
         return true;
@@ -505,11 +501,6 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // called to clear any waiting requests with an error and
     // remove the QoS allocations
     err = volTable->removeVolume(volDesc);
-
-    if (shut_down && volTable->drained())
-    {
-       shutdown_cb();
-    }
     return err;
 }
 

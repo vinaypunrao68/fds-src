@@ -194,7 +194,7 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blob
                 return ERR_SERIALIZE_FAILED;
             }
             blobsSeqId.emplace(reinterpret_cast<const BlobObjKey *>(dbKey.data())->blobId,
-                               blobMeta.desc.version);
+                               blobMeta.desc.sequence_id);
         }
     }
 
