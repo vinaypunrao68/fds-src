@@ -166,28 +166,9 @@ namespace fds {
 
         uint32_t getEstimatedSize() const;
 
-        /**
-         * Two DLTs are equal if they have the same content in the table
-         * but versions may be different (or same).
-         */
-        fds_bool_t operator==(const DLT &rhs) const;
-
         // print the dlt to the logs
         // will print full dlt if the loglevel is debug
         void dump() const;
-
-        /**
-         * Checks if DLT is valid
-         * Invalid cases:
-         *    -- A column has repeating node uuids (non-unique)
-         *    -- A cell in a DMT has an invalid Service UUID
-         *    -- DLT must not contain any uuids that are not in 'expectedUuidSet'
-         * @param expectedUuidSet a set of UUIDs that are expected to be
-         *        in this DLT; one or more UUIDs may be missing from the DLT,
-         *        but DLT must not contain any UUID that is not in the set
-         * @return ERR_OK or ERR_DLT_INVALID
-         */
-        Error verify(const NodeUuidSet& expectedUuidSet) const;
 
         /*
          * Module members
