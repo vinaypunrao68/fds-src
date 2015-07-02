@@ -1,11 +1,8 @@
 #!/bin/bash
 
-args=$*
+args=${@}
 
-JAVA_OPTS="-Xmx1024M -Xms20M"
-
-FDS_ROOT=/fds
-FDS_OM_HOST=localhost
+export fds_root=/fds
 
 for i in "$@"
 do
@@ -13,7 +10,7 @@ do
 
   case $i in
     --fds-root=*)
-    FDS_ROOT="${i#*=}"
+    fds_root="${i#*=}"
     shift # past argument
     ;;
     *)
@@ -23,12 +20,7 @@ do
   shift # past argument or value
 done
 
-CLASSPATH=$FDS_ROOT/lib/java/*
-CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/
-CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
-CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
+[ -f ${fds_root}/etc/omenv ] || exit 0
+. ${fds_root}/etc/omenv
 
-echo "FDS_ROOT  = $FDS_ROOT"
-echo "CLASSPATH = $CLASSPATH"
-
-java $JAVA_OPTS -classpath $CLASSPATH com.formationds.om.Main $args
+${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} >> ${fds_root}/bin/om.out 2>&1

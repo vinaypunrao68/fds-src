@@ -10,6 +10,7 @@
 {#
    fds. specific entries
 #}
+{% set fds_root = fds_default_root if fds_default_root is defined else '/fds' %}
 {% set default_nic = fds_default_nic if fds_default_nic is defined else 'eth0' %}
 {% set authentication = fds_authentication if fds_authentication is defined else 'true' %}
 {#
