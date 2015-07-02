@@ -254,7 +254,7 @@ class Disk (Base):
 
         # 512 byte block count
         if (disk_blocks < 16324 or disk_blocks > 24576):
-            self.system_exit ("Unable to continue, " + self.path + " is not configured to be about 10MB in capcity.")
+            self.system_exit ("Unable to continue, " + self.path + "1 is not configured to be about 10MB in capcity.")
 
         file_handle.close()
 

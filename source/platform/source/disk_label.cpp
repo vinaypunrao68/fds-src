@@ -301,6 +301,6 @@ namespace fds
 
         mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
         dl_owner->dsk_write(inv->dsk_need_simulation(),
-                            reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz);
+                            reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
     }
 }  // namespace fds
