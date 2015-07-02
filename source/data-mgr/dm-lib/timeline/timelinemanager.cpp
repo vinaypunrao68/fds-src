@@ -88,6 +88,9 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
             LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< volid
                      << " - " << err;
         }
+
+        // load bloom
+        markObjectsInSnapshot(volid, snapId);
     }
     return err;
 }
@@ -105,8 +108,54 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
         if (dm->features.isTimelineEnabled()) {
             timelineDB->addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
         }
+
+        // mark the objects present in this snapshot
+        markObjectsInSnapshot(vdesc->srcVolumeId, vdesc->volUUID);
+
     }
     return err;
+}
+
+Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    if (blooms.find(volId) == blooms.end()) {
+        blooms[volId].find(snapshotId);
+    }
+    bool fNew = false, fLoaded=false;
+    std::string bfFileName = getSnapshotBloomFile(snapshotId);
+
+    auto& bloom = blooms[volId][snapshotId];
+    if (bloom.get() == NULL) {
+        bloom.reset(new util::BloomFilter());
+        fNew = true;
+    }
+
+    if (fNew) {
+        // try to load the
+        serialize::Deserializer* d=serialize::getFileDeserializer(bfFileName);
+        if (bloom->read(d) > 0) {
+            fLoaded = true;
+        }
+        delete d;
+    }
+
+    if (fLoaded) {
+        LOGWARN << "successfully loaded bloom for snap:" << snapshotId;
+        return ERR_OK;
+    }
+
+    std::function<void (const ObjectID&)> func = [&bloom](const ObjectID& objId) {
+        bloom->add(objId);
+    };
+
+    dm->timeVolCat_->queryIface()->forEachObject(snapshotId, func);
+
+    // save the bloom
+    serialize::Serializer* s=serialize::getFileSerializer(bfFileName);
+    if (bloom->write(s) <= 0) {
+        LOGWARN << "unable to store bloom for snap:" << snapshotId;
+    }
+    delete s;
+    return ERR_OK;
 }
 
 Error TimelineManager::createClone(VolumeDesc *vdesc) {
@@ -192,5 +241,27 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
 
     return err;
 }
+
+bool TimelineManager::isObjectInSnapshot(const ObjectID& objId, fds_volid_t volId) {
+    auto snapMapIter = blooms.find(volId);
+    if (snapMapIter == blooms.end()) {
+        LOGWARN << "no snaps found for vol:" << volId;
+        return false;
+    }
+
+    for (const auto& item : snapMapIter->second) {
+        if (item.second->lookup(objId)) return true;
+    }
+
+    return false;
+}
+
+std::string TimelineManager::getSnapshotBloomFile(fds_volid_t snapshotId) {
+    std::string metaDir=dmutil::getVolumeMetaDir(snapshotId);
+    FdsRootDir::fds_mkdir(metaDir.c_str());
+
+    return util::strformat("%s/objectset.bf",metaDir.c_str());
+}
+
 }  // namespace timeline
 }  // namespace fds
