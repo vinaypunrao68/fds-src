@@ -14,7 +14,7 @@ class DataMgr;
 /**
  * Callback for once client is finished with migration.
  */
-typedef std::function<void (fds_uint64_t clientId,
+typedef std::function<void (fds_volid_t clientId,
                             const Error& error)> DmMigrationClientDoneHandler;
 
 class DmMigrationClient {
@@ -49,6 +49,7 @@ class DmMigrationClient {
      * Callback to talk to DM Migration Manager
      */
     DmMigrationClientDoneHandler migrDoneHandler;
+    friend class DmMigrationMgr;
 
 };  // DmMigrationClient
 

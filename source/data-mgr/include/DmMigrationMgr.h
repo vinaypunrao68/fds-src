@@ -19,7 +19,9 @@ class DmIoReqHandler;
 class DmMigrationMgr {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
-    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr>;
+    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
+    using DmMgrClientThrPtr = boost::shared_ptr<boost::thread>;
+    using DmMigrClientThMap = std::unordered_map<fds_volid_t, DmMgrClientThrPtr>;
     // Callbacks for migration handlers
 	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
 			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
@@ -127,17 +129,6 @@ class DmMigrationMgr {
 								  const fds_bool_t& autoIncrement = false);
 
     /**
-     * Source side DM:
-     * Create a client instance. Does book keeping.
-     * Returns ERR_OK if the client instance was created successfully.
-     * Uses the clientMap to store the created instances.
-     */
-    Error createMigrationClient(NodeUuid& srcDmUuid,
-    								const NodeUuid& mySvcUuid,
-									fpi::ResyncInitialBlobFilterSetMsgPtr& rvmp,
-									fds_uint64_t uniqueId = 0);
-
-    /**
      * Destination side DM:
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
@@ -151,22 +142,10 @@ class DmMigrationMgr {
     DmMigrationExecMap executorMap;
 
     /**
-     * Source side DM:
-     * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
-     */
-    DmMigrationClientMap clientMap;
-
-    /**
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
     void ackMigrationComplete(const Error &status);
-
-    /**
-     * Source side DM:
-     * Wrapper around calling DmStartMigClientCb
-     */
-    void ackInitialBlobFilter(const Error &status);
 
 	/*
      * Destination side DM:
@@ -182,6 +161,30 @@ class DmMigrationMgr {
      */
     void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
 
+
+    /**
+     * Source side DM:
+     * Create a client instance. Does book keeping.
+     * Returns ERR_OK if the client instance was created successfully.
+     * Uses the clientMap to store the created instances.
+     */
+    Error createMigrationClient(NodeUuid& srcDmUuid,
+    								const NodeUuid& mySvcUuid,
+									fpi::ResyncInitialBlobFilterSetMsgPtr& rvmp,
+									fds_uint64_t uniqueId = 0);
+
+    /**
+     * Source side DM:
+     * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
+     */
+    DmMigrationClientMap clientMap;
+
+    /**
+     * Source side DM:
+     * Wrapper around calling DmStartMigClientCb
+     */
+    void ackInitialBlobFilter(const Error &status);
+
     /**
      * Source side DM:
      * Callback for Source DM to ack back to the dest DM.
@@ -192,7 +195,30 @@ class DmMigrationMgr {
      * Source side DM:
      * Callback for migrationClient.
      */
-    void migrationClientDoneCb(fds_uint64_t uniqueId, const Error &result);
+    void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
+
+    /**
+     * Source side DM:
+     * It's called a client but really a server, since it's receiving requests
+     * from Destination DMs. So we create a thread to handle the migration tasks
+     * while freeing up the manager for more requests.
+     */
+    void migrationClientAsyncTask(fds_volid_t uniqueId);
+
+    /**
+     * Source side DM:
+     * Map to keep track of the ongoing clients threads
+     */
+    DmMigrClientThMap clientThreadsMap;
+    fds_rwlock migrClientThrMapLock;
+
+    /**
+     * Source side DM:
+     * Takes a snapshot of the current volume a client is specific for, and generate
+     * the DeltaBlobDxSet, which will be used later to diff against the destination
+     * DM's InitialBlobDxSet. (Dx == Descriptor)
+     */
+    Error snapAndGenerateDBDxSet(fds_volid_t uniqueId);
 
 
 };  // DmMigrationMgr
