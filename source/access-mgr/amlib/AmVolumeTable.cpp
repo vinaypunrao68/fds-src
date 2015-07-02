@@ -350,7 +350,8 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
 
 Error
 AmVolumeTable::markIODone(AmRequest* amReq) {
-    return qos_ctrl->markIODone(amReq);
+  // If this request didn't go through QoS, then just return
+  return (0 == amReq->dispatch_ts) ? ERR_OK : qos_ctrl->markIODone(amReq);
 }
 
 bool
