@@ -213,9 +213,9 @@ class AmProcessor_impl
      * Generic callback for a few responses
      */
     void respond_and_delete(AmRequest *amReq, const Error& error)
-        { respond(amReq, error); delete amReq; }
+        { if (respond(amReq, error).ok()) { delete amReq; } }
 
-    void respond(AmRequest *amReq, const Error& error);
+    Error respond(AmRequest *amReq, const Error& error);
 
 };
 
@@ -227,8 +227,6 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     if (shut_down) {
         err = ERR_SHUTTING_DOWN;
     } else {
-        fds_verify(amReq->magicInUse() == true);
-
         amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
         err = volTable->enqueueRequest(amReq);
 
@@ -248,6 +246,10 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
                 volTable->enqueueRequest(attachReq);
             }
             err = amDispatcher->attachVolume(amReq->volume_name);
+            if (ERR_NOT_READY == err) {
+                // We don't have domain tables yet...just reject.
+                return volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+            }
         }
     }
 
@@ -259,8 +261,8 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
 
 void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
-    fds_verify(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
-    fds_verify(amReq->magicInUse() == true);
+    fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
+    fds_assert(amReq->isCompleted() == true);
 
     /*
      * Drain the queue if we are shutting down.
@@ -371,10 +373,12 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     volTable->registerCallback(closure);
 }
 
-void
+Error
 AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
-    volTable->markIODone(amReq);
-    if (amReq->cb) {
+    // markIODone will return ERR_DUPLICATE if the request has already
+    // been responded to, in that case drop on the floor.
+    Error err = volTable->markIODone(amReq);
+    if (err.ok() && amReq->cb) {
         amReq->cb->call(error);
     }
 
@@ -383,6 +387,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     if (isShuttingDown()) {
         stop();
     }
+    return err;
 }
 
 void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
@@ -396,12 +401,8 @@ bool AmProcessor_impl::stop() {
     shut_down = true;
     if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
-        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
-        volTable->getVolumeTokens(tokens);
-        for (auto const& token_pair: tokens) {
-            if (invalid_vol_token != token_pair.second) {
-                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
-            }
+        for (auto const& vol : volTable->getVolumes()) {
+          removeVolume(*vol->voldesc);
         }
         shutdown_cb();
         return true;
@@ -500,11 +501,6 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // called to clear any waiting requests with an error and
     // remove the QoS allocations
     err = volTable->removeVolume(volDesc);
-
-    if (shut_down && volTable->drained())
-    {
-       shutdown_cb();
-    }
     return err;
 }
 

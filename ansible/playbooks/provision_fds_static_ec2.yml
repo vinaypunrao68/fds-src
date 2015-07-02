@@ -1,0 +1,153 @@
+---
+-   name: Provision multi-node FDS cluster in EC2
+    connection: local
+    hosts: localhost
+    gather_facts: False
+    vars_files:
+    -   ../vars_files/credentials/aws_fds_testing.yml
+    -   ../vars_files/credentials/fds-deploy_rsa.yml
+
+    tasks:
+    -   include_vars: "../vars_files/static_clusters/{{ instance_name_tag }}.yml"
+
+    -   name: check for instance_name_tag
+        fail: msg="You must supply a value for instance_name_tag"
+        when: instance_name_tag is not defined
+
+    -   name: check for instance_state
+        fail: msg="You must supply an instance_state (running|stopped|absent)"
+        when: instance_state is not defined and
+          (action == "stop" or action == "start" or action == "destroy")
+
+    -   name: copy FDS deploy key locally
+        include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
+        when: action == "deploy" or action == "clean"
+
+    -   name: spin up a node in the private subnet with an auto-assigned IP
+        ec2:
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
+            instance_tags:
+                Name: "{{ instance_name_tag }}"
+                fds_purpose: testing
+            private_ip: "{{ item.value.address }}"
+            count_tag:
+                Name: "{{ instance_name_tag }}"
+                fds_purpose: testing
+            key_name: fds-ie
+            group_id: sg-43b9c126
+            instance_type: t2.medium
+            image: ami-0f114a3f
+            volumes:
+                -   device_name: /dev/sda1
+                    volume_size: 30
+                    delete_on_termination: true
+            vpc_subnet_id: subnet-195bac40
+            monitoring: no
+            region: us-west-2
+            zone: us-west-2c
+            wait: no
+        register: ec2
+        tags: provision
+        with_dict: ec2_hosts
+        ignore_errors: True
+        when: action == "deploy"
+
+-   name: "set instance state to {{ instance_state }}"
+    hosts: tag_Name_{{ instance_name_tag }}
+    gather_facts: False
+    vars_files:
+    -   ../vars_files/credentials/aws_fds_testing.yml
+    -   ../vars_files/credentials/fds-deploy_rsa.yml
+
+    tasks:
+    -   local_action:
+          module: ec2
+            state={{ instance_state }}
+            region=us-west-2
+            instance_ids={{ hostvars[inventory_hostname]['ec2_id'] }}
+            aws_access_key={{ aws_access_key }}
+            aws_secret_key={{ aws_secret_key }}
+            wait=True
+        when: action == "stop" or action == "start" or action == "destroy"
+
+-   hosts: awo-bh-01
+    name: stage debs on awo-bh-01 and wait for cluster to be available for deployment
+    remote_user: deploy
+    gather_facts: false
+    sudo: false
+    tags: wait
+
+    tasks:
+
+    -   name: set variable build defined in inventory file (release or debug)
+        set_fact:
+            build: "{% if fds_build is defined and fds_build == 'debug' %}dbg{% else %}rel{% endif %}"
+        tags:
+          - install-local
+        when: action == "deploy"
+
+    -   name: create staging directory on awo-bh-01 to house local fds_platform deb
+        when: deploy_artifact == "local"
+        file: path=/home/deploy/deb_staging/{{ instance_name_tag }}
+                state=directory
+        tags:
+          - install-local
+        when: action == "deploy"
+
+    -   name: stage local fds-platform deb on awo-bh-01
+        when: deploy_artifact == "local"
+        file: path=/home/deploy/deb_staging/{{ instance_name_tag }}
+                state=directory
+        tags:
+          - install-local
+        when: action == "deploy"
+
+    -   name: stage local fds-platform deb on awo-bh-01
+        when: deploy_artifact == "local"
+        copy: src={{ item }}
+          dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb
+        with_fileglob:
+          - '../../omnibus/omnibus-fds-platform/pkg/fds-platform-*{{ build }}*.deb'
+        tags:
+          - install-local
+        when: action == "deploy"
+
+    -   name: stage local fds-deps deb on awo-bh-01
+        when: fds_deploy_local_deps is defined and fds_deploy_local_deps == true
+        copy: src={{ item }}
+          dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-deps.deb
+        with_fileglob:
+          - '../../omnibus/omnibus-fds-deps/pkg/fds-deps*.deb'
+        tags:
+          - install-local
+        when: action == "deploy"
+
+    -   name: wait for SSH to come up on all instances
+        wait_for: host={{ item }} port=22 delay=1 timeout=300 state=started
+        with_items: groups.{{ fds_cluster_name }}
+        when: action == "deploy"
+
+-   name: Deploy FDS
+    hosts: "{{ fds_cluster_name }}"
+    remote_user: deploy
+    gather_facts: true
+    sudo: true
+    vars:
+       this_is_an_ec2_node: true
+    vars_files:
+    -   ../vars_files/multi_om_setup.yml
+    -   ../vars_files/credentials/ssl_certs.yml
+    -   ../vars_files/deploy_fds/admin_credentials.yml
+    -   ../vars_files/deploy_fds/start_fds.yml
+
+    handlers:
+    -   name: restart ssh
+        service: name=ssh
+            state=restarted
+        when: action == "deploy"
+
+    tasks:
+
+    -   include: ../tasks/deploy_fds/deploy_fds.yml
+        when: action == "deploy" or action == "clean"

@@ -70,6 +70,11 @@ namespace fds {
         uint32_t virtual write(serialize::Serializer* s) const;
         uint32_t virtual read(serialize::Deserializer* d);
 
+        /**
+         * Two DMTs are equal if they have the same content in the table
+         * but versions may be different (or same).
+         */
+        fds_bool_t operator==(const DMT &rhs) const;
         friend std::ostream& operator<< (std::ostream &out, const DMT& dmt);
 
         /**

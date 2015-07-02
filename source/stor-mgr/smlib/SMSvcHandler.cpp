@@ -249,9 +249,9 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
     fiu_do_on("mark.object.store.unavailable", markObjStoreUnavailable = true;\
-              LOGNOTIFY << "mark.object.store.unavailable fault point enabled");
+              LOGNOTIFY << "mark.object.store.unavailable fault point enabled";);
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true;\
-              LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled");
+              LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled";);
     if (markObjStoreUnavailable || objStorMgr->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
         // integrity check
@@ -476,7 +476,6 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
-        fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoGetObjectReq to StorMgr.  Error: "
                  << err;
         getObjectCb(asyncHdr, err, getReq);
@@ -598,7 +597,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             /**
              * TODO(neil): This needs to be fixed. See FS-2229
              */
-            fds_assert(!"Hit FS-2229. This needs to be fixed.");
+            LOGWARN << "Hit FS-2229. This needs to be fixed.";
         }
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                  << err;
@@ -1109,7 +1108,8 @@ SMSvcHandler::NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 {
     LOGDEBUG << "NotifyDLTCloseCB called with DLTversion="
-             << DLTCloseReq->closeDLTVersion;
+             << DLTCloseReq->closeDLTVersion
+             << " with error " << err;
 
     // send response
     asyncHdr->msg_code = err.GetErrno();

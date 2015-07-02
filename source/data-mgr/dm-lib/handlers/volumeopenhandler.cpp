@@ -30,7 +30,8 @@ void VolumeOpenHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
-    auto err = dataManager.validateVolumeIsActive(fds_volid_t(message->volume_id));
+    fds_volid_t volId(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -53,7 +54,14 @@ void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
              << std::hex << request->volId << std::dec << "'";
 
     helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
-                                                     request->access_mode);
+                                                     request->access_mode,
+                                                     request->sequence_id);
+
+    if (helper.err.ok()) {
+        LOGDEBUG << "on opening vol: " << request->volId
+                 << ", latest sequence was determined to be "
+                 << request->sequence_id;
+    }
 }
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -65,6 +73,7 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     if (dmRequest) {
         DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
         response.token = request->token;
+        response.sequence_id = request->sequence_id;
         delete dmRequest;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);

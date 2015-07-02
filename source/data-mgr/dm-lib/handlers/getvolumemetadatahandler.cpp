@@ -30,7 +30,13 @@ void GetVolumeMetadataHandler::handleRequest(
     LOGTRACE << "Received a get volume metadata request for volume "
              << volId;
 
-    auto err = dataManager.validateVolumeIsActive(volId);
+    Error err(ERR_OK);
+    if (!dataManager.amIPrimaryGroup(volId)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();

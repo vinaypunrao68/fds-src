@@ -149,6 +149,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
+    void deleteSnapshot(const int64_t volumeId, const int64_t snapshotId) {}
 
     // stubs to keep cpp compiler happy - END
 
@@ -693,18 +694,19 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void GetVolInfo(fpi::FDSP_VolumeDescType& _return, boost::shared_ptr<FDSP_GetVolInfoReqType>& vol_info_req) {
-        LOGNOTIFY << "Received Get volume info request for volume: "
-                  << vol_info_req->vol_name;
+        LOGDEBUG << "Received Get volume info request for volume: "
+                 << vol_info_req->vol_name;
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer vol_list = local->om_vol_mgr();
         VolumeInfo::pointer vol = vol_list->get_volume(vol_info_req->vol_name);
         if (vol) {
             vol->vol_fmt_desc_pkt(&_return);
-            LOGNOTIFY << "Volume " << vol_info_req->vol_name
-                      << " -- min iops (assured) " << _return.iops_assured << ",max iops (throttle) "
-                      << _return.iops_throttle << ", prio " << _return.rel_prio
-                      << " media policy " << _return.mediaPolicy;
+            LOGDEBUG << "Volume " << vol_info_req->vol_name
+                     << " -- min iops (assured) " << _return.iops_assured 
+                     << ",max iops (throttle) " << _return.iops_throttle 
+                     << ", prio " << _return.rel_prio
+                     << " media policy " << _return.mediaPolicy;
         } else {
             LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
             FDSP_VolumeNotFound except;
@@ -1105,7 +1107,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         LOGDEBUG << "snapshot request for volume id:" << snapshot.volumeId
                  << " name:" << snapshot.snapshotName;
 
-
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         fds::Error err = volContainer->addSnapshot(snapshot);
@@ -1117,6 +1118,24 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (om->enableSnapshotSchedule) {
             om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
         }
+    }
+
+    void deleteSnapshot(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& snapshotId) {
+        checkDomainStatus();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        fpi::Snapshot snapshot;
+
+        snapshot.volumeId = *volumeId;
+        snapshot.snapshotId = *snapshotId;
+        if (!om->getConfigDB()->getSnapshot(snapshot)) {
+            apiException(util::strformat("snapshot not found for [vol:%ld] - [snap:%ld]",*volumeId, *snapshotId));
+        }
+        snapshot.state = fpi::ResourceState::MarkedForDeletion;
+        // mark the snapshot for deletion
+        om->getConfigDB()->updateSnapshot(snapshot);
+
+        volContainer->om_delete_vol(fds_volid_t(snapshot.snapshotId));
     }
 };
 }  // namespace apis

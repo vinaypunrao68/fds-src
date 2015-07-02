@@ -31,7 +31,6 @@ int DMOfflineCheckerEnv::main() {
     /* Get volumes from config api */
     auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
         "127.0.0.1", 9090, 4);
-    // boost::shared_ptr<fds::apis::ConfigurationServiceClient> configSvc;
     std::vector<fds::apis::VolumeDescriptor> volDescs;
     configSvc->listVolumes(volDescs, "");
     for_each(volDescs.begin(), volDescs.end(),
@@ -165,7 +164,7 @@ DMChecker::DMChecker(DMCheckerEnv *env) {
 void DMChecker::logMisMatch(const fds_volid_t &volId,
                             const std::vector<DiffResult> &mismatches) {
     totalMismatches += mismatches.size();
-    for (const auto mismatch : mismatches) {
+    for (const auto &mismatch : mismatches) {
         LOGERROR << volId << " " << mismatch;
     }
 }

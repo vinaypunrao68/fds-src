@@ -26,11 +26,8 @@ whitelist_file "jre/bin/appletviewer"
 
 if _64_bit?
   # TODO: download x86 version on x86 machines
-  source url:     "http://download.oracle.com/otn-pub/java/jdk/8u31-b13/server-jre-8u31-linux-x64.tar.gz",
-         md5:     "9d69cdc00c536b8c9f5b26a3128bd2a1",
-         cookie:  "gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie",
-         warning: "By including the JRE, you accept the terms of the Oracle Binary Code License Agreement for the Java SE Platform Products and JavaFX, which can be found at http://www.oracle.com/technetwork/java/javase/terms/license/index.html",
-         unsafe:  true
+  source url:     "https://s3-us-west-2.amazonaws.com/fds-java/server-jre-8u31-linux-x64.tar.gz",
+         md5:     "9d69cdc00c536b8c9f5b26a3128bd2a1"
 else
   raise "Server-jre can only be installed on x86_64 systems."
 end

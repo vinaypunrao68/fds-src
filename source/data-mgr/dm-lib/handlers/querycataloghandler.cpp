@@ -25,7 +25,14 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataManager.validateVolumeIsActive(fds_volid_t(message->volume_id));
+    Error err(ERR_OK);
+    fds_volid_t volId(message->volume_id);
+    if (!dataManager.amIPrimaryGroup(volId)) {
+    	err = ERR_DM_NOT_PRIMARY;
+    }
+    if (err.OK()) {
+    	err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -55,7 +62,7 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
         &typedRequest->queryMsg->meta_list,
         &typedRequest->queryMsg->obj_list,
         reinterpret_cast<fds_uint64_t *>(&typedRequest->queryMsg->byteCount));
-    if (!helper.err.ok()) {
+    if (!helper.err.ok() && ERR_BLOB_OFFSET_INVALID != helper.err) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType, typedRequest->getVolId());
     }
 }

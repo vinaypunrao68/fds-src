@@ -106,7 +106,9 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
 
         return;
     }
-    LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
+    
+    LOGDEBUG << "received vol cmd response " << vol->vol_get_name();
+    
     OM_NodeContainer * local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
     volumes->om_vol_cmd_resp(vol, cmd_type, error, rs_get_uuid());
@@ -190,9 +192,13 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     if (!vol) {
         vol = VolumeInfo::pointer(new VolumeInfo(0));  // create dummy to avoid issues
     }
-    EPSvcRequestRespCb cb = std::bind(&OM_NodeAgent::om_send_vol_cmd_resp, this, vol, cmd_type,
-                                   std::placeholders::_1, std::placeholders::_2,
-                                   std::placeholders::_3);
+    EPSvcRequestRespCb cb = std::bind( &OM_NodeAgent::om_send_vol_cmd_resp, 
+                                       this, 
+                                       vol, 
+                                       cmd_type,
+                                       std::placeholders::_1, 
+                                       std::placeholders::_2,
+                                       std::placeholders::_3 );
     req->onResponseCb(cb);
     req->invoke();
     if (desc != NULL) {
@@ -1027,6 +1033,27 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         if (!configDB->nodeExists(get_uuid())) {
             // for now store only if the node was not known to DB
             configDB->addNode(*getNodeInfo());
+            switch ( node_state() )
+            {
+                case fpi::FDS_Node_Discovered:
+                case fpi::FDS_Node_Up:
+                    fds::change_service_state( configDB, 
+                                               get_uuid().uuid_get_val(),
+                                               fpi::SVC_STATUS_ACTIVE );
+                    break;
+                case fpi::FDS_Start_Migration: 
+                    fds::change_service_state( configDB, 
+                                               get_uuid().uuid_get_val(), 
+                                               fpi::SVC_STATUS_INVALID );
+                    break;
+                case fpi::FDS_Node_Down:    
+                case fpi::FDS_Node_Rmvd:
+                    fds::change_service_state( configDB, 
+                                               get_uuid().uuid_get_val(),
+                                               fpi::SVC_STATUS_INACTIVE );
+                    break;    
+            }
+            
             LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec
                 << " in configDB";
@@ -1311,7 +1338,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
             char buf[20];
             snprintf(buf, sizeof(buf), "Node-%d", nodeNameCounter);
             msg->node_name.append(buf);
-            LOGNORMAL << "autonamed node : " << msg->node_name;
+            LOGNORMAL << "auto named node : " << msg->node_name;
         } else {
             LOGNOTIFY << "Using user provided name: " << msg->node_name;
         }
@@ -1950,7 +1977,7 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
 // -----------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
+    OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
 {
     fds_uint32_t cnt = 0;
     om_volumes->vol_foreach<NodeAgent::pointer, fds_uint32_t *>

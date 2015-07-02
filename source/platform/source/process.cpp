@@ -87,6 +87,12 @@ namespace fds
 
             // In the child process, No logging between fork and exec
 
+            // This sets the process's process group id.  Using this prevents children from being killed when a parent is delivered a sigterm (service ... stop).
+            if (-1 == setpgid (0, 0))
+            {
+                std::cerr << "setpgid() failure:  errno = " << errno;
+            }
+
             /* Close all file descriptors. */
             flim = fds_get_fd_limit();
 
@@ -114,7 +120,7 @@ namespace fds
             /* actual child process */
 
             execvp(argv[0], argv);
-            LOGDEBUG << "fds_spawn execvp failure:  errno = " << errno;
+            std::cerr << "fds_spawn execvp failure:  errno = " << errno;
             abort();
         }
 

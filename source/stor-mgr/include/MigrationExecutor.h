@@ -34,10 +34,13 @@ typedef std::function<void (fds_uint64_t executorId,
 typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
 
 typedef std::function<void(fds_uint64_t,
-                   fds_uint32_t,
-                   const std::set<fds_uint32_t>&,
-                   fds_uint32_t,
-                   const fds::Error&)> timeoutCbFn;
+                           fds_uint32_t,
+                           const std::set<fds_uint32_t>&,
+                           fds_uint32_t,
+                           const fds::Error&)> TimeoutCb;
+
+typedef std::function<void(fds_uint64_t&,
+                           fds_token_id&)> MigrationAbortCb;
 
 class MigrationExecutor {
   public:
@@ -53,7 +56,8 @@ class MigrationExecutor {
                       MigrationExecutorDoneHandler doneHandler,
                       FdsTimerPtr &timeoutTimer,
                       uint32_t timoutDuration,
-                      timeoutCbFn timeoutCb,
+                      TimeoutCb timeoutCb,
+                      MigrationAbortCb abortMigrationCb,
                       fds_uint32_t uniqId = 0,
                       fds_uint16_t instanceNum = 1);
     ~MigrationExecutor();
@@ -132,6 +136,14 @@ class MigrationExecutor {
         }
     }
 
+    inline void setAbortPending() {
+        abortPending = true;
+    }
+
+    inline bool isAbortPending() {
+        return abortPending;
+    }
+
     /**
      * Adds DLT token to the list of DLT tokens for which this
      * MigrationExecutor is responsible for
@@ -169,7 +181,13 @@ class MigrationExecutor {
     /**
      * Abort migration for this executor.
      */
-     void abortMigration(const Error &err);
+    void abortMigration(const Error &err);
+
+    /**
+     * Erase the dlt tokens set for which migration was supposed
+     * to be retried from the same source SM.
+     */
+    void clearRetryDltTokenSet();
 
   private:
     /**
@@ -257,6 +275,17 @@ class MigrationExecutor {
     fds_uint64_t targetDltVersion;
 
     /**
+     * Flag to signify if abort is pending for this migration executor.
+     */
+    bool abortPending;
+
+    /**
+     * To be called when abortPending is set by the Migration Manager indicating
+     * that migration needs to be aborted.
+     */
+    MigrationAbortCb abortMigrationCb;
+
+    /**
      * Set of DLT tokens that needs to be migrated from source SM
      * SM token contains one or more DLT tokens
      */
@@ -266,8 +295,10 @@ class MigrationExecutor {
     /**
      * Set of DLT tokens that failed to be migrated from source SM
      * because the source was not ready.
+     * And the lock protecting the DLT tokens map
      */
-     std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+    std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+    fds_mutex retryDltTokensLock;
 
     /**
      * Maintain messages from the source SM, so we don't lose it.  Each async message
@@ -284,7 +315,7 @@ class MigrationExecutor {
      * Callback for the timeout handler
      */
 
-   timeoutCbFn timeoutCb;
+    TimeoutCb timeoutCb;
 
     /**
      * Keep track of outstanding IO requests.  This is used to prevent MigrationMgr from

@@ -402,82 +402,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
         // create commit log entry and enable buffering in case of snapshot
         if (vdesc->isSnapshot()) {
-            // snapshot
-            util::TimeStamp createTime = util::getTimeStampMicros();
-            err = timeVolCat_->copyVolume(*vdesc);
-            if (err.ok()) {
-                // add it to timeline
-                if (features.isTimelineEnabled()) {
-                    timeline->addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
-                }
-            }
+            err = timelineMgr->createSnapshot(vdesc);
         } else if (features.isTimelineEnabled()) {
-            // clone
-            // find the closest snapshot to clone the base from
-            fds_volid_t srcVolumeId = vdesc->srcVolumeId;
-
-            LOGDEBUG << "Timeline time is: '" << vdesc->timelineTime << "' for clone: '"
-                    << vdesc->volUUID << "'";
-            // timelineTime is in seconds
-            util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
-
-            if (createTime == 0) {
-                LOGDEBUG << "clone vol:" << vdesc->volUUID
-                         << " of srcvol:" << vdesc->srcVolumeId
-                         << " will be a clone at current time";
-                err = timeVolCat_->copyVolume(*vdesc);
-            } else {
-                fds_volid_t latestSnapshotId = invalid_vol_id;
-                timeline->getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
-                util::TimeStamp snapshotTime = 0;
-                if (latestSnapshotId > invalid_vol_id) {
-                    LOGDEBUG << "clone vol:" << vdesc->volUUID
-                             << " of srcvol:" << vdesc->srcVolumeId
-                             << " will be based of snapshot:" << latestSnapshotId;
-                    // set the src volume to be the snapshot
-                    vdesc->srcVolumeId = latestSnapshotId;
-                    timeline->getSnapshotTime(srcVolumeId, latestSnapshotId, snapshotTime);
-                    LOGDEBUG << "about to copy :" << vdesc->srcVolumeId;
-                    err = timeVolCat_->copyVolume(*vdesc, srcVolumeId);
-                    // recopy the original srcVolumeId
-                    vdesc->srcVolumeId = srcVolumeId;
-                } else {
-                    LOGDEBUG << "clone vol:" << vdesc->volUUID
-                             << " of srcvol:" << vdesc->srcVolumeId
-                             << " will be created from scratch as no nearest snapshot found";
-                    // vol create time is in millis
-                    snapshotTime = volmeta->vol_desc->createTime * 1000;
-                    err = timeVolCat_->addVolume(*vdesc);
-                    if (!err.ok()) {
-                        LOGWARN << "Add volume returned error: '" << err << "'";
-                    }
-                    // XXX: Here we are creating and activating clone without copying src
-                    // volume, directory needs to exist for activation
-                    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-                    const std::string dirPath = root->dir_sys_repo_dm() +
-                            std::to_string(vdesc->volUUID.get());
-                    root->fds_mkdir(dirPath.c_str());
-                }
-
-                // now replay necessary commit logs as needed
-                // TODO(dm-team): check for validity of TxnLogs
-                bool fHasValidTxnLogs = (util::getTimeStampMicros() - snapshotTime) <=
-                        volmeta->vol_desc->contCommitlogRetention * 1000*1000;
-                if (!fHasValidTxnLogs) {
-                    LOGWARN << "time diff does not fall within logretention time "
-                            << " srcvol:" << srcVolumeId << " onto vol:" << vdesc->volUUID
-                            << " logretention time:" << volmeta->vol_desc->contCommitlogRetention;
-                }
-
-                if (err.ok()) {
-                    LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
-                    err = timeVolCat_->activateVolume(vdesc->volUUID);
-                    if (err.ok()) fActivated = true;
-                }
-
-                err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
-                                                      snapshotTime, createTime);
-            }
+            err = timelineMgr->createClone(vdesc);
+            if (err.ok()) fActivated = true;
         }
     } else {
         LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
@@ -495,7 +423,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-        if (err.ok()) fActivated = true;
+        if (err.ok()) {
+            fActivated = true;
+        }
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
@@ -621,12 +551,20 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     // Primary is responsible for persisting the latest seq number.
     // latest seq_number is provided to AM on volume open.
+    // XXX: (JLL) However, if we aren't the primary we can still become primary,
+    // so we should also set the SequenceId when we sync with the primary. And we
+    // should do the calculation if the primary fails over to us. but if we set it
+    // here, before failover, we could have a seq_id ahead of the primary.
+    // is this a problem?
     if (fPrimary) {
-        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid,
-                                                             volmeta->seq_id);
+        sequence_id_t seq_id;
+        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
         if (!err.ok()) {
+            LOGERROR << "failed to read persisted sequence id for vol: " << vol_uuid << " error: " << err;
             return err;
+        }else{
+            volmeta->setSequenceId(seq_id);
         }
     }
 
@@ -648,40 +586,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     // now load all the snapshots for the volume
     if (fOldVolume) {
-        // get the list of snapshots.
-        std::string snapDir = dmutil::getSnapshotDir(vol_uuid);
-        std::vector<std::string> vecDirs;
-        util::getSubDirectories(snapDir, vecDirs);
-        fds_volid_t snapId;
-        LOGDEBUG << "will load [" << vecDirs.size() << "]"
-                 << " snapshots for vol:" << vol_uuid
-                 << " from:" << snapDir;
-        for (const auto& snap : vecDirs) {
-            snapId = std::atoll(snap.c_str());
-            //now add the snap
-            VolumeDesc *desc = new VolumeDesc(*vdesc);
-            desc->fSnapshot = true;
-            desc->srcVolumeId = vol_uuid;
-            desc->lookupVolumeId = vol_uuid;
-            desc->qosQueueId = vol_uuid;
-            desc->volUUID = snapId;
-            desc->contCommitlogRetention = 0;
-            desc->timelineTime = 0;
-            desc->setState(fpi::Active);
-            desc->name = util::strformat("snaphot_%ld_%ld",
-                                         vol_uuid.get(), snapId.get());
-            VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
-                                                            snapId,
-                                                            GetLog(),
-                                                            desc);
-            vol_meta_map[snapId] = meta;
-            LOGDEBUG << "Adding snapshot" << " name:" << desc->name << " vol:" << desc->volUUID;
-            Error err1 = timeVolCat_->addVolume(*desc);
-            if (!err1.ok()) {
-                LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< vol_uuid
-                         << " - " << err1;
-            }
-        }
+        timelineMgr->loadSnapshot(vol_uuid);
     }
 
     return err;
@@ -909,7 +814,8 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
-    standalone = false;
+    initHandlers();
+    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;
     scheduleRate = 10000;
     shuttingDown = false;
@@ -944,7 +850,7 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.dm.enable_timeline", true));
     if (features.isTimelineEnabled()) {
-        timeline.reset(new TimelineDB());
+        timelineMgr.reset(new timeline::TimelineManager(this));
     }
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -952,6 +858,12 @@ int DataMgr::mod_init(SysParams const *const param)
      */
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.volume_open_support", false));
+
+    // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
+    // requests for a given serialization key are applied in the order they
+    // are received.
+    features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.dm.req_serialization", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -962,6 +874,11 @@ int DataMgr::mod_init(SysParams const *const param)
 				  get<int>("fds.dm.number_of_primary");
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
+
+    /**
+     * Instantiate migration manager.
+     */
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
 
     return 0;
 }
@@ -988,6 +905,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
+    handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -999,8 +917,6 @@ DataMgr::~DataMgr()
 
 int DataMgr::run()
 {
-    // TODO(Rao): Move this into module init
-    initHandlers();
 
     _shutdownGate.waitUntilOpened();
 
@@ -1033,7 +949,7 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    fds_uint32_t diskIOPsMin = features.isTestMode() ? 60*1000 :
+    fds_uint32_t diskIOPsMin = standalone ? 60*1000 :
             svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
                                                  "node_iops_min");
 
@@ -1075,7 +991,7 @@ void DataMgr::mod_enable_service() {
 
     // enable collection of local stats in DM
     StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
-    if (!features.isTestMode()) {
+    if (!standalone) {
         // since aggregator is in the same module, for stats that need to go to
         // local aggregator, we just directly stream to aggregator (not over network)
         StatsCollector::singleton()->startStreaming(
@@ -1097,9 +1013,6 @@ void DataMgr::mod_enable_service() {
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    if (features.isTimelineEnabled()) {
-        timeline->open();
-    }
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.

@@ -47,7 +47,8 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     auto dmReq = new DmIoCommitBlobTx(volId,
                                       message->blob_name,
                                       message->blob_version,
-                                      message->dmt_version);
+                                      message->dmt_version,
+                                      message->sequence_id);
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
@@ -70,6 +71,7 @@ void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
                                            typedRequest->ioBlobTxDesc,
                                            // TODO(Rao): We should use a static commit
                                            //            callback
+                                           typedRequest->sequence_id,
                                            std::bind(&CommitBlobTxHandler::volumeCatalogCb,
                                                      this,
                                                      std::placeholders::_1,
