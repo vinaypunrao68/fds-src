@@ -594,4 +594,34 @@ Error DmPersistVolDB::freeInMemorySnapshot(Catalog::catalog_roptions_t &opts)  {
 	return ERR_OK;
 }
 
+void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
+    Catalog::catalog_roptions_t opts;
+    auto dbIt = getSnapshotIter(opts);
+    Error err;
+    fds_assert(dbIt);
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record dbKey = dbIt->key();
+        if (reinterpret_cast<const BlobObjKey *>(dbKey.data())->objIndex == BLOB_META_INDEX) {
+            BlobMetaDesc blob;
+            fds_verify(blob.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+
+            fds_uint32_t rc = blob.desc.blob_size ? (blob.desc.blob_size % getObjSize()) : 0;
+            fds_uint64_t lastObjectSize = (rc ? rc : getObjSize());
+
+            fds_uint64_t lastObjOffset = blob.desc.blob_size ? blob.desc.blob_size - lastObjectSize : 0;
+
+            BlobObjList objList;
+            err = getObject(blob.desc.blob_name, 0, lastObjOffset, objList);
+            if (!err.ok()) {
+                LOGERROR << "Failed to retrieve objects for blob: '" << blob.desc.blob_name;
+                continue;
+            }
+
+            for (const auto & obj : objList) {
+                func(obj.second.oid);
+            }
+        }
+    }
+    fds_assert(dbIt->status().ok());  // check for any errors during the scan
+}
 }  // namespace fds
