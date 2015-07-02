@@ -4,7 +4,6 @@
 # All Rights Reserved.
 #
 
-
 # Set the build type in the package name
 if ENV['BUILD_TYPE'] == 'debug'
   build_type = 'dbg'
@@ -14,7 +13,7 @@ else
   raise "BUILD_TYPE must be set to one of 'debug' or 'release'"
 end
 
-
+name "fds-platform-#{build_type}"
 maintainer "Formation Data Systems"
 homepage "http://www.formationds.com"
 
@@ -40,7 +39,6 @@ if ENV['ENABLE_VERSION_INSTALL'] == 'true'
 else
   # Continue to use legacy configuration
   install_dir "/fds"
-  name "fds-platform-#{build_type}"
   build_version fds_version
 end
 
