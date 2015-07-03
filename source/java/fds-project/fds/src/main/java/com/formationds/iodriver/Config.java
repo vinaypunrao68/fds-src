@@ -725,6 +725,7 @@ public final class Config
                                                                     false)
                                                             .map(logTarget -> logTarget.toString())
                                                             .collect(Collectors.toList())));
+            newOptions.addOption("r", "fds-root", true, "Set the root folder for FDS install.");
             newOptions.addOption("h", "help", false, "Show this help screen.");
             newOptions.addOption("w",
                                  "workload",
