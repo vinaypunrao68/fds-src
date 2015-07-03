@@ -26,7 +26,7 @@ class DmMigrationMgr {
 	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
 			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
 	using DmStartMigClientCbType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::ResyncInitialBlobFilterSetMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
+			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -99,7 +99,7 @@ class DmMigrationMgr {
   private:
     DmIoReqHandler* DmReqHandler;
     fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
-    fpi::ResyncInitialBlobFilterSetMsgPtr migReqMsg;
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg;
     fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
@@ -170,7 +170,7 @@ class DmMigrationMgr {
      */
     Error createMigrationClient(NodeUuid& srcDmUuid,
     								const NodeUuid& mySvcUuid,
-									fpi::ResyncInitialBlobFilterSetMsgPtr& rvmp,
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
 									fds_uint64_t uniqueId = 0);
 
     /**
@@ -220,7 +220,7 @@ class DmMigrationMgr {
      */
     Error snapAndGenerateDBDxSet(fds_volid_t uniqueId,
 									Catalog::catalog_roptions_t &opts,
-									fpi::ResyncInitialBlobFilterSetMsgPtr &filterSet);
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &filterSet);
 
 };  // DmMigrationMgr
 

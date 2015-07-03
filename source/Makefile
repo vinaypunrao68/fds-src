@@ -24,6 +24,10 @@ user_build_dir :=                       \
     unit-test                           \
     java
 
+ifdef ONLYMAIN
+    user_build_dir := $(filter-out unit-test tools java, $(user_build_dir))
+endif
+
 # Using DEFER_TESTS=1 on the command line will build the Java directory
 # before building the unit-tests.
 ifdef DEFER_TESTS

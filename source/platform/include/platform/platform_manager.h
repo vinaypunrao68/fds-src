@@ -116,6 +116,11 @@ namespace fds
                 bool                                m_autoRestartFailedProcesses;
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
+
+                std::string                         m_nodeRedisKeyId;              // A unique id across that the nodes in a cluster, this is differentthen the
+                                                                                   // node UUID used in other places.  This persists across cleans, reboots, etc.
+
+                void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
                 void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);

@@ -135,11 +135,13 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * existed are overwritten and previously set keys are left unchanged.
      * @param[in] volId The ID of the volume's catalog to update
      * @param[in] metadataList A list of metadata key value pairs to set.
+     * @param[in] seq_id sequence id for the operation.
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog.
      */
     Error setVolumeMetadata(fds_volid_t volId,
-                            const fpi::FDSP_MetaDataList &metadataList);
+                            const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
 
     /**
      * Gets the key-value metadata pairs for the volume.
@@ -205,13 +207,15 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * Updates committed blob in the Volume Catalog.
      */
     Error putBlobMeta(fds_volid_t volId, const std::string& blobName,
-            const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId);
+            const MetaDataList::const_ptr& metaList,
+            const BlobTxId::const_ptr& txId, const sequence_id_t seq_id);
     Error putBlob(fds_volid_t volId, const std::string& blobName,
             const MetaDataList::const_ptr& metaList,
-            const BlobObjList::const_ptr& blobObjList, const BlobTxId::const_ptr& txId);
+            const BlobObjList::const_ptr& blobObjList,
+            const BlobTxId::const_ptr& txId, const sequence_id_t seq_id);
     Error putBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t blobSize,
             const MetaDataList::const_ptr& metaList,
-            CatWriteBatch & wb, bool truncate = true);
+            CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate = true);
 
     /**
      * Flushes given blob to the persistent storage. Blocking method, will
@@ -244,7 +248,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
          return 0;
      }
 
-    Error getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id);
+    Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id);
 
     Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId);
 

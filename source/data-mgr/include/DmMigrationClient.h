@@ -23,14 +23,21 @@ class DmMigrationClient {
     		DataMgr& _dataMgr,
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
-			fpi::ResyncInitialBlobFilterSetMsgPtr& _ribfsm,
+			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
 			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
-  private:
+
+    // XXX: only public so we can unit test it
+    static Error diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& dest,
+                        const std::map<fds_uint64_t, sequence_id_t>& source,
+                        std::vector<fds_uint64_t>& update_list,
+                        std::vector<fds_uint64_t>& delete_list);
+
+ private:
     /**
      * Reference to the Data Manager.
      */
@@ -43,7 +50,7 @@ class DmMigrationClient {
     NodeUuid mySvcUuid;
     NodeUuid destDmUuid;
     fds_volid_t volID;
-    fpi::ResyncInitialBlobFilterSetMsgPtr& ribfsm;
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
 
     /**
      * Callback to talk to DM Migration Manager
@@ -57,4 +64,3 @@ class DmMigrationClient {
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
-

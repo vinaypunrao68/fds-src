@@ -311,13 +311,13 @@ struct DmMigrationHandler : Handler {
 struct DmMigrationBlobFilterHandler : Handler {
 	explicit DmMigrationBlobFilterHandler(DataMgr &dataManager);
 	void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-			boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message);
+			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message,
+                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
     void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message,
+                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 

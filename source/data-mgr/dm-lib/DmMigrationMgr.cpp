@@ -196,7 +196,7 @@ DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
 Error
 DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 										const NodeUuid& mySvcUuid,
-										fpi::ResyncInitialBlobFilterSetMsgPtr& ribfsm,
+										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm,
 										fds_uint64_t uniqueId)
 {
 	Error err(ERR_OK);
@@ -252,7 +252,7 @@ DmMigrationMgr::migrationClientAsyncTask(fds_volid_t uniqueId)
 	migrClientLock.read_unlock();
 
 
-    fpi::ResyncInitialBlobFilterSetMsgPtr filterSet(new fpi::ResyncInitialBlobFilterSetMsg());
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
 	snapAndGenerateDBDxSet(uniqueId, opts, filterSet);
 
 
@@ -266,7 +266,7 @@ DmMigrationMgr::migrationClientAsyncTask(fds_volid_t uniqueId)
 Error
 DmMigrationMgr::snapAndGenerateDBDxSet(fds_volid_t uniqueId,
 										Catalog::catalog_roptions_t &opts,
-										fpi::ResyncInitialBlobFilterSetMsgPtr &filterSet)
+										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &filterSet)
 {
 
 	/**

@@ -401,12 +401,8 @@ bool AmProcessor_impl::stop() {
     shut_down = true;
     if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
-        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
-        volTable->getVolumeTokens(tokens);
-        for (auto const& token_pair: tokens) {
-            if (invalid_vol_token != token_pair.second) {
-                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
-            }
+        for (auto const& vol : volTable->getVolumes()) {
+          removeVolume(*vol->voldesc);
         }
         shutdown_cb();
         return true;
@@ -505,11 +501,6 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // called to clear any waiting requests with an error and
     // remove the QoS allocations
     err = volTable->removeVolume(volDesc);
-
-    if (shut_down && volTable->drained())
-    {
-       shutdown_cb();
-    }
     return err;
 }
 
@@ -610,7 +601,6 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                 });
             err = volTable->processAttach(vol_desc, access_token);
         } else {
-            token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
         }
@@ -623,7 +613,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
         if (err.ok()) {
             // Renew this token at a regular interval
             auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+            if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
                 { LOGWARN << "Failed to schedule token renewal timer!"; }
 
             // Create caches if we have a token
@@ -643,7 +633,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                   << ") write(" << volReq->mode.can_write
                   << ") error(" << err << ")";
         // Flush the volume's wait queue and return errors for pending requests
-        volTable->removeVolume(vol_desc);
+        removeVolume(vol_desc);
     }
     respond_and_delete(amReq, err);
 }

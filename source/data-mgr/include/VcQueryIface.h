@@ -16,7 +16,7 @@ namespace fds {
  * Callback type to expunge a list of objects
  */
 typedef std::function<Error (fds_volid_t volid,
-                             const std::vector<ObjectID>& oids)> expunge_objs_cb_t;
+                             const std::vector<ObjectID>& oids, bool)> expunge_objs_cb_t;
 
 /**
  * Interface to Volume Catalog for querying commited versions of
@@ -128,7 +128,7 @@ class VolumeCatalogQueryIface {
      */
     virtual fds_uint64_t getTotalMetadataSize(fds_volid_t volume_id) = 0;
 
-    virtual Error getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) = 0;
+    virtual Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id) = 0;
 
     virtual Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) = 0;
 

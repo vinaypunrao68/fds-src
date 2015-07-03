@@ -11,7 +11,8 @@ namespace fds {
 namespace kvstore {
 
 struct PlatformDB : KVStore {
-    PlatformDB(const std::string& keyBase = "",
+    PlatformDB(std::string const &uniqueID = "",
+               const std::string& keyBase = "",
                const std::string& host = "localhost",
                uint port = 6379,
                uint poolsize = 10);
