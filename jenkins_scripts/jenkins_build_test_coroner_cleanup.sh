@@ -82,18 +82,25 @@ function build_fds
     start_time=$(date +%s)
     if [[ ${BUILD_TYPE} == 'release' ]] ; then
         message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
-        jenkins_scripts/build_fds.py -r
+        jenkins_options="-r"
     else
         message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
         if [[ ${COVERAGE} == 'true' ]]; then
-            jenkins_scripts/build_fds.py --coverage
-        else
-            jenkins_scripts/build_fds.py
+           jenkins_options="-coverage"
         fi
     fi
+
+    jenkins_scripts/build_fds.py ${jenkins_options}
+
+    build_ret=$?
+
+message "build_ret = ${build_ret}"
+
     end_time=$(date +%s)
 
     performance_report BUILD_FDS $(( ${end_time} - ${start_time} ))
+
+    [[ ${build_ret} -ne 0 ]] && message "Build failure detected" && exit 1
 }
 
 function cache_report
@@ -280,7 +287,6 @@ function from_jenkins
 
     ######### was #8
 
-    #!/bin/bash -le
     # Run the MultiAM test
 
     cd source/test/testsuites
