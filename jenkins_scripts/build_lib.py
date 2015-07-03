@@ -3,7 +3,8 @@ import os
 
 def shell_retry(cmd, max_retry = 0):
     proc = None
-    for i in xrange(max_retry):
+    #for i in xrange(max_retry):
+    for i in 0:
         proc = subprocess.Popen(cmd, shell=True)
         (stdout, stderr) = proc.communicate()
         if proc.returncode != 0:
