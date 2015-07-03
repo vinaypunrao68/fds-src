@@ -334,7 +334,7 @@ function from_jenkins
 
 function run_node_cleanup
 {
-   echo "Run post build node_cleanup here"
+   message "DDDD Run post build node_cleanup here"
 
 
    exit $1
@@ -343,7 +343,7 @@ function run_node_cleanup
 
 function run_coroner
 {
-   echo "Run coroner here"
+   message "DDDD Run coroner here"
 
    node_cleanup $1
 }
@@ -355,7 +355,8 @@ clean_up_environment
 
 if build_fds;
 then
-    message "Build failure detected" && run_coroner
+    message "Build failure detected" 
+    run_coroner
 fi
 
 
