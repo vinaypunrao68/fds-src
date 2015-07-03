@@ -90,9 +90,10 @@ function build_fds
         fi
     fi
 
+    set +e
     jenkins_scripts/build_fds.py ${jenkins_options}
-
     build_ret=$?
+    set -e
 
 message "build_ret = ${build_ret}"
 
