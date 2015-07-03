@@ -52,7 +52,7 @@ public final class SetBucketQos extends S3Operation
 
         OrchestrationManagerEndpoint omEndpoint = endpoint.getOmEndpoint();
 
-        omEndpoint.doVisit(getSetVolumeQosOp(), listener);
+        omEndpoint.getV8().doVisit(getSetVolumeQosOp(), listener);
     }
 
     @Override

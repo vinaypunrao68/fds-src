@@ -20,8 +20,68 @@ public final class Fds
     /**
      * API pseudo-constants.
      */
-    public final static class Api
+    public static class Api
     {
+        /**
+         * Version 7 of the API.
+         */
+        @Deprecated
+        public static class V07 extends Api { }
+
+        /**
+         * Version 8 of the API.
+         */
+        public static class V08
+        {
+            /**
+             * URL to get an auth token.
+             *
+             * @return A URL.
+             */
+            public static URI getAuthToken()
+            {
+                final URI apiBase = V08.getBase();
+                final URI authTokenPath = Uris.tryGetRelativeUri("token/");
+
+                return Uris.resolve(apiBase, authTokenPath);
+            }
+
+            /**
+             * API base URL.
+             *
+             * @return A URL.
+             */
+            public static URI getBase()
+            {
+                final String scheme = "https";
+                final String host = getFdsHost();
+                final int omPort = getOmPort();
+                final String path = "/fds/config/v08/";
+
+                try
+                {
+                    return new URI(scheme, null, host, omPort, path, null, null);
+                }
+                catch (URISyntaxException e)
+                {
+                    throw newUriConstructionException(scheme, null, host, omPort, path);
+                }
+            }
+
+            /**
+             * URL to get system volumes.
+             *
+             * @return A URL.
+             */
+            public static URI getVolumes()
+            {
+                final URI apiBase = V08.getBase();
+                final URI volumesPath = Uris.tryGetRelativeUri("volumes/");
+
+                return Uris.resolve(apiBase, volumesPath);
+            }
+        }
+
         /**
          * The URI to access to get an authentication token.
          * 

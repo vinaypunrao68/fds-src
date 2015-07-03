@@ -219,14 +219,21 @@ extends Endpoint<ThisT, OperationT>
             return func.apply(connection);
         case 4:
             throw new HttpClientException(responseCode,
+                                          connection.getURL().toString(),
+                                          connection.getRequestMethod(),
                                           getResponseMessage(connection),
                                           getErrorResponse(connection));
         case 5:
             throw new HttpServerException(responseCode,
+                                          connection.getURL().toString(),
+                                          connection.getRequestMethod(),
                                           getResponseMessage(connection),
                                           getErrorResponse(connection));
         default:
-            throw new HttpException(responseCode, getResponseMessage(connection));
+            throw new HttpException(responseCode,
+                                    connection.getURL().toString(),
+                                    connection.getRequestMethod(),
+                                    getResponseMessage(connection));
         }
     }
 
@@ -410,7 +417,9 @@ extends Endpoint<ThisT, OperationT>
         }
         if (responseCode < 0)
         {
-            throw new HttpException(responseCode);
+            throw new HttpException(responseCode,
+                                    connection.getURL().toString(),
+                                    connection.getRequestMethod());
         }
         return responseCode;
     }

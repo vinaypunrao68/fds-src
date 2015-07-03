@@ -9,8 +9,10 @@ import javax.net.ssl.HttpsURLConnection;
 
 import org.json.JSONObject;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
@@ -43,16 +45,19 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
         if (connection == null) throw new NullArgumentException("connection");
         if (reporter == null) throw new NullArgumentException("reporter");
 
-        JSONObject request = new JSONObject();
-        request.put("sla", _input.getIopsAssured());
-        request.put("priority", _input.getPriority());
-        request.put("limit", _input.getIopsThrottle());
-        request.put("commit_log_retention", _input.getCommitLogRetention());
-        request.put("mediaPolicy", _input.getMediaPolicy().toString());
+        Volume[] volumeQosSetter = new Volume[1];
+        GetVolume getter = new GetVolume(_input.getId(), volume -> volumeQosSetter[0] = volume);
+        endpoint.doVisit(getter, reporter);
+
+        JSONObject oyVeh = new JSONObject(ObjectModelHelper.toJSON(volumeQosSetter[0]));
+        JSONObject qos = oyVeh.getJSONObject("qosPolicy");
+        qos.put("priority", _input.getPriority());
+        qos.put("iopsMin", _input.getIopsAssured());
+        qos.put("iopsMax", _input.getIopsThrottle());
 
         try
         {
-            endpoint.doPut(connection, request.toString(), StandardCharsets.UTF_8);
+            endpoint.doPut(connection, oyVeh.toString(), StandardCharsets.UTF_8);
         }
         catch (HttpException e)
         {
@@ -63,8 +68,8 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
     @Override
     public URI getRelativeUri()
     {
-        URI apiBase = Fds.Api.getBase();
-        URI volumes = Fds.Api.getVolumes();
+        URI apiBase = Fds.Api.V08.getBase();
+        URI volumes = Fds.Api.V08.getVolumes();
         URI volumeId = Uris.tryGetRelativeUri(Long.toString(_input.getId()));
         URI putVolume = Uris.resolve(volumes, volumeId);
 

@@ -157,8 +157,19 @@ public final class Config
                 String s3EndpointText = s3Endpoint.toString();
 
                 URI apiBase = Fds.Api.getBase();
+                URI v8ApiBase = Fds.Api.V08.getBase();
                 OrchestrationManagerEndpoint omEndpoint =
-                        new OrchestrationManagerEndpoint(apiBase, "admin", "admin", newLogger, true);
+                        new OrchestrationManagerEndpoint(apiBase,
+                                                         "admin",
+                                                         "admin",
+                                                         newLogger,
+                                                         true,
+                                                         new OrchestrationManagerEndpoint(v8ApiBase,
+                                                                                          "admin",
+                                                                                          "admin",
+                                                                                          newLogger,
+                                                                                          true,
+                                                                                          null));
 
                 _endpoint = new S3Endpoint(s3EndpointText, omEndpoint, newLogger);
             }
@@ -379,15 +390,14 @@ public final class Config
             throw new ConfigurationException("System-wide assured rate of " + systemAssured
                                              + " does not result in a sane configuration.");
         }
-        if (systemAssured > systemThrottle - headroomNeeded)
+        if (systemThrottle < headroomNeeded)
         {
             throw new ConfigurationException("System-wide throttle of " + systemThrottle
                                              + " leaves less than " + headroomNeeded
-                                             + " IOPS of headroom over system assured "
-                                             + systemAssured + " IOPS.");
+                                             + " IOPS of headroom, not enough for a good test.");
         }
 
-        return new S3RateLimitTestWorkload(systemAssured + headroomNeeded, getOperationLogging());
+        return new S3RateLimitTestWorkload(systemThrottle - headroomNeeded, getOperationLogging());
     }
 
     // @eclipseFormat:off

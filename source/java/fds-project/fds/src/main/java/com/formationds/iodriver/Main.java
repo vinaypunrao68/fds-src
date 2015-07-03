@@ -50,11 +50,11 @@ public final class Main
             }
             else
             {
-                //result = runWorkloadDry(config);
-                //if (result == 0)
-                //{
+                result = runWorkloadDry(config);
+                if (result == 0)
+                {
                     result = runWorkload(config);
-                //}
+                }
             }
         }
         catch (Exception ex)

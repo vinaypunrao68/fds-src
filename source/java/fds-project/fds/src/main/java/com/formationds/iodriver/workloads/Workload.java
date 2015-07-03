@@ -158,7 +158,9 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                                 ExceptionHelper.<OperationT, ExecutionException>
                                                tunnel(loggingExec, ExecutionException.class);
                         
-                        // Synchronize all worker threads.
+                        // Synchronize all worker threads. This only ensures that they start work
+                        // at the same time--if you need to synchronize at different points, use
+                        // the AwaitGate operation.
                         ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
                                                                       ExecutionException.class);
 

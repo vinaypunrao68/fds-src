@@ -5,6 +5,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CyclicBarrier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -17,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
+import com.formationds.iodriver.operations.AwaitGate;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.DeleteBucket;
@@ -87,6 +89,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
         _competingBuckets = competingBuckets;
         _objectName = UUID.randomUUID().toString();
         _systemThrottle = systemThrottle;
+        _warmupGate = new CyclicBarrier(competingBuckets + 1);
     }
 
     @Override
@@ -150,6 +153,11 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     private final int _systemThrottle;
 
     /**
+     * Wait for this gate to begin the actual workload.
+     */
+    private final CyclicBarrier _warmupGate;
+
+    /**
      * The minimum number of IOPS that is a large enough difference that we're confident that the
      * system is throttling other volumes in order to fulfill another volume's minimum IOPS.
      */
@@ -187,6 +195,10 @@ public final class S3AssuredRateTestWorkload extends S3Workload
                                                                     false))
                       .limit(100);
 
+        // Wait for everyone to warm up.
+        Stream<S3Operation> awaitWarmup = Stream.of(new AwaitGate(_warmupGate));
+
+        // Start timing the test.
         Stream<S3Operation> reportStart = Stream.of(new ReportStart(bucketName));
 
         // Set the stop time for 10 seconds from when this operation is hit. We don't want to do a
@@ -214,6 +226,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
 
         Stream<S3Operation> retval = Stream.empty();
         retval = Stream.concat(retval, warmup);
+        retval = Stream.concat(retval, awaitWarmup);
         retval = Stream.concat(retval, reportStart);
         retval = Stream.concat(retval, startTestTiming);
         retval = Stream.concat(retval, load);
@@ -230,7 +243,8 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     {
         int minAssuredIops = _competingBuckets * VOLUME_HARD_MIN;
         int headroom = _systemThrottle - minAssuredIops;
-        int testAssured = headroom - 20;  // Leave 20 IOPS for the system, it insists.
+        int testAssured = (int)(headroom * 0.95);  // Take 95% of the system's I/O capacity to
+                                                   // ensure there's really competition.
 
         return createSetupBucket(_assuredBucketName, testAssured);
     }
