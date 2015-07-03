@@ -336,6 +336,7 @@ function run_node_cleanup
 {
    message "DDDD Run post build node_cleanup here"
 
+   sleep 10
 
    exit $1
 }
