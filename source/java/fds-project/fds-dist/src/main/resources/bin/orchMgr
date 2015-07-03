@@ -9,16 +9,18 @@ FDS_OM_HOST=localhost
 
 for i in "$@"
 do
-  key="$1"
-
   case $i in
     --fds-root=*)
-    FDS_ROOT="${i#*=}"
-    shift # past argument
-    ;;
+      FDS_ROOT="${i#*=}"
+      ;;
+    
+    --debug-port=*)
+      DEBUG_PORT="${i#*=}"
+      ;;
+      
     *)
-    # unknown option
-    ;;
+      # unknown option
+      ;;
   esac
   shift # past argument or value
 done
@@ -31,4 +33,8 @@ CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
 echo "FDS_ROOT  = $FDS_ROOT"
 echo "CLASSPATH = $CLASSPATH"
 
-java $JAVA_OPTS -classpath $CLASSPATH com.formationds.om.Main $args
+if [[ ! -z "${DEBUG_PORT}" ]]; then
+    DEBUG_OPTS='-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address='"${DEBUG_PORT}"
+fi
+
+java $JAVA_OPTS -classpath $CLASSPATH ${DEBUG_OPTS} com.formationds.om.Main $args

@@ -18,11 +18,13 @@ import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.util.Map;
 
 public class SetVolumeQosParams implements RequestHandler {
@@ -90,6 +92,7 @@ public class SetVolumeQosParams implements RequestHandler {
         volInfo.setVolPolicyId(0);
         volInfo.setMediaPolicy(fdspMediaPolicy);
         volInfo.setContCommitlogRetention( logRetention );
+        
         configService.ModifyVol(new FDSP_ModifyVolType(volInfo.getVol_name(),
                 volInfo.getVolUUID(),
                 volInfo));

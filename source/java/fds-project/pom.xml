@@ -30,6 +30,7 @@
     <jode.time.version>2.7</jode.time.version>
     <jopt.simple.version>4.8</jopt.simple.version>
     <stax.api.version>1.0-2</stax.api.version>
+    <reflections.version>0.9.10</reflections.version>
   </properties>
 
   <modules>
@@ -88,6 +89,11 @@
         <groupId>org.eclipse.jetty</groupId>
         <artifactId>jetty-util</artifactId>
         <version>${jetty.version}</version>
+      </dependency>
+      <dependency>
+      	<groupId>org.reflections</groupId>
+      	<artifactId>reflections</artifactId>
+      	<version>${reflections.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
