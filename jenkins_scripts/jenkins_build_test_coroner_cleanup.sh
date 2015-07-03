@@ -100,7 +100,9 @@ message "build_ret = ${build_ret}"
 
     performance_report BUILD_FDS $(( ${end_time} - ${start_time} ))
 
-    [[ ${build_ret} -ne 0 ]] && message "Build failure detected" && exit 1
+    [[ ${build_ret} -ne 0 ]] && return 1
+
+    return 0
 }
 
 function cache_report
@@ -330,10 +332,33 @@ function from_jenkins
 }
 
 
+function run_node_cleanup
+{
+   echo "Run post build node_cleanup here"
+
+
+   exit $1
+}
+
+
+function run_coroner
+{
+   echo "Run coroner here"
+
+   node_cleanup $1
+}
+
 
 startup
 configure_cache
 clean_up_environment
-build_fds
+
+if [[ build_fds -ne 0 ]]
+then
+    message "Build failure detected" && run_coroner
+fi
+
+
 cache_report
 
+run_node_cleanup 0
