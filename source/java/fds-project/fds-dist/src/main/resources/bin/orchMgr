@@ -1,5 +1,9 @@
 #!/bin/bash
 
+##
+# this script is used for testing only, should not be used in production
+# environment
+
 args=${@}
 
 export fds_root=/fds
@@ -20,7 +24,31 @@ do
   shift # past argument or value
 done
 
-[ -f ${fds_root}/etc/omenv ] || exit 0
-. ${fds_root}/etc/omenv
+# LD_LIBRARY_PATH dependencies
+export LD_LIBRARY_PATH=../lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
 
-${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} >> ${fds_root}/bin/om.out 2>&1
+export PATH=/usr/local/sbin
+export PATH=${PATH}:/usr/local/bin
+export PATH=${PATH}:/usr/sbin
+export PATH=${PATH}:/usr/bin
+export PATH=${PATH}:/sbin
+export PATH=${PATH}:/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
+export PATH=${PATH}:./bin
+export PATH=${PATH}:../sbin
+
+# JAVA dependencies
+export JAVA_OPTS="-Xmx2048M -Xms20M"
+export JAVA_HOME=/opt/fds-deps/embedded/jre
+
+# JAVA CLASSPATH dependencies
+export CLASSPATH=${CLASSPATH}:../lib/java/\*
+
+# JAVA Main executable dependency
+export MAIN_CLASS=com.formationds.om.Main
+
+
+${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} > ./om.out 2>&1
