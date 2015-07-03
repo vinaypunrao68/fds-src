@@ -102,7 +102,7 @@ void SvcRequestIf::setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
  * @param error
  */
 void SvcRequestIf::complete(const Error& error) {
-    DBG(GLOGDEBUG << logString() << error);
+    DBG(GLOGDEBUG << logString() << " " << error);
 
     fds_assert(state_ != SVC_REQUEST_COMPLETE);
     state_ = SVC_REQUEST_COMPLETE;
@@ -1009,7 +1009,9 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     /* Invoke response cb once all primaries responded */
     if (primaryAckdCnt_ == primariesCnt_ &&
         respCb_) {
-        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
+        // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
+        // Shouldn't be using the last error we get...something else more intelligent?
+        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
         respCb_(this, reqErr, responsePayload(0));
         respCb_ = 0;
     }
@@ -1018,7 +1020,9 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
      * if required.
      */
     if (totalAckdCnt_ == epReqs_.size()) {
-        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
+        // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
+        // Shouldn't be using the last error we get...something else more intelligent?
+        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
         complete(reqErr);
         if (allRespondedCb_) {
             allRespondedCb_(this, reqErr, responsePayload(0));

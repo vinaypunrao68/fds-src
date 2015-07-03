@@ -267,7 +267,7 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
             svcHandleItr->second->updateSvcHandle(e);
         }
     }
-    GLOGDEBUG << "After update.  Servic map size: " << svcHandleMap_.size();
+    GLOGDEBUG << "After update. Service map size: " << svcHandleMap_.size();
 }
 
 void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)

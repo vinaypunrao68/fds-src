@@ -221,7 +221,7 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
         {1,2}, {3},
         svcStatusWaiter3);
     svcStatusWaiter3.await();
-    ASSERT_TRUE(svcStatusWaiter3.error == ERR_SVC_REQUEST_FAILED)
+    ASSERT_EQ(svcStatusWaiter3.error, ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter3.error;
     ASSERT_EQ(req->getFailedPrimaries().size(), 1);
     ASSERT_EQ(req->getFailedOptionals().size(), 0);

@@ -11,7 +11,7 @@
 #include <string>
 #include <thread>
 #include <google/profiler.h>
-
+#include <iostream>
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
 
@@ -51,6 +51,7 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
 
 void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     DMCallback cb;
+    static sequence_id_t seq_id = 0;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
     DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
     commitBlbTx->volume_id = dmTester->TESTVOLID.get();
@@ -60,7 +61,8 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     auto dmBlobTxReq1 = new DmIoCommitBlobTx(dmTester->TESTVOLID,
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
-                                             commitBlbTx->dmt_version);
+                                             commitBlbTx->dmt_version,
+                                             ++seq_id);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
     dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
@@ -90,6 +92,7 @@ static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnc
 
 TEST_F(DmUnitTest, PutBlobOnce) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
+    sequence_id_t seq_id = 0;
 
     if (profile)
         ProfilerStart("/tmp/dm_direct.prof");
@@ -115,7 +118,8 @@ TEST_F(DmUnitTest, PutBlobOnce) {
             auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(dmTester->TESTVOLID,
                                                               putBlobOnce->blob_name,
                                                               putBlobOnce->blob_version,
-                                                              putBlobOnce->dmt_version);
+                                                              putBlobOnce->dmt_version,
+                                                              ++seq_id);
             dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
             dmCommitBlobOnceReq->cb =
                     BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
@@ -391,15 +395,16 @@ TEST_F(DmUnitTest, Serialization) {
     putBlobOnce->volume_id = dmTester->TESTVOLID.get();
     putBlobOnce->dmt_version = 1;    
     fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-
     taskCount.reset(NUM_BLOBS);
     uint64_t txnId;
+    dataMgr->features.setQosEnabled(true);
     TIMEDBLOCK("process") {
         for (uint i = 0; i < NUM_BLOBS; i++) {
             handler->handleRequest(asyncHdr, putBlobOnce);
         }
         taskCount.await();
     }
+    dataMgr->features.setQosEnabled(false);
     printStats();
 }
 

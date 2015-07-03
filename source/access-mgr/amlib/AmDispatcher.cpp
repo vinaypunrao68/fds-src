@@ -954,6 +954,7 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
     auto message = boost::make_shared<fpi::GetBlobMetaDataMsg>();
     message->volume_id = amReq->io_vol_id.get();
     message->blob_name = amReq->getBlobName();
+    message->metaDataList.clear();
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, amReq));
     auto asyncReq = createFailoverRequest(amReq->io_vol_id, message, respCb);

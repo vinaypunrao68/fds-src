@@ -23,6 +23,7 @@ class DmMigrationExecutor {
     explicit DmMigrationExecutor(DataMgr& _dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
+								 const fds_bool_t& _autoIncrement,
 								 DmMigrationExecutorDoneCb _callback);
     ~DmMigrationExecutor();
 
@@ -38,6 +39,11 @@ class DmMigrationExecutor {
      * process initial filter set of blobs to be sent to the source DM.
      */
     Error processInitialBlobFilterSet();
+
+    inline fds_bool_t shouldAutoExecuteNext()
+    {
+    	return autoIncrement;
+    }
 
   private:
     /** Reference to the DataManager
@@ -61,6 +67,11 @@ class DmMigrationExecutor {
      * Callback to talk to DM Migration Manager
      */
     DmMigrationExecutorDoneCb migrDoneCb;
+
+    /**
+     * Means that the callback above should now call the next executor
+     */
+    fds_bool_t autoIncrement;
 
 };  // DmMigrationExecutor
 

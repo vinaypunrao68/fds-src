@@ -610,7 +610,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     fds_verify(resyncOnRestart);
 
     {  // scope for client lock
-        SCOPEDREAD(clientLock);
+        SCOPEDWRITE(clientLock);
         // ok if migration client does not exist
         if (migrClients.count(executorId) > 0) {
             LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
