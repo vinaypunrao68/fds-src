@@ -1,7 +1,5 @@
 package com.formationds.iodriver;
 
-import java.io.PrintStream;
-import java.io.PrintWriter;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
@@ -19,19 +17,17 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
 
+import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.logging.ConsoleLogger;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.logging.ConsoleLogger;
-import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
@@ -43,7 +39,7 @@ import com.formationds.iodriver.workloads.Workload;
 /**
  * Global configuration for {@link com.formationds.iodriver}.
  */
-public final class Config
+public final class Config extends AbstractConfig
 {
     /**
      * Actions that can be logged.
@@ -56,52 +52,6 @@ public final class Config
         OPERATIONS
     }
     
-    /**
-     * The interactive console.
-     */
-    public final static class Console
-    {
-        /**
-         * Get the best guess on the current console height.
-         *
-         * @return The current console height, or 25 if it cannot be determined.
-         */
-        public static int getHeight()
-        {
-            return getEnvInt("LINES", 25);
-        }
-
-        /**
-         * Get the best guess on the current console width.
-         *
-         * @return The current console width, or 80 if it cannot be determined.
-         */
-        public static int getWidth()
-        {
-            return getEnvInt("COLUMNS", 80);
-        }
-
-        private static int getEnvInt(String varName, int defaultValue)
-        {
-            if (varName == null) throw new NullArgumentException("varName");
-
-            String valueString = System.getenv(varName);
-            if (valueString == null)
-            {
-                return defaultValue;
-            }
-
-            try
-            {
-                return Integer.parseInt(valueString);
-            }
-            catch (NumberFormatException e)
-            {
-                return defaultValue;
-            }
-        }
-    }
-
     /**
      * Default static configuration not pulled from command-line.
      */
@@ -219,11 +169,9 @@ public final class Config
      */
     public Config(String[] args)
     {
-        if (args == null) throw new NullArgumentException("args");
-
-        _args = args;
+    	super(args);
+        
         _availableWorkloadNames = null;
-        _commandLine = null;
         _disk_iops_max = -1;
         _disk_iops_min = -1;
         _workloadName = null;
@@ -258,20 +206,6 @@ public final class Config
     {
         // TODO: Allow this to be specified.
         return Defaults.getEndpoint();
-    }
-
-    /**
-     * Get configuration that is determined dynamically at runtime.
-     * 
-     * @return The current runtime configuration.
-     */
-    public Fds.Config getRuntimeConfig()
-    {
-        if (_runtimeConfig == null)
-        {
-            _runtimeConfig = new Fds.Config("iodriver", _args);
-        }
-        return _runtimeConfig;
     }
 
     /**
@@ -400,6 +334,17 @@ public final class Config
         return new S3RateLimitTestWorkload(systemThrottle - headroomNeeded, getOperationLogging());
     }
 
+    /**
+     * Get the user-selected workload.
+     * 
+     * @param endpointType The type of endpoint the workload will target.
+     * @param operationType The type of operation the workload can run.
+     * 
+     * @return A workload.
+     * 
+     * @throws ParseException when the command-line arguments cannot be parsed.
+     * @throws ConfigurationException when system configuration is invalid.
+     */
     // @eclipseFormat:off
     public <WorkloadT extends Workload<EndpointT, OperationT>,
             EndpointT extends Endpoint<EndpointT, OperationT>,
@@ -487,109 +432,39 @@ public final class Config
         return Defaults.getValidator();
     }
 
-    /**
-     * Determine if help should be shown. This is true if either the user requests it or the
-     * command-line cannot be parsed.
-     *
-     * @return Whether help should be shown.
-     */
-    public boolean isHelpNeeded()
+    @Override
+    protected void addOptions(Options options)
     {
-        try
-        {
-            return isHelpRequested();
-        }
-        catch (ParseException e)
-        {
-            return true;
-        }
+    	if (options == null) throw new NullArgumentException("options");
+    	
+        options.addOption("d",
+                          "debug",
+                          true,
+                          "Operations to debug. Available operations are "
+                          + String.join(", ",
+                                        StreamSupport.stream(Arrays.asList(LogTargets.values())
+                                                                   .spliterator(),
+                                                             false)
+                                                     .map(logTarget -> logTarget.toString())
+                                                     .collect(Collectors.toList())));
+        options.addOption("w",
+                          "workload",
+                          true,
+                          "The workload to run. Available options are "
+                          + String.join(", ", getAvailableWorkloadNames()) + ".");
     }
 
-    /**
-     * Determine if we know that the user requested that help be shown.
-     *
-     * @return Whether the command-line was successfully parsed and the help option was specified.
-     */
-    public boolean isHelpExplicitlyRequested()
+    @Override
+    protected String getProgramName()
     {
-        try
-        {
-            return isHelpRequested();
-        }
-        catch (ParseException e)
-        {
-            return false;
-        }
+    	return "iodriver";
     }
-
-    /**
-     * Determine if the user requested that help be shown.
-     *
-     * @return Whether the user requested that help be shown.
-     *
-     * @throws ParseException when command-line arguments could not be parsed.
-     */
-    public boolean isHelpRequested() throws ParseException
-    {
-        CommandLine commandLine = getCommandLine();
-
-        return commandLine.hasOption("help");
-    }
-
-    /**
-     * Show the command-line help on standard output.
-     */
-    public void showHelp()
-    {
-        showHelp(System.out);
-    }
-
-    /**
-     * Show the command-line help.
-     *
-     * @param stream Where to show the help.
-     */
-    public void showHelp(PrintStream stream)
-    {
-        if (stream == null) throw new NullArgumentException("stream");
-
-        // We intentionally don't close a stream we don't own.
-        PrintWriter writer = new PrintWriter(stream);
-        showHelp(writer);
-    }
-
-    /**
-     * Show the command-line help.
-     *
-     * @param writer Where to show the help.
-     */
-    public void showHelp(PrintWriter writer)
-    {
-        if (writer == null) throw new NullArgumentException("writer");
-
-        HelpFormatter formatter = new HelpFormatter();
-        int width = Console.getWidth();
-        Options options = getOptions();
-        formatter.printHelp(writer, width, "iodriver", null, options, 0, 2, null, true);
-
-        writer.flush();
-    }
-
-    /**
-     * Raw command-line arguments.
-     */
-    private final String[] _args;
-
+    
     /**
      * Workloads that may be chosen to run, {@code null} prior to
      * {@link #getAvailableWorkloadNames()}.
      */
     private Collection<String> _availableWorkloadNames;
-
-    /**
-     * The parsed command-line. {@code null} prior to {@link #getCommandLine()}.
-     */
-    private CommandLine _commandLine;
 
     /**
      * Maximum IOPS allowed by the system, {@code -1} prior to {@link #getSystemIopsMax()}.
@@ -605,22 +480,6 @@ public final class Config
      * Things that should be logged.
      */
     private EnumSet<LogTargets> _logTargets;
-    
-    /**
-     * The command-line options supported. {@code null} prior to {@link #getOptions()}.
-     */
-    private Options _options;
-
-    /**
-     * {@code null} unless an error occurred while parsing command-line options, the error that
-     * occurred.
-     */
-    private ParseException _replayParseError;
-
-    /**
-     * Runtime configuration {@link #getRuntimeConfig()}.
-     */
-    private Fds.Config _runtimeConfig;
 
     /**
      * The name of the user-selected workload. {@code null} prior to
@@ -670,73 +529,6 @@ public final class Config
             _availableWorkloadNames = availableWorkloadNames.collect(Collectors.toSet());
         }
         return _availableWorkloadNames;
-    }
-
-    /**
-     * Get the parsed command line.
-     *
-     * @return The current property value.
-     * @throws ParseException
-     */
-    private CommandLine getCommandLine() throws ParseException
-    {
-        if (_commandLine == null)
-        {
-            if (_replayParseError == null)
-            {
-                try
-                {
-                    Options options = getOptions();
-                    CommandLineParser parser = new PosixParser();
-
-                    _commandLine = parser.parse(options, _args);
-                }
-                catch (ParseException e)
-                {
-                    _replayParseError = e;
-                    throw e;
-                }
-            }
-            else
-            {
-                throw _replayParseError;
-            }
-        }
-        return _commandLine;
-    }
-
-    /**
-     * Get the supported command-line options.
-     *
-     * @return The current property value.
-     */
-    private Options getOptions()
-    {
-        if (_options == null)
-        {
-            Options newOptions = new Options();
-            newOptions.addOption("d",
-                                 "debug",
-                                 true,
-                                 "Operations to debug. Available operations are "
-                                 + String.join(", ",
-                                               StreamSupport.stream(Arrays.asList(LogTargets.values())
-                                                                          .spliterator(),
-                                                                    false)
-                                                            .map(logTarget -> logTarget.toString())
-                                                            .collect(Collectors.toList())));
-            newOptions.addOption("r", "fds-root", true, "Set the root folder for FDS install.");
-            newOptions.addOption("h", "help", false, "Show this help screen.");
-            newOptions.addOption("w",
-                                 "workload",
-                                 true,
-                                 "The workload to run. Available options are "
-                                 + String.join(", ", getAvailableWorkloadNames())
-                                 + ".");
-
-            _options = newOptions;
-        }
-        return _options;
     }
 
     /**

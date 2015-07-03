@@ -12,7 +12,7 @@ import javax.net.ssl.SSLSocketFactory;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
-import com.formationds.iodriver.logging.Logger;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.operations.AbstractHttpOperation;
 
 /**

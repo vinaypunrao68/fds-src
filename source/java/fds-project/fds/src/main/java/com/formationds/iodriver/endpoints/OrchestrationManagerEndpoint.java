@@ -14,7 +14,7 @@ import org.json.JSONObject;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
-import com.formationds.iodriver.logging.Logger;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.operations.OrchestrationManagerOperation;
 
 /**

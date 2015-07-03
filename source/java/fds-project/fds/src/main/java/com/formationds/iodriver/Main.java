@@ -5,8 +5,8 @@
 package com.formationds.iodriver;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;

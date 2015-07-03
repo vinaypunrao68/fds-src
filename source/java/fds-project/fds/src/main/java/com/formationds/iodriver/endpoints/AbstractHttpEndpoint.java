@@ -16,12 +16,11 @@ import java.nio.file.AccessDeniedException;
 
 import com.google.common.io.CharStreams;
 import com.google.common.net.MediaType;
-
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.functional.ExceptionThrowingFunction;
-import com.formationds.iodriver.logging.Logger;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.operations.AbstractHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;

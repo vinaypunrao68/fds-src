@@ -6,7 +6,7 @@ import java.util.Set;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.Subject;
-import com.formationds.iodriver.logging.Logger;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 

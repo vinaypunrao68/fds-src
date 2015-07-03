@@ -7,10 +7,9 @@ import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken;
-import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;

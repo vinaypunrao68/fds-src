@@ -1,4 +1,4 @@
-package com.formationds.iodriver.logging;
+package com.formationds.commons.util.logging;
 
 /**
  * This should only be thrown as an absolute last resort. It's expected that this will crash the

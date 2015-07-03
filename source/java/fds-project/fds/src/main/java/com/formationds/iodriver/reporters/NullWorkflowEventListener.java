@@ -3,7 +3,7 @@ package com.formationds.iodriver.reporters;
 import java.util.Collections;
 import java.util.Set;
 
-import com.formationds.iodriver.logging.Logger;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
 public class NullWorkflowEventListener extends AbstractWorkflowEventListener

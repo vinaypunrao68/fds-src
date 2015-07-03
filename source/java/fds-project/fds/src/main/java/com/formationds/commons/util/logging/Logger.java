@@ -1,4 +1,4 @@
-package com.formationds.iodriver.logging;
+package com.formationds.commons.util.logging;
 
 /**
  * Implementing classes can log.
