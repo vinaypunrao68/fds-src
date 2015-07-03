@@ -417,10 +417,10 @@ AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
     auto vol = volTable->getVolume(amReq->io_vol_id);
     if (!vol) {
         LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
-        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
+        respond_and_delete(amReq, ERR_NOT_READY);
     } else if (!allow_snapshot && vol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
+        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         vol = nullptr;
     }
     return vol;
@@ -530,7 +530,9 @@ AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
               return;);
 
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -584,10 +586,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
     auto vol = getVolume(amReq);
-    if (!vol) {
-      respond_and_delete(amReq, ERR_VOL_NOT_FOUND);
-      return;
-    }
+    if (!vol) return;
 
     auto& vol_desc = *vol->voldesc;
     if (err.ok()) {
@@ -676,7 +675,9 @@ AmProcessor_impl::startBlobTx(AmRequest *amReq) {
               return;);
 
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -710,7 +711,9 @@ AmProcessor_impl::startBlobTxCb(AmRequest *amReq, const Error &error) {
 void
 AmProcessor_impl::deleteBlob(AmRequest *amReq) {
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -734,8 +737,9 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
               return;);
 
     auto vol = getVolume(amReq, false);
-
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -821,11 +825,10 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    auto vol = getVolume(amReq, true);
     auto volId = amReq->io_vol_id;
+    auto vol = getVolume(amReq);
     if (!vol) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
-        getBlobCb(amReq, ERR_INVALID);
         return;
     }
 
@@ -911,6 +914,9 @@ void AmProcessor_impl::getObject(AmRequest *amReq) {
 
 void
 AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
+    auto vol = getVolume(amReq);
+    if (!vol) return;
+
     auto blobReq = static_cast<GetBlobReq *>(amReq);
     if (error == ERR_NOT_FOUND && !blobReq->retry) {
         // TODO(bszmyd): Mon 23 Mar 2015 02:40:25 AM PDT
@@ -942,7 +948,6 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
         cb->return_size = std::min(amReq->data_len, vector_size);
 
         // If we have a cache token, we can stash this metadata
-        auto vol = getVolume(amReq);
         if (!blobReq->metadata_cached && haveCacheToken(vol)) {
             txMgr->putOffsets(amReq->io_vol_id,
                               amReq->getBlobName(),
@@ -966,7 +971,9 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
 void
 AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+        return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -984,7 +991,8 @@ AmProcessor_impl::statBlob(AmRequest *amReq) {
     fds_volid_t volId = amReq->io_vol_id;
     LOGDEBUG << "volume:" << volId <<" blob:" << amReq->getBlobName();
 
-    auto vol = getVolume(amReq, true);
+    auto vol = getVolume(amReq);
+    if (!vol) return;
     auto can_cache = haveCacheToken(vol);
 
     if (can_cache) {
@@ -1024,10 +1032,12 @@ AmProcessor_impl::queryCatalogCb(AmRequest *amReq, const Error& error) {
 
 void
 AmProcessor_impl::statBlobCb(AmRequest *amReq, const Error& error) {
+    auto vol = getVolume(amReq);
+    if (!vol) return;
     respond(amReq, error);
 
     // Insert metadata into cache.
-    if (ERR_OK == error && haveCacheToken(getVolume(amReq, true))) {
+    if (ERR_OK == error && haveCacheToken(vol)) {
         txMgr->putBlobDescriptor(amReq->io_vol_id,
                                    amReq->getBlobName(),
                                    SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
@@ -1045,9 +1055,11 @@ AmProcessor_impl::volumeContents(AmRequest *amReq) {
 void
 AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
-        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
-        return;
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
+      respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
+      return;
     }
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
     blobReq->vol_sequence = vol->getNextSequenceId();
