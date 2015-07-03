@@ -545,7 +545,7 @@ TEST_F(SmObjectStoreTest, concurrent_gets_2mb) {
 
 TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     fds_uint32_t sm_count = 4;
-    fds_uint32_t cols = 3;
+    fds_uint32_t cols = 4;
 
     DLT* dlt = new DLT(16, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
