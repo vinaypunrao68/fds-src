@@ -140,6 +140,8 @@ class DmPersistVolCat {
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsWithSeqId) = 0;
 
+    virtual Error getPersistentSnapshot(Catalog::catalog_roptions_t &opts) = 0;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
 
@@ -164,6 +166,8 @@ class DmPersistVolCat {
             fds_uint64_t endOffset) = 0;
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
+
+    virtual Error deletePersistentSnapshot(Catalog::catalog_roptions_t &opts) = 0;
 
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);

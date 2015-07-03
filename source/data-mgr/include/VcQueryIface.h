@@ -8,6 +8,7 @@
 #include <vector>
 #include <fds_error.h>
 #include "fdsp/dm_api_types.h"
+#include <lib/Catalog.h>
 
 namespace fds {
 
@@ -134,6 +135,12 @@ class VolumeCatalogQueryIface {
     virtual Error activateCatalog(fds_volid_t volId) {
         return ERR_OK;
     };
+
+    /**
+     * Methods for DM Migration to take a volume's snapshot and do delta on it
+     */
+    virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
+    virtual Error deleteVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
 };
 
 }  // namespace fds

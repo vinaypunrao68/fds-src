@@ -258,7 +258,25 @@ DmMigrationMgr::migrationClientAsyncTask(fds_volid_t uniqueId)
 }
 
 Error
-DmMigrationMgr::snapAndGenerateDBDxSet(fds_volid_t uniqueId) {
+DmMigrationMgr::snapAndGenerateDBDxSet(fds_volid_t uniqueId)
+{
+	/**
+	 * TODO(Neil) - The following support needs to implemented before this
+	 * method can be succesfully completed:
+	 * 1. In-memory snapshot needs to have lock/protection for this volume.
+	 * 2. Need to have the snapshot return a pointer instead of an iterator,
+	 *    so that the DmMigrationMgr can use the pointer until after the migration
+	 *    is finished.
+	 */
+	Catalog::catalog_roptions_t opts;
+	dataManager.timeVolCat_->queryIface()->getVolumeSnapshot(uniqueId, opts);
+
+	// Do something with opts->snapshot
+	const leveldb::Snapshot* ss = opts.snapshot;
+
+
+
+
 	return (Error(ERR_OK));
 }
 
@@ -336,6 +354,8 @@ void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
 	SCOPEDWRITE(migrClientThrMapLock);
+	LOGMIGRATE << "Client done with volume " << uniqueId;
+	dataManager.timeVolCat_->queryIface()->deleteVolumeSnapshot(uniqueId, opts);
 	clientMap.erase(fds_volid_t(uniqueId));
 }
 

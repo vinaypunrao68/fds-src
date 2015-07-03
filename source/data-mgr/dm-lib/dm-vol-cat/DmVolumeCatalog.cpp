@@ -778,4 +778,13 @@ Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int
     return vol->getAllBlobsWithSequenceId(blobsSeqId);
 }
 
+Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+	GET_VOL_N_CHECK_DELETED(volId);
+	return vol->getPersistentSnapshot(opts);
+}
+
+Error DmVolumeCatalog::deleteVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+	GET_VOL_N_CHECK_DELETED(volId);
+	return vol->deletePersistentSnapshot(opts);
+}
 }  // namespace fds

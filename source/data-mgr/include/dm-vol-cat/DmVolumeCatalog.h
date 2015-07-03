@@ -253,6 +253,19 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
             BlobMetaDesc & blobMeta);
 
+    /**
+     * Takes a snapshot and returns a pointer to the snapshot for
+     * further diff, operations.
+     * This is used for migrations, etc.
+     * Caller MUST free the snapshot once done with it using deleteVolumeSnapshot below.
+     */
+    Error getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts);
+
+    /**
+     * Given a volume snapshot within opts, delete the snapshot.
+     */
+    Error deleteVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts);
+
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
