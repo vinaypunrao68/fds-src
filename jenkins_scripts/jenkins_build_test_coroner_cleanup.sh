@@ -353,10 +353,11 @@ startup
 configure_cache
 clean_up_environment
 
-if build_fds
+build_fds
+if [[ $? -ne 0 ]]
 then
     message "Build failure detected" 
-    run_coroner
+    run_coroner 1
 fi
 
 
