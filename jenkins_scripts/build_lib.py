@@ -1,7 +1,7 @@
 import subprocess
 import os
 
-def shell_retry(cmd, max_retry = 5):
+def shell_retry(cmd, max_retry = 2):
     proc = None
     for i in xrange(max_retry):
         proc = subprocess.Popen(cmd, shell=True)
