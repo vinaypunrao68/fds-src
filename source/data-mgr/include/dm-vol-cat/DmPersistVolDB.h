@@ -100,6 +100,9 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) override;
 
+    virtual Error getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) override;
+
     virtual Error getPersistentSnapshot(Catalog::catalog_roptions_t &opts) override;
 
     // puts
@@ -138,6 +141,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     std::unique_ptr<Catalog::catalog_iterator_t> getSnapshotIter(Catalog::catalog_roptions_t& opts) {
         catalog_->GetSnapshot(opts);
         return catalog_->NewIterator(opts);
+    }
+
+    std::unique_ptr<Catalog::catalog_iterator_t> getExistingSnapshotIter(Catalog::catalog_roptions_t& opts) {
+    	return catalog_->NewIterator(opts);
     }
 
     // vars

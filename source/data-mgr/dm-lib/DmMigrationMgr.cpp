@@ -244,40 +244,44 @@ DmMigrationMgr::migrationClientAsyncTask(fds_volid_t uniqueId)
 
 	Error threadErr(ERR_OK);
 	DmMigrationClient::shared_ptr client;
+	Catalog::catalog_roptions_t opts;
 
 	migrClientLock.read_lock();
 	fds_verify(clientMap.find(uniqueId) != clientMap.end());
 	client = clientMap[uniqueId];
 	migrClientLock.read_unlock();
 
-	snapAndGenerateDBDxSet(uniqueId);
 
+    fpi::ResyncInitialBlobFilterSetMsgPtr filterSet(new fpi::ResyncInitialBlobFilterSetMsg());
+	snapAndGenerateDBDxSet(uniqueId, opts, filterSet);
+
+
+	// Call this just before the migrDoneHandler
+	dataManager.timeVolCat_->queryIface()->deleteVolumeSnapshot(uniqueId, opts);
 	fds_verify(client->migrDoneHandler != nullptr);
 	client->migrDoneHandler(uniqueId, threadErr);
 
 }
 
 Error
-DmMigrationMgr::snapAndGenerateDBDxSet(fds_volid_t uniqueId)
+DmMigrationMgr::snapAndGenerateDBDxSet(fds_volid_t uniqueId,
+										Catalog::catalog_roptions_t &opts,
+										fpi::ResyncInitialBlobFilterSetMsgPtr &filterSet)
 {
+
 	/**
-	 * TODO(Neil) - The following support needs to implemented before this
-	 * method can be succesfully completed:
-	 * 1. In-memory snapshot needs to have lock/protection for this volume.
-	 * 2. Need to have the snapshot return a pointer instead of an iterator,
-	 *    so that the DmMigrationMgr can use the pointer until after the migration
-	 *    is finished.
+	 * Genearte a snapshot. The ss ptr is stored in opts.
 	 */
-	Catalog::catalog_roptions_t opts;
 	dataManager.timeVolCat_->queryIface()->getVolumeSnapshot(uniqueId, opts);
 
-	// Do something with opts->snapshot
-	const leveldb::Snapshot* ss = opts.snapshot;
+	dataManager.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(uniqueId,
+													filterSet->blobFilterMap, opts);
 
+	/**
+	 * TODO Use the diff function (FS-2259) and genrate the actual diff set.
+	 */
 
-
-
-	return (Error(ERR_OK));
+	return (ERR_OK);
 }
 
 Error
@@ -355,7 +359,6 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
 	SCOPEDWRITE(migrClientThrMapLock);
 	LOGMIGRATE << "Client done with volume " << uniqueId;
-	dataManager.timeVolCat_->queryIface()->deleteVolumeSnapshot(uniqueId, opts);
 	clientMap.erase(fds_volid_t(uniqueId));
 }
 

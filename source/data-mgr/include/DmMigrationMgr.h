@@ -218,8 +218,9 @@ class DmMigrationMgr {
      * the DeltaBlobDxSet, which will be used later to diff against the destination
      * DM's InitialBlobDxSet. (Dx == Descriptor)
      */
-    Error snapAndGenerateDBDxSet(fds_volid_t uniqueId);
-
+    Error snapAndGenerateDBDxSet(fds_volid_t uniqueId,
+									Catalog::catalog_roptions_t &opts,
+									fpi::ResyncInitialBlobFilterSetMsgPtr &filterSet);
 
 };  // DmMigrationMgr
 

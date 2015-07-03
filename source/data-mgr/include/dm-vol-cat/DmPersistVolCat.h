@@ -142,6 +142,9 @@ class DmPersistVolCat {
 
     virtual Error getPersistentSnapshot(Catalog::catalog_roptions_t &opts) = 0;
 
+    virtual Error getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) = 0;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
 

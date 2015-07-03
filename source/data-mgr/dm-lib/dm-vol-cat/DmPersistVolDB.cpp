@@ -177,10 +177,10 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) {
-    Catalog::catalog_roptions_t opts;
-    auto dbIt = getSnapshotIter(opts);
-    if (!dbIt) {
+Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) {
+	auto dbIt = getExistingSnapshotIter(opts);
+	if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
         return ERR_INVALID;
     }
@@ -198,13 +198,24 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blob
         }
     }
 
-    if (dbIt->status().ok()) {
-        return ERR_OK;
-    }else{
+    if (!dbIt->status().ok()) {
         LOGERROR << "Error during generating set of blobs with sequence Ids for volume=" << volId_
                  << " with error=" << dbIt->status().ToString();
         return status2error(dbIt->status());
     }
+
+	return (ERR_OK);
+}
+
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) {
+    Catalog::catalog_roptions_t opts;
+    Error err(ERR_OK);
+
+    catalog_->GetSnapshot(opts);
+    err = getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
+    catalog_->ReleaseSnapshot(opts);
+
+    return err;
 }
 
 Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
