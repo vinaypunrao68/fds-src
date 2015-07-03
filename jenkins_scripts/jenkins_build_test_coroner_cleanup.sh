@@ -353,7 +353,7 @@ startup
 configure_cache
 clean_up_environment
 
-if build_fds;
+if build_fds
 then
     message "Build failure detected" 
     run_coroner
