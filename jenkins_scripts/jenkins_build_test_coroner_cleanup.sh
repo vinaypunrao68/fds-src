@@ -371,8 +371,15 @@ function system_test_active_io_kill
 
 function run_node_cleanup
 {
-   message "DDDD Run post build node_cleanup here"
+    message "DDDD Run post build node_cleanup here"
 
+    if [[ ${#JENKINS_URL} -gt 0 ]]
+    then
+        echo "Cleaning jenkins build slave."
+        jenkins_scripts/python/cleanup_jenkins_slave.py
+    else
+        echo "No cleanup performed, this script is not being executed on a jenkins build slave."
+    fi
 
    exit $1
 }
