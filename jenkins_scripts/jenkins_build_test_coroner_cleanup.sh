@@ -396,9 +396,13 @@ function run_node_cleanup
 
 function run_coroner
 {
+    REFID=${BUILD_TAG}
+    DUMP_LOCATION=fre-dump
+    TEST_WORKSPACE=${WORKSPACE}
+
     message "RUNNING coroner"
 
-    pushd ${WORKSPACE}
+    pushd ${TEST_WORKSPACE}
 
     source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin build_release_bin:source/Build/linux-x86_64.release/bin fds-node1:/fds/node1 fds-node2:/fds/node2 fds-node3:/fds/node3 fds-node4:/fds/node4
 
