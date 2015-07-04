@@ -357,9 +357,10 @@ function system_test_active_io_kill
     ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
 
     jenkins_scripts/check_xunit_results.sh
+
     if [[ $? -ne 0 ]]
     then
-        message "System Test problem detected running ActiveIOKillTest.ini" 
+        message "System Test problem(s) detected running ActiveIOKillTest.ini" 
         run_coroner 1
     fi
 
@@ -368,12 +369,16 @@ function system_test_active_io_kill
 
 }
 
+function system_test_force_failure
+{
+    message "System Test forced failure" 
+    run_coroner 1
+}
+
 
 function run_node_cleanup
 {
-    message "DDDD Run post build node_cleanup here"
-
-    ps axww
+    message "***** RUNNING post build node cleanup"
 
     ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
 
@@ -391,10 +396,25 @@ function run_node_cleanup
 
 function run_coroner
 {
-   message "DDDD Run coroner here"
+    message "RUNNING coroner"
 
+    pushd ${WORKSPACE}
 
-   run_node_cleanup $1
+    source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin build_release_bin:source/Build/linux-x86_64.release/bin fds-node1:/fds/node1 fds-node2:/fds/node2 fds-node3:/fds/node3 fds-node4:/fds/node4
+
+    for file in /tmp/fdscoroner*.tar.gz
+    do
+        sshpass -p share scp ${file} share@${DUMP_LOCATION}:jenkins-run_coroner/
+        rm ${file}
+    done
+
+    popd
+
+    rm -rf /tmp/fdscoroner*
+    rm -f /corefiles/*
+    rm -f /fds/var/cores/*
+
+    run_node_cleanup $1
 }
 
 set -e
@@ -413,5 +433,7 @@ fi
 cache_report
 
 system_test_active_io_kill
+
+system_test_force_failure
 
 run_node_cleanup 0
