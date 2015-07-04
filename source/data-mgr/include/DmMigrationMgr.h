@@ -170,8 +170,7 @@ class DmMigrationMgr {
      */
     Error createMigrationClient(NodeUuid& srcDmUuid,
     								const NodeUuid& mySvcUuid,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
-									fds_uint64_t uniqueId = 0);
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp);
 
     /**
      * Source side DM:

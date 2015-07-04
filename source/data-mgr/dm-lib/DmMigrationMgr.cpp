@@ -188,7 +188,7 @@ DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
 
 	LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
-	err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, migReqMsg->volumeId);
+	err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
 
 	return err;
 }
@@ -196,8 +196,7 @@ DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
 Error
 DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 										const NodeUuid& mySvcUuid,
-										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm,
-										fds_uint64_t uniqueId)
+										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm)
 {
 	Error err(ERR_OK);
 	/**
@@ -214,15 +213,15 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		/**
 		 * Create a new instance of client
 		 */
-		SCOPEDWRITE(migrClientLock);
-		LOGMIGRATE << "Creating migration client for volume ID# " << ribfsm->volumeId;
-		auto myUniqueId = fds_volid_t(uniqueId);
-		clientMap.emplace(myUniqueId,
+		migrClientLock.write_lock();
+		LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
+		clientMap.emplace(fds_volid,
 				DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
 												mySvcUuid, destDmUuid, ribfsm,
 												std::bind(&DmMigrationMgr::migrationClientDoneCb,
 												this, std::placeholders::_1,
 												std::placeholders::_2))));
+		migrClientLock.write_unlock();
 
 		/**
 		 * Pass this instance of client off to a new thread.
