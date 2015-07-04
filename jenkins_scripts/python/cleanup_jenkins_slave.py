@@ -43,7 +43,9 @@ for proc in psutil.process_iter():
     if len (cmd) > 2:
         if cmd[0] == '/bin/bash' and cmd[1] == '-le':
             matches = re.match (jenkins_build_regex, cmd[2])
-            if matches is not None and len (matches) > 0:
+            print matches
+
+            if matches is not None:
                 print "OK (re match): {} {} {}".format(proc.name(), proc.pid, cmd)
             else:
                 print "KILL (no re match): {} {} {}".format(proc.name(), proc.pid, cmd)
