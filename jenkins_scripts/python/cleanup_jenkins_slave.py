@@ -32,7 +32,7 @@ global_whitelist = [
         "python"
 ]
 
-jenkins_build_regex = re.compile ('/tmp/hudson[0-9]*\.sh')
+jenkins_build_regex = re.compile ('/tmp/rudson[0-9]*\.sh')
 
 killed = []
 
@@ -44,8 +44,12 @@ for proc in psutil.process_iter():
     if len (cmd) > 2:
         if cmd[0] == '/bin/bash' and cmd[1] == '-le':
             matches = re.match (jenkins_build_regex, cmd[2])
-            print "matches = ", matches
-            print "REPORT: {} {} {}".format(proc.name(), proc.pid, cmd)
+            if len (matches) > 0:
+                print "OK (re match): {} {} {}".format(proc.name(), proc.pid, cmd)
+
+                print "KILL (no re match): {} {} {}".format(proc.name(), proc.pid, cmd)
+                killed.append(cmd)
+                #proc.kill()
     elif cmd in whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
     elif proc.name() in global_whitelist:
@@ -53,7 +57,7 @@ for proc in psutil.process_iter():
     else:
         print "KILL: {} {} {}".format(proc.name(), proc.pid, cmd)
         killed.append(cmd)
-#        proc.kill()
+        #proc.kill()
 
 if len(killed) > 0:
     print "Processes killed:"
