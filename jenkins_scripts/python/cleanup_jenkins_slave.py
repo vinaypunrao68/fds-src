@@ -11,8 +11,9 @@ import re
 whitelist = [
         ['/bin/sh', '-c', '/usr/sbin/sshd -D -o UsePAM=no'],
         ['/usr/sbin/sshd', '-D', '-o', 'UsePAM=no'],
-        ['bash', '-c', 'cd "/home/jenkins" && java  -jar slave.jar'],
+        ['bash', '-c', 'cd "/home/jenkins" && java -Dorg.jenkinsci.plugins.gitclient.GitClient.quietRemoteBranches=true -jar slave.jar'],
         ['java', '-jar', 'slave.jar'],
+        ['java', '-Dorg.jenkinsci.plugins.gitclient.GitClient.quietRemoteBranches=true', '-jar', 'slave.jar'],
         ['sshd: root@notty'],
         ['sudo', 'su', '-'],
         ['su', '-'],
