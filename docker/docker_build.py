@@ -18,10 +18,6 @@ IMAGES = {
         'dev': {
             'tag':'registry.formationds.com:5000/fds_dev',
             'path':'dev_image'
-        },
-        'install': {
-            'tag':'registry.formationds.com:5000/fds_install',
-            'path':'beta_install'
         }
 }
 
