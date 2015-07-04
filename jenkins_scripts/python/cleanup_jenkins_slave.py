@@ -21,6 +21,7 @@ whitelist = [
 # Be very careful adding stuff here - if you add 'java' you will
 # not kill off any java process
 global_whitelist = [
+        "/bin/bash",
         "bash",
         "sshd",
         "ssh",
