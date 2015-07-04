@@ -1170,7 +1170,6 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
 
         void PlatformManager::run()
         {
-this is to break the build
             std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
             startQueueMonitorThread.detach();
 

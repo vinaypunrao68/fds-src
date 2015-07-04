@@ -1,4 +1,4 @@
-#!/bin/bash -le
+#!/bin/bash -l
 
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
 KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
@@ -23,6 +23,16 @@ function performance_report
    else
       message "${unit} TIME = ${seconds} seconds or $(( ${seconds} / 60 )) minute(s) $(( ${seconds} % 60 )) seconds"
    fi
+}
+
+function error_trap_enabled
+{
+    set -e
+}
+
+function error_trap_disabled
+{
+    set +e
 }
 
 function startup
@@ -72,6 +82,8 @@ function clean_up_environment
 
 function build_fds
 {
+    error_trap_enabled
+
     start_time=$(date +%s)
     message "RUNNING DEVSETUP"
     make devsetup
@@ -90,12 +102,10 @@ function build_fds
         fi
     fi
 
-    set +e
+    error_trap_disabled
+
     jenkins_scripts/build_fds.py ${jenkins_options}
     build_ret=$?
-    set -e
-
-message "build_ret = ${build_ret}"
 
     end_time=$(date +%s)
 
@@ -162,9 +172,9 @@ function from_jenkins
     if [[ -e source/dev_make_install.sh ]]
     then
         echo "***** RUNNING /fds symlink configuration *****"
-        cd source
+        pushd source >/dev/null
         ./dev_make_install.sh
-        cd ..
+        cd - > /dev/null
     fi
     ###
     ###   End of interim install step
@@ -332,12 +342,37 @@ function from_jenkins
 
 }
 
+function system_test_active_io_kill
+{
+    # Run Active IO Kill test
+
+    pushd source/test/testsuites
+
+    message "***** RUNNING ActiveIOKillTest.ini *****"
+    ./ScenarioDriverSuite.py -q ./ActiveIOKillTest.ini -d dummy --verbose
+    echo "***** ActiveIOKillTest complete - exit with: ${?} *****"
+
+    popd
+
+    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
+
+    jenkins_scripts/check_xunit_results.sh
+    if [[ $? -ne 0 ]]
+    then
+        message "System Test problem detected running ActiveIOKillTest.ini" 
+        run_coroner 1
+    fi
+
+
+
+
+}
+
 
 function run_node_cleanup
 {
    message "DDDD Run post build node_cleanup here"
 
-   sleep 10
 
    exit $1
 }
@@ -347,13 +382,15 @@ function run_coroner
 {
    message "DDDD Run coroner here"
 
-   node_cleanup $1
+
+   run_node_cleanup $1
 }
 
-
+set -e
 startup
 configure_cache
 clean_up_environment
+set +e
 
 build_fds
 if [[ $? -ne 0 ]]
@@ -362,7 +399,8 @@ then
     run_coroner 1
 fi
 
-
 cache_report
+
+system_test_active_io_kill
 
 run_node_cleanup 0
