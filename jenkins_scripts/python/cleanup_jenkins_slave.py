@@ -50,7 +50,7 @@ for proc in psutil.process_iter():
             else:
                 print "KILL (no re match): {} {} {}".format(proc.name(), proc.pid, cmd)
                 killed.append(cmd)
-                #proc.kill()
+                proc.kill()
             continue
 
     if cmd in whitelist:
@@ -60,7 +60,7 @@ for proc in psutil.process_iter():
     else:
         print "KILL: {} {} {}".format(proc.name(), proc.pid, cmd)
         killed.append(cmd)
-        #proc.kill()
+        proc.kill()
 
 if len(killed) > 0:
     print "Processes killed:"
