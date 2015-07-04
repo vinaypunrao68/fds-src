@@ -373,6 +373,8 @@ function run_node_cleanup
 {
     message "DDDD Run post build node_cleanup here"
 
+    ps axww
+
     ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
