@@ -33,6 +33,11 @@ global_whitelist = [
 killed = []
 
 sys.stdout.flush()
+
+for proc in psutil.process_iter():
+    cmd = psutil.Process(pid=proc.pid).cmdline()
+    print "REPORT: {} {} {}".format(proc.name(), proc.pid, cmd)
+
 for proc in psutil.process_iter():
     cmd = psutil.Process(pid=proc.pid).cmdline()
     if cmd in whitelist:
