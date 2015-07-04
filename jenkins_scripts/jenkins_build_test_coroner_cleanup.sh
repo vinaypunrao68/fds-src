@@ -373,6 +373,8 @@ function run_node_cleanup
 {
     message "DDDD Run post build node_cleanup here"
 
+    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
+
     if [[ ${#JENKINS_URL} -gt 0 ]]
     then
         echo "Cleaning jenkins build slave."
@@ -381,7 +383,7 @@ function run_node_cleanup
         echo "No cleanup performed, this script is not being executed on a jenkins build slave."
     fi
 
-   exit $1
+    exit $1
 }
 
 
