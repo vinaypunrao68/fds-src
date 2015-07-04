@@ -44,13 +44,15 @@ for proc in psutil.process_iter():
     if len (cmd) > 2:
         if cmd[0] == '/bin/bash' and cmd[1] == '-le':
             matches = re.match (jenkins_build_regex, cmd[2])
-            if len (matches) > 0:
+            if matches is not none and len (matches) > 0:
                 print "OK (re match): {} {} {}".format(proc.name(), proc.pid, cmd)
-
+            else:
                 print "KILL (no re match): {} {} {}".format(proc.name(), proc.pid, cmd)
                 killed.append(cmd)
                 #proc.kill()
-    elif cmd in whitelist:
+            continue
+
+    if cmd in whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
     elif proc.name() in global_whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
