@@ -3,6 +3,7 @@
 import os
 import sys
 import psutil
+import re
 
 # List processes here, each process must be a list, one element per item,
 # of the full command & arguments - similar to what you would pass into
@@ -15,13 +16,14 @@ whitelist = [
         ['sshd: root@notty'],
         ['/usr/bin/python', '/tmp/clean_jenkins.py'],
         ['sudo', 'su', '-'],
-        ['su', '-']
+        ['su', '-'],
+        ['/usr/bin/python', 'jenkins_scripts/python/cleanup_jenkins_slave.py'],
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh']
 ]
 
 # Be very careful adding stuff here - if you add 'java' you will
 # not kill off any java process
 global_whitelist = [
-        "/bin/bash",
         "bash",
         "sshd",
         "ssh",
@@ -30,27 +32,28 @@ global_whitelist = [
         "python"
 ]
 
+jenkins_build_regex = re.compile ('/tmp/hudson[0-9]*\.sh')
+
 killed = []
 
 sys.stdout.flush()
 
 for proc in psutil.process_iter():
     cmd = psutil.Process(pid=proc.pid).cmdline()
-    print "REPORT: {} {} {}".format(proc.name(), proc.pid, cmd)
 
-sys.stdout.flush()
-sys.exit(0)
-
-for proc in psutil.process_iter():
-    cmd = psutil.Process(pid=proc.pid).cmdline()
-    if cmd in whitelist:
+    if len (cmd) > 2:
+        if cmd[0] == '/bin/bash' and cmd[1] == '-le':
+            matches = re.match (jenkins_build_regex, cmd[2])
+            print "matches = ", matches
+            print "REPORT: {} {} {}".format(proc.name(), proc.pid, cmd)
+    elif cmd in whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
     elif proc.name() in global_whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
     else:
         print "KILL: {} {} {}".format(proc.name(), proc.pid, cmd)
         killed.append(cmd)
-        proc.kill()
+#        proc.kill()
 
 if len(killed) > 0:
     print "Processes killed:"
