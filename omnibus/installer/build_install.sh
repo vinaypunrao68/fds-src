@@ -3,11 +3,36 @@
 
 download=false
 
-while getopts "d" opt; do
+function usage() {
+  cat << EOF
+Usage:
+${0##/*} [Options]
+
+Options:
+  -d : Download .deb packages instead of using locally built artifacts
+  -D : Name of fds-deps package to use (ex: fds-deps_2015.06.19-32_amd64.deb)
+  -P : Name of fds-platform package to use (ex: fds-platform-rel_2015.06.19-32_amd64.deb)
+  -h : Help
+
+Note: -D & -P options may be env variables as \$DEPS and \$PLATFORM respectively
+EOF
+}
+
+while getopts "dD:P:h" opt; do
   case $opt in
     d)
       download=true
       ;;
+		D)
+			DEPS=$OPTARGS
+			;;
+		P)
+			PLATFORM=$OPTARGS
+			;;
+		h)
+			usage
+			exit 0
+			;;
   esac
 done
 
@@ -15,11 +40,13 @@ ORGDIR="$(pwd)"
 # Make sure we are in the build script dir
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 ARTIFACTORY_URL="http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/simple/formation-apt/pool/beta/"
-DEPS="fds-deps_2015.06.19-32_amd64.deb"
-PLATFORM="fds-platform-rel_2015.06.19-32_amd64.deb"
+# If these aren't defined - we assign default values
+DEPS="${DEPS:-fds-deps_2015.06.19-32_amd64.deb}"
+PLATFORM="${PLATFORM:-fds-platform-rel_2015.06.19-32_amd64.deb}"
 VERSION="$(cat ../../omnibus/VERSION)"
 GIT_SHA="$(git rev-parse --short HEAD)"
 INSTALLDIR="install_${VERSION}-${GIT_SHA}"
+DLTMP="dltmp"
 
 echo "Building installer for version ${VERSION}-${GIT_SHA}"
 
@@ -30,20 +57,21 @@ mkdir -p "${INSTALLDIR}/source/tools/install"
 mkdir -p "${INSTALLDIR}/source/platform/python"
 mkdir -p "${INSTALLDIR}/source/test"
 mkdir -p "${INSTALLDIR}/ansible"
+mkdir -p "${DLTMP}"
 
 # If download is true - we download the artifacts vs. relying on them being local
 if [ $download == "true" ] ; then
   # Download packages
-  echo "Downloading fds-deps"
-  deps_status_code="$(curl -o ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/${DEPS} ${ARTIFACTORY_URL}/${DEPS})"
-  echo "Downloading fds-platform"
-  platform_status_code="$(curl -o ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/${PLATFORM} ${ARTIFACTORY_URL}/${PLATFORM})"
-  if [[ $deps_status_code -eq 0 && $platform_status_code -eq 0 ]] ; then
-  	echo "All downloads successful"
-  else
-  	echo "One or more downloads failed"
-  	exit 1
-  fi
+	for package in $DEPS $PLATFORM ; do
+		if [ ! -f ${DLTMP}/${package} ] ; then
+			echo "Downloading $package"
+			deps_status_code="$(curl -o ${DLTMP}/${package} ${ARTIFACTORY_URL}/${package})"
+	  else
+		  echo "Downloaded file ${package} already local - skipping download"
+	  fi
+	done
+  rsync -av ${DLTMP}/${PLATFORM} ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/
+  rsync -av ${DLTMP}/${DEPS} ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/
 else
   echo "Syncing packages from local source"
   rsync -av ../../omnibus/omnibus-fds-platform/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/

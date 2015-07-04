@@ -1,1 +1,2 @@
-install_*.tar.gz
+install_*
+dltmp/*
