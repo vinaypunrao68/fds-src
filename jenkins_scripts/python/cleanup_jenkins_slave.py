@@ -14,7 +14,6 @@ whitelist = [
         ['bash', '-c', 'cd "/home/jenkins" && java  -jar slave.jar'],
         ['java', '-jar', 'slave.jar'],
         ['sshd: root@notty'],
-        ['/usr/bin/python', '/tmp/clean_jenkins.py'],
         ['sudo', 'su', '-'],
         ['su', '-'],
         ['/usr/bin/python', 'jenkins_scripts/python/cleanup_jenkins_slave.py'],
@@ -32,7 +31,7 @@ global_whitelist = [
         "python"
 ]
 
-jenkins_build_regex = re.compile ('/tmp/rudson[0-9]*\.sh')
+jenkins_build_regex = re.compile ('/tmp/hudson[0-9]*\.sh')
 
 killed = []
 
