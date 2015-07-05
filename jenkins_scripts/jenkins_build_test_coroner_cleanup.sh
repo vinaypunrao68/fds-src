@@ -125,7 +125,7 @@ function clean_up_environment
    message "KILLING any extraneous running processes"
    for proc in ${KILL_LIST[@]}
    do
-       echo "Checking ${proc}
+       echo "Checking ${proc}"
        pkill -9 -f ${proc} || true
    done
 
