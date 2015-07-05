@@ -518,10 +518,10 @@ error_trap_enabled
 
 auto_locate
 startup
+clean_up_environment
 configure_cache
 configure_symlinks
 configure_limits
-clean_up_environment
 
 error_trap_disabled
 
