@@ -62,7 +62,7 @@ function auto_locate
 function capture_process_list
 {
     funcname="$1"
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${funcame}.txt
+    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${funcname}.txt
 }
 
 function startup
@@ -382,7 +382,7 @@ function from_jenkins
 
 function run_python_unit_tests
 {
-    message "RUNNING Python unit tests"
+    message "***** RUNNING Python unit tests"
 
     # Run Unit Test
     pushd jenkins_scripts
@@ -396,13 +396,13 @@ function run_python_unit_tests
     fi
 
     end_time=$(date +%s)
-    performance_report PYTHON_UNIT_TESTS $(( ${end_tim e} - ${start_time} ))
+    performance_report PYTHON_UNIT_TESTS $(( ${end_time} - ${start_time} ))
     popd
 }
 
 function run_cpp_unit_tests
 {
-    message "RUNNING C++ unit tests"
+    message "***** RUNNING C++ unit tests"
  
     # Run Unit Test
     pushd jenkins_scripts
@@ -466,7 +466,6 @@ function run_node_cleanup
 {
     message "***** RUNNING post build node cleanup"
 
-
     if [[ ${#JENKINS_URL} -gt 0 ]]
     then
         echo "Cleaning jenkins build slave."
@@ -494,7 +493,7 @@ function run_coroner
         TEST_WORKSPACE=${local_build_root}
     fi
 
-    message "RUNNING coroner"
+    message "***** RUNNING coroner"
 
     pushd ${TEST_WORKSPACE}
 
