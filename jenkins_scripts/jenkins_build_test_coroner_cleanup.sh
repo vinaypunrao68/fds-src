@@ -5,8 +5,13 @@ KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
 
 export CCACHE_DIR="/dev/shm/.ccache"
 
+
+# Unit test directories for Python
+PYTHON_COVERAGE_TEST_RUNNER_DIRECTORIES="source/platform/python/tests"
+PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
+
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveIOKillTest"
+SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest ActiveIORestartTest MultiAMVolOpsTest RestartClusterKillServices"
 
 function message
 {
@@ -204,203 +209,48 @@ function core_hunter
     fi
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function from_jenkins
+function python_coverage_test_runner_tests
 {
-
-    jenkins_scripts/jenkins_tests.sh
-
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-    jenkins_scripts/check_xunit_results.sh
-
-
-    ######### was #3
-
-    if [ ${ACTIVE_MIGRATION} == 'true' ] ; then
-
-      cd source/test/testsuites
-
-      echo "***** RUNNING ActiveMigration *****"
-      ./ScenarioDriverSuite.py -q ./ActiveMigration.ini -d dummy --verbose
-      echo "***** ActiveMigration complete - exit with: ${?} *****"
-
-      cd ${WORKSPACE}
-
-      ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-      jenkins_scripts/check_xunit_results.sh
-    fi
-
-
-
-
-
-
-
-
-
-    ######### was #4
-
-    # Run Restart Data Persistence Test
-
-    cd source/test/testsuites
-    echo "***** RUNNING RestartDataPersistence.ini *****"
-    ./ScenarioDriverSuite.py -q ./RestartDataPersistence.ini -d dummy --verbose
-    echo "***** RestartDataPersistence complete - exit with: ${?} *****"
-
-    cd ${WORKSPACE}
-
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-    jenkins_scripts/check_xunit_results.sh
-
-
-
-
-
-
-    ######### was #5
-
-    # Run Active IO Kill test
-
-    cd source/test/testsuites
-
-    echo "***** RUNNING ActiveIOKillTest.ini *****"
-    ./ScenarioDriverSuite.py -q ./ActiveIOKillTest.ini -d dummy --verbose
-    echo "***** ActiveIOKillTest complete - exit with: ${?} *****"
-
-    cd ${WORKSPACE}
-
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-    jenkins_scripts/check_xunit_results.sh
-
-
-
-
-
-
-
-
-    ######### was #6
-
-    # Run the Random IO Kill test
-
-    cd source/test/testsuites
-
-    echo "***** RUNNING ActiveIORndKillTest.ini *****"
-    ./ScenarioDriverSuite.py -q ./ActiveIORndKillTest.ini -d dummy --verbose
-    echo "***** ActiveIORndKillTest complete - exit with: ${?} *****"
-
-    cd ${WORKSPACE}
-
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-    jenkins_scripts/check_xunit_results.sh
-
-
-
-
-    ######### was #7
-
-    # Run the ActiveIORestartTest test
-
-    if [ ${ACTIVEIO_RESTART} == 'true' ] ; then
-
-      cd source/test/testsuites
-
-      echo "***** RUNNING ActiveIORestartTest.ini *****"
-      ./ScenarioDriverSuite.py -q ./ActiveIORestartTest.ini -d dummy --verbose
-      echo "***** ActiveIORestartTest complete - exit with: ${?} *****"
-
-      cd ${WORKSPACE}
-      jenkins_scripts/check_xunit_results.sh
-      echo "***** check_xunit_results exit with: ${?} *****"
-
-    fi
-
-
-    ######### was #8
-
-    # Run the MultiAM test
-
-    cd source/test/testsuites
-
-    echo "***** RUNNING MultiAMVolOpsTest.ini *****"
-    ./ScenarioDriverSuite.py -q ./MultiAMVolOpsTest.ini -d dummy --verbose
-    echo "***** MultiAMVolOpsTest complete - exit with: ${?} *****"
-
-    cd ${WORKSPACE}
-
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-    jenkins_scripts/check_xunit_results.sh
-
-
-
-
-    ######### was #9
-
-    # Run the RestartClusterKillServices test
-
-    # This test is disabled because it was not added and tested correctly. Please contact Aaron
-    if [ ${RESTARTCLUSTERKILLSERVICES} == 'true' ] ; then
-
-      cd source/test/testsuites
-
-      echo "***** RUNNING RestartClusterKillServices.ini *****"
-      ./ScenarioDriverSuite.py -q ./RestartClusterKillServices.ini -d dummy --verbose
-      echo "***** RestartClusterKillServices complete - exit with: ${?} *****"
-
-      cd ${WORKSPACE}
-      jenkins_scripts/check_xunit_results.sh
-      echo "***** check_xunit_results exit with: ${?} *****"
-    fi
-
-
-
-
-
-
+    for directory in ${PYTHON_COVERAGE_TEST_RUNNER_DIRECTORIES}
+    do
+        pushd ${directory}
+        python -m CoverageTestRunner
+        if [[ $? -ne 0 ]]
+        then
+            message "EEEEE Python unit test problem(s) detected running in ${directory}"
+            run_coroner 1
+        fi
+        popd
+    done
 }
 
+function python_unittest_discovery
+{
+    for directory in ${PYTHON_UNITTEST_DISCOVERY_DIRECTORIES}
+    do
+        pushd ${directory}
+        python -m unittest discover -p "*_test.py"
+        if [[ $? -ne 0 ]]
+        then
+            message "EEEEE Python unit test problem(s) detected running in ${directory}"
+            run_coroner 1
+        fi
+        popd 
+    done
+}
 
 function run_python_unit_tests
 {
     message "***** RUNNING Python unit tests"
 
     # Run Unit Test
-    pushd jenkins_scripts
     start_time=$(date +%s)
-    ./run-python-unit-tests.sh
 
-    if [[ $? -ne 0 ]]
-    then
-        message "EEEEE Python unit test problem(s) detected"
-        run_coroner 1
-    fi
+    python_coverage_test_runner_tests
+    python_unittest_discovery
 
     end_time=$(date +%s)
     performance_report PYTHON_UNIT_TESTS $(( ${end_time} - ${start_time} ))
-    popd
 }
 
 function run_cpp_unit_tests
