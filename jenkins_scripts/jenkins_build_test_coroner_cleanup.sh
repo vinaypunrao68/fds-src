@@ -5,29 +5,37 @@ KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
 
 export CCACHE_DIR="/dev/shm/.ccache"
 
+# The list of system test scenarios, do not include the .ini"
+SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveIOKillTest"
+
 function message
 {
-   echo "================================================================================"
-   echo "$*"
-   echo "================================================================================"
+    echo "================================================================================" 
+    echo "$*"
+    echo "================================================================================"
 }
 
 function performance_report
 {
-   unit=$1
-   seconds=$2
-
-   if [[ ${seconds} -lt 60 ]]
-   then
-      message "${unit} TIME = ${seconds} seconds"
-   else
-      message "${unit} TIME = ${seconds} seconds or $(( ${seconds} / 60 )) minute(s) $(( ${seconds} % 60 )) seconds"
-   fi
+    unit=$1
+    seconds=$2
+ 
+    if [[ ${seconds} -lt 60 ]]
+    then
+       message "${unit} TIME = ${seconds} seconds"
+    else
+       message "${unit} TIME = ${seconds} seconds or $(( ${seconds} / 60 )) minute(s) $(( ${seconds} % 60 )) seconds"
+    fi
 }
 
 function error_trap_enabled
 {
     set -e
+}
+
+function error_trap_disabled
+{
+    set +e
 }
 
 function auto_locate
@@ -51,41 +59,72 @@ function auto_locate
     local_build_root="$PWD"
 }
 
-function error_trap_disabled
+function capture_process_list
 {
-    set +e
+    funcname="$1"
+    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${funcame}.txt
 }
 
 function startup
 {
-   message "LOGGING ENV SETTINGS"
-   env
+    message "LOGGING env settings"
+    env
+    capture_process_list ${FUNCNAME}
+}
+
+function configure_symlinks
+{
+    echo "***** RUNNING /fds symlink configuration *****"
+    pushd source >/dev/null
+    ./dev_make_install.sh
+    popd > /dev/null
+}
+
+function configure_console_access
+{
+    pushd source/tools
+    ./fdsconsole.py accesslevel debug
+    popd
 }
 
 function configure_cache
 {
-   message "CONFIGURING SHM and CCACHE"
+    message "CONFIGURING /dev/shm size and ccache configuration"
 
-   shm_size=$(df --human-readable --output=size /dev/shm/ | tail -1 | tr -d ' \.0')
+    shm_size=$(df --human-readable --output=size /dev/shm/ | tail -1 | tr -d ' \.0')
 
-   # Fix shm size if needed
-   if [[ "${shm_size}" != "${DESIRED_SHM_SIZE}" ]]
-   then
-      sudo mount -t tmpfs -o remount,rw,nosuid,nodev,noexec,relatime,size=${DESIRED_SHM_SIZE} tmpfs /dev/shm
-      echo "/dev/shm converted to ${DESIRED_SHM_SIZE}"
-   fi
+    # Fix shm size if needed
+    if [[ "${shm_size}" != "${DESIRED_SHM_SIZE}" ]]
+    then
+        sudo mount -t tmpfs -o remount,rw,nosuid,nodev,noexec,relatime,size=${DESIRED_SHM_SIZE} tmpfs /dev/shm
+        echo "/dev/shm converted to ${DESIRED_SHM_SIZE}"
+    fi
 
-   # Configure the CCACHE size (lives in ${CCACHE_DIR} on Jenkins boxes)
-   # This needs to be a bit smaller than ${DESIRED_SHM_SIZE}
-   ccache -M 2.8G
-   ccache -z
+    # Configure the CCACHE size (lives in ${CCACHE_DIR} on Jenkins boxes)
+    # This needs to be a bit smaller than ${DESIRED_SHM_SIZE}
+    ccache -M 2.8G
+    ccache -z
+}
+
+function configure_limits
+{
+    message "CONFIGURE ulimit and core file settings"
+    
+    ulimit -c unlimited
+    [[ ! -d /corefiles ]] && mkdir -p /corefiles
+    sysctl -w "kernel.core_pattern=/corefiles/%e-%p.core"
+    ulimit -n 400000
+    
+    message "CURRENT ulimit settings"
+    
+    ulimit -a
 }
 
 function clean_up_environment
 {
    for proc in ${KILL_LIST[@]}
    do
-       message "KILLING ANY RUNNING ${proc}"
+       message "KILLING any running ${proc}"
        pkill -9 -f $proc || true
    done
 
@@ -93,12 +132,14 @@ function clean_up_environment
    sudo source/tools/redis.sh stop
 
    # Clean remove the old /fds
-   message "CLEANUP EXISTING /fds"
+   message "CLEAN exising /fds"
    rm -rf /fds || true
 
    message "CLEAN existing core files (prebuild)"
    #  This could be improved by looking in more places and for specific core files (e.g., from FDS processes and test tools)
    find /corefiles -type f -name "*.core" -print -delete
+
+   capture_process_list ${FUNCNAME}
 }
 
 function build_fds
@@ -106,7 +147,7 @@ function build_fds
     error_trap_enabled
 
     start_time=$(date +%s)
-    message "RUNNING DEVSETUP"
+    message "RUNNING devsetup"
     make devsetup
     end_time=$(date +%s)
 
@@ -114,10 +155,10 @@ function build_fds
 
     start_time=$(date +%s)
     if [[ ${BUILD_TYPE} == 'release' ]] ; then
-        message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
+        message "BUILDING Formation Platform - BUILD_TYPE: release"
         jenkins_options="-r"
     else
-        message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
+        message "BUILDING Formation Platform - BUILD_TYPE: debug"
         if [[ ${COVERAGE} == 'true' ]]; then
            jenkins_options="-coverage"
         fi
@@ -139,7 +180,7 @@ function build_fds
 
 function cache_report
 {
-   message "CCACHE POSTBUILD STATISTICS"
+   message "CCACHE post build statistics"
    ccache -s
 }
 
@@ -181,32 +222,9 @@ function core_hunter
 function from_jenkins
 {
 
-    ######### was #2
-
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
-    ###
-    ###   This is an interim install step for running fds out of /fds/bin based on symlinks to the build tree.
-    ###
-    if [[ -e source/dev_make_install.sh ]]
-    then
-        echo "***** RUNNING /fds symlink configuration *****"
-        pushd source >/dev/null
-        ./dev_make_install.sh
-        cd - > /dev/null
-    fi
-    ###
-    ###   End of interim install step
-    ###
-
-    cd source/tools
-    ./fdsconsole.py accesslevel debug
-    cd ${WORKSPACE}
-
     jenkins_scripts/jenkins_tests.sh
 
     ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
-
 
     jenkins_scripts/check_xunit_results.sh
 
@@ -361,6 +379,47 @@ function from_jenkins
 
 }
 
+
+function run_python_unit_tests
+{
+    message "RUNNING Python unit tests"
+
+    # Run Unit Test
+    pushd jenkins_scripts
+    start_time=$(date +%s)
+    ./run-python-unit-tests.sh
+
+    if [[ $? -ne 0 ]]
+    then
+        message "EEEEE Python unit test problem(s) detected" 
+        run_coroner 1
+    fi
+
+    end_time=$(date +%s)
+    performance_report PYTHON_UNIT_TESTS $(( ${end_tim e} - ${start_time} ))
+    popd
+}
+
+function run_cpp_unit_tests
+{
+    message "RUNNING C++ unit tests"
+ 
+    # Run Unit Test
+    pushd jenkins_scripts
+    start_time=$(date +%s)
+    ./run-unit-tests.py
+
+    if [[ $? -ne 0 ]]
+    then
+        message "EEEEE C++ unit test problem(s) detected" 
+        run_coroner 1
+    fi
+    
+    end_time=$(date +%s)
+    performance_report UNIT_TESTS $(( ${end_time} - ${start_time} ))
+    popd
+}
+
 function system_test_scenario_wrapper
 {
     scenario=${1}
@@ -373,13 +432,13 @@ function system_test_scenario_wrapper
 
     popd
 
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
+    capture_process_list ${FUNCNAME}.${scenario}
 
     jenkins_scripts/check_xunit_results.sh
 
     if [[ $? -ne 0 ]]
     then
-        message "System Test problem(s) detected running ${scenario}" 
+        message "EEEEE System Test problem(s) detected running ${scenario}" 
         run_coroner 1
     fi
 
@@ -389,22 +448,16 @@ function system_test_scenario_wrapper
 
 function run_system_test_scenarios
 {
-
-SYSTEM_TEST_SCENARIO_LIST="ActiveIOKillTest"
-
     for scenario in ${SYSTEM_TEST_SCENARIO_LIST}
     do
         system_test_scenario_wrapper ${scenario}
     done
-
 }
-
-
 
 function system_test_force_failure
 {
-    #keeping this around to future testing
-    message "System Test forced failure" 
+    #keeping this around to assist testing in the future
+    message "EEEEE System Test forced failure" 
     run_coroner 1
 }
 
@@ -413,7 +466,6 @@ function run_node_cleanup
 {
     message "***** RUNNING post build node cleanup"
 
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.txt
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
     then
@@ -422,6 +474,8 @@ function run_node_cleanup
     else
         echo "No cleanup performed, this script is not being executed on a jenkins build slave."
     fi
+
+    capture_process_list ${FUNCNAME}
 
     exit $1
 }
@@ -463,24 +517,28 @@ function run_coroner
 
 error_trap_enabled
 
-
 auto_locate
 startup
 configure_cache
+configure_symlinks
+configure_console_access
+configure_limits
 clean_up_environment
 
-error_trap_enabled
+error_trap_disabled
 
 build_fds
 
 if [[ $? -ne 0 ]]
 then
-    message "Build failure detected" 
+    message "EEEEE Build failure detected" 
     run_coroner 1
 fi
 
 cache_report
 
+run_python_unit_tests
+run_cpp_unit_tests
 run_system_test_scenarios
 
 run_node_cleanup 0
