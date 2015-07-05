@@ -10,6 +10,7 @@ ${0##/*} [Options]
 
 Options:
   -d : Download .deb packages instead of using locally built artifacts
+	-u : Upload installer tarball to artifactory
   -D : Name of fds-deps package to use (ex: fds-deps_2015.06.19-32_amd64.deb)
   -P : Name of fds-platform package to use (ex: fds-platform-rel_2015.06.19-32_amd64.deb)
   -h : Help
@@ -18,11 +19,14 @@ Note: -D & -P options may be env variables as \$DEPS and \$PLATFORM respectively
 EOF
 }
 
-while getopts "dD:P:h" opt; do
+while getopts "duD:P:h" opt; do
   case $opt in
     d)
       download=true
       ;;
+		u)
+			upload=true
+			;;
 		D)
 			DEPS=$OPTARGS
 			;;
@@ -101,5 +105,16 @@ rsync -a README.md ${INSTALLDIR}/
 echo "Packaging installer"
 tar cvfz ${INSTALLDIR}.tar.gz ${INSTALLDIR}
 rm -rf ${INSTALLDIR}
+
+if [ $upload == "true" ] ; then
+  echo "Uploading ${INSTALLDIR}.tar.gz to artifactory"
+  curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "${ARTIFACTORY_URL}/${INSTALLDIR}.tar.gz" --data-binary @${INSTALLDIR}.tar.gz)
+  if [ ${curl_status_code} -ne 201 ] ; then
+      echo "Upload failed, exiting"
+			exit 1
+  else
+      echo "Upload successful for ${INSTALLDIR}.tar.gz"
+  fi
+fi
 
 cd $ORGDIR
