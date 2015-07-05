@@ -30,6 +30,27 @@ function error_trap_enabled
     set -e
 }
 
+function auto_locate
+{
+    # change to the fds-src directory.  This could be made more robust by digesting with $0, but should suffice for now.
+
+    location="${PWD##*/}"
+    jenkins_dir="jenkins_scripts"
+
+    if [[ ${location} == ${jenkins_dir} ]]
+    then
+        cd ..
+    fi
+
+    if [[ ! -d ${jenkins_dir} ]]
+    then
+        echo "Please run this script from fds-src or ${jenkins_dir}"
+        exit 1
+    fi
+
+    local_build_root="$PWD"
+}
+
 function error_trap_disabled
 {
     set +e
@@ -135,9 +156,7 @@ function core_hunter
         echo ""
         echo "Build aborted due to the presence of core files on the builder following a system test scenario:"
         ls -la /corefiles
-        /bin/false
-    else
-        /bin/true
+        run_coroner 1
     fi
 }
 
@@ -342,14 +361,14 @@ function from_jenkins
 
 }
 
-function system_test_active_io_kill
+function system_test_scenario_wrapper
 {
-    # Run Active IO Kill test
+    scenario=${1}
 
     pushd source/test/testsuites
 
-    message "***** RUNNING ActiveIOKillTest.ini *****"
-    ./ScenarioDriverSuite.py -q ./ActiveIOKillTest.ini -d dummy --verbose
+    message "***** RUNNING System Test Scenario:  ${scenario} *****"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose
     echo "***** ActiveIOKillTest complete - exit with: ${?} *****"
 
     popd
@@ -360,17 +379,31 @@ function system_test_active_io_kill
 
     if [[ $? -ne 0 ]]
     then
-        message "System Test problem(s) detected running ActiveIOKillTest.ini" 
+        message "System Test problem(s) detected running ${scenario}" 
         run_coroner 1
     fi
 
+    core_hunter
+}
 
 
+function run_system_test_scenarios
+{
+
+SYSTEM_TEST_SCENARIO_LIST="ActiveIOKillTest"
+
+    for scenario in ${SYSTEM_TEST_SCENARIO_LIST}
+    do
+        system_test_scenario_wrapper ${scenario}
+    done
 
 }
 
+
+
 function system_test_force_failure
 {
+    #keeping this around to future testing
     message "System Test forced failure" 
     run_coroner 1
 }
@@ -396,9 +429,16 @@ function run_node_cleanup
 
 function run_coroner
 {
-    REFID=${BUILD_TAG}
-    DUMP_LOCATION=fre-dump
-    TEST_WORKSPACE=${WORKSPACE}
+    if [[ ${#JENKINS_URL} -gt 0 ]]
+    then
+        REFID=${BUILD_TAG}
+        DUMP_LOCATION=fre-dump
+        TEST_WORKSPACE=${WORKSPACE}
+    else
+        REFID="local_build_at_`date +%s`"
+        DUMP_LOCATION=fre-dump
+        TEST_WORKSPACE=${local_build_root}
+    fi
 
     message "RUNNING coroner"
 
@@ -421,13 +461,18 @@ function run_coroner
     run_node_cleanup $1
 }
 
-set -e
+error_trap_enabled
+
+
+auto_locate
 startup
 configure_cache
 clean_up_environment
-set +e
+
+error_trap_enabled
 
 build_fds
+
 if [[ $? -ne 0 ]]
 then
     message "Build failure detected" 
@@ -436,8 +481,6 @@ fi
 
 cache_report
 
-system_test_active_io_kill
-
-system_test_force_failure
+run_system_test_scenarios
 
 run_node_cleanup 0
