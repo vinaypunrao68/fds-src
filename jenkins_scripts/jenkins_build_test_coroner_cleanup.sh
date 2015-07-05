@@ -10,7 +10,7 @@ SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveIOKillTest"
 
 function message
 {
-    echo "================================================================================" 
+    echo "================================================================================"
     echo "$*"
     echo "================================================================================"
 }
@@ -19,7 +19,7 @@ function performance_report
 {
     unit=$1
     seconds=$2
- 
+
     if [[ ${seconds} -lt 60 ]]
     then
        message "${unit} TIME = ${seconds} seconds"
@@ -109,23 +109,24 @@ function configure_cache
 function configure_limits
 {
     message "CONFIGURE ulimit and core file settings"
-    
+
     ulimit -c unlimited
     [[ ! -d /corefiles ]] && mkdir -p /corefiles
     sysctl -w "kernel.core_pattern=/corefiles/%e-%p.core"
     ulimit -n 400000
-    
+
     message "CURRENT ulimit settings"
-    
+
     ulimit -a
 }
 
 function clean_up_environment
 {
+   message "KILLING any extraneous running processes"
    for proc in ${KILL_LIST[@]}
    do
-       message "KILLING any running ${proc}"
-       pkill -9 -f $proc || true
+       echo "Checking ${proc}
+       pkill -9 -f ${proc} || true
    done
 
    message "STOPPING redis"
@@ -173,9 +174,11 @@ function build_fds
 
     performance_report BUILD_FDS $(( ${end_time} - ${start_time} ))
 
-    [[ ${build_ret} -ne 0 ]] && return 1
-
-    return 0
+    if [[ ${build_ret} -ne 0 ]]
+    then
+        message "EEEEE Build failure detected"
+        run_coroner 1
+    fi
 }
 
 function cache_report
@@ -358,7 +361,7 @@ function from_jenkins
 
     # Run the RestartClusterKillServices test
 
-    # This test is disabled because it was not added and tested correctly. Please contact Aaron 
+    # This test is disabled because it was not added and tested correctly. Please contact Aaron
     if [ ${RESTARTCLUSTERKILLSERVICES} == 'true' ] ; then
 
       cd source/test/testsuites
@@ -391,7 +394,7 @@ function run_python_unit_tests
 
     if [[ $? -ne 0 ]]
     then
-        message "EEEEE Python unit test problem(s) detected" 
+        message "EEEEE Python unit test problem(s) detected"
         run_coroner 1
     fi
 
@@ -403,7 +406,7 @@ function run_python_unit_tests
 function run_cpp_unit_tests
 {
     message "***** RUNNING C++ unit tests"
- 
+
     # Run Unit Test
     pushd jenkins_scripts
     start_time=$(date +%s)
@@ -411,13 +414,33 @@ function run_cpp_unit_tests
 
     if [[ $? -ne 0 ]]
     then
-        message "EEEEE C++ unit test problem(s) detected" 
+        message "EEEEE C++ unit test problem(s) detected"
         run_coroner 1
     fi
-    
+
     end_time=$(date +%s)
     performance_report UNIT_TESTS $(( ${end_time} - ${start_time} ))
     popd
+}
+
+function check_xunit_failures
+{
+    message "Checking xunit output for failure"
+    grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
+    if [[ $? -eq 0 ]] ; then
+        message "EEEEE Xunit Failures detected running System Test ${scenario}"
+        run_coroner 1
+    fi
+}
+
+function check_xunit_errors
+{
+    message "Checking xunit output for errors"
+    grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
+    if [[ $? -eq 0 ]] ; then
+        message "EEEEE Xunit Errors detected running System Test ${scenario}"
+        run_coroner 1
+    fi
 }
 
 function system_test_scenario_wrapper
@@ -434,11 +457,12 @@ function system_test_scenario_wrapper
 
     capture_process_list ${FUNCNAME}.${scenario}
 
-    jenkins_scripts/check_xunit_results.sh
+    check_xunit_errors ${scenario}
+    check_xunit_failures ${scenario}
 
     if [[ $? -ne 0 ]]
     then
-        message "EEEEE System Test problem(s) detected running ${scenario}" 
+        message "EEEEE System Test problem(s) detected running ${scenario}"
         run_coroner 1
     fi
 
@@ -457,7 +481,7 @@ function run_system_test_scenarios
 function system_test_force_failure
 {
     #keeping this around to assist testing in the future
-    message "EEEEE System Test forced failure" 
+    message "EEEEE System Test forced failure"
     run_coroner 1
 }
 
@@ -526,17 +550,9 @@ configure_limits
 error_trap_disabled
 
 build_fds
-
-if [[ $? -ne 0 ]]
-then
-    message "EEEEE Build failure detected" 
-    run_coroner 1
-fi
-
 cache_report
 
 configure_console_access
-
 run_python_unit_tests
 run_cpp_unit_tests
 run_system_test_scenarios
