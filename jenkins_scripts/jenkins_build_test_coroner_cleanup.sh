@@ -521,7 +521,6 @@ auto_locate
 startup
 configure_cache
 configure_symlinks
-configure_console_access
 configure_limits
 clean_up_environment
 
@@ -536,6 +535,8 @@ then
 fi
 
 cache_report
+
+configure_console_access
 
 run_python_unit_tests
 run_cpp_unit_tests
