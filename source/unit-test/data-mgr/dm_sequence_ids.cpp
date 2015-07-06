@@ -397,8 +397,8 @@ TEST_F(SeqIdTest, BlobDiffOverwrite){
     auto update_list = std::vector<fds_uint64_t>();
     auto delete_list = std::vector<fds_uint64_t>();
 
-    auto dest = std::map<long int, long int>();
-    auto source = std::map<long int, long int>();
+    auto dest = std::map<int64_t, int64_t>();
+    auto source = std::map<int64_t, int64_t>();
 
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
