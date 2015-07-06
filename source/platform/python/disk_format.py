@@ -250,8 +250,6 @@ class Disk (Base):
 
         disk_blocks = int(file_handle.read())
 
-        print "======================================== ", disk_blocks
-
         # 512 byte block count
         if (disk_blocks < 16324 or disk_blocks > 24576):
             self.system_exit ("Unable to continue, " + self.path + "1 is not configured to be about 10MB in capcity.")
