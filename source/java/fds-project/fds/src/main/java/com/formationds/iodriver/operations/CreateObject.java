@@ -48,6 +48,18 @@ public final class CreateObject extends S3Operation
     }
 
     /**
+     * Constructor. Actions will be reported.
+     *
+     * @param bucketName The name of the bucket to create the object in.
+     * @param key The key of the object to create.
+     * @param content The content of the object to create.
+     */
+    public CreateObject(String bucketName, String key, byte[] content)
+    {
+        this(bucketName, key, content, true);
+    }
+    
+    /**
      * Constructor.
      * 
      * @param bucketName The name of the bucket to create the object in.

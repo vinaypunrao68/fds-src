@@ -135,6 +135,11 @@ public class OrchestrationManagerEndpoint
         return _authToken;
     }
 
+    public final S3Endpoint getS3()
+    {
+        return _s3;
+    }
+    
     /**
      * Get the username to use to log into the OM.
      * 
@@ -155,6 +160,11 @@ public class OrchestrationManagerEndpoint
         return _v8;
     }
 
+    public final void setS3(S3Endpoint value)
+    {
+        _s3 = value;
+    }
+    
     /**
      * Extend this class to allow deep copies even when the superclass private members aren't
      * available.
@@ -165,7 +175,8 @@ public class OrchestrationManagerEndpoint
     {
         public final String password = _password;
         public final String username = _username;
-        public final OrchestrationManagerEndpoint v8 = _v8.copy();
+        public final OrchestrationManagerEndpoint v8 = _v8 == null ? null : _v8.copy();
+        public final S3Endpoint s3 = _s3 == null ? null : _s3.copy();
     }
 
     /**
@@ -180,6 +191,7 @@ public class OrchestrationManagerEndpoint
         _password = helper.password;
         _username = helper.username;
         _v8 = helper.v8;
+        _s3 = helper.s3;
     }
 
     @Override
@@ -217,6 +229,8 @@ public class OrchestrationManagerEndpoint
      */
     private AuthToken _authToken;
 
+    private S3Endpoint _s3;
+    
     /**
      * The password to use when authenticating.
      */

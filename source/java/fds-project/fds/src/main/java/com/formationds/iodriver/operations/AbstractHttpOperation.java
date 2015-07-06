@@ -43,6 +43,20 @@ extends Operation<ThisT, EndpointT>
                               HttpURLConnection connection,
                               AbstractWorkflowEventListener reporter) throws ExecutionException;
 
+    public void exec(EndpointT endpoint,
+                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (reporter == null) throw new NullArgumentException("reporter");
+        
+        throw new UnsupportedOperationException("Connectionless exec not implemented.");
+    }
+    
+    public boolean getNeedsConnection()
+    {
+        return true;
+    }
+    
     /**
      * Get the relative URI (to the endpoint) that will be requested.
      * 

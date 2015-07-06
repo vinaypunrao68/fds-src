@@ -23,8 +23,6 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.commons.util.logging.ConsoleLogger;
-import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
@@ -32,6 +30,7 @@ import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
+import com.formationds.iodriver.workloads.RandomFill;
 import com.formationds.iodriver.workloads.S3AssuredRateTestWorkload;
 import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 import com.formationds.iodriver.workloads.Workload;
@@ -91,25 +90,31 @@ public final class Config extends AbstractConfig
         {
             try
             {
-                URI s3Endpoint = Fds.getS3Endpoint();
-                String s3EndpointText = s3Endpoint.toString();
+                URI s3EndpointUrl = Fds.getS3Endpoint();
+                String s3EndpointText = s3EndpointUrl.toString();
 
                 URI apiBase = Fds.Api.getBase();
                 URI v8ApiBase = Fds.Api.V08.getBase();
+                OrchestrationManagerEndpoint omEndpointV8 =
+                        new OrchestrationManagerEndpoint(v8ApiBase,
+                                                         "admin",
+                                                         "admin",
+                                                         AbstractConfig.Defaults.getLogger(),
+                                                         true,
+                                                         null);
                 OrchestrationManagerEndpoint omEndpoint =
                         new OrchestrationManagerEndpoint(apiBase,
                                                          "admin",
                                                          "admin",
                                                          AbstractConfig.Defaults.getLogger(),
                                                          true,
-                                                         new OrchestrationManagerEndpoint(v8ApiBase,
-                                                                                          "admin",
-                                                                                          "admin",
-                                                                                          AbstractConfig.Defaults.getLogger(),
-                                                                                          true,
-                                                                                          null));
+                                                         omEndpointV8);
+                S3Endpoint s3 = new S3Endpoint(s3EndpointText, omEndpoint, AbstractConfig.Defaults.getLogger());
 
-                _endpoint = new S3Endpoint(s3EndpointText, omEndpoint, AbstractConfig.Defaults.getLogger());
+                omEndpointV8.setS3(s3);
+                omEndpoint.setS3(s3);
+                
+                _endpoint = s3;
             }
             catch (MalformedURLException e)
             {
@@ -177,6 +182,12 @@ public final class Config extends AbstractConfig
         return new S3AssuredRateTestWorkload(competingBuckets,
                                              systemThrottle,
                                              getOperationLogging());
+    }
+    
+    @WorkloadProvider
+    public RandomFill getRandomFillWorkload()
+    {
+        return new RandomFill(5, "/", 5, 20 * 1024, 20, 3, false);
     }
     
     /**

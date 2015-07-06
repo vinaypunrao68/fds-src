@@ -101,31 +101,38 @@ extends Endpoint<ThisT, OperationT>
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
 
-        HttpURLConnection connection;
-        try
+        if (operation.getNeedsConnection())
         {
-            URI relativeUri = operation.getRelativeUri();
-            if (relativeUri == null)
+            HttpURLConnection connection;
+            try
             {
-                connection = openConnection();
+                URI relativeUri = operation.getRelativeUri();
+                if (relativeUri == null)
+                {
+                    connection = openConnection();
+                }
+                else
+                {
+                    connection = openRelativeConnection(relativeUri);
+                }
             }
-            else
+            catch (IOException e)
             {
-                connection = openRelativeConnection(relativeUri);
+                throw new ExecutionException(e);
+            }
+    
+            try
+            {
+                operation.exec(getThis(), connection, listener);
+            }
+            finally
+            {
+                connection.disconnect();
             }
         }
-        catch (IOException e)
+        else
         {
-            throw new ExecutionException(e);
-        }
-
-        try
-        {
-            operation.exec(getThis(), connection, listener);
-        }
-        finally
-        {
-            connection.disconnect();
+            operation.exec(getThis(), listener);
         }
     }
 
