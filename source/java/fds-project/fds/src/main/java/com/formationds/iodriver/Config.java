@@ -55,7 +55,7 @@ public final class Config extends AbstractConfig
     /**
      * Default static configuration not pulled from command-line.
      */
-    public final static class Defaults
+    public final static class Defaults extends AbstractConfig.Defaults
     {
         /**
          * Get the default endpoint.

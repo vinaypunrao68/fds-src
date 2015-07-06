@@ -12,8 +12,6 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.commons.util.logging.ConsoleLogger;
-import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 
@@ -22,16 +20,13 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
  */
 public final class Config extends AbstractConfig
 {
-	public final static class Defaults
+	public final static class Defaults extends AbstractConfig.Defaults
 	{
 		public static final ComparisonDataFormat COMPARISON_DATA_FORMAT;
-		
-		public static final Logger LOGGER;
 		
 		static
 		{
 			COMPARISON_DATA_FORMAT = ComparisonDataFormat.FULL;
-			LOGGER = new ConsoleLogger();
 		}
 	}
 	
@@ -74,17 +69,19 @@ public final class Config extends AbstractConfig
 		return _comparisonDataFormat.get();
 	}
 	
-	public Endpoint<?, ?> getEndpointA() throws ParseException
+	public OrchestrationManagerEndpoint getEndpointA() throws ParseException
 	{
 		if (_endpointA == null)
 		{
-			_endpointA = new OrchestrationManagerEndpoint(getEndpointAUrl(),
-					                                      "admin",
-					                                      "admin",
-					                                      AbstractConfig.Defaults.getLogger(),
-					                                      true,
-					                                      null);
+			// FIXME: Implement.
+//			_endpointA = new OrchestrationManagerEndpoint(getEndpointAUrl(),
+//					                                      "admin",
+//					                                      "admin",
+//					                                      AbstractConfig.Defaults.getLogger(),
+//					                                      true,
+//					                                      null);
 		}
+		return _endpointA;
 	}
 	
 	public URI getEndpointAUrl() throws ParseException
@@ -152,7 +149,7 @@ public final class Config extends AbstractConfig
 	
 	private Optional<ComparisonDataFormat> _comparisonDataFormat;
 	
-	private Endpoint<?, ?> _endpointA;
+	private OrchestrationManagerEndpoint _endpointA;
 	
 	private URI _endpointAUrl;
 	

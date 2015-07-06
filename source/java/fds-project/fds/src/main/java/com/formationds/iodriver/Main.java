@@ -35,8 +35,9 @@ public final class Main
             if (args == null) throw new NullArgumentException("args");
 
             logger = Config.Defaults.getLogger();
-            
             Config config = new Config(args);
+            logger = config.getLogger();
+
             if (handleHelp(config))
             {
                 if (config.isHelpExplicitlyRequested())

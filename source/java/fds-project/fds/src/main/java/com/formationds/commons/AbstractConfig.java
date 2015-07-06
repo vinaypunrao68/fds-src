@@ -34,6 +34,11 @@ public abstract class AbstractConfig
             return getEnvInt("LINES", 25);
         }
 
+        public static PrintStream getStdout()
+        {
+        	return System.out;
+        }
+        
         /**
          * Get the best guess on the current console width.
          *
@@ -85,7 +90,7 @@ public abstract class AbstractConfig
     /**
      * Default static configuration not pulled from the command-line.
      */
-    public static final class Defaults
+    public static class Defaults
     {
         /**
          * Get the default logger.
@@ -97,19 +102,19 @@ public abstract class AbstractConfig
             return _logger;
         }
 
+        /**
+         * Prevent instantiation.
+         */
+        protected Defaults()
+        {
+        	throw new UnsupportedOperationException("Instantiating a utility class.");
+        }
+
         static
         {
         	_logger = new ConsoleLogger();
         }
         
-        /**
-         * Prevent instantiation.
-         */
-        private Defaults()
-        {
-        	throw new UnsupportedOperationException("Instantiating a utility class.");
-        }
-
         /**
          * Default logger.
          */
@@ -209,7 +214,7 @@ public abstract class AbstractConfig
      */
     public void showHelp()
     {
-        showHelp(System.out);
+        showHelp(Console.getStdout());
     }
 
     /**
