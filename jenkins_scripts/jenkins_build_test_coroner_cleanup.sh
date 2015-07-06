@@ -79,7 +79,7 @@ function startup
 
 function configure_symlinks
 {
-    echo "IIIII RUNNING /fds symlink configuration" 
+    message "IIIII RUNNING /fds symlink configuration" 
     pushd source >/dev/null
     ./dev_make_install.sh
     popd > /dev/null
@@ -201,7 +201,7 @@ function core_hunter
     if [[ ${return_code} -eq 0 ]]
     then
         echo ""
-        echo "OHHHHH NO, return_code = ${return_code}"
+        echo "OHHHHH NO, an ERROR has occurred return_code = ${return_code}"
         echo ""
         echo "Build aborted due to the presence of core files on the builder following a system test scenario:"
         ls -la /corefiles
