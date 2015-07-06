@@ -49,7 +49,7 @@ SvcRequestPool::SvcRequestPool(CommonModuleProviderIf *moduleProvider,
     RandNumGenerator rgen(RandNumGenerator::getRandSeed());
     nextAsyncReqId_ = rgen.genNum();
     nextAsyncReqId_ = getNextAsyncReqId_();
-    LOGNOTIFY << "Starting servrice request id at: " << nextAsyncReqId_;
+    LOGNOTIFY << "Starting service request id at: " << nextAsyncReqId_;
 
     finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
             svcRequestTracker_, std::placeholders::_1);

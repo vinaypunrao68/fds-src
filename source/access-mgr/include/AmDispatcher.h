@@ -188,7 +188,7 @@ struct AmDispatcher : HasModuleProvider
 
     bool  getNoNetwork() {
            return noNetwork;
-     }
+    }
 
   private:
 
@@ -321,6 +321,11 @@ struct AmDispatcher : HasModuleProvider
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
+
+    /**
+     * Sets the configured request serialization.
+     */
+    void setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf> svcReq);
 };
 
 }  // namespace fds

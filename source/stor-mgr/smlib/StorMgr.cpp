@@ -1196,10 +1196,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         {
             LOGDEBUG << "Processing a Delete request";
             if (parentSm->enableReqSerialization) {
-                serialExecutor->schedule(keyHash(key),
-                                         std::bind(&ObjectStorMgr::deleteObjectInternal,
-                                                   objStorMgr,
-                                                   static_cast<SmIoDeleteObjectReq *>(io)));
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::deleteObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoDeleteObjectReq *>(io)));
             } else {
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
@@ -1211,10 +1211,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         {
             LOGDEBUG << "Processing a get request";
             if (parentSm->enableReqSerialization) {
-                serialExecutor->schedule(keyHash(key),
-                                         std::bind(&ObjectStorMgr::getObjectInternal,
-                                                   objStorMgr,
-                                                   static_cast<SmIoGetObjectReq *>(io)));
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::getObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoGetObjectReq *>(io)));
             } else {
                 threadPool->schedule(&ObjectStorMgr::getObjectInternal,
                                      objStorMgr,
@@ -1226,10 +1226,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         {
             LOGDEBUG << "Processing a put request";
             if (parentSm->enableReqSerialization) {
-                serialExecutor->schedule(keyHash(key),
-                                         std::bind(&ObjectStorMgr::putObjectInternal,
-                                                   objStorMgr,
-                                                   static_cast<SmIoPutObjectReq *>(io)));
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::putObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoPutObjectReq *>(io)));
             } else {
                 threadPool->schedule(&ObjectStorMgr::putObjectInternal,
                                      objStorMgr,
@@ -1241,10 +1241,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         {
             LOGDEBUG << "Processing and add object reference request";
             if (parentSm->enableReqSerialization) {
-                serialExecutor->schedule(keyHash(key),
-                                         std::bind(&ObjectStorMgr::addObjectRefInternal,
-                                                   objStorMgr,
-                                                   static_cast<SmIoAddObjRefReq *>(io)));
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::addObjectRefInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoAddObjRefReq *>(io)));
             } else {
                 threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
                                      objStorMgr,
