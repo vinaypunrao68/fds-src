@@ -31,11 +31,11 @@ else
 end
 
 if ENV['ENABLE_VERSION_INSTALL'] == 'true'
-  install_dir "/opt/fds/#{fds_version}"
-  name "fds-platform-#{build_type}-#{fds_version}"
   build_version "1"
-  # We override the build_iteration in this case
   build_iteration git_sha
+  install_dir "/opt/fds/#{fds_version}_#{build_version}-#{build_iteration}"
+  name "fds-platform-#{build_type}-#{fds_version}"
+  # We override the build_iteration in this case
 else
   # Continue to use legacy configuration
   install_dir "/fds"
