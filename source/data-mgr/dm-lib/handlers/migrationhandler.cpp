@@ -77,12 +77,12 @@ DmMigrationBlobFilterHandler::DmMigrationBlobFilterHandler(DataMgr& dataManager)
 	: Handler(dataManager)
 {
     if (!dataManager.features.isTestMode()) {
-        REGISTER_DM_MSG_HANDLER(fpi::ResyncInitialBlobFilterSetMsg, handleRequest);
+        REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyInitialBlobFilterSetMsg, handleRequest);
     }
 }
 
 void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                        boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message) {
+                                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message) {
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     NodeUuid tmpUuid;
@@ -105,13 +105,13 @@ void DmMigrationBlobFilterHandler::handleQueueItem(dmCatReq* dmRequest) {
 }
 
 void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-			boost::shared_ptr<fpi::ResyncInitialBlobFilterSetMsg>& message,
+			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
 			Error const& e, dmCatReq* dmRequest) {
 
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     asyncHdr->msg_code = e.GetErrno();
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ResyncInitialBlobFilterSetMsgTypeId, *message);
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyInitialBlobFilterSetMsgTypeId, *message);
 
     delete dmRequest;
 }

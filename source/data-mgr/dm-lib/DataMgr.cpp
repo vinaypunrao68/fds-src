@@ -246,6 +246,23 @@ std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
     return stream.str();
 }
 
+const VolumeDesc* DataMgr::getVolumeDesc(fds_volid_t volId) const {
+    FDSGUARD(vol_map_mtx);
+    auto iter = vol_meta_map.find(volId);
+    return (vol_meta_map.end() != iter && iter->second ?
+            iter->second->vol_desc : 0);
+}
+
+void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) {
+    vecVolIds.reserve(vol_meta_map.size());
+    for (const auto& iter : vol_meta_map) {
+        const VolumeDesc* vdesc = iter.second->vol_desc;
+        if (vdesc->isStateActive() && !vdesc->isSnapshot()) {
+            vecVolIds.push_back(vdesc->volUUID);
+        }
+    }
+}
+
 std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
                                     const fds_volid_t snapId) const
 {
@@ -402,82 +419,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
         // create commit log entry and enable buffering in case of snapshot
         if (vdesc->isSnapshot()) {
-            // snapshot
-            util::TimeStamp createTime = util::getTimeStampMicros();
-            err = timeVolCat_->copyVolume(*vdesc);
-            if (err.ok()) {
-                // add it to timeline
-                if (features.isTimelineEnabled()) {
-                    timeline->addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
-                }
-            }
+            err = timelineMgr->createSnapshot(vdesc);
         } else if (features.isTimelineEnabled()) {
-            // clone
-            // find the closest snapshot to clone the base from
-            fds_volid_t srcVolumeId = vdesc->srcVolumeId;
-
-            LOGDEBUG << "Timeline time is: '" << vdesc->timelineTime << "' for clone: '"
-                    << vdesc->volUUID << "'";
-            // timelineTime is in seconds
-            util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
-
-            if (createTime == 0) {
-                LOGDEBUG << "clone vol:" << vdesc->volUUID
-                         << " of srcvol:" << vdesc->srcVolumeId
-                         << " will be a clone at current time";
-                err = timeVolCat_->copyVolume(*vdesc);
-            } else {
-                fds_volid_t latestSnapshotId = invalid_vol_id;
-                timeline->getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
-                util::TimeStamp snapshotTime = 0;
-                if (latestSnapshotId > invalid_vol_id) {
-                    LOGDEBUG << "clone vol:" << vdesc->volUUID
-                             << " of srcvol:" << vdesc->srcVolumeId
-                             << " will be based of snapshot:" << latestSnapshotId;
-                    // set the src volume to be the snapshot
-                    vdesc->srcVolumeId = latestSnapshotId;
-                    timeline->getSnapshotTime(srcVolumeId, latestSnapshotId, snapshotTime);
-                    LOGDEBUG << "about to copy :" << vdesc->srcVolumeId;
-                    err = timeVolCat_->copyVolume(*vdesc, srcVolumeId);
-                    // recopy the original srcVolumeId
-                    vdesc->srcVolumeId = srcVolumeId;
-                } else {
-                    LOGDEBUG << "clone vol:" << vdesc->volUUID
-                             << " of srcvol:" << vdesc->srcVolumeId
-                             << " will be created from scratch as no nearest snapshot found";
-                    // vol create time is in millis
-                    snapshotTime = volmeta->vol_desc->createTime * 1000;
-                    err = timeVolCat_->addVolume(*vdesc);
-                    if (!err.ok()) {
-                        LOGWARN << "Add volume returned error: '" << err << "'";
-                    }
-                    // XXX: Here we are creating and activating clone without copying src
-                    // volume, directory needs to exist for activation
-                    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-                    const std::string dirPath = root->dir_sys_repo_dm() +
-                            std::to_string(vdesc->volUUID.get());
-                    root->fds_mkdir(dirPath.c_str());
-                }
-
-                // now replay necessary commit logs as needed
-                // TODO(dm-team): check for validity of TxnLogs
-                bool fHasValidTxnLogs = (util::getTimeStampMicros() - snapshotTime) <=
-                        volmeta->vol_desc->contCommitlogRetention * 1000*1000;
-                if (!fHasValidTxnLogs) {
-                    LOGWARN << "time diff does not fall within logretention time "
-                            << " srcvol:" << srcVolumeId << " onto vol:" << vdesc->volUUID
-                            << " logretention time:" << volmeta->vol_desc->contCommitlogRetention;
-                }
-
-                if (err.ok()) {
-                    LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
-                    err = timeVolCat_->activateVolume(vdesc->volUUID);
-                    if (err.ok()) fActivated = true;
-                }
-
-                err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
-                                                      snapshotTime, createTime);
-            }
+            err = timelineMgr->createClone(vdesc);
+            if (err.ok()) fActivated = true;
         }
     } else {
         LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
@@ -658,40 +603,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     // now load all the snapshots for the volume
     if (fOldVolume) {
-        // get the list of snapshots.
-        std::string snapDir = dmutil::getSnapshotDir(vol_uuid);
-        std::vector<std::string> vecDirs;
-        util::getSubDirectories(snapDir, vecDirs);
-        fds_volid_t snapId;
-        LOGDEBUG << "will load [" << vecDirs.size() << "]"
-                 << " snapshots for vol:" << vol_uuid
-                 << " from:" << snapDir;
-        for (const auto& snap : vecDirs) {
-            snapId = std::atoll(snap.c_str());
-            //now add the snap
-            VolumeDesc *desc = new VolumeDesc(*vdesc);
-            desc->fSnapshot = true;
-            desc->srcVolumeId = vol_uuid;
-            desc->lookupVolumeId = vol_uuid;
-            desc->qosQueueId = vol_uuid;
-            desc->volUUID = snapId;
-            desc->contCommitlogRetention = 0;
-            desc->timelineTime = 0;
-            desc->setState(fpi::Active);
-            desc->name = util::strformat("snaphot_%ld_%ld",
-                                         vol_uuid.get(), snapId.get());
-            VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
-                                                            snapId,
-                                                            GetLog(),
-                                                            desc);
-            vol_meta_map[snapId] = meta;
-            LOGDEBUG << "Adding snapshot" << " name:" << desc->name << " vol:" << desc->volUUID;
-            Error err1 = timeVolCat_->addVolume(*desc);
-            if (!err1.ok()) {
-                LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< vol_uuid
-                         << " - " << err1;
-            }
-        }
+        timelineMgr->loadSnapshot(vol_uuid);
     }
 
     return err;
@@ -955,7 +867,7 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.dm.enable_timeline", true));
     if (features.isTimelineEnabled()) {
-        timeline.reset(new TimelineDB());
+        timelineMgr.reset(new timeline::TimelineManager(this));
     }
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -976,7 +888,7 @@ int DataMgr::mod_init(SysParams const *const param)
      * Retrieves the number of primary DMs from the config file.
      */
     int primary_check = MODULEPROVIDER()->get_fds_config()->
-				  get<int>("fds.dm.number_of_primary");
+                                  get<int>("fds.dm.number_of_primary");
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
@@ -1041,6 +953,7 @@ void DataMgr::mod_startup()
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
+        features.setTestMode(true);
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
@@ -1108,19 +1021,12 @@ void DataMgr::mod_enable_service() {
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
     }
+
+    expungeMgr.reset(new ExpungeManager(this));
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
 
-    // register expunge callback
-    // TODO(Andrew): Move the expunge work down to the volume
-    // catalog so this callback isn't needed
-    timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
-        &DataMgr::expungeObjectsIfPrimary, this,
-        std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    if (features.isTimelineEnabled()) {
-        timeline->open();
-    }
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
@@ -1251,23 +1157,23 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  */
 fds_bool_t
 DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
-	if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
-		const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
-		fds_verify(nodes->getLength() > 0);
-		const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+        if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+                const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
+                fds_verify(nodes->getLength() > 0);
+                const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
 
         if (topPrimary) {
-        	// Only the 0th element is considered top Primary
-        	return (myUuid == nodes->get(0).toSvcUuid());
+                // Only the 0th element is considered top Primary
+                return (myUuid == nodes->get(0).toSvcUuid());
         } else {
-        	// Anything else within number_of_primary is within primary group
-        	const int numberOfPrimaryDMs = getNumOfPrimary();
-        	fds_verify(numberOfPrimaryDMs > 0);
-        	for (int i = 0; i < numberOfPrimaryDMs; i++) {
-        		if (nodes->get(i).toSvcUuid() == myUuid) {
-        			return true;
-        		}
-        	}
+                // Anything else within number_of_primary is within primary group
+                const int numberOfPrimaryDMs = getNumOfPrimary();
+                fds_verify(numberOfPrimaryDMs > 0);
+                for (int i = 0; i < numberOfPrimaryDMs; i++) {
+                        if (nodes->get(i).toSvcUuid() == myUuid) {
+                                return true;
+                        }
+                }
         }
     }
     return false;
@@ -1275,12 +1181,12 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
 
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-	return (_amIPrimaryImpl(volUuid, true));
+        return (_amIPrimaryImpl(volUuid, true));
 }
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
-	return (_amIPrimaryImpl(volUuid, false));
+        return (_amIPrimaryImpl(volUuid, false));
 }
 
 /**
@@ -1366,76 +1272,6 @@ DataMgr::initSmMsgHdr(fpi::FDSP_MsgHdrTypePtr msgHdr) {
 
     msgHdr->err_code = ERR_OK;
     msgHdr->result   = fpi::FDSP_ERR_OK;
-}
-
-/**
- * Issues delete calls for a set of objects in 'oids' list
- * if DM is primary for volume 'volid'
- */
-Error
-DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
-                                 const std::vector<ObjectID>& oids) {
-    Error err(ERR_OK);
-    if (features.isTimelineEnabled()) return err; // No immediate deletes
-    if (runMode == TEST_MODE) return err;  // no SMs, no one to notify
-    if (amIPrimary(volid) == false) return err;  // not primary
-
-    for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
-         cit != oids.cend();
-         ++cit) {
-        err = expungeObject(volid, *cit);
-        fds_verify(err == ERR_OK);
-    }
-    return err;
-}
-
-/**
- * Issues delete calls for an object when it is dereferenced
- * by a blob. Objects should only be expunged whenever a
- * blob's reference to a object is permanently removed.
- *
- * @param[in] The volume in which the obj is being deleted
- * @param[in] The object to expunge
- * return The result of the expunge
- */
-Error
-DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
-    Error err(ERR_OK);
-
-    // Create message
-    fpi::DeleteObjectMsgPtr expReq(new fpi::DeleteObjectMsg());
-
-    // Set message parameters
-    expReq->volId = volId.get();
-    fds::assign(expReq->objId, objId);
-
-    // Make RPC call
-    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
-    // get DLT and increment refcount so that DM will respond to
-    // DLT commit of the next DMT only after all deletes with this DLT complete
-    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
-
-    auto asyncExpReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
-    asyncExpReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
-    asyncExpReq->setTimeoutMs(5000);
-    asyncExpReq->onResponseCb(RESPONSE_MSG_HANDLER(DataMgr::expungeObjectCb,
-                                                   dlt->getVersion()));
-    asyncExpReq->invoke();
-    return err;
-}
-
-/**
- * Callback for expungeObject call
- */
-void
-DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
-                         QuorumSvcRequest* svcReq,
-                         const Error& error,
-                         boost::shared_ptr<std::string> payload) {
-    DBG(GLOGDEBUG << "Expunge cb called");
-    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
-    dltMgr->decDLTRefcnt(dltVersion);
 }
 
 void DataMgr::InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr)

@@ -1,0 +1,45 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
+#!/bin/sh -e
+
+##
+# fds_root is expected to get set and exported before this script is run
+
+# LD_LIBRARY_PATH dependencies
+export LD_LIBRARY_PATH=${fds_root}/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
+
+export PATH=/usr/local/sbin
+export PATH=${PATH}:/usr/local/bin
+export PATH=${PATH}:/usr/sbin
+export PATH=${PATH}:/usr/bin
+export PATH=${PATH}:/sbin
+export PATH=${PATH}:/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
+export PATH=${PATH}:${fds_root}/bin
+export PATH=${PATH}:${fds_root}/sbin
+
+# JAVA dependencies
+export JAVA_OPTS="-Xmx2048M -Xms20M"
+export JAVA_HOME=/opt/fds-deps/embedded/jre
+
+# JAVA CLASSPATH dependencies
+export CLASSPATH=${fds_root}/etc
+export CLASSPATH=${CLASSPATH}:${fds_root}/etc/hadoop
+export CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl
+export CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
+export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
+
+# JAVA Main executable dependency
+export MAIN_CLASS=com.formationds.om.Main
+
+# are we running on an OM host?
+{% if fds_om_host == inventory_hostname %}
+export ENABLED=true
+{% else %}
+export ENABLED=false
+{% endif %}
+
+{% endblock %}

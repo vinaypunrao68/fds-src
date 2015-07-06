@@ -52,28 +52,25 @@ DmMigrationExecutor::startMigration()
      * that does this.  for now, just use this, since we are dealing with static migration with
      * add node only.
      */
-#if 0
-	// TODO - this currently doesn't work right and fails the StaticMigration test
     err = dataMgr._process_add_vol(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
                                    volumeUuid,
                                    &volDesc,
                                    false);
-#endif
-    if (!err.ok()) {
+
+    // OM could have sent the volume descriptor over already
+    if (err.ok() || (err == ERR_DUPLICATE)) {
+    	/**
+    	 * If the volume is successfully created with the given volume descriptor, process and generate the
+    	 * initial blob filter set to be sent to the source DM.
+    	 */
+    	err = processInitialBlobFilterSet();
+    	if (!err.ok()) {
+    		LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
+    				<< " with error=" << err;
+    	}
+    } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
-        return err;
-    }
-
-    /**
-     * If the volume is successfully created with the given volume descriptor, process and generate the
-     * initial blob filter set to be sent to the source DM.
-     */
-    err = processInitialBlobFilterSet();
-    if (!err.ok()) {
-        LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
-                 << " with error=" << err;
-        return err;
     }
 
 	if (migrDoneCb) {
@@ -91,18 +88,15 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     /**
      * create and initialize message for initial filter set.
      */
-    fpi::ResyncInitialBlobFilterSetMsgPtr filterSet(new fpi::ResyncInitialBlobFilterSetMsg());
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
     filterSet->volumeId = volumeUuid.get();
 
     LOGMIGRATE << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
     /**
      * Get the list of <blobid, seqnum> for a volume associted with this executor.
      */
-#if 0
-	// TODO - this currently doesn't work right and fails the StaticMigration test
     err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(fds_volid_t(volumeUuid),
                                                                        filterSet->blobFilterMap);
-#endif
     if (!err.ok()) {
         LOGERROR << "failed to generatate list of <blobid, seqnum> for volume=" << volumeUuid
                  <<" with error=" << err;
@@ -113,7 +107,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      * If successfully generated the initial filter set, send it to the source DM.
      */
     auto asyncInitialBlobSetReq = gSvcRequestPool->newEPSvcRequest(srcDmSvcUuid.toSvcUuid());
-    asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::ResyncInitialBlobFilterSetMsg), filterSet);
+    asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     asyncInitialBlobSetReq->setTimeoutMs(0);
     asyncInitialBlobSetReq->invoke();
 

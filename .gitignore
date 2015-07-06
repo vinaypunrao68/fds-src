@@ -48,7 +48,6 @@ source/cit/*.xml
 source/cit/PyUnit.log*
 source/cit/classes
 source/cit/surefire-reports
-source/config/etc/*.conf
 source/config/sys-repo/
 source/config/user-repo/
 source/config/var
@@ -135,3 +134,4 @@ ExtendedFstabTest.unit.1*
 ExtendedFstabTest.unit.altered.1*
 .coverage
 CMakeLists.txt
+/source/java/formationds-project/formationds-thrift/target/
