@@ -2,15 +2,20 @@ package com.formationds.fdsdiff;
 
 import static com.formationds.commons.util.Strings.javaString;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Optional;
 
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import com.formationds.commons.AbstractConfig;
+import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.ConsoleLogger;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 
 /**
  * Global configuration for {@link com.formationds.fdsdiff}.
@@ -35,6 +40,10 @@ public final class Config extends AbstractConfig
 		super(args);
 		
 		_comparisonDataFormat = Optional.empty();
+		_endpointA = null;
+		_endpointAUrl = null;
+		_endpointB = null;
+		_endpointBUrl = null;
 		_inputFilename = null;
 		_outputFilename = null;
 	}
@@ -63,6 +72,46 @@ public final class Config extends AbstractConfig
 		}
 		
 		return _comparisonDataFormat.get();
+	}
+	
+	public Endpoint<?, ?> getEndpointA() throws ParseException
+	{
+		if (_endpointA == null)
+		{
+			_endpointA = new OrchestrationManagerEndpoint(getEndpointAUrl(),
+					                                      "admin",
+					                                      "admin",
+					                                      AbstractConfig.Defaults.getLogger(),
+					                                      true,
+					                                      null);
+		}
+	}
+	
+	public URI getEndpointAUrl() throws ParseException
+	{
+		if (_endpointAUrl == null)
+		{
+			URI newEndpointAUrl = null;
+			Optional<String> newEndpointAUrlString = getCommandLineOptionValue("endpoint-a");
+			if (newEndpointAUrlString.isPresent())
+			{
+				String val = newEndpointAUrlString.get();
+				try
+				{
+					newEndpointAUrl = new URI(val);
+				}
+				catch (URISyntaxException e)
+				{
+					throw new ParseException("Error parsing URL: " + javaString(val) + ".");
+				}
+			}
+			else
+			{
+				newEndpointAUrl = Fds.Api.V08.getBase();
+			}
+			_endpointAUrl = newEndpointAUrl;
+		}
+		return _endpointAUrl;
 	}
 	
 	public Optional<String> getInputFilename() throws ParseException
@@ -102,6 +151,14 @@ public final class Config extends AbstractConfig
 	}
 	
 	private Optional<ComparisonDataFormat> _comparisonDataFormat;
+	
+	private Endpoint<?, ?> _endpointA;
+	
+	private URI _endpointAUrl;
+	
+	private Optional<Endpoint<?, ?>> _endpointB;
+
+	private Optional<URI> _endpointBUrl;
 	
 	private Optional<String> _inputFilename;
 	

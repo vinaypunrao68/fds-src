@@ -11,6 +11,9 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 
+import com.formationds.commons.util.logging.ConsoleLogger;
+import com.formationds.commons.util.logging.Logger;
+
 /**
  * Base class for global program configuration.
  */
@@ -80,6 +83,40 @@ public abstract class AbstractConfig
     }
 
     /**
+     * Default static configuration not pulled from the command-line.
+     */
+    public static final class Defaults
+    {
+        /**
+         * Get the default logger.
+         * 
+         * @return A system console logger that writes to standard output.
+         */
+        public static Logger getLogger()
+        {
+            return _logger;
+        }
+
+        static
+        {
+        	_logger = new ConsoleLogger();
+        }
+        
+        /**
+         * Prevent instantiation.
+         */
+        private Defaults()
+        {
+        	throw new UnsupportedOperationException("Instantiating a utility class.");
+        }
+
+        /**
+         * Default logger.
+         */
+        private static final Logger _logger;
+    }
+    
+    /**
      * Constructor.
      * 
      * @param args Command-line arguments.
@@ -93,6 +130,17 @@ public abstract class AbstractConfig
     	_replayParseError = null;
     }
     
+    /**
+     * Get the configured logger.
+     * 
+     * @return A logger.
+     */
+    public Logger getLogger()
+    {
+        // TODO: Allow this to be configured.
+        return Defaults.getLogger();
+    }
+
     /**
      * Get configuration that is determined dynamically at runtime.
      * 

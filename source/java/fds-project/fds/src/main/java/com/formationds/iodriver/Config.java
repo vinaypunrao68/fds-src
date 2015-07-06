@@ -78,16 +78,6 @@ public final class Config extends AbstractConfig
         }
 
         /**
-         * Get the default logger.
-         * 
-         * @return A system console logger that writes to standard output.
-         */
-        public static Logger getLogger()
-        {
-            return _logger;
-        }
-
-        /**
          * Get the default validator.
          *
          * @return A validator that ensures a volumes IOPS did not exceed its configured throttle.
@@ -99,8 +89,6 @@ public final class Config extends AbstractConfig
 
         static
         {
-            Logger newLogger = new ConsoleLogger();
-
             try
             {
                 URI s3Endpoint = Fds.getS3Endpoint();
@@ -112,24 +100,23 @@ public final class Config extends AbstractConfig
                         new OrchestrationManagerEndpoint(apiBase,
                                                          "admin",
                                                          "admin",
-                                                         newLogger,
+                                                         AbstractConfig.Defaults.getLogger(),
                                                          true,
                                                          new OrchestrationManagerEndpoint(v8ApiBase,
                                                                                           "admin",
                                                                                           "admin",
-                                                                                          newLogger,
+                                                                                          AbstractConfig.Defaults.getLogger(),
                                                                                           true,
                                                                                           null));
 
-                _endpoint = new S3Endpoint(s3EndpointText, omEndpoint, newLogger);
+                _endpoint = new S3Endpoint(s3EndpointText, omEndpoint, AbstractConfig.Defaults.getLogger());
             }
             catch (MalformedURLException e)
             {
                 // Should be impossible.
                 throw new IllegalStateException(e);
             }
-            _listener = new WorkflowEventListener(newLogger);
-            _logger = newLogger;
+            _listener = new WorkflowEventListener(AbstractConfig.Defaults.getLogger());
             _validator = new RateLimitValidator();
         }
 
@@ -150,11 +137,6 @@ public final class Config extends AbstractConfig
          * Default event listener.
          */
         private static final WorkflowEventListener _listener;
-
-        /**
-         * Default logger.
-         */
-        private static final Logger _logger;
 
         /**
          * Default validator.
@@ -246,17 +228,6 @@ public final class Config extends AbstractConfig
         return _logTargets;
     }
     
-    /**
-     * Get the configured logger.
-     * 
-     * @return A logger.
-     */
-    public Logger getLogger()
-    {
-        // TODO: Allow this to be configured.
-        return Defaults.getLogger();
-    }
-
     /**
      * Get whether to log individual operations.
      * 
