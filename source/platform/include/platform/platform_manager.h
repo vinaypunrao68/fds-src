@@ -35,7 +35,7 @@ namespace fds
         const std::string SM_NAME            = "StorMgr";
         const std::string JAVA_PROCESS_NAME  = "java";
 
-        const std::string JAVA_CLASSPATH_OPTIONS      = "/fds/lib/java/*";                  // No spaces in this value
+        const std::string JAVA_CLASSPATH_OPTIONS      = "/lib/java/*";  // No spaces in this value. ${FDS_ROOT} will be prepended.
 
         constexpr uint64_t NANO_SECONDS_IN_1_SECOND   = 1000000000;
         constexpr uint64_t PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS = 500000000;         // 500,000,000 = 1/2 sconds
@@ -116,6 +116,11 @@ namespace fds
                 bool                                m_autoRestartFailedProcesses;
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
+
+                std::string                         m_nodeRedisKeyId;              // A unique id across that the nodes in a cluster, this is differentthen the
+                                                                                   // node UUID used in other places.  This persists across cleans, reboots, etc.
+
+                void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
                 void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);

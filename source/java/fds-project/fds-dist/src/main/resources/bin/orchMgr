@@ -1,19 +1,20 @@
 #!/bin/bash
 
-args=$*
+##
+# this script is used for testing only, should not be used in production
+# environment
 
-JAVA_OPTS="-Xmx1024M -Xms20M"
+args=${@}
+
+export fds_root=/fds
 
 for i in "$@"
 do
   key="$1"
 
-  FDS_ROOT=/fds
-  FDS_OM_HOST=localhost
-
   case $i in
-    --fds-root=)
-    FDS_ROOT="${i#*=}"
+    --fds-root=*)
+    fds_root="${i#*=}"
     shift # past argument
     ;;
     *)
@@ -23,12 +24,31 @@ do
   shift # past argument or value
 done
 
-CLASSPATH=$FDS_ROOT/lib/java/*
-CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/
-CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
-CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
+# LD_LIBRARY_PATH dependencies
+export LD_LIBRARY_PATH=../lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
 
-echo "FDS_ROOT  = $FDS_ROOT"
-echo "CLASSPATH = $CLASSPATH"
+export PATH=/usr/local/sbin
+export PATH=${PATH}:/usr/local/bin
+export PATH=${PATH}:/usr/sbin
+export PATH=${PATH}:/usr/bin
+export PATH=${PATH}:/sbin
+export PATH=${PATH}:/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
+export PATH=${PATH}:./bin
+export PATH=${PATH}:../sbin
 
-java $JAVA_OPTS -classpath $CLASSPATH com.formationds.om.Main $args
+# JAVA dependencies
+export JAVA_OPTS="-Xmx2048M -Xms20M"
+export JAVA_HOME=/opt/fds-deps/embedded/jre
+
+# JAVA CLASSPATH dependencies
+export CLASSPATH=${CLASSPATH}:../lib/java/\*
+
+# JAVA Main executable dependency
+export MAIN_CLASS=com.formationds.om.Main
+
+
+${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} > ./om.out 2>&1

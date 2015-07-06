@@ -14,13 +14,14 @@ else:
     import configparser
 
 import BringUpCfg as fdscfg
+import socket
 
 def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
     #logging.basicConfig(level=log_level,
     #            format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
     #            datefmt='%Y-%m-%d %H:%M:%S')
-    log = logging.getLogger(logger_name)
+    log = logging.getLogger("")
     log.setLevel(log_level)
     logging.addLevelName(100, "REPORT")
 
@@ -389,4 +390,17 @@ def findNodeFromInv(node_inventory, target):
     for node in node_inventory:
         if node.nd_conf_dict['node-name'] == target:
             return node
+
+def check_localhost(ip):
+    ipad = socket.gethostbyname(ip)
+    if ipad.count('.') == 4:
+        hostName = socket.gethostbyaddr(ipad)[0]
+    else:
+        hostName = ip
+
+    if (hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1'):
+        return True
+    else:
+        return False
+
 

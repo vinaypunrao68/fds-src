@@ -118,7 +118,7 @@ Error DmPersistVolDB::activate() {
 
     // Write out the initial superblock descriptor into the volume
     fpi::FDSP_MetaDataList emptyMetadataList;
-    VolumeMetaDesc volMetaDesc(emptyMetadataList);
+    VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
     if (ERR_OK != putVolumeMetaDesc(volMetaDesc)) {
         return ERR_DM_VOL_NOT_ACTIVATED;
     }
@@ -177,7 +177,37 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) {
+    Catalog::catalog_roptions_t opts;
+    auto dbIt = getSnapshotIter(opts);
+    if (!dbIt) {
+        LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
+        return ERR_INVALID;
+    }
+
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record dbKey = dbIt->key();
+        if (reinterpret_cast<const BlobObjKey *>(dbKey.data())->objIndex == BLOB_META_INDEX) {
+            BlobMetaDesc blobMeta;
+            if (blobMeta.loadSerialized(dbIt->value().ToString()) != ERR_OK) {
+                LOGERROR << "Error deserializing blob metadata when searching latest sequence id for volume " << volId_;
+                return ERR_SERIALIZE_FAILED;
+            }
+            blobsSeqId.emplace(reinterpret_cast<const BlobObjKey *>(dbKey.data())->blobId,
+                               blobMeta.desc.sequence_id);
+        }
+    }
+
+    if (dbIt->status().ok()) {
+        return ERR_OK;
+    }else{
+        LOGERROR << "Error during generating set of blobs with sequence Ids for volume=" << volId_
+                 << " with error=" << dbIt->status().ToString();
+        return status2error(dbIt->status());
+    }
+}
+
+Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
     Catalog::catalog_roptions_t opts;
     auto dbIt = getSnapshotIter(opts);
     if (!dbIt) {
@@ -196,20 +226,35 @@ Error DmPersistVolDB::getLatestSequenceId(blob_version_t & max) {
                 return ERR_SERIALIZE_FAILED;
             }
 
-            if (max < blobMeta.desc.version) {
-                max = blobMeta.desc.version;
+            if (max < blobMeta.desc.sequence_id) {
+                max = blobMeta.desc.sequence_id;
             }
         }
     }
 
+    Error err;
     if (dbIt->status().ok()) {
-        return ERR_OK;
-    }else{
+        fpi::FDSP_MetaDataList emptyMetadataList;
+        VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
+
+        err = getVolumeMetaDesc(volMetaDesc);
+
+        if (err.ok()) {
+            if (max < volMetaDesc.sequence_id) {
+                max = volMetaDesc.sequence_id;
+            }
+        } else {
+            LOGERROR << "Error searching volume descriptor for latest sequence id for volume "
+                     << volId_ << ": " << err;
+        }
+    } else {
         LOGERROR << "Error searching latest sequence id for volume " << volId_
                  << ": " << dbIt->status().ToString();
 
-        return status2error(dbIt->status());
+        err = status2error(dbIt->status());
     }
+
+    return err;
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offset,

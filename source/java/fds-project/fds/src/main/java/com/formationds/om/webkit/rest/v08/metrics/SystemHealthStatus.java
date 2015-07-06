@@ -339,7 +339,6 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Generate a status object to roll up service status
      *
-     * @param rawServices
      * @return the system service status
      * @throws TException 
      */
@@ -411,9 +410,11 @@ public class SystemHealthStatus implements RequestHandler {
             status.setState(HealthState.GOOD);
             status.setMessage(SERVICES_GOOD);
         }
-        else if ( criteria.get( ONE_AM ) == true && criteria.get( ONE_OM ) == true &&
-        		criteria.get( ALL_DMS ) == true && criteria.get( ALL_PMS ) == true &&
-        		criteria.get( ALL_SMS ) == true ){
+        else if ( criteria.get( ONE_AM ) &&
+                  ( criteria.get( ONE_OM ) ) &&
+                  ( criteria.get( ALL_DMS ) ) &&
+                  ( criteria.get( ALL_PMS ) ) &&
+                  ( criteria.get( ALL_SMS ) ) ){
         	status.setState(HealthState.OKAY);
         	status.setMessage(SERVICES_OKAY);
         }

@@ -48,7 +48,7 @@ void SetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
     DmIoSetVolumeMetaData* typedRequest = static_cast<DmIoSetVolumeMetaData*>(dmRequest);
 
     helper.err = dataManager.timeVolCat_->setVolumeMetadata(typedRequest->getVolId(),
-                                                            typedRequest->msg->metadataList);
+                                                            typedRequest->msg->metadataList, typedRequest->msg->sequence_id);
 }
 
 void SetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

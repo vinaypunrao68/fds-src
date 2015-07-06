@@ -269,11 +269,12 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
 }
 
 Error DmVolumeCatalog::setVolumeMetadata(fds_volid_t volId,
-                                         const fpi::FDSP_MetaDataList &metadataList) {
+                                         const fpi::FDSP_MetaDataList &metadataList,
+                                         const sequence_id_t seq_id) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
-    VolumeMetaDesc volMetaDesc(metadataList);
+    VolumeMetaDesc volMetaDesc(metadataList, seq_id);
     return vol->putVolumeMetaDesc(volMetaDesc);
 }
 
@@ -282,7 +283,7 @@ Error DmVolumeCatalog::getVolumeMetadata(fds_volid_t volId,
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
-    VolumeMetaDesc volMetaDesc(metadataList);
+    VolumeMetaDesc volMetaDesc(metadataList, 0);
     Error rc = vol->getVolumeMetaDesc(volMetaDesc);
     if (!rc.ok()) {
         LOGERROR << "Unable to get metadata for volume " << volId << ", " << rc;
@@ -374,7 +375,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
         // empty blob
         return rc;
     } else if (startOffset >= *blobSize) {
-        return ERR_CAT_ENTRY_NOT_FOUND;
+        return ERR_BLOB_OFFSET_INVALID;
     } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
     }
@@ -425,7 +426,8 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType*
 }
 
 Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobName,
-        const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId) {
+        const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId,
+        const sequence_id_t seq_id) {
     LOGDEBUG << "Will commit metadata for volume '" << std::hex << volId << std::dec <<
             "' blob '" << blobName << "'";
 
@@ -437,6 +439,7 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
             mergeMetaList(blobMeta.meta_list, *metaList);
         }
         blobMeta.desc.version += 1;
+        blobMeta.desc.sequence_id = seq_id;
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
             blobMeta.desc.blob_name = blobName;
         }
@@ -456,7 +459,7 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
 
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobObjList::const_ptr& blobObjList,
-        const BlobTxId::const_ptr& txId) {
+        const BlobTxId::const_ptr& txId, const sequence_id_t seq_id ) {
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'; " << *blobObjList;
     // do not use this method if blob_obj_list is empty
@@ -577,6 +580,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
+    blobMeta.desc.sequence_id = seq_id;
     blobMeta.desc.blob_size = newBlobSize;
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;
@@ -609,12 +613,13 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
     fds_verify(expungeCb_);
-    return expungeCb_(volId, expungeList);
+    return expungeCb_(volId, expungeList, false);
 }
 
+// XXX: (JLL) commenting out this function doesn't seem to break anything
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
-        CatWriteBatch & wb, bool truncate /* = true */) {
+        CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate /* = true */) {
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'";
 
@@ -648,6 +653,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
+    blobMeta.desc.sequence_id = seq_id;
     blobMeta.desc.blob_size = newBlobSize;
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;
@@ -752,7 +758,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
         // actually expunge objects that were dereferenced by the blob
         // TODO(xxx): later that should become part of GC and done in background
         fds_verify(expungeCb_);
-        return expungeCb_(volId, expungeList);
+        return expungeCb_(volId, expungeList, false);
     }
 
     return rc;
@@ -768,9 +774,14 @@ DmPersistVolCat::ptr DmVolumeCatalog::getVolume(fds_volid_t volId) {
     return vol;
 }
 
-Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, blob_version_t& seq_id) {
+Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getLatestSequenceId(seq_id);
+}
+
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getAllBlobsWithSequenceId(blobsSeqId);
 }
 
 }  // namespace fds

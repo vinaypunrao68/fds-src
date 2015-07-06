@@ -36,7 +36,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          currentState(OBJECT_STORE_INIT)
+          currentState(OBJECT_STORE_INIT),
+          lastCapacityMessageSentAt(0)
 {
 }
 
@@ -47,6 +48,25 @@ ObjectStore::~ObjectStore() {
 
 float_t ObjectStore::getUsedCapacityAsPct() {
 
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("sm.objstore.get_used_capacity_error", \
+            LOGDEBUG << "Err inection: returning max used disk capacity as " \
+                     << DISK_CAPACITY_ERROR_THRESHOLD; \
+            return DISK_CAPACITY_ERROR_THRESHOLD; );
+
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_alert", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("sm.objstore.get_used_capacity_warn", \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
     float_t max = 0;
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
@@ -56,18 +76,46 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
             // If we don't just return 0
-            LOGERROR << "Found disk used capacity of zero, possible error. DiskID = " << diskId
-                        << ". Disk path = " << diskMap->getDiskPath(diskId);
+            LOGDEBUG << "Found disk used capacity of zero, possible error. DiskID = " << diskId
+                        << ". Disk path = " << diskMap->getDiskPath(diskId) << ". If this is an SSD drive"
+                        << " and you have not yet written data to the system, this message is OK.";
             break;
         }
-        float_t pct_used = (capacity.first * 1.) / capacity.second;
+        float_t pct_used = ((capacity.first * 1.) / capacity.second) * 100;
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+                lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: Disk at path " << diskMap->getDiskPath(diskId)
+                     << " is consuming " << pct_used << "Space, which is more than the error threshold of "
+                     << DISK_CAPACITY_ERROR_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_ERROR_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+            LOGWARN << "WARNING: Disk at path " << diskMap->getDiskPath(diskId)
+                    << " is consuming " << pct_used << " space, which is more than the warning threshold of "
+                    << DISK_CAPACITY_WARNING_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+            LOGNORMAL << "ALERT: Disk at path " << diskMap->getDiskPath(diskId)
+                      << " is consuming " << pct_used << " space, which is more than the alert threshold of "
+                      << DISK_CAPACITY_ALERT_THRESHOLD;
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+            }
+        }
 
         if (pct_used > max) {
             max = pct_used;
         }
     }
 
-    return max * 100;
+    return max;
 }
 
 /**

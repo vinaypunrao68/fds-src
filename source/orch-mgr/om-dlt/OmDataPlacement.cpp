@@ -16,6 +16,7 @@
 #include <net/net-service.h>
 #include <fdsp/svc_types_types.h>
 #include <net/SvcRequestPool.h>
+#include <list>
 #include "fdsp/sm_api_types.h"
 
 namespace fds {
@@ -69,6 +70,10 @@ Error
 DataPlacement::updateMembers(const NodeList &addNodes,
                              const NodeList &rmNodes) {
     placementMutex->lock();
+    LOGDEBUG << "Updating OM Cluster Map "
+             << " Add Nodes: " << addNodes.size()
+             << " Remove Nodes: " << rmNodes.size();
+    
     Error err = curClusterMap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // TODO(Andrew): We should be recomputing the DLT here.
     placementMutex->unlock();
@@ -81,17 +86,23 @@ DataPlacement::computeDlt() {
     // Currently always create a new empty DLT.
     // Will change to be relative to the current.
     fds_uint64_t version;
-    fds_verify(newDlt == NULL);
-
-    if (commitedDlt == NULL) {
+    
+    fds_verify( newDlt == NULL );
+    
+    if (commitedDlt == NULL) 
+    {
         version = DLT_VER_INVALID + 1;
-    } else {
+    } 
+    else 
+    {
         version = commitedDlt->getVersion() + 1;
     }
+    
     // If we have fewer members than total replicas
     // use the number of members as the replica count
     fds_uint32_t depth = curDltDepth;
-    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) {
+    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) 
+    {
         depth = curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR);
     }
 
@@ -103,14 +114,15 @@ DataPlacement::computeDlt() {
     placementMutex->lock();
     placeAlgo->computeNewDlt(curClusterMap,
                              commitedDlt,
-                             newDlt);
+                             newDlt, 0);
 
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
 
     // store the dlt to config db
     fds_verify(configDB != NULL);
-    if (!configDB->storeDlt(*newDlt, "next")) {
+    if (!configDB->storeDlt(*newDlt, "next")) 
+    {
         GLOGWARN << "unable to store dlt to config db "
                 << "[" << newDlt->getVersion() << "]";
     }
@@ -134,7 +146,8 @@ DataPlacement::beginRebalance() {
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
 
-    if (!commitedDlt) {
+    if (!commitedDlt) 
+    {
         LOGNOTIFY << "Not going to rebalance data, because this is "
                   << " the first DLT we computed";
         placementMutex->unlock();
@@ -143,11 +156,13 @@ DataPlacement::beginRebalance() {
 
     for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
          cit != curClusterMap->cend_sm();
-         ++cit) {
+         ++cit) 
+    {
         // see if this node has any new tokens it is responsible for
         // this includes primary, secondary, other responsibilities
         const TokenList& new_toks = newDlt->getTokens(cit->first);
-        if (!commitedDlt) {
+        if (!commitedDlt) 
+        {
             // this node did not have tokens before, and now it does
             rebalanceNodes.insert(cit->first);
             break;
@@ -157,10 +172,13 @@ DataPlacement::beginRebalance() {
         // TODO(anna) TokenList should be a set so we can easily
         // search rather than vector -- anyway we shouldn't have duplicate
         // tokens in the TokenList
-        for (fds_uint32_t i = 0; i < new_toks.size(); ++i) {
+        for (fds_uint32_t i = 0; i < new_toks.size(); ++i) 
+        {
             fds_bool_t found = false;
-            for (fds_uint32_t j = 0; j < old_toks.size(); ++j) {
-                if (new_toks[i] == old_toks[j]) {
+            for (fds_uint32_t j = 0; j < old_toks.size(); ++j) 
+            {
+                if (new_toks[i] == old_toks[j]) 
+                {
                     found = true;
                     break;
                 }
@@ -469,7 +487,7 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     Error err(ERR_OK);
 
     if (commitedDlt) {
-        err = checkDltValid(commitedDlt, sm_services);
+        err = commitedDlt->verify(sm_services);
         if (err.ok()) {
             LOGDEBUG << "DLT is valid!";
             // but we must not have any target DLT at this point
@@ -516,7 +534,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
             // check if DLT is valid with respect to nodes
             // i.e. only contains node uuis that are in nodes' set
             // does not contain any zeroes, etc.
-            err = checkDltValid(dlt, sm_services);
+            err = dlt->verify(sm_services);
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
                 // we will set newDLT because we don't know yet if
@@ -577,49 +595,4 @@ void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
     this->configDB = configDB;
 }
 
-//
-// Checks if DLT matches the set of given nodes:
-// -- DLT must not contain any uuids that are not in nodes set
-// -- DLT should not have any cells with 0
-// -- nodes in each DLT column must be unique
-//
-Error DataPlacement::checkDltValid(const DLT* dlt,
-                                   const NodeUuidSet& sm_services) {
-    Error err(ERR_OK);
-    fds_uint32_t col_depth = dlt->getDepth();
-    fds_uint32_t num_tokens = dlt->getNumTokens();
-
-    // we should not have more rows than nodes
-    if (col_depth > sm_services.size()) {
-        LOGERROR << "DLT has more rows (" << col_depth
-                 << ") than nodes (" << sm_services.size() << ")";
-        return Error(ERR_INVALID_DLT);
-    }
-
-    // check each column in DLT
-    NodeUuidSet col_set;
-    for (fds_token_id i = 0; i < num_tokens; ++i) {
-        col_set.clear();
-        DltTokenGroupPtr column = dlt->getNodes(i);
-        for (fds_uint32_t j = 0; j < col_depth; ++j) {
-            NodeUuid cur_uuid = column->get(j);
-            if ((cur_uuid.uuid_get_val() == 0) ||
-                (sm_services.count(cur_uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
-                         << cur_uuid.uuid_get_val() << std::dec;
-                return Error(ERR_INVALID_DLT);
-            }
-            col_set.insert(cur_uuid);
-        }
-
-        // make sure that column contains all unique uuids
-        if (col_set.size() < col_depth) {
-            LOGERROR << "Found non-unique uuids in DLT column " << i;
-            return Error(ERR_INVALID_DLT);
-        }
-    }
-
-    return err;
-}
 }  // namespace fds

@@ -99,6 +99,13 @@ class ClusterMap : public Module {
     fds_uint32_t getNumMembers(fpi::FDSP_MgrIdType svc_type) const;
 
     /**
+     * Returns the current number of UP cluster members of
+     * a given service type
+     * @param svc_type service type: SM or DM
+     */
+    fds_uint32_t getNumNonfailedMembers(fpi::FDSP_MgrIdType svc_type) const;
+
+    /**
      * Returns member info based on the nodes membership
      * index number.
      */
@@ -132,6 +139,13 @@ class ClusterMap : public Module {
      */
     std::unordered_set<NodeUuid, UuidHash>
             getRemovedServices(fpi::FDSP_MgrIdType svc_type) const;
+
+
+    /**
+     * Returns a list of services that are in non-failed state
+     */
+    NodeUuidSet getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const;
+    NodeUuidSet getServiceUuids(fpi::FDSP_MgrIdType svc_type) const;
 
     void resetPendServices(fpi::FDSP_MgrIdType svc_type);
     /**

@@ -64,11 +64,6 @@ namespace fds
         nodeInfo.data_port = svcinfo.svc_port;
         nodeInfo.migration_port = 0;
 
-        LOGDEBUG << "node UUID: " << std::hex << nodeInfo.node_uuid << std::dec
-                 << " service UUID: " << std::hex << nodeInfo.service_uuid << std::dec
-                 << " service status: " << svcinfo.svc_status 
-                 << " service type: " << svcinfo.svc_type;
-
         switch ( svcinfo.svc_status )
         {
             case fpi::SVC_STATUS_INACTIVE:
@@ -80,6 +75,9 @@ namespace fds
             case fpi::SVC_STATUS_ACTIVE:
                 nodeInfo.node_state = fpi::FDS_Node_Up;
                 break;
+            case fpi::SVC_STATUS_DISCOVERED:
+                nodeInfo.node_state = fpi::FDS_Node_Discovered;
+                break;    
         }
 
         return nodeInfo;

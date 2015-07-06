@@ -113,16 +113,16 @@ struct LockfreeWorker {
 
                 task = NULL;
                 if (queueCnt == 0) {
-                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
-                        return;
-                    }
-
                     // block if the queueCnt is 0.  The actual value of queueCnt and
                     // expected value is atomically checked.
                     // Although we intially entered this scope due to queueCnt == 0,
                     // by the time we get here, the state can change where we don't
                     // block here.
                     my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
 
                     // TODO(Sean)
                     // This cmpxchg loop and the the one in the next block is the same.
@@ -176,6 +176,10 @@ struct LockfreeWorker {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                                return;
+                            }
+
                             cpu_relax();
                         } else {
                             ++cmpxchgMissed;
@@ -200,7 +204,15 @@ struct LockfreeWorker {
                 // If something is dequeued, then call the function.
                 if (dequeued) {
                     fds_verify(NULL != task);
+                    try {
                     task->operator()();
+                    } catch (std::bad_alloc const& e) {
+                      fds_panic("Failed allocation of memory: %s\n", e.what());
+                    } catch (std::exception const& e) {
+                      fds_panic("std::exception : %s\n", e.what());
+                    } catch (...) {
+                      fds_panic("unknown exception!");
+                    }
                     delete task;
                 } else {
                     fds_assert(NULL == task);
@@ -318,16 +330,16 @@ struct LFSQThreadpool {
                 task = NULL;
 
                 if (queueCnt == 0) {
-                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
-                        return;
-                    }
-
                     // block if the queueCnt is 0.  The actual value of queueCnt and
                     // expected value is atomically checked.
                     // Although we intially entered this scope due to queueCnt == 0,
                     // by the time we get here, the state can change where we don't
                     // block here.
                     my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
 
                     // TODO(Sean)
                     // This cmpxchg loop and the the one in the next block is the same.
@@ -386,6 +398,10 @@ struct LFSQThreadpool {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                                return;
+                            }
+
                             cpu_relax();
                         } else {
                             ++cmpxchgMissed;

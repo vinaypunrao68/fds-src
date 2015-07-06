@@ -10,6 +10,7 @@
 {#
    fds. specific entries
 #}
+{% set fds_root = fds_default_root if fds_default_root is defined else '/fds' %}
 {% set default_nic = fds_default_nic if fds_default_nic is defined else 'eth0' %}
 {% set authentication = fds_authentication if fds_authentication is defined else 'true' %}
 {#
@@ -20,6 +21,10 @@
 {% set perf_tracing = fds_perf_tracing if fds_perf_tracing is defined else 'true' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
+{#
+   Redis Deployment defaults
+#}
+{% set redis_port = fds_redis_port if fds_redis_port is defined else '6379' %}
 {#
    fds.pm. specific entries
 #}
@@ -34,6 +39,7 @@
 {% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
+{% set dm_req_serialization = fds_dm_req_serialization if fs_dm_req_serialization is defined else 'true' %}
 {#
    fds.sm. specific entries
 #}
@@ -45,6 +51,7 @@
 {% set sm_tiering_hybrid_batchsz = fds_sm_tiering_hybrid_batchsz if fds_sm_tiering_hybrid_batchsz is defined else '1024' %}
 {% set sm_tiering_hybrid_frequency = fds_sm_tiering_hybrid_frequency if fds_sm_tiering_hybrid_frequency is defined else '604800' %}
 {% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
+{% set sm_req_serialization = fds_sm_req_serialization if fs_sm_req_serialization is defined else 'true' %}
 {#
    fds.am. specific entries
 #}
