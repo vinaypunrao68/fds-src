@@ -37,12 +37,13 @@ class FDSDocker():
     def __init__(self, opts):
         self.images = IMAGES
         self.hosts = HOSTS
+        self.buildhost = opts['buildhost']
         self.opts = opts
         self.debug = opts['debug']
 
     def get_buildhost(self):
         """Get host URL for building - returns string"""
-        return self.hosts['build']
+        return self.buildhost
 
     def get_pullhosts(self):
         """Get list of hosts to pull image to - returns list"""
@@ -127,7 +128,7 @@ class FDSDocker():
         print "Images available to build:"
         for image in self.images:
             print "{}: Name: {} Dir: {}".format(image,
-                                                self.images[image]['name'],
+                                                self.images[image]['tag'],
                                                 self.images[image]['path'])
 
 def main():
@@ -136,11 +137,18 @@ def main():
             '--type', dest='type', default='base',
             help='image to build')
     parser.add_argument(
+            '--buildhost', dest='buildhost',
+            default='tcp://fre-build-04.formationds.com:2375',
+            help='Modify the default host where images are built')
+    parser.add_argument(
             '--listtypes', action='store_true', default=False,
             help='List image types to build')
     parser.add_argument(
             '--debug', action="store_true", default=False,
             help='enable debugging')
+    parser.add_argument(
+            '--buildonly', action="store_true", default=False,
+            help='Only build')
     parser.add_argument(
             '--pullonly', action="store_true", default=False,
             help='Only pull, do not build')
@@ -155,6 +163,8 @@ def main():
 
     if opts['listtypes'] is True:
         buildclient.listtypes()
+    elif opts['buildonly'] is True:
+        buildclient.build()
     elif opts['pullonly'] is True:
         buildclient.pullimages()
     elif opts['pushonly'] is True:
