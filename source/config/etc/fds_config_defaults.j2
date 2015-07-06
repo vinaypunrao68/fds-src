@@ -54,6 +54,7 @@
 {% set am_cache_max_volume_data = fds_am_cache_max_volume_data if fds_am_cache_max_volume_data is defined else '400' %}
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
+{% set am_req_serialization = fds_am_req_serialization if fs_am_req_serialization is defined else 'volume' %}
 {#
    fds.om. specific entries
 #}

@@ -318,7 +318,8 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
  */
 void
 AmDispatcher::setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf> svcReq) {
-    std::hash<fds_volid_t> volIDHash;
+    static std::hash<fds_volid_t> volIDHash;
+    static std::hash<std::string> blobNameHash;
 
     switch (serialization) {
         case Serialization::SERIAL_VOLUME:
@@ -326,7 +327,7 @@ AmDispatcher::setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf>
             break;
 
         case Serialization::SERIAL_BLOB:
-            fds_verify(!"Blob serialization is not implemented");
+            svcReq->setTaskExecutorId((volIDHash(amReq->io_vol_id) + blobNameHash(amReq->getBlobName())));
             break;
 
         default:
