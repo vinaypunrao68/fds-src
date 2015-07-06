@@ -22,6 +22,14 @@ import multinode
 import testsets.test_set as test_set
 import s3
 import utils
+import httplib
+import boto
+
+if not boto.config.has_section('Boto'):
+        boto.config.add_section('Boto')
+boto.config.set("Boto", "debug", "2")
+boto.set_file_logger("boto", "/home/pairing/tmp/boto.log")
+logging.getLogger("boto").setLevel(logging.DEBUG)
 
 '''
 The class Operation is responsible for creating all the test sets, with
@@ -35,11 +43,11 @@ test_set_list : dict
 '''
 class Operation(object):
     # establish the basic logging operations
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
+    # httplib.HTTPConnection.debuglevel = 1
 
     def __init__(self, test_sets_list, args):
-
         # save args to class
         self.test_sets_list = test_sets_list
         self.args = args
