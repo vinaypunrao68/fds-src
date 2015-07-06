@@ -204,7 +204,15 @@ struct LockfreeWorker {
                 // If something is dequeued, then call the function.
                 if (dequeued) {
                     fds_verify(NULL != task);
+                    try {
                     task->operator()();
+                    } catch (std::bad_alloc const& e) {
+                      fds_panic("Failed allocation of memory: %s\n", e.what());
+                    } catch (std::exception const& e) {
+                      fds_panic("std::exception : %s\n", e.what());
+                    } catch (...) {
+                      fds_panic("unknown exception!");
+                    }
                     delete task;
                 } else {
                     fds_assert(NULL == task);

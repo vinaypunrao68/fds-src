@@ -50,6 +50,7 @@
 
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
+#include <expungemanager.h>
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -108,12 +109,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         return vol_meta_map[volId]->vol_desc->name;
     }
 
-    virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
-        FDSGUARD(vol_map_mtx);
-        auto iter = vol_meta_map.find(volId);
-        return (vol_meta_map.end() != iter && iter->second ?
-                iter->second->vol_desc : 0);
-    }
+    virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const;
+    void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds);
+
 
     ///
     /// Check if a given volume is active.
@@ -203,7 +201,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
     boost::shared_ptr<timeline::TimelineManager> timelineMgr;
-
+    boost::shared_ptr<ExpungeManager> expungeMgr;
+    fds_threadpool  lowPriorityTasks;
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
@@ -304,7 +303,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_DM_MIGRATION:
                 // Other (stats, etc...) handlers
                 case FDS_DM_SYS_STATS:
-                case FDS_DM_STAT_STREAM:                    
+                case FDS_DM_STAT_STREAM:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
                                          io);
@@ -395,14 +394,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                            const VolumeDesc& voldesc);
 
     void initSmMsgHdr(fpi::FDSP_MsgHdrTypePtr msgHdr);
-
-    Error expungeObject(fds_volid_t volId, const ObjectID &objId);
-    void  expungeObjectCb(fds_uint64_t dltVersion,
-                          QuorumSvcRequest* svcReq,
-                          const Error& error,
-                          boost::shared_ptr<std::string> payload);
-    Error expungeObjectsIfPrimary(fds_volid_t volid,
-                                  const std::vector<ObjectID>& oids);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
@@ -507,11 +498,11 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * Gets and sets Number of primary DMs.
      */
     inline fds_uint32_t getNumOfPrimary()  {
-    	return (_numOfPrimary);
+        return (_numOfPrimary);
     }
     inline void setNumOfPrimary(fds_uint32_t num) {
-    	fds_verify(num > 0);
-    	_numOfPrimary = num;
+        fds_verify(num > 0);
+        _numOfPrimary = num;
     }
 
     /**

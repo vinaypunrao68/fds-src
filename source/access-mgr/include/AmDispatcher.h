@@ -195,7 +195,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * set flag for network available.
      */
-     bool noNetwork;
+     bool noNetwork {false};
 
     /**
      * Shared ptrs to the DLT and DMT managers used
