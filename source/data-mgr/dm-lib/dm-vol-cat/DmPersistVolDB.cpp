@@ -580,7 +580,7 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     return catalog_->Update(&batch);
 }
 
-Error DmPersistVolDB::getPersistentSnapshot(Catalog::catalog_roptions_t &opts) {
+Error DmPersistVolDB::getInMemorySnapshot(Catalog::catalog_roptions_t &opts) {
     auto dbIt = getSnapshotIter(opts);
     if (!dbIt) {
         LOGERROR << "Error searching latest sequence id for volume " << volId_;
@@ -589,7 +589,7 @@ Error DmPersistVolDB::getPersistentSnapshot(Catalog::catalog_roptions_t &opts) {
     return ERR_OK;
 }
 
-Error DmPersistVolDB::deletePersistentSnapshot(Catalog::catalog_roptions_t &opts)  {
+Error DmPersistVolDB::freeInMemorySnapshot(Catalog::catalog_roptions_t &opts)  {
 	catalog_->ReleaseSnapshot(opts);
 	return ERR_OK;
 }

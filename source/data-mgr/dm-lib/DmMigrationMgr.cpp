@@ -10,11 +10,11 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-	  maxTokens(1), firedTokens(0), mit(NULL), DmStartMigClientCb(NULL),
+	  maxMigrations(1), firedMigrations(0), mit(NULL), DmStartMigClientCb(NULL),
 	  migrState(MIGR_IDLE), cleanUpInProgress(false), migrationMsg(nullptr),
 	  migReqMsg(nullptr)
 {
-	maxTokens = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+	maxMigrations = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
 				get<int>("fds.dm..migration.max_migrations"));
 }
 
@@ -89,7 +89,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 		return err;
 	}
 
-	firedTokens = 0;
+	firedMigrations = 0;
 	for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
 		 vmg != migrationMsg->migrations.end();
          ++vmg) {
@@ -100,9 +100,9 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
 			 */
-			fds_verify(maxTokens > 0);
-			firedTokens++;
-			if (firedTokens == maxTokens) {
+			fds_verify(maxMigrations > 0);
+			firedMigrations++;
+			if (firedMigrations == maxMigrations) {
 				autoIncrement = true;
 				// from this point on, all the other executors must have autoIncrement == TRUE
 			}
@@ -131,7 +131,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	 * sides communicate with each other before we allow the call to unblock and returns
 	 * a OK response.
 	 * TODO(Neil) - the "startMigration()" method is not optimized for multithreading.
-	 * We need to revisit this and work with the maxTokens concept to start x concurrent
+	 * We need to revisit this and work with the maxMigrations concept to start x concurrent
 	 * threads.
 	 */
 	SCOPEDWRITE(migrExecutorLock);
@@ -144,6 +144,14 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 			 * Abort everything
 			 */
 			err = ERR_DM_MIGRATION_ABORTED;
+			/**
+			 * TODO(Neil) -
+			 * Right now we only support DM Add node migration that is initiated by the OM.
+			 * In the future, when we have multiple ways to do migration, we may have
+			 * sub sets of executors. This executorMap blow-away will not work then.
+			 * So once that happens, write a new error handling method to handle removing
+			 * the correct subset of executors from the executor map.
+			 */
 			executorMap.clear();
 			break;
 		} else if (loopFireNext) {
@@ -256,7 +264,7 @@ DmMigrationMgr::migrationClientAsyncTask(fds_volid_t uniqueId)
 
 
 	// Call this just before the migrDoneHandler
-	dataManager.timeVolCat_->queryIface()->deleteVolumeSnapshot(uniqueId, opts);
+	dataManager.timeVolCat_->queryIface()->freeVolumeSnapshot(uniqueId, opts);
 	fds_verify(client->migrDoneHandler != nullptr);
 	client->migrDoneHandler(uniqueId, threadErr);
 

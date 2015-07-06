@@ -112,8 +112,8 @@ class DmMigrationMgr {
      * Throttles the number of max concurrent migrations
      * Below are protected by migrExecutorLock.
      */
-    fds_uint32_t maxTokens;
-    fds_uint32_t firedTokens;
+    fds_uint32_t maxMigrations;
+    fds_uint32_t firedMigrations;
     // Bookmark for last fired executor
     DmMigrationExecMap::iterator mit;
 

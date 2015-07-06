@@ -264,14 +264,14 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * Takes a snapshot and returns a pointer to the snapshot for
      * further diff, operations.
      * This is used for migrations, etc.
-     * Caller MUST free the snapshot once done with it using deleteVolumeSnapshot below.
+     * Caller MUST free the snapshot once done with it using freeInMemorySnapshot below.
      */
     Error getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts);
 
     /**
      * Given a volume snapshot within opts, delete the snapshot.
      */
-    Error deleteVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts);
+    Error freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts);
 
   private:
     // methods
