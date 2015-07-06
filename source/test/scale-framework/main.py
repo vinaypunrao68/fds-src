@@ -25,11 +25,17 @@ import utils
 import httplib
 import boto
 
-if not boto.config.has_section('Boto'):
+
+def boto_logging():
+    if not boto.config.has_section('Boto'):
         boto.config.add_section('Boto')
-boto.config.set("Boto", "debug", "2")
-boto.set_file_logger("boto", "/home/pairing/tmp/boto.log")
-logging.getLogger("boto").setLevel(logging.DEBUG)
+    boto.config.set("Boto", "debug", "2")
+    boto_log = os.path.join(os.getcwd(), "boto.log")
+    if not os.path.exists(boto_log):
+        fp = open(boto_log, 'w')
+        fp.close()
+    boto.set_file_logger("boto", os.path.join(os.getcwd(), "boto.log"))
+    logging.getLogger("boto").setLevel(logging.DEBUG)
 
 '''
 The class Operation is responsible for creating all the test sets, with
@@ -270,6 +276,9 @@ if __name__ == '__main__':
                         default=1,
                         help='Specify how many nodes will go to a multi node' \
                         ' cluster.')
+    parser.add_argument('-l', '--log',
+                        default=None,
+                        help='Specify if logging is to be used')
     parser.add_argument('-t', '--type',
                         default='baremetal',
                         help='Specify if the cluster will be created using' \
