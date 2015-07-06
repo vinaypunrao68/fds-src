@@ -310,6 +310,9 @@ fds: {
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
 
+	/* Toggle for serializing requests for consistency */
+        req_serialization = {{ sm_req_serialization }}
+
         /* daemonize or not */
         daemonize=true
 
