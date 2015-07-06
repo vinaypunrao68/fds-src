@@ -48,6 +48,7 @@ namespace fds
 
         void SvcHandler::removeService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyRemoveServiceMsg> &removeServiceMessage)
         {
+            platform->removeService(removeServiceMessage);
             sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 
@@ -59,6 +60,7 @@ namespace fds
 
         void SvcHandler::stopService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStopServiceMsg> &stopServiceMessage)
         {
+            platform->stopService(stopServiceMessage);
             sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
 

@@ -41,13 +41,13 @@ static void add_service_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  /
     fpi::SvcInfo svcInfo;
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
-    
+
     /* Getting from svc map.  Should be able to get it from config db as well */
     if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
         GLOGWARN << "could not find svcinfo for uuid:" << svcUuid.svc_uuid;
         return;
     }
-    
+
     fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
     nodeInfo.node_uuid = SvcMgr::mapToSvcUuid(svcUuid, fpi::FDSP_PLATFORM).svc_uuid;
     nodeInfo.service_uuid = svcUuid.svc_uuid;
@@ -110,7 +110,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
     int32_t AddService(const fpi::NotifyAddServiceMsg& add_svc_msg) { return 0;}
-    int32_t StartService(const fpi::NotifyStartServiceMsg& start_svc_mgs) { return 0; }
+    int32_t StartService(const fpi::NotifyStartServiceMsg& start_svc_msg) { return 0; }
+    int32_t StopService(const fpi::NotifyStopServiceMsg& stop_svc_msg) { return 0; }
+    int32_t RemoveService(const fpi::NotifyRemoveServiceMsg& rm_svc_msg) { return 0; }
     void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
     void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& ret, const int32_t ignore) {}
     void removeLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
@@ -280,33 +282,33 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if ( domainID <= 0 )
         {
             LOGERROR << "Local Domain not found: " << domainName;
-            
-            apiException( "Error starting Local Domain " + 
-                          *domainName + 
+
+            apiException( "Error starting Local Domain " +
+                          *domainName +
                           ". Local Domain not found." );
         }
-        
+
         /*
-         * Currently (05/05/2015) we only have support for one Local Domain. 
-         * So the specified name is ignored. At some point we should be able 
+         * Currently (05/05/2015) we only have support for one Local Domain.
+         * So the specified name is ignored. At some point we should be able
          * to look up the DomainContainer based on Domain ID (or name).
          */
-        
+
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         try
         {
             domain->om_startup_domain();
         }
-        catch(...) 
+        catch(...)
         {
             LOGERROR << "Orch Manager encountered exception while "
                             << "processing startup local domain";
-            apiException( "Error starting up Local Domain " + 
-                          *domainName + 
-                          " Services. Broadcast startup failed." );        
+            apiException( "Error starting up Local Domain " +
+                          *domainName +
+                          " Services. Broadcast startup failed." );
         }
     }
-    
+
     /**
     * Shutdown the named Local Domain.
     *
@@ -317,14 +319,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         if (domainID <= 0) {
             LOGERROR << "Local Domain not found: " << domainName;
-            apiException( "Error shutting down Local Domain " + 
-                          *domainName + 
+            apiException( "Error shutting down Local Domain " +
+                          *domainName +
                           ". Local Domain not found.");
         }
 
         /*
-         * Currently (3/21/2015) we only have support for one Local Domain. 
-         * So the specified name is ignored. At some point we should be able 
+         * Currently (3/21/2015) we only have support for one Local Domain.
+         * So the specified name is ignored. At some point we should be able
          * to look up the DomainContainer based on Domain ID (or name).
          */
 
@@ -454,7 +456,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
-                    pmUuid = svcInfo.svc_id.svc_uuid;
+                    pmUuid = svcInfo.svc_id.svc_uuid; //FIX::This does not look right pmUuid is a class type
+                    // probably need something like pmUuid._set_svc_uuid(svcInfo.svc_id.svc_uuid)
                 }
             }
             LOGNORMAL << "Received Add Service request";
@@ -494,6 +497,116 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return err.GetErrno();
     }
 
+    int32_t StopService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyStopServiceMsg>& stop_svc_msg) {
+        LOGDEBUG << "configService::StopService entered";
+        Error err(ERR_OK);
+        fpi::SvcUuid pmUuid;
+
+        try {
+            LOGNORMAL << "Received stop service request";
+
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+            std::vector<fpi::SvcInfo> svcInfos = stop_svc_msg->services;
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    pmUuid = svcInfo.svc_id.svc_uuid;
+                }
+            }
+
+            err = local->om_stop_service(pmUuid, svcInfos);
+            /*
+            std::vector<fpi::SvcInfo> svcInfos = stop_svc_msg->services;
+
+            NodeUuid node_uuid;
+            fds_bool_t removesm, removedm, removeam;
+
+            for(fpi::SvcInfo svcInfo : svcInfos) {
+
+                if(svcInfo.svc_type == fpi::FDSP_PLATFORM) {
+                    node_uuid = svcInfo.svc_id.svc_uuid;
+                }
+                else if(svcInfo.svc_type == fpi::FDSP_STOR_MGR) {
+                    removesm = true;
+                }
+                else if(svcInfo.svc_type == fpi::FDSP_DATA_MGR) {
+                    removedm = true;
+                }
+                else if(svcInfo.svc_type == fpi::FDSP_ACCESS_MGR) {
+                    removeam = true;
+                }
+            }
+            if(node_uuid == 0)
+                LOGERROR << "RemoveServices encountered a 0 value node_uuid";
+
+            err = domain->om_del_services(node_uuid,
+                                          node_name,
+                                          removesm,
+                                          removedm,
+                                          removeam);
+
+            if (!err.ok()) {
+                LOGERROR << "RemoveServices - om_del_services failed "
+                         << node_name << ", uuid "
+                         << std::hex << node_uuid
+                         << std::dec << ", result: " << err.GetErrstr();
+            }
+            else {
+                // Once the delete services is done, we need to set it up to send to
+                // platform to stop services
+                OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+                err = local->om_stop_service(stop_svc_msg);
+
+                if (!err.ok()) {
+                    LOGERROR << "RemoveServices - om_stop_service failed "
+                             << node_name << ", uuid "
+                             << std::hex << node_uuid
+                             << std::dec << ", result: " << err.GetErrstr();
+                }
+
+            }
+            */
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                     << "processing stop service";
+            err = Error(ERR_NOT_FOUND);
+        }
+
+        return err.GetErrno();
+    }
+
+    int32_t RemoveService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyRemoveServiceMsg>& rm_svc_msg) {
+
+        LOGDEBUG << "configService::RemoveService entered";
+        Error err(ERR_OK);
+        fpi::SvcUuid pmUuid;
+
+        try {
+            LOGNORMAL << "Received remove service request";
+
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+            std::vector<fpi::SvcInfo> svcInfos = rm_svc_msg->services;
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    pmUuid = svcInfo.svc_id.svc_uuid;
+                }
+            }
+
+            err = local->om_remove_service(pmUuid, svcInfos);
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                     << "processing stop service";
+            err = Error(ERR_NOT_FOUND);
+        }
+        return err.GetErrno();
+    }
+
     /**
     * List all defined Services for all Nodes defined for the named Local Domain.
     *
@@ -502,27 +615,27 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return, 
+    void listLocalDomainServices(std::vector<fpi::FDSP_Node_Info_Type>& _return,
                                  boost::shared_ptr<std::string>& domainName) {
         /*
-         * Currently (3/18/2015) only support for one Local Domain. 
+         * Currently (3/18/2015) only support for one Local Domain.
          * So the specified name is ignored. Also, we should be using Domain UUID.
          */
 
         std::vector<fpi::SvcInfo> svcinfos;
-        if ( configDB->getSvcMap( svcinfos ) ) 
+        if ( configDB->getSvcMap( svcinfos ) )
         {
-            if ( svcinfos.size( ) > 0 ) 
+            if ( svcinfos.size( ) > 0 )
             {
                 for ( const fpi::SvcInfo svcinfo : svcinfos )
                 {
                     _return.push_back( fds::fromSvcInfo( svcinfo ) );
                 }
-            } 
+            }
             else
             {
-                LOGNORMAL << "No persisted local domain ( " 
-                          << domainName 
+                LOGNORMAL << "No persisted local domain ( "
+                          << domainName
                           << " ) services found.";
             }
         }
@@ -756,8 +869,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (vol) {
             vol->vol_fmt_desc_pkt(&_return);
             LOGDEBUG << "Volume " << vol_info_req->vol_name
-                     << " -- min iops (assured) " << _return.iops_assured 
-                     << ",max iops (throttle) " << _return.iops_throttle 
+                     << " -- min iops (assured) " << _return.iops_assured
+                     << ",max iops (throttle) " << _return.iops_throttle
                      << ", prio " << _return.rel_prio
                      << " media policy " << _return.mediaPolicy;
         } else {
@@ -1019,7 +1132,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 _return.iops_assured = qosPolicy.iops_assured;
                 _return.iops_throttle = qosPolicy.iops_throttle;
                 _return.rel_prio = qosPolicy.relativePrio;
-                
+
                 LOGNOTIFY << "QoS Policy modification succeded. " << _return.policy_id << ": " << *currentPolicyName;
             } else {
                 LOGERROR << "Some issue in QoS Policy modification: " << *currentPolicyName;
@@ -1197,25 +1310,25 @@ std::thread* runConfigService(OrchMgr* om) {
     int port = MODULEPROVIDER()->get_conf_helper().get_abs<int>("fds.om.config_port", 9090);
     LOGDEBUG << "Starting Configuration Service, listening on port: " << port;
 
-    boost::shared_ptr<TServerTransport> serverTransport( 
+    boost::shared_ptr<TServerTransport> serverTransport(
         new TServerSocket( port ) );  //NOLINT
-    boost::shared_ptr<TTransportFactory> transportFactory( 
+    boost::shared_ptr<TTransportFactory> transportFactory(
         new TFramedTransportFactory( ) );
-    boost::shared_ptr<TProtocolFactory> protocolFactory( 
+    boost::shared_ptr<TProtocolFactory> protocolFactory(
         new TBinaryProtocolFactory( ) );  //NOLINT
 
     boost::shared_ptr<apis::ConfigurationServiceHandler> handler(
         new apis::ConfigurationServiceHandler( om ) ); // NOLINT
     boost::shared_ptr<TProcessor> processor(
         new apis::ConfigurationServiceProcessor( handler ) ); // NOLINT
-    
+
     TThreadedServer server( processor,
                             serverTransport,
                             transportFactory,
                             protocolFactory );
 
-    server.serve();   
-    
+    server.serve();
+
     return nullptr;
 }
 

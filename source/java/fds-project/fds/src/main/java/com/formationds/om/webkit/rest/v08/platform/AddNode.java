@@ -17,6 +17,8 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -56,6 +58,10 @@ public class AddNode
         final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
         Node node = ObjectModelHelper.toObject( reader, Node.class );
 
+        if( node == null ) {
+	  		throw new ApiException( "The specified node uuid " + nodeUuid + " cannot be found", ErrorCode.MISSING_RESOURCE );
+  		}
+        
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         boolean pmPresent = false;
 

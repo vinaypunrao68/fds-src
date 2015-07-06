@@ -183,6 +183,15 @@ service ConfigurationService {
    * Start Service - node specific command
    */
   i32 StartService(1:node_svc_api.NotifyStartServiceMsg req),
+   /**
+   * Stop Service - node specific command
+   */
+  i32 StopService(1:node_svc_api.NotifyStopServiceMsg req),
+   /**
+   * Remove Service - node specific command
+   */
+  i32 RemoveService(1:node_svc_api.NotifyRemoveServiceMsg req),
+
   /**
    * Create a new tenant.
    *

@@ -530,6 +530,7 @@ namespace fds
 
         void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
         {
+            LOGDEBUG << "Received deactivateServices message";
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
             if (deactivateMsg->deactivate_am_svc && m_nodeInfo.fHasAm)
@@ -667,7 +668,7 @@ LOGDEBUG << "received a remove service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_PRESENT);
+                        updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_PRESENT);
 
                     } break;
 
@@ -819,7 +820,7 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                             else            // SERVICE_NOT_RUNNING
                             {
-                                LOGDEBUG << "No operation performed, received a start service request for the DM service, but it is already stopped.";
+                                LOGDEBUG << "No operation performed, received a stop service request for the DM service, but it is already stopped.";
                             }
                         }
 
@@ -839,7 +840,7 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                             else            // SERVICE_NOT_RUNNING
                             {
-                                LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already stopped.";
+                                LOGDEBUG << "No operation performed, received a stop service request for the SM service, but it is already stopped.";
                             }
                         }
 

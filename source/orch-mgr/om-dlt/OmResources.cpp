@@ -2129,6 +2129,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     fds_verify(newNode != NULL);
 
+    LOGDEBUG<< "!! Setting up new node, node state is up";
     // tell parent PM Agent about its new service
     newNode->set_node_state(fpi::FDS_Node_Up);
 
@@ -2239,6 +2240,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 {
     TRACEFUNC;
     Error err(ERR_OK);
+    LOGDEBUG << "Entered om_del_services";
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
     // and unregister service resources

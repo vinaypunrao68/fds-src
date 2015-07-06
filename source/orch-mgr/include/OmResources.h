@@ -219,6 +219,14 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos);
     /**
+     * Send 'stop service' message to Platform
+     */
+    Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos);
+    /**
+     * Send 'remove service' message to Platform
+     */
+    Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos);
+    /**
      * Send 'deactivate services' message to Platform
      */
     Error send_deactivate_services(fds_bool_t deactivate_sm,
@@ -601,6 +609,11 @@ class OM_NodeContainer : public DomainContainer
                                  std::vector<fpi::SvcInfo> svcInfos);
     virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
                                    std::vector<fpi::SvcInfo> svcInfos);
+
+    virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
+                                  std::vector<fpi::SvcInfo> svcInfos);
+    virtual Error om_remove_service(const fpi::SvcUuid& svc_uuid,
+                                    std::vector<fpi::SvcInfo> svcInfos);
 
     virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
                                                fds_bool_t activate_dm,

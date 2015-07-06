@@ -492,6 +492,18 @@ public class XdiConfigurationApi implements ConfigurationApi {
             throws TException {
         return config.StartService(start_svc_req);
     }
+    
+    @Override
+    public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
+            throws TException {
+        return config.StopService(stop_svc_req);
+    }
+   
+    @Override
+    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rmv_svc_req)
+            throws TException {
+        return config.RemoveService(rmv_svc_req);
+    }
 
     @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
