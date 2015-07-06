@@ -6,6 +6,7 @@ from utils.converters.admin.tenant_converter import TenantConverter
 from services.response_writer import ResponseWriter
 from utils.converters.admin.user_converter import UserConverter
 from model.admin.tenant import Tenant
+from model.fds_error import FdsError
 
 class TenantPlugin( AbstractPlugin):
     '''
@@ -117,6 +118,9 @@ class TenantPlugin( AbstractPlugin):
         
         tenants = self.get_tenant_service().list_tenants()
         
+        if isinstance( tenants, FdsError ):
+            return
+        
         if len(tenants) == 0:
             print "\nNo tenancies were found."
             return
@@ -139,6 +143,9 @@ class TenantPlugin( AbstractPlugin):
         '''
         
         users = self.get_tenant_service().list_users_for_tenant(args[AbstractPlugin.tenant_id_str])
+        
+        if isinstance( users, FdsError ):
+            return
         
         if args[AbstractPlugin.format_str] == "json":
             j_users = []
@@ -173,7 +180,7 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().assign_user_to_tenant( args[AbstractPlugin.tenant_id_str], args[AbstractPlugin.user_id_str] )
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_users(args)
             
     def remove_user(self, args):
@@ -183,6 +190,6 @@ class TenantPlugin( AbstractPlugin):
         
         response = self.get_tenant_service().remove_user_from_tenant( args[AbstractPlugin.tenant_id_str], args[AbstractPlugin.user_id_str] )
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_users(args)
         
