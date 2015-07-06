@@ -213,6 +213,10 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                 workerExceptions.addSuppressed(error);
             }
         }
+        if (workerExceptions != null)
+        {
+        	throw workerExceptions;
+        }
     }
 
     /**

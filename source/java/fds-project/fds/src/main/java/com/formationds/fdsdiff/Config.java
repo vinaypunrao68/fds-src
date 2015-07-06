@@ -2,6 +2,7 @@ package com.formationds.fdsdiff;
 
 import static com.formationds.commons.util.Strings.javaString;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
@@ -73,13 +74,17 @@ public final class Config extends AbstractConfig
 	{
 		if (_endpointA == null)
 		{
-			// FIXME: Implement.
-//			_endpointA = new OrchestrationManagerEndpoint(getEndpointAUrl(),
-//					                                      "admin",
-//					                                      "admin",
-//					                                      AbstractConfig.Defaults.getLogger(),
-//					                                      true,
-//					                                      null);
+			URI endpointAUrl = getEndpointAUrl();
+			try {
+				_endpointA = new OrchestrationManagerEndpoint(endpointAUrl,
+						                                      "admin",
+						                                      "admin",
+						                                      AbstractConfig.Defaults.getLogger(),
+						                                      true,
+						                                      null);
+			} catch (MalformedURLException e) {
+				throw new ParseException("Error reading endpoint URL: " + endpointAUrl);
+			}
 		}
 		return _endpointA;
 	}
@@ -111,21 +116,21 @@ public final class Config extends AbstractConfig
 		return _endpointAUrl;
 	}
 	
-	public Optional<String> getInputFilename() throws ParseException
+	public String getInputFilename() throws ParseException
 	{
 		if (_inputFilename == null)
 		{
-			_inputFilename = getCommandLineOptionValue("input");
+			_inputFilename = getCommandLineOptionValue("input").orElse("-");
 		}
 		
 		return _inputFilename;
 	}
 	
-	public Optional<String> getOutputFilename() throws ParseException
+	public String getOutputFilename() throws ParseException
 	{
 		if (_outputFilename == null)
 		{
-			_outputFilename = getCommandLineOptionValue("output");
+			_outputFilename = getCommandLineOptionValue("output").orElse("-");
 		}
 		
 		return _outputFilename;
@@ -157,7 +162,7 @@ public final class Config extends AbstractConfig
 
 	private Optional<URI> _endpointBUrl;
 	
-	private Optional<String> _inputFilename;
+	private String _inputFilename;
 	
-	private Optional<String> _outputFilename;
+	private String _outputFilename;
 }

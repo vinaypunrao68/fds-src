@@ -42,15 +42,12 @@ export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
 export PATH=${PATH}:./bin
 export PATH=${PATH}:../sbin
 
-<<<<<<< HEAD
 if [[ ! -z "${DEBUG_PORT}" ]]; then
     DEBUG_OPTS='-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address='"${DEBUG_PORT}"
 fi
 
 java $JAVA_OPTS -classpath $CLASSPATH ${DEBUG_OPTS} com.formationds.om.Main $args
-||||||| merged common ancestors
-java $JAVA_OPTS -classpath $CLASSPATH com.formationds.om.Main $args
-=======
+
 # JAVA dependencies
 export JAVA_OPTS="-Xmx2048M -Xms20M"
 export JAVA_HOME=/opt/fds-deps/embedded/jre
@@ -61,6 +58,4 @@ export CLASSPATH=${CLASSPATH}:../lib/java/\*
 # JAVA Main executable dependency
 export MAIN_CLASS=com.formationds.om.Main
 
-
-${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} > ./om.out 2>&1
->>>>>>> origin/master
+${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${DEBUG_OPTS} ${MAIN_CLASS} --foreground --fds-root=${fds_root} > ./om.out 2>&1

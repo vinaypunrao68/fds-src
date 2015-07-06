@@ -68,6 +68,14 @@ public final class Fds
                 }
             }
 
+            public static URI getTenants()
+            {
+            	final URI apiBase = V08.getBase();
+            	final URI tenantsPath = Uris.tryGetRelativeUri("tenants/");
+            	
+            	return Uris.resolve(apiBase, tenantsPath);
+            }
+            
             /**
              * URL to get system volumes.
              *
