@@ -202,16 +202,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     req->onResponseCb(cb);
     req->invoke();
     if (desc != NULL) {
-        LOGNORMAL << log << desc->volUUID << " " << desc->name
-                  << " to node " << get_node_name() << std::hex
-                  << ", uuid " << get_uuid().uuid_get_val() << std::dec;
+        LOGDEBUG << log << desc->volUUID << " " << desc->name
+                 << " to node " << get_node_name() << std::hex
+                 << ", uuid " << get_uuid().uuid_get_val() << std::dec;
     } else {
         
         /*
          * TODO Tinius 02/11/2015
          * 
-         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
-            
+         * FS-936 -- AM and OM continously log errors with 
+         * "invalid bucket SYSTEM_VOLUME_0"
+         *   
          * Not sure if this is expected behavior? Once re-written we will
          * handle this correctly. But for now remove the logging noise
          * 

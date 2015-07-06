@@ -1374,7 +1374,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             DataPlacement *dp = om->om_dataplace_mod();
             VolumePlacement* vp = om->om_volplace_mod();
             dp->commitDlt();
-            vp->commitDMT();
+            vp->commitDMT( true );
                         
             spoofRegisterSvcs( pmSvcs );
             spoofRegisterSvcs( smSvcs );
@@ -1505,8 +1505,8 @@ OM_NodeDomainMod::om_load_volumes()
     std::vector<VolumeDesc>::const_iterator volumeIter;
     configDB->getVolumes(vecVolumes, my_domainId);
     if (vecVolumes.empty()) {
-        LOGWARN << "no volumes found for domain "
-                << "[" << my_domainId << "]";
+        LOGDEBUG << "no volumes found for domain "
+                 << "[" << my_domainId << "]";
     } else {
         LOGNORMAL << vecVolumes.size() << " volumes found for domain "
                   << "[" << my_domainId << "]";
@@ -1518,8 +1518,8 @@ OM_NodeDomainMod::om_load_volumes()
                  << "[" << volume.volUUID << ":" << volume.name << "]";
 
         if (volume.isStateDeleted()) {
-            LOGWARN << "not loading deleted volume : "
-                    << "[" << volume.volUUID << ":" << volume.name << "]";
+            LOGDEBUG << "not loading deleted volume : "
+                     << "[" << volume.volUUID << ":" << volume.name << "]";
         } else if (!om_locDomain->addVolume(volume)) {
             LOGERROR << "unable to add volume "
                      << "[" << volume.volUUID << ":" << volume.name << "]";

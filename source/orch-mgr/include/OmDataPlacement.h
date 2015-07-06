@@ -524,6 +524,7 @@ namespace fds {
          * Commits the current DLT as an 'official' copy
          */
         void commitDlt();
+        void commitDlt( const bool unsetDmt );
 
         /**
          * Stores commited DLT to the permanent DLT history
