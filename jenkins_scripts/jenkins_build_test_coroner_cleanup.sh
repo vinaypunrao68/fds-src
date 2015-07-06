@@ -79,7 +79,7 @@ function startup
 
 function configure_symlinks
 {
-    echo "***** RUNNING /fds symlink configuration *****"
+    echo "IIIII RUNNING /fds symlink configuration" 
     pushd source >/dev/null
     ./dev_make_install.sh
     popd > /dev/null
@@ -241,7 +241,7 @@ function python_unittest_discovery
 
 function run_python_unit_tests
 {
-    message "***** RUNNING Python unit tests"
+    message "IIIII RUNNING Python unit tests"
 
     # Run Unit Test
     start_time=$(date +%s)
@@ -255,7 +255,7 @@ function run_python_unit_tests
 
 function run_cpp_unit_tests
 {
-    message "***** RUNNING C++ unit tests"
+    message "IIIII RUNNING C++ unit tests"
 
     # Run Unit Test
     pushd jenkins_scripts
@@ -299,9 +299,9 @@ function system_test_scenario_wrapper
 
     pushd source/test/testsuites
 
-    message "***** RUNNING System Test Scenario:  ${scenario} *****"
+    message "IIIII RUNNING System Test Scenario:  ${scenario}"
     ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose
-    echo "***** ActiveIOKillTest complete - exit with: ${?} *****"
+    echo "***** Scenario complete:  ${scenario} complete - exit with: ${?}"
 
     popd
 
@@ -338,7 +338,7 @@ function system_test_force_failure
 
 function run_node_cleanup
 {
-    message "***** RUNNING post build node cleanup"
+    message "IIIII RUNNING post build node cleanup"
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
     then
@@ -367,7 +367,7 @@ function run_coroner
         TEST_WORKSPACE=${local_build_root}
     fi
 
-    message "***** RUNNING coroner"
+    message "IIIII RUNNING coroner"
 
     pushd ${TEST_WORKSPACE}
 
@@ -402,9 +402,10 @@ error_trap_disabled
 build_fds
 cache_report
 
-configure_console_access
+configure_console_access      # Must be complted after the build
+
 run_python_unit_tests
 run_cpp_unit_tests
 run_system_test_scenarios
 
-run_node_cleanup 0
+run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0
