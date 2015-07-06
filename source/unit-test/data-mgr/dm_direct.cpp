@@ -11,7 +11,7 @@
 #include <string>
 #include <thread>
 #include <google/profiler.h>
-
+#include <iostream>
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
 
@@ -395,15 +395,16 @@ TEST_F(DmUnitTest, Serialization) {
     putBlobOnce->volume_id = dmTester->TESTVOLID.get();
     putBlobOnce->dmt_version = 1;    
     fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-
     taskCount.reset(NUM_BLOBS);
     uint64_t txnId;
+    dataMgr->features.setQosEnabled(true);
     TIMEDBLOCK("process") {
         for (uint i = 0; i < NUM_BLOBS; i++) {
             handler->handleRequest(asyncHdr, putBlobOnce);
         }
         taskCount.await();
     }
+    dataMgr->features.setQosEnabled(false);
     printStats();
 }
 

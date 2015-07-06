@@ -177,10 +177,10 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) {
-    Catalog::catalog_roptions_t opts;
-    auto dbIt = getSnapshotIter(opts);
-    if (!dbIt) {
+Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) {
+	auto dbIt = getExistingSnapshotIter(opts);
+	if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
         return ERR_INVALID;
     }
@@ -194,17 +194,28 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blob
                 return ERR_SERIALIZE_FAILED;
             }
             blobsSeqId.emplace(reinterpret_cast<const BlobObjKey *>(dbKey.data())->blobId,
-                               blobMeta.desc.version);
+                               blobMeta.desc.sequence_id);
         }
     }
 
-    if (dbIt->status().ok()) {
-        return ERR_OK;
-    }else{
+    if (!dbIt->status().ok()) {
         LOGERROR << "Error during generating set of blobs with sequence Ids for volume=" << volId_
                  << " with error=" << dbIt->status().ToString();
         return status2error(dbIt->status());
     }
+
+	return (ERR_OK);
+}
+
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) {
+    Catalog::catalog_roptions_t opts;
+    Error err(ERR_OK);
+
+    catalog_->GetSnapshot(opts);
+    err = getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
+    catalog_->ReleaseSnapshot(opts);
+
+    return err;
 }
 
 Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
@@ -568,4 +579,19 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     batch.Delete(keyRec);
     return catalog_->Update(&batch);
 }
+
+Error DmPersistVolDB::getInMemorySnapshot(Catalog::catalog_roptions_t &opts) {
+    auto dbIt = getSnapshotIter(opts);
+    if (!dbIt) {
+        LOGERROR << "Error searching latest sequence id for volume " << volId_;
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
+Error DmPersistVolDB::freeInMemorySnapshot(Catalog::catalog_roptions_t &opts)  {
+	catalog_->ReleaseSnapshot(opts);
+	return ERR_OK;
+}
+
 }  // namespace fds

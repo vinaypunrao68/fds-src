@@ -14,7 +14,7 @@ class DataMgr;
 /**
  * Callback for once client is finished with migration.
  */
-typedef std::function<void (fds_uint64_t clientId,
+typedef std::function<void (fds_volid_t clientId,
                             const Error& error)> DmMigrationClientDoneHandler;
 
 class DmMigrationClient {
@@ -30,7 +30,14 @@ class DmMigrationClient {
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
-  private:
+
+    // XXX: only public so we can unit test it
+    static Error diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& dest,
+                        const std::map<fds_uint64_t, sequence_id_t>& source,
+                        std::vector<fds_uint64_t>& update_list,
+                        std::vector<fds_uint64_t>& delete_list);
+
+ private:
     /**
      * Reference to the Data Manager.
      */
@@ -49,6 +56,7 @@ class DmMigrationClient {
      * Callback to talk to DM Migration Manager
      */
     DmMigrationClientDoneHandler migrDoneHandler;
+    friend class DmMigrationMgr;
 
 };  // DmMigrationClient
 
@@ -56,4 +64,3 @@ class DmMigrationClient {
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
-
