@@ -42,8 +42,8 @@ struct AmVolumeTable : public HasLogger {
     Error processAttach(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
 
     Error registerVolume(const VolumeDesc& volDesc);
-    Error removeVolume(std::string const& volName, fds_volid_t const volId);
-    Error removeVolume(const VolumeDesc& volDesc)
+    volume_ptr_type removeVolume(std::string const& volName, fds_volid_t const volId);
+    volume_ptr_type removeVolume(const VolumeDesc& volDesc)
         { return removeVolume(volDesc.name, volDesc.volUUID); }
 
     /**

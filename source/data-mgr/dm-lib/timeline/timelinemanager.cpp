@@ -14,14 +14,16 @@ TimelineManager::TimelineManager(fds::DataMgr* dm): dm(dm) {
     if (!err.ok()) {
         LOGERROR << "unable to open timeline db";
     }
+    journalMgr.reset(new JournalManager(dm));
 }
 
 boost::shared_ptr<TimelineDB> TimelineManager::getDB() {
     return timelineDB;
 }
-    
-Error TimelineManager::deleteSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
-    Error err;
+
+Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    Error err = loadSnapshot(volId, snapshotId);
+
     return err;
 }
 
@@ -53,6 +55,10 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
     for (const auto& snap : vecDirs) {
         snapId = std::atoll(snap.c_str());
         //now add the snap
+        if (dm->getVolumeDesc(snapId) != NULL) {
+            LOGWARN << "snapshot:" << snapId << " already loaded";
+            continue;
+        }
         VolumeDesc *desc = new VolumeDesc(*(dm->getVolumeDesc(volid)));
         desc->fSnapshot = true;
         desc->srcVolumeId = volid;
@@ -68,7 +74,14 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
                                                         snapId,
                                                         GetLog(),
                                                         desc);
-        dm->vol_meta_map[snapId] = meta;
+        {
+            FDSGUARD(dm->vol_map_mtx);
+            if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
+                LOGWARN << "snapshot:" << snapId << " already loaded";
+                continue;
+            }
+            dm->vol_meta_map[snapId] = meta;
+        }
         LOGDEBUG << "Adding snapshot" << " name:" << desc->name << " vol:" << desc->volUUID;
         err = dm->timeVolCat_->addVolume(*desc);
         if (!err.ok()) {
@@ -167,7 +180,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
     if (err.ok()) {
         LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
         err = dm->timeVolCat_->activateVolume(vdesc->volUUID);
-        Error replayErr = dm->timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
+        Error replayErr = journalMgr->replayTransactions(srcVolumeId, vdesc->volUUID,
                                                               snapshotTime, createTime);
 
         if (!replayErr.ok()) {

@@ -86,6 +86,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    enableReqSerialization = modProvider_->get_fds_config()->get<bool>(
+        "fds.feature_toggle.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -465,13 +467,18 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         float_t pct_used = objectStore->getUsedCapacityAsPct();
-        if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
             // Send thrift message to OM alerting it that we've hit capacity
-
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
@@ -1173,8 +1180,10 @@ ObjectStorMgr::storeCurrentDLT()
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
-
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+
+    // Create the key to use during serialization.
+    SerialKey key(io->getVolId(), io->getClientSvcId());
 
     switch (io->io_type) {
         case FDS_IO_READ:
@@ -1186,33 +1195,61 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_DELETE_OBJECT:
         {
             LOGDEBUG << "Processing a Delete request";
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->schedule(keyHash(key),
+                                         std::bind(&ObjectStorMgr::deleteObjectInternal,
+                                                   objStorMgr,
+                                                   static_cast<SmIoDeleteObjectReq *>(io)));
+            } else {
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_GET_OBJECT:
         {
             LOGDEBUG << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoGetObjectReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->schedule(keyHash(key),
+                                         std::bind(&ObjectStorMgr::getObjectInternal,
+                                                   objStorMgr,
+                                                   static_cast<SmIoGetObjectReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_PUT_OBJECT:
         {
             LOGDEBUG << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoPutObjectReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->schedule(keyHash(key),
+                                         std::bind(&ObjectStorMgr::putObjectInternal,
+                                                   objStorMgr,
+                                                   static_cast<SmIoPutObjectReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_ADD_OBJECT_REF:
         {
             LOGDEBUG << "Processing and add object reference request";
-            threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoAddObjRefReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->schedule(keyHash(key),
+                                         std::bind(&ObjectStorMgr::addObjectRefInternal,
+                                                   objStorMgr,
+                                                   static_cast<SmIoAddObjRefReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoAddObjRefReq *>(io));
+            }
             break;
         }
         case FDS_SM_SNAPSHOT_TOKEN:

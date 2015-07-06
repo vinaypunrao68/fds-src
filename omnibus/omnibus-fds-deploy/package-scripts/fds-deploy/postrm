@@ -1,9 +1,0 @@
-#!/bin/bash
-#
-# Perform necessary fds-deploy removal steps
-# after package is uninstalled.
-#
-
-echo "fds-deploy has been uninstalled!"
-
-exit 0

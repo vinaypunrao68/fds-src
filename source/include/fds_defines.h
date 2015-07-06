@@ -26,4 +26,5 @@
 #define TO_DERIVED(T,ptr) dynamic_cast<T*>(ptr) //NOLINT
 
 #define TYPE_SHAREDPTR(T) typedef boost::shared_ptr<T> ptr
+#define SHPTR boost::shared_ptr
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_
