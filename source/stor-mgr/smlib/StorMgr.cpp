@@ -476,7 +476,22 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            // Send thrift message to OM alerting it that we've hit capacity
+            SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+            // Send health check thrift message to OM
+            fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
+            healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
+            healthRepMsg->healthReport.serviceInfo.name = info.name;
+            healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
+            healthRepMsg->healthReport.serviceState = fpi::LIMITED;
+            healthRepMsg->healthReport.statusCode = ERR_SM_CAPACITY_FULL;
+            healthRepMsg->healthReport.statusInfo = "SM capacity is critical. Entering limited mode.";
+
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
+            request->invoke();
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
