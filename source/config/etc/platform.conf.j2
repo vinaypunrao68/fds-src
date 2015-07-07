@@ -312,6 +312,8 @@ fds: {
 
 	/* Toggle for serializing requests for consistency */
         req_serialization = {{ sm_req_serialization }}
+        /* Number of primary SMs; 0 means pre-consistency implementation */
+        number_of_primary = 2
 
         /* daemonize or not */
         daemonize=true
