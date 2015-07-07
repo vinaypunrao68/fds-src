@@ -25,7 +25,7 @@ public class ObjectUtilsTest
     public void testChecksum( ) throws Exception
     {
         final Map<String,String> props = new HashMap<>( );
-        final int inception = Long.valueOf( System.currentTimeMillis( ) ).intValue();
+        final int incarnation = Long.valueOf( System.currentTimeMillis( ) ).intValue();
         final long id = 1024L;
         final int port = 7000;
         final ServiceStatus status = ServiceStatus.SVC_STATUS_ACTIVE;
@@ -40,7 +40,7 @@ public class ObjectUtilsTest
                                          status,
                                          name,
                                          ip,
-                                         inception,
+                                         incarnation,
                                          name,
                                          props );
         final SvcInfo svc1 = new SvcInfo( new SvcID( new SvcUuid( id ),
@@ -50,7 +50,7 @@ public class ObjectUtilsTest
                                           status,
                                           name,
                                           ip,
-                                          inception,
+                                          incarnation,
                                           name,
                                           props );
         final SvcInfo svc2 = new SvcInfo( new SvcID( new SvcUuid( id ),
@@ -61,7 +61,8 @@ public class ObjectUtilsTest
                                           name,
                                           ip,
                                           /*
-                                           * same object just different start times ( inception )
+                                           * same object just different start times ( incarnation )
+                                           * will cause tests below to fail, i.e. assert false
                                            */
                                           Long.valueOf( System.currentTimeMillis( ) ).intValue(),
                                           name,
