@@ -89,6 +89,9 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoResyncInitialBlob(FdsDmSysTaskId, message, tmpUuid);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
+    dmReq->localCb = std::bind(&DmMigrationBlobFilterHandler::handleResponseReal, this,
+    							std::placeholders::_1, std::placeholders::_2,
+								std::placeholders::_3, std::placeholders::_4);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
@@ -101,10 +104,18 @@ void DmMigrationBlobFilterHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
 
-    dataManager.dmMigrationMgr->startMigrationClient(typedRequest->message, typedRequest->destNodeUuid);
+    helper.skipImplicitCb = true;
+
+    dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
 }
 
 void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
+			Error const& e, dmCatReq* dmRequest) {
+	// Empty, using Real below as an async callback
+}
+
+void DmMigrationBlobFilterHandler::handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
 			Error const& e, dmCatReq* dmRequest) {
 

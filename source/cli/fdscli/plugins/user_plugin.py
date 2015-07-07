@@ -6,6 +6,7 @@ from utils.converters.admin.user_converter import UserConverter
 import json
 from services.response_writer import ResponseWriter
 from model.admin.user import User
+from model.fds_error import FdsError
 
 class UserPlugin(AbstractPlugin):    
     '''
@@ -151,7 +152,7 @@ class UserPlugin(AbstractPlugin):
         
         me = self.get_user_service().who_am_i()
         
-        if me is None:
+        if not isinstance( me, FdsError ):
             return
         
         if args[AbstractPlugin.format_str] == "json":
@@ -176,7 +177,7 @@ class UserPlugin(AbstractPlugin):
         
         response = self.get_user_service().change_password(user.id, user)
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             print "\nPassword changed successfully."
 
             
@@ -187,5 +188,5 @@ class UserPlugin(AbstractPlugin):
         
         response = self.get_user_service().reissue_user_token(args[AbstractPlugin.user_id_str])
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             print "\nToken re-issued successfully."

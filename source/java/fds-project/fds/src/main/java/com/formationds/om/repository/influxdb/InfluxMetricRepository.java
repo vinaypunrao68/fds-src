@@ -287,7 +287,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
             Long timestamp = ((Double) timestampO).longValue();
             String volumeName = volumeIdO.toString();
-            String volumeId = volumeIdO.toString();
+            String volumeId = String.valueOf(((Double)volumeIdO).longValue());
 
             row.forEach( ( key, value ) -> {
 
