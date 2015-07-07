@@ -18,7 +18,7 @@
 
   <properties>
     <formationds.external.project.name>
-      ${formationds.project.name} external
+      ${formationds.project.name} External
     </formationds.external.project.name>
   </properties>
 
