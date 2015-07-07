@@ -1373,8 +1373,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             OM_Module *om = OM_Module::om_singleton();
             DataPlacement *dp = om->om_dataplace_mod();
             VolumePlacement* vp = om->om_volplace_mod();
-            dp->commitDlt();
-            vp->commitDMT( true );
+            dp->commitDlt( true );
+            vp->commitDMT( false );
                         
             spoofRegisterSvcs( pmSvcs );
             spoofRegisterSvcs( smSvcs );

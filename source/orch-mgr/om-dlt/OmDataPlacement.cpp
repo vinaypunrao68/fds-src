@@ -330,7 +330,7 @@ DataPlacement::commitDlt() {
     commitDlt( false );
 }
 void
-DataPlacement::commitDlt( const bool unsetDlt ) {
+DataPlacement::commitDlt( const bool unsetTarget ) {
     fds_verify(newDlt != NULL);
     placementMutex->lock();
     fds_uint64_t oldVersion = -1;
@@ -344,13 +344,14 @@ DataPlacement::commitDlt( const bool unsetDlt ) {
     }
 
     commitedDlt = newDlt;
-    if ( unsetDlt ) 
+    if ( unsetTarget )
     {
         if (!configDB->setDltType(0, "next")) {
             LOGWARN << "Failed to unset target DLT in config db";
         }
+        newDlt = NULL;
     }
-    
+
     placementMutex->unlock();
 }
 
