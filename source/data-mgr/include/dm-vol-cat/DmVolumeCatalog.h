@@ -213,9 +213,6 @@ class DmVolumeCatalog : public Module, public HasLogger,
             const MetaDataList::const_ptr& metaList,
             const BlobObjList::const_ptr& blobObjList,
             const BlobTxId::const_ptr& txId, const sequence_id_t seq_id);
-    Error putBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t blobSize,
-            const MetaDataList::const_ptr& metaList,
-            CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate = true);
 
     /**
      * Flushes given blob to the persistent storage. Blocking method, will

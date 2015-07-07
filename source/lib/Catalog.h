@@ -57,7 +57,7 @@ class Catalog {
     std::unique_ptr<leveldb::DB> db;
 
     /*
-     * leveldb file system interface 
+     * leveldb file system interface
      */
     std::unique_ptr<leveldb::CopyEnv> env;
 
@@ -122,11 +122,7 @@ class Catalog {
         return std::unique_ptr<catalog_iterator_t>(db->NewIterator(opts));
     }
 
-    bool DbEmpty();
-    bool DbDelete();
     fds::Error DbSnap(const std::string& fileName);
-    fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
-    fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
 
     inline void clearLogRotate() {
         fds_assert(env);
