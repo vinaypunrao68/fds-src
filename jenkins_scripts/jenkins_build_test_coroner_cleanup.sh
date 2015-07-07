@@ -53,7 +53,7 @@ function do_pushd
 # Wrapper to popd to control output
 function do_pushd
 {
-    popd $1 > /dev/null
+    popd > /dev/null
 }
 
 function auto_locate
