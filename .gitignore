@@ -48,7 +48,6 @@ source/cit/*.xml
 source/cit/PyUnit.log*
 source/cit/classes
 source/cit/surefire-reports
-source/config/etc/*.conf
 source/config/sys-repo/
 source/config/user-repo/
 source/config/var

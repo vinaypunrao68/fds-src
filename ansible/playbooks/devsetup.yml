@@ -188,6 +188,7 @@
         - fio
         - python-coverage-test-runner
         - python-mock
+        - valgrind
 
     - name: create pip config directory at ~/.pip
       file: path="{{ lookup('env','HOME') }}/.pip"

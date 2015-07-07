@@ -293,8 +293,8 @@ class FDS_IOType {
     fds_uint32_t io_wait_time;  // usecs
     fds_uint32_t io_total_time;  // usecs
     ioModule io_module;  // IO belongs to which module for Qos proc
-    fds_uint64_t enqueue_ts;
-    fds_uint64_t dispatch_ts;
+    fds_uint64_t enqueue_ts {0};
+    fds_uint64_t dispatch_ts {0};
     fds_uint64_t io_done_ts;
 
     // performance data collection related structures

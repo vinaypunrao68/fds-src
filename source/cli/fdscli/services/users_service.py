@@ -1,6 +1,7 @@
 from abstract_service import AbstractService
 
 from utils.converters.admin.user_converter import UserConverter
+from model.fds_error import FdsError
 
 class UsersService( AbstractService ):
     '''
@@ -19,8 +20,8 @@ class UsersService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/users" )        
         j_users = self.rest_helper.get( self.session, url )
         
-        if j_users is None:
-            return
+        if isinstance(j_users, FdsError):
+            return j_users
         
         users = []
         
@@ -39,8 +40,8 @@ class UsersService( AbstractService ):
         data = UserConverter.to_json(user)
         user = self.rest_helper.post( self.session, url, data )
         
-        if user is None:
-            return 
+        if isinstance(user, FdsError):
+            return user
         
         user= UserConverter.build_user_from_json(user)
         return user
@@ -52,14 +53,24 @@ class UsersService( AbstractService ):
         
         url = "{}{}{}".format( self.get_url_preamble(), "/users/", user_id )
         data = UserConverter.to_json(user)
-        return self.rest_helper.put( self.session, url, data )
+        response = self.rest_helper.put( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response
     
     def reissue_user_token(self, user_id):
         '''
         Re-issue a users token.  This will effectively cause the effected user to have to revalidate themselves
         '''
         url = "{}{}{}".format( self.get_url_preamble(), "/token/", user_id )
-        return self.rest_helper.post( self.session, url )
+        response = self.rest_helper.post( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return response
+    
+        return response
     
     def who_am_i(self):
         '''
@@ -69,8 +80,8 @@ class UsersService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/userinfo" )
         me = self.rest_helper.get( self.session, url )
         
-        if me is None:
-            return
+        if isinstance(me, FdsError):
+            return me
         
         real_me = UserConverter.build_user_from_json(me)
         return real_me

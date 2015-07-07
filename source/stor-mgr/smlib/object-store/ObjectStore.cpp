@@ -51,18 +51,24 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // Error injection points
     // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
     fiu_do_on("sm.objstore.get_used_capacity_error", \
+            fiu_disable("sm.objstore.get_used_capacity_warn"); \
+            fiu_disable("sm.objstore.get_used_capacity_alert"); \
             LOGDEBUG << "Err inection: returning max used disk capacity as " \
                      << DISK_CAPACITY_ERROR_THRESHOLD; \
             return DISK_CAPACITY_ERROR_THRESHOLD; );
 
     // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
     fiu_do_on("sm.objstore.get_used_capacity_alert", \
+              fiu_disable("sm.objstore.get_used_capacity_warn"); \
+              fiu_disable("sm.objstore.get_used_capacity_error"); \
               LOGDEBUG << "Err injection: returning max used disk capacity as " \
                        << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
               return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
 
     // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
     fiu_do_on("sm.objstore.get_used_capacity_warn", \
+              fiu_disable("sm.objstore.get_used_capacity_error"); \
+              fiu_disable("sm.objstore.get_used_capacity_alert"); \
               LOGDEBUG << "Err injection: returning max used disk capacity as " \
                        << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
               return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
