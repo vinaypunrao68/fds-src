@@ -4,8 +4,6 @@
 # this script is used for testing only, should not be used in production
 # environment
 
-args=${@}
-
 export fds_root=/fds
 
 for i in "$@"
@@ -23,7 +21,6 @@ do
       # unknown option
       ;;
   esac
-  shift # past argument or value
 done
 
 # LD_LIBRARY_PATH dependencies
