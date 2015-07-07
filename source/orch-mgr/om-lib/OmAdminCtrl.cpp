@@ -35,14 +35,14 @@ void FdsAdminCtrl::addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *diskC
     avail_disk_capacity += diskCaps->disk_capacity;
     avail_ssd_capacity  += diskCaps->ssd_capacity;
 
-    LOGNOTIFY << "Total Disk Resources "
-              << "\n  Total Node iops Max : " << total_node_iops_max
-              << "\n  Total Node iops Min : " << total_node_iops_min
-              << "\n  Total Disk capacity : " << total_disk_capacity
-              << "\n  Total Ssd capacity : " << total_ssd_capacity
-              << "\n  Avail Disk capacity : " << avail_disk_capacity
-              << "\n  Avail Disk  iops max : " << avail_node_iops_max
-              << "\n  Avail Disk  iops min : " << avail_node_iops_min;
+    LOGDEBUG << "Total Disk Resources "
+             << "\n  Total Node iops Max : " << total_node_iops_max
+             << "\n  Total Node iops Min : " << total_node_iops_min
+             << "\n  Total Disk capacity : " << total_disk_capacity
+             << "\n  Total Ssd capacity  : " << total_ssd_capacity
+             << "\n  Avail Disk capacity : " << avail_disk_capacity
+             << "\n  Avail Disk  iops max: " << avail_node_iops_max
+             << "\n  Avail Disk  iops min: " << avail_node_iops_min;
 }
 
 void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *diskCaps)
@@ -62,14 +62,14 @@ void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *di
     avail_disk_capacity -= diskCaps->disk_capacity;
     avail_ssd_capacity  -= diskCaps->ssd_capacity;
 
-    LOGNOTIFY << "Total Disk Resources "
-              << "\n  Total Node iops Max : " << total_node_iops_max
-              << "\n  Total Node iops Min : " << total_node_iops_min
-              << "\n  Total Disk capacity : " << total_disk_capacity
-              << "\n  Total Ssd capacity : " << total_ssd_capacity
-              << "\n  Avail Disk capacity : " << avail_disk_capacity
-              << "\n  Avail Disk  iops max : " << avail_node_iops_max
-              << "\n  Avail Disk  iops min : " << avail_node_iops_min;
+    LOGDEBUG << "Total Disk Resources "
+             << "\n  Total Node iops Max : " << total_node_iops_max
+             << "\n  Total Node iops Min : " << total_node_iops_min
+             << "\n  Total Disk capacity : " << total_disk_capacity
+             << "\n  Total Ssd capacity  : " << total_ssd_capacity
+             << "\n  Avail Disk capacity : " << avail_disk_capacity
+             << "\n  Avail Disk  iops max: " << avail_node_iops_max
+             << "\n  Avail Disk  iops min: " << avail_node_iops_min;
 }
 
 void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
@@ -89,9 +89,9 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
 
-    LOGDEBUG << "desc iops_assured: " << pVolDesc->iops_assured
-             << " desc iops_throttle: " << pVolDesc->iops_throttle
-             << " desc capacity (MB): " << pVolDesc->capacity
+    LOGDEBUG << "desc iops_assured   : " << pVolDesc->iops_assured
+             << " desc iops_throttle : " << pVolDesc->iops_throttle
+             << " desc capacity (MB) : " << pVolDesc->capacity
              << " total iops assured : " << total_vol_iops_assured
              << " total iops throttle: " << total_vol_iops_throttle
              << " total capacity (GB): " << total_vol_disk_cap_GB;
@@ -162,13 +162,13 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     max_iopc_subcluster = (avail_node_iops_max/replication_factor);
 
     if (pVolDesc->iops_assured <= 0) {
-        LOGWARN << "assured iops is zero";
+        LOGDEBUG << "assured iops is zero";
         pVolDesc->iops_assured = 0;
     }
     
-    LOGNORMAL << "new data "
-              << "[iops.assured:" << pVolDesc->iops_assured << "] "
-              << "[iops.throttle:" << pVolDesc->iops_throttle << "]";
+    LOGDEBUG << "new data "
+             << "[iops.assured:" << pVolDesc->iops_assured << "] "
+             << "[iops.throttle:" << pVolDesc->iops_throttle << "]";
 
     // Check max object size
     if ((pVolDesc->maxObjSizeInBytes < minVolObjSize) ||
@@ -180,7 +180,8 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
-    if ((pVolDesc->iops_throttle > 0) && (pVolDesc->iops_assured > pVolDesc->iops_throttle)) {
+    if ((pVolDesc->iops_throttle > 0) && 
+        (pVolDesc->iops_assured > pVolDesc->iops_throttle)) {
         LOGERROR << " Cannot admit volume " << pVolDesc->name
                  << " -- iops_assured must be below iops_throttle";
         return Error(ERR_VOL_ADMISSION_FAILED);
