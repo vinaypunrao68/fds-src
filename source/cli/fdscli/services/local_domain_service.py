@@ -1,7 +1,7 @@
 from abstract_service import AbstractService
-import json
 
 from utils.converters.platform.domain_converter import DomainConverter
+from model.fds_error import FdsError
 
 class LocalDomainService( AbstractService ):
     '''
@@ -31,8 +31,8 @@ class LocalDomainService( AbstractService ):
         url = "{}{}".format(self.get_url_preamble(), "/local_domains")
         j_domains = self.rest_helper.get( self.session, url )
         
-        if j_domains is None:
-            return
+        if isinstance(j_domains, FdsError):
+            return j_domains
         
         domains = []
         
@@ -50,7 +50,12 @@ class LocalDomainService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain.id )
         domain.state = "DOWN"
         data = DomainConverter.to_json(domain)
-        return self.rest_helper.put( self.session, url, data )
+        response = self.rest_helper.put( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def start(self, domain):
         '''
@@ -60,5 +65,10 @@ class LocalDomainService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/local_domains/", domain.id )
         domain.state = "UP"
         data = DomainConverter.to_json(domain)
-        return self.rest_helper.put( self.session, url, data )
+        response = self.rest_helper.put( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
         

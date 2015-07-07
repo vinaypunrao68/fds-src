@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
+#include "fdsp/health_monitoring_types_types.h"
 #include "fds_types.h"
 #include "ObjectId.h"
 #include "util/Log.h"
@@ -340,6 +341,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      friend class SMSvcHandler;
 
   private:
+     void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                 fds_errno_t statusCode,
+                                 const std::string& statusInfo);
+
+
      static Error registerVolume(fds::fds_volid_t volume_id,
                                  fds::VolumeDesc *vdb,
                                  FDSP_NotifyVolFlag vol_flag,

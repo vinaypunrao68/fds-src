@@ -388,6 +388,10 @@ fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
  */
 void
 DataPlacement::commitDlt() {
+    commitDlt( false );
+}
+void
+DataPlacement::commitDlt( const bool unsetTarget ) {
     fds_verify(newDlt != NULL);
     fds_mutex::scoped_lock l(placementMutex);
     fds_uint64_t oldVersion = -1;
@@ -401,6 +405,14 @@ DataPlacement::commitDlt() {
     }
 
     commitedDlt = newDlt;
+
+    if ( unsetTarget )
+    {
+        if (!configDB->setDltType(0, "next")) {
+            LOGWARN << "Failed to unset target DLT in config db";
+        }
+        newDlt = NULL;
+    }
 }
 
 ///  only reverts if we did not persist it..
