@@ -601,6 +601,9 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     } else if (err == ERR_NOT_FOUND) {
         // ok, no SMs in the domain yet
         LOGDEBUG << "No SMs joined yet";
+    } else if (err == ERR_DISK_WRITE_FAILED) {
+        LOGERROR << "Failed to persist new DLT; not going to proceed with "
+                 << " DLT change; fix configDB!";
     } else if (!err.ok()) {
         LOGERROR << "Unexpected error from computeDlt FIXIT!!! " << err
                  << " Ignoring error for now, not changing commited DLT";

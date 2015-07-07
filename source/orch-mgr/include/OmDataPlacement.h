@@ -460,7 +460,7 @@ namespace fds {
         /**
          * Mutex to protect shared state of the placement engine
          */
-        fds_mutex *placementMutex;
+        fds_mutex placementMutex;
 
         /**
          * Config db object
@@ -472,6 +472,7 @@ namespace fds {
          * 0 means that we don't care about service state (failed or not)
          * and not resyncing when promoting secondaries;
          * 2 means implementation for 2-primary consistency model
+         * Other values for number of primaries also work, but not tested.
          */
         fds_uint32_t numOfPrimarySMs;
 

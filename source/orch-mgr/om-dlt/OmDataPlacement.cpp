@@ -28,16 +28,15 @@ namespace fds {
 DataPlacement::DataPlacement()
         : Module("Data Placement Engine"),
           placeAlgo(NULL),
+          placementMutex("Data Placement mutex"),
           prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL) {
-    placementMutex = new fds_mutex("data placement mutex");
     curClusterMap = &gl_OMClusMapMod;
     numOfPrimarySMs = 0;
 }
 
 DataPlacement::~DataPlacement() {
-    delete placementMutex;
     // delete curClusterMap;
     if (commitedDlt != NULL) {
         delete commitedDlt;
@@ -49,7 +48,7 @@ DataPlacement::~DataPlacement() {
 
 void
 DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     delete placeAlgo;
     switch (type) {
         case PlacementAlgorithm::AlgorithmTypes::RoundRobin:
@@ -64,20 +63,18 @@ DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
                       type);
     }
     algoType = type;
-    placementMutex->unlock();
 }
 
 Error
 DataPlacement::updateMembers(const NodeList &addNodes,
                              const NodeList &rmNodes) {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     LOGDEBUG << "Updating OM Cluster Map "
              << " Add Nodes: " << addNodes.size()
              << " Remove Nodes: " << rmNodes.size();
     
     Error err = curClusterMap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // TODO(Andrew): We should be recomputing the DLT here.
-    placementMutex->unlock();
 
     return err;
 }
@@ -113,7 +110,7 @@ DataPlacement::computeDlt() {
     }
 
     // Allocate and compute new DLT
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     newDlt = new DLT(curDltWidth,
                      depth,
                      version,
@@ -144,8 +141,9 @@ DataPlacement::computeDlt() {
         fds_verify(configDB != NULL);
         if (!configDB->storeDlt(*newDlt, "next")) 
         {
-            GLOGWARN << "unable to store dlt to config db "
-                     << "[" << newDlt->getVersion() << "]";
+            GLOGERROR << "unable to store dlt to config db "
+                      << "[" << newDlt->getVersion() << "]";
+            err = ERR_DISK_WRITE_FAILED;
         }
     } else {
         LOGNORMAL << "Did not update DLT " << err;
@@ -157,7 +155,6 @@ DataPlacement::computeDlt() {
     // before we delete it and replace it with the
     // new DLT. We should also update the DLT's
     // internal version.
-    placementMutex->unlock();
     return err;
 }
 
@@ -169,7 +166,7 @@ Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
 
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
 
@@ -177,7 +174,6 @@ DataPlacement::beginRebalance() {
     {
         LOGNOTIFY << "Not going to rebalance data, because this is "
                   << " the first DLT we computed";
-        placementMutex->unlock();
         return err;
     }
 
@@ -323,7 +319,6 @@ DataPlacement::beginRebalance() {
 
         rebalanceNodes.insert(uuid);
     }
-    placementMutex->unlock();
 
     LOGNOTIFY << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
     newDlt->dump();
@@ -394,7 +389,7 @@ fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
 void
 DataPlacement::commitDlt() {
     fds_verify(newDlt != NULL);
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
         oldVersion = commitedDlt->getVersion();
@@ -406,13 +401,12 @@ DataPlacement::commitDlt() {
     }
 
     commitedDlt = newDlt;
-    placementMutex->unlock();
 }
 
 ///  only reverts if we did not persist it..
 void
 DataPlacement::undoTargetDltCommit() {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     if (newDlt) {
         if (!hasNonCommitedTarget()) {
             // we already assigned commitedDlt target, revert back
@@ -431,12 +425,11 @@ DataPlacement::undoTargetDltCommit() {
                     << "[" << targetDltVersion << "]";
         }
     }
-    placementMutex->unlock();
 }
 
 void
 DataPlacement::persistCommitedTargetDlt() {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     fds_verify(newDlt != NULL);
     fds_verify(commitedDlt != NULL);
     fds_verify(newDlt->getVersion() == commitedDlt->getVersion());
@@ -458,7 +451,6 @@ DataPlacement::persistCommitedTargetDlt() {
     // oldVersion ?
 
     newDlt = NULL;
-    placementMutex->unlock();
 }
 
 const DLT*
