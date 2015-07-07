@@ -461,7 +461,7 @@ void VolumePlacement::commitDMT( const bool unsetTarget )
     
     if ( unsetTarget )
     {
-        dmtMgr->unsetTarget( true );
+        dmtMgr->unsetTarget( false );
     }
 }
 
