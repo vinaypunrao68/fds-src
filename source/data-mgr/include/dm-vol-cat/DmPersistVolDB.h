@@ -139,14 +139,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
   private:
     // methods
-    std::unique_ptr<Catalog::catalog_iterator_t> getSnapshotIter(Catalog::catalog_roptions_t& opts) {
-        catalog_->GetSnapshot(opts);
-        return catalog_->NewIterator(opts);
-    }
-
-    std::unique_ptr<Catalog::catalog_iterator_t> getExistingSnapshotIter(Catalog::catalog_roptions_t& opts) {
-    	return catalog_->NewIterator(opts);
-    }
+    Error getLatestSequenceIdSnap(sequence_id_t & max, Catalog::catalog_roptions_t &opts);
 
     // vars
 
