@@ -533,6 +533,7 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
 
         // This is set by scrubber functionality of GC.
         if (objMetaDataPtr->isObjCorrupted()) {
+            LOGNORMAL << "Corruption found with object metadata: " << objMetaDataPtr->logString();
             ++numCorruptions;
             continue;
         }
@@ -545,6 +546,7 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
 
         // check the SM token ownership.
         if (!checkObjectOwnership(id)) {
+            LOGNORMAL << "Ownership mismatch found with Object ID: " << id;
             ++numOwnershipMismatches;
         }
 
