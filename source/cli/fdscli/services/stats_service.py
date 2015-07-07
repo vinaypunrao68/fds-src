@@ -1,4 +1,9 @@
 from abstract_service import AbstractService
+from utils.converters.statistics.metric_query_converter import MetricQueryConverter
+from utils.converters.statistics.statistics_converter import StatisticsConverter
+from utils.converters.health.system_health_converter import SystemHealthConverter
+from utils.converters.statistics.firebreak_query_converter import FirebreakQueryConverter
+from model.fds_error import FdsError
 
 class StatsService( AbstractService ):
     '''
@@ -17,8 +22,15 @@ class StatsService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/stats/volumes")
         #TODO convert filter to json
-        data = ""
-        return self.rest_helper().put( self.session, url, data)
+        data = MetricQueryConverter.to_json(metrics_filter)
+        stat_json = self.rest_helper.put( self.session, url, data)
+        
+        if isinstance(stat_json, FdsError):
+            return stat_json
+        
+        stats = StatisticsConverter.build_statistics_from_json(stat_json)
+        
+        return stats
     
     def query_firebreak_metrics(self, metrics_filter):
         '''
@@ -27,8 +39,15 @@ class StatsService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/stats/volumes/firebreak" )
         #TODO convert the filter to JSON
-        data = ""
-        return self.rest_helper().put( self.session, url, data)
+        data = FirebreakQueryConverter.to_json(metrics_filter)
+        stats = self.rest_helper.put( self.session, url, data)
+        
+        if isinstance(stats, FdsError):
+            return stats
+        
+        stats = StatisticsConverter.build_statistics_from_json(stats)
+        
+        return stats
     
     def get_system_health_report(self):
         '''
@@ -36,4 +55,11 @@ class StatsService( AbstractService ):
         '''
         
         url = "{}{}".format( self.get_url_preamble(), "/systemhealth" )
-        return self.rest_helper().get( self.session, url )
+        sys_health = self.rest_helper.get( self.session, url )
+        
+        if isinstance(sys_health, FdsError):
+            return  sys_health
+        
+        sys_health  = SystemHealthConverter.build_system_health_from_json(sys_health)
+        
+        return sys_health

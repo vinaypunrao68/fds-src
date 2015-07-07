@@ -50,6 +50,8 @@ public class S3Endpoint {
     }
 
     public void start() {
+        setupNotImplementedRoutes();
+
         syncRoute(new HttpPath(HttpMethod.GET, "/:bucket/:object")
                         .withUrlParam("uploadId"),
                 (t) -> new MultiPartListParts(xdi, t));
@@ -100,6 +102,41 @@ public class S3Endpoint {
         syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
         webApp.start();
+    }
+
+    private void setupNotImplementedRoutes() {
+        notImplementedBucketSubResources("cors", "lifecycle", "policy", "replication", "tagging", "website", "location",
+                "notification", "versions", "versioning", "logging", "requestPayment");
+
+        notImplementedBucketSubResource("bucket uploads", p -> p.withUrlParam("uploads"), HttpMethod.GET);
+        notImplementedObjectSubResource("cors", p -> p, HttpMethod.OPTIONS);
+        notImplementedObjectSubResource("lifecycle", p -> p.withUrlParam("restore"), HttpMethod.POST);
+    }
+
+    private void notImplementedBucketSubResources(String ... subresourceStrings) {
+        for(String subresource : subresourceStrings)
+            notImplementedBucketSubResource("bucket " + subresource, p -> p.withUrlParam(subresource));
+    }
+
+    private void notImplementedBucketSubResource(String feature, Function<HttpPath, HttpPath> path) {
+        notImplementedBucketSubResource(feature, path, HttpMethod.PUT, HttpMethod.DELETE, HttpMethod.GET);
+    }
+
+    private void notImplementedObjectSubResource(String feature, Function<HttpPath, HttpPath> path, HttpMethod...methods) {
+        for(HttpMethod method : methods)
+            webApp.route(path.apply(new HttpPath(method, "/:bucket/:object")), ctx -> notImplementedHandler(ctx, feature));
+    }
+
+    private void notImplementedBucketSubResource(String feature, Function<HttpPath, HttpPath> path, HttpMethod...methods) {
+        for(HttpMethod method : methods)
+            webApp.route(path.apply(new HttpPath(method, "/:bucket")), ctx -> notImplementedHandler(ctx, feature));
+    }
+
+    private CompletableFuture<Void> notImplementedHandler(HttpContext ctx, String featureName) {
+        LOG.error("Attempt to use non-implemented feature '" + featureName + "'");
+        S3Failure s3Failure = new S3Failure(S3Failure.ErrorCode.InternalError, "This feature is not implemented by FDS [" + featureName + "]", ctx.getRequestURI());
+        s3Failure.renderTo(ctx);
+        return CompletableFuture.completedFuture(null);
     }
 
     private CompletableFuture<Void> executeAsync(HttpContext ctx, BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> function) {

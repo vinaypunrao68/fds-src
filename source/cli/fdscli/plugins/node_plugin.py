@@ -5,6 +5,7 @@ from services.response_writer import ResponseWriter
 from utils.converters.platform.node_converter import NodeConverter
 import json
 from model.platform.service import Service
+from model.fds_error import FdsError
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -153,6 +154,10 @@ class NodePlugin( AbstractPlugin ):
         '''
         
         nodes = self.get_node_service().list_nodes()
+        
+        if isinstance( nodes, FdsError ):
+            return        
+        
         show_list = []
         
         if ( AbstractPlugin.state_str in args and args[AbstractPlugin.state_str] == "discovered" ):
@@ -210,7 +215,7 @@ class NodePlugin( AbstractPlugin ):
         
         for node in n_list:
             result = self.get_node_service().add_node( node.id, node )
-            if result is None:
+            if isinstance( result, FdsError ):
                 failures.append( node.id )
             
         if ( len( failures ) > 0 ):
@@ -224,7 +229,7 @@ class NodePlugin( AbstractPlugin ):
         '''
         response = self.get_node_service().remove_node(args[AbstractPlugin.node_id_str])
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_nodes(args)
             
     def start_node(self, args):
@@ -234,7 +239,7 @@ class NodePlugin( AbstractPlugin ):
         
         response = self.get_node_service().start_node(args[AbstractPlugin.node_id_str])
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_nodes(args)            
             
     def stop_node(self, args):
@@ -244,7 +249,7 @@ class NodePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_node(args[AbstractPlugin.node_id_str])
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_nodes(args)                         
                         
     def list_services(self, args):
@@ -253,6 +258,10 @@ class NodePlugin( AbstractPlugin ):
         '''
         
         nodes = self.get_node_service().list_nodes()
+        
+        if isinstance(nodes, FdsError):
+            return
+        
         node_list = []
         
         # filter everything but the node we want

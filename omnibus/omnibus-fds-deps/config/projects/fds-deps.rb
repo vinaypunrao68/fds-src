@@ -73,6 +73,7 @@ dependency "mdadm"
 dependency "influxdb"
 dependency "fdsutil"
 dependency "ansible"
+dependency "python-httplib2"
 dependency "sshpass"
 
 # Version manifest file
