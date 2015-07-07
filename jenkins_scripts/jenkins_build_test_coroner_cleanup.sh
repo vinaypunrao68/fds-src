@@ -325,7 +325,7 @@ function run_system_test_scenarios
 {
     start_time=$(date +%s)
 
-    for scenario in ${SYSTEM_TEST_SCENARIO_LIST}
+    for scenario in ${SYSTEM_TEST_SCENARIO_LIST} ${extra_system_tests}
     do
         system_test_scenario_wrapper ${scenario}
     done
