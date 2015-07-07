@@ -159,8 +159,8 @@ function build_fds
     end_time=$(date +%s)
 
     performance_report ANSIBLE $(( ${end_time} - ${start_time} ))
-
     start_time=$(date +%s)
+
     if [[ ${BUILD_TYPE} == 'release' ]] ; then
         message "BUILDING Formation Platform - BUILD_TYPE: release"
         jenkins_options="-r"
@@ -323,10 +323,16 @@ function system_test_scenario_wrapper
 
 function run_system_test_scenarios
 {
+    start_time=$(date +%s)
+
     for scenario in ${SYSTEM_TEST_SCENARIO_LIST}
     do
         system_test_scenario_wrapper ${scenario}
     done
+
+    end_time=$(date +%s)
+
+    performance_report SYSTEM_TESTS $(( ${end_time} - ${start_time} ))
 }
 
 function system_test_force_failure
@@ -357,6 +363,8 @@ function run_node_cleanup
 
 function run_coroner
 {
+    start_time=$(date +%s)
+
     if [[ ${#JENKINS_URL} -gt 0 ]]
     then
         REFID=${BUILD_TAG}
@@ -385,6 +393,10 @@ function run_coroner
     rm -rf /tmp/fdscoroner*
     rm -f /corefiles/*
     rm -f /fds/var/cores/*
+
+    end_time=$(date +%s)
+
+    performance_report RUN_CORONER $(( ${end_time} - ${start_time} ))
 
     run_node_cleanup $1
 }
