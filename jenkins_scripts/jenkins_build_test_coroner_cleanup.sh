@@ -47,15 +47,13 @@ function error_trap_disabled
 # Wrapper to pushd to control output
 function do_pushd
 {
-    pushd ${1}
-#> /dev/null
+    pushd ${1} > /dev/null
 }
 
 # Wrapper to popd to control output
 function do_popd
 {
-    popd 
-#> /dev/null
+    popd > /dev/null
 }
 
 function auto_locate
