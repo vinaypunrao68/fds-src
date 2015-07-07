@@ -13,7 +13,7 @@ namespace bo = boost;
  * Template to embed intrusive pointer to an object.
  */
 #define INTRUSIVE_PTR_DEFS(Type, refcnt)                                       \
-    mutable boost::atomic<int>  refcnt;                                        \
+    mutable boost::atomic<int>  refcnt {0};                                    \
     friend void intrusive_ptr_add_ref(const Type *x) {                         \
         x->refcnt.fetch_add(1, boost::memory_order_relaxed);                   \
     }                                                                          \
