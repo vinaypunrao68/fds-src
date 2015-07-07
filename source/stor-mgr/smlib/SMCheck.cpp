@@ -546,7 +546,8 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
 
         // check the SM token ownership.
         if (!checkObjectOwnership(id)) {
-            LOGNORMAL << "Ownership mismatch found with Object ID: " << id;
+            LOGNORMAL << "Ownership mismatch found with Object ID: " << id
+                        << " Object metadata: " << objectMetaDataPtr->logString();
             ++numOwnershipMismatches;
         }
 
