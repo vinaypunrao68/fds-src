@@ -44,6 +44,18 @@ function error_trap_disabled
     set +e
 }
 
+# Wrapper to pushd to control output
+function do_pushd
+{
+    pushd $1 > /dev/null
+}
+
+# Wrapper to popd to control output
+function do_pushd
+{
+    popd $1 > /dev/null
+}
+
 function auto_locate
 {
     # change to the fds-src directory.  This could be made more robust by digesting with $0, but should suffice for now.
@@ -81,16 +93,16 @@ function startup
 function configure_symlinks
 {
     message "IIIII RUNNING /fds symlink configuration" 
-    pushd source >/dev/null
+    do_pushd source
     ./dev_make_install.sh
-    popd > /dev/null
+    do_popd
 }
 
 function configure_console_access
 {
-    pushd source/tools
+    do_pushd source/tools
     ./fdsconsole.py accesslevel debug
-    popd
+    do_popd
 }
 
 function configure_cache
@@ -214,14 +226,14 @@ function python_coverage_test_runner_tests
 {
     for directory in ${PYTHON_COVERAGE_TEST_RUNNER_DIRECTORIES}
     do
-        pushd ${directory}
+        do_pushd ${directory}
         python -m CoverageTestRunner
         if [[ $? -ne 0 ]]
         then
             message "EEEEE Python unit test problem(s) detected running in ${directory}"
             run_coroner 1
         fi
-        popd
+        do_popd
     done
 }
 
@@ -229,14 +241,14 @@ function python_unittest_discovery
 {
     for directory in ${PYTHON_UNITTEST_DISCOVERY_DIRECTORIES}
     do
-        pushd ${directory}
+        do_pushd ${directory}
         python -m unittest discover -p "*_test.py"
         if [[ $? -ne 0 ]]
         then
             message "EEEEE Python unit test problem(s) detected running in ${directory}"
             run_coroner 1
         fi
-        popd 
+        do_popd 
     done
 }
 
@@ -259,7 +271,7 @@ function run_cpp_unit_tests
     message "IIIII RUNNING C++ unit tests"
 
     # Run Unit Test
-    pushd jenkins_scripts
+    do_pushd jenkins_scripts
     start_time=$(date +%s)
     ./run-unit-tests.py
 
@@ -271,7 +283,7 @@ function run_cpp_unit_tests
 
     end_time=$(date +%s)
     performance_report UNIT_TESTS $(( ${end_time} - ${start_time} ))
-    popd
+    do_popd
 }
 
 function check_xunit_failures
@@ -298,13 +310,13 @@ function system_test_scenario_wrapper
 {
     scenario=${1}
 
-    pushd source/test/testsuites
+    do_pushd source/test/testsuites
 
     message "IIIII RUNNING System Test Scenario:  ${scenario}"
     ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose
     echo "***** Scenario complete:  ${scenario} complete - exit with: ${?}"
 
-    popd
+    do_popd
 
     capture_process_list ${FUNCNAME}.${scenario}
 
@@ -378,7 +390,7 @@ function run_coroner
 
     message "IIIII RUNNING coroner"
 
-    pushd ${TEST_WORKSPACE}
+    do_pushd ${TEST_WORKSPACE}
 
     source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin build_release_bin:source/Build/linux-x86_64.release/bin fds-node1:/fds/node1 fds-node2:/fds/node2 fds-node3:/fds/node3 fds-node4:/fds/node4
 
@@ -388,7 +400,7 @@ function run_coroner
         rm ${file}
     done
 
-    popd
+    do_popd
 
     rm -rf /tmp/fdscoroner*
     rm -f /corefiles/*
