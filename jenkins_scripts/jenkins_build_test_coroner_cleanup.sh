@@ -47,12 +47,12 @@ function error_trap_disabled
 # Wrapper to pushd to control output
 function do_pushd
 {
-    pushd $1
-# > /dev/null
+    pushd ${1}
+#> /dev/null
 }
 
 # Wrapper to popd to control output
-function do_pushd
+function do_popd
 {
     popd 
 #> /dev/null
