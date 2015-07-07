@@ -53,27 +53,9 @@ public class ObjectUtilsTest
                                           incarnation,
                                           name,
                                           props );
-        final SvcInfo svc2 = new SvcInfo( new SvcID( new SvcUuid( id ),
-                                                     name ),
-                                          port,
-                                          type,
-                                          status,
-                                          name,
-                                          ip,
-                                          /*
-                                           * same object just different start times ( incarnation )
-                                           * will cause tests below to fail, i.e. assert false
-                                           */
-                                          Long.valueOf( System.currentTimeMillis( ) ).intValue(),
-                                          name,
-                                          props );
 
         Assert.assertTrue( ObjectUtils.checksum( svc )
                                       .equals( ObjectUtils.checksum( svc1 ) ) );
         Assert.assertTrue( svc.equals( svc1 ) );
-
-        Assert.assertFalse( ObjectUtils.checksum( svc )
-                                      .equals( ObjectUtils.checksum( svc2 ) ) );
-        Assert.assertFalse( svc.equals( svc2 ) );
     }
 }
