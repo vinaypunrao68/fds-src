@@ -88,7 +88,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     /**
      * create and initialize message for initial filter set.
      */
-    fpi::ResyncInitialBlobFilterSetMsgPtr filterSet(new fpi::ResyncInitialBlobFilterSetMsg());
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
     filterSet->volumeId = volumeUuid.get();
 
     LOGMIGRATE << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
@@ -107,7 +107,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      * If successfully generated the initial filter set, send it to the source DM.
      */
     auto asyncInitialBlobSetReq = gSvcRequestPool->newEPSvcRequest(srcDmSvcUuid.toSvcUuid());
-    asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::ResyncInitialBlobFilterSetMsg), filterSet);
+    asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     asyncInitialBlobSetReq->setTimeoutMs(0);
     asyncInitialBlobSetReq->invoke();
 

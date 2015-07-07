@@ -91,8 +91,8 @@
     <mockito.version>1.10.8</mockito.version>
 
     <!-- formation data systems, inc dependencies -->
-    <formationds.thrift.version>2015.07.03-SNAPSHOT</formationds.thrift.version>
-    <formationds.ext.model.version>2015.07.03-SNAPSHOT</formationds.ext.model.version>
+    <formationds.thrift.version>2015.07.17-SNAPSHOT</formationds.thrift.version>
+    <formationds.ext.model.version>2015.07.17-SNAPSHOT</formationds.ext.model.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -395,15 +395,15 @@
       </dependency>
 
       <dependency>
-        <groupId>redis.clients</groupId>
-        <artifactId>jedis</artifactId>
-        <version>${jedis.version}</version>
-      </dependency>
-
-      <dependency>
         <groupId>org.dcache</groupId>
         <artifactId>nfs4j-core</artifactId>
         <version>${nfs4j.core.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>redis.clients</groupId>
+        <artifactId>jedis</artifactId>
+        <version>${jedis.version}</version>
       </dependency>
 
       <!-- test scope -->

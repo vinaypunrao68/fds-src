@@ -76,6 +76,7 @@ SvcRequestIf::SvcRequestIf(CommonModuleProviderIf* provider,
                            const fpi::SvcUuid &myEpId)
     : HasModuleProvider(provider),
     id_(id),
+    teidIsSet_(false),
     myEpId_(myEpId),
     state_(PRIOR_INVOCATION),
     timeoutMs_(0),
@@ -154,8 +155,29 @@ SvcRequestId SvcRequestIf::getRequestId() {
     return id_;
 }
 
+TaskExecutorId SvcRequestIf::getTaskExecutorId() {
+    if (teidIsSet_) {
+        return teid_;
+    } else {
+        return id_;
+    }
+}
+
 void SvcRequestIf::setRequestId(const SvcRequestId &id) {
     id_ = id;
+}
+
+void SvcRequestIf::setTaskExecutorId(const TaskExecutorId &teid) {
+    teidIsSet_ = true;
+    teid_ = teid;
+}
+
+void SvcRequestIf::unsetTaskExecutorId() {
+    teidIsSet_ = false;
+}
+
+bool SvcRequestIf::taskExecutorIdIsSet() {
+    return teidIsSet_;
 }
 
 void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
@@ -175,10 +197,14 @@ void SvcRequestIf::invoke()
 
     SynchronizedTaskExecutor<uint64_t>* taskExecutor = 
         MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
-    /* Execute on synchronized task exector so that invocation and response
+    /* Execute on synchronized task executor so that invocation and response
      * handling is synchronized.
      */
-    taskExecutor->schedule(id_, std::bind(&SvcRequestIf::invokeWork_, this));
+    if (teidIsSet_) {
+        taskExecutor->scheduleOnHashKey(teid_, std::bind(&SvcRequestIf::invokeWork_, this));
+    } else {
+        taskExecutor->scheduleOnTemplateKey(id_, std::bind(&SvcRequestIf::invokeWork_, this));
+    }
 }
 
 
@@ -1009,7 +1035,9 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     /* Invoke response cb once all primaries responded */
     if (primaryAckdCnt_ == primariesCnt_ &&
         respCb_) {
-        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
+        // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
+        // Shouldn't be using the last error we get...something else more intelligent?
+        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
         respCb_(this, reqErr, responsePayload(0));
         respCb_ = 0;
     }
@@ -1018,7 +1046,9 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
      * if required.
      */
     if (totalAckdCnt_ == epReqs_.size()) {
-        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : ERR_SVC_REQUEST_FAILED;
+        // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
+        // Shouldn't be using the last error we get...something else more intelligent?
+        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
         complete(reqErr);
         if (allRespondedCb_) {
             allRespondedCb_(this, reqErr, responsePayload(0));

@@ -40,6 +40,7 @@ fds: {
 
         }
         am: {
+            serialization = "{{ am_req_serialization }}"
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -249,7 +250,7 @@ fds: {
         }
 
         /* Timeline feature toggle */
-        enable_timeline = true
+        enable_timeline = {{ dm_enable_timeline }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -309,6 +310,9 @@ fds: {
         data_verify = {{ sm_data_verify }}
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
+
+	/* Toggle for serializing requests for consistency */
+        req_serialization = {{ sm_req_serialization }}
 
         /* daemonize or not */
         daemonize=true
@@ -588,7 +592,7 @@ fds: {
         http_port=7777
         https_port=7443
         configdb: {
-            port=6379
+            port={{ redis_port }}
         }
 
         influxdb: {

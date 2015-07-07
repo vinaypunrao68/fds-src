@@ -183,7 +183,7 @@ enum  FDSPMsgTypeId {
   ReloadVolumeRspMsgTypeId;
   CtrlNotifyDMStartMigrationMsgTypeId;
   CtrlNotifyDMStartMigrationRspMsgTypeId;
-  ResyncInitialBlobFilterSetMsgTypeId;
+  CtrlNotifyInitialBlobFilterSetMsgTypeId;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;

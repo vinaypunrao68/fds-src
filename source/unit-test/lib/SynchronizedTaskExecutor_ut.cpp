@@ -66,7 +66,7 @@ TEST(SynchronizedTaskExecutor, schedule) {
 
     for (int i = 0; i < nReqs; i++) {
         auto qid = i%nQCnt;
-        executor.schedule(qid, std::bind(taskFunc, qid, i));
+        executor.scheduleOnHashKey(qid, std::bind(taskFunc, qid, i));
     }
 
     while (completedCnt < nReqs) {
@@ -219,12 +219,12 @@ void SH::updateCatalogRespLocked(PutReq *r)
 
 void SH::putObjectResp(PutReq *r)
 {
-    executor.schedule(r->id_, std::bind(&PutReq::putObjectResp, r));
+    executor.scheduleOnHashKey(r->id_, std::bind(&PutReq::putObjectResp, r));
 }
 
 void SH::updateCatalogResp(PutReq *r)
 {
-    executor.schedule(r->id_, std::bind(&PutReq::updateCatalogResp, r));
+    executor.scheduleOnHashKey(r->id_, std::bind(&PutReq::updateCatalogResp, r));
 }
 
 

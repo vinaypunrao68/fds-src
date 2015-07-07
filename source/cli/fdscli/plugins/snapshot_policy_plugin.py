@@ -8,6 +8,7 @@ from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConv
 from services.snapshot_policy_service import SnapshotPolicyService
 from services.response_writer import ResponseWriter
 from plugins.abstract_plugin import AbstractPlugin
+from model.fds_error import FdsError
 
 
 class SnapshotPolicyPlugin( AbstractPlugin):
@@ -244,7 +245,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         
         response = self.get_snapshot_policy_service().delete_snapshot_policy( args[AbstractPlugin.volume_id_str], args[AbstractPlugin.policy_id_str] )
             
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_snapshot_policies(args)
 
 

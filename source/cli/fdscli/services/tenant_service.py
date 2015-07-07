@@ -2,6 +2,7 @@ from abstract_service import AbstractService
 
 from utils.converters.admin.tenant_converter import TenantConverter
 from utils.converters.admin.user_converter import UserConverter
+from model.fds_error import FdsError
 
 class TenantService( AbstractService):
     '''
@@ -18,8 +19,8 @@ class TenantService( AbstractService):
         url = "{}{}".format( self.get_url_preamble(), "/tenants")
         response = self.rest_helper.get( self.session, url )
         
-        if response is None:
-            return
+        if isinstance(response, FdsError):
+            return response
         
         tenants = []
         
@@ -37,8 +38,8 @@ class TenantService( AbstractService):
         url = "{}{}{}".format( self.get_url_preamble(), "/users/tenant/", tenant_id )
         response = self.rest_helper.get( self.session, url )
         
-        if response is not None:
-            return
+        if isinstance(response, FdsError):
+            return response
         
         users = []
         
@@ -57,8 +58,8 @@ class TenantService( AbstractService):
         data = TenantConverter.to_json(tenant)
         j_tenant = self.rest_helper.post( self.session, url, data )
         
-        if j_tenant is None:
-            return
+        if isinstance(j_tenant, FdsError):
+            return j_tenant
         
         j_tenant = TenantConverter.build_tenant_from_json(j_tenant)
         return j_tenant
@@ -69,7 +70,12 @@ class TenantService( AbstractService):
         '''
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/tenants/", tenant_id, "/", user_id)
-        return self.rest_helper.post( self.session, url )
+        response = self.rest_helper.post( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response
     
     def remove_user_from_tenant(self, tenant_id, user_id):
         '''

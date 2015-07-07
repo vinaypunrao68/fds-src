@@ -1,4 +1,6 @@
 ---
+-   debug: msg="Setting up private key"
+
 -   name: copy the bits
     local_action: shell echo "{{ fds_deploy_private_key }}" > ~/.ssh/fds-deploy_rsa
 
