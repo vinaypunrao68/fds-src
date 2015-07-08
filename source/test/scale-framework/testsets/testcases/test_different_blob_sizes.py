@@ -132,10 +132,3 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
                 self.sample_files.append(current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
-        # lets upload the 1GB, 2GB and 3GB blocks.
-        for current in samples.sample_gb_files:
-            path = os.path.join(config.TEST_DIR, current)
-            if os.path.exists(path):
-                self.sample_files.append(current)
-                encode = utils.hash_file_content(path)
-                self.hash_table[current] = encode
