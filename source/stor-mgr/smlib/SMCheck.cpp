@@ -231,7 +231,7 @@ bool SMCheckOffline::full_consistency_check(bool checkOwnership, bool checkOnlyA
 
         GLOGDEBUG << "Hasher found: " << hashId
                     << " and objId was: " << id
-                    << "Metadata for obj: " << omd;
+                    << "Metadata for obj: " << *omd;
 
         // Only report active object metadata
         if (checkOnlyActive && (omd->getRefCnt() == 0)) {
