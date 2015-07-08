@@ -446,21 +446,18 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int32_t AddService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyAddServiceMsg>& add_svc_msg) {
-
-        LOGDEBUG << "ConfigServiceCPP::AddService entered";
         Error err(ERR_OK);
         fpi::SvcUuid pmUuid;
         try {
+            LOGNORMAL << "Received Add Service request";
             OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
             std::vector<fpi::SvcInfo> svcInfos = add_svc_msg->services;
 
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
-                    pmUuid = svcInfo.svc_id.svc_uuid; //FIX::This does not look right pmUuid is a class type
-                    // probably need something like pmUuid._set_svc_uuid(svcInfo.svc_id.svc_uuid)
+                    pmUuid = svcInfo.svc_id.svc_uuid;
                 }
             }
-            LOGNORMAL << "Received Add Service request";
 
             err = local->om_add_service(pmUuid, svcInfos);
         }
@@ -473,10 +470,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int32_t StartService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyStartServiceMsg>& start_svc_msg) {
-        LOGDEBUG << "configService.cpp StartService entered";
         Error err(ERR_OK);
         fpi::SvcUuid pmUuid;
         try {
+            LOGNORMAL << "Received Start Service request";
             OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
             std::vector<fpi::SvcInfo> svcInfos = start_svc_msg->services;
 
@@ -485,7 +482,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                     pmUuid = svcInfo.svc_id.svc_uuid;
                 }
             }
-            LOGNORMAL << "Received Start Service request";
 
             err = local->om_start_service(pmUuid, svcInfos);
         }
@@ -498,7 +494,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int32_t StopService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyStopServiceMsg>& stop_svc_msg) {
-        LOGDEBUG << "configService::StopService entered";
         Error err(ERR_OK);
         fpi::SvcUuid pmUuid;
 
@@ -506,68 +501,32 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGNORMAL << "Received stop service request";
 
             OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-
+            bool stop_sm = false;
+            bool stop_dm = false;
+            bool stop_am = false;
             std::vector<fpi::SvcInfo> svcInfos = stop_svc_msg->services;
 
+            // We need to know which services are being stopped
+            // since there are specific actions to be taken against each service
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
                     pmUuid = svcInfo.svc_id.svc_uuid;
                 }
-            }
-
-            err = local->om_stop_service(pmUuid, svcInfos);
-            /*
-            std::vector<fpi::SvcInfo> svcInfos = stop_svc_msg->services;
-
-            NodeUuid node_uuid;
-            fds_bool_t removesm, removedm, removeam;
-
-            for(fpi::SvcInfo svcInfo : svcInfos) {
-
-                if(svcInfo.svc_type == fpi::FDSP_PLATFORM) {
-                    node_uuid = svcInfo.svc_id.svc_uuid;
+                else if (svcInfo.svc_type == fpi::FDSP_STOR_MGR)
+                {
+                    stop_sm = true;
                 }
-                else if(svcInfo.svc_type == fpi::FDSP_STOR_MGR) {
-                    removesm = true;
+                else if (svcInfo.svc_type == fpi::FDSP_DATA_MGR)
+                {
+                    stop_dm = true;
                 }
-                else if(svcInfo.svc_type == fpi::FDSP_DATA_MGR) {
-                    removedm = true;
-                }
-                else if(svcInfo.svc_type == fpi::FDSP_ACCESS_MGR) {
-                    removeam = true;
+                else if (svcInfo.svc_type == fpi::FDSP_ACCESS_MGR)
+                {
+                    stop_am = true;
                 }
             }
-            if(node_uuid == 0)
-                LOGERROR << "RemoveServices encountered a 0 value node_uuid";
 
-            err = domain->om_del_services(node_uuid,
-                                          node_name,
-                                          removesm,
-                                          removedm,
-                                          removeam);
-
-            if (!err.ok()) {
-                LOGERROR << "RemoveServices - om_del_services failed "
-                         << node_name << ", uuid "
-                         << std::hex << node_uuid
-                         << std::dec << ", result: " << err.GetErrstr();
-            }
-            else {
-                // Once the delete services is done, we need to set it up to send to
-                // platform to stop services
-                OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-
-                err = local->om_stop_service(stop_svc_msg);
-
-                if (!err.ok()) {
-                    LOGERROR << "RemoveServices - om_stop_service failed "
-                             << node_name << ", uuid "
-                             << std::hex << node_uuid
-                             << std::dec << ", result: " << err.GetErrstr();
-                }
-
-            }
-            */
+            err = local->om_stop_service(pmUuid, svcInfos, stop_sm, stop_dm, stop_am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -579,8 +538,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int32_t RemoveService(boost::shared_ptr<::FDS_ProtocolInterface::NotifyRemoveServiceMsg>& rm_svc_msg) {
-
-        LOGDEBUG << "configService::RemoveService entered";
         Error err(ERR_OK);
         fpi::SvcUuid pmUuid;
 
@@ -588,20 +545,36 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGNORMAL << "Received remove service request";
 
             OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-
+            bool remove_sm = false;
+            bool remove_dm = false;
+            bool remove_am = false;
             std::vector<fpi::SvcInfo> svcInfos = rm_svc_msg->services;
 
+            // We need to know which services are being removed
+            // since there are specific actions to be taken against each service
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
                     pmUuid = svcInfo.svc_id.svc_uuid;
                 }
+                else if (svcInfo.svc_type == fpi::FDSP_STOR_MGR)
+                {
+                    remove_sm = true;
+                }
+                else if (svcInfo.svc_type == fpi::FDSP_DATA_MGR)
+                {
+                    remove_dm = true;
+                }
+                else if (svcInfo.svc_type == fpi::FDSP_ACCESS_MGR)
+                {
+                    remove_am = true;
+                }
             }
 
-            err = local->om_remove_service(pmUuid, svcInfos);
+            err = local->om_remove_service(pmUuid, svcInfos, remove_sm, remove_dm, remove_am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
-                     << "processing stop service";
+                     << "processing remove service";
             err = Error(ERR_NOT_FOUND);
         }
         return err.GetErrno();

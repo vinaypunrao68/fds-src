@@ -91,15 +91,7 @@ public class AddNode
         
         int status =
         		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
-                //getConfigApi().ActivateNode(new FDSP_ActivateOneNodeType(0,new FDSP_Uuid(nodeUuid), true, true, true));
-        if( status != 0 )
-        {
-            status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
-                                      nodeUuid );
-        }
-        status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
-       
+                
         if( status != 0 )
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
@@ -108,8 +100,19 @@ public class AddNode
         }
         else
         {
-            EventManager.notifyEvent( OmEvents.ADD_NODE,
-                                      nodeUuid );
+            status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
+       
+            if( status != 0 )
+            {
+                status= HttpServletResponse.SC_BAD_REQUEST;
+                EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
+                                          nodeUuid );
+            }
+            else
+            {
+                EventManager.notifyEvent( OmEvents.ADD_NODE,
+                                          nodeUuid );
+            }
         }
         
         Node newNode = (new GetNode()).getNode( nodeUuid );

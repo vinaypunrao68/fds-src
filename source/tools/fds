@@ -211,7 +211,7 @@ function startApp() {
 
     case "$appname" in
         om|all)
-            # activate
+             activate
             ;;
     esac
 }
@@ -707,14 +707,14 @@ case "${CMD}" in
     restart)
             stopApp $APP
             startApp $APP
- #            waitForAll
+             waitForAll
             statusApp $APP
             ;;
     cleanstart|startclean)
         stopApp "all"
         clean
         startApp "all"
-#         waitForAll
+         waitForAll
         statusApp "all"
         ;;
     gdb)

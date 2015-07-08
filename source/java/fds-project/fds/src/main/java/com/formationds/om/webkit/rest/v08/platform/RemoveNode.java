@@ -94,39 +94,31 @@ public class RemoveNode
         
         int status =
             getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
-        		/*getConfigApi().RemoveServices( new FDSP_RemoveServicesType(
-                                     node.getName(),
-                                     new FDSP_Uuid( nodeUuid ),
-                                     true,
-                                     true,
-                                     true ) );
-                                     */
-        if( status != 0 ) {
 
+        if( status != 0 )
+        {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
                                       nodeUuid );
-
-        } else {
-
-        	logger.debug("StopService done, move to RemoveService");
+        }
+        else 
+        {
         	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
         	
-        	if(status != 0) {
-        		
+        	if(status != 0)
+        	{
                 status= HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
                                           nodeUuid );
         	}
-        	else{
-        		
+        	else
+        	{
                 EventManager.notifyEvent( OmEvents.REMOVE_NODE,
                                           nodeUuid );
         	}
 
         }
         
-
         return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
     }
     
