@@ -238,6 +238,24 @@ class Disk (Base):
         return False
 
 
+    def verifySystemDiskPartitionSize (self):
+        # Try to read the disk marker from partion 1.  If it fails, we presume this is not an FDS disk.
+        try:
+            file_name = "/sys/class/block/" + os.path.basename (self.path) + '1' + "/size"
+
+            file_handle = open (file_name, "rb")
+        except:
+            self.system_exit ("Unable to open " + file_name + " in order to valid system disk partition sizing.")
+
+        disk_blocks = int(file_handle.read())
+
+        # 512 byte block count
+        if (disk_blocks < 16324 or disk_blocks > 24576):
+            self.system_exit ("Unable to continue, " + self.path + "1 is not configured to be about 10MB in capcity.")
+
+        file_handle.close()
+
+
     def partition (self, dm_size, sm_size):
         ''' Partition the disk, creating 2 or 3 partitions depending on the purpose of the disk '''
 
@@ -688,7 +706,7 @@ class DiskManager (Base):
 
         for disk in self.disk_list:
             if disk.get_os_usage():
-                continue
+                disk.verifySystemDiskPartitionSize()
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
             disk.format()

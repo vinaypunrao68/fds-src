@@ -45,9 +45,20 @@ namespace fds
         {
             hdr = dl_label;
         }
-        fds_verify(hdr != NULL);
+
+        fds_verify (hdr != NULL);
         hdr->dl_magic      = MAGIC_DSK_SUPER_BLOCK;
-        hdr->dl_sector_beg = 64;
+
+        // Feature toggle, the else clause is the old scenario
+        if (m_use_new_superblock)
+        {
+            hdr->dl_sector_beg = 2;
+        }
+        else
+        {
+            hdr->dl_sector_beg = 64;
+        }
+
         hdr->dl_sector_end = hdr->dl_sector_beg + DL_PAGE_SECT_SZ;
         hdr->dl_major      = DL_MAJOR;
         hdr->dl_minor      = DL_MINOR;
@@ -275,7 +286,7 @@ namespace fds
         fds_assert(dl_label == NULL);
         buf = static_cast<void *>(new char [DL_PAGE_SZ]);
 
-        if (dl_owner->dsk_read(buf, DL_SECTOR_BEGIN, DL_PAGE_SECT_SZ) <= 0)
+        if (dl_owner->dsk_read(buf, DL_SECTOR_BEGIN, DL_PAGE_SECT_SZ, m_use_new_superblock) <= 0)
         {
             memset(buf, 0, DL_PAGE_SZ);
         }
@@ -300,7 +311,6 @@ namespace fds
         fds_verify(sect_sz <= DL_PAGE_SECT_SZ);
 
         mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-        dl_owner->dsk_write(inv->dsk_need_simulation(),
-                            reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz);
+        dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
     }
 }  // namespace fds
