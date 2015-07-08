@@ -422,8 +422,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             err = timelineMgr->createSnapshot(vdesc);
         } else if (features.isTimelineEnabled()) {
             err = timelineMgr->createClone(vdesc);
-            if (err.ok()) fActivated = true;
         }
+        if (err.ok()) fActivated = true;
+
     } else {
         LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
         err = timeVolCat_->addVolume(*vdesc);
@@ -1023,6 +1024,8 @@ void DataMgr::mod_enable_service() {
     }
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+
     expungeMgr.reset(new ExpungeManager(this));
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();

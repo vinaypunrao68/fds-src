@@ -123,20 +123,19 @@ void ExpungeManager::threadTask(fds_volid_t volId, ObjectID objId, bool fFromSna
     bool fIsInSnapshot = dm->timelineMgr->isObjectInSnapshot(objId, volId);
     if (fIsInSnapshot) {
         if (fFromSnapshot) {
-            // nothing to do here
+            LOGDEBUG << "obj delete from snap in another snap, so ignoring. "
+                     << "vol:" << volId << " obj:" << objId;
             return;
         } else {
+            LOGDEBUG << "obj in snap so incrementing ref count "
+                     << "vol:" << volId << " obj:" << objId;
             expungeDB->increment(volId, objId);
         }
     } else {
         uint32_t count = expungeDB->getExpungeCount(volId, objId);
-        if (count == 0) {
-            LOGWARN << "count should NOT be zero "
-                    << "vol:" << volId << " obj:" << objId;
-        } else {
-            LOGDEBUG << "will [" << count << "] send delete requests for "
-                     << "vol:" << volId << " obj:" << objId;
-        }
+        count++; // old count + current request;
+        LOGDEBUG << "will send [" << count << "] delete requests for "
+                 << "vol:" << volId << " obj:" << objId;
 
         for (; count > 0; count--) {
             sendDeleteRequest(volId, objId);
