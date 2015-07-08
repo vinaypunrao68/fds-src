@@ -32,7 +32,7 @@ class FDSShell( cmd.Cmd ):
         
         val = ConfigurationManager().get_value(ConfigurationManager.TOGGLES, ConfigurationManager.CMD_HISTORY)
         
-        if val == "true" or val is True or val == "True":
+        if val == "true" or val is True or val == "True" or val == None:
             setupHistoryFile()
 
         self.plugins = []
