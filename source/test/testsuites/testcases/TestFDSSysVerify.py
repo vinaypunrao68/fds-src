@@ -262,6 +262,24 @@ class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
             self.log.error("Unequal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return False
 
+class TestDMChecker(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMChecker,
+                                             "DM Static migration verification")
+    def test_DMChecker(self):
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        nodes = fdscfg.rt_obj.cfg_nodes
+        n1 = nodes[0]
+        status, stdout = n1.nd_agent.exec_wait('bash -c \"(nohup %s/DmChecker) \"' %
+                                                (bin_dir), return_stdin=True)
+
+        if status != 0:
+            self.log.error("DM Static Migration failed") 
+            return False
+        return True
 
 # This class contains the attributes and methods to test
 # whether there occurred successful DM Static migration

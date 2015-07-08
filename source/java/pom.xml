@@ -395,15 +395,15 @@
       </dependency>
 
       <dependency>
-        <groupId>redis.clients</groupId>
-        <artifactId>jedis</artifactId>
-        <version>${jedis.version}</version>
-      </dependency>
-
-      <dependency>
         <groupId>org.dcache</groupId>
         <artifactId>nfs4j-core</artifactId>
         <version>${nfs4j.core.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>redis.clients</groupId>
+        <artifactId>jedis</artifactId>
+        <version>${jedis.version}</version>
       </dependency>
 
       <!-- test scope -->

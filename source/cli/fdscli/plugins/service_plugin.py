@@ -6,6 +6,7 @@ from services.response_writer import ResponseWriter
 from model.platform.service import Service
 
 import json
+from model.fds_error import FdsError
 
 
 class ServicePlugin( AbstractPlugin ):
@@ -116,7 +117,7 @@ class ServicePlugin( AbstractPlugin ):
             
         response = self.get_node_service().start_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
             
-        if "message" not in response:
+        if not isinstance( response, FdsError ):
             self.list_services(args)            
                         
     def stop_service(self, args):
@@ -126,7 +127,7 @@ class ServicePlugin( AbstractPlugin ):
         
         response = self.get_node_service().stop_service( args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
 
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_services(args)  
 
     def add_service(self, args):
@@ -140,7 +141,7 @@ class ServicePlugin( AbstractPlugin ):
         
         response = self.get_node_service().add_service( args[AbstractPlugin.node_id_str], service )
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_services(args)
         
     def remove_service(self, args):
@@ -149,7 +150,7 @@ class ServicePlugin( AbstractPlugin ):
         '''
         response = self.get_node_service().remove_service(args[AbstractPlugin.node_id_str], args[AbstractPlugin.service_id_str])
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_services(args)
 
     def list_services(self, args):
@@ -158,6 +159,9 @@ class ServicePlugin( AbstractPlugin ):
         '''
         
         nodes = self.get_node_service().list_nodes()
+        
+        if isinstance( nodes, FdsError ):
+            return
         
         if nodes is None:
             return

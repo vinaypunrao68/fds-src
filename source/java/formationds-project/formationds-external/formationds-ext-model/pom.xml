@@ -13,7 +13,7 @@
 
   <properties>
     <formationds.external.name>
-      ${formationds.project.name} external Model
+      ${formationds.external.project.name} Model
     </formationds.external.name>
   </properties>
 

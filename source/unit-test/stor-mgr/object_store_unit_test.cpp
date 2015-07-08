@@ -223,30 +223,6 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
     threads_.clear();
 }
 
-TEST_F(SmObjectStoreTest, get_used_capacity_pct) {
-
-    Error err(ERR_OK);
-
-    float_t used_pct = objectStore->getUsedCapacityAsPct();
-
-    EXPECT_TRUE(used_pct >= 0);
-
-    // populate store
-    int written = 0;
-    for (fds_uint32_t i = 0; i < (volume1->testdata_).dataset_.size(); ++i) {
-        ObjectID oid = (volume1->testdata_).dataset_[i];
-        boost::shared_ptr<std::string> data = (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
-        EXPECT_TRUE(err.ok());
-        written += data->size();
-    }
-
-    float_t used_pct2 = objectStore->getUsedCapacityAsPct();
-    EXPECT_TRUE(used_pct2 > 0);
-    EXPECT_TRUE(used_pct2 > used_pct);
-}
-
-
 TEST_F(SmObjectStoreTest, one_thread_puts) {
     Error err(ERR_OK);
 
@@ -258,6 +234,8 @@ TEST_F(SmObjectStoreTest, one_thread_puts) {
         err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
     }
+    float_t used_pct = objectStore->getUsedCapacityAsPct();
+    EXPECT_TRUE(used_pct > 0);
 }
 
 TEST_F(SmObjectStoreTest, one_thread_gets) {
@@ -552,7 +530,7 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     DLT::SourceNodeMap srcNodeMap;
 
     unsigned destSm = 1; // destination SM id
-    unsigned srcSm = 2; // expected source SM id to be assinged for resync
+    unsigned srcSm = DLT_VER_INVALID; // expected source SM id to be assinged for resync
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
 
     for (auto obj : srcNodeMap) {
