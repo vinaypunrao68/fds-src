@@ -178,7 +178,7 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
 }
 
 Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) {
+                                                    Catalog::catalog_roptions_t &opts) {
 	auto dbIt = getExistingSnapshotIter(opts);
 	if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
