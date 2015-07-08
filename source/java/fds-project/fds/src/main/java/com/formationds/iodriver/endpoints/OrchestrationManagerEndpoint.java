@@ -21,17 +21,17 @@ import com.formationds.iodriver.operations.OrchestrationManagerOperation;
  * An endpoint connecting to an FDS Orchestration Manager.
  */
 // @eclipseFormat:off
-public final class OrchestrationManagerEndpoint
+public class OrchestrationManagerEndpoint
     extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OrchestrationManagerOperation>
 // @eclipseFormat:on
 {
     /**
      * An OM authentication token. This should be considered an opaque string.
      */
-    public static class AuthToken
+    public static final class AuthToken
     {
         @Override
-        public final String toString()
+        public String toString()
         {
             return _value;
         }
@@ -62,6 +62,7 @@ public final class OrchestrationManagerEndpoint
      * @param password The password to use to acquire the auth token.
      * @param logger Log messages are sent here.
      * @param trusting Whether to trust all SSL certs. Should not be {@code true} in production.
+     * @param v8 A version 8 API endpoint.
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
@@ -69,7 +70,9 @@ public final class OrchestrationManagerEndpoint
                                         String username,
                                         String password,
                                         Logger logger,
-                                        boolean trusting) throws MalformedURLException
+                                        boolean trusting,
+                                        OrchestrationManagerEndpoint v8)
+            throws MalformedURLException
     {
         super(uri, logger, trusting);
 
@@ -78,6 +81,8 @@ public final class OrchestrationManagerEndpoint
 
         _username = username;
         _password = password;
+
+        _v8 = v8;
     }
 
     @Override
@@ -94,7 +99,7 @@ public final class OrchestrationManagerEndpoint
      * 
      * @throws IOException when an error occurs while logging in.
      */
-    public AuthToken getAuthToken() throws IOException
+    public final AuthToken getAuthToken() throws IOException
     {
         if (_authToken == null)
         {
@@ -135,20 +140,32 @@ public final class OrchestrationManagerEndpoint
      * 
      * @return The current property value.
      */
-    public String getUsername()
+    public final String getUsername()
     {
         return _username;
+    }
+
+    /**
+     * Get the version 8 API OM endpoint.
+     *
+     * @return An OM endpoint that supports API version 8.
+     */
+    public final OrchestrationManagerEndpoint getV8()
+    {
+        return _v8;
     }
 
     /**
      * Extend this class to allow deep copies even when the superclass private members aren't
      * available.
      */
-    protected class CopyHelper extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
-                              OrchestrationManagerOperation>.CopyHelper
+    protected final class CopyHelper
+            extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
+                                          OrchestrationManagerOperation>.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
+        public final OrchestrationManagerEndpoint v8 = _v8.copy();
     }
 
     /**
@@ -162,10 +179,11 @@ public final class OrchestrationManagerEndpoint
 
         _password = helper.password;
         _username = helper.username;
+        _v8 = helper.v8;
     }
 
     @Override
-    protected URLConnection openConnection(URL url) throws IOException
+    protected final URLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
 
@@ -183,7 +201,7 @@ public final class OrchestrationManagerEndpoint
      * 
      * @throws IOException when an error occurs while connecting.
      */
-    protected URLConnection openConnectionWithoutAuth(URL url) throws IOException
+    protected final URLConnection openConnectionWithoutAuth(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
 
@@ -208,4 +226,9 @@ public final class OrchestrationManagerEndpoint
      * The username to use when authenticating.
      */
     private final String _username;
+
+    /**
+     * Version 8 API OM endpoint.
+     */
+    private final OrchestrationManagerEndpoint _v8;
 }

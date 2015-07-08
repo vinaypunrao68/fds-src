@@ -24,7 +24,7 @@ import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.AbstractHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Basic HTTP endpoint.
@@ -77,7 +77,7 @@ extends Endpoint<ThisT, OperationT>
     @Override
     // @eclipseFormat:off
     public void doVisit(OperationT operation,
-                        WorkflowEventListener listener) throws ExecutionException
+                        AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
@@ -96,7 +96,7 @@ extends Endpoint<ThisT, OperationT>
      */
     // @eclipseFormat:off
     public void visit(OperationT operation,
-                      WorkflowEventListener listener) throws ExecutionException
+                      AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
@@ -219,14 +219,21 @@ extends Endpoint<ThisT, OperationT>
             return func.apply(connection);
         case 4:
             throw new HttpClientException(responseCode,
+                                          connection.getURL().toString(),
+                                          connection.getRequestMethod(),
                                           getResponseMessage(connection),
                                           getErrorResponse(connection));
         case 5:
             throw new HttpServerException(responseCode,
+                                          connection.getURL().toString(),
+                                          connection.getRequestMethod(),
                                           getResponseMessage(connection),
                                           getErrorResponse(connection));
         default:
-            throw new HttpException(responseCode, getResponseMessage(connection));
+            throw new HttpException(responseCode,
+                                    connection.getURL().toString(),
+                                    connection.getRequestMethod(),
+                                    getResponseMessage(connection));
         }
     }
 
@@ -410,7 +417,9 @@ extends Endpoint<ThisT, OperationT>
         }
         if (responseCode < 0)
         {
-            throw new HttpException(responseCode);
+            throw new HttpException(responseCode,
+                                    connection.getURL().toString(),
+                                    connection.getRequestMethod());
         }
         return responseCode;
     }

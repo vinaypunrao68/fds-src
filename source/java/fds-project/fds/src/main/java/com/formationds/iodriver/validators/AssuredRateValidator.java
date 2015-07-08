@@ -9,23 +9,22 @@ import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQosStats;
 
-/**
- * Validate that no volume exceeded its throttle by more than 1%.
- */
-public final class RateLimitValidator implements Validator
+public class AssuredRateValidator implements Validator
 {
     @Override
     public boolean isValid(AbstractWorkflowEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
-
+        
         boolean failed = false;
+        int totalAssuredIops = 0;
+        double totalIops = 0.0;
         for (String volumeName : listener.getVolumes())
         {
             VolumeQosStats stats = listener.getStats(volumeName);
             VolumeQosSettings params = stats.params;
             VolumeQosPerformance perf = stats.performance;
-
+            
             Instant start = perf.getStart();
             Instant stop = perf.getStop();
             if (start == null)
@@ -36,21 +35,36 @@ public final class RateLimitValidator implements Validator
             {
                 throw new IllegalStateException("Volume " + volumeName + " has not been stopped.");
             }
-
-            int throttle = params.getIopsThrottle();
+            
+            int assured = params.getIopsAssured();
             Duration duration = Duration.between(start, stop);
             double durationInSeconds = duration.toMillis() / 1000.0;
             double iops = perf.getOps() / durationInSeconds;
-            double deviation = (iops - throttle) / throttle;
+            double deviation = (iops - assured) / assured;
+
+            totalAssuredIops += assured;
+            totalIops += iops;
 
             System.out.println(volumeName + ": A:" + params.getIopsAssured() + ", T:"
                                + params.getIopsThrottle() + "): " + perf.getOps() + " / "
                                + durationInSeconds + " = " + iops + "(" + deviation * 100.0 + "%).");
-
-            if (Math.abs(deviation) > 0.015)
+            
+            // We must be within at least 3% of our assured rate to call it success. If we're more
+            // than 50% over, we're probably not hitting QoS limits hard enough.
+            if (deviation < -0.03 || deviation > 0.50)
             {
                 failed = true;
             }
+        }
+        
+        double totalDeviation = (totalIops - totalAssuredIops) / totalAssuredIops;
+        System.out.println("Total system IOPS: " + totalIops + "(" + totalDeviation * 100.0 + "%.");
+
+        // If we can go over 10% of what we requested for assured, we're not stressing the system
+        // hard enough.
+        if (Math.abs(totalDeviation) > 0.1)
+        {
+            failed = true;
         }
 
         return !failed;

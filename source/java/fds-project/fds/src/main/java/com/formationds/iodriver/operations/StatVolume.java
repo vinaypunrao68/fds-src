@@ -1,7 +1,9 @@
 package com.formationds.iodriver.operations;
 
 import java.net.URI;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -15,7 +17,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Get the QoS settings for a volume.
@@ -40,7 +42,7 @@ public final class StatVolume extends OrchestrationManagerOperation
     @Override
     public void exec(OrchestrationManagerEndpoint endpoint,
                      HttpsURLConnection connection,
-                     WorkflowEventListener reporter) throws ExecutionException
+                     AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
@@ -104,6 +106,14 @@ public final class StatVolume extends OrchestrationManagerOperation
         return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("consumer", _consumer),
+                                       memberToString("volumeName", _volumeName)));
+    }
+    
     /**
      * Where to send the settings.
      */
