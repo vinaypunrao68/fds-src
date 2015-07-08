@@ -104,20 +104,7 @@ namespace fds
 
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
-            if (m_nodeInfo.bareAMPid > 0)
-            {
-                procName = getProcName (BARE_AM);
-
-                if (procCheck (procName, m_nodeInfo.bareAMPid))
-                {
-                    m_appPidMap[procName] = m_nodeInfo.bareAMPid | PROC_CHECK_BITMASK;
-                }
-                else
-                {
-                    updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
-                }
-            }
-
+            // This must come before the bare_am check, due to the possible stopProcess call
             if (m_nodeInfo.javaAMPid > 0)
             {
                 procName = getProcName (JAVA_AM);
@@ -129,6 +116,21 @@ namespace fds
                 else
                 {
                     updateNodeInfoDbPid (JAVA_AM, EMPTY_PID);
+                }
+            }
+
+            if (m_nodeInfo.bareAMPid > 0)
+            {
+                procName = getProcName (BARE_AM);
+
+                if (procCheck (procName, m_nodeInfo.bareAMPid))
+                {
+                    m_appPidMap[procName] = m_nodeInfo.bareAMPid | PROC_CHECK_BITMASK;
+                }
+                else
+                {
+                    updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
+                    stopProcess(JAVA_AM);
                 }
             }
 
@@ -1045,14 +1047,9 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                                 }
                             }
 
-                            if (JAVA_AM == appIndex)
+                            if (BARE_AM == appIndex)
                             {
-                                LOGDEBUG << "Discovered an exited XDI process, also killing bare_am";
-                                stopProcess(BARE_AM);
-                            }
-                            else if (BARE_AM == appIndex)
-                            {
-                                LOGDEBUG << "Discovered an exited bare_am process, also killing XDI";
+                                LOGDEBUG << "Discovered an exited bare_am process, also bringing down XDI";
                                 stopProcess(JAVA_AM);
                             }
 
@@ -1062,13 +1059,6 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
 
                             if (m_autoRestartFailedProcesses)
                             {
-                                // Since ordering matters to the 2 AM process, enqueue a BARE_AM if XDI died and vise versa for the JAVA_AM below.
-                                if (JAVA_AM == appIndex)
-                                {
-                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                                    m_startQueue.push_back (BARE_AM);
-                                }
-
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
