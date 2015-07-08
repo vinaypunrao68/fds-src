@@ -32,8 +32,8 @@ class VolumeStatus(object):
     @current_usage.setter
     def current_usage(self, size):
         
-        if not isinstance(size, Size):
-            raise TypeError()
+#         if not isinstance(size, Size):
+#             raise TypeError()
         
         self.__current_usage = size
         

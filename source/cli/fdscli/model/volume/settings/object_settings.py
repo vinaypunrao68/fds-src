@@ -19,7 +19,4 @@ class ObjectSettings(VolumeSettings):
     @max_object_size.setter
     def max_object_size(self, size):
         
-        if size is not None and not isinstance(size, Size):
-            raise TypeError()
-        
         self.__max_object_size = size
