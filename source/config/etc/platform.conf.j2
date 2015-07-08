@@ -219,16 +219,16 @@ fds: {
             rsync_password = "passwd"
 
             /* boolean to enable/disable DM migration feature */
-            enable_feature = false
+            enable_feature = {{ dm_enable_migration }}
 
             /* boolean to enable/disable DM resync feature */
-            enable_resync = false
+            enable_resync = {{ dm_enable_resync }}
 
             /* timeout duration in sec */
-            migration_timeout=300
+            migration_timeout= {{ dm_migration_timeout }}
 
             /* Maximum concurrent migrations */
-            max_migrations=1
+            migration_max_concurrency = {{ dm_migration_max_concurrency }}
         }
 
         /* Graphite is enabled or not */

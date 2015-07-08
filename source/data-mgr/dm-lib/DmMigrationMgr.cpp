@@ -10,15 +10,17 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-	  maxMigrations(1), firedMigrations(0), mit(NULL), DmStartMigClientCb(NULL),
+	  maxConcurrency(1), firedMigrations(0), mit(NULL), DmStartMigClientCb(NULL),
 	  migrState(MIGR_IDLE), cleanUpInProgress(false), migrationMsg(nullptr),
 	  migReqMsg(nullptr)
 {
-	maxMigrations = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
-				get<int>("fds.dm..migration.max_migrations"));
+	maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+				get<int>("fds.dm..migration.migration_max_concurrency"));
 
     enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.migration.enable_feature"));
+    enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.migration.enable_resync"));
 }
+
 DmMigrationMgr::~DmMigrationMgr()
 {
 
@@ -82,7 +84,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
     if (false == enableMigrationFeature) {
         LOGCRITICAL << "DM Migration is disabled! ignoring start migration msg";
         if (OmStartMigrCb) {
-            OmStartMigrCb(ERR_OK);
+	        OmStartMigrCb(asyncPtr, migrationMsg, ERR_OK, dmReqPtr);
         }
         return err;
     }
@@ -110,9 +112,9 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
 			 */
-			fds_verify(maxMigrations > 0);
+			fds_verify(maxConcurrency > 0);
 			firedMigrations++;
-			if (firedMigrations == maxMigrations) {
+			if (firedMigrations == maxConcurrency) {
 				autoIncrement = true;
 				// from this point on, all the other executors must have autoIncrement == TRUE
 			}
@@ -141,7 +143,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	 * sides communicate with each other before we allow the call to unblock and returns
 	 * a OK response.
 	 * TODO(Neil) - the "startMigration()" method is not optimized for multithreading.
-	 * We need to revisit this and work with the maxMigrations concept to start x concurrent
+	 * We need to revisit this and work with the maxConcurrency concept to start x concurrent
 	 * threads.
 	 */
 	SCOPEDWRITE(migrExecutorLock);

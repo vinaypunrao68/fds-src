@@ -113,10 +113,15 @@ class DmMigrationMgr {
     bool enableMigrationFeature;
 
     /**
+     * check if resync feature is enabled.
+     */
+    bool enableResyncFeature;
+
+    /**
      * Throttles the number of max concurrent migrations
      * Below are protected by migrExecutorLock.
      */
-    fds_uint32_t maxMigrations;
+    fds_uint32_t maxConcurrency;
     fds_uint32_t firedMigrations;
     // Bookmark for last fired executor
     DmMigrationExecMap::iterator mit;
