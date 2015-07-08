@@ -491,7 +491,7 @@ public class ExternalModelConverter {
 			VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
 
 			if ( objectSettings.getMaxObjectSize() != null ){
-				internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+				internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).longValue() );
 			}
 			else {
 				internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
