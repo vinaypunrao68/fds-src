@@ -469,10 +469,8 @@ AmProcessor_impl::renewToken(const fds_volid_t vol_id) {
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
     auto amReq = new AttachVolumeReq(vol_id, "", vol->access_token->getMode(), nullptr);
-    amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
     amReq->token = vol->getToken();
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::attachVolumeCb, amReq);
-    amDispatcher->dispatchOpenVolume(amReq);
+    enqueueRequest(amReq);
 }
 
 Error
