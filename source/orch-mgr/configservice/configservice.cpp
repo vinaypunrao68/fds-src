@@ -41,13 +41,11 @@ static void add_service_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  /
     fpi::SvcInfo svcInfo;
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
-
     /* Getting from svc map.  Should be able to get it from config db as well */
     if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
         GLOGWARN << "could not find svcinfo for uuid:" << svcUuid.svc_uuid;
         return;
     }
-
     fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
     nodeInfo.node_uuid = SvcMgr::mapToSvcUuid(svcUuid, fpi::FDSP_PLATFORM).svc_uuid;
     nodeInfo.service_uuid = svcUuid.svc_uuid;

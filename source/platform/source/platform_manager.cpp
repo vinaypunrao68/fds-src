@@ -530,8 +530,6 @@ namespace fds
         //
         void PlatformManager::activateServices (const fpi::ActivateServicesMsgPtr &activateMsg)
         {
-            LOGDEBUG << "Entered PlatformManager::activateServices";
-
             auto &info = activateMsg->info;
 
             while (false == m_startupAuditComplete)
@@ -576,7 +574,6 @@ namespace fds
 
         void PlatformManager::deactivateServices(const fpi::DeactivateServicesMsgPtr &deactivateMsg)
         {
-            LOGDEBUG << "Received deactivateServices message";
             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
 
             if (deactivateMsg->deactivate_am_svc && m_nodeInfo.fHasAm)
@@ -768,11 +765,10 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        {
-                            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                            m_startQueue.push_back (BARE_AM);
-                            m_startQueue.push_back (JAVA_AM);
-                        }
+                        std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                        m_startQueue.push_back (BARE_AM);
+                        m_startQueue.push_back (JAVA_AM);
+
                     } break;
 
                     case fpi::FDSP_DATA_MGR:
@@ -789,10 +785,9 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        {
-                            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                            m_startQueue.push_back (DATA_MANAGER);
-                        }
+                        std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                        m_startQueue.push_back (DATA_MANAGER);
+
                     } break;
 
                     case fpi::FDSP_STOR_MGR:
@@ -808,10 +803,10 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                                 LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already running.";
                             }
                         }
-                        {
-                            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                            m_startQueue.push_back (STORAGE_MANAGER);
-                        }
+
+                        std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+                        m_startQueue.push_back (STORAGE_MANAGER);
+
                     } break;
 
                     default:

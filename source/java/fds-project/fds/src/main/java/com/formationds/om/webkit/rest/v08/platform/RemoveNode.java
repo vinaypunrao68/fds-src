@@ -71,8 +71,9 @@ public class RemoveNode
         {
         	for(Service svc : svcList)
         	{
-        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType( node.getAddress().getHostAddress(),
-                                                                                      svc);
+        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        				                                 (node.getAddress().getHostAddress(),
+                                                          svc);
         		svcInfList.add(svcInfo);
         		
         		if (svc.getType() == ServiceType.PM) {
@@ -85,8 +86,9 @@ public class RemoveNode
         if (!pmPresent)
         {
         	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
-        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType( node.getAddress().getHostAddress(),
-                                                                                  pmSvc);
+        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        			                                 (node.getAddress().getHostAddress(),
+                                                      pmSvc);
         	svcInfList.add(svcInfo);
         }
         

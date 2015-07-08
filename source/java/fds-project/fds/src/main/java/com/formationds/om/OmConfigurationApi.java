@@ -354,7 +354,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     /**
      * Add service to the specified Node.
      *
-     * @param add_svc_req - NotifyAddServiceMsg: Struct containing list of services associated with node
+     * @param add_svc_req - NotifyAddServiceMsg: Struct containing list of services 
+     * associated with node
      *
      * @return int 0 is successful. Not 0 otherwise.
      *
@@ -363,14 +364,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
             throws org.apache.thrift.TException {
-    	LOG.debug("OmConfigurationApi::AddService entered " + add_svc_req.toString() );
     	return getConfig().AddService(add_svc_req);
     }
     
     /**
      * Start service on the specified Node.
      *
-     * @param start_svc_req - NotifyStartServiceMsg: Struct containing list of services associated with node
+     * @param start_svc_req - NotifyStartServiceMsg: Struct containing list of services
+     * associated with node
      *
      * @return int 0 is successful. Not 0 otherwise.
      *
@@ -379,14 +380,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
             throws org.apache.thrift.TException {
-    	LOG.debug("OmConfigurationApi::StartService entered " + start_svc_req.toString() );
     	return getConfig().StartService(start_svc_req);
     }
     
     /**
      * Stop service on the specified Node.
      *
-     * @param stop_svc_req - NotifyStopServiceMsg: Struct containing list of services associated with node
+     * @param stop_svc_req - NotifyStopServiceMsg: Struct containing list of services
+     * associated with node
      *
      * @return int 0 is successful. Not 0 otherwise.
      *
@@ -395,24 +396,23 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
             throws org.apache.thrift.TException {
-    	LOG.debug("OmConfigurationApi::StopService entered " + stop_svc_req.toString() );
     	return getConfig().StopService(stop_svc_req);
     }
     
     /**
      * Remove service on the specified Node.
      *
-     * @param start_svc_req - NotifyStartServiceMsg: Struct containing list of services associated with node
+     * @param rm_svc_req - NotifyRemoveServiceMsg: Struct containing list of services
+     * associated with node
      *
      * @return int 0 is successful. Not 0 otherwise.
      *
      * @throws TException
      */
     @Override
-    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rmv_svc_req)
+    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
             throws org.apache.thrift.TException {
-    	LOG.debug("OmConfigurationApi::RemoveService entered " + rmv_svc_req.toString() );
-    	return getConfig().RemoveService(rmv_svc_req);
+    	return getConfig().RemoveService(rm_svc_req);
     }
  
 
@@ -475,7 +475,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @return int 0 is successful. Not 0 otherwise.
      *
      * @throws TException
-     * */
+     */
     @Override
     public int RemoveServices(com.formationds.apis.FDSP_RemoveServicesType rm_node_req)
             throws org.apache.thrift.TException {

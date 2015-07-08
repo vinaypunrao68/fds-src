@@ -500,9 +500,9 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
    
     @Override
-    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rmv_svc_req)
+    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
             throws TException {
-        return config.RemoveService(rmv_svc_req);
+        return config.RemoveService(rm_svc_req);
     }
 
     @Override

@@ -4,9 +4,6 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import com.formationds.client.v08.converters.PlatformModelConverter;
-// to be removed
-import com.formationds.protocol.FDSP_Uuid;
-import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
@@ -59,7 +56,8 @@ public class AddNode
         Node node = ObjectModelHelper.toObject( reader, Node.class );
 
         if( node == null ) {
-	  		throw new ApiException( "The specified node uuid " + nodeUuid + " cannot be found", ErrorCode.MISSING_RESOURCE );
+	  		throw new ApiException( "The specified node uuid " + nodeUuid + 
+	  				                " cannot be found", ErrorCode.MISSING_RESOURCE );
   		}
         
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
@@ -70,8 +68,9 @@ public class AddNode
         {
         	for(Service svc : svcList)
         	{
-        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType( node.getAddress().getHostAddress(),
-                                                                                      svc);
+        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        				                                 (node.getAddress().getHostAddress(),
+                                                          svc);
         		svcInfList.add(svcInfo);
         		
         		if (svc.getType() == ServiceType.PM) {
@@ -84,8 +83,9 @@ public class AddNode
         if (!pmPresent)
         {
         	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
-        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType( node.getAddress().getHostAddress(),
-                    pmSvc);
+        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        			                                 (node.getAddress().getHostAddress(),
+                                                      pmSvc);
         	svcInfList.add(svcInfo);
         }
         

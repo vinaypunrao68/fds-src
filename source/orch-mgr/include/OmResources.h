@@ -609,12 +609,14 @@ class OM_NodeContainer : public DomainContainer
 
     virtual Error om_add_service(const fpi::SvcUuid& svc_uuid,
                                  std::vector<fpi::SvcInfo> svcInfos);
+
     virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
                                    std::vector<fpi::SvcInfo> svcInfos);
 
     virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
                                   std::vector<fpi::SvcInfo> svcInfos,
                                   bool stop_sm, bool stop_dm, bool stop_am);
+
     virtual Error om_remove_service(const fpi::SvcUuid& svc_uuid,
                                     std::vector<fpi::SvcInfo> svcInfos,
                                     bool remove_sm, bool remove_dm, bool remove_am);

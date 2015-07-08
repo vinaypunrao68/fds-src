@@ -1222,7 +1222,7 @@ OM_PmAgent::send_start_service
     }
 
     if (svcInfos.size() == 0) {
-        LOGDEBUG << "Request to start services when there are none";
+        LOGDEBUG << "Request to start services when there are none to start";
         return Error(ERR_INVALID_ARG);
     }
 
@@ -1293,7 +1293,7 @@ OM_PmAgent::send_stop_service
     }
 
     if (svcInfos.size() == 0) {
-        LOGDEBUG << "Request to stop services when there are none";
+        LOGDEBUG << "Request to stop services when there are none to stop";
         return Error(ERR_INVALID_ARG);
     }
 
@@ -1320,11 +1320,6 @@ OM_PmAgent::send_stop_service
 
         activeSmAgent = nullptr;
     }
-    else
-    {
-        LOGDEBUG << "SM service already not active on platform "
-                     << std::hex << get_uuid().uuid_get_val() << std::dec;
-    }
 
     // Set DM service state to inactive
     if ( stop_dm && activeDmAgent ) {
@@ -1340,11 +1335,6 @@ OM_PmAgent::send_stop_service
 
         activeDmAgent = nullptr;
     }
-    else
-    {
-        LOGDEBUG << "DM service already not active on platform "
-                 << std::hex << get_uuid().uuid_get_val() << std::dec;
-    }
 
     // Set AM service state to inactive
     if ( stop_am && activeAmAgent ) {
@@ -1358,11 +1348,6 @@ OM_PmAgent::send_stop_service
                               fpi::SVC_STATUS_INACTIVE );
 
         activeAmAgent = nullptr;
-    }
-    else
-    {
-        LOGDEBUG << "AM service already not active on platform "
-                 << std::hex << get_uuid().uuid_get_val() << std::dec;
     }
 
     fpi::NotifyStopServiceMsgPtr stopServiceMsg =
@@ -1396,7 +1381,6 @@ OM_PmAgent::send_remove_service
     )
 {
     TRACEFUNC;
-    LOGDEBUG << "OM_PmAgent::send_remove_service entered";
     Error err(ERR_OK);
 
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
@@ -1420,7 +1404,7 @@ OM_PmAgent::send_remove_service
                     << " remove sm ? " << remove_sm
                     << " remove dm ? " << remove_dm
                     << " remove am ? " << remove_am;
-/*
+
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     err = domain->om_del_services(node_uuid,
@@ -1435,7 +1419,7 @@ OM_PmAgent::send_remove_service
                         << std::hex << node_uuid
                         << std::dec << ", result: " << err.GetErrstr();
     }
-*/
+
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
 
@@ -1446,7 +1430,7 @@ OM_PmAgent::send_remove_service
     req->invoke();
 
     // Assuming that if we plan to remove all 3 services,
-    // then the root action is "remove node". In which case, now that
+    // then the root action is "remove node": now that
     // all handling on PM side is done, set the state of PM to inactive
     if (remove_sm && remove_dm && remove_am)
     {
@@ -1461,7 +1445,7 @@ OM_PmAgent::send_remove_service
             configDB->removeNode(get_uuid());
             fds::change_service_state( configDB,
                                        get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_ACTIVE );
+                                       fpi::SVC_STATUS_INACTIVE );
 
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
@@ -2179,7 +2163,6 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_am) {
     TRACEFUNC;
     OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
-
     if (agent == NULL) {
         LOGERROR << "activate node services: platform service is not "
                  << "running (or node uuid is not correct) on node "

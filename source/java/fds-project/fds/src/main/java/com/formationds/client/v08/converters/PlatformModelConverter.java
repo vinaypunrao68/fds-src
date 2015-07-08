@@ -4,7 +4,6 @@ import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Node.NodeAddress;
 import com.formationds.client.v08.model.Node.NodeState;
 import com.formationds.client.v08.model.Service;
-import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.client.v08.model.ServiceType;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.FDSP_NodeState;
@@ -23,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.formationds.client.v08.model.Service.ServiceState;
 import static com.formationds.client.v08.model.Service.ServiceStatus;
 
 @SuppressWarnings( "unused" )
@@ -195,6 +195,7 @@ public class PlatformModelConverter
   ServiceState externalServiceState
   )
   {
+	// Conversion of model.Service.ServiceStatus to svc.types.ServiceStatus
 	com.formationds.protocol.svc.types.ServiceStatus internalStatus;
 	
 	switch(externalServiceState){
@@ -215,7 +216,7 @@ public class PlatformModelConverter
 
 	return internalStatus;
   }
-  //Currently used by AddNode.java
+
   public static SvcInfo convertServiceToSvcInfoType( final String nodeIp, Service service)
   {
     final Long newId = -1L;
@@ -232,8 +233,7 @@ public class PlatformModelConverter
 	  	    = convertToInternalServiceType(service.getType());
 	
 	ServiceState externalServiceState = service.getStatus().getServiceState();
-	// Need to convert model.Service.ServiceStatus to svc.types.ServiceStatus
-	// that is used in SvcInfo initialization
+
 	com.formationds.protocol.svc.types.ServiceStatus internalStatus
 	                         = convertToInternalServiceStatus(externalServiceState);
 

@@ -150,7 +150,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
     
     @Override
-    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rmv_svc_req)
+    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
             throws TException {
         return 0;
     }
