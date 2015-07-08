@@ -4,6 +4,7 @@ from services.response_writer import ResponseWriter
 from utils.converters.platform.domain_converter import DomainConverter
 
 import json
+from model.fds_error import FdsError
 
 '''
 Created on Apr 13, 2015
@@ -82,6 +83,9 @@ class LocalDomainPlugin( AbstractPlugin):
         '''
         domains = self.get_local_domain_service().get_local_domains()
         
+        if isinstance( domains, FdsError ):
+            return        
+        
         if ( args[AbstractPlugin.format_str] == "json" ):
             
             j_domains = []
@@ -103,7 +107,7 @@ class LocalDomainPlugin( AbstractPlugin):
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
         response = self.get_local_domain_service().shutdown(domain)
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_domains(args)
             
     def startup(self, args):
@@ -113,7 +117,7 @@ class LocalDomainPlugin( AbstractPlugin):
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
         response = self.get_local_domain_service().start(domain)
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             self.list_domains(args)
             
             

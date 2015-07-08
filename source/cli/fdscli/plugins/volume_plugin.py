@@ -13,6 +13,7 @@ from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConv
 from model.volume.settings.block_settings import BlockSettings
 from model.common.size import Size
 from model.volume.settings.object_settings import ObjectSettings
+from model.fds_error import FdsError
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -217,6 +218,9 @@ class VolumePlugin( AbstractPlugin):
         else:
             response = self.get_volume_service().list_volumes()
         
+        if isinstance( response, FdsError ):
+            return
+        
         if len( response ) == 0:
             print "\nNo volumes found."
         
@@ -244,6 +248,9 @@ class VolumePlugin( AbstractPlugin):
         snapshot_policy_service = SnapshotPolicyService(self.session)
         
         j_list = snapshot_policy_service.list_snapshot_policies( args[AbstractPlugin.volume_id_str])
+        
+        if isinstance( j_list, FdsError ):
+            return
         
         if ( args[AbstractPlugin.format_str] == "json" ):
             j_policies = []
@@ -511,7 +518,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().delete_volume( vol_id )
         
-        if response is not None:
+        if not isinstance( response, FdsError ):
             print 'Deletion request completed successfully.'
             args = [args[AbstractPlugin.format_str]]
             self.list_volumes(args)
@@ -546,7 +553,7 @@ class VolumePlugin( AbstractPlugin):
             
         response = self.get_volume_service().list_snapshots(volId)
         
-        if "message" in response:
+        if isinstance( response, FdsError ):
             return
         
         if ( len( response ) == 0 ):

@@ -81,26 +81,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
 
-    /**
-     * This thread will monitor filesystem for archived files. Whenever catalog journal
-     * files are archived, the thread will wake up and copy the file to timeline directory.
-     * The timeline directory will hold all journal files for all volumes.
-     */
-    boost::shared_ptr<std::thread> logMonitorThread_;
-    std::atomic<bool> stopLogMonitoring_;
-
-    void monitorLogs();
-
-    void getDirChildren(const std::string & parent, std::vector<std::string> & children,
-            fds_bool_t dirs = true);
-
-    // volcat  replay
-    Error dmReplayCatJournalOps(Catalog& destCat,
-                                const std::vector<std::string> &files,
-                                util::TimeStamp fromTime,
-                                util::TimeStamp toTime);
-    Error dmGetCatJournalStartTime(const std::string &logfile, fds_uint64_t *journal_time);
-
   protected:
     void createCommitLog(const VolumeDesc& voldesc);
 
@@ -122,8 +102,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
-
-    void cancelLogMonitoring();
 
     /**
      * Notification about new volume managed by this DM.
@@ -154,12 +132,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Create copy of the volume for snapshot/clone
      */
     Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = invalid_vol_id);
-
-    /**
-     *
-     */
-    Error replayTransactions(fds_volid_t srcVolId, fds_volid_t destVolId,
-                             util::TimeStamp fromTime, util::TimeStamp toTime);
 
     /**
      * Increment object reference counts for all objects referred by source
@@ -313,7 +285,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     fds_bool_t isPendingTx(fds_volid_t volId, fds_uint64_t timeNano);
 
     void commitBlobTxWork(fds_volid_t volid,
-			  const std::string &blobName,
+                          const std::string &blobName,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           sequence_id_t seq_id,

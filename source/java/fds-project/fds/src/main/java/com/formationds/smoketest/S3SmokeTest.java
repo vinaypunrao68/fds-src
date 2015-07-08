@@ -10,18 +10,14 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.servlet.http.HttpServletResponse;
 
+import com.amazonaws.services.s3.model.*;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
@@ -38,20 +34,6 @@ import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.CompleteMultipartUploadResult;
-import com.amazonaws.services.s3.model.CopyObjectRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.PutObjectResult;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.UploadPartRequest;
-import com.amazonaws.services.s3.model.UploadPartResult;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.Fds;
@@ -626,6 +608,59 @@ public class S3SmokeTest {
                 .map(b -> b.getName())
                 .collect(Collectors.toSet());
         assertFalse("Users should not see admin volumes!", bucketNames.contains(adminBucket));
+    }
+
+    @Test
+    public void testUnimplementedSubresources() {
+        assertUnimplemented(() -> userClient.getBucketPolicy("bucket"));
+        assertUnimplemented(() -> userClient.setBucketPolicy("bucket", "whatever"));
+        assertUnimplemented(() -> userClient.deleteBucketPolicy("bucket"));
+
+        assertUnimplemented(() -> userClient.deleteBucketCrossOriginConfiguration("bucket"));
+        assertUnimplemented(() -> userClient.setBucketCrossOriginConfiguration("bucket", new BucketCrossOriginConfiguration(new ArrayList<>())));
+        assertUnimplemented(() -> userClient.getBucketCrossOriginConfiguration("bucket"));
+
+        assertUnimplemented(() -> userClient.deleteBucketLifecycleConfiguration("bucket"));
+        assertUnimplemented(() -> userClient.getBucketLifecycleConfiguration("bucket"));
+        assertUnimplemented(() -> userClient.setBucketLifecycleConfiguration("bucket", new BucketLifecycleConfiguration(new ArrayList<BucketLifecycleConfiguration.Rule>())));
+
+        assertUnimplemented(() -> userClient.deleteBucketTaggingConfiguration("bucket"));
+        assertUnimplemented(() -> userClient.getBucketTaggingConfiguration("bucket"));
+        assertUnimplemented(() -> userClient.setBucketTaggingConfiguration("bucket", new BucketTaggingConfiguration(new ArrayList<TagSet>())));
+
+        assertUnimplemented(() -> userClient.deleteBucketWebsiteConfiguration("bucket"));
+        assertUnimplemented(() -> userClient.setBucketWebsiteConfiguration("bucket", new BucketWebsiteConfiguration("/", "/")));
+        assertUnimplemented(() -> userClient.getBucketWebsiteConfiguration("bucket"));
+
+        assertUnimplemented(() -> userClient.enableRequesterPays("bucket"));
+        assertUnimplemented(() -> userClient.disableRequesterPays("bucket"));
+        assertUnimplemented(() -> userClient.isRequesterPaysEnabled("bucket"));
+
+        assertUnimplemented(() -> userClient.getBucketLocation("bucket"));
+
+        assertUnimplemented(() -> userClient.setBucketNotificationConfiguration("bucket", new BucketNotificationConfiguration(new ArrayList<BucketNotificationConfiguration.TopicConfiguration>())));
+        assertUnimplemented(() -> userClient.getBucketNotificationConfiguration("bucket"));
+
+        assertUnimplemented(() -> userClient.listVersions("bucket", "/"));
+        assertUnimplemented(() -> userClient.setBucketVersioningConfiguration(new SetBucketVersioningConfigurationRequest("bucket", new BucketVersioningConfiguration("gurp"))));
+        assertUnimplemented(() -> userClient.getBucketVersioningConfiguration("bucket"));
+
+        assertUnimplemented(() -> userClient.restoreObject("bucket", "item", 10));
+
+        assertUnimplemented(() -> userClient.listMultipartUploads(new ListMultipartUploadsRequest("bucket")));
+    }
+
+    private void assertUnimplemented(Runnable r) {
+        try {
+            r.run();
+        } catch(AmazonS3Exception ex) {
+            if(ex.getMessage().contains("feature is not implemented"))
+                return;
+            else
+                throw ex;
+        }
+
+        fail("expecting unimplemented feature response (is this feature implemented now?)");
     }
 
     private AmazonS3Client s3Client(String hostName, String userName, String token) {
