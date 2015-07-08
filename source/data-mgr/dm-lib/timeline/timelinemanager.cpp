@@ -157,7 +157,7 @@ Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snap
 
     std::function<void (const ObjectID&)> func = [&bloom](const ObjectID& objId) {
         bloom->add(objId);
-        LOGDEBUG << "adding obj:" << objId;
+        // LOGDEBUG << "adding obj:" << objId;
     };
 
     dm->timeVolCat_->queryIface()->forEachObject(snapshotId, func);
