@@ -6,6 +6,7 @@ Created on Apr 3, 2015
 import requests
 import json
 import response_writer
+from model.fds_error import FdsError
 
 class RESTHelper():
     
@@ -39,14 +40,14 @@ class RESTHelper():
         
         print err_message
         
-        return
+        return err_message
             
     def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         response = requests.post( url, data=data, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj
@@ -55,8 +56,8 @@ class RESTHelper():
         response = requests.put( url, data=data, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj    
@@ -66,8 +67,8 @@ class RESTHelper():
         response = requests.get( url, params=params, headers=self.buildHeader( session ), verify=False )
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj
@@ -77,8 +78,8 @@ class RESTHelper():
         response = requests.delete( url, params=params, headers=self.buildHeader(session), verify=False)
         
         if ( response.ok is False ):
-            failureCallback( self, response )
-            return
+            message = failureCallback( self, response )
+            return FdsError( error=response, message=message )
         
         rj = response.json()
         return rj

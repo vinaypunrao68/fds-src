@@ -9,6 +9,8 @@ import time
 from collections import OrderedDict
 
 from utils.converters.volume.recurrence_rule_converter import RecurrenceRuleConverter
+from model.health.system_health import SystemHealth
+from model.health.health_category import HealthCategory
 
 class ResponseWriter():
     
@@ -305,4 +307,34 @@ class ResponseWriter():
             d_tenants.append( ov )
             
         return d_tenants
+    
+    @staticmethod
+    def prep_system_health_for_table(health):
+        
+#         if not isinstance(health, SystemHealth):
+#             raise TypeError()
+        
+        ov = OrderedDict()
+        
+        cap_record = None
+        service_record = None
+        fb_record = None
+        
+        for record in health.health_records:
+            if record.category == HealthCategory.CAPACITY:
+                cap_record = record
+            elif record.category == HealthCategory.SERVICES:
+                service_record = record
+            elif record.category == HealthCategory.FIREBREAK:
+                fb_record = record
+                
+        
+        ov["Overall"] = health.overall_health
+        ov["Capacity"] = cap_record.state
+        ov["Services"] = service_record.state
+        ov["Firebreak"] = fb_record.state
+        
+        results =[ov]
+        
+        return results
         

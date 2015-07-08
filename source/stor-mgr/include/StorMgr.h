@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
+#include "fdsp/health_monitoring_types_types.h"
 #include "fds_types.h"
 #include "ObjectId.h"
 #include "util/Log.h"
@@ -40,7 +41,7 @@
 
 #include <object-store/ObjectStore.h>
 #include <MigrationMgr.h>
-
+#include <concurrency/SynchronizedTaskExecutor.hpp>
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -95,9 +96,29 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      // true if running SM standalone (for testing)
      fds_bool_t testStandalone;
 
+    /// True if request serialization is enabled
+    bool enableReqSerialization;
+
      class SmQosCtrl : public FDS_QoSControl {
         private:
          ObjectStorMgr *parentSm;
+
+         // Defines a serialization key based on volume ID and client
+         // service ID
+         using SerialKey = std::pair<fds_volid_t, fpi::SvcUuid>;
+         static const std::hash<fds_volid_t> volIdHash;
+         static const std::hash<int64_t> svcIdHash;
+         struct SerialKeyHash {
+            size_t operator()(const SerialKey &key) const {
+                return volIdHash(key.first) + svcIdHash(key.second.svc_uuid);
+            }
+        };
+        static const SerialKeyHash keyHash;
+
+         /// Enables request serialization for a generic size_t key
+         /// Using size allows different keys to be used by the same
+         /// executor.
+         std::unique_ptr<SynchronizedTaskExecutor<size_t>> serialExecutor;
 
         public:
          SmQosCtrl(ObjectStorMgr *_parent,
@@ -116,6 +137,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                                    parentSm->qosOutNum,
                                                    log);
                  // dispatcher = new QoSHTBDispatcher(this, log, 150);
+
+                 serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
+                     new SynchronizedTaskExecutor<size_t>(*threadPool));
              }
          virtual ~SmQosCtrl() {
              delete dispatcher;
@@ -317,6 +341,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      friend class SMSvcHandler;
 
   private:
+     void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                 fds_errno_t statusCode,
+                                 const std::string& statusInfo);
+
+
      static Error registerVolume(fds::fds_volid_t volume_id,
                                  fds::VolumeDesc *vdb,
                                  FDSP_NotifyVolFlag vol_flag,
@@ -335,7 +364,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
     fds_uint8_t sampleCounter;
     // Track when the last message was sent
     float_t lastCapacityMessageSentAt;
-
 };
 
 }  // namespace fds

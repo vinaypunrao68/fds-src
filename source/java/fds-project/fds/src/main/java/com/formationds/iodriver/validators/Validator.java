@@ -1,6 +1,6 @@
 package com.formationds.iodriver.validators;
 
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * A class that implements this interface will validate the statistics gathered by running a
@@ -17,5 +17,5 @@ public interface Validator
      * 
      * @return Whether this run should be accepted.
      */
-    boolean isValid(WorkflowEventListener listener);
+    boolean isValid(AbstractWorkflowEventListener listener);
 }

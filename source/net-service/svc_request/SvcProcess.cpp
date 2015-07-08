@@ -58,6 +58,7 @@ void SvcProcess::init(int argc, char *argv[],
 
     /* Extract service name pm/sm/dm/am etc */
     std::vector<std::string> strs;
+    // FIXME: What if there's two dots in the name?
     boost::split(strs, base_path, boost::is_any_of("."));
     fds_verify(strs.size() >= 2);
     svcName_ = strs[1];

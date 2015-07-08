@@ -1,9 +1,9 @@
-from ConfigParser import SafeConfigParser
 import getpass
 import requests
 import os
 from requests.exceptions import ConnectionError
 from __builtin__ import True
+from utils.configuration_manager import ConfigurationManager
 
 class FdsAuth():
     
@@ -19,20 +19,21 @@ class FdsAuth():
     '''        
     def __init__(self, confFile=os.path.join(os.path.expanduser("~"), ".fdscli.conf")):
         
-        self.__parser = SafeConfigParser()
-        self.__parser.read( confFile )
+#         self.__parser = SafeConfigParser()
+#         self.__parser.read( confFile )
         
+        self.__config = ConfigurationManager(["conf_file=" + confFile])
         self.__token = None
         self.__user_id = -1
         self.__features = []
-        self.__hostname = self.get_from_parser( 'hostname' )
-        self.__port = self.get_from_parser( 'port' )
-        self.__username = self.get_from_parser( 'username' )
-        self.__password = self.get_from_parser( 'password' )
+        self.__hostname = self.get_from_parser( ConfigurationManager.HOSTNAME )
+        self.__port = self.get_from_parser( ConfigurationManager.PORT )
+        self.__username = self.get_from_parser( ConfigurationManager.USERNAME )
+        self.__password = self.get_from_parser( ConfigurationManager.PASSWORD )
         
     def get_from_parser(self, option):
-        if ( self.__parser.has_section( 'connection' ) and self.__parser.has_option( 'connection', option ) ):
-            return self.__parser.get( 'connection', option )
+        if self.__config.get_value(ConfigurationManager.CONNECTION, option) is not None:
+            return self.__config.get_value(ConfigurationManager.CONNECTION, option)
         else:
             return None
         

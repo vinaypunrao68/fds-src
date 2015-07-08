@@ -86,6 +86,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    enableReqSerialization = modProvider_->get_fds_config()->get<bool>(
+        "fds.feature_toggle.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -476,7 +478,8 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            // Send thrift message to OM alerting it that we've hit capacity
+            sendHealthCheckMsgToOM(fpi::LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
+
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
@@ -493,6 +496,34 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     }
     sampleCounter++;
 }
+
+/**
+ * Sends a health check message from this SM to the OM to notify it of service changes
+ *
+ */
+void ObjectStorMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                           fds_errno_t statusCode,
+                                           const std::string& statusInfo) {
+
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    // Send health check thrift message to OM
+    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
+    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
+    healthRepMsg->healthReport.serviceState = serviceState;
+    healthRepMsg->healthReport.statusCode = statusCode;
+    healthRepMsg->healthReport.statusInfo = statusInfo;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
+    request->invoke();
+
+}
+
 
 /* Initialize an instance specific vector of locks to cover the entire
  * range of potential sm tokens.
@@ -1178,8 +1209,10 @@ ObjectStorMgr::storeCurrentDLT()
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
-
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+
+    // Create the key to use during serialization.
+    SerialKey key(io->getVolId(), io->getClientSvcId());
 
     switch (io->io_type) {
         case FDS_IO_READ:
@@ -1191,33 +1224,61 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_DELETE_OBJECT:
         {
             LOGDEBUG << "Processing a Delete request";
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::deleteObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoDeleteObjectReq *>(io)));
+            } else {
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_GET_OBJECT:
         {
             LOGDEBUG << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoGetObjectReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::getObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoGetObjectReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_PUT_OBJECT:
         {
             LOGDEBUG << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoPutObjectReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::putObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoPutObjectReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_ADD_OBJECT_REF:
         {
             LOGDEBUG << "Processing and add object reference request";
-            threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoAddObjRefReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::addObjectRefInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoAddObjRefReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoAddObjRefReq *>(io));
+            }
             break;
         }
         case FDS_SM_SNAPSHOT_TOKEN:

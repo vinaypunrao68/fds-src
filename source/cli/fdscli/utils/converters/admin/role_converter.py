@@ -11,8 +11,8 @@ class RoleConverter(object):
     @staticmethod
     def to_json(role):
         
-        if not isinstance(role, Role):
-            raise TypeError()
+#         if not isinstance(role, Role):
+#             raise TypeError()
         
         j_role = dict()
         
