@@ -34,6 +34,7 @@
 
   <modules>
     <module>formationds-thrift</module>
+    <module>formationds-commons</module>
     <module>formationds-external</module>
   </modules>
 
@@ -70,7 +71,6 @@
       </activation>
       <properties>
         <!-- thrift properties -->
-        <!-- thrift.binary>${basedir}/../../../../Build/linux-x86_64.${build_type}/bin/thrift</thrift.binary -->
         <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary>
       </properties>
     </profile>

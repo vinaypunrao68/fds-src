@@ -24,6 +24,10 @@ JournalManager::JournalManager(fds::DataMgr* dm) : dm(dm),fStopLogMonitoring(fal
     }
 }
 
+JournalManager::~JournalManager() {
+    stopMonitoring();
+}
+
 void JournalManager::stopMonitoring() {
     if (dm->features.isTimelineEnabled()) {
         fStopLogMonitoring = true;

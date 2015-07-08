@@ -69,6 +69,7 @@ fds_panic_abort(char *panic_string)
      */
     // LOGERROR << "Panic'ing ... " << panic_string < " -- " << symStr;
     syslog(LOG_ERR, "FDS_PROC Panic'ing... %s -- %s", panic_string, symStr);
+    free(symb);
 
     /* abort() should be the last system call in this function
      */
