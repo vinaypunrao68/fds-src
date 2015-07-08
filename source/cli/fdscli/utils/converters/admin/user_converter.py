@@ -17,8 +17,8 @@ class UserConverter(object):
         Convert a user object into a JSON representation
         '''
         
-        if not isinstance(user, User):
-            raise TypeError()
+#         if not isinstance(user, User):
+#             raise TypeError()
         
         j_user = dict()
         

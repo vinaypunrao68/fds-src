@@ -13,8 +13,8 @@ class TenantConverter(object):
         '''
         convert a tenant object into JSON format
         '''
-        if not isinstance(tenant, Tenant):
-            raise TypeError()
+#         if not isinstance(tenant, Tenant):
+#             raise TypeError()
         
         j_tenant = dict()
         j_tenant["uid"] = tenant.id
