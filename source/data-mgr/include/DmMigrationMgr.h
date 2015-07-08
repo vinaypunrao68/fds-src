@@ -23,10 +23,7 @@ class DmMigrationMgr {
     using DmMgrClientThrPtr = boost::shared_ptr<boost::thread>;
     using DmMigrClientThMap = std::unordered_map<fds_volid_t, DmMgrClientThrPtr>;
     // Callbacks for migration handlers
-	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
-	using DmStartMigClientCbType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
+	using OmStartMigrationCBType = std::function<void (const Error& e)>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -76,7 +73,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(dmCatReq* dmRequest);
+    Error startMigrationExecutor(dmCatReq* dmRequest);
 
     /**
      * Source side DM:
@@ -98,14 +95,11 @@ class DmMigrationMgr {
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
-    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg;
-    fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
-    dmCatReq* dmReqPtr = nullptr;
+
     DataMgr& dataManager;
 
     /** check if the feature is enabled or not.
@@ -192,12 +186,6 @@ class DmMigrationMgr {
      * Wrapper around calling DmStartMigClientCb
      */
     void ackInitialBlobFilter(const Error &status);
-
-    /**
-     * Source side DM:
-     * Callback for Source DM to ack back to the dest DM.
-     */
-    DmStartMigClientCbType DmStartMigClientCb;
 
     /**
      * Source side DM:

@@ -87,4 +87,10 @@ DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
     return ERR_OK;
 }
 
+void
+DmMigrationClient::processDiff()
+{
+
+}
+
 }  // namespace fds

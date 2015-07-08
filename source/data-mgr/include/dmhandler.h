@@ -47,7 +47,7 @@ namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---
  * do NOT store any state in these classes for now.
- * handler functions should be reentrant 
+ * handler functions should be reentrant
  */
 struct RequestHelper {
     dmCatReq *dmRequest;
@@ -304,8 +304,8 @@ struct DmMigrationHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
     void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
+                            uint64_t dmtVersion,
+                            const Error& e);
 };
 
 struct DmMigrationBlobFilterHandler : Handler {
@@ -314,9 +314,6 @@ struct DmMigrationBlobFilterHandler : Handler {
 			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
-    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
