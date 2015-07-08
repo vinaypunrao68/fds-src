@@ -85,8 +85,7 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
         '''
         Undo it.
         '''
-        for volume in self.volumes:
-            self.block_volume.delete_block_volume(volume)
+        self.block_volume.delete_volumes(self.volumes)
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
