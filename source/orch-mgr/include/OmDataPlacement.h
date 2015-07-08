@@ -460,12 +460,21 @@ namespace fds {
         /**
          * Mutex to protect shared state of the placement engine
          */
-        fds_mutex *placementMutex;
+        fds_mutex placementMutex;
 
         /**
          * Config db object
          */
         kvstore::ConfigDB* configDB = NULL;
+
+        /**
+         * Configuration for number of primary SMs
+         * 0 means that we don't care about service state (failed or not)
+         * and not resyncing when promoting secondaries;
+         * 2 means implementation for 2-primary consistency model
+         * Other values for number of primaries also work, but not tested.
+         */
+        fds_uint32_t numOfPrimarySMs;
 
   public:
         DataPlacement();
@@ -510,8 +519,14 @@ namespace fds {
 
         /**
          * Reruns DLT computation.
+         * @return ERR_OK if DLT was successfully recomputed and it is
+         * different from the currently commited DLT;
+         *         ERR_INVALID_ARG if at least one column in DLT has all
+         * primary SMs marked for removal.
+         *         ERR_NOT_READY if newly computed DLT is the same as
+         * commited DLT (no changes in the cluster map that change DLT)
          */
-        void computeDlt();
+        Error computeDlt();
 
         /**
          * Begins token rebalance between nodes in the
@@ -585,6 +600,10 @@ namespace fds {
          * set the config db from orchmgr
          */
         void setConfigDB(kvstore::ConfigDB* configDB);
+
+        inline fds_uint32_t getNumOfPrimarySMs() const {
+            return numOfPrimarySMs;
+        }
 
   private:  // methods
         /**
