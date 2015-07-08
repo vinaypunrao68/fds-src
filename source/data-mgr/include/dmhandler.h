@@ -321,6 +321,19 @@ struct DmMigrationBlobFilterHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+struct DmMigrationDeltablobHandler : Handler {
+    explicit DmMigrationDeltablobHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+    void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                          Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

@@ -496,7 +496,7 @@ struct CtrlNotifyDMStartMigrationRspMsg {
 /**
  * delta blob  set from the source DM to  destination DM.
  */
-struct CtrlNotifyDeltaBlobs {
+struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volume_id;
   /* message sequence  id  for tracking the messages 
    * between source DM and destination DM
@@ -509,7 +509,7 @@ struct CtrlNotifyDeltaBlobs {
 }
 
 
-struct CtrlNotifyDeltaBlobDescRsp {
+struct CtrlNotifyDeltaBlobDescRspMsg {
   /* An empty reply from the Destination DM to the source DM after 
    * all the blobs applied to the destination DM. This is a empty message
    */
@@ -518,7 +518,7 @@ struct CtrlNotifyDeltaBlobDescRsp {
 /**
  * delta blob  set from the source DM to  destination DM.
  */
-struct CtrlNotifyDeltaBlobDesc {
+struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
   /* message sequence  id  for tracking the messages 
    * between source DM and destination DM
