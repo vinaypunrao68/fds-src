@@ -46,6 +46,11 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
+
+void ObjectStore::setUnavailable() {
+    currentState = OBJECT_STORE_UNAVAILABLE;
+}
+
 float_t ObjectStore::getUsedCapacityAsPct() {
 
     // Error injection points

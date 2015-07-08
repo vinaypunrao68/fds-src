@@ -472,6 +472,10 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+
+            objectStore->setUnavailable();
+            sendHealthCheckMsgToOM(fpi::ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
+
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
