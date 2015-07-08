@@ -108,6 +108,10 @@ class DmMigrationMgr {
     dmCatReq* dmReqPtr = nullptr;
     DataMgr& dataManager;
 
+    /** check if the feature is enabled or not.
+     */
+    bool enableMigrationFeature;
+
     /**
      * Throttles the number of max concurrent migrations
      * Below are protected by migrExecutorLock.

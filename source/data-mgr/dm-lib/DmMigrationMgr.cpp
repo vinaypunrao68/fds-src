@@ -16,8 +16,9 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 {
 	maxMigrations = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
 				get<int>("fds.dm..migration.max_migrations"));
-}
 
+    enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.migration.enable_feature"));
+}
 DmMigrationMgr::~DmMigrationMgr()
 {
 
@@ -76,6 +77,15 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	fds_bool_t autoIncrement = false;
 	fds_bool_t loopFireNext = true;
 	NodeUuid srcDmSvcUuid;
+
+    // Check if the migraion feature is enabled or disabled.
+    if (false == enableMigrationFeature) {
+        LOGCRITICAL << "DM Migration is disabled! ignoring start migration msg";
+        if (OmStartMigrCb) {
+            OmStartMigrCb(ERR_OK);
+        }
+        return err;
+    }
 
 	// TODO(Neil) fix this
 	MigrationType localMigrationType(MIGR_DM_ADD_NODE);
