@@ -42,7 +42,23 @@ extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj)
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 
+/**
+ * See Serialization enumeration for interpretation.
+ */
+static const char* SerialNames[] = {
+    "none",
+    "volume",
+    "blob"
+};
+
+enum class Serialization {
+    SERIAL_NONE,      // May result in inconsistencies between members of redundancy groups.
+    SERIAL_VOLUME,    // Prevents inconsistencies, but offers less concurrency than SERIAL_BLOB.
+    SERIAL_BLOB       // Prevents inconsistencies and offers the greatest degree of concurrency.
+} serialization;
+
 static constexpr uint32_t DmDefaultPrimaryCnt { 2 };
+static const std::string DefaultSerialization { "volume" };
 
 AmDispatcher::AmDispatcher(CommonModuleProviderIf *modProvider) 
         : HasModuleProvider(modProvider)
@@ -74,17 +90,38 @@ AmDispatcher::start() {
         dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
         gSvcRequestPool->setDltManager(dltMgr);
 
-	fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
-	fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
-	if (print_qos_stats) {
-	    StatsCollector::singleton()->enableQosStats("AM");
-	}
-	if (!disableStreamingStats) {
-        StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
-	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
-	}
+        fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
+        fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
+        if (print_qos_stats) {
+            StatsCollector::singleton()->enableQosStats("AM");
+        }
+        if (!disableStreamingStats) {
+            StatsCollector::singleton()->setSvcMgr(MODULEPROVIDER()->getSvcMgr());
+            StatsCollector::singleton()->startStreaming(nullptr, nullptr);
+        }
     }
     numPrimaries = conf.get_abs<fds_uint32_t>("fds.dm.number_of_primary", DmDefaultPrimaryCnt);
+
+    /**
+     * What request serialization technique will we use?
+     */
+    int serialSelection;
+    auto serializationString = conf.get_abs<std::string>("fds.feature_toggle.am.serialization", DefaultSerialization);
+    if (strcasecmp(serializationString.c_str(), SerialNames[0]) == 0) {
+        serialization = Serialization::SERIAL_NONE;
+        serialSelection = 0;
+    } else if (strcasecmp(serializationString.c_str(), SerialNames[1]) == 0) {
+        serialization = Serialization::SERIAL_VOLUME;
+        serialSelection = 1;
+    } else if (strcasecmp(serializationString.c_str(), SerialNames[2]) == 0) {
+        serialization = Serialization::SERIAL_BLOB;
+        serialSelection = 2;
+    } else {
+        serialization = Serialization::SERIAL_NONE;
+        serialSelection = 0;
+        LOGNOTIFY << "AM request serialization unrecognized: " << serializationString  << ".";
+    }
+    LOGNOTIFY << "AM request serialization set to: " << SerialNames[serialSelection]  << ".";
 }
 
 Error
@@ -277,6 +314,28 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
 }
 
 /**
+ * @brief Set the configured request serialization.
+ */
+void
+AmDispatcher::setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf> svcReq) {
+    static std::hash<fds_volid_t> volIDHash;
+    static std::hash<std::string> blobNameHash;
+
+    switch (serialization) {
+        case Serialization::SERIAL_VOLUME:
+            svcReq->setTaskExecutorId(volIDHash(amReq->io_vol_id));
+            break;
+
+        case Serialization::SERIAL_BLOB:
+            svcReq->setTaskExecutorId((volIDHash(amReq->io_vol_id) + blobNameHash(amReq->getBlobName())));
+            break;
+
+        default:
+            break;
+    }
+}
+
+/**
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
@@ -295,6 +354,7 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
     /** What to do with the response */
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchOpenVolumeCb, amReq));
     auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volMDMsg, respCb);
+    setSerialization(amReq, asyncOpenVolReq);
     asyncOpenVolReq->invoke();
 }
 
@@ -337,6 +397,13 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
         };
 
     auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, volMDMsg, cb);
+
+    /**
+     * Need an AmRequest to call the serialization setter.
+     */
+    auto amReq = new AmRequest(fds::fds_io_op_t(0), vol_id, "", "", nullptr);
+    setSerialization(amReq, asyncCloseVolReq);
+
     asyncCloseVolReq->invoke();
     return ready.get();
 }
@@ -389,6 +456,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
     auto asyncSetVolMetadataReq = createMultiPrimaryRequest(amReq->io_vol_id,
                                                             volMetaMsg,
                                                             respCb);
+    setSerialization(amReq, asyncSetVolMetadataReq);
     asyncSetVolMetadataReq->invoke();
 }
 
@@ -455,6 +523,7 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, amReq));
     auto asyncAbortBlobTxReq = createMultiPrimaryRequest(volId, stBlobTxMsg,respCb);
+    setSerialization(amReq, asyncAbortBlobTxReq);
     asyncAbortBlobTxReq->invoke();
 
     LOGDEBUG << asyncAbortBlobTxReq->logString() << fds::logString(*stBlobTxMsg);
@@ -493,6 +562,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
     auto asyncStartBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id, startBlobTxMsg, respCb);
+    setSerialization(amReq, asyncStartBlobTxReq);
     asyncStartBlobTxReq->invoke();
 
     LOGDEBUG << asyncStartBlobTxReq->logString()
@@ -529,6 +599,7 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
                                         this, amReq, std::placeholders::_1,
                                         std::placeholders::_2));
 
+    setSerialization(amReq, asyncReq);
     asyncReq->invoke();
 }
 
@@ -582,6 +653,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
                                                        message_timeout_io);
 
     fds::PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
+    setSerialization(amReq, asyncUpdateCatReq);
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
@@ -631,6 +703,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
                                                        message_timeout_io);
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
+    setSerialization(amReq, asyncUpdateCatReq);
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
@@ -711,6 +784,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
                                                  message_timeout_io);
 
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
+    setSerialization(amReq, asyncPutReq);
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
@@ -980,6 +1054,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, amReq));
     auto asyncSetMDReq = createMultiPrimaryRequest(vol_id, setMDMsg, respCb);
+    setSerialization(amReq, asyncSetMDReq);
     asyncSetMDReq->invoke();
 }
 
@@ -1040,6 +1115,7 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
     auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id, commitBlobTxMsg,respCb);
+    setSerialization(amReq, asyncCommitBlobTxReq);
     asyncCommitBlobTxReq->invoke();
 
     LOGDEBUG << asyncCommitBlobTxReq->logString()

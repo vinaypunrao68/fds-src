@@ -4,21 +4,6 @@
 
 package com.formationds.xdi;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
-
-import javax.security.auth.login.LoginException;
-
-import org.apache.thrift.TException;
-
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
@@ -34,6 +19,17 @@ import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
+
+import org.apache.thrift.TException;
+
+import javax.security.auth.login.LoginException;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 public class Xdi {
     public static final String LAST_MODIFIED = "Last-Modified";
@@ -241,6 +237,7 @@ public class Xdi {
 
     public CompletableFuture<Void> setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
         attemptBlobAccess(token, domain, volume, blob, Intent.readWrite);
+    	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         return asyncAm.startBlobTx(domain, volume, blob, 1)
                 .thenCompose(tx -> asyncAm.updateMetadata(domain, volume, blob, tx, metadataMap).thenApply(x -> tx))
                 .thenCompose(tx -> asyncAm.commitBlobTx(domain, volume, blob, (TxDescriptor)tx));

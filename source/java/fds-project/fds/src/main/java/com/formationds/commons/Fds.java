@@ -287,7 +287,7 @@ public final class Fds
          * Runtime platform.conf.
          */
         private ParsedConfig _platformConfig;
-        
+
         /**
          * Get the runtime configuration.
          * 

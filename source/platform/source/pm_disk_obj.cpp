@@ -383,19 +383,31 @@ namespace fds
     // dsk_read
     // --------
     //
-    ssize_t PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt)
+    ssize_t PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt, bool use_new_superblock)
     {
         int        fd {0};
         ssize_t    rt {0};
 
-        fd = open(rs_name, O_RDONLY | O_CLOEXEC);
+        std::string device = rs_name;
+
+        if (use_new_superblock)
+        {
+            device += '1';
+        }
+
+        fd = open(device.c_str(), O_RDONLY | O_CLOEXEC);
+
         ssize_t to_read = fds_disk_sector_to_byte(sec_cnt);
-        do {
+        do
+        {
             rt = pread(fd, buf, to_read, fds_disk_sector_to_byte(sector));
-        } while ((0 > rt) && (EINTR == errno));
+        }
+        while ((0 > rt) && (EINTR == errno));
+
         close(fd);
 
-        if (0 > rt) {
+        if (0 > rt)
+        {
             perror(strerror(errno));
         }
 
@@ -405,7 +417,7 @@ namespace fds
     // dsk_write
     // ---------
     //
-    ssize_t PmDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sec_cnt)
+    ssize_t PmDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sec_cnt, bool use_new_superblock)
     {
         int        fd;
         ssize_t    rt {0};
@@ -416,20 +428,33 @@ namespace fds
             LOGNORMAL << "Skipping real disk in sim env..." << rs_name;
             return 0;
         }
+
+        std::string device = rs_name;
+
+        if (use_new_superblock)
+        {
+            device += '1';
+        }
+
         fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
-        fd = open(rs_name, O_WRONLY | O_SYNC | O_CLOEXEC);
 
         ssize_t const to_write = fds_disk_sector_to_byte(sec_cnt);
-        do {
+
+        fd = open (device.c_str(), O_WRONLY | O_SYNC | O_CLOEXEC);
+
+        do
+        {
             rt = pwrite(fd, buf, to_write, fds_disk_sector_to_byte(sector));
-        } while ((0 > rt) && (EINTR == errno));
+        }
+        while ((0 > rt) && (EINTR == errno));
+
         close(fd);
 
-        if (to_write != rt) {
+        if (to_write != rt)
+        {
             perror(strerror(errno));
         } else {
-            LOGNORMAL << "Write superblock to " << rs_name << ", sector " << sector
-            << ", ret " << rt << ", sect cnt " << sec_cnt;
+            LOGNORMAL << "Wrote superblock to " << device << ", sector " << sector << ", ret " << rt << ", sect cnt " << sec_cnt;
         }
         return rt;
     }

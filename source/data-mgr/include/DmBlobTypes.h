@@ -64,6 +64,7 @@ struct MetaDataList :
     uint32_t read(serialize::Deserializer* d);
 
     MetaDataList& operator=(const MetaDataList &rhs);
+    bool operator==(const MetaDataList& lhs) const;
 };
 
 /**
@@ -200,6 +201,7 @@ struct BasicBlobMeta: serialize::Serializable {
     uint32_t write(serialize::Serializer* s) const;
     uint32_t read(serialize::Deserializer* d);
 
+    bool operator==(const BasicBlobMeta& rhs) const;
     BasicBlobMeta& operator=(const BasicBlobMeta& rhs) = default;
 };
 
@@ -225,6 +227,7 @@ struct BlobMetaDesc: serialize::Serializable {
     uint32_t read(serialize::Deserializer* d);
 
     BlobMetaDesc& operator=(const BlobMetaDesc& rhs);
+    bool operator==(const BlobMetaDesc &rhs) const;
 };
 
 /**
@@ -253,6 +256,7 @@ struct VolumeMetaDesc : serialize::Serializable {
     uint32_t read(serialize::Deserializer* d);
 
     VolumeMetaDesc& operator=(const VolumeMetaDesc& rhs);
+    bool operator==(const VolumeMetaDesc& rhs) const;
 };
 
 std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& bdesc);

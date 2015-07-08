@@ -2,6 +2,7 @@ from abstract_service import AbstractService
 from utils.converters.volume.volume_converter import VolumeConverter
 from utils.converters.volume.snapshot_converter import SnapshotConverter
 from utils.converters.volume.preset_converter import PresetConverter
+from model.fds_error import FdsError
 
 class VolumeService( AbstractService ):
 
@@ -36,6 +37,9 @@ class VolumeService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/volumes" )
         response = self.rest_helper.get( self.session, url )
         
+        if isinstance(response, FdsError):
+            return response
+        
         volumes = []
         
         for j_volume in response:
@@ -52,8 +56,8 @@ class VolumeService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id)
         response = self.rest_helper.get(self.session, url)
         
-        if response is None:
-            return
+        if isinstance(response, FdsError):
+            return response
         
         volume = VolumeConverter.build_volume_from_json(response) 
         return volume
@@ -68,8 +72,8 @@ class VolumeService( AbstractService ):
         data = VolumeConverter.to_json( volume )
         j_volume = self.rest_helper.post( self.session, url, data )
 
-        if j_volume is None:
-            return
+        if isinstance(j_volume, FdsError):
+            return j_volume
 
         volume = VolumeConverter.build_volume_from_json( j_volume )
         return volume
@@ -82,8 +86,8 @@ class VolumeService( AbstractService ):
         data = VolumeConverter.to_json(volume)
         newVolume = self.rest_helper.post(self.session, url, data );
         
-        if newVolume is None:
-            return
+        if isinstance(newVolume, FdsError):
+            return newVolume
         
         newVolume = VolumeConverter.build_volume_from_json(newVolume);
         return newVolume;
@@ -97,8 +101,8 @@ class VolumeService( AbstractService ):
         data = VolumeConverter.to_json( volume )
         volume = self.rest_helper.post( self.session, url, data )
 
-        if volume is None:
-            return
+        if isinstance(volume, FdsError):
+            return volume
 
         volume = VolumeConverter.build_volume_from_json( volume )
         return volume
@@ -113,8 +117,8 @@ class VolumeService( AbstractService ):
         data = VolumeConverter.to_json( volume )
         j_volume = self.rest_helper.put( self.session, url, data )
         
-        if j_volume is None:
-            return
+        if isinstance(j_volume, FdsError):
+            return j_volume
         
         volume = VolumeConverter.build_volume_from_json(j_volume)
         return volume
@@ -125,7 +129,12 @@ class VolumeService( AbstractService ):
         '''
         
         url = "{}{}{}".format( self.get_url_preamble(), "/volumes/", volume_id )
-        return self.rest_helper.delete( self.session, url )
+        response = self.rest_helper.delete( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response
     
     def create_snapshot(self, snapshot ):
         '''
@@ -134,7 +143,12 @@ class VolumeService( AbstractService ):
         
         url = "{}{}{}{}".format( self.get_url_preamble(), "/volumes/", snapshot.volume_id, "/snapshots" )
         data = SnapshotConverter.to_json(snapshot)
-        return self.rest_helper.post( self.session, url, data )
+        response = self.rest_helper.post( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response
     
     def delete_snapshot(self, volume_id, snapshot_id):
         '''
@@ -142,7 +156,12 @@ class VolumeService( AbstractService ):
         '''
         
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/volumes", volume_id, "/snapshot", snapshot_id )
-        return self.rest_helper.delete( url )
+        response = self.rest_helper.delete( url )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response
     
     def list_snapshots(self, volume_id):
         '''
@@ -152,8 +171,8 @@ class VolumeService( AbstractService ):
         url = "{}{}{}{}".format ( self.get_url_preamble(), "/volumes/", volume_id, "/snapshots" )
         response = self.rest_helper.get( self.session, url )
         
-        if response is None:
-            return
+        if isinstance(response, FdsError):
+            return response
     
         snapshots = []
         
@@ -170,6 +189,9 @@ class VolumeService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/presets/data_protection_policies")
         response = self.rest_helper.get( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return response
         
         presets = []
         
@@ -190,6 +212,9 @@ class VolumeService( AbstractService ):
         
         url = "{}{}".format( self.get_url_preamble(), "/presets/quality_of_service_policies" )
         response = self.rest_helper.get( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return response   
         
         presets = []
         

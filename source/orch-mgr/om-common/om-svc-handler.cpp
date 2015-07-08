@@ -274,8 +274,8 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 		case fpi::SHUTTING_DOWN:
 		case fpi::ERROR:
 		case fpi::UNREACHABLE:
-			LOGWARN << "Handling for service state: " << msg->healthReport.serviceState
-				<< " not implemented yet.";
+			LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
+					<< " state: " << msg->healthReport.serviceState << " not implemented yet.";
 			break;
 		case fpi::UNEXPECTED_EXIT:
 			switch (service_type) {

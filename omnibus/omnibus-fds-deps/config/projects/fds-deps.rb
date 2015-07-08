@@ -24,10 +24,10 @@ else
 end
 
 if ENV['ENABLE_VERSION_INSTALL'] == 'true'
-  install_dir "/opt/fds-deps/#{fds_version}"
-  name "fds-deps-#{fds_version}"
   build_version "1"
   build_iteration git_sha
+  install_dir "/opt/fds/deps/#{fds_version}_#{build_version}-#{build_iteration}"
+  name "fds-deps-#{fds_version}"
 else
   install_dir "#{default_root}/#{name}"
   build_version fds_version

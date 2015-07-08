@@ -14,6 +14,7 @@ import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
@@ -147,10 +148,11 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test //done 1
     public void testTransactions() throws Exception {
+    	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
-                .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, (TxDescriptor)tx, bigObject, OBJECT_SIZE, new ObjectOffset(0), false).thenApply(x -> tx))
-                .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, (TxDescriptor)tx, smallObject, smallObjectLength, new ObjectOffset(1), true).thenApply(x -> tx))
-                .thenCompose(tx -> asyncAm.commitBlobTx(domainName, volumeName, blobName, (TxDescriptor)tx))
+                .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, tx, bigObject, OBJECT_SIZE, new ObjectOffset(0), false).thenApply(x -> tx))
+                .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, (TxDescriptor) tx, smallObject, smallObjectLength, new ObjectOffset(1), true).thenApply(x -> tx))
+                .thenCompose(tx -> asyncAm.commitBlobTx(domainName, volumeName, blobName, (TxDescriptor) tx))
                 .thenCompose(x -> asyncAm.statBlob(domainName, volumeName, blobName))
                 .thenAccept(bd -> assertEquals(OBJECT_SIZE + smallObjectLength, bd.getByteCount()))
                 .get();
