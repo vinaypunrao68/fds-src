@@ -288,7 +288,7 @@ function run_cpp_unit_tests
 
 function check_xunit_failures
 {
-    message "Checking xunit output for failure"
+    message "Checking xunit output for failure, system test:  ${1}"
     grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
     if [[ $? -eq 0 ]] ; then
         message "EEEEE Xunit Failures detected running System Test ${scenario}"
@@ -298,12 +298,18 @@ function check_xunit_failures
 
 function check_xunit_errors
 {
-    message "Checking xunit output for errors"
+    message "Checking xunit output for errors, system test:  ${1}"
     grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
     if [[ $? -eq 0 ]] ; then
         message "EEEEE Xunit Errors detected running System Test ${scenario}"
         run_coroner 1
     fi
+}
+
+function system_test_error
+{
+    message "EEEEE System Test problem(s) detected running ${1}"
+    run_coroner 1
 }
 
 function system_test_scenario_wrapper
@@ -313,21 +319,15 @@ function system_test_scenario_wrapper
     do_pushd source/test/testsuites
 
     message "IIIII RUNNING System Test Scenario:  ${scenario}"
-    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose
-    echo "***** Scenario complete:  ${scenario} complete - exit with: ${?}"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose || system_test_error ${scenario}
+    echo "***** Scenario complete:  ${scenario} passed"
 
     do_popd
 
-    capture_process_list ${FUNCNAME}.${scenario}
+    capture_process_list SysTest.${scenario}
 
-    check_xunit_errors ${scenario}
-    check_xunit_failures ${scenario}
-
-    if [[ $? -ne 0 ]]
-    then
-        message "EEEEE System Test problem(s) detected running ${scenario}"
-        run_coroner 1
-    fi
+    check_xunit_errors ${scenario} || system_test_error ${scenario}
+    check_xunit_failures ${scenario} || system_test_error ${scenario}
 
     core_hunter
 }
@@ -429,8 +429,8 @@ cache_report
 
 configure_console_access      # Must be complted after the build
 
-run_python_unit_tests
-run_cpp_unit_tests
+#run_python_unit_tests
+#run_cpp_unit_tests
 run_system_test_scenarios
 
 run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0
