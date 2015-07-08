@@ -1404,7 +1404,7 @@ OM_PmAgent::send_remove_service
                     << " remove sm ? " << remove_sm
                     << " remove dm ? " << remove_dm
                     << " remove am ? " << remove_am;
-
+/*
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     err = domain->om_del_services(node_uuid,
@@ -1419,7 +1419,7 @@ OM_PmAgent::send_remove_service
                         << std::hex << node_uuid
                         << std::dec << ", result: " << err.GetErrstr();
     }
-
+*/
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
 
@@ -2187,7 +2187,6 @@ OM_NodeContainer::om_add_service
     std::vector<fpi::SvcInfo> svcInfos)
 {
     TRACEFUNC;
-    LOGDEBUG << "OM_NodeContainer: Request to add service";
 
     if (svcInfos.size() == 0) {
         LOGDEBUG << "No services have been added since none have been provided";
@@ -2219,7 +2218,6 @@ OM_NodeContainer::om_start_service
     std::vector<fpi::SvcInfo> svcInfos)
 {
     TRACEFUNC;
-    LOGDEBUG << "OM_NodeContainer: Request to start service";
 
     if (svcInfos.size() == 0) {
         LOGDEBUG << "No services have been started since none have been provided";
@@ -2254,7 +2252,6 @@ OM_NodeContainer::om_stop_service
     bool stop_am)
 {
     TRACEFUNC;
-    LOGDEBUG << "OM_NodeContainer: Request to stop service";
 
     if (svcInfos.size() == 0) {
         LOGDEBUG << "No services have been stopped since none have been provided";
@@ -2289,7 +2286,6 @@ OM_NodeContainer::om_remove_service
     bool remove_am)
 {
     TRACEFUNC;
-    LOGDEBUG << "OM_NodeContainer: Request to remove service";
 
     if (svcInfos.size() == 0) {
         LOGDEBUG << "No services have been removed since none have been provided";
