@@ -32,6 +32,10 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
 
 namespace fds {
 
+const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
+const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
+const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
+
 /**
  * Receiver DM processing of volume sync state.
  * @param[in] fdw_complete false if rsync is completed = start processing
