@@ -74,9 +74,9 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
         response.token = request->token;
         response.sequence_id = request->sequence_id;
-        delete dmRequest;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
+    delete dmRequest;
 }
 
 }  // namespace dm
