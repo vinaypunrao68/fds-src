@@ -11,6 +11,7 @@ struct DataMgr;
 namespace timeline {
 struct JournalManager {
     JournalManager(fds::DataMgr* dm);
+    virtual ~JournalManager();
     void stopMonitoring();
     Error replayTransactions(Catalog& destCat,
                              const std::vector<std::string> &files,

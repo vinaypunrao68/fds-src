@@ -736,6 +736,8 @@ struct DmIoResyncInitialBlob : dmCatReq {
 	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
 	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetRspMsg> response;
 	NodeUuid destNodeUuid;
+    std::function<void(fpi::AsyncHdrPtr&, fpi::CtrlNotifyInitialBlobFilterSetMsgPtr&,
+    		const Error &e, dmCatReq *dmRequest)> localCb = NULL;
     explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
             : message(msg),

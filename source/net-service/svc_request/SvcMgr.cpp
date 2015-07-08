@@ -13,6 +13,7 @@
 #include <fdsp/OMSvc.h>
 #include <net/fdssocket.h>
 #include <fdsp/Streaming.h>
+#include <fdsp/ConfigurationService.h>
 #include <fdsp_utils.h>
 #include <fds_module_provider.h>
 #include <net/SvcRequestPool.h>
@@ -79,6 +80,9 @@ boost::shared_ptr<fpi::OMSvcClient> allocRpcClient<fpi::OMSvcClient>(
 template
 boost::shared_ptr<fpi::StreamingClient> allocRpcClient<fpi::StreamingClient>(
     const std::string &ip, const int &port,
+    const int &retryCnt);
+template
+boost::shared_ptr<apis::ConfigurationServiceClient> allocRpcClient<apis::ConfigurationServiceClient>(const std::string &ip, const int &port,
     const int &retryCnt);
 
 /*********************************************************************************

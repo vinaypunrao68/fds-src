@@ -78,6 +78,7 @@ function usage() {
     log "   - $(yellow debug)     : switch to $(red debug) build"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
+    log "   : $(yellow --om-debug-port) java debugger port #"
     log " app : om/pm/sm/am/dm/all"
     log " $(yellow testname): name of a test"
     echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
@@ -186,6 +187,11 @@ function startApp() {
                 case $name in
                     sm|dm|am)
                         params="--foreground --fds.pm.platform_uuid=$(echo 'keys node* '| redis-cli | cut -d: -f2)"
+                        ;;
+                    om)
+                        if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
+                            params="--debug-port=${OM_DEBUG_PORT}"
+                        fi
                         ;;
                     *)
                         params=""
@@ -599,15 +605,26 @@ function source_lib() {
 args=( "$@" )
 for ((n=0; n<$#; n++ ))
 do
-    opt=${args[$n]}
-    case $opt in
+    opt="${args[$n]}"
+    case "${opt}" in
         -f|--fds-root)
             (( n++ ))
             if [[ $n -ge $# ]]; then
                 logerror "value expected for fdsroot"
                 usage
             fi
-            FDSROOT=${args[$n]}
+            FDSROOT="${args[$n]}"
+            ;;
+        --om-debug-port)
+            (( n++ ))
+            if [[ $n -ge $# ]]; then
+                logerror "value expected for om-debug-port"
+                usage
+            fi
+            OM_DEBUG_PORT="${args[$n]}"
+            ;;
+        --om-debug-port=*)
+            OM_DEBUG_PORT="${opt#*=}"
             ;;
         -i|--from-install-dir)
             run_from_install_dir=1

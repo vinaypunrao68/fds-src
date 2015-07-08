@@ -133,7 +133,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
         dltTokenStates.assign(numTokens, false);
     } else {
         // resync on restart should happen only once during on SM run between restarts
-        fds_verify(!resyncOnRestart);
+        //fds_verify(!resyncOnRestart);
         // if this is not a first migration msgs (= SM is gaining additional DLT tokens),
         // nothing to do here, because these DLT tokens are alrady marked not ready
     }
@@ -291,6 +291,9 @@ MigrationMgr::startResync(const fds::DLT *dlt,
     resyncMsg->DLT_version = dlt->getVersion();
     DLT::SourceNodeMap srcSmTokensMap;
     bool onePhaseMigration = true;
+    numBitsPerDltToken = bitsPerDltToken;
+    fds_uint32_t numTokens = pow(2, bitsPerDltToken);
+    dltTokenStates.assign(numTokens, false);
 
     dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
     for (auto &ptr: srcSmTokensMap) {
@@ -304,9 +307,6 @@ MigrationMgr::startResync(const fds::DLT *dlt,
          */
         if (INVALID_RESOURCE_UUID == ptr.first.toSvcUuid()) {
             const TokenList tokens(ptr.second.begin(), ptr.second.end());
-            numBitsPerDltToken = bitsPerDltToken;
-            fds_uint32_t numTokens = pow(2, bitsPerDltToken);
-            dltTokenStates.assign(numTokens, false);
             changeDltTokensAvailability(tokens, true);
         } else {
             resyncMsg->migrations.push_back(grp);

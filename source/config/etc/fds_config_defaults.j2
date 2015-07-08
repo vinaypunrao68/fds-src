@@ -39,7 +39,8 @@
 {% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
-{% set dm_req_serialization = fds_dm_req_serialization if fs_dm_req_serialization is defined else 'true' %}
+{% set dm_req_serialization = fds_dm_req_serialization if fds_dm_req_serialization is defined else 'true' %}
+{% set dm_enable_timeline = fds_dm_enable_timeline if fds_dm_enable_timeline is defined else 'true' %}
 {#
    fds.sm. specific entries
 #}
@@ -60,6 +61,7 @@
 {% set am_cache_max_volume_data = fds_am_cache_max_volume_data if fds_am_cache_max_volume_data is defined else '400' %}
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
+{% set am_req_serialization = fds_am_req_serialization if fs_am_req_serialization is defined else 'volume' %}
 {#
    fds.om. specific entries
 #}

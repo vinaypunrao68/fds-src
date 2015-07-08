@@ -39,8 +39,22 @@ Installation
 
 1. Extract tarball - if you are reading this you've probably already done so.
 
-2. Run `./install.sh -i <inventory file>`. The inventory file may reside outside
+2. Run `sudo ./install.sh -i <inventory file>`. The inventory file may reside outside
 the install directory - this is recommended.
+
+3. Monitor the deployment process - some notes on the output you see:
+
+- Some output will be red with an "ignored" line below it, these are
+  expected failures and are probably OK.
+- Output which is red but is not ignored should stop the deploy process,
+  these are unexpected failures and indicate a problem.
+- Output which is yellow in color means a change was made, it should be
+  prefixed with [changed]
+- Output which is green in color means no change was made, it should be
+  prefixed with [ok]
+- Sections which do not show output were probably skipped, this may be
+  expected in many circumstances but if things aren't working right this
+  information may be relevant.
 
 Post Installation Troubleshooting
 ---------------------------------
@@ -63,6 +77,6 @@ The refid may be a Jira issue (FS-NNNN) or a string which uniquely identifies
 this issue - if nothing else use the customer name. The tarball will already
 contain the date - you do not need to include this in the refid.
 
-4. If you must collect a croner tarball on all hosts - there is a playbook
+4. If you must collect a coroner tarball on all hosts - there is a playbook
 included in this installer to do that. Note that they will be very large.
 

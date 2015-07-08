@@ -3,7 +3,7 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 
@@ -28,7 +28,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      */
     public Driver(EndpointT endpoint,
                   WorkloadT workload,
-                  WorkflowEventListener listener,
+                  AbstractWorkflowEventListener listener,
                   Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -85,7 +85,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      * 
      * @return The current property value.
      */
-    public WorkflowEventListener getListener()
+    public AbstractWorkflowEventListener getListener()
     {
         return _listener;
     }
@@ -97,7 +97,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      */
     public int getResult()
     {
-        WorkflowEventListener listener = getListener();
+        AbstractWorkflowEventListener listener = getListener();
         Validator validator = getValidator();
 
         if (validator.isValid(listener))
@@ -130,7 +130,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     {
         return _workload;
     }
-
+    
     /**
      * Run the {@link #getWorkload() workload}.
      * 
@@ -139,7 +139,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     public void runWorkload() throws ExecutionException
     {
         ensureSetUp();
-        WorkflowEventListener listener = getListener();
+        AbstractWorkflowEventListener listener = getListener();
         try
         {
             getWorkload().runOn(getEndpoint(), listener);
@@ -151,6 +151,18 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
         listener.finished();
     }
 
+    /**
+     * Set the event listener.
+     * 
+     * @param listener The property value to set.
+     */
+    public void setListener(AbstractWorkflowEventListener listener)
+    {
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        _listener = listener;
+    }
+    
     /**
      * The service endpoint that {@link #_workload} is run on.
      */
@@ -165,7 +177,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     /**
      * Observes events from {@link #_workload}.
      */
-    private final WorkflowEventListener _listener;
+    private AbstractWorkflowEventListener _listener;
 
     /**
      * The instructions to run on {@link #_endpoint}.

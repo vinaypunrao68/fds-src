@@ -449,7 +449,8 @@ TEST(DltCalculation, fail_rm_2prim) {
     // update DLT
     // 'dlt' is a commited DLT, update DLT based on an SM addition
     // updated DLT will be computed into 'newDlt'
-    placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
+    err = placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
+    EXPECT_TRUE(err.ok());
     // Compute DLT's reverse node to token map
     newDlt->generateNodeTokenMap();
     err = newDlt->verify(cmap->getServiceUuids(fpi::FDSP_STOR_MGR));
@@ -459,6 +460,23 @@ TEST(DltCalculation, fail_rm_2prim) {
         // primaries should be 'non-failed'
         verifyNonFailedPrimaries(cols, newDlt, numPrimarySMs, failedSms);
     }
+
+    // commit DLT
+    delete dlt;
+    dlt = newDlt;
+    newDlt = nullptr;
+    ++version;
+    GLOGNORMAL << *dlt;
+
+    cmap->resetPendServices(fpi::FDSP_STOR_MGR);
+    rmNodes.clear();
+
+    // if we don't change the cluster map and recompute DLT, there must be
+    // no change in the DLT
+    GLOGNORMAL << "Recomputing DLT without cluster map change";
+    newDlt = new DLT(dltWidth, dltDepth, version, true);
+    err = placeAlgo->computeNewDlt(cmap, dlt, newDlt, numPrimarySMs);
+    EXPECT_TRUE(*newDlt == *dlt);
 
     // cleanup
     rmNodes.clear();
