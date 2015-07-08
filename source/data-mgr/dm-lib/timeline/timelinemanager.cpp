@@ -109,19 +109,28 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
             timelineDB->addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
         }
 
-        // mark the objects present in this snapshot
-        markObjectsInSnapshot(vdesc->srcVolumeId, vdesc->volUUID);
+        // activate it
+        err = dm->timeVolCat_->activateVolume(vdesc->volUUID);
 
+        if (err.ok()) {
+            // mark the objects present in this snapshot
+            markObjectsInSnapshot(vdesc->srcVolumeId, vdesc->volUUID);
+        } else {
+            LOGWARN << "snapshot activation failed. vol:" << vdesc->srcVolumeId
+                    << " snap:" << vdesc->volUUID;
+        }
     }
     return err;
 }
 
 Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    LOGDEBUG << "will mark objects in vol:" << volId << " snap:" << snapshotId;
     if (blooms.find(volId) == blooms.end()) {
         blooms[volId].find(snapshotId);
     }
     bool fNew = false, fLoaded=false;
     std::string bfFileName = getSnapshotBloomFile(snapshotId);
+    LOGDEBUG << "object bf for snap:" << bfFileName;
 
     auto& bloom = blooms[volId][snapshotId];
     if (bloom.get() == NULL) {
@@ -131,11 +140,14 @@ Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snap
 
     if (fNew) {
         // try to load the
-        serialize::Deserializer* d=serialize::getFileDeserializer(bfFileName);
-        if (bloom->read(d) > 0) {
-            fLoaded = true;
+        if (util::fileExists(bfFileName)) {
+            LOGDEBUG << "will load object-bf: " << bfFileName;
+            serialize::Deserializer* d=serialize::getFileDeserializer(bfFileName);
+            if (bloom->read(d) > 0) {
+                fLoaded = true;
+            }
+            delete d;
         }
-        delete d;
     }
 
     if (fLoaded) {
@@ -145,6 +157,7 @@ Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snap
 
     std::function<void (const ObjectID&)> func = [&bloom](const ObjectID& objId) {
         bloom->add(objId);
+        LOGDEBUG << "adding obj:" << objId;
     };
 
     dm->timeVolCat_->queryIface()->forEachObject(snapshotId, func);
