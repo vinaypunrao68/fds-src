@@ -321,6 +321,12 @@ struct DmMigrationBlobFilterHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+struct DmMigrationDeltaBlobDescHandler : Handler {
+	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
+	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

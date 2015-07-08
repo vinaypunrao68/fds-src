@@ -518,7 +518,7 @@ struct CtrlNotifyDeltaBlobDescRsp {
 /**
  * delta blob  set from the source DM to  destination DM.
  */
-struct CtrlNotifyDeltaBlobDesc {
+struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
   /* message sequence  id  for tracking the messages 
    * between source DM and destination DM

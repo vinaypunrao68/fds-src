@@ -127,5 +127,30 @@ void DmMigrationBlobFilterHandler::handleResponseReal(boost::shared_ptr<fpi::Asy
     delete dmRequest;
 }
 
+DmMigrationDeltaBlobDescHandler::DmMigrationDeltaBlobDescHandler(DataMgr& dataManager)
+	: Handler(dataManager)
+{
+    REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyDeltaBlobDescMsg, handleRequest);
+}
+
+void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
+                                        fpi::CtrlNotifyDeltaBlobDescMsgPtr& message) {
+    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+
+    auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
+
+    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOBDESC);
+
+    addToQueue(dmReq);
+}
+
+void DmMigrationDeltaBlobDescHandler::handleQueueItem(dmCatReq* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    helper.skipImplicitCb = true;
+    DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
+    // TODO(Rao): Route to migration exector to apply
+}
+
 }  // namespace dm
 }  // namespace fds
