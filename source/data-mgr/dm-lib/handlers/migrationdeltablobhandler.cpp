@@ -31,7 +31,7 @@ void DmMigrationDeltablobHandler::handleRequest(
 
     addToQueue(dmReq);
 
-    DBG(LOGMIGRATE << "Enqueued new forward request " << logString(*asyncHdr)
+    DBG(LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
         << " " << *reinterpret_cast<DmIoMigDltBlob*>(dmReq));
 
     // Reply back now to acknowledge that we received the forward message and properly
@@ -43,7 +43,7 @@ void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigDltBlob* typedRequest = static_cast<DmIoMigDltBlob*>(dmRequest);
 
-    LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
+    LOGMIGRATE << "Sending the delta blob migration dequest to migration Mgr " << *typedRequest;
 }
 
 /**
