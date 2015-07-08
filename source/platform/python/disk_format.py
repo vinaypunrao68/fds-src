@@ -246,7 +246,6 @@ class Disk (Base):
             file_handle = open (file_name, "rb")
         except:
             self.system_exit ("Unable to open " + file_name + " in order to valid system disk partition sizing.")
-            return
 
         disk_blocks = int(file_handle.read())
 
