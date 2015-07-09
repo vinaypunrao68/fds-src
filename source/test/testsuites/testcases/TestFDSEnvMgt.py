@@ -110,6 +110,30 @@ class TestFDSInstall(TestCase.FDSTestCase):
             self.log.warn("FDS installation directory, %s, exists on node %s." %
                           (fds_dir, node.nd_conf_dict['node-name']))
 
+        # Populate product memcheck directory if necessary.
+        # It should be necessary since we did not do a package install.
+        dest_config_dir = fds_dir + "/memcheck"
+        # Check to see if the etc directory is already there.
+        if not os.path.exists(dest_config_dir):
+            # Not there, try to create it.
+            self.log.info("FDS memcheck directory, %s, nonexistent on node %s. Attempting to create." %
+                          (dest_config_dir, node.nd_conf_dict['node-name']))
+            status = node.nd_agent.exec_wait('mkdir -p ' + dest_config_dir)
+            if status != 0:
+                self.log.error("FDS memcheck directory creation on node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+        else:
+            self.log.warn("FDS memcheck directory, %s, exists on node %s." %
+                          (dest_config_dir, node.nd_conf_dict['node-name']))
+        # Load the memcheck suppressions from the devevelopment environment.
+        src_config_dir = node.nd_agent.get_memcheck_dir()
+        status = node.nd_agent.exec_wait('cp -rf ' + src_config_dir + ' ' + fds_dir)
+        if status != 0:
+            self.log.error("FDS memcheck directory population on node %s returned status %d." %
+                           (node.nd_conf_dict['node-name'], status))
+            return False
+
         # Populate product configuration directory if necessary.
         # It should be necessary since we did not do a package install.
         dest_config_dir = fds_dir + "/etc"

@@ -79,7 +79,7 @@ void AccessMgr::mod_enable_service()
 }
 
 void AccessMgr::mod_disable_service() {
-    stop();
+    amProcessor->stop();
 }
 
 void

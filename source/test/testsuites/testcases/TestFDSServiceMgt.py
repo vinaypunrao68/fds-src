@@ -32,7 +32,7 @@ def getSvcPIDforNode(svc, node, javaClass=None):
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'getSvcPIDforNode')
 
-    cmd = "pgrep %s" % svc
+    cmd = "pgrep -f '(valgrind)?.*%s'" % svc
 
     status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
 
@@ -95,7 +95,7 @@ def pidWaitParent(pid, child_count, node):
     count = 0
     found = False
     status = 0
-    cmd = "pgrep -c -P %s" % pid
+    cmd = "pgrep -c -P -f '(valgrind)?.*%s'" % pid
     while (count < maxcount) and not found:
         time.sleep(1)
 
@@ -225,7 +225,7 @@ def generic_kill(node, service):
     pid = getSvcPIDforNode(svc_map[service], node, java_class)
 
     if pid != -1:
-        cmd = "kill -9 {}".format(pid)
+        cmd = "kill -KILL {}".format(pid)
         status = node.nd_agent.exec_wait(cmd)
 
     else:
@@ -631,7 +631,7 @@ class TestDMKill(TestCase.FDSTestCase):
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('DataMgr', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -1546,7 +1546,7 @@ class TestOMKill(TestCase.FDSTestCase):
         if om_node is not None:
             self.log.info("Kill OM on %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('pkill -9 -f com.formationds.om.Main')
+            status = om_node.nd_agent.exec_wait('pkill -KILL -f com.formationds.om.Main')
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
@@ -1556,7 +1556,7 @@ class TestOMKill(TestCase.FDSTestCase):
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
 
-            status = om_node.nd_agent.exec_wait("pkill -9 orchMgr")
+            status = om_node.nd_agent.exec_wait("pkill -KILL orchMgr")
 
             if (status != 1) and (status != 0):
                 self.log.error("OM (orchMgr) kill on %s returned status %d." %
@@ -1909,7 +1909,7 @@ class TestAMKill(TestCase.FDSTestCase):
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -1922,7 +1922,7 @@ class TestAMKill(TestCase.FDSTestCase):
 
             pid = getSvcPIDforNode('bare_am', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -1935,7 +1935,7 @@ class TestAMKill(TestCase.FDSTestCase):
 
             pid = getSvcPIDforNode('AMAgent', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if (status != 1) and (status != 0):
