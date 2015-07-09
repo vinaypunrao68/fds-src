@@ -3,18 +3,20 @@
  */
 package com.formationds.om.webkit.rest.v08.platform;
 
-import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.client.v08.model.ServiceType;
+import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.pm.NotifyStopServiceMsg;
+import com.formationds.protocol.pm.NotifyStartServiceMsg;
+import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -28,6 +30,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 public class MutateService implements RequestHandler {
 
@@ -88,12 +91,28 @@ public class MutateService implements RequestHandler {
         
         logger.debug( "Desired state of services is AM: " + am + " SM: " + sm + " DM: " + dm );
         
-        int status = getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
-        		0, 
-        		new FDSP_Uuid( node.getId() ), 
-        		sm, 
-        		dm, 
-        		am ));
+        List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
+        SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        		                                 (node.getAddress().getHostAddress(),
+        		                                  service);
+        svcInfList.add(svcInfo);
+        
+    	Service pmSvc = (new GetService()).getService(nodeId, nodeId);
+    	SvcInfo pmSvcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+    			                                 (node.getAddress().getHostAddress(),
+                                                  pmSvc);
+    	svcInfList.add(pmSvcInfo);
+    	
+        int status = -1;
+        
+        if ( myState ) {
+        	// State change desired is from NOT_RUNNING to RUNNING
+        	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
+        }
+        else
+        {   // State change desired is from RUNNING to NOT_RUNNING
+        	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
+        }
 
         if ( status != 0 ){
         	
