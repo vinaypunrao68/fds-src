@@ -8,9 +8,12 @@
 #include <net/SvcMgr.h>
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <utility>
 #include <net/SvcMgr.h>
 #include <object-store/ObjectMetaDb.h>
+
 
 namespace fds {
 
@@ -79,12 +82,14 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 
     // Cause method to return capacity
     fiu_do_on("sm.diskmap.cause_used_capacity_alert", \
+              fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
                        << ", 100). This should cause an alert."; \
               SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_ALERT_THRESHOLD + 1, 100);
               return retVals; );
 
     fiu_do_on("sm.diskmap.cause_used_capacity_warn", \
+              fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
                        << ", 100). This should cause a warning."; \
               SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_WARNING_THRESHOLD + 1, 100);

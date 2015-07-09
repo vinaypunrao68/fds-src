@@ -140,6 +140,11 @@ class DmPersistVolCat {
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsWithSeqId) = 0;
 
+    virtual Error getInMemorySnapshot(Catalog::catalog_roptions_t &opts) = 0;
+
+    virtual Error getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) = 0;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
 
@@ -165,8 +170,12 @@ class DmPersistVolCat {
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
 
+    virtual Error freeInMemorySnapshot(Catalog::catalog_roptions_t &opts) = 0;
+
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
+
+    virtual void forEachObject(std::function<void(const ObjectID&)>) = 0;
 
     // this is not a strong hash, but collisions are detected before
     // blob creation in DmTimeVolCatalog::commitBlobTxWork

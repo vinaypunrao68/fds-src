@@ -175,6 +175,7 @@ namespace fds {
          * TODO(xxx) The commit stores the DMT to the permanent DMT history
          */
         void commitDMT();
+        void commitDMT( const bool unsetTarget );
 
         inline DMTPtr getCommittedDMT() {
             return dmtMgr->getDMT(DMT_COMMITTED);

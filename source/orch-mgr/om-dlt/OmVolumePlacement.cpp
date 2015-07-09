@@ -446,15 +446,23 @@ void VolumePlacement::notifyEndOfRebalancing() {
     std::atomic_exchange(&bRebalancing, false);
     LOGNORMAL << "Notified VolumePlacement about end of vol meta rebalance";
 }
+void VolumePlacement::commitDMT() {
+    commitDMT( false );
+}
 
-void
-VolumePlacement::commitDMT() {
+void VolumePlacement::commitDMT( const bool unsetTarget )
+{   
     // commit DMT without removing target
     prevDmtVersion = dmtMgr->getCommittedVersion();
     dmtMgr->commitDMT(false);
     LOGNORMAL << "DMT version: " << dmtMgr->getCommittedVersion()
               << " Previous committed DMT version " << prevDmtVersion;
     LOGDEBUG << *dmtMgr;
+    
+    if ( unsetTarget )
+    {
+        dmtMgr->unsetTarget( false );
+    }
 }
 
 void

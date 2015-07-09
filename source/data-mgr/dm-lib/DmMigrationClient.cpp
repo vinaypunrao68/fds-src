@@ -16,7 +16,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
     : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm)
 {
-
+	volID = fds_volid_t(_ribfsm->volumeId);
 }
 
 DmMigrationClient::~DmMigrationClient()
@@ -40,8 +40,8 @@ DmMigrationClient::~DmMigrationClient()
  *  Algorithm runtime is linear in the size of the input.
  */
 Error
-DmMigrationClient::diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& dest,
-                                 const std::map<fds_uint64_t, sequence_id_t>& source,
+DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
+                                 const std::map<int64_t, int64_t>& source,
                                  std::vector<fds_uint64_t>& update_list,
                                  std::vector<fds_uint64_t>& delete_list)
 {
@@ -87,4 +87,27 @@ DmMigrationClient::diffBlobLists(const std::map<fds_uint64_t, sequence_id_t>& de
     return ERR_OK;
 }
 
+void
+DmMigrationClient::processDiff()
+{
+
+}
+
+Error
+DmMigrationClient::handleInitialBlobFilterMsg()
+{
+	LOGMIGRATE << "Taking snapshot for volume: " << volID;
+
+	dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volID, opts);
+
+	dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(volID,
+			ribfsm->blobFilterMap, opts);
+
+	/**
+	 * TODO Use the diff function (FS-2259) and genrate the actual diff set.
+	 */
+
+	// migrDoneHandler(uniqueId, threadErr);
+	return (ERR_OK);
+}
 }  // namespace fds

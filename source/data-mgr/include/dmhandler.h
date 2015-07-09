@@ -47,7 +47,7 @@ namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---
  * do NOT store any state in these classes for now.
- * handler functions should be reentrant 
+ * handler functions should be reentrant
  */
 struct RequestHelper {
     dmCatReq *dmRequest;
@@ -293,7 +293,7 @@ struct ReloadVolumeHandler : Handler {
 };
 
 /**
- * dm checker  for validating the DM migration
+ * DmMigration starting point handler from OM
  */
 struct DmMigrationHandler : Handler {
     explicit DmMigrationHandler(DataMgr& dataManager);
@@ -304,10 +304,13 @@ struct DmMigrationHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
     void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
+                            uint64_t dmtVersion,
+                            const Error& e);
 };
 
+/**
+ * Handler for the initial Executor to the client
+ */
 struct DmMigrationBlobFilterHandler : Handler {
 	explicit DmMigrationBlobFilterHandler(DataMgr &dataManager);
 	void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -317,7 +320,6 @@ struct DmMigrationBlobFilterHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
-
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

@@ -227,9 +227,9 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
         auto volId = vol.volUUID.get();
         Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, volId);
         if (!reply.wasModified()) {
-            LOGWARN << "volume [" << vol.volUUID
-                    << "] already exists for domain ["
-                    << vol.localDomainId << "]";
+            LOGDEBUG << "volume [ " << vol.volUUID
+                     << " ] already exists for domain [ "
+                     << vol.localDomainId << " ]";
         }
 
         // add the volume data
@@ -1627,12 +1627,13 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         std::string nameLower = lower(snapshot.snapshotName);
 
         if (r.sismember("snapshot:names", nameLower)) {
-            LOGCRITICAL << "The specified snapshot ( " 
-                        << " ) " << snapshot.snapshotName
-                        << "name already exists";
+            LOGDEBUG << "The specified snapshot ( " 
+                     << snapshot.snapshotName << " ) "
+                     << "name already exists";
             return false;
                 
-//            throw ConfigException("another snapshot exists with name:" + snapshot.snapshotName); //NOLINT
+//            throw ConfigException("another snapshot exists with name:" + 
+//              snapshot.snapshotName); //NOLINT
         }
 
         r.sadd("snapshot:names", nameLower);

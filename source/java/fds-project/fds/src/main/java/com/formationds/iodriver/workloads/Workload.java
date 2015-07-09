@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -19,9 +20,11 @@ import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.commons.util.NullableMutableReference;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
 import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.validators.Validator;
 
 /**
  * A basic skeleton for a workload.
@@ -38,6 +41,75 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
 // @eclipseFormat:on
 {
     /**
+     * Get the type of endpoint this workload can use.
+     * 
+     * @return The current property value.
+     */
+    public final Class<EndpointT> getEndpointType()
+    {
+        return _endpointType;
+    }
+
+    /**
+     * Get the type of operation this workload can execute.
+     * 
+     * @return The current property value.
+     */
+    public final Class<OperationT> getOperationType()
+    {
+        return _operationType;
+    }
+    
+    /**
+     * Get a validator that will interpret this workload well.
+     * 
+     * @return The current property value, or {@link Optional#empty()} if there is no sensible
+     *         default.
+     */
+    public Optional<Validator> getSuggestedValidator()
+    {
+        return Optional.empty();
+    }
+    
+    /**
+     * Constructor.
+     * 
+     * @param endpointType The type of endpoint this workload can use.
+     * @param operationType The type of operation this workload can run.
+     * @param logOperations Log operations executed by this workload.
+     */
+    protected Workload(Class<EndpointT> endpointType,
+                       Class<OperationT> operationType,
+                       boolean logOperations)
+    {
+        if (endpointType == null) throw new NullArgumentException("endpointType");
+        if (operationType == null) throw new NullArgumentException("operationType");
+        
+        _endpointType = endpointType;
+        _operationType = operationType;
+        _logOperations = logOperations;
+    }
+    
+    private ExceptionThrowingConsumer<OperationT, ExecutionException> debugWrap(
+            ExceptionThrowingConsumer<OperationT, ExecutionException> exec, Logger logger)
+    {
+        if (exec == null) throw new NullArgumentException("exec");
+        
+        if (logger == null)
+        {
+            return exec;
+        }
+        else
+        {
+            return op -> 
+                   {
+                       logger.logDebug("Executing: " + op);
+                       exec.accept(op);
+                   };
+        }
+    }
+    
+    /**
      * Execute this workload.
      * 
      * @param endpoint Operations will be run on this endpoint.
@@ -46,7 +118,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(EndpointT endpoint, WorkflowEventListener listener)
+    public final void runOn(EndpointT endpoint, AbstractWorkflowEventListener listener)
             throws ExecutionException
     // @eclipseFormat:on
     {
@@ -63,12 +135,12 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
             Thread workerThread =
                     new Thread(() ->
                     {
-                        // Synchronize all worker threads.
-                        ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
-                                                                      ExecutionException.class);
-
                         ExceptionThrowingConsumer<OperationT, ExecutionException> exec =
                                 op -> endpoint.doVisit(op, listener);
+
+                        // Log operations if requested.
+                        ExceptionThrowingConsumer<OperationT, ExecutionException> loggingExec =
+                                debugWrap(exec, getLogOperations() ? listener.getLogger() : null); 
 
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
                         // but hits this compiler bug:
@@ -84,7 +156,13 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                         // tunnel(...) with a static import.
                         Consumer<OperationT> tunneledExec =
                                 ExceptionHelper.<OperationT, ExecutionException>
-                                               tunnel(exec, ExecutionException.class);
+                                               tunnel(loggingExec, ExecutionException.class);
+                        
+                        // Synchronize all worker threads. This only ensures that they start work
+                        // at the same time--if you need to synchronize at different points, use
+                        // the AwaitGate operation.
+                        ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
+                                                                      ExecutionException.class);
 
                         // Execute each operation, tunneling any exceptions.
                         work.forEach(tunneledExec);
@@ -148,7 +226,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      */
     // @eclipseFormat:off
     public final void setUp(EndpointT endpoint,
-                            WorkflowEventListener listener) throws ExecutionException
+                            AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -160,7 +238,8 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
         ExceptionHelper.<OperationT, ExecutionException>
                        tunnel(ExecutionException.class,
                               from -> _setup.forEach(from),
-                              (OperationT op) -> endpoint.doVisit(op, listener));
+                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
+                                        getLogOperations() ? listener.getLogger() : null));
     }
 
     /**
@@ -174,7 +253,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      */
     // @eclipseFormat:off
     public final void tearDown(EndpointT endpoint,
-                               WorkflowEventListener listener) throws ExecutionException
+                               AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -186,7 +265,8 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
         ExceptionHelper.<OperationT, ExecutionException>
                        tunnel(ExecutionException.class,
                               from -> _teardown.forEach(from),
-                              (OperationT op) -> endpoint.doVisit(op, listener));
+                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
+                                        getLogOperations() ? listener.getLogger() : null));
     }
 
     /**
@@ -246,6 +326,16 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
     }
 
     /**
+     * Return whether to log operations executed by this workload.
+     * 
+     * @return The current property value.
+     */
+    protected final boolean getLogOperations()
+    {
+        return _logOperations;
+    }
+    
+    /**
      * Wait to a gate to be released.
      * 
      * @param gate The gate to wait on.
@@ -265,6 +355,21 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
             throw new ExecutionException(e);
         }
     }
+
+    /**
+     * The type of endpoint this workload can use.
+     */
+    private final Class<EndpointT> _endpointType;
+    
+    /**
+     * Log operations executed by this workload.
+     */
+    private boolean _logOperations;
+    
+    /**
+     * The type of operation this workload can run.
+     */
+    private final Class<OperationT> _operationType;
 
     /**
      * Workload body. Streams are run in parallel with each other.

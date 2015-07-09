@@ -8,14 +8,15 @@
 #include <vector>
 #include <fds_error.h>
 #include "fdsp/dm_api_types.h"
-
+#include <lib/Catalog.h>
+#include <functional>
 namespace fds {
 
 /**
  * Callback type to expunge a list of objects
  */
 typedef std::function<Error (fds_volid_t volid,
-                             const std::vector<ObjectID>& oids)> expunge_objs_cb_t;
+                             const std::vector<ObjectID>& oids, bool)> expunge_objs_cb_t;
 
 /**
  * Interface to Volume Catalog for querying commited versions of
@@ -134,6 +135,15 @@ class VolumeCatalogQueryIface {
     virtual Error activateCatalog(fds_volid_t volId) {
         return ERR_OK;
     };
+
+    /**
+     * Methods for DM Migration to take a volume's snapshot and do delta on it
+     */
+    virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
+    virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
+    virtual Error getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+                                                Catalog::catalog_roptions_t &opts) = 0;
+    virtual Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>) = 0;
 };
 
 }  // namespace fds

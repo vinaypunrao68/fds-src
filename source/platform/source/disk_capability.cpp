@@ -27,7 +27,7 @@ void
 DiskCapability::dsk_capability_read() {
     uint8_t* buf = new uint8_t[fds_disk_sector_to_byte(1)];
 
-    if (0 < dc_owner->dsk_read(buf, 0, 1)) {
+    if (0 < dc_owner->dsk_read(buf, 0, 1, true)) {
         if (0 == memcmp(DISK_MARKER, buf, sizeof(DISK_MARKER))) {
             LOGNORMAL << "Found FDS disk [" << dc_owner->dsk_get_mount_point()
                       << "] type: " << buf[30] << buf[31];

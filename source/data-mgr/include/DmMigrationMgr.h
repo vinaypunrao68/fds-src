@@ -19,10 +19,9 @@ class DmIoReqHandler;
 class DmMigrationMgr {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
-    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::unique_ptr>;
-	// callback for start migration ack back to OM.
-	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
+    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
+    // Callbacks for migration handlers
+	using OmStartMigrationCBType = std::function<void (const Error& e)>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -72,14 +71,21 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(dmCatReq* dmRequest);
+    Error startMigrationExecutor(dmCatReq* dmRequest);
 
     /**
      * Source side DM:
      * Method to receive a request from a Destination DM.
      * Will spawn off a client to handle this specific request.
+     * The reason why we're trying to emulate a non-blocking way of spawning off clients
+     * is because we're planning ahead for the chance that we may allow 2 nodes to join
+     * a cluster in one shot. If that happens, then it would be possible that a node may
+     * act as a source node for multiple destination nodes. And it would be unwise to handle
+     * only one client at a time.
+     * TODO(Neil) - once we support 2 node additions, then we'll need to keep track of
+     * multiple callback pointers, etc. For now, not doing it.
      */
-    Error startMigrationClient(fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &migReq, NodeUuid &_dest);
+    Error startMigrationClient(dmCatReq* dmRequest);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -87,21 +93,28 @@ class DmMigrationMgr {
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
-    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
-    fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
-    dmCatReq* dmReqPtr = nullptr;
+
     DataMgr& dataManager;
+
+    /** check if the feature is enabled or not.
+     */
+    bool enableMigrationFeature;
+
+    /**
+     * check if resync feature is enabled.
+     */
+    bool enableResyncFeature;
 
     /**
      * Throttles the number of max concurrent migrations
      * Below are protected by migrExecutorLock.
      */
-    fds_uint32_t maxTokens;
-    fds_uint32_t firedTokens;
+    fds_uint32_t maxConcurrency;
+    fds_uint32_t firedMigrations;
     // Bookmark for last fired executor
     DmMigrationExecMap::iterator mit;
 
@@ -117,17 +130,6 @@ class DmMigrationMgr {
 								  const fds_bool_t& autoIncrement = false);
 
     /**
-     * Source side DM:
-     * Create a client instance. Does book keeping.
-     * Returns ERR_OK if the client instance was created successfully.
-     * Uses the clientMap to store the created instances.
-     */
-    Error createMigrationClient(NodeUuid& srcDmUuid,
-    								const NodeUuid& mySvcUuid,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
-									fds_uint64_t uniqueId = 0);
-
-    /**
      * Destination side DM:
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
@@ -141,6 +143,37 @@ class DmMigrationMgr {
     DmMigrationExecMap executorMap;
 
     /**
+     * Destination side DM:
+     * Wrapper around calling OmStartMigrCb
+     */
+    void ackMigrationComplete(const Error &status);
+
+	/*
+     * Destination side DM:
+     * Ack back to DM start migration from the Destination DM to OM.
+     * This is called only when the migration completes or aborts.  The error
+     * stuffed in the asynchdr determines if the migration completed successfully or not.
+     */
+    OmStartMigrationCBType OmStartMigrCb;
+
+    /**
+     * Destination side DM:
+     * Callback for migrationExecutor. Not the callback from client.
+     */
+    void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
+
+
+    /**
+     * Source side DM:
+     * Create a client instance. Does book keeping.
+     * Returns ERR_OK if the client instance was created successfully.
+     * Uses the clientMap to store the created instances.
+     */
+    Error createMigrationClient(NodeUuid& srcDmUuid,
+    								const NodeUuid& mySvcUuid,
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp);
+
+    /**
      * Source side DM:
      * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
      */
@@ -150,25 +183,7 @@ class DmMigrationMgr {
      * Source side DM:
      * Callback for migrationClient.
      */
-    void migrationClientDoneCb(fds_uint64_t uniqueId, const Error &result);
-
-    /**
-     * Destination side DM:
-     * Ack back to the OM saying migration is finished
-     */
-    void ackMigrationComplete(const Error &status);
-
-	/*
-     * Ack back to DM start migration from the Destination DM to OM.
-     * This is called only when the migration completes or aborts.  The error
-     * stuffed in the asynchdr determines if the migration completed successfully or not.
-     */
-    OmStartMigrationCBType OmStartMigrCb;
-
-    /**
-     * Callback for migrationExecutor. Not the callback from client.
-     */
-    void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
+    void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
 
 };  // DmMigrationMgr
 

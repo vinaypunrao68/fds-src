@@ -11,13 +11,27 @@ homepage "http://www.formationds.com"
 fds_src_dir = ENV['FDS_SRC_DIR']
 raise "FDS_SRC_DIR must be set'" unless fds_src_dir
 
-# Defaults to C:/fds-deps on Windows
-# and /opt/fds-deps on all other platforms
-install_dir "#{default_root}/#{name}"
-
 mydir = File.dirname(__FILE__)
-build_version File.readlines("#{mydir}/../../../VERSION").first.chomp
-build_iteration 1
+fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
+
+build_number = ENV['BUILD_NUMBER']
+git_sha = `git rev-parse --short HEAD`.chomp unless build_number
+
+if build_number.nil?
+  build_iteration git_sha
+else
+  build_iteration build_number
+end
+
+if ENV['ENABLE_VERSION_INSTALL'] == 'true'
+  build_version "1"
+  build_iteration git_sha
+  install_dir "/opt/fds/deps/#{fds_version}_#{build_version}-#{build_iteration}"
+  name "fds-deps-#{fds_version}"
+else
+  install_dir "#{default_root}/#{name}"
+  build_version fds_version
+end
 
 # Creates required build directories
 dependency "preparation"
@@ -58,6 +72,9 @@ dependency "server-jre"
 dependency "mdadm"
 dependency "influxdb"
 dependency "fdsutil"
+dependency "ansible"
+dependency "python-httplib2"
+dependency "sshpass"
 
 # Version manifest file
 dependency "version-manifest"

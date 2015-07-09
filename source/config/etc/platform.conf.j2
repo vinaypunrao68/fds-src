@@ -40,6 +40,7 @@ fds: {
 
         }
         am: {
+            serialization = "{{ am_req_serialization }}"
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -74,6 +75,26 @@ fds: {
             port = 2003
             period = 5
         } #}
+
+        /* Options when running under valgrind */
+        valgrind: {
+           app_name = "valgrind"
+           /* All paths relative to fds_root */
+           base_dir = "memcheck/"
+           common_options = "--show-reachable=no,--show-possibly-lost=no,--gen-suppressions=all,--tool=memcheck,--leak-check=yes,--num-callers=30,--xml=yes,-v"
+           process_specific: {
+                bare_am =    "--soname-synonyms=somalloc=*tcmalloc*"
+                StorMgr =    "--soname-synonyms=somalloc=*tcmalloc*"
+	   }
+	   suppressions: {
+                suppressions_option = "--suppressions="
+                suppressions_suffix  = ".supp"
+	   }
+	   output: {
+                results_option = "--xml-file="
+                results_suffix = ".%p.memcheck"
+	   }
+        }
     }
 
     pm: {
@@ -218,16 +239,16 @@ fds: {
             rsync_password = "passwd"
 
             /* boolean to enable/disable DM migration feature */
-            enable_feature = true
+            enable_feature = {{ dm_enable_migration }}
 
             /* boolean to enable/disable DM resync feature */
-            enable_resync = true
+            enable_resync = {{ dm_enable_resync }}
 
             /* timeout duration in sec */
-            migration_timeout=300
+            migration_timeout= {{ dm_migration_timeout }}
 
             /* Maximum concurrent migrations */
-            max_migrations=1
+            migration_max_concurrency = {{ dm_migration_max_concurrency }}
         }
 
         /* Graphite is enabled or not */
@@ -249,7 +270,7 @@ fds: {
         }
 
         /* Timeline feature toggle */
-        enable_timeline = true
+        enable_timeline = {{ dm_enable_timeline }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -309,6 +330,11 @@ fds: {
         data_verify = {{ sm_data_verify }}
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
+
+	/* Toggle for serializing requests for consistency */
+        req_serialization = {{ sm_req_serialization }}
+        /* Number of primary SMs; 0 means pre-consistency implementation */
+        number_of_primary = 2
 
         /* daemonize or not */
         daemonize=true

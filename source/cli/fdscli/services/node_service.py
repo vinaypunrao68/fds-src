@@ -3,7 +3,7 @@ from abstract_service import AbstractService
 from utils.converters.platform.node_converter import NodeConverter
 from utils.converters.platform.service_converter import ServiceConverter
 from model.platform.node import Node
-from model.platform.service import Service
+from model.fds_error import FdsError
 
 class NodeService( AbstractService ):
     '''
@@ -27,6 +27,9 @@ class NodeService( AbstractService ):
         url = "{}{}".format( self.get_url_preamble(), "/nodes" )
         j_nodes = self.rest_helper.get( self.session, url )
         
+        if isinstance(j_nodes, FdsError):
+            return j_nodes
+        
         nodes = []
         
         for j_node in j_nodes:
@@ -47,8 +50,8 @@ class NodeService( AbstractService ):
         data = NodeConverter.to_json( node )
         node = self.rest_helper.post( self.session, url, data )
         
-        if node is None:
-            return 
+        if isinstance(node, FdsError):
+            return node
         
         node = NodeConverter.build_node_from_json(node)
         return node
@@ -61,7 +64,12 @@ class NodeService( AbstractService ):
         node = Node(an_id=node_id, state="UP",name=node_id)
         url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
         data = NodeConverter.to_json(node)
-        return self.rest_helper.put( self.session, url, data )
+        response = self.rest_helper.put( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response
     
     def stop_node(self, node_id):
         '''
@@ -71,7 +79,12 @@ class NodeService( AbstractService ):
         node = Node(an_id=node_id, state="DOWN",name=node_id)
         url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
         data = NodeConverter.to_json(node)
-        return self.rest_helper.put( self.session, url, data )    
+        response = self.rest_helper.put( self.session, url, data )    
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def remove_node(self, node_id):
         '''
@@ -81,7 +94,12 @@ class NodeService( AbstractService ):
         node_state is a node state object defines which services will be stopped        
         '''
         url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
-        return self.rest_helper.delete( self.session, url )
+        response = self.rest_helper.delete( self.session, url )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def get_node(self, node_id):
         '''
@@ -92,8 +110,8 @@ class NodeService( AbstractService ):
         url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
         response = self.rest_helper.get(self.session, url)
         
-        if response is None:
-            return
+        if isinstance(response, FdsError):
+            return response
         
         node = NodeConverter.build_node_from_json(response)
         
@@ -107,7 +125,12 @@ class NodeService( AbstractService ):
         service.status.state = "RUNNING"
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
-        return self.rest_helper.put( self.session, url, data )
+        response = self.rest_helper.put( self.session, url, data )
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def stop_service(self, node_id, service_id):
         '''
@@ -117,14 +140,24 @@ class NodeService( AbstractService ):
         service.status.state = "NOT_RUNNING"
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
-        return self.rest_helper.put( self.session, url, data )   
+        response = self.rest_helper.put( self.session, url, data )   
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def remove_service(self, node_id, service_id):
         '''
         Remove a given service from the node for good
         '''
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
-        return self.rest_helper.delete( self.session, url ) 
+        response = self.rest_helper.delete( self.session, url ) 
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def add_service(self, node_id, service):
         '''
@@ -134,7 +167,12 @@ class NodeService( AbstractService ):
         '''
         url = "{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services" )
         data = ServiceConverter.to_json(service)
-        return self.rest_helper.post( self.session, url, data ) 
+        response = self.rest_helper.post( self.session, url, data ) 
+        
+        if isinstance(response, FdsError):
+            return response
+        
+        return response        
     
     def get_service(self, node_id, service_id):
         '''
@@ -145,6 +183,9 @@ class NodeService( AbstractService ):
         '''
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         response = self.rest_helper.get(self.session, url)
+        
+        if isinstance(response, FdsError):
+            return response     
         
         service = ServiceConverter.build_service_from_json(response)
         

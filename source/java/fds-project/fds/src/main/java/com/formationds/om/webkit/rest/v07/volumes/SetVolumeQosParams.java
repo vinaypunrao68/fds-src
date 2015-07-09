@@ -18,11 +18,13 @@ import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.util.Map;
 
 public class SetVolumeQosParams implements RequestHandler {
@@ -52,7 +54,7 @@ public class SetVolumeQosParams implements RequestHandler {
         MediaPolicy mediaPolicy = (mediaPolicyS != null && !mediaPolicyS.isEmpty() ?
                                    MediaPolicy.valueOf( mediaPolicyS ) :
                                    MediaPolicy.HDD_ONLY);
-        
+
         FDSP_VolumeDescType volumeDescType = configService.ListVolumes(0)
                 .stream()
                 .filter(v -> v.getVolUUID() == uuid)
@@ -66,7 +68,7 @@ public class SetVolumeQosParams implements RequestHandler {
 
         FDSP_VolumeDescType volInfo = setVolumeQos(configService, volumeName, assuredIops, priority, throttleIops, commit_log_retention, mediaPolicy );
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
-        
+
         JSONObject o =
             ListVolumes.toJsonObject( descriptor,
                                       volInfo,
@@ -79,7 +81,7 @@ public class SetVolumeQosParams implements RequestHandler {
     }
 
     public static FDSP_VolumeDescType setVolumeQos(ConfigurationService.Iface configService, String volumeName, long assuredIops, int priority, long throttleIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
-        
+
     	// converting the com.formationds.api.MediaPolicy to the FDSP version
     	FDSP_MediaPolicy fdspMediaPolicy = MediaPolicyConverter.convertToFDSPMediaPolicy( mediaPolicy );
     	
@@ -90,6 +92,7 @@ public class SetVolumeQosParams implements RequestHandler {
         volInfo.setVolPolicyId(0);
         volInfo.setMediaPolicy(fdspMediaPolicy);
         volInfo.setContCommitlogRetention( logRetention );
+
         configService.ModifyVol(new FDSP_ModifyVolType(volInfo.getVol_name(),
                 volInfo.getVolUUID(),
                 volInfo));

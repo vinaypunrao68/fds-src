@@ -1,15 +1,14 @@
-# platformd
+##
+# Formation Data Systems, INC. Redis instance
+#
+# Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
 
-description     "fds_redis"
+description "Formation Data Systems, INC. Redis instance"
 
 start on (starting fds-pm)
 
-limit nofile 400000 400000
-limit core unlimited unlimited
+respawn
+respawn limit 10 5
 
-env LD_LIBRARY_PATH=/fds/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
-env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:/fds/bin:/fds/sbin
-
-task
-
-exec /fds/sbin/redis.sh start
+pre-start exec /fds/sbin/redis.sh start
+post-stop exec /fds/sbin/redis.sh stop

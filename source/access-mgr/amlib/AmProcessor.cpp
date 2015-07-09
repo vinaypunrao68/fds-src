@@ -90,7 +90,7 @@ class AmProcessor_impl
     { return amDispatcher->getDLT(); }
 
     bool isShuttingDown() const
-    { return shut_down; }
+    { SCOPEDREAD(shut_down_lock); return shut_down; }
 
   private:
     /// Unique ptr to the dispatcher layer
@@ -109,6 +109,7 @@ class AmProcessor_impl
 
     shutdown_cb_type shutdown_cb;
     bool shut_down { false };
+    mutable fds_rwlock shut_down_lock;
 
     shutdown_cb_type prepareForShutdownCb;
 
@@ -224,32 +225,38 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     static fpi::VolumeAccessMode const default_access_mode;
 
     Error err;
-    if (shut_down) {
-        err = ERR_SHUTTING_DOWN;
-    } else {
-        amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-        err = volTable->enqueueRequest(amReq);
+    {
+        SCOPEDREAD(shut_down_lock);
+        if (shut_down) {
+            err = ERR_SHUTTING_DOWN;
+        } else {
+            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            err = volTable->enqueueRequest(amReq);
+            // Volume Table now knows there's an outstanding request ok to
+            // unlock the shutdown lock
+        }
+    }
 
-        /** Queue and dispatch an attachment if we didn't find a volume */
-        if (ERR_VOL_NOT_FOUND == err) {
-            // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
-            // This code is here to support the fact that not all the connectors
-            // send an AttachVolume currently. For now ensure one is enqueued in
-            // the wait list by queuing a no-op attach request ourselves, this
-            // will cause the attach to use the default mode.
-            if (FDS_ATTACH_VOL != amReq->io_type) {
-                auto attachReq = new AttachVolumeReq(invalid_vol_id,
-                                                     amReq->volume_name,
-                                                     default_access_mode,
-                                                     nullptr);
-                amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-                volTable->enqueueRequest(attachReq);
-            }
-            err = amDispatcher->attachVolume(amReq->volume_name);
-            if (ERR_NOT_READY == err) {
-                // We don't have domain tables yet...just reject.
-                return volTable->removeVolume(amReq->volume_name, invalid_vol_id);
-            }
+    /** Queue and dispatch an attachment if we didn't find a volume */
+    if (ERR_VOL_NOT_FOUND == err) {
+        // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
+        // This code is here to support the fact that not all the connectors
+        // send an AttachVolume currently. For now ensure one is enqueued in
+        // the wait list by queuing a no-op attach request ourselves, this
+        // will cause the attach to use the default mode.
+        if (FDS_ATTACH_VOL != amReq->io_type) {
+            auto attachReq = new AttachVolumeReq(invalid_vol_id,
+                                                 amReq->volume_name,
+                                                 default_access_mode,
+                                                 nullptr);
+            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            volTable->enqueueRequest(attachReq);
+        }
+        err = amDispatcher->attachVolume(amReq->volume_name);
+        if (ERR_NOT_READY == err) {
+            // We don't have domain tables yet...just reject.
+            volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+            return err;
         }
     }
 
@@ -263,14 +270,6 @@ void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
     fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
     fds_assert(amReq->isCompleted() == true);
-
-    /*
-     * Drain the queue if we are shutting down.
-     */
-    if (shut_down) {
-        respond_and_delete(amReq, ERR_SHUTTING_DOWN);
-        return;
-    }
 
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
@@ -398,7 +397,15 @@ void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
 }
 
 bool AmProcessor_impl::stop() {
-    shut_down = true;
+    SCOPEDWRITE(shut_down_lock);
+
+    if (!shut_down) {
+        LOGNOTIFY << "AmProcessor received a stop request.";
+        shut_down = true;
+        // Stop all timers, we're not going to attach anymore
+        token_timer.destroy();
+    }
+
     if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
         for (auto const& vol : volTable->getVolumes()) {
@@ -416,10 +423,10 @@ AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
     auto vol = volTable->getVolume(amReq->io_vol_id);
     if (!vol) {
         LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
-        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
+        respond_and_delete(amReq, ERR_NOT_READY);
     } else if (!allow_snapshot && vol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
+        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         vol = nullptr;
     }
     return vol;
@@ -468,10 +475,8 @@ AmProcessor_impl::renewToken(const fds_volid_t vol_id) {
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
     auto amReq = new AttachVolumeReq(vol_id, "", vol->access_token->getMode(), nullptr);
-    amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
     amReq->token = vol->getToken();
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::attachVolumeCb, amReq);
-    amDispatcher->dispatchOpenVolume(amReq);
+    enqueueRequest(amReq);
 }
 
 Error
@@ -479,8 +484,12 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     LOGNORMAL << "Removing volume: " << volDesc.name;
     Error err{ERR_OK};
 
+    // Remove the volume from QoS/VolumeTable, this is
+    // called to clear any waiting requests with an error and
+    // remove the QoS allocations
+    auto vol = volTable->removeVolume(volDesc);
+
     // If we had a token for a volume, give it back to DM
-    auto vol = volTable->getVolume(volDesc.volUUID);
     if (vol) {
         // If we had a cache token for this volume, close it
         fds_int64_t token = vol->getToken();
@@ -497,10 +506,6 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // Remove the volume from the caches (if there is one)
     txMgr->removeVolume(volDesc);
 
-    // Remove the volume from QoS/VolumeTable, this is
-    // called to clear any waiting requests with an error and
-    // remove the QoS allocations
-    err = volTable->removeVolume(volDesc);
     return err;
 }
 
@@ -529,7 +534,9 @@ AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
               return;);
 
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -582,9 +589,13 @@ void
 AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
+
+    SCOPEDREAD(shut_down_lock);
     auto vol = getVolume(amReq);
+    if (!vol) return;
+
     auto& vol_desc = *vol->voldesc;
-    if (err.ok()) {
+    if (!shut_down && err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
                   << ", received access token: 0x" << std::hex << volReq->token
                   << ", sequence id: 0x" << volReq->vol_sequence << std::dec;
@@ -600,8 +611,9 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                 this->renewToken(vol_id);
                 });
             err = volTable->processAttach(vol_desc, access_token);
+            // Create caches if we have a token
+            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
         } else {
-            token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(access_token));
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
         }
@@ -614,11 +626,8 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
         if (err.ok()) {
             // Renew this token at a regular interval
             auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+            if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
                 { LOGWARN << "Failed to schedule token renewal timer!"; }
-
-            // Create caches if we have a token
-            txMgr->registerVolume(vol_desc, volReq->mode.can_cache);
 
             // If this is a real request, set the return data
             if (amReq->cb) {
@@ -634,7 +643,7 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
                   << ") write(" << volReq->mode.can_write
                   << ") error(" << err << ")";
         // Flush the volume's wait queue and return errors for pending requests
-        volTable->removeVolume(vol_desc);
+        removeVolume(vol_desc);
     }
     respond_and_delete(amReq, err);
 }
@@ -672,7 +681,9 @@ AmProcessor_impl::startBlobTx(AmRequest *amReq) {
               return;);
 
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -706,7 +717,9 @@ AmProcessor_impl::startBlobTxCb(AmRequest *amReq, const Error &error) {
 void
 AmProcessor_impl::deleteBlob(AmRequest *amReq) {
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -730,8 +743,9 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
               return;);
 
     auto vol = getVolume(amReq, false);
-
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -817,11 +831,10 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    auto vol = getVolume(amReq, true);
     auto volId = amReq->io_vol_id;
+    auto vol = getVolume(amReq);
     if (!vol) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
-        getBlobCb(amReq, ERR_INVALID);
         return;
     }
 
@@ -907,6 +920,9 @@ void AmProcessor_impl::getObject(AmRequest *amReq) {
 
 void
 AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
+    auto vol = getVolume(amReq);
+    if (!vol) return;
+
     auto blobReq = static_cast<GetBlobReq *>(amReq);
     if (error == ERR_NOT_FOUND && !blobReq->retry) {
         // TODO(bszmyd): Mon 23 Mar 2015 02:40:25 AM PDT
@@ -938,7 +954,6 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
         cb->return_size = std::min(amReq->data_len, vector_size);
 
         // If we have a cache token, we can stash this metadata
-        auto vol = getVolume(amReq);
         if (!blobReq->metadata_cached && haveCacheToken(vol)) {
             txMgr->putOffsets(amReq->io_vol_id,
                               amReq->getBlobName(),
@@ -962,7 +977,9 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
 void
 AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
+    if (!vol) {
+        return;
+    } else if (!haveWriteToken(vol)) {
         respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
         return;
     }
@@ -980,7 +997,8 @@ AmProcessor_impl::statBlob(AmRequest *amReq) {
     fds_volid_t volId = amReq->io_vol_id;
     LOGDEBUG << "volume:" << volId <<" blob:" << amReq->getBlobName();
 
-    auto vol = getVolume(amReq, true);
+    auto vol = getVolume(amReq);
+    if (!vol) return;
     auto can_cache = haveCacheToken(vol);
 
     if (can_cache) {
@@ -1020,10 +1038,12 @@ AmProcessor_impl::queryCatalogCb(AmRequest *amReq, const Error& error) {
 
 void
 AmProcessor_impl::statBlobCb(AmRequest *amReq, const Error& error) {
+    auto vol = getVolume(amReq);
+    if (!vol) return;
     respond(amReq, error);
 
     // Insert metadata into cache.
-    if (ERR_OK == error && haveCacheToken(getVolume(amReq, true))) {
+    if (ERR_OK == error && haveCacheToken(vol)) {
         txMgr->putBlobDescriptor(amReq->io_vol_id,
                                    amReq->getBlobName(),
                                    SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
@@ -1041,9 +1061,11 @@ AmProcessor_impl::volumeContents(AmRequest *amReq) {
 void
 AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
     auto vol = getVolume(amReq, false);
-    if (!haveWriteToken(vol)) {
-        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
-        return;
+    if (!vol) {
+      return;
+    } else if (!haveWriteToken(vol)) {
+      respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
+      return;
     }
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
     blobReq->vol_sequence = vol->getNextSequenceId();

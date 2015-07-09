@@ -11,7 +11,7 @@
 #include <string>
 #include <thread>
 #include <google/profiler.h>
-
+#include <iostream>
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
 
@@ -372,9 +372,9 @@ TEST_F(DmUnitTest, DeleteBlob) {
  */
 struct UpdateCatalogOnceTestHandler : fds::dm::UpdateCatalogOnceHandler {
     explicit UpdateCatalogOnceTestHandler(DataMgr& dataManager) :
-            UpdateCatalogOnceHandler(dataManager) {        
+            UpdateCatalogOnceHandler(dataManager) {
     }
-    
+
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                         Error const& e,
@@ -393,17 +393,20 @@ TEST_F(DmUnitTest, Serialization) {
     // Setup the messages with some test data
     putBlobOnce->blob_name = "Serial Test Blob";
     putBlobOnce->volume_id = dmTester->TESTVOLID.get();
-    putBlobOnce->dmt_version = 1;    
+    putBlobOnce->dmt_version = 1;
     fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-
     taskCount.reset(NUM_BLOBS);
     uint64_t txnId;
+    bool oldUturn = dataMgr->testUturnUpdateCat;
+    dataMgr->testUturnUpdateCat = true;
+
     TIMEDBLOCK("process") {
         for (uint i = 0; i < NUM_BLOBS; i++) {
             handler->handleRequest(asyncHdr, putBlobOnce);
         }
         taskCount.await();
     }
+    dataMgr->testUturnUpdateCat = oldUturn;
     printStats();
 }
 

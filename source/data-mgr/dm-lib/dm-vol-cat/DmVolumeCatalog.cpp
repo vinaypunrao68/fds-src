@@ -613,7 +613,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
     fds_verify(expungeCb_);
-    return expungeCb_(volId, expungeList);
+    return expungeCb_(volId, expungeList, false);
 }
 
 // XXX: (JLL) commenting out this function doesn't seem to break anything
@@ -758,7 +758,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
         // actually expunge objects that were dereferenced by the blob
         // TODO(xxx): later that should become part of GC and done in background
         fds_verify(expungeCb_);
-        return expungeCb_(volId, expungeList);
+        return expungeCb_(volId, expungeList, false);
     }
 
     return rc;
@@ -782,6 +782,28 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
 Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId);
+}
+
+Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+	GET_VOL_N_CHECK_DELETED(volId);
+	return vol->getInMemorySnapshot(opts);
+}
+
+Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+	GET_VOL_N_CHECK_DELETED(volId);
+	return vol->freeInMemorySnapshot(opts);
+}
+
+Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
+}
+
+Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    vol->forEachObject(func);
+    return ERR_OK;
 }
 
 }  // namespace fds

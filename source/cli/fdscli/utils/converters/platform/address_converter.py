@@ -10,8 +10,8 @@ class AddressConverter(object):
     @staticmethod
     def to_json(address):
         
-        if not isinstance(address, Address):
-            raise TypeError()
+#         if not isinstance(address, Address):
+#             raise TypeError()
         
         j_address = dict()
         

@@ -100,6 +100,11 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) override;
 
+    virtual Error getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::catalog_roptions_t &opts) override;
+
+    virtual Error getInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
 
@@ -124,6 +129,9 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
             fds_uint64_t endOffset) override;
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
+    virtual void forEachObject(std::function<void(const ObjectID&)>) override;
+
+    virtual Error freeInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
 
     Catalog* getCatalog() {
         return catalog_.get();
@@ -134,6 +142,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     std::unique_ptr<Catalog::catalog_iterator_t> getSnapshotIter(Catalog::catalog_roptions_t& opts) {
         catalog_->GetSnapshot(opts);
         return catalog_->NewIterator(opts);
+    }
+
+    std::unique_ptr<Catalog::catalog_iterator_t> getExistingSnapshotIter(Catalog::catalog_roptions_t& opts) {
+    	return catalog_->NewIterator(opts);
     }
 
     // vars
