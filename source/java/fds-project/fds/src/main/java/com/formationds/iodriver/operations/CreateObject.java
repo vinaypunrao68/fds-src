@@ -1,5 +1,7 @@
 package com.formationds.iodriver.operations;
 
+import static com.formationds.commons.util.Strings.javaString;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,7 +13,6 @@ import java.util.stream.Stream;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
@@ -118,7 +119,10 @@ public final class CreateObject extends S3Operation
         }
         catch (AmazonClientException e)
         {
-            throw new ExecutionException("Error creating file.", e);
+            throw new ExecutionException(
+                    "Error creating object " + javaString(_key) + " in bucket "
+                    + javaString(_bucketName) + ".",
+                    e);
         }
         catch (IOException e)
         {

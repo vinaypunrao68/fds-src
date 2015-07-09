@@ -2,10 +2,16 @@ package com.formationds.iodriver.operations;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.formationds.client.v08.model.MediaPolicy;
+import com.formationds.client.v08.model.QosPolicy;
+import com.formationds.client.v08.model.TimeUnit;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -31,7 +37,14 @@ public class CreateVolume extends OrchestrationManagerOperation
 		if (connection == null) throw new NullArgumentException("connection");
 		if (reporter == null) throw new NullArgumentException("reporter");
 
-		Volume newVolume = new Volume.Builder(_name).create();
+		// Other than name, the values below are present only to prevent NullPointerExceptions
+		// when XDI converts the request.
+		Volume.Builder newVolumeBuilder = new Volume.Builder(_name);
+		newVolumeBuilder.settings(new VolumeSettingsObject());
+		newVolumeBuilder.mediaPolicy(MediaPolicy.HYBRID);
+		newVolumeBuilder.dataProtectionPolicy(24, TimeUnit.HOURS);
+		newVolumeBuilder.qosPolicy(new QosPolicy(1, 0, 0));
+		Volume newVolume = newVolumeBuilder.create();
 		
 		try
 		{
@@ -60,5 +73,12 @@ public class CreateVolume extends OrchestrationManagerOperation
 	    return "POST";
 	}
 
+	@Override
+	protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+	{
+	    return Stream.concat(super.toStringMembers(),
+	                         Stream.of(memberToString("name", _name)));
+	}
+	
 	private final String _name;
 }

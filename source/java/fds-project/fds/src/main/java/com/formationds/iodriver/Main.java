@@ -12,6 +12,7 @@ import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
+import com.formationds.iodriver.reporters.NullWorkflowEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;

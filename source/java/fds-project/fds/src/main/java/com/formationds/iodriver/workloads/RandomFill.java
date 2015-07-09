@@ -76,7 +76,7 @@ public class RandomFill extends Workload<OrchestrationManagerEndpoint,
         		};
 
 		return Stream.generate(volumeNames)
-		             .limit(Fds.Random.nextInt(_maxVolumes))
+		             .limit(Fds.Random.nextInt(1, _maxVolumes))
 		             .flatMap(createVolumesAndContent);
 	}
 
@@ -84,28 +84,35 @@ public class RandomFill extends Workload<OrchestrationManagerEndpoint,
 	                                                                          int depth,
 	                                                                          String parentDir)
 	{
-	    Stream<OrchestrationManagerOperation> createObjects = createObjectsOperations(volumeName,
-	                                                                                  parentDir);
-	    
+	    Stream<OrchestrationManagerOperation> retval = Stream.empty();
+
+	    if (!parentDir.isEmpty())
+	    {
+	        retval = Stream.concat(retval, Stream.of(
+	                new S3OperationWrapper(new CreateObject(volumeName,
+	                                                        parentDir,
+	                                                        "",
+	                                                        false))));
+	    }
+
+	    retval = Stream.concat(retval, createObjectsOperations(volumeName, parentDir));
+
 	    if (depth < _maxDirectoryDepth)
 	    {
-	        return Stream.concat(createObjects,
-	                             Stream.generate(() ->
-	                                             {
-	                                                 return createDirectoriesOperations(volumeName,
-	                                                                                    depth + 1,
-	                                                                                    parentDir
-	                                                                                    + UUID.randomUUID()
-	                                                                                          .toString()
-                                                                                        + _pathSeparator);
-	                                             })
-                                       .limit(Fds.Random.nextInt(_maxDirectoriesPerLevel))
-	                                   .flatMap(s -> s));
+	        retval = Stream.concat(retval, Stream.generate(
+                    () ->
+                    {
+                        return createDirectoriesOperations(volumeName,
+                                                           depth + 1,
+                                                           parentDir
+                                                           + UUID.randomUUID()
+                                                                 .toString()
+                                                           + _pathSeparator);
+                    }).limit(Fds.Random.nextInt(_maxDirectoriesPerLevel))
+	                  .flatMap(s -> s));
 	    }
-	    else
-	    {
-	        return createObjects;
-	    }
+
+	    return retval;
 	}
 
 	private Stream<OrchestrationManagerOperation> createObjectsOperations(String volumeName,
@@ -123,7 +130,7 @@ public class RandomFill extends Workload<OrchestrationManagerEndpoint,
                     String fullPath = parentPath + fileName;
                     byte[] content = new byte[thisObjectSize];
                     
-                    return new CreateObject(volumeName, fullPath, content);
+                    return new CreateObject(volumeName, fullPath, content, false);
                 });
         
         Stream<OrchestrationManagerOperation> retval =

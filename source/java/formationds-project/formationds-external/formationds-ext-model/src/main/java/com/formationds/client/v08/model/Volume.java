@@ -69,6 +69,7 @@ public class Volume extends AbstractResource<Long> {
         public Builder addTags(Map<String,String> tags) { this.tags.putAll(tags); return this; }
         public Builder application(String app) { this.application = app; return this; }
         public Builder status(VolumeStatus status) { this.status = status; return this; }
+        public Builder settings(VolumeSettings value) { settings = value; return this; }
         public Builder mediaPolicy(MediaPolicy m) { this.mediaPolicy = m; return this; }
         public Builder accessPolicy(VolumeAccessPolicy ap) { this.accessPolicy = ap; return this; }
         public Builder qosPolicy(QosPolicy qp) { this.qosPolicy = qp; return this; }
