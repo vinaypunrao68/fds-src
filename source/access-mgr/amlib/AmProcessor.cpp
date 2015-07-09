@@ -90,7 +90,7 @@ class AmProcessor_impl
     { return amDispatcher->getDLT(); }
 
     bool isShuttingDown() const
-    { return shut_down; }
+    { SCOPEDREAD(shut_down_lock); return shut_down; }
 
   private:
     /// Unique ptr to the dispatcher layer
@@ -109,6 +109,7 @@ class AmProcessor_impl
 
     shutdown_cb_type shutdown_cb;
     bool shut_down { false };
+    mutable fds_rwlock shut_down_lock;
 
     shutdown_cb_type prepareForShutdownCb;
 
@@ -224,33 +225,38 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     static fpi::VolumeAccessMode const default_access_mode;
 
     Error err;
-    if (shut_down) {
-        err = ERR_SHUTTING_DOWN;
-    } else {
-        amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-        err = volTable->enqueueRequest(amReq);
+    {
+        SCOPEDREAD(shut_down_lock);
+        if (shut_down) {
+            err = ERR_SHUTTING_DOWN;
+        } else {
+            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            err = volTable->enqueueRequest(amReq);
+            // Volume Table now knows there's an outstanding request ok to
+            // unlock the shutdown lock
+        }
+    }
 
-        /** Queue and dispatch an attachment if we didn't find a volume */
-        if (ERR_VOL_NOT_FOUND == err) {
-            // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
-            // This code is here to support the fact that not all the connectors
-            // send an AttachVolume currently. For now ensure one is enqueued in
-            // the wait list by queuing a no-op attach request ourselves, this
-            // will cause the attach to use the default mode.
-            if (FDS_ATTACH_VOL != amReq->io_type) {
-                auto attachReq = new AttachVolumeReq(invalid_vol_id,
-                                                     amReq->volume_name,
-                                                     default_access_mode,
-                                                     nullptr);
-                amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-                volTable->enqueueRequest(attachReq);
-            }
-            err = amDispatcher->attachVolume(amReq->volume_name);
-            if (ERR_NOT_READY == err) {
-                // We don't have domain tables yet...just reject.
-                volTable->removeVolume(amReq->volume_name, invalid_vol_id);
-                return err;
-            }
+    /** Queue and dispatch an attachment if we didn't find a volume */
+    if (ERR_VOL_NOT_FOUND == err) {
+        // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
+        // This code is here to support the fact that not all the connectors
+        // send an AttachVolume currently. For now ensure one is enqueued in
+        // the wait list by queuing a no-op attach request ourselves, this
+        // will cause the attach to use the default mode.
+        if (FDS_ATTACH_VOL != amReq->io_type) {
+            auto attachReq = new AttachVolumeReq(invalid_vol_id,
+                                                 amReq->volume_name,
+                                                 default_access_mode,
+                                                 nullptr);
+            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            volTable->enqueueRequest(attachReq);
+        }
+        err = amDispatcher->attachVolume(amReq->volume_name);
+        if (ERR_NOT_READY == err) {
+            // We don't have domain tables yet...just reject.
+            volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+            return err;
         }
     }
 
@@ -264,14 +270,6 @@ void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
     fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
     fds_assert(amReq->isCompleted() == true);
-
-    /*
-     * Drain the queue if we are shutting down.
-     */
-    if (shut_down) {
-        respond_and_delete(amReq, ERR_SHUTTING_DOWN);
-        return;
-    }
 
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
@@ -399,7 +397,15 @@ void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
 }
 
 bool AmProcessor_impl::stop() {
-    shut_down = true;
+    SCOPEDWRITE(shut_down_lock);
+
+    if (!shut_down) {
+        LOGNOTIFY << "AmProcessor received a stop request.";
+        shut_down = true;
+        // Stop all timers, we're not going to attach anymore
+        token_timer.destroy();
+    }
+
     if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
         for (auto const& vol : volTable->getVolumes()) {
@@ -583,11 +589,13 @@ void
 AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
+
+    SCOPEDREAD(shut_down_lock);
     auto vol = getVolume(amReq);
     if (!vol) return;
 
     auto& vol_desc = *vol->voldesc;
-    if (err.ok()) {
+    if (!shut_down && err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
                   << ", received access token: 0x" << std::hex << volReq->token
                   << ", sequence id: 0x" << volReq->vol_sequence << std::dec;
