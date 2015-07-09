@@ -340,6 +340,8 @@ function run_system_test_scenarios
     for scenario in ${SYSTEM_TEST_SCENARIO_LIST} ${extra_system_tests}
     do
         system_test_scenario_wrapper ${scenario}
+
+        ls -lrR /fds
     done
 
     end_time=$(date +%s)
