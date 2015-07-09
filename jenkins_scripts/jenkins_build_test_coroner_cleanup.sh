@@ -349,6 +349,8 @@ function system_test_force_failure
 
 function run_node_cleanup
 {
+    cd ${WORKSPACE}
+
     message "IIIII RUNNING post build node cleanup"
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
