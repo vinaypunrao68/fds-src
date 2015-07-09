@@ -59,8 +59,12 @@ void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                          boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                                          Error const& e, dmCatReq* dmRequest)
 {
+    // Don't need to send the response to this message.  We will a message
+    // back to OM when the migration is complete, but not as part of
+    // this response handler (see handleResponseReal()).
+
     // Remove the dm request, since we don't need it any more
-    // delete dmRequest
+    delete dmRequest;
 }
 
 

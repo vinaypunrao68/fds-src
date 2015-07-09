@@ -238,7 +238,11 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		clientMap.emplace(fds_volid, client);
 		migrClientLock.write_unlock();
 
-		client->handleInitialBlobFilterMsg();
+		err = client->processBlobFilterSet();
+        if (ERR_OK != err) {
+            LOGERROR << "Processing filter set failed.";
+            err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+        }
 	}
 
 	return err;

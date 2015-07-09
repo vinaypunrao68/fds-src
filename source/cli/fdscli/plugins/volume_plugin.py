@@ -113,6 +113,8 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
         __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_str, help="The block size you would like to use for block type volumes.", type=int, default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_unit_str, help="The units that you wish the block size to be in.  The default is KB.", choices=["KB","MB"], default="KB")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_str, help="The maximum size object the volume should accept.  This is only applicable to OBJECT volumes.", type=int, default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_unit_str, help="Thie units that you with the max object size to be in.  The default is KB.", choices=["B", "KB", "MB", "GB", "TB"], default="KB")
         
         __createParser.set_defaults( func=self.create_volume, format="tabular" )
 
@@ -296,6 +298,9 @@ class VolumePlugin( AbstractPlugin):
                     volume.settings.block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
             else:
                 volume.settings = ObjectSettings()
+                
+                if args[AbstractPlugin.max_obj_size_str] is not None:
+                    volume.settings.max_object_size = Size( size=args[AbstractPlugin.max_obj_size_str], unit=args[AbstractPlugin.max_obj_size_unit_str])
             
             # deal with the QOS preset selection if there was one
             if args[AbstractPlugin.qos_preset_str] != None:
