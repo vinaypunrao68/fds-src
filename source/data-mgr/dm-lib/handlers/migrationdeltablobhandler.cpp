@@ -26,50 +26,26 @@ DmMigrationDeltablobHandler::DmMigrationDeltablobHandler(DataMgr& dataManager)
 void DmMigrationDeltablobHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
-    auto dmReq = new DmIoMigDltBlob(message);
-    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltablobHandler::handleCompletion, asyncHdr, message);
+    auto dmReq = new DmIoMigDeltaBlob(message);
+
+    fds_verify(dmReq->io_type == FDS_DM_MIG_DELT_BLB);
+
+    DBG(LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
+        << " " << *reinterpret_cast<DmIoMigDeltaBlob*>(dmReq));
 
     addToQueue(dmReq);
 
-    DBG(LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
-        << " " << *reinterpret_cast<DmIoMigDltBlob*>(dmReq));
-
-    // Reply back now to acknowledge that we received the forward message and properly
-    // enqueued it for later processing
-    handleResponse(asyncHdr, message, ERR_OK, dmReq);
 }
 
 void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
-    DmIoMigDltBlob* typedRequest = static_cast<DmIoMigDltBlob*>(dmRequest);
+    DmIoMigDeltaBlob* typedRequest = static_cast<DmIoMigDeltaBlob*>(dmRequest);
 
     LOGMIGRATE << "Sending the delta blob migration dequest to migration Mgr " << *typedRequest;
-}
-
-/**
- * Replies back to the caller. Does NOT delete the request because we're only replying
- * on request receipt, not completion.
- */
-void DmMigrationDeltablobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                                 boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
-                                                 Error const& e,
-                                                 dmCatReq* dmRequest) {
-    asyncHdr->msg_code = e.GetErrno();
-    DBG(LOGMIGRATE << logString(*asyncHdr) << " " << *reinterpret_cast<DmIoFwdCat*>(dmRequest));
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDeltaBlobDescRspMsgTypeId, fpi::CtrlNotifyDeltaBlobDescRspMsg());
-}
-
-/**
- * Invoked when the forward request completes. We've already replied so we
- * only need to delete the request.
- */
-void DmMigrationDeltablobHandler::handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                                   boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
-                                                   Error const& e,
-                                                   dmCatReq* dmRequest) {
-    DBG(LOGMIGRATE << "Completed request " << logString(*asyncHdr) << " "
-        << *reinterpret_cast<DmIoMigDltBlob*>(dmRequest));
-    delete dmRequest;
+    /*
+     *  revisit this - Migration Migration executor integration 
+     */
+    dataManager.dmMigrationMgr->applyDeltaObjects(typedRequest);
 }
 
 }  // namespace dm

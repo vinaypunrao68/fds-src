@@ -86,8 +86,11 @@ class DmMigrationMgr {
      * multiple callback pointers, etc. For now, not doing it.
      */
     Error startMigrationClient(dmCatReq* dmRequest);
+    
+    // Handle deltaObject  in Migration executor 
+    Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
 
-    typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
+    typedef std::shared_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
   protected:

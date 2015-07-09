@@ -368,21 +368,21 @@ class DmIoQueryCat: public dmCatReq {
 };
 
 
-class DmIoMigDltBlob : public dmCatReq {
+class DmIoMigDeltaBlob : public dmCatReq {
   public:
-    typedef std::function<void (const Error &e, DmIoMigDltBlob *req)> CbType;
-    explicit DmIoMigDltBlob(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& fwdMsg)
+    typedef std::function<void (const Error &e, DmIoMigDeltaBlob *req)> CbType;
+    explicit DmIoMigDeltaBlob(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& fwdMsg)
             : dmCatReq(fds_volid_t(fwdMsg->volume_id), "", "", 0,
                        FDS_DM_MIG_DELT_BLB), fwdCatMsg(fwdMsg) {}
 
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoMigDltBlob vol " << std::hex << volId << std::dec;
+        ret << "DmIoMigDeltaBlob vol " << std::hex << volId << std::dec;
         return ret.str();
     }
 
-    friend std::ostream& operator<<(std::ostream& out, const DmIoMigDltBlob& io) {
-        return out << "DmIoMigDltBlob vol " << std::hex << io.volId << std::dec;
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigDeltaBlob& io) {
+        return out << "DmIoMigDeltaBlob vol " << std::hex << io.volId << std::dec;
     }
 
     boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> fwdCatMsg;
