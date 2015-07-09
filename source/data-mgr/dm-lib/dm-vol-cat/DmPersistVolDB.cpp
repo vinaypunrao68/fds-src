@@ -579,8 +579,7 @@ Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap m)  {
 }
 
 void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
-    Catalog::catalog_roptions_t opts;
-    auto dbIt = getSnapshotIter(opts);
+    auto dbIt = catalog_->NewIterator();
     Error err;
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
