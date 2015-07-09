@@ -430,7 +430,9 @@ cache_report
 configure_console_access      # Must be complted after the build
 
 run_python_unit_tests
-run_cpp_unit_tests
+
+### Turn these off while debugging, do NOT merge this to master
+# run_cpp_unit_tests
 run_system_test_scenarios
 
 run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0
