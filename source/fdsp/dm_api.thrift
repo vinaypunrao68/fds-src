@@ -479,7 +479,7 @@ struct CtrlNotifyDMStartMigrationMsg {
    */
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
 
-  /* Verson of DMT associated with the migration */
+  /* Version of DMT associated with the migration */
   2: i64                     DMT_version;
 }
 
@@ -487,10 +487,8 @@ struct CtrlNotifyDMStartMigrationMsg {
  * ACK to the OM from DM of receiving a migration msg.
  */
 struct CtrlNotifyDMStartMigrationRspMsg {
-  /* An empty reply from the Destination DM to the OM when the
-   * migration is complete.
-   * Any error code is stuffed in the async header.
-   */
+  /* Version of DMT associated with the migration. */
+  1: i64                     DMT_version;
 }
 
 /**
