@@ -175,6 +175,8 @@ class DmPersistVolCat {
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
 
+    virtual void forEachObject(std::function<void(const ObjectID&)>) = 0;
+
     // this is not a strong hash, but collisions are detected before
     // blob creation in DmTimeVolCatalog::commitBlobTxWork
     static inline fds_uint64_t getBlobIdFromName(const std::string & blobName) {

@@ -9,6 +9,10 @@ user_build_dir := \
 	gcovr         \
     source
 
+ifeq ($(MAKECMDGOALS),check-optimizations)
+	user_rtime_env := user
+endif
+
 include $(topdir)/Makefile.incl
 
 .PHONY: coverage
