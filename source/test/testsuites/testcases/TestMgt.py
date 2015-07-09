@@ -258,7 +258,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
-                        suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
+                        #suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
                         break
 
                 if not found:

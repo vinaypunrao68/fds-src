@@ -99,7 +99,7 @@ class TestFDSInstall(TestCase.FDSTestCase):
         fds_dir = node.nd_conf_dict['fds_root']
 
         if os.path.exists(fds_dir):
-            self.log.info("FDS installation directory, %s, exists on node %s. Attempting to delete." %
+            self.log.info("XXXXXXXXXX FDS installation directory, %s, exists on node %s. Attempting to delete." %
                           (fds_dir, n.nd_conf_dict['node-name']))
 
             status = n.nd_agent.exec_wait('rm -rf %s ' % fds_dir)
