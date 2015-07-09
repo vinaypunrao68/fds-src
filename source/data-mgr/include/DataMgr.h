@@ -554,8 +554,11 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id)
 
 // location of all snapshots for a volume
 std::string getSnapshotDir(fds_volid_t volId);
-
+std::string getVolumeMetaDir(fds_volid_t volId);
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+
+std::string getTimelineDBPath();
+std::string getExpungeDBPath();
 }  // namespace dmutil
 
 }  // namespace fds

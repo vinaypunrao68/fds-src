@@ -20,9 +20,6 @@ class BlockSettings(VolumeSettings):
     @capacity.setter
     def capacity(self, size):
         
-        if not isinstance(size, Size):
-            raise TypeError()
-        
         self.__capacity = size
         
     @property
@@ -31,9 +28,6 @@ class BlockSettings(VolumeSettings):
     
     @block_size.setter
     def block_size(self, size):
-        
-        if size is not None and not isinstance(size, Size):
-            raise TypeError()
         
         self.__block_size = size
 
