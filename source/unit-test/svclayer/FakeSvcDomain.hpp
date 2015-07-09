@@ -157,7 +157,7 @@ FailoverSvcRequestPtr FakeSvcDomain::sendGetStatusFailoverSvcRequest(int srcIdx,
     auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
 
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = srcMgr->getSvcRequestMgr()->newFailoverSvcRequest(epProvider);
+    auto asyncReq = srcMgr->getSvcRequestMgr()->newFailoverSvcRequest(epProvider, DLT_VER_INVALID);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(cbHandle.cb);
@@ -206,7 +206,7 @@ MultiPrimarySvcRequestPtr FakeSvcDomain::sendGetStatusMultiPrimarySvcRequest(int
 
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
     auto asyncReq = srcMgr->getSvcRequestMgr()->newMultiPrimarySvcRequest(
-        primarySvcs, optionalSvcs);
+        primarySvcs, optionalSvcs, DLT_VER_INVALID);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
     asyncReq->onPrimariesRespondedCb(
