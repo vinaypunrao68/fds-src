@@ -528,7 +528,9 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
                     changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
                     smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
                 }
-                diskChangeFn(diskio::diskTier, smTokenDiskIdPairs);
+                if (diskChangeFn) {
+                    diskChangeFn(diskio::diskTier, smTokenDiskIdPairs);
+                }
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentHDDs,
@@ -554,7 +556,9 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
                                                                  diskio::diskTier);
                     smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, diskId));
                 }
-                diskChangeFn(diskio::flashTier, smTokenDiskIdPairs);
+                if (diskChangeFn) {
+                    diskChangeFn(diskio::flashTier, smTokenDiskIdPairs);
+                }
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentSSDs,
