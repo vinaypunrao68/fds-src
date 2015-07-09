@@ -98,12 +98,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getLatestSequenceId(blob_version_t & max) override;
 
-    virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) override;
+    virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::MemSnap m) override;
 
-    virtual Error getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) override;
-
-    virtual Error getInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
+    virtual Error getInMemorySnapshot(Catalog::MemSnap &m) override;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
@@ -131,7 +129,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
     virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 
-    virtual Error freeInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap m) override;
 
     Catalog* getCatalog() {
         return catalog_.get();
@@ -139,7 +137,6 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
   private:
     // methods
-    Error getLatestSequenceIdSnap(sequence_id_t & max, Catalog::catalog_roptions_t &opts);
 
     // vars
 

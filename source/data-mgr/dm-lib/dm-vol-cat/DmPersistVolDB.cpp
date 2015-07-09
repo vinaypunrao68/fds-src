@@ -161,9 +161,7 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 }
 
 Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) {
-    Catalog::catalog_roptions_t opts;
-    catalog_->GetSnapshot(opts);
-    auto dbIt = catalog_->NewIterator(opts);
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record dbKey = dbIt->key();
@@ -175,14 +173,12 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
 
-    catalog_->ReleaseSnapshot(opts);
-
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) {
-	auto dbIt = catalog_->NewIterator(opts);
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::MemSnap m) {
+	auto dbIt = catalog_->NewIterator(m);
 
 	if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
@@ -211,31 +207,8 @@ Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& 
 	return (ERR_OK);
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) {
-    Catalog::catalog_roptions_t opts;
-    Error err(ERR_OK);
-
-    catalog_->GetSnapshot(opts);
-    err = getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
-    catalog_->ReleaseSnapshot(opts);
-
-    return err;
-}
-
 Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
-    Catalog::catalog_roptions_t opts;
-
-    Error err(ERR_OK);
-
-    catalog_->GetSnapshot(opts);
-    err = getLatestSequenceIdSnap(max, opts);
-    catalog_->ReleaseSnapshot(opts);
-
-    return err;
-}
-
-Error DmPersistVolDB::getLatestSequenceIdSnap(sequence_id_t & max, Catalog::catalog_roptions_t &opts) {
-    auto dbIt = catalog_->NewIterator(opts);
+    auto dbIt = catalog_->NewIterator();
     if (!dbIt) {
         LOGERROR << "Error searching latest sequence id for volume " << volId_;
         return ERR_INVALID;
@@ -595,13 +568,13 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     return catalog_->Update(&batch);
 }
 
-Error DmPersistVolDB::getInMemorySnapshot(Catalog::catalog_roptions_t &opts) {
-    catalog_->GetSnapshot(opts);
+Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap &m) {
+    catalog_->GetSnapshot(m);
     return ERR_OK;
 }
 
-Error DmPersistVolDB::freeInMemorySnapshot(Catalog::catalog_roptions_t &opts)  {
-    catalog_->ReleaseSnapshot(opts);
+Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap m)  {
+    catalog_->ReleaseSnapshot(m);
     return ERR_OK;
 }
 

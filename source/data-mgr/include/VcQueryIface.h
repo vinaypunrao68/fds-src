@@ -130,8 +130,6 @@ class VolumeCatalogQueryIface {
 
     virtual Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id) = 0;
 
-    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) = 0;
-
     virtual Error activateCatalog(fds_volid_t volId) {
         return ERR_OK;
     };
@@ -139,10 +137,11 @@ class VolumeCatalogQueryIface {
     /**
      * Methods for DM Migration to take a volume's snapshot and do delta on it
      */
-    virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
-    virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
-    virtual Error getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-                                                Catalog::catalog_roptions_t &opts) = 0;
+    virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
+    virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
+    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+														Catalog::MemSnap m = NULL) = 0;
+
     virtual Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>) = 0;
 };
 

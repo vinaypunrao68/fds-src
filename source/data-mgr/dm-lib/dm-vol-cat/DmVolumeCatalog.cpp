@@ -700,25 +700,20 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
     return vol->getLatestSequenceId(seq_id);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+                                                 Catalog::MemSnap m) {
     GET_VOL_N_CHECK_DELETED(volId);
-    return vol->getAllBlobsWithSequenceId(blobsSeqId);
+    return vol->getAllBlobsWithSequenceId(blobsSeqId, m);
 }
 
-Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) {
 	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->getInMemorySnapshot(opts);
+	return vol->getInMemorySnapshot(m);
 }
 
-Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) {
 	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->freeInMemorySnapshot(opts);
-}
-
-Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) {
-    GET_VOL_N_CHECK_DELETED(volId);
-    return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
+	return vol->freeInMemorySnapshot(m);
 }
 
 Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {

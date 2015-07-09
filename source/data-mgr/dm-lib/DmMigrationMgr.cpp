@@ -253,7 +253,6 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 	return err;
 }
 
-Error
 DmMigrationMgr::activateStateMachine()
 {
 	Error err(ERR_OK);
