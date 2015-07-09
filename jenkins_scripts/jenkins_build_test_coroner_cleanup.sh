@@ -290,14 +290,14 @@ function check_xunit_failures
 {
     message "Checking xunit output for failure, system test:  ${1}"
     grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
-    [[ $? -eq 0 ]] || system_test_error ${scenario}
+    [[ $? -eq 0 ]] && system_test_error ${scenario}
 }
 
 function check_xunit_errors
 {
     message "Checking xunit output for errors, system test:  ${1}"
     grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
-    [[ $? -eq 0 ]] || system_test_error ${scenario}
+    [[ $? -eq 0 ]] && system_test_error ${scenario}
 }
 
 function system_test_error
