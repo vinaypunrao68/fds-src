@@ -16,7 +16,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
     : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm)
 {
-
+	volID = fds_volid_t(_ribfsm->volumeId);
 }
 
 DmMigrationClient::~DmMigrationClient()
@@ -87,4 +87,36 @@ DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
     return ERR_OK;
 }
 
+void
+DmMigrationClient::startClient()
+{
+    auto dmReq = new DmIoClientInitBlob(FdsDmSysTaskId);
+    // dmReq->cb = BIND_MSG_CALLBACK(DmMigrationClientBlobFilterHandler::handleResponse, asyncHdr);
+    // dmReq->cb = std::bind(&DmMigrationClientBlobFilterHandler::handleResponse, this,
+//     						std::placeholders::_1, std::placeholders::_2,
+	// 						std::placeholders::_3);
+    dmReq->uniqueId = volID;
+    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    fds_verify(dmReq->io_type == FDS_DM_CLIENT_INIT_BLOB);
+    dataMgr.qosCtrl->enqueueIO(volID, dmReq);
+
+}
+
+Error
+DmMigrationClient::handleInitialBlobFilterMsg()
+{
+	LOGMIGRATE << "Taking snapshot for volume: " << volID;
+
+	dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volID, opts);
+
+	dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(volID,
+			ribfsm->blobFilterMap, opts);
+
+	/**
+	 * TODO Use the diff function (FS-2259) and genrate the actual diff set.
+	 */
+
+	// migrDoneHandler(uniqueId, threadErr);
+	return (ERR_OK);
+}
 }  // namespace fds

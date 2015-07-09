@@ -293,7 +293,7 @@ struct ReloadVolumeHandler : Handler {
 };
 
 /**
- * dm checker  for validating the DM migration
+ * DmMigration starting point handler from OM
  */
 struct DmMigrationHandler : Handler {
     explicit DmMigrationHandler(DataMgr& dataManager);
@@ -308,6 +308,9 @@ struct DmMigrationHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+/**
+ * Handler for the initial Executor to the client
+ */
 struct DmMigrationBlobFilterHandler : Handler {
 	explicit DmMigrationBlobFilterHandler(DataMgr &dataManager);
 	void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -321,6 +324,15 @@ struct DmMigrationBlobFilterHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+/**
+ * Handler for the client to start handling the init blob in threading context
+ * No handleRequest because this is not an internode handler.
+ */
+struct DmMigrationClientBlobFilterHandler : Handler {
+	explicit DmMigrationClientBlobFilterHandler(DataMgr &dataManager);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(Error const& e, dmCatReq* dmRequest);
+};
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

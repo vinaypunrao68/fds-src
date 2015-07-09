@@ -751,6 +751,17 @@ struct DmIoResyncInitialBlob : dmCatReq {
     }
 };
 
+struct DmIoClientInitBlob : dmCatReq {
+	// Need to fill this uniqueId in to get get the client and tell the client what to do.
+	fds_volid_t uniqueId;
+	explicit DmIoClientInitBlob(fds_volid_t volid)
+		: dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_CLIENT_INIT_BLOB) {
+	}
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoClientInitBlob& io) {
+    	return out << "DmIoClientInitBlob vol " << io.volId.get();
+    }
+};
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_

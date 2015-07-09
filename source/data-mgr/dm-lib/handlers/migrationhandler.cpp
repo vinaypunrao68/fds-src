@@ -15,6 +15,9 @@
 namespace fds {
 namespace dm {
 
+/**
+ * DmMigrationHandler
+ */
 DmMigrationHandler::DmMigrationHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
@@ -73,8 +76,13 @@ void DmMigrationHandler::handleResponseReal(fpi::AsyncHdrPtr& asyncHdr,
     delete dmRequest;
 }
 
+/**
+ * DmMigrationBlobFilterHandler
+ */
+
 DmMigrationBlobFilterHandler::DmMigrationBlobFilterHandler(DataMgr& dataManager)
 	: Handler(dataManager)
+
 {
     if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyInitialBlobFilterSetMsg, handleRequest);
@@ -127,5 +135,30 @@ void DmMigrationBlobFilterHandler::handleResponseReal(boost::shared_ptr<fpi::Asy
     delete dmRequest;
 }
 
+/**
+ * DmMigrationClientBlobFilterHandler
+ */
+DmMigrationClientBlobFilterHandler::DmMigrationClientBlobFilterHandler(DataMgr &dataManager)
+	: Handler(dataManager)
+{
+	// Nothing
+}
+
+void DmMigrationClientBlobFilterHandler::handleQueueItem(dmCatReq* dmRequest) {
+	QueueHelper helper(dataManager, dmRequest);
+    DmIoClientInitBlob* typedRequest = static_cast<DmIoClientInitBlob*>(dmRequest);
+    DmMigrationClient::shared_ptr clientInstance;
+
+    dmRequest->cb = std::bind(&DmMigrationClientBlobFilterHandler::handleResponse, this,
+    		std::placeholders::_1, std::placeholders::_2);
+
+    dataManager.dmMigrationMgr->getMigrationClient(dmRequest, clientInstance);
+    clientInstance->handleInitialBlobFilterMsg();
+}
+
+void DmMigrationClientBlobFilterHandler::handleResponse(Error const& e, dmCatReq* dmRequest) {
+
+	delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds
