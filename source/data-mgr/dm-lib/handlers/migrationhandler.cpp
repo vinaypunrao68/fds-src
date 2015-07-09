@@ -151,7 +151,7 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
-    dataManager.dmMigrationMgr->applyDeltaBlobDescritor(typedRequest);
+    dataManager.dmMigrationMgr->applyDeltaBlobDescriptor(typedRequest);
 }
 
 }  // namespace dm

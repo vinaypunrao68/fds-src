@@ -175,7 +175,7 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
 }
 
 Error
-DmMigrationMgr::applyDeltaBlobDescritor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
+DmMigrationMgr::applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
     // TODO(xxx): Route to the right executor
     return ERR_OK;
 }

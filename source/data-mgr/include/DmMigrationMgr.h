@@ -90,7 +90,7 @@ class DmMigrationMgr {
     /**
      * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
      */
-    Error applyDeltaBlobDescritor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+    Error applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
