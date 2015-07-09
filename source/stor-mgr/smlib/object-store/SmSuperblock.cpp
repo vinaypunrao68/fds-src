@@ -861,12 +861,6 @@ fds_uint16_t
 SmSuperblockMgr::getWriteFileId(fds_token_id smToken,
                                 diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
-    return getWriteFileIdNoLock(smToken, tier);
-}
-
-fds_uint16_t
-SmSuperblockMgr::getWriteFileIdNoLock(fds_token_id smToken,
-                                      diskio::DataTier tier) {
     return superblockMaster.tokTbl.getWriteFileId(smToken, tier);
 }
 

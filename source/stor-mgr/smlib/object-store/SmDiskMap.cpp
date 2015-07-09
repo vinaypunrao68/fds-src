@@ -118,8 +118,9 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
                 if (statvfs(filename.c_str(), &statbuf) < 0) {
                     LOGERROR << "Could not read metadata filename" << filename;
+                } else {
+                    consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
                 }
-                consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
             }
         }
     } else {

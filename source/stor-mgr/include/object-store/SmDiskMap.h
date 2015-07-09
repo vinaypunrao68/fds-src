@@ -143,11 +143,6 @@ class SmDiskMap : public Module, public boost::noncopyable {
      */
     fds_uint64_t getDLTVersion();
 
-    inline fds_uint16_t getWriteFileId(fds_token_id smToken,
-                                       diskio::DataTier tier) const {
-        return superblock->getWriteFileIdNoLock(smToken, tier);
-    }
-
     /**
      * Module methods
      */

@@ -321,8 +321,6 @@ class SmSuperblockMgr {
     SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
     fds_uint16_t getWriteFileId(fds_token_id smToken,
                                 diskio::DataTier tier);
-    fds_uint16_t getWriteFileIdNoLock(fds_token_id smToken,
-                                      diskio::DataTier tier);
     fds_bool_t compactionInProgress(fds_token_id smToken,
                                     diskio::DataTier tier);
     Error changeCompactionState(fds_token_id smToken,
