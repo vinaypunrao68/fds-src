@@ -765,7 +765,7 @@ void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
 * @brief
 */
 QuorumSvcRequest::QuorumSvcRequest()
-    : QuorumSvcRequest(nullptr, 0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+    : QuorumSvcRequest(nullptr, 0, fpi::SvcUuid(), DLT_VER_INVALID, std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -779,8 +779,9 @@ QuorumSvcRequest::QuorumSvcRequest()
 QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf *provider,
                                    const SvcRequestId& id,
                                    const fpi::SvcUuid &myEpId,
+                                   fds_uint64_t const dlt_ver,
                                    const std::vector<fpi::SvcUuid>& peerEpIds)
-    : MultiEpSvcRequest(provider, id, myEpId, DLT_VER_INVALID, peerEpIds)
+    : MultiEpSvcRequest(provider, id, myEpId, dlt_ver, peerEpIds)
 {
     successAckd_ = 0;
     errorAckd_ = 0;
@@ -800,8 +801,9 @@ QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf *provider,
 QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf* provider,
                                    const SvcRequestId& id,
                                    const fpi::SvcUuid &myEpId,
+                                   fds_uint64_t const dlt_ver,
                                    const EpIdProviderPtr epProvider)
-: QuorumSvcRequest(provider, id, myEpId, epProvider->getEps())
+: QuorumSvcRequest(provider, id, myEpId, dlt_ver, epProvider->getEps())
 {
 }
 /**

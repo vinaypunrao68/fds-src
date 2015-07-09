@@ -33,7 +33,7 @@ struct ExpungeManager {
     Error sendDeleteRequest(fds_volid_t volId, const ObjectID &objId);
     void  onDeleteResponse(fds_uint64_t dltVersion,
                            SHPTR<concurrency::TaskStatus> taskStatus,
-                           QuorumSvcRequest* svcReq,
+                           MultiPrimarySvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
     void threadTask(fds_volid_t volId, ObjectID objId, bool fFromSnapshot=false);

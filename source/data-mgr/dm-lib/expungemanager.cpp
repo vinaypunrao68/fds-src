@@ -87,13 +87,29 @@ Error ExpungeManager::sendDeleteRequest(fds_volid_t volId, const ObjectID &objId
     // DLT commit of the next DMT only after all deletes with this DLT complete
     const DLT* dlt = dltMgr->getAndLockCurrentDLT();
     SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
-    auto asyncExpReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
-    asyncExpReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
-    asyncExpReq->setTimeoutMs(5000);
-    asyncExpReq->onResponseCb(RESPONSE_MSG_HANDLER(ExpungeManager::onDeleteResponse,
-                                                   dlt->getVersion(), taskStatus));
-    asyncExpReq->invoke();
+
+    // Assuming the number of primaries is the same as DM (it is for now),
+    // the rest are backups.
+    std::vector<fpi::SvcUuid> primaries, secondaries;
+    auto const numPrimaries = dm->getNumOfPrimary();
+    auto token_group = dlt->getNodes(objId);
+    for (size_t i = 0; token_group->getLength() > i; ++i) {
+        auto uuid = token_group->get(i).toSvcUuid();
+        if (numPrimaries > i) {
+            primaries.push_back(uuid);
+            continue;
+        }
+        secondaries.push_back(uuid);
+    }
+
+    auto dlt_version = dlt->getVersion();
+    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries, dlt_version);
+
+    multiReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
+    multiReq->setTimeoutMs(5000);
+    multiReq->onPrimariesRespondedCb(RESPONSE_MSG_HANDLER(ExpungeManager::onDeleteResponse,
+                                                   dlt_version, taskStatus));
+    multiReq->invoke();
     if (!taskStatus->await(5000)) {
         return ERR_SVC_REQUEST_TIMEOUT;
     }
@@ -103,7 +119,7 @@ Error ExpungeManager::sendDeleteRequest(fds_volid_t volId, const ObjectID &objId
 
 void ExpungeManager::onDeleteResponse(fds_uint64_t dltVersion,
                                       SHPTR<concurrency::TaskStatus> taskStatus,
-                                      QuorumSvcRequest* svcReq,
+                                      MultiPrimarySvcRequest* svcReq,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload) {
     fpi::DeleteObjectMsgPtr delobj = svcReq->getRequestPayload <fpi::DeleteObjectMsg>

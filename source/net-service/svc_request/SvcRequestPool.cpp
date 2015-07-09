@@ -193,11 +193,11 @@ FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(const EpIdProviderPt
     return req;
 }
 
-QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider)
+QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_ver)
 {
     auto reqId = getNextAsyncReqId_();
 
-    QuorumSvcRequestPtr req(new QuorumSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
+    QuorumSvcRequestPtr req(new QuorumSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, dlt_ver, epProvider));
     asyncSvcRequestInitCommon_(req);
 
     return req;

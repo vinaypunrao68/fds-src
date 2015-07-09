@@ -453,11 +453,13 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
     QuorumSvcRequest(CommonModuleProviderIf* provider,
                      const SvcRequestId& id,
                      const fpi::SvcUuid &myEpId,
+                     fds_uint64_t const dlt_ver,
                      const std::vector<fpi::SvcUuid>& peerEpIds);
 
     QuorumSvcRequest(CommonModuleProviderIf* provider,
                      const SvcRequestId& id,
                      const fpi::SvcUuid &myEpId,
+                     fds_uint64_t const dlt_ver,
                      const EpIdProviderPtr epProvider);
 
     ~QuorumSvcRequest();

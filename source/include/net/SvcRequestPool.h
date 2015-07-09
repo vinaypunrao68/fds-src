@@ -39,12 +39,12 @@ class SvcRequestPool : HasModuleProvider {
     inline EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId) {
         return newEPSvcRequest(peerEpId, 0);
     }
-    FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_version);
-    QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
+    FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_version = DLT_VER_INVALID);
+    QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_version = DLT_VER_INVALID);
     MultiPrimarySvcRequestPtr newMultiPrimarySvcRequest(
         const std::vector<fpi::SvcUuid>& primarySvcs,
         const std::vector<fpi::SvcUuid>& optionalSvcs,
-        fds_uint64_t const dlt_version);
+        fds_uint64_t const dlt_version = DLT_VER_INVALID);
 
     void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
     void postEmptyResponse(boost::shared_ptr<fpi::AsyncHdr> &header);
