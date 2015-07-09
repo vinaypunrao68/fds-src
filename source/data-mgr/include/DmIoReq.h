@@ -69,6 +69,7 @@ extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobF
                  blob_version_t _blob_version,
                  fds_io_op_t  _ioType)
                 : volId(_volId), blob_name(_blobName), session_uuid(_session_uuid) {
+            io_req_id = 0;
             io_type = _ioType;
             io_vol_id = _volId;
             blob_version = _blob_version;
@@ -76,14 +77,14 @@ extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobF
         }
 
         dmCatReq() {
+            io_req_id = 0;
         }
 
         fds_volid_t getVolId() const {
             return volId;
         }
 
-        virtual ~dmCatReq() {
-        }
+        virtual ~dmCatReq() = default;
 
         void setBlobVersion(blob_version_t version) {
             blob_version = version;
@@ -628,8 +629,11 @@ struct DmIoGetVolumeMetadata : dmCatReq {
 struct DmIoVolumeOpen : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
 
+    boost::shared_ptr<fpi::OpenVolumeMsg> msg;
+
     explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
             : dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_OPEN_VOLUME),
+              msg(message),
               token(message->token),
               access_mode(message->mode) {
     }
@@ -645,8 +649,13 @@ struct DmIoVolumeOpen : dmCatReq {
 struct DmIoVolumeClose : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeClose *req)> CbType;
 
-    explicit DmIoVolumeClose(fds_volid_t volId, fds_int64_t _token)
-            : dmCatReq(volId, "", "", 0, FDS_CLOSE_VOLUME), token(_token) {
+    boost::shared_ptr<fpi::CloseVolumeMsg> msg;
+
+    explicit DmIoVolumeClose(boost::shared_ptr<fpi::CloseVolumeMsg> message)
+            : dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_CLOSE_VOLUME),
+              msg(message),
+              token(message->token)
+    {
     }
 
     fds_int64_t token;
@@ -716,13 +725,10 @@ struct DmIoReloadVolume : dmCatReq {
 
 struct DmIoMigration : dmCatReq {
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
-    boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationRspMsg> response;
-    std::function<void(fpi::AsyncHdrPtr&, fpi::CtrlNotifyDMStartMigrationMsgPtr&,
-    		const Error &e, dmCatReq *dmRequest)> localCb = NULL;
-    boost::shared_ptr<fpi::AsyncHdr> asyncHdrPtr = NULL;
+    std::function<void(const Error& e)> localCb = NULL;
+
     explicit DmIoMigration(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> msg)
             : message(msg),
-              response(new fpi::CtrlNotifyDMStartMigrationRspMsg()),
               dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_MIGRATION) {
     }
 
@@ -734,14 +740,10 @@ struct DmIoMigration : dmCatReq {
 
 struct DmIoResyncInitialBlob : dmCatReq {
 	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
-	boost::shared_ptr<fpi::ResyncInitialBlobFilterSetRspMsg> response;
 	NodeUuid destNodeUuid;
-    std::function<void(fpi::AsyncHdrPtr&, fpi::CtrlNotifyInitialBlobFilterSetMsgPtr&,
-    		const Error &e, dmCatReq *dmRequest)> localCb = NULL;
     explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
             : message(msg),
-              response(new fpi::ResyncInitialBlobFilterSetRspMsg()),
               dmCatReq(fds_volid_t(volid), "", "", 0, FDS_DM_RESYNC_INIT_BLOB),
 			  destNodeUuid(_destNodeUuid) {
     }
