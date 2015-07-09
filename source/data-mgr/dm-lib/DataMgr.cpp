@@ -426,8 +426,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             err = timelineMgr->createSnapshot(vdesc);
         } else if (features.isTimelineEnabled()) {
             err = timelineMgr->createClone(vdesc);
-            if (err.ok()) fActivated = true;
         }
+        if (err.ok()) fActivated = true;
+
     } else {
         LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
         err = timeVolCat_->addVolume(*vdesc);
@@ -1026,11 +1027,12 @@ void DataMgr::mod_enable_service() {
         MODULEPROVIDER()->getSvcMgr()->getDMT();
     }
 
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+
     expungeMgr.reset(new ExpungeManager(this));
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
@@ -1336,7 +1338,13 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 std::string getSnapshotDir(fds_volid_t volId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     return util::strformat("%s/%ld/snapshot",
-                           root->dir_user_repo_dm().c_str(), volId.get());
+                           root->dir_user_repo_dm().c_str(), volId);
+}
+
+std::string getVolumeMetaDir(fds_volid_t volId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    return util::strformat("%s/%ld/volumemeta",
+                           root->dir_user_repo_dm().c_str(), volId);
 }
 
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
@@ -1349,6 +1357,19 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
                                  root->dir_sys_repo_dm().c_str(), volId, volId);
     }
 }
+
+std::string getTimelineDBPath() {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_sys_repo_dm();
+    return util::strformat("%s/timeline.db", dmDir.c_str());
+}
+
+std::string getExpungeDBPath() {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_user_repo_dm();
+    return util::strformat("%s/expunge.ldb", dmDir.c_str());
+}
+
 }  // namespace dmutil
 
 
