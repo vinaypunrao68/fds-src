@@ -31,6 +31,8 @@ struct TimelineManager {
 
     std::string getSnapshotBloomFile(fds_volid_t snapshotId);
     Error markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId);
+
+    // map of volid -> [map of snapshotid->bloom filter]
     std::map<fds_volid_t , std::map<fds_volid_t,SHPTR<util::BloomFilter> > > blooms;
 };
 }  // namespace timeline

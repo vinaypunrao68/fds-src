@@ -10,7 +10,9 @@ namespace fds {
 struct DataMgr;
 
 /**
- * Maintains the expunge count of an obj in a vol 
+ * Maintains the no.of of times a object has been deleted. Once the object
+ * is not present in any snapshot, the expunge manager sends that many
+ * delete requests to the SM.
  */
 struct ExpungeDB {
     ExpungeDB();
@@ -24,6 +26,10 @@ struct ExpungeDB {
     Catalog db;
 };
 
+/**
+ * The Expunge Manager, queues an expunge request & later checks whether the
+ * delete needs to be counted and when neccessary send the request to SM
+ */
 struct ExpungeManager {
     explicit ExpungeManager(DataMgr* dm);
     Error expunge(fds_volid_t volId, const std::vector<ObjectID>& vecObjIds, bool force=false);
