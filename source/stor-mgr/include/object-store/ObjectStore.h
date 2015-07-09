@@ -277,6 +277,11 @@ class ObjectStore : public Module, public boost::noncopyable {
     Error SmCheckControlCmd(SmCheckCmd *checkCmd);
     void SmCheckUpdateDLT(const DLT *latestDLT);
 
+    /**
+     * Sets this ObjectStore to the UNAVAILABLE state
+     */
+    void setUnavailable();
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();

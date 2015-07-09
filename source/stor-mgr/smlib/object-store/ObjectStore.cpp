@@ -46,6 +46,12 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
+
+void ObjectStore::setUnavailable() {
+    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
+    currentState = OBJECT_STORE_UNAVAILABLE;
+}
+
 float_t ObjectStore::getUsedCapacityAsPct() {
 
     // Error injection points
@@ -242,7 +248,8 @@ Error
 ObjectStore::checkAvailability() const {
     ObjectStoreState curState = currentState.load();
     if (curState == OBJECT_STORE_UNAVAILABLE) {
-        LOGERROR << "Object Store failed to initialized; rejecting IO";
+        LOGERROR << "Object store in UNAVAILABLE state. "
+                 << " It may not be initialized, or you may have run out of disk capacity.";
         return ERR_NODE_NOT_ACTIVE;
     } else if (curState == OBJECT_STORE_INIT) {
         LOGERROR << "Object Store is coming up, but not ready to accept IO";
