@@ -75,6 +75,26 @@ fds: {
             port = 2003
             period = 5
         } #}
+
+        /* Options when running under valgrind */
+        valgrind: {
+           app_name = "valgrind"
+           /* All paths relative to fds_root */
+           base_dir = "memcheck/"
+           common_options = "--show-reachable=no,--show-possibly-lost=no,--gen-suppressions=all,--tool=memcheck,--leak-check=yes,--num-callers=30,--xml=yes,-v"
+           process_specific: {
+                bare_am =    "--soname-synonyms=somalloc=*tcmalloc*"
+                StorMgr =    "--soname-synonyms=somalloc=*tcmalloc*"
+	   }
+	   suppressions: {
+                suppressions_option = "--suppressions="
+                suppressions_suffix  = ".supp"
+	   }
+	   output: {
+                results_option = "--xml-file="
+                results_suffix = ".%p.memcheck"
+	   }
+        }
     }
 
     pm: {
