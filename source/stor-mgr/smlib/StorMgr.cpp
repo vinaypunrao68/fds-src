@@ -1062,16 +1062,19 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "Abort Migration request";
+    LOGDEBUG << "Abort Migration request for target DLT " << abortMigrationReq->targetDLTVersion;
 
     // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration();
+    err = objStorMgr->migrationMgr->abortMigration(abortMigrationReq->targetDLTVersion);
 
     // revert to DLT version provided in abort message
-    if (abortMigrationReq->abortMigrationDLTVersion > 0) {
+    if (err.ok() && (abortMigrationReq->abortMigrationDLTVersion > 0)) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
         MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+    } else if (err == ERR_INVALID_ARG) {
+        // this is ok
+        err = ERR_OK;
     }
 
     qosCtrl->markIODone(*abortMigrationReq);

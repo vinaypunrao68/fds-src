@@ -79,6 +79,7 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << " From: " << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
         << " To: " << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
         << std::dec
+        << " DLT version: " << header.dlt_version
         << " error: " << header.msg_code;
     return oss.str();
 }

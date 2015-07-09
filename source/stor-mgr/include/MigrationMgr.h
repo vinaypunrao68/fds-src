@@ -104,8 +104,14 @@ class MigrationMgr {
 
     /**
      * Handles message from OM to abort migration
+     * Aborts migration if given target DLT version matches version
+     * that this migration manager is doing migration; if version does not
+     * match, the method does not do anything, and returns ERR_INVALID_ARG
+     * @param tgtDltVersion DLT version for which we are aborting migration
+     * @return ERR_OK if success; ERR_INVALID_ARG if targetDltVersion does not
+     * match DLT version for which migration is in progress
      */
-    Error abortMigration();
+    Error abortMigration(fds_uint64_t tgtDltVersion);
 
     /**
      * Abort migration for a given SM token. Currently

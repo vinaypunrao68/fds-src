@@ -224,12 +224,14 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
 
 
 Error
-OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
+OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t committedDltVersion,
+                                         fds_uint64_t targetDltVersion) {
     TRACEFUNC;
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
-    msg->DLT_version = dltVersion;
+    msg->DLT_version = committedDltVersion;
+    msg->DLT_target_version = targetDltVersion;
 
     // send request
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), msg);
@@ -239,9 +241,9 @@ OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
     om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
-    LOGNORMAL << "OM: Send abort migration (DLT version " << dltVersion
-              << ") to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+    LOGNORMAL << "OM: Send abort migration (committed DLT version " << committedDltVersion
+              << ", target DLT version" << targetDltVersion << ") to " << get_node_name()
+              << " uuid 0x" << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
     return err;
 }
@@ -255,7 +257,7 @@ OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr
     TRACEFUNC;
     LOGNOTIFY << "OM received response for SM Abort Migration from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
-              << " with version " << msg->DLT_version
+              << " with committed DLT version " << msg->DLT_version
               << " " << error;
 
     // notify DLT state machine
@@ -2348,9 +2350,12 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 // --------------------------
 //
 static Error
-om_send_sm_migration_abort(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
+om_send_sm_migration_abort(fds_uint64_t cur_dlt_version,
+                           fds_uint64_t tgt_dlt_version,
+                           NodeAgent::pointer agent)
 {
-    return OM_SmAgent::agt_cast_ptr(agent)->om_send_sm_abort_migration(cur_dlt_version);
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_sm_abort_migration(cur_dlt_version,
+                                                                       tgt_dlt_version);
 }
 
 // om_bcast_sm_migration_abort
@@ -2359,11 +2364,13 @@ om_send_sm_migration_abort(fds_uint64_t cur_dlt_version, NodeAgent::pointer agen
 // we are waiting for that many responses)
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version)
+OM_NodeContainer::om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version,
+                                              fds_uint64_t tgt_dlt_version)
 {
     fds_uint32_t count = 0;
-    count = dc_sm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dlt_version,
-                                                         om_send_sm_migration_abort);
+    count = dc_sm_nodes->agent_ret_foreach<fds_uint64_t,fds_uint64_t>(cur_dlt_version,
+                                                                      tgt_dlt_version,
+                                                                      om_send_sm_migration_abort);
     LOGDEBUG << "Sent SM Migration Abort to " << count << " nodes successfully";
     return count;
 }

@@ -114,9 +114,9 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
             LOGERROR << "startMigration called while migration for a different target DLT "
                      << targetDltVersion << " is still in progress!";
             if (cb) {
-                cb(ERR_NOT_READY);
+                cb(ERR_SM_TOK_MIGRATION_INPROGRESS);
             }
-            return ERR_NOT_READY;
+            return ERR_SM_TOK_MIGRATION_INPROGRESS;
         }
     }
     resyncOnRestart = onePhaseMigration;
@@ -246,7 +246,6 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
 void
 MigrationMgr::retryTokenMigrForFailedDltTokens()
 {
-
     fds_mutex::scoped_lock l(migrSmTokenLock);
     if (!retryMigrSmTokenSet.empty()) {
         retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
@@ -443,7 +442,21 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
                << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID
                << std::dec << " seqNum " << rebalSetMsg->seqNum
-               << " last " << rebalSetMsg->lastFilterSet;
+               << " last " << rebalSetMsg->lastFilterSet
+               << " onePhaseMigration ? " << rebalSetMsg->onePhaseMigration
+	       << " Target DLT version " << rebalSetMsg->targetDltVersion
+	       << " tokenId " << rebalSetMsg->tokenId;
+
+    // if migration already in progress, make sure that rebalance message is for
+    // the same DLT version
+    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+        if ((fds_uint64_t)rebalSetMsg->targetDltVersion != targetDltVersion) {
+            LOGWARN << "Migration IN PROGRESS for DLT version " << targetDltVersion
+                    << " but received migration request from destination for DLT version "
+                    << rebalSetMsg->targetDltVersion << " -- not ready";
+            return ERR_SM_TOK_MIGRATION_INPROGRESS;
+        }
+    }
 
     // check if this SM accept this SM to be a source for given DLT token
     srcAccepted = acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->onePhaseMigration,
@@ -1223,11 +1236,20 @@ MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken, const Error &err)
  * Handles message from OM to abort migration
  */
 Error
-MigrationMgr::abortMigration()
+MigrationMgr::abortMigration(fds_uint64_t tgtDltVersion)
 {
     Error err(ERR_OK);
-    LOGNOTIFY << "Will abort token migration per OM request";
-    abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
+    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+        if (tgtDltVersion == targetDltVersion) {
+            LOGNOTIFY << "Will abort token migration per OM request";
+            abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
+        } else {
+            LOGNOTIFY << "Ignoring abort migration request from OM "
+                      << " target DLT version from OM " << tgtDltVersion
+                      << " does not match version of this migration " << targetDltVersion;
+            return ERR_INVALID_ARG;
+        }
+    }
     return err;
 }
 
