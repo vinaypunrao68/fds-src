@@ -113,7 +113,7 @@ class Catalog {
 
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Update(CatWriteBatch* batch);
-    fds::Error Query(const Record& key, std::string* val);
+    fds::Error Query(const Record& key, std::string* val, MemSnap m = NULL);
     fds::Error Delete(const Record& key);
 
     /**

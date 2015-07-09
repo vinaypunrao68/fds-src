@@ -147,13 +147,19 @@ Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
         BlobMetaDesc & blobMeta) {
-    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    return getBlobMetaDesc(DmPersistVolCat::getBlobIdFromName(blobName), blobMeta);
+}
+
+Error DmPersistVolDB::getBlobMetaDesc(fds_uint64_t blobId,
+                                      BlobMetaDesc & blobMeta,
+                                      Catalog::MemSnap m) {
+    const BlobObjKey key(blobId, BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
-    Error rc = catalog_->Query(keyRec, &value);
+    Error rc = catalog_->Query(keyRec, &value, m);
     if (!rc.ok()) {
-        LOGNOTIFY << "Failed to get metadata for blob: '" << blobName << "' volume: '"
+        LOGNOTIFY << "Failed to get metadata for blob: '" << blobId << "' volume: '"
                 << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
         return rc;
     }

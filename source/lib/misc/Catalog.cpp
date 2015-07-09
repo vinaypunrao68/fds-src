@@ -142,10 +142,13 @@ Catalog::Update(CatWriteBatch* batch) {
  * @return The result of the query
  */
 Error
-Catalog::Query(const Record& key, std::string* value) {
+Catalog::Query(const Record& key, std::string* value, MemSnap m) {
     Error err(ERR_OK);
 
-    leveldb::Status status = db->Get(read_options, key, value);
+    leveldb::ReadOptions ro{read_options};
+    ro.snapshot = m;
+
+    leveldb::Status status = db->Get(ro, key, value);
     if (status.IsNotFound()) {
         err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
         return err;

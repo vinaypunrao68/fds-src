@@ -125,6 +125,9 @@ class DmPersistVolCat {
 
     virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
 
+    virtual Error getBlobMetaDesc(fds_uint64_t blobId, BlobMetaDesc & blobMeta,
+                                  Catalog::MemSnap m) = 0;
+
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
