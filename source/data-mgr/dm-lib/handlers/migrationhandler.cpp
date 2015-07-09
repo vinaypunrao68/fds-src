@@ -16,6 +16,9 @@
 namespace fds {
 namespace dm {
 
+/**
+ * DmMigrationHandler
+ */
 DmMigrationHandler::DmMigrationHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
@@ -75,8 +78,13 @@ void DmMigrationHandler::handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& as
 
 }
 
+/**
+ * DmMigrationBlobFilterHandler
+ */
+
 DmMigrationBlobFilterHandler::DmMigrationBlobFilterHandler(DataMgr& dataManager)
 	: Handler(dataManager)
+
 {
     if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyInitialBlobFilterSetMsg, handleRequest);
@@ -120,6 +128,5 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
 
     delete dmRequest;
 }
-
 }  // namespace dm
 }  // namespace fds

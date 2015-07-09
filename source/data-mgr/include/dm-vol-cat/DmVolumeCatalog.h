@@ -273,6 +273,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
      */
     Error freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts);
 
+    Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>);
+
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,

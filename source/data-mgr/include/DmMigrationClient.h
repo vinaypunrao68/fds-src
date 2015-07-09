@@ -5,6 +5,8 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
 
+#include <dmhandler.h>
+
 namespace fds {
 
 // Forward declaration.
@@ -26,6 +28,18 @@ class DmMigrationClient {
 			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
 			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
+
+    /*
+     * Takes a snapshot of the volume that this client is in charge of,
+     * make a list of blobs and generate the delta blob descriptor set,
+     * and diffs it against the destination's InitialBlobFilterSet.
+     */
+    Error handleInitialBlobFilterMsg();
+
+    /**
+     * Callback for the async task once done.
+     */
+    Error handleInitialBlobFilterMsgDone();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
@@ -53,6 +67,11 @@ class DmMigrationClient {
     NodeUuid destDmUuid;
     fds_volid_t volID;
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
+
+    /**
+     * Snapshot used for diff.
+     */
+    Catalog::catalog_roptions_t opts;
 
     /**
      * Callback to talk to DM Migration Manager

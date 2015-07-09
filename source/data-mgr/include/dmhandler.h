@@ -293,7 +293,7 @@ struct ReloadVolumeHandler : Handler {
 };
 
 /**
- * dm checker  for validating the DM migration
+ * DmMigration starting point handler from OM
  */
 struct DmMigrationHandler : Handler {
     explicit DmMigrationHandler(DataMgr& dataManager);
@@ -308,6 +308,9 @@ struct DmMigrationHandler : Handler {
                             const Error& e);
 };
 
+/**
+ * Handler for the initial Executor to the client
+ */
 struct DmMigrationBlobFilterHandler : Handler {
 	explicit DmMigrationBlobFilterHandler(DataMgr &dataManager);
 	void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -317,7 +320,6 @@ struct DmMigrationBlobFilterHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
-
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

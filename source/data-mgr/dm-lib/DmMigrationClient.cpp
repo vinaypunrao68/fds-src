@@ -16,7 +16,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
     : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm)
 {
-
+	volID = fds_volid_t(_ribfsm->volumeId);
 }
 
 DmMigrationClient::~DmMigrationClient()
@@ -93,4 +93,21 @@ DmMigrationClient::processDiff()
 
 }
 
+Error
+DmMigrationClient::handleInitialBlobFilterMsg()
+{
+	LOGMIGRATE << "Taking snapshot for volume: " << volID;
+
+	dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volID, opts);
+
+	dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(volID,
+			ribfsm->blobFilterMap, opts);
+
+	/**
+	 * TODO Use the diff function (FS-2259) and genrate the actual diff set.
+	 */
+
+	// migrDoneHandler(uniqueId, threadErr);
+	return (ERR_OK);
+}
 }  // namespace fds

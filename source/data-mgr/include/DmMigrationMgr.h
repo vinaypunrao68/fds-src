@@ -20,8 +20,6 @@ class DmMigrationMgr {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
-    using DmMgrClientThrPtr = boost::shared_ptr<boost::thread>;
-    using DmMigrClientThMap = std::unordered_map<fds_volid_t, DmMgrClientThrPtr>;
     // Callbacks for migration handlers
 	using OmStartMigrationCBType = std::function<void (const Error& e)>;
 
@@ -183,40 +181,9 @@ class DmMigrationMgr {
 
     /**
      * Source side DM:
-     * Wrapper around calling DmStartMigClientCb
-     */
-    void ackInitialBlobFilter(const Error &status);
-
-    /**
-     * Source side DM:
      * Callback for migrationClient.
      */
     void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
-
-    /**
-     * Source side DM:
-     * It's called a client but really a server, since it's receiving requests
-     * from Destination DMs. So we create a thread to handle the migration tasks
-     * while freeing up the manager for more requests.
-     */
-    void migrationClientAsyncTask(fds_volid_t uniqueId);
-
-    /**
-     * Source side DM:
-     * Map to keep track of the ongoing clients threads
-     */
-    DmMigrClientThMap clientThreadsMap;
-    fds_rwlock migrClientThrMapLock;
-
-    /**
-     * Source side DM:
-     * Takes a snapshot of the current volume a client is specific for, and generate
-     * the DeltaBlobDxSet, which will be used later to diff against the destination
-     * DM's InitialBlobDxSet. (Dx == Descriptor)
-     */
-    Error snapAndGenerateDBDxSet(fds_volid_t uniqueId,
-									Catalog::catalog_roptions_t &opts,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &filterSet);
 
 };  // DmMigrationMgr
 
