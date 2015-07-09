@@ -494,6 +494,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             // we re-hit this condition
             if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
+                sendHealthCheckMsgToOM(fpi::RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
