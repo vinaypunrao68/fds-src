@@ -25,6 +25,8 @@ import com.formationds.iodriver.operations.AbstractHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
+import static com.formationds.commons.util.Strings.javaString;
+
 /**
  * Basic HTTP endpoint.
  * 
@@ -43,11 +45,14 @@ extends Endpoint<ThisT, OperationT>
      * 
      * @param uri The base URI for this endpoint. Must be a valid absolute URL.
      * @param logger The logger to log to.
+     * @param baseOperationClass Base class of operations this endpoint can service.
+     *
      * @throws MalformedURLException when {@code uri} is a malformed URL.
      */
-    public AbstractHttpEndpoint(URI uri, Logger logger) throws MalformedURLException
+    public AbstractHttpEndpoint(URI uri, Logger logger, Class<OperationT> baseOperationClass)
+            throws MalformedURLException
     {
-        this(toUrl(uri), logger);
+        this(toUrl(uri), logger, baseOperationClass);
     }
 
     /**
@@ -55,9 +60,12 @@ extends Endpoint<ThisT, OperationT>
      * 
      * @param url The base URL for this endpoint.
      * @param logger The logger to log to.
+     * @param baseOperationClass Base class of operations this endpoint can service.
      */
-    public AbstractHttpEndpoint(URL url, Logger logger)
+    public AbstractHttpEndpoint(URL url, Logger logger, Class<OperationT> baseOperationClass)
     {
+        super(baseOperationClass);
+
         if (url == null) throw new NullArgumentException("url");
         {
             String scheme = url.getProtocol();
@@ -120,7 +128,18 @@ extends Endpoint<ThisT, OperationT>
             {
                 throw new ExecutionException(e);
             }
-    
+
+            String requestMethod = operation.getRequestMethod();
+            try
+            {
+                connection.setRequestMethod(requestMethod);
+            }
+            catch (ProtocolException e)
+            {
+                throw new ExecutionException(
+                        "Error setting request method to " + javaString(requestMethod) + ".", e);
+            }
+
             try
             {
                 operation.exec(getThis(), connection, listener);
@@ -137,16 +156,17 @@ extends Endpoint<ThisT, OperationT>
     }
 
     /**
-     * Perform a PUT operation.
-     * 
-     * @param connection PUT here.
-     * @param content PUT this content.
+     * Write to a connection without reading from it. Response code (and error response if not
+     * successful) will still be read.
+     *
+     * @param connection PUT/POST/etc. here.
+     * @param content The content to write.
      * @param charset {@code content} is in this charset.
-     * 
+     *
      * @throws HttpException when an error occurs sending the request or receiving the respsonse.
      */
     // @eclipseFormat:off
-    public void doPut(HttpURLConnection connection, String content, Charset charset)
+    public void doWrite(HttpURLConnection connection, String content, Charset charset)
             throws HttpException
     // @eclipseFormat:on
     {
@@ -154,45 +174,29 @@ extends Endpoint<ThisT, OperationT>
         if (content == null) throw new NullArgumentException("content");
         if (charset == null) throw new NullArgumentException("charset");
 
-        try
-        {
-            connection.setRequestMethod("PUT");
-        }
-        catch (ProtocolException e)
-        {
-            // Should be impossible.
-            throw new RuntimeException("Unexpected error setting request method to PUT.");
-        }
         connection.setDoInput(true);
         connection.setDoOutput(true);
 
-        putRequest(connection, content, charset);
+        writeToRequest(connection, content, charset);
 
         handleResponse(connection, c -> null);
     }
 
     /**
-     * Perform a GET operation.
+     * Read from a connection.
      * 
-     * @param connection GET this.
-     * 
+     * @param connection The connection to read the response of.
+     *
      * @return The content returned by the server.
-     * 
+     *
      * @throws HttpException when an error occurs sending the request or receiving the response.
      */
-    public String doGet(HttpURLConnection connection) throws HttpException
+    public String doRead(HttpURLConnection connection) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");
 
-        try
-        {
-            connection.setRequestMethod("GET");
-        }
-        catch (ProtocolException e)
-        {
-            // Should be impossible.
-            throw new RuntimeException("Unexpected error setting request method to GET.", e);
-        }
+        // FIXME: These can only be called on a not-yet-open connection, should be done before
+        //        returning the connection to the operation. See also doWrite().
         connection.setDoInput(true);
         connection.setDoOutput(false);
 
@@ -526,7 +530,7 @@ extends Endpoint<ThisT, OperationT>
      * @throws HttpException when an error occurs sending the content.
      */
     // @eclipseFormat:off
-    protected void putRequest(HttpURLConnection connection, String content, Charset charset)
+    protected void writeToRequest(HttpURLConnection connection, String content, Charset charset)
             throws HttpException
     // @eclipseFormat:on
     {

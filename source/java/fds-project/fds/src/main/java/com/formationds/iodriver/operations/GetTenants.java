@@ -37,7 +37,7 @@ public class GetTenants extends OrchestrationManagerOperation
 		
 		try
 		{
-			_setter.accept(ObjectModelHelper.toObject(endpoint.doGet(connection),
+			_setter.accept(ObjectModelHelper.toObject(endpoint.doRead(connection),
 					                                  _TENANT_LIST_TYPE));
 		}
 		catch (HttpException e)
@@ -53,6 +53,12 @@ public class GetTenants extends OrchestrationManagerOperation
         URI tenants = Fds.Api.V08.getTenants();
         
         return apiBase.relativize(tenants);
+    }
+
+    @Override
+    public String getRequestMethod()
+    {
+        return "GET";
     }
 
     static

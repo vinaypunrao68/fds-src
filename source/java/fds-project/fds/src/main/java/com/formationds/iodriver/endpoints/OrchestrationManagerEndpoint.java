@@ -74,7 +74,7 @@ public class OrchestrationManagerEndpoint
                                         OrchestrationManagerEndpoint v8)
             throws MalformedURLException
     {
-        super(uri, logger, trusting);
+        super(uri, logger, trusting, OrchestrationManagerOperation.class);
 
         if (username == null) throw new NullArgumentException("username");
         if (password == null) throw new NullArgumentException("password");

@@ -32,6 +32,8 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
                       OrchestrationManagerEndpoint omEndpoint,
                       Logger logger) throws MalformedURLException
     {
+        super(S3Operation.class);
+
         if (s3url == null) throw new NullArgumentException("s3url");
         if (omEndpoint == null) throw new NullArgumentException("omEndpoint");
         if (logger == null) throw new NullArgumentException("logger");

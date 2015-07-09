@@ -3,6 +3,7 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
@@ -130,7 +131,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     {
         return _workload;
     }
-    
+
     /**
      * Run the {@link #getWorkload() workload}.
      * 
@@ -159,8 +160,47 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     public void setListener(AbstractWorkflowEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
-        
+
         _listener = listener;
+    }
+
+    public static <IEndpointT extends Endpoint<IEndpointT, IOperationT>,
+                   IWorkloadT extends Workload<IEndpointT, IOperationT>,
+                   IOperationT extends Operation<IOperationT, IEndpointT>>
+    Driver<IEndpointT, IWorkloadT> newDriver(Endpoint<?, ?> endpoint,
+                                             Workload<?, ?> workload,
+                                             AbstractWorkflowEventListener listener,
+                                             Validator validator)
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (workload == null) throw new NullArgumentException("workload");
+        if (listener == null) throw new NullArgumentException("listener");
+        if (validator == null) throw new NullArgumentException("validator");
+
+        Class<?> neededEndpointClass = workload.getEndpointType();  // IEndpointT
+        Class<?> baseOperationClass = workload.getOperationType();  // IOperationT
+
+        // Make sure the endpoint can handle our operations.
+        if (!endpoint.getBaseOperationClass().equals(baseOperationClass))
+        {
+            throw new IllegalArgumentException(
+                    "Provided endpoint cannot service operations of type "
+                    + baseOperationClass.getName() + ".");
+        }
+
+        // Make sure the workload knows what to do with the endpoint.
+        if (!neededEndpointClass.equals(endpoint.getClass()))
+        {
+            throw new IllegalArgumentException(
+                    "Workflow requires endpoint of type " + neededEndpointClass.toString() + ".");
+        }
+
+        // Okay, this should work. Because we checked with class.equals(class) above, this is safe
+        // unless someone constructed endpoint and/or workload unsafely.
+        @SuppressWarnings("unchecked") IEndpointT typedEndpoint = (IEndpointT)endpoint;
+        @SuppressWarnings("unchecked") IWorkloadT typedWorkload = (IWorkloadT)workload;
+
+        return new Driver<>(typedEndpoint, typedWorkload, listener, validator);
     }
     
     /**

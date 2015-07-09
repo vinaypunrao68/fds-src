@@ -35,7 +35,9 @@ public class CreateVolume extends OrchestrationManagerOperation
 		
 		try
 		{
-			endpoint.doPut(connection, ObjectModelHelper.toJSON(newVolume), StandardCharsets.UTF_8);
+			endpoint.doWrite(connection,
+			                 ObjectModelHelper.toJSON(newVolume),
+			                 StandardCharsets.UTF_8);
 		}
 		catch (HttpException e)
 		{
@@ -52,5 +54,11 @@ public class CreateVolume extends OrchestrationManagerOperation
 		return base.relativize(createVolume);
 	}
 	
+	@Override
+	public String getRequestMethod()
+	{
+	    return "POST";
+	}
+
 	private final String _name;
 }

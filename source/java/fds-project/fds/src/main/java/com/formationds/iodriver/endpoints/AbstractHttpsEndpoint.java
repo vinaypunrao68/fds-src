@@ -33,12 +33,14 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
      * 
      * @param uri Base URI for requests. Must be a valid absolute URL.
      * @param logger Log target.
+     * @param baseOperationClass Base class of operations this endpoint can service.
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
-    public AbstractHttpsEndpoint(URI uri, Logger logger) throws MalformedURLException
+    public AbstractHttpsEndpoint(URI uri, Logger logger, Class<OperationT> baseOperationClass)
+            throws MalformedURLException
     {
-        this(toUrl(uri), logger);
+        this(toUrl(uri), logger, baseOperationClass);
     }
 
     /**
@@ -47,14 +49,16 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
      * @param uri Base URI for requests. Must be a valid absolute URL>
      * @param logger Log target.
      * @param trusting Whether normally-untrusted certificates are accepted.
+     * @param baseOperationClass Base class of operations this endpoint can service.
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
     public AbstractHttpsEndpoint(URI uri,
                                  Logger logger,
-                                 boolean trusting) throws MalformedURLException
+                                 boolean trusting,
+                                 Class<OperationT> baseOperationClass) throws MalformedURLException
     {
-        this(toUrl(uri), logger, trusting);
+        this(toUrl(uri), logger, trusting, baseOperationClass);
     }
 
     /**
@@ -62,10 +66,11 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
      * 
      * @param url Base URL for requests.
      * @param logger Log target.
+     * @param baseOperationClass Base class of operations this endpoint can service.
      */
-    public AbstractHttpsEndpoint(URL url, Logger logger)
+    public AbstractHttpsEndpoint(URL url, Logger logger, Class<OperationT> baseOperationClass)
     {
-        this(url, logger, false);
+        this(url, logger, false, baseOperationClass);
     }
 
     /**
@@ -74,10 +79,14 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
      * @param url Base URL for requests.
      * @param logger Log target.
      * @param trusting Whether normally-untrusted certificates are accepted.
+     * @param baseOperationClass Base class of operations this endpoint can service.
      */
-    public AbstractHttpsEndpoint(URL url, Logger logger, boolean trusting)
+    public AbstractHttpsEndpoint(URL url,
+                                 Logger logger,
+                                 boolean trusting,
+                                 Class<OperationT> baseOperationClass)
     {
-        super(url, logger);
+        super(url, logger, baseOperationClass);
 
         String scheme = url.getProtocol();
         if (scheme == null || !scheme.equalsIgnoreCase("https"))

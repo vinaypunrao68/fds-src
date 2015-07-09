@@ -35,7 +35,7 @@ public final class GetVolume extends OrchestrationManagerOperation
         
         try
         {
-            _setter.accept(ObjectModelHelper.toObject(endpoint.doGet(connection), Volume.class));
+            _setter.accept(ObjectModelHelper.toObject(endpoint.doRead(connection), Volume.class));
         }
         catch (HttpException e)
         {
@@ -53,7 +53,13 @@ public final class GetVolume extends OrchestrationManagerOperation
         
         return apiBase.relativize(getVolume);
     }
-    
+
+    @Override
+    public String getRequestMethod()
+    {
+        return "GET";
+    }
+
     private final long _id;
     
     private final Consumer<? super Volume> _setter;

@@ -24,7 +24,7 @@ public class Volume extends AbstractResource<Long> {
 
         private final String         volumeName;
         private Tenant               tenant;
-        private Optional<Long>       id;
+        private Optional<Long>       id = Optional.empty();
         private String               application;
         private VolumeSettings       settings;
         private MediaPolicy          mediaPolicy;
@@ -42,8 +42,7 @@ public class Volume extends AbstractResource<Long> {
          * @param from the existing volume
          */
         public Builder(Volume from, String name) {
-
-            volumeName = name;
+            this(name);
             tenant = from.getTenant();
             application = from.getApplication();
             settings = from.getSettings().newSettingsFrom();
@@ -59,8 +58,8 @@ public class Volume extends AbstractResource<Long> {
         }
 
         public Builder( Tenant tenant, String volumeName ) {
+            this(volumeName);
             this.tenant = tenant;
-            this.volumeName = volumeName;
         }
 
         public Builder id(Number id) { this.id = (id != null ? Optional.of( id.longValue() ) : Optional.empty()); return this; }

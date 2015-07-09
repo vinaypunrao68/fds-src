@@ -7,15 +7,13 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
-import com.formationds.iodriver.reporters.NullWorkflowEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
-import com.formationds.iodriver.workloads.S3Workload;
 import com.formationds.iodriver.workloads.Workload;
 
 /**
@@ -53,10 +51,10 @@ public final class Main
             }
             else
             {
-                result = runWorkloadDry(config);
+                result = runWorkload(config, false);
                 if (result == 0)
                 {
-                    result = runWorkload(config);
+                    result = runWorkload(config, true);
                 }
             }
         }
@@ -80,14 +78,25 @@ public final class Main
         throw new UnsupportedOperationException("Trying to instantiate a utility class.");
     }
 
-    private static <EndpointT extends Endpoint<EndpointT, ?>,
-                    WorkloadT extends Workload<EndpointT, ?>> Driver<EndpointT, WorkloadT>
-    getNewDriver(EndpointT endpoint,
-                 WorkloadT workload,
-                 AbstractWorkflowEventListener listener,
-                 Validator validator)
+    private static Endpoint<?, ?> getCompatibleEndpoint(Workload<?, ?> workload)
     {
-        return new Driver<EndpointT, WorkloadT>(endpoint, workload, listener, validator);
+        if (workload == null) throw new NullArgumentException("workload");
+
+        Class<?> neededEndpointClass = workload.getEndpointType();
+        if (neededEndpointClass.isAssignableFrom(S3Endpoint.class))
+        {
+            // TODO: Make this configurable.
+            return Config.Defaults.getS3Endpoint();
+        }
+        else if (neededEndpointClass.isAssignableFrom(OrchestrationManagerEndpoint.class))
+        {
+            return Config.Defaults.getOMV8Endpoint();
+        }
+        else
+        {
+            throw new UnsupportedOperationException(
+                    "Cannot find an endpoint of type " + neededEndpointClass.getName() + ".");
+        }
     }
     
     /**
@@ -116,12 +125,13 @@ public final class Main
      * Run the requested workload.
      *
      * @param config The runtime config to use.
+     * @param validate Whether to evaluate the workload results as part of the return code.
      *
      * @return A system return code.
      *
      * @throws ExecutionException when there is an unexpected error running the workload.
      */
-    private static int runWorkload(Config config) throws ExecutionException
+    private static int runWorkload(Config config, boolean validate) throws ExecutionException
     {
         if (config == null) throw new NullArgumentException("config");
 
@@ -132,50 +142,22 @@ public final class Main
                                             listener.stopped,
                                             listener.volumeAdded))
         {
-            S3Workload workload = config.getSelectedWorkload(S3Endpoint.class, S3Operation.class);
-            Validator validator = workload.getSuggestedValidator().orElse(config.getValidator());
+            Workload<?, ?> workload = config.getSelectedWorkload();
+            Endpoint<?, ?> endpoint = getCompatibleEndpoint(workload);
+            Validator validator = validate
+                                  ? workload.getSuggestedValidator().orElse(config.getValidator())
+                                  : new NullValidator();
             
-            Driver<?, ?> driver = getNewDriver(config.getEndpoint(),
-                                               workload,
-                                               listener,
-                                               validator);
+            Driver<?, ?> driver = Driver.newDriver(endpoint,
+                                                   workload,
+                                                   listener,
+                                                   validator);
             driver.runWorkload();
             return driver.getResult();
         }
         catch (Exception e)
         {
             throw new ExecutionException("Error executing workload.", e);
-        }
-    }
-    
-    private static <EndpointT extends Endpoint<EndpointT, ?>,
-                    WorkloadT extends Workload<EndpointT, ?>>
-    
-    
-    private static int runWorkloadDry(Config config) throws ExecutionException
-    {
-        if (config == null) throw new NullArgumentException("config");
-        
-        AbstractWorkflowEventListener listener = new NullWorkflowEventListener(config.getLogger());
-        try (ConsoleProgressReporter reporter =
-                new ConsoleProgressReporter(System.out,
-                                            listener.started,
-                                            listener.stopped,
-                                            listener.volumeAdded))
-        {
-            S3Workload workload = config.getSelectedWorkload(S3Endpoint.class, S3Operation.class);
-            Validator validator = new NullValidator();
-            
-            Driver<?, ?> driver = getNewDriver(config.getEndpoint(),
-                                               workload,
-                                               listener,
-                                               validator);
-            driver.runWorkload();
-            return driver.getResult();
-        }
-        catch (Exception e)
-        {
-            throw new ExecutionException("Error executing dry-run of workload.", e);
         }
     }
 }

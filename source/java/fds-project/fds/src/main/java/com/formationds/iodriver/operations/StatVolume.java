@@ -51,7 +51,7 @@ public final class StatVolume extends OrchestrationManagerOperation
         String content;
         try
         {
-            content = endpoint.doGet(connection);
+            content = endpoint.doRead(connection);
         }
         catch (HttpException e)
         {
@@ -104,6 +104,12 @@ public final class StatVolume extends OrchestrationManagerOperation
     public URI getRelativeUri()
     {
         return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
+    }
+
+    @Override
+    public String getRequestMethod()
+    {
+        return "GET";
     }
 
     @Override

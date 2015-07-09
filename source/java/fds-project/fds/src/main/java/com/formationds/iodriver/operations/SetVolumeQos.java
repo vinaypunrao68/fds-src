@@ -57,7 +57,7 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
 
         try
         {
-            endpoint.doPut(connection, oyVeh.toString(), StandardCharsets.UTF_8);
+            endpoint.doWrite(connection, oyVeh.toString(), StandardCharsets.UTF_8);
         }
         catch (HttpException e)
         {
@@ -74,6 +74,12 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
         URI putVolume = Uris.resolve(volumes, volumeId);
 
         return apiBase.relativize(putVolume);
+    }
+
+    @Override
+    public String getRequestMethod()
+    {
+        return "PUT";
     }
 
     @Override

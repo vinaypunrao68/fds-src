@@ -23,10 +23,8 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
@@ -57,13 +55,23 @@ public final class Config extends AbstractConfig
     public final static class Defaults extends AbstractConfig.Defaults
     {
         /**
-         * Get the default endpoint.
-         * 
-         * @return An endpoint to the local system default S3 interface.
+         * Get the default OM v8 API endpoint.
+         *
+         * @return An endpoint to the local system.
          */
-        public static S3Endpoint getEndpoint()
+        public static OrchestrationManagerEndpoint getOMV8Endpoint()
         {
-            return _endpoint;
+            return _omV8Endpoint;
+        }
+
+        /**
+         * Get the default S3 endpoint.
+         * 
+         * @return An endpoint to the local system.
+         */
+        public static S3Endpoint getS3Endpoint()
+        {
+            return _s3Endpoint;
         }
 
         /**
@@ -114,7 +122,8 @@ public final class Config extends AbstractConfig
                 omEndpointV8.setS3(s3);
                 omEndpoint.setS3(s3);
                 
-                _endpoint = s3;
+                _s3Endpoint = s3;
+                _omV8Endpoint = omEndpointV8;
             }
             catch (MalformedURLException e)
             {
@@ -134,19 +143,24 @@ public final class Config extends AbstractConfig
         }
 
         /**
-         * Default endpoint.
-         */
-        private static final S3Endpoint _endpoint;
-
-        /**
          * Default event listener.
          */
         private static final WorkflowEventListener _listener;
 
         /**
+         * Default S3 endpoint.
+         */
+        private static final S3Endpoint _s3Endpoint;
+
+        /**
          * Default validator.
          */
         private static final Validator _validator;
+
+        /**
+         * Default version-8 API OM endpoint.
+         */
+        private static final OrchestrationManagerEndpoint _omV8Endpoint;
     }
 
     /**
@@ -190,17 +204,6 @@ public final class Config extends AbstractConfig
         return new RandomFill(5, "/", 5, 20 * 1024, 20, 3, false);
     }
     
-    /**
-     * Get the endpoint to run workloads on.
-     * 
-     * @return The specified configuration.
-     */
-    public S3Endpoint getEndpoint()
-    {
-        // TODO: Allow this to be specified.
-        return Defaults.getEndpoint();
-    }
-
     /**
      * Get the configured listener.
      * 
@@ -319,26 +322,15 @@ public final class Config extends AbstractConfig
     /**
      * Get the user-selected workload.
      * 
-     * @param endpointType The type of endpoint the workload will target.
-     * @param operationType The type of operation the workload can run.
-     * 
      * @return A workload.
      * 
      * @throws ParseException when the command-line arguments cannot be parsed.
      * @throws ConfigurationException when system configuration is invalid.
      */
     // @eclipseFormat:off
-    public <WorkloadT extends Workload<EndpointT, OperationT>,
-            EndpointT extends Endpoint<EndpointT, OperationT>,
-            OperationT extends Operation<OperationT, EndpointT>>
-    WorkloadT getSelectedWorkload(Class<EndpointT> endpointType,
-                                  Class<OperationT> operationType)
-    throws ParseException, ConfigurationException
+    public Workload<?, ?> getSelectedWorkload() throws ParseException, ConfigurationException
     // @eclipseFormat:on
     {
-        if (endpointType == null) throw new NullArgumentException("endpointType");
-        if (operationType == null) throw new NullArgumentException("operationType");
-
         String workloadName = getSelectedWorkloadName();
         Class<?> myClass = getClass();
         Method workloadFactoryMethod;
@@ -383,24 +375,7 @@ public final class Config extends AbstractConfig
             throw new ConfigurationException("Unexpected error building workload.", t);
         }
 
-        if (!workload.getEndpointType().equals(endpointType))
-        {
-            throw new ConfigurationException("Workload endpoint type of "
-                                             + workload.getEndpointType().getName()
-                                             + " is not the requested type of " + endpointType
-                                             + ".");
-        }
-        if (!workload.getOperationType().equals(operationType))
-        {
-            throw new ConfigurationException("Workload operation type of "
-                                             + workload.getOperationType().getName()
-                                             + " is not the requested type of " + operationType
-                                             + ".");
-        }
-        @SuppressWarnings("unchecked")
-        WorkloadT retval = (WorkloadT)workload;
-
-        return retval;
+        return workload;
     }
 
     /**

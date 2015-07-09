@@ -43,6 +43,14 @@ extends Operation<ThisT, EndpointT>
                               HttpURLConnection connection,
                               AbstractWorkflowEventListener reporter) throws ExecutionException;
 
+    /**
+     * Perform the actual operation without opening a connection first.
+     *
+     * @param endpoint The endpoint to run on.
+     * @param reporter The listener for events.
+     *
+     * @throws ExecutionException when an error occurs.
+     */
     public void exec(EndpointT endpoint,
                      AbstractWorkflowEventListener reporter) throws ExecutionException
     {
@@ -52,11 +60,16 @@ extends Operation<ThisT, EndpointT>
         throw new UnsupportedOperationException("Connectionless exec not implemented.");
     }
     
+    /**
+     * Get whether this operation needs a connection.
+     *
+     * @return Whether a connection should be provided when executing this operation.
+     */
     public boolean getNeedsConnection()
     {
         return true;
     }
-    
+
     /**
      * Get the relative URI (to the endpoint) that will be requested.
      * 
@@ -66,6 +79,14 @@ extends Operation<ThisT, EndpointT>
     {
         return null;
     }
+
+    /**
+     * Get the HTTP request method to use.
+     *
+     * @return The HTTP request method to use. {@code null} may be returned if
+     *         {@link #getNeedsConnection()} returns {@code false}.
+     */
+    public abstract String getRequestMethod();
 
     /**
      * Get a typed reference to {@code this} in parent classes.

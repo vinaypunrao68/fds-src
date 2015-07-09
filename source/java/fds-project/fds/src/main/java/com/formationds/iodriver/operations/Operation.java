@@ -15,7 +15,6 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
  * An operation that may be executed.
  * 
  * @param <ThisT> The implementing class.
- * @param <EndpointT> The type of endpoint this operation can run on.
  */
 // @eclipseFormat:off
 public abstract class Operation<ThisT extends Operation<ThisT, EndpointT>,
