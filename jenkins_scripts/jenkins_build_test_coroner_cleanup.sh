@@ -290,20 +290,14 @@ function check_xunit_failures
 {
     message "Checking xunit output for failure, system test:  ${1}"
     grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
-    if [[ $? -eq 0 ]] ; then
-        message "EEEEE Xunit Failures detected running System Test ${scenario}"
-        run_coroner 1
-    fi
+    [[ $? -eq 0 ]] || system_test_error ${scenario}
 }
 
 function check_xunit_errors
 {
     message "Checking xunit output for errors, system test:  ${1}"
     grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
-    if [[ $? -eq 0 ]] ; then
-        message "EEEEE Xunit Errors detected running System Test ${scenario}"
-        run_coroner 1
-    fi
+    [[ $? -eq 0 ]] || system_test_error ${scenario}
 }
 
 function system_test_error
@@ -326,12 +320,11 @@ function system_test_scenario_wrapper
 
     capture_process_list SysTest.${scenario}
 
-    check_xunit_errors ${scenario} || system_test_error ${scenario}
-    check_xunit_failures ${scenario} || system_test_error ${scenario}
+    check_xunit_errors ${scenario}
+    check_xunit_failures ${scenario}
 
     core_hunter
 }
-
 
 function run_system_test_scenarios
 {
@@ -354,7 +347,6 @@ function system_test_force_failure
     run_coroner 1
 }
 
-
 function run_node_cleanup
 {
     message "IIIII RUNNING post build node cleanup"
@@ -371,7 +363,6 @@ function run_node_cleanup
 
     exit $1
 }
-
 
 function run_coroner
 {
