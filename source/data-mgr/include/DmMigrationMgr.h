@@ -90,16 +90,6 @@ class DmMigrationMgr {
      */
     Error startMigrationClient(dmCatReq* dmRequest);
 
-    /**
-     * Source side DM:
-     * Used by the DM migration handlers in the QoS context to be able to retrieve a
-     * ptr to the client instance. The goal is to let the handler retrieve this instance
-     * and drive the client's migration progress. The Migration manager is just here to
-     * service whatever resources needed, and let go of the QoS thread.
-     * Returns a nullptr if there's an error.
-     */
-    void getMigrationClient(dmCatReq* dmRequest, DmMigrationClient::shared_ptr &client);
-
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 

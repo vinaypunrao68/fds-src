@@ -314,7 +314,6 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
         case FDS_DM_FWD_CAT_UPD:
         case FDS_DM_PUSH_META_DONE:
         case FDS_DM_META_RECVD:
-        case FDS_DM_CLIENT_INIT_BLOB:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
@@ -924,7 +923,6 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
-    handlers[FDS_DM_CLIENT_INIT_BLOB] = new dm::DmMigrationClientBlobFilterHandler(*this);
 }
 
 DataMgr::~DataMgr()

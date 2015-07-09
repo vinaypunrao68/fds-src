@@ -221,23 +221,10 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 												std::placeholders::_2)))));
 		migrClientLock.write_unlock();
 
-		clientPtr->startClient();
+		clientPtr->handleInitialBlobFilterMsg();
 	}
 
 	return err;
-}
-
-void
-DmMigrationMgr::getMigrationClient(dmCatReq* dmRequest, DmMigrationClient::shared_ptr &client)
-{
-    DmIoClientInitBlob* typedRequest = static_cast<DmIoClientInitBlob*>(dmRequest);
-    client = nullptr;
-
-	migrClientLock.read_lock();
-	auto clientIter = clientMap.find(typedRequest->uniqueId);
-	fds_verify(clientIter != clientMap.end());
-	client = clientIter->second;
-	migrClientLock.read_unlock();
 }
 
 Error

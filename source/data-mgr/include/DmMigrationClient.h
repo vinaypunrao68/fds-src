@@ -29,12 +29,6 @@ class DmMigrationClient {
 			DmMigrationClientDoneHandler _handle);
     ~DmMigrationClient();
 
-    /**
-     * Starts the client side by enqueing a request in the QoS pool,
-     * which will drive the client depending on how busy the system is.
-     */
-    void startClient();
-
     /*
      * Takes a snapshot of the volume that this client is in charge of,
      * make a list of blobs and generate the delta blob descriptor set,

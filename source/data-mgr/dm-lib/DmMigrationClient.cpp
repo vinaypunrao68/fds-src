@@ -87,21 +87,6 @@ DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
     return ERR_OK;
 }
 
-void
-DmMigrationClient::startClient()
-{
-    auto dmReq = new DmIoClientInitBlob(FdsDmSysTaskId);
-    // dmReq->cb = BIND_MSG_CALLBACK(DmMigrationClientBlobFilterHandler::handleResponse, asyncHdr);
-    // dmReq->cb = std::bind(&DmMigrationClientBlobFilterHandler::handleResponse, this,
-//     						std::placeholders::_1, std::placeholders::_2,
-	// 						std::placeholders::_3);
-    dmReq->uniqueId = volID;
-    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
-    fds_verify(dmReq->io_type == FDS_DM_CLIENT_INIT_BLOB);
-    dataMgr.qosCtrl->enqueueIO(volID, dmReq);
-
-}
-
 Error
 DmMigrationClient::handleInitialBlobFilterMsg()
 {

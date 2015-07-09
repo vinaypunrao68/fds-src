@@ -323,16 +323,6 @@ struct DmMigrationBlobFilterHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
-
-/**
- * Handler for the client to start handling the init blob in threading context
- * No handleRequest because this is not an internode handler.
- */
-struct DmMigrationClientBlobFilterHandler : Handler {
-	explicit DmMigrationClientBlobFilterHandler(DataMgr &dataManager);
-    void handleQueueItem(dmCatReq* dmRequest);
-    void handleResponse(Error const& e, dmCatReq* dmRequest);
-};
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

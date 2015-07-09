@@ -265,8 +265,7 @@ typedef enum {
     FDS_OP_INVALID,
     FDS_DM_LIST_BLOBS_BY_PATTERN,
     FDS_DM_MIGRATION,
-	FDS_DM_RESYNC_INIT_BLOB,
-	FDS_DM_CLIENT_INIT_BLOB
+	FDS_DM_RESYNC_INIT_BLOB
 } fds_io_op_t;
 
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);
