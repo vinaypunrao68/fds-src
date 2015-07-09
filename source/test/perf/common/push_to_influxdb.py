@@ -58,7 +58,7 @@ class InfluxDb:
             logger.info((json.dumps(data)))
 
 influx_db_config = {
-    "ip" : "10.1.16.51",
+    "ip" : "matteo-vm",
     "port" : 8086,
     "user" : "root",
     "password" : "root",
