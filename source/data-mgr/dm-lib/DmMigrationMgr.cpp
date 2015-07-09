@@ -161,6 +161,12 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
 	return err;
 }
 
+Error
+DmMigrationMgr::applyDeltaBlobDescritor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
+    // TODO(xxx): Route to the right executor
+    return ERR_OK;
+}
+
 void
 DmMigrationMgr::ackMigrationComplete(const Error &status)
 {
