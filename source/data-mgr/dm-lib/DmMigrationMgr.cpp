@@ -10,16 +10,19 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-	  maxConcurrency(1), firedMigrations(0), mit(NULL), DmStartMigClientCb(NULL),
-	  migrState(MIGR_IDLE), cleanUpInProgress(false), migrationMsg(nullptr),
-	  migReqMsg(nullptr)
+	  maxConcurrency(1), firedMigrations(0), mit(NULL),
+	  migrState(MIGR_IDLE), cleanUpInProgress(false)
 {
 	maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
 				get<int>("fds.dm..migration.migration_max_concurrency"));
 
-    enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.migration.enable_feature"));
-    enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.migration.enable_resync"));
+    enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->
+                get<bool>("fds.dm.migration.enable_feature"));
+
+    enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->
+                get<bool>("fds.dm.migration.enable_resync"));
 }
+
 
 DmMigrationMgr::~DmMigrationMgr()
 {
@@ -65,17 +68,15 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 }
 
 Error
-DmMigrationMgr::startMigration(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
 {
 	Error err(ERR_OK);
 
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
 	NodeUuid destSvcUuid;
     DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
-    dmReqPtr = dmRequest;
-	migrationMsg = typedRequest->message;
+    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg = typedRequest->message;
 	OmStartMigrCb = typedRequest->localCb;
-	asyncPtr = typedRequest->asyncHdrPtr;
 	fds_bool_t autoIncrement = false;
 	fds_bool_t loopFireNext = true;
 	NodeUuid srcDmSvcUuid;
@@ -84,7 +85,7 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
     if (false == enableMigrationFeature) {
         LOGCRITICAL << "DM Migration is disabled! ignoring start migration msg";
         if (OmStartMigrCb) {
-	        OmStartMigrCb(asyncPtr, migrationMsg, ERR_OK, dmReqPtr);
+	        OmStartMigrCb(ERR_OK);
         }
         return err;
     }
@@ -107,13 +108,13 @@ DmMigrationMgr::startMigration(dmCatReq* dmRequest)
          ++vmg) {
 
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
-				vdt != vmg->VolDescriptors.end(); vdt++) {
+				vdt != vmg->VolDescriptors.end(); ++vdt) {
 			/**
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
 			 */
 			fds_verify(maxConcurrency > 0);
-			firedMigrations++;
+			++firedMigrations;
 			if (firedMigrations == maxConcurrency) {
 				autoIncrement = true;
 				// from this point on, all the other executors must have autoIncrement == TRUE
@@ -178,10 +179,9 @@ DmMigrationMgr::ackMigrationComplete(const Error &status)
 {
 	fds_verify(OmStartMigrCb != NULL);
 	LOGMIGRATE << "Telling OM migration is done";
-	OmStartMigrCb(asyncPtr, migrationMsg, status, dmReqPtr);
+	OmStartMigrCb(status);
 	executorMap.clear();
 }
-
 
 // See note in header file for design decisions
 Error
@@ -191,9 +191,7 @@ DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
 	NodeUuid destDmUuid(typedRequest->destNodeUuid);
-    dmReqPtr = dmRequest;
-    migReqMsg = typedRequest->message;
-	DmStartMigClientCb = typedRequest->localCb;
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
 
 	LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
@@ -204,19 +202,19 @@ DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
 
 Error
 DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
-										const NodeUuid& mySvcUuid,
-										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm)
+									  const NodeUuid& mySvcUuid,
+									  fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& filterSet)
 {
 	Error err(ERR_OK);
 	/**
 	 * Make sure that this isn't an ongoing operation.
 	 * Otherwise, DM bug
 	 */
-	auto fds_volid = fds_volid_t(ribfsm->volumeId);
+	auto fds_volid = fds_volid_t(filterSet->volumeId);
 	auto search = clientMap.find(fds_volid);
 	DmMigrationClient::shared_ptr clientPtr = nullptr;
 	if (search != clientMap.end()) {
-		LOGMIGRATE << "Client received request for volume " << ribfsm->volumeId
+		LOGMIGRATE << "Client received request for volume " << filterSet->volumeId
 				<< " but it already exists";
 		err = ERR_DUPLICATE;
 	} else {
@@ -225,15 +223,15 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		 */
 		migrClientLock.write_lock();
 		LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
-		clientMap.emplace(fds_volid,
-				(clientPtr = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
-												mySvcUuid, destDmUuid, ribfsm,
+        DmMigrationClient::shared_ptr client(new DmMigrationClient(DmReqHandler, dataManager,
+												mySvcUuid, destDmUuid, filterSet,
 												std::bind(&DmMigrationMgr::migrationClientDoneCb,
 												this, std::placeholders::_1,
-												std::placeholders::_2)))));
+												std::placeholders::_2)));
+		clientMap.emplace(fds_volid, client);
 		migrClientLock.write_unlock();
 
-		clientPtr->handleInitialBlobFilterMsg();
+		client->handleInitialBlobFilterMsg();
 	}
 
 	return err;
@@ -299,7 +297,7 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 		 */
 		// SCOPEDWRITE(migrExecutorLock);
 		if (mit->second->shouldAutoExecuteNext()) {
-			mit++;
+			++mit;
 			if (mit != executorMap.end()) {
 				mit->second->startMigration();
 			} else {
