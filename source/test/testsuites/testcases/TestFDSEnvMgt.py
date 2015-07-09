@@ -98,7 +98,7 @@ class TestFDSInstall(TestCase.FDSTestCase):
         # Check to see if the FDS root directory is already there.
         fds_dir = node.nd_conf_dict['fds_root']
 
-        if os.path.exist(fds_dir):
+        if os.path.exists(fds_dir):
             self.log.info("FDS installation directory, %s, exists on node %s. Attempting to delete." %
                           (fds_dir, n.nd_conf_dict['node-name']))
 
