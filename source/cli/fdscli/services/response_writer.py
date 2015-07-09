@@ -311,8 +311,8 @@ class ResponseWriter():
     @staticmethod
     def prep_system_health_for_table(health):
         
-        if not isinstance(health, SystemHealth):
-            raise TypeError()
+#         if not isinstance(health, SystemHealth):
+#             raise TypeError()
         
         ov = OrderedDict()
         

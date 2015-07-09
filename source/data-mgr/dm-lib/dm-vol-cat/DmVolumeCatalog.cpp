@@ -799,4 +799,11 @@ Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
 }
+
+Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    vol->forEachObject(func);
+    return ERR_OK;
+}
+
 }  // namespace fds

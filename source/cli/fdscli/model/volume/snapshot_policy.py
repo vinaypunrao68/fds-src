@@ -32,9 +32,6 @@ class SnapshotPolicy(BaseModel):
     @recurrence_rule.setter
     def recurrence_rule(self, rule):
         
-        if not isinstance(rule, RecurrenceRule):
-            raise TypeError()
-        
         self.__recurrence_rule = rule
         
     @property
