@@ -22,6 +22,7 @@ namespace fds {
   
           protected:
             uint numPermits = 1;
+            uint maxPermits = 1;
             apache::thrift::concurrency::Monitor monitor;
         };
     } // namespace concurrency

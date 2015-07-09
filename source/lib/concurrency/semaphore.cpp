@@ -5,12 +5,12 @@
 #include <fds_assert.h>
 #include <concurrency/semaphore.h>
 #include <thrift/concurrency/Util.h>
-
+#include <fds_error.h>
 namespace atc = apache::thrift::concurrency;
 
 namespace fds { namespace concurrency {
 
-Semaphore::Semaphore(uint permits) : numPermits(permits) {
+Semaphore::Semaphore(uint permits) : maxPermits(permits), numPermits(permits) {
 }
 
 Semaphore::~Semaphore() {
@@ -20,7 +20,7 @@ Semaphore::~Semaphore() {
 
 void Semaphore::acquire(uint permits) {
     atc::Synchronized s(monitor);
- 
+    if (permits + numPermits > maxPermits) throw fds::Exception("invalid number of permits");
     while (numPermits < permits) {
         monitor.wait();
     }
@@ -29,6 +29,7 @@ void Semaphore::acquire(uint permits) {
 
 bool Semaphore::tryAcquire(uint permits, util::TimeStamp timeout) {
     atc::Synchronized s(monitor);
+    if (permits + numPermits > maxPermits) return false;
     if (numPermits > permits) {
         numPermits -= permits;
         return true;
@@ -52,13 +53,10 @@ bool Semaphore::tryAcquire(uint permits, util::TimeStamp timeout) {
 
 void Semaphore::release(uint permits) {
     atc::Synchronized s(monitor);
-    if ( 0 == numPermits ) {
-        return;
-    }
+    if (permits + numPermits > maxPermits) throw fds::Exception("releasing more permits than max allowed");
+
     numPermits += permits;
-    if (numPermits > 0) {
-        monitor.notifyAll();
-    }
+    monitor.notifyAll();
 }
 
 int Semaphore::getAvailablePermits() const {
