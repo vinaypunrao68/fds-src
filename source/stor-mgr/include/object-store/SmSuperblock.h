@@ -20,12 +20,7 @@ typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 
 typedef uint32_t fds_checksum32_t;
 
-typedef enum DiskType {
-    DISK_TYPE_SSD,
-    DISK_TYPE_HDD
-}DiskType;
-
-typedef std::function<void (const DiskType&,
+typedef std::function<void (const diskio::DataTier&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;
 
@@ -324,7 +319,6 @@ class SmSuperblockMgr {
      */
     SmTokenSet getSmOwnedTokens();
     SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
-    SmTokenSet getSmOwnedTokensNoLock(fds_uint16_t diskId);
     fds_uint16_t getWriteFileId(fds_token_id smToken,
                                 diskio::DataTier tier);
     fds_uint16_t getWriteFileIdNoLock(fds_token_id smToken,
@@ -357,6 +351,11 @@ class SmSuperblockMgr {
     bool
     checkPristineState();
 
+    Error changeTokenCompactionState(fds_token_id smToken,
+                                     diskio::DataTier tier,
+                                     fds_bool_t inProg,
+                                     fds_uint16_t newFileId);
+
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
@@ -365,6 +364,8 @@ class SmSuperblockMgr {
 
     DiskIdSet
     diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
+
+    SmTokenSet getTokensOfThisSM(fds_uint16_t diskId);
 
     /**
      * Set the latest committed DLT version.

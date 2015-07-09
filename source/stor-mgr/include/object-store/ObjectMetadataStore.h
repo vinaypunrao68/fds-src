@@ -45,8 +45,7 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * @param[in] smToks set of SM tokens for which to open store
      */
     Error openMetadataStore(const SmDiskMap::const_ptr& diskMap,
-                            const SmTokenSet& smToks,
-                            const fds_uint16_t& diskId = SM_INVALID_DISK_ID);
+                            const SmTokenSet& smToks);
 
     /**
      * Closes and removes metadata stores for given set of SM tokens

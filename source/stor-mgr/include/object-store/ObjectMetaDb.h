@@ -47,8 +47,7 @@ class ObjectMetadataDb {
      * @param[in] smToks set of SM tokens to open
      */
     Error openMetadataDb(const SmDiskMap::const_ptr& diskMap,
-                         const SmTokenSet& smToks,
-                         const fds_uint16_t& diskId = SM_INVALID_DISK_ID);
+                         const SmTokenSet& smToks);
 
     /**
      * Closes object metadata DB

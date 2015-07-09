@@ -13,6 +13,7 @@
 #include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 
@@ -260,7 +261,7 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Handle disk change.
      */
     typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
-    void handleDiskChanges(const DiskType& diskType,
+    void handleDiskChanges(const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
 
     /**

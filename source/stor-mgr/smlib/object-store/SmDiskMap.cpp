@@ -33,12 +33,6 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
     test_mode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 
-    auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
-                        get<int>("fds.sm.testing.sleep_to_inject_fault");
-    LOGNOTIFY << "Sleep for " << sleep_time
-              << " during mod_init";
-    sleep(sleep_time);
-
     // get list of HDD and SSD devices
     getDiskMap();
 

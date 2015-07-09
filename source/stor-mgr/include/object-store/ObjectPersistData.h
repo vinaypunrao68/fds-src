@@ -154,8 +154,7 @@ class ObjectPersistData : public Module,
      */
     Error deleteObjectDataFile(const std::string& diskPath,
                                const fds_token_id& smToken,
-                               const fds_uint16_t& diskId,
-                               const fds_uint16_t& fileId);
+                               const fds_uint16_t& diskId);
 
     /**
      * Peristently stores object data.

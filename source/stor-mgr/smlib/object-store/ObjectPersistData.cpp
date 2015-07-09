@@ -371,21 +371,46 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
 
 Error
 ObjectPersistData::deleteObjectDataFile(const std::string& diskPath,
-                                        const fds_token_id& smToken,
-                                        const fds_uint16_t& diskId,
-                                        const fds_uint16_t& fileId) {
-    std::string filename = diskPath + "/tokenFile_" + std::to_string(smToken)
-                           + "_" + std::to_string(fileId);
+                                        const fds_token_id& smTokenId,
+                                        const fds_uint16_t& diskId) {
+    Error err(ERR_OK);
+    std::string filename = diskPath + "/tokenFile_"
+                           + std::to_string(smTokenId) + "_"
+                           + std::to_string(SM_INIT_FILE_ID);
     typedef std::unique_ptr<diskio::FilePersisDataIO> Fptr;
     Fptr fdesc = Fptr(new(std::nothrow) diskio::FilePersisDataIO(filename.c_str(),
-                                                                 fileId,
+                                                                 SM_INIT_FILE_ID,
                                                                  diskId));
-    Error err = fdesc->delete_file();
-    if (!err.ok()) {
-        LOGWARN << "Failed to delete file, tier " << diskio::diskTier
-                << " smToken " << smToken << " fileId" << fileId
-                << ", but ok, ignoring " << err;
+    if (fdesc) {
+        err = fdesc->delete_file();
+        if (!err.ok()) {
+            LOGWARN << "Failed to delete file, tier " << diskio::diskTier
+                    << " smToken " << smTokenId << " fileId" << SM_INIT_FILE_ID
+                    << ", but ok, ignoring " << err;
+        }
+    } else {
+        return ERR_OUT_OF_MEMORY;
     }
+
+    // Now delete the shadow file(if exists).
+    fds_uint16_t shadowFileId = getShadowFileId(SM_INIT_FILE_ID);
+    std::string shadowFilename = diskPath + "/tokenFile_"
+                                 + std::to_string(smTokenId) + "_"
+                                 + std::to_string(shadowFileId);
+    Fptr sfdesc = Fptr(new(std::nothrow) diskio::FilePersisDataIO(shadowFilename.c_str(),
+                                                                  shadowFileId,
+                                                                  diskId));
+    if (sfdesc) {
+        err = sfdesc->delete_file();
+        if (!err.ok()) {
+            LOGWARN << "Failed to delete shadow file, tier " << diskio::diskTier
+                    << " smToken " << smTokenId << " fileId" << shadowFileId
+                    << ", but ok, ignoring " << err;
+        }
+    } else {
+        return ERR_OUT_OF_MEMORY;
+    }
+
     return err;
 }
 

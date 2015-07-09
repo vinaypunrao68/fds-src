@@ -40,8 +40,7 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
 
 Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
-                                 const SmTokenSet& smToks,
-                                 const fds_uint16_t& diskId) {
+                                 const SmTokenSet& smToks) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
     fds_uint32_t ssdCount = diskMap->getTotalDisks(diskio::flashTier);
@@ -78,13 +77,7 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        std::string diskPath;
-        // invalid diskId
-        if (diskId == SM_INVALID_DISK_ID) {
-            diskPath = diskMap->getDiskPath(*cit, tier);
-        } else {
-            diskPath = diskMap->getDiskPath(diskId);
-        }
+        std::string diskPath = diskMap->getDiskPath(*cit, tier);
         err = openObjectDb(*cit, diskPath, syncW);
         if (!err.ok()) {
             LOGERROR << "Failed to open Object Meta DB for SM token " << *cit

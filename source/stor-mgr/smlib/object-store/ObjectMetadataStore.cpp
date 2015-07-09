@@ -56,9 +56,8 @@ ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
 
 Error
 ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap,
-                                       const SmTokenSet& smToks,
-                                       const fds_uint16_t& diskId) {
-    return metaDb_->openMetadataDb(diskMap, smToks, diskId);
+                                       const SmTokenSet& smToks) {
+    return metaDb_->openMetadataDb(diskMap, smToks);
 }
 
 Error
