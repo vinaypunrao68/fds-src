@@ -177,22 +177,11 @@ void
 DmMigrationMgr::ackMigrationComplete(const Error &status)
 {
 	fds_verify(OmStartMigrCb != NULL);
+	LOGMIGRATE << "Telling OM migration is done";
 	OmStartMigrCb(asyncPtr, migrationMsg, status, dmReqPtr);
 	executorMap.clear();
 }
 
-
-void
-DmMigrationMgr::ackInitialBlobFilter(const Error &status)
-{
-	fds_verify(DmStartMigClientCb != NULL);
-	DmStartMigClientCb(asyncPtr, migReqMsg, status, dmReqPtr);
-	/**
-	 * TODO(Neil): need to clear the clientMap once the whole sync is done.
-	 * Just not here. This is here as a reminder.
-	 */
-	// clientMap.clear();
-}
 
 // See note in header file for design decisions
 Error
@@ -225,82 +214,29 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 	 */
 	auto fds_volid = fds_volid_t(ribfsm->volumeId);
 	auto search = clientMap.find(fds_volid);
+	DmMigrationClient::shared_ptr clientPtr = nullptr;
 	if (search != clientMap.end()) {
 		LOGMIGRATE << "Client received request for volume " << ribfsm->volumeId
 				<< " but it already exists";
 		err = ERR_DUPLICATE;
 	} else {
 		/**
-		 * Create a new instance of client
+		 * Create a new instance of client and start it.
 		 */
 		migrClientLock.write_lock();
 		LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
 		clientMap.emplace(fds_volid,
-				DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
+				(clientPtr = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
 												mySvcUuid, destDmUuid, ribfsm,
 												std::bind(&DmMigrationMgr::migrationClientDoneCb,
 												this, std::placeholders::_1,
-												std::placeholders::_2))));
+												std::placeholders::_2)))));
 		migrClientLock.write_unlock();
 
-		/**
-		 * Pass this instance of client off to a new thread.
-		 */
-		DmMgrClientThrPtr newPtr(new boost::thread(&DmMigrationMgr::migrationClientAsyncTask, this, fds_volid));
-		migrClientThrMapLock.write_lock();
-		clientThreadsMap.insert(std::make_pair(fds_volid, newPtr));
-		migrClientThrMapLock.write_unlock();
+		clientPtr->handleInitialBlobFilterMsg();
 	}
 
-	// Free up the QoS thread so migration handler can receive another request
 	return err;
-}
-
-void
-DmMigrationMgr::migrationClientAsyncTask(fds_volid_t uniqueId)
-{
-	// Do nothing
-
-	Error threadErr(ERR_OK);
-	DmMigrationClient::shared_ptr client;
-	Catalog::catalog_roptions_t opts;
-
-	migrClientLock.read_lock();
-	fds_verify(clientMap.find(uniqueId) != clientMap.end());
-	client = clientMap[uniqueId];
-	migrClientLock.read_unlock();
-
-
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
-	snapAndGenerateDBDxSet(uniqueId, opts, filterSet);
-
-
-	// Call this just before the migrDoneHandler
-	dataManager.timeVolCat_->queryIface()->freeVolumeSnapshot(uniqueId, opts);
-	fds_verify(client->migrDoneHandler != nullptr);
-	client->migrDoneHandler(uniqueId, threadErr);
-
-}
-
-Error
-DmMigrationMgr::snapAndGenerateDBDxSet(fds_volid_t uniqueId,
-										Catalog::catalog_roptions_t &opts,
-										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &filterSet)
-{
-
-	/**
-	 * Genearte a snapshot. The ss ptr is stored in opts.
-	 */
-	dataManager.timeVolCat_->queryIface()->getVolumeSnapshot(uniqueId, opts);
-
-	dataManager.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(uniqueId,
-													filterSet->blobFilterMap, opts);
-
-	/**
-	 * TODO Use the diff function (FS-2259) and genrate the actual diff set.
-	 */
-
-	return (ERR_OK);
 }
 
 Error
@@ -376,7 +312,8 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-	SCOPEDWRITE(migrClientThrMapLock);
+	// SCOPEDWRITE(migrClientThrMapLock);
+	SCOPEDWRITE(migrClientLock);
 	LOGMIGRATE << "Client done with volume " << uniqueId;
 	clientMap.erase(fds_volid_t(uniqueId));
 }
