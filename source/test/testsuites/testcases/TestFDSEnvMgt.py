@@ -341,7 +341,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
                 self.log.info("FDS installation directory, %s, exists on node %s. Attempting to delete." %
                               (fds_dir, n.nd_conf_dict['node-name']))
 
-                status = n.nd_agent.exec_wait('rm -rf %s ' % fds_dir)
+                status = n.nd_agent.exec_wait('rm -rf \"%s\"' % fds_dir)
 
                 if status != 0:
                     self.log.error("FDS installation directory deletion on node %s returned status %d." %
