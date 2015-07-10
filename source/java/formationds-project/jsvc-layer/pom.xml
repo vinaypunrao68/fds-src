@@ -10,7 +10,7 @@
         <version>2015.07.17-SNAPSHOT</version>
     </parent>
 
-
+    <name>${formationds.project.name} Java Service Layer</name>
     <artifactId>jsvc-layer</artifactId>
 
     <dependencies>
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>com.formationds</groupId>
             <artifactId>thrift-client-util</artifactId>
-            <version>${formationds.thrift-client-util.version}</version>
+            <version>${formationds.thrift.client.util.version}</version>
         </dependency>
 
         <dependency>

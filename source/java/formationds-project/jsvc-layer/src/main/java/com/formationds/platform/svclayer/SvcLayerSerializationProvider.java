@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.platform.svclayer;
 
 import org.apache.thrift.TBase;
@@ -9,47 +8,22 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TJSONProtocol;
 import org.apache.thrift.protocol.TProtocolFactory;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public interface SvcLayerSerializationProvider {
 
     class SerializationException extends RuntimeException
     {
-        public SerializationException(Object o, IOException ioe)
-        {
-            super( "Failed to serialize object type " + (o != null ? o.getClass() : null),
-                   ioe );
-        }
-
-        public SerializationException(String msg, IOException ioe)
-        {
-            super( msg, ioe );
-        }
-
         /**
-         *
-         * @param cnfe
+         * @param msg the message
+         * @param t the cause
          */
-        public SerializationException(ClassNotFoundException cnfe)
-        {
-            super( "Failed to deserialize object: " + cnfe.getMessage(), cnfe );
-        }
-
-        /**
-         *
-         * @param cnfe
-         */
-        public SerializationException(ClassCastException cnfe)
-        {
-            super( "Failed to convert deserialized object to requested type: " + cnfe.getMessage(), cnfe );
-        }
-
         SerializationException(String msg, Throwable t) {
             super(msg, t);
         }
     }
 
+    @SuppressWarnings("unchecked")
     enum SerializationProtocol {
         BINARY {
             @Override
@@ -68,7 +42,7 @@ public interface SvcLayerSerializationProvider {
     }
 
     /**
-     * @param protocol
+     * @param protocol the serialization protocol
      */
     void setSerializationProtocol( SerializationProtocol protocol );
 

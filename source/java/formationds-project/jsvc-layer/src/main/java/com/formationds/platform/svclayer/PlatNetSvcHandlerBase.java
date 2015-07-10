@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.platform.svclayer;
 
 import FDS_ProtocolInterface.FDSP_ActivateNodeType;
@@ -23,7 +22,7 @@ import java.util.Map;
  * client specified by the client factory.  This adapter is intended to be overridden to
  * provide specialized handling of specific requests as needed.
  */
-public abstract class OMPlatNetSvcHandlerBase implements PlatNetSvc.Iface {
+public abstract class PlatNetSvcHandlerBase implements PlatNetSvc.Iface {
 
     /**
      *
@@ -45,11 +44,11 @@ public abstract class OMPlatNetSvcHandlerBase implements PlatNetSvc.Iface {
         /**
          * @see #newPlatformService(String, Integer, int, int, int)
          */
-        public static ThriftClientFactory<PlatNetSvc.Iface> newPlatformService(String host, Integer port) {
+        public static ThriftClientFactory<PlatNetSvc.Iface> newPlatformService( String host, Integer port ) {
             return newPlatformService( host, port,
                                        ThriftClientFactory.DEFAULT_MAX_POOL_SIZE,
                                        ThriftClientFactory.DEFAULT_MIN_IDLE,
-                                       ThriftClientFactory.DEFAULT_MIN_EVICTION_IDLE_TIME_MS);
+                                       ThriftClientFactory.DEFAULT_MIN_EVICTION_IDLE_TIME_MS );
         }
 
         /**
@@ -60,20 +59,20 @@ public abstract class OMPlatNetSvcHandlerBase implements PlatNetSvc.Iface {
          *
          * @param host the optional default thrift server host.
          * @param port the optional default thrift server port.  If a host is specified, then the port is required.
-         * @param maxPoolSize
-         * @param minIdle
-         * @param softMinEvictionIdleTimeMillis
+         * @param maxPoolSize the max client pool size
+         * @param minIdle the minimum number of connection to keep in the pool
+         * @param softMinEvictionIdleTimeMillis the idle client eviction time.
          *
          * @return a ThriftClientFactory for the PlatNetSvc.Iface with the specified default host and port.
          */
-        public static ThriftClientFactory<PlatNetSvc.Iface> newPlatformService(String host, Integer port,
-                                                                                       int maxPoolSize,
-                                                                                       int minIdle,
-                                                                                       int softMinEvictionIdleTimeMillis) {
-            return new ThriftClientFactory.Builder<>(PlatNetSvc.Iface.class)
-                       .withHostPort(host, port)
-                       .withPoolConfig(maxPoolSize, minIdle, softMinEvictionIdleTimeMillis)
-                       .withClientFactory(PlatNetSvc.Client::new)
+        public static ThriftClientFactory<PlatNetSvc.Iface> newPlatformService( String host, Integer port,
+                                                                                int maxPoolSize,
+                                                                                int minIdle,
+                                                                                int softMinEvictionIdleTimeMillis ) {
+            return new ThriftClientFactory.Builder<>( PlatNetSvc.Iface.class )
+                       .withHostPort( host, port )
+                       .withPoolConfig( maxPoolSize, minIdle, softMinEvictionIdleTimeMillis )
+                       .withClientFactory( PlatNetSvc.Client::new )
                        .build();
         }
 
@@ -87,14 +86,14 @@ public abstract class OMPlatNetSvcHandlerBase implements PlatNetSvc.Iface {
 
     /**
      */
-    public OMPlatNetSvcHandlerBase() {
-        this(PlatformServiceClientFactory.newPlatformService());
+    public PlatNetSvcHandlerBase() {
+        this( PlatformServiceClientFactory.newPlatformService() );
     }
 
     /**
      * @param factory
      */
-    protected OMPlatNetSvcHandlerBase(ThriftClientFactory<PlatNetSvc.Iface> factory) {
+    protected PlatNetSvcHandlerBase( ThriftClientFactory<PlatNetSvc.Iface> factory ) {
         omNativePlatformClientFactory = factory;
     }
 

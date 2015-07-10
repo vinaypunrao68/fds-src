@@ -32,7 +32,7 @@
     <dependency>
         <groupId>com.formationds</groupId>
         <artifactId>thrift-client-util</artifactId>
-        <version>${formationds.thrift-client-util.version}</version>
+      <version>${formationds.thrift.client.util.version}</version>
     </dependency>
 
     <!-- third party dependencies -->

@@ -94,7 +94,7 @@
     <formationds.project.version>2015.07.17-SNAPSHOT</formationds.project.version>
     <formationds.thrift.version>2015.07.17-SNAPSHOT</formationds.thrift.version>
     <formationds.ext.model.version>2015.07.17-SNAPSHOT</formationds.ext.model.version>
-    <formationds.thrift-client-util.version>2015.07.17-SNAPSHOT</formationds.thrift-client-util.version>
+    <formationds.thrift.client.util.version>2015.07.17-SNAPSHOT</formationds.thrift.client.util.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>

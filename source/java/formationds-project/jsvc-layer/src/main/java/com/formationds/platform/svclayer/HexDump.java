@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.platform.svclayer;
 
 import java.io.OutputStream;
@@ -27,7 +26,7 @@ public class HexDump {
      */
     public static String encodeHex( byte[] bytes ) {
         StringWriter sw = new StringWriter( bytes.length * 2 );
-        try ( PrintWriter out = new PrintWriter( sw ); ) {
+        try ( PrintWriter out = new PrintWriter( sw ) ) {
             writeHex( out, bytes, 0, bytes.length );
         }
         return sw.toString();
@@ -40,7 +39,7 @@ public class HexDump {
      */
     public static String encodeHexAndAscii( byte[] bytes ) {
         StringWriter sw = new StringWriter( bytes.length * 2 );
-        try ( PrintWriter out = new PrintWriter( sw ); ) {
+        try ( PrintWriter out = new PrintWriter( sw ) ) {
             writeHexAndAscii( out, bytes, 0, DEFAULT_WIDTH );
         }
         return sw.toString();
@@ -125,6 +124,7 @@ public class HexDump {
             writeAscii( out, bytes, index + offset, width );
             out.println();
         }
+        out.flush();
     }
 
     private static void writeHex( PrintWriter out, byte[] bytes, int offset, int width ) {
@@ -138,21 +138,24 @@ public class HexDump {
                 out.append( "  " );
             }
         }
+        out.flush();
     }
 
-    private static void writeAscii( PrintWriter out, byte[] bytes, int index, int width ) {
-        try {
-            if ( index < bytes.length ) {
-                width = Math.min( width, bytes.length - index );
-                for ( int i = 0; i < width; i++ ) {
-                    int bc = bytes[i + index] & 0xFF;
-                    if ( bc < 0x20 || bc > 0x7E ) { out.append( "." ); } else { out.append( (char) bc ); }
+    private static void writeAscii( PrintWriter out, byte[] bytes, int offset, int width ) {
+        width = Math.min( width, bytes.length - offset );
+        for ( int index = 0; index < width; index++ ) {
+            if ( index + offset < bytes.length ) {
+                int bc = bytes[index + offset] & 0xFF;
+                if ( bc < 0x20 || bc > 0x7E ) {
+                    out.append( "." );
+                } else {
+                    out.append( (char) bc );
                 }
             } else {
-                // end of line... newline added in caller
+                // pad with spaces
+                out.append( " " );
             }
-        } catch ( Exception uee ) {
-            throw new IllegalStateException( "Missing standard JVM encoding of UTF-8" );
         }
+        out.flush();
     }
 }

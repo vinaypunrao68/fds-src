@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.platform.svclayer;
 
 import java.util.List;
@@ -27,6 +26,7 @@ public class SvcServer {
         }
     }
 
+    // TODO: not yet used anywhere
     public enum SvcServerLifecycleEvent {
         STARTING,
         STARTED,
@@ -35,6 +35,7 @@ public class SvcServer {
         ERROR;
     }
 
+    // TODO: Not yet used anywhere
     public interface SvcServerListener {
         void serverLifecycleEvent(SvcServerLifecycleEvent event);
         void errorEvent(Throwable t);
@@ -97,6 +98,7 @@ public class SvcServer {
      */
     public Future<Void> start() {
         CompletableFuture<Void> completableFuture = new CompletableFuture<Void>();
+        // TODO: not yet implemented
         completableFuture.completeExceptionally( new ServerLifecycleException( "START NOT IMPLEMENTED" ) );
         return completableFuture;
     }
@@ -131,6 +133,7 @@ public class SvcServer {
      */
     public Future<Void> stop() throws ServerLifecycleException {
         CompletableFuture<Void> completableFuture = new CompletableFuture<Void>();
+        // TODO: not yet implemented
         completableFuture.completeExceptionally( new ServerLifecycleException( "STOP NOT IMPLEMENTED" ) );
         return completableFuture;
     }

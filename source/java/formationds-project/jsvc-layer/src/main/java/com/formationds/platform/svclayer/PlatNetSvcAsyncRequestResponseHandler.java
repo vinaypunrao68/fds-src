@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.platform.svclayer;
 
 import com.formationds.protocol.svc.types.AsyncHdr;
@@ -14,11 +13,11 @@ import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
 
-public class OMPlatNetSvcAsyncRequestResponseHandler extends OMPlatNetSvcHandlerBase {
+public class PlatNetSvcAsyncRequestResponseHandler extends PlatNetSvcHandlerBase {
 
     static final Logger logger        = LogManager.getLogger();
-    static final Marker JSVC_REQUEST  = MarkerManager.getMarker( "JSVC_REQUEST" );
-    static final Marker JSVC_RESPONSE = MarkerManager.getMarker( "JSVC_RESPONSE" );
+    static final Marker SVC_REQUEST  = MarkerManager.getMarker( "SVC_REQUEST" );
+    static final Marker SVC_RESPONSE = MarkerManager.getMarker( "SVC_RESPONSE" );
 
     private void logPayload( Marker marker, AsyncHdr asyncHdr, ByteBuffer payload ) {
         logger.trace( marker,
@@ -44,13 +43,13 @@ public class OMPlatNetSvcAsyncRequestResponseHandler extends OMPlatNetSvcHandler
 
     @Override
     public void asyncReqt( AsyncHdr asyncHdr, ByteBuffer payload ) throws TException {
-        logPayload( JSVC_REQUEST, asyncHdr, payload );
+        logPayload( SVC_REQUEST, asyncHdr, payload );
         super.asyncReqt( asyncHdr, payload );
     }
 
     @Override
     public void asyncResp( AsyncHdr asyncHdr, ByteBuffer payload ) throws TException {
-        logPayload( JSVC_RESPONSE, asyncHdr, payload );
+        logPayload( SVC_RESPONSE, asyncHdr, payload );
         super.asyncResp( asyncHdr, payload );
     }
 }

@@ -10,6 +10,7 @@
         <relativePath>../pom.xml</relativePath>
 	</parent>
 
+	<name>${formationds.project.name} Thrift Client Utils</name>
 	<artifactId>thrift-client-util</artifactId>
 
 	<dependencies>

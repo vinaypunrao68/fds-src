@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.platform.svclayer;
 
 import com.formationds.platform.svclayer.SvcLayerSerializationProvider.SerializationException;
@@ -58,6 +57,7 @@ public class SvcLayerSerializer {
         return Holder.serializationProvider.deserialize( t, from );
     }
 
+    @SuppressWarnings("unchecked")
     public static <T extends TBase<?, ?>> Class<T> loadFDSPMessageClass( FDSPMsgTypeId typeId ) throws
                                                                                                 ClassNotFoundException {
         int typeIdIndex = typeId.name().indexOf( "TypeId" );
@@ -66,6 +66,7 @@ public class SvcLayerSerializer {
         return (Class<T>) Class.forName( className );
     }
 
+    @SuppressWarnings("unchecked")
     public static <T extends TBase<?, ?>> T deserialize( FDSPMsgTypeId typeId,
                                                          ByteBuffer payload ) throws SerializationException {
         try {
