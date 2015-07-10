@@ -565,7 +565,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
-        retrun  err;
+        return  err;
     }
 
     if (vdesc->isSnapshot()) {
