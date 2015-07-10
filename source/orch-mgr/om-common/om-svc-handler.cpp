@@ -87,12 +87,12 @@ void OmSvcHandler::init_svc_event_handlers() {
                 * No need to spam the log with the log errors, when the
                 * real issue
                 */
-               LOGERROR << std::hex << svc << " saw too many " << std::dec << error
+               LOGERROR << std::hex << svc << " " << agent->node_get_svc_type()
+                        << " saw too many " << std::dec << error
                         << " events [" << events << "]";
 
                agent->set_node_state(fpi::FDS_Node_Down);
-               domain->om_service_down(error, svc, agent->om_agent_type());
-
+               domain->om_service_down(error, svc, agent->node_get_svc_type());
            } else {
 
                LOGERROR << "unknown service: " << svc;
@@ -102,10 +102,10 @@ void OmSvcHandler::init_svc_event_handlers() {
        Error               error;
     };
 
-    // Timeout handler (2 within 15 minutes will trigger)
+    // Timeout handler (1 within 15 minutes will trigger)
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
                                  create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
-                                                                      "timeout", 15, 2));
+                                                                      "timeout", 15, 1));
 
     // DiskWrite handler (1 within 24 hours will trigger)
     event_tracker.register_event(ERR_DISK_WRITE_FAILED,
@@ -255,55 +255,61 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-    						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
+                                        boost::shared_ptr<fpi::NotifyHealthReport> &msg)
 {
-	LOGDEBUG << "Received Health Report from PM: "
-			     << msg->healthReport.serviceInfo.svc_id.svc_name
-			     << " state: " << msg->healthReport.serviceState
-			     << " status: " << msg->healthReport.statusCode << std::endl;
+    LOGNORMAL << "Received Health Report: "
+              << msg->healthReport.serviceInfo.svc_id.svc_name
+              << " state: " << msg->healthReport.serviceState
+              << " status: " << msg->healthReport.statusCode;
 
-	ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
-	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
-	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
+    ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+    fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
+    fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
 
-	switch (msg->healthReport.serviceState) {
-		case fpi::RUNNING:
-      healthReportRunning( msg );
-		  break;
-		case fpi::INITIALIZING:
-		case fpi::DEGRADED:
-		case fpi::LIMITED:
-		case fpi::SHUTTING_DOWN:
-		case fpi::ERROR:
-		case fpi::UNREACHABLE:
-			LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
-					<< " state: " << msg->healthReport.serviceState << " not implemented yet.";
-			break;
-		case fpi::UNEXPECTED_EXIT:
-			switch (service_type) {
-				case fpi::FDSP_ACCESS_MGR:
-					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
-					// no break
-				case fpi::FDSP_DATA_MGR:
-					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
-					// no break
-				case fpi::FDSP_STOR_MGR: {
-					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
-					healthReportUnexpectedExit(comp_type, msg);
-					break;
-				}
-				default:
-					LOGERROR << "Unhandled process: "
-					         << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
-					         << " with service type "
-					         << service_type;
-					break;
-			}
-			break;
-		default:
-			LOGERROR << "Unknown service state: " << msg->healthReport.serviceState;
-			break;
-	}
+    switch (msg->healthReport.serviceState) {
+        case fpi::RUNNING:
+        case fpi::INITIALIZING:
+        case fpi::DEGRADED:
+        case fpi::LIMITED:
+        case fpi::SHUTTING_DOWN:
+        case fpi::ERROR:
+            LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
+                    << " state: " << msg->healthReport.serviceState << " not implemented yet.";
+            break;
+        case fpi::UNREACHABLE:
+            LOGNORMAL << "Handling unreachable event for service " << msg->healthReport.serviceInfo.name
+                      << " in state " << msg->healthReport.serviceState;
+            // Track this error event as a timeout. We're assuming a timeout is
+            // indistingusable from a service being unreachable.
+            event_tracker.feed_event(ERR_SVC_REQUEST_TIMEOUT, service_UUID);
+            break;
+        case fpi::UNEXPECTED_EXIT:
+            // Generally dispatched by PM when it sees a service's process abort unexpectedly
+            switch (service_type) {
+                case fpi::FDSP_ACCESS_MGR:
+                    comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+                    // no break
+                case fpi::FDSP_DATA_MGR:
+                    comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+                    // no break
+                case fpi::FDSP_STOR_MGR: {
+                    comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+                    healthReportUnexpectedExit(comp_type, msg);
+                    break;
+                }
+                default:
+                    LOGERROR << "Unhandled process: "
+                             << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
+                             << " with service type "
+                             << service_type;
+                    break;
+            }
+            break;
+        default:
+            // Panic on unhandled service states.
+            fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
+            break;
+    }
 }
 
 void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg )

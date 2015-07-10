@@ -578,6 +578,12 @@ fds: {
             probe_sleep_period = 500
             /* Enable printing of fine-grained QoS stats to var/stats/stats-data dir */
             print_qos_stats = false
+
+            /* Fault injection toggles */
+            fault: {
+                /* Injects unreachable faults into service communication */
+                unreachable = false
+            }
         }
     }
 
