@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <SmTypes.h>
 #include <SmIo.h>
 #include <object-store/ObjectMetaCache.h>
 #include <object-store/ObjectMetaDb.h>
@@ -51,6 +52,11 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * @param[in] set of SM tokens for which this SM lost ownership
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    /**
+     * Delete metadata DBs of given SM tokens
+     */
+    Error deleteMetadataDb(const std::string& diskPath,const fds_token_id& smTokenLost);
 
     /**
      * Retrieves metadata for given object with ID 'objId'

@@ -3,6 +3,8 @@
  */
 #include <string>
 #include <fds_process.h>
+#include <fiu-local.h>
+#include <fiu-control.h>
 #include <net/SvcMgr.h>
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
@@ -15,10 +17,10 @@
 
 namespace fds {
 
-SmDiskMap::SmDiskMap(const std::string& modName)
+SmDiskMap::SmDiskMap(const std::string& modName, DiskChangeFnObj diskChangeFn)
         : Module(modName.c_str()),
           bitsPerToken_(0),
-          superblock(new SmSuperblockMgr()),
+          superblock(new SmSuperblockMgr(std::move(diskChangeFn))),
           ssdIdxMap(nullptr),
           test_mode(false) {
     for (int i = 0; i < 60; ++i) {
@@ -63,6 +65,7 @@ int SmDiskMap::mod_init(SysParams const *const param) {
 
 Error
 SmDiskMap::loadPersistentState() {
+
     // Load superblock, tell superblock about disk map
     // it will handle changes in diskmap (vs. its persisted state)
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map);
@@ -120,8 +123,9 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
                 if (statvfs(filename.c_str(), &statbuf) < 0) {
                     LOGERROR << "Could not read metadata filename" << filename;
+                } else {
+                    consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
                 }
-                consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
             }
         }
     } else {
@@ -420,4 +424,8 @@ SmDiskMap::getTotalDisks(diskio::DataTier tier) const {
     return 0;
 }
 
+bool
+SmDiskMap::isAllDisksSSD() const {
+    return ((ssd_ids.size() > 0) && (hdd_ids.size() == 0));
+}
 }  // namespace fds
