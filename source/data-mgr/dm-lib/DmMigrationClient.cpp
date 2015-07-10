@@ -128,6 +128,10 @@ DmMigrationClient::processBlobDescDiff()
     return err;
 }
 
+/**
+ * For testing only
+ */
+#define MAX_TEST_BLOB_MSGS 20
 Error
 DmMigrationClient::processBlobFilterSet()
 {
@@ -190,7 +194,7 @@ DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlob
 	unsigned testBlobId = 0;
 	for (int i = 0; i < MAX_TEST_BLOB_MSGS; i++) {
 		fpi::CtrlNotifyDeltaBlobsPtr aPtr(new fpi::CtrlNotifyDeltaBlobs);
-		aPtr->volume_id = volID.v;
+		aPtr->volume_id = volId.v;
 		aPtr->msg_seq_id = i;
 		if ((i+1) == MAX_TEST_BLOB_MSGS) {
 			aPtr->last_msg_seq_id = true;
@@ -225,7 +229,7 @@ DmMigrationClient::sendCtrlNotifyDeltaBlobs()
 	asyncDeltaBlobsMsg->setTimeoutMs(0);
 
 	for (unsigned i = 0; i < myBlobMsgs.size(); i++) {
-		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volID.v);
+		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volId.v);
 		// TODO(Neil) - this needs to be fixed - currently coring.
 		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobs), myBlobMsgs[i]);
 		asyncDeltaBlobsMsg->invoke();
