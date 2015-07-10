@@ -16,7 +16,7 @@ namespace timeline {
 struct TimelineManager {
     TimelineManager(fds::DataMgr* dm);
 
-    Error deleteSnapshot(fds_volid_t volid, fds_volid_t snapshotid);
+    Error deleteSnapshot(fds_volid_t volid, fds_volid_t snapshotid = invalid_vol_id);
     Error loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid = invalid_vol_id);
     Error unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid);
     Error createSnapshot(VolumeDesc *vdesc);
