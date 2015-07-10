@@ -59,8 +59,12 @@ void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                          boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                                          Error const& e, dmCatReq* dmRequest)
 {
+    // Don't need to send the response to this message.  We will a message
+    // back to OM when the migration is complete, but not as part of
+    // this response handler (see handleResponseReal()).
+
     // Remove the dm request, since we don't need it any more
-    // delete dmRequest
+    delete dmRequest;
 }
 
 
@@ -128,5 +132,40 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
 
     delete dmRequest;
 }
+
+
+DmMigrationDeltablobHandler::DmMigrationDeltablobHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyDeltaBlobsMsg, handleRequest);
+    }
+}
+
+void DmMigrationDeltablobHandler::handleRequest(
+        boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
+    auto dmReq = new DmIoMigDeltaBlob(message);
+
+    fds_verify(dmReq->io_type == FDS_DM_MIG_DELT_BLB);
+
+    LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
+        << " " << *reinterpret_cast<DmIoMigDeltaBlob*>(dmReq);
+
+    addToQueue(dmReq);
+
+}
+
+void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    DmIoMigDeltaBlob* typedRequest = static_cast<DmIoMigDeltaBlob*>(dmRequest);
+
+    LOGMIGRATE << "Sending the delta blob migration dequest to migration Mgr " << *typedRequest;
+    /*
+     *  revisit this - Migration Migration executor integration 
+     */
+    dataManager.dmMigrationMgr->applyDeltaObjects(typedRequest);
+}
+
 }  // namespace dm
 }  // namespace fds

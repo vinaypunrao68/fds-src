@@ -58,10 +58,10 @@ class InfluxDb:
             logger.info((json.dumps(data)))
 
 influx_db_config = {
-    "ip" : "influxdb-ec2",
-    "port" : 80,
-    "user" : "perf",
-    "password" : "perf",
+    "ip" : "matteo-vm",
+    "port" : 8086,
+    "user" : "root",
+    "password" : "root",
     "db" : "perf",
 }
 
