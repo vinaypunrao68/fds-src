@@ -367,6 +367,28 @@ class DmIoQueryCat: public dmCatReq {
     CbType dmio_querycat_resp_cb;
 };
 
+
+class DmIoMigDeltaBlob : public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoMigDeltaBlob *req)> CbType;
+    explicit DmIoMigDeltaBlob(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& fwdMsg)
+            : dmCatReq(fds_volid_t(fwdMsg->volume_id), "", "", 0,
+                       FDS_DM_MIG_DELT_BLB), fwdCatMsg(fwdMsg) {}
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoMigDeltaBlob vol " << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigDeltaBlob& io) {
+        return out << "DmIoMigDeltaBlob vol " << std::hex << io.volId << std::dec;
+    }
+
+    boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> fwdCatMsg;
+    CbType dmio_fwdcat_resp_cb;
+};
+
 /**
  * New request to update catalog
  */

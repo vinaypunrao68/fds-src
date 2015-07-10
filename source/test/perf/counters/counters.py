@@ -106,8 +106,8 @@ def main():
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "influxdb-ec2",
-        "port" : 80,
+        "ip" : "matteo-vm",
+        "port" : 8086,
         "user" : "root",
         "password" : "root",
         "db" : "counters"

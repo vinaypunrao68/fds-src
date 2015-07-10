@@ -54,7 +54,7 @@ def suiteConstruction(self):
     suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
     # Cleanup FDS installation directory.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+    #suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
 
     return suite
 
