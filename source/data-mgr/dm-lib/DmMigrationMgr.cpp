@@ -174,6 +174,13 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
 	return err;
 }
 
+// process the deltaObject request 
+Error
+DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
+    return ERR_OK;
+}
+
+
 void
 DmMigrationMgr::ackMigrationComplete(const Error &status)
 {

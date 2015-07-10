@@ -65,7 +65,7 @@ class DmMigrationClient {
     /*
      * TODO Temp function
      */
-    Error generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsPtr> &blobsMsg);
+    Error generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg);
 
 
  private:
@@ -82,7 +82,7 @@ class DmMigrationClient {
     NodeUuid destDmUuid;
     fds_volid_t volId;
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
-    std::vector<fpi::CtrlNotifyDeltaBlobsPtr> myBlobMsgs;
+    std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> myBlobMsgs;
 
     /**
      * Snapshot used for diff.

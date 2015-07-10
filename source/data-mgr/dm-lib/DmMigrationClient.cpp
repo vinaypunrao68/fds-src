@@ -188,12 +188,12 @@ DmMigrationClient::processBlobFilterSet()
   */
 #define MAX_TEST_BLOB_MSGS 20
 Error
-DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsPtr> &blobsMsg)
+DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg)
 {
 	fds_bool_t testLast = false;
 	unsigned testBlobId = 0;
 	for (int i = 0; i < MAX_TEST_BLOB_MSGS; i++) {
-		fpi::CtrlNotifyDeltaBlobsPtr aPtr(new fpi::CtrlNotifyDeltaBlobs);
+		fpi::CtrlNotifyDeltaBlobsMsgPtr aPtr(new fpi::CtrlNotifyDeltaBlobsMsg);
 		aPtr->volume_id = volId.v;
 		aPtr->msg_seq_id = i;
 		if ((i+1) == MAX_TEST_BLOB_MSGS) {
@@ -224,14 +224,14 @@ DmMigrationClient::sendCtrlNotifyDeltaBlobs()
 	if (myBlobMsgs.size() == 0) {
 		return;
 	}
-	LOGMIGRATE << "Sending CtrlNotifyDeltaBlobs msgs to DM: " << destDmUuid;
+	LOGMIGRATE << "Sending CtrlNotifyDeltaBlobsMsg msgs to DM: " << destDmUuid;
 	auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	asyncDeltaBlobsMsg->setTimeoutMs(0);
 
 	for (unsigned i = 0; i < myBlobMsgs.size(); i++) {
 		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volId.v);
 		// TODO(Neil) - this needs to be fixed - currently coring.
-		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobs), myBlobMsgs[i]);
+		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg), myBlobMsgs[i]);
 		asyncDeltaBlobsMsg->invoke();
 	}
 }
