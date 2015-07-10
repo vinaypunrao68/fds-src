@@ -87,7 +87,7 @@ class DmMigrationClient {
     /**
      * Snapshot used for diff.
      */
-    Catalog::catalog_roptions_t opts;
+    Catalog::MemSnap m;
 
 
     /**
