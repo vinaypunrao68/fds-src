@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
-. ./message.sh
-. ./core_hunter.sh
+. ./jenkins_scripts/message.sh
+. ./jenkins_scripts/core_hunter.sh
 
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
 KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
