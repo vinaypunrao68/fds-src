@@ -90,6 +90,16 @@ class OM_NodeAgent : public NodeAgent
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
 
+    /**
+     * Call this method when service is successfully deployed in the domain
+     * (SM/DM is in DLT/DMT). Sets service state to active.
+     */
+    virtual void handle_service_deployed();
+    /**
+     * Calls set_not_state() based on state stored in configDB service map
+     */
+    virtual void set_state_from_svcmap();
+
     // this is the new function we shall try on using service layer
     virtual void om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
@@ -979,6 +989,7 @@ class OM_NodeDomainMod : public Module
     bool isDataMgrSvc( fpi::SvcInfo svcInfo );
     bool isStorageMgrSvc( fpi::SvcInfo svcInfo );
     bool isKnownPM( fpi::SvcInfo svcInfo );
+    bool isKnownService(fpi::SvcInfo svcInfo);
     void fromSvcInfoToFDSP_RegisterNodeTypePtr( 
         fpi::SvcInfo svc, 
         fpi::FDSP_RegisterNodeTypePtr& reg_node_req );
