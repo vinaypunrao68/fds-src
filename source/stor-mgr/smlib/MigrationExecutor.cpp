@@ -551,7 +551,9 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << std::hex << executorId << std::dec;
+	    trackIOReqs.finishTrackIOReqs();
             handleMigrationRoundDone(err);
+	    return ERR_OK;
         }
 
         // Empty delta set, so no need to track this IO.
@@ -661,10 +663,11 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
         // this executor finished the first or second round of migration, based on state
         LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                   << std::hex << req->executorId << std::dec;
-        handleMigrationRoundDone(error);
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+
+        handleMigrationRoundDone(error);
         return;
     }
 
@@ -783,7 +786,7 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 void
 MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     fds_uint32_t roundNum = 2;
-    LOGMIGRATE << "handleMigrationRoundDone";
+    LOGMIGRATE << "handleMigrationRoundDone " << error;
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states

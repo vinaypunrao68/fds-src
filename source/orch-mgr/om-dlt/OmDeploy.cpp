@@ -997,7 +997,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                  << "still in progress (most likely resync due to restart)."
                  << " Will retry in couple of minutes";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
-                                         std::chrono::seconds(3*60))) {
+                                         std::chrono::seconds(2*60))) {
             LOGWARN << "Failed to start try againtimer!!!"
                     << " SM additions/deletions may be pending for long time!";
         }

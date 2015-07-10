@@ -1065,7 +1065,7 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     LOGDEBUG << "Abort Migration request for target DLT " << abortMigrationReq->targetDLTVersion;
 
     // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration(abortMigrationReq->targetDLTVersion);
+    err = objStorMgr->migrationMgr->abortMigrationFromOM(abortMigrationReq->targetDLTVersion);
 
     // revert to DLT version provided in abort message
     if (err.ok() && (abortMigrationReq->abortMigrationDLTVersion > 0)) {

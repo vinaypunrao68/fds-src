@@ -111,7 +111,7 @@ class MigrationMgr {
      * @return ERR_OK if success; ERR_INVALID_ARG if targetDltVersion does not
      * match DLT version for which migration is in progress
      */
-    Error abortMigration(fds_uint64_t tgtDltVersion);
+    Error abortMigrationFromOM(fds_uint64_t tgtDltVersion);
 
     /**
      * Abort migration for a given SM token. Currently
@@ -243,6 +243,7 @@ class MigrationMgr {
      * Coalesce all migration executor.
      */
     void coalesceExecutors();
+    void coalesceExecutorsNoLock();
 
     /**
      * Coalesce all migration client.
@@ -377,8 +378,10 @@ class MigrationMgr {
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
+     * @param checkedExecutorsDone true if executors already checked and they are done
+     *        so only check clients, and if they are also done, move to IDLE state
      */
-    void checkResyncDoneAndCleanup();
+    void checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone);
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
@@ -386,6 +389,7 @@ class MigrationMgr {
     /// does not mean anything if mgr in IDLE state
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
+    Error abortError;
 
     /**
      * Indexes this vector is a DLT token, and boolean value is true if

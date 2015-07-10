@@ -19,6 +19,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
           numBitsPerDltToken(0),
+          abortError(ERR_OK),
           nextExecutor(migrExecutors),
           migrationTimeoutTimer(new FdsTimer())
 {
@@ -627,18 +628,20 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         // ok if migration client does not exist
         if (migrClients.count(executorId) > 0) {
             LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
-                     << std::dec << " which means that forwarding from this client will stop too";
+                     << std::dec << " which means that forwarding from this client will stop too"
+		     << ". Migration clients " << migrClients.size();
             // the destination SM told us it does not need this client anymore
             // just remove it, which will also stop forwarding IO from this client
             migrClients[executorId]->waitForIOReqsCompletion(executorId);
             migrClients.erase(executorId);
             doneWithClients = (migrClients.size() == 0);
+	    LOGMIGRATE << "Removed one client, clients left so far " << migrClients.size();
         }
     }
 
     // check if the whole resync on restart is finished
     if (doneWithClients) {
-        checkResyncDoneAndCleanup();
+        checkResyncDoneAndCleanup(false);
     }
 
     return err;
@@ -753,12 +756,11 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         if (resyncOnRestart) {
             retryWithNewSMs(executorId, smToken, dltTokens, round, error);
         } else {
-            /**
-             * For token migration, we cannot get source SMs from the current
-             * commited DLT, because we are migrating for the target DLT
-             * const TokenList tokens(dltTokens.begin(),dltTokens.end());
-             */
-            changeDltTokensAvailability(dltTokens, false);
+            // If we are changing DLT, just abort migration, OM will retry later
+            abortMigration(error);
+            // if we already synced some DLT tokens, they will be set to unavail
+            // when DLT commit comes for the previousle committed DLT (to which OM
+            // will revert to).
         }
     }
 
@@ -884,13 +886,14 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 // done with executors.  First check if there is any pending migration
                 // requests before clearing executors.  At this point, there shouldn't
                 // be any.
-
+                LOGMIGRATE << "ResyncOnRestart: done with executors; wait for clients to complete";
+                coalesceExecutorsNoLock();
+                LOGMIGRATE << "ResyncOnRestart: coalesced executors";
                 migrExecutorLock.upgrade();
-
-                coalesceExecutors();
                 migrExecutors.clear();
+                LOGMIGRATE << "ResyncOnRestart: cleared executors";
                 // see if clients are also done so we can cleanup
-                checkResyncDoneAndCleanup();
+                checkResyncDoneAndCleanup(true);
 
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
@@ -1172,33 +1175,42 @@ MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
 }
 
 void
-MigrationMgr::checkResyncDoneAndCleanup()
+MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
 {
     if (!resyncOnRestart) {
         // not resync case
         return;
     }
-    // Matteo: lock ordering between migrExecutorLock and clientLock
-    SCOPEDREAD(migrExecutorLock);
-    if (migrExecutors.size() == 0) {
-        // we are done with executors
-        SCOPEDWRITE(clientLock);
-        if (migrClients.size() == 0) {
-            // we are also done with clients = done with resync
-            MigrationState expectState = MIGR_IN_PROGRESS;
-            if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
-                LOGMIGRATE << "Already done or aborted, nothing to do, current state " << migrState;
-                return;  // this is ok
-            }
-
-            // Cancel retryTokenMigration Timer Task since we are done with migration.
-            if (retryTokenMigrationTask != nullptr) {
-                mTimer.cancel(retryTokenMigrationTask);
-            }
-
-            LOGNOTIFY << "Token resync on restart / or being resync client completed for DLT version "
-                      << targetDltVersion;
+    LOGMIGRATE << "Checking if Resync is done";
+    fds_bool_t executorsDone = checkedExecutorsDone ? true : false;
+    if (!checkedExecutorsDone) {
+        SCOPEDREAD(migrExecutorLock);
+        if (migrExecutors.size() == 0) {
+            executorsDone = true;
         }
+    }
+    LOGMIGRATE << "Done with executors ? " << executorsDone;
+    if (!executorsDone) {
+        return;  // executors not done, migration still in progress
+    }
+
+    // we are done with executors
+    SCOPEDWRITE(clientLock);
+    if (migrClients.size() == 0) {
+        // we are also done with clients = done with resync
+        MigrationState expectState = MIGR_IN_PROGRESS;
+        if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
+            LOGMIGRATE << "Already done or aborted, nothing to do, current state " << migrState;
+            return;  // this is ok
+        }
+
+        // Cancel retryTokenMigration Timer Task since we are done with migration.
+        if (retryTokenMigrationTask != nullptr) {
+            mTimer.cancel(retryTokenMigrationTask);
+        }
+
+        LOGNOTIFY << "Token resync on restart / or being resync client completed for DLT version "
+                  << targetDltVersion;
     }
 }
 
@@ -1236,7 +1248,7 @@ MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken, const Error &err)
  * Handles message from OM to abort migration
  */
 Error
-MigrationMgr::abortMigration(fds_uint64_t tgtDltVersion)
+MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
 {
     Error err(ERR_OK);
     if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
@@ -1271,6 +1283,7 @@ MigrationMgr::abortMigration(const Error& error)
         }
         return;  // this is ok
     }
+    abortError = error;
 
     // Cancel retryTokenMigration Timer Task since migration is aborting
     if (retryTokenMigrationTask != nullptr) {
@@ -1292,14 +1305,7 @@ MigrationMgr::abortMigration(const Error& error)
 
 void
 MigrationMgr::tryAbortingMigration() {
-
-    {
-        FDSGUARD(smTokenInProgressMutex);
-        if (!smTokenInProgress.empty()) {
-            return;
-        }
-    }
-
+    LOGMIGRATE << "";
     /**
      * Cancel the try abort timer task.
      */
@@ -1307,24 +1313,36 @@ MigrationMgr::tryAbortingMigration() {
 
     // if we need to ack Start Migration from OM, we will have a cb to reply to
     if (omStartMigrCb) {
-        omStartMigrCb(ERR_SM_TOK_MIGRATION_ABORTED);
+        omStartMigrCb(abortError);
         omStartMigrCb = NULL;
     }
 
     // There could be some pending IOs in flight.  We can't blindly call to clear
     // all executors.  Call to coalesce executors before blowing them away.
+    LOGMIGRATE << "Will coalesce executors";
     coalesceExecutors();
+    LOGMIGRATE << "Finished coalescing executors, will clear executors";
 
     // Clear all migrationExecutors.
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
     }
+    smTokenInProgressMutex.lock();
+    smTokenInProgress.clear();
+    smTokenInProgressMutex.unlock();
+
     // Clear all retry SM token set.
     retryMigrSmTokenSet.clear();
     targetDltVersion = DLT_VER_INVALID;
 
     resyncOnRestart = false;
+
+    LOGMIGRATE << "Done cleanup; migration aborted";
+    MigrationState expectState = MIGR_ABORTED;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
+        LOGERROR << "Unexpected migration state " << migrState;
+    }
 }
 
 void
@@ -1358,11 +1376,18 @@ void
 MigrationMgr::coalesceExecutors()
 {
     SCOPEDREAD(migrExecutorLock);
+    coalesceExecutorsNoLock();
+}
+
+void
+MigrationMgr::coalesceExecutorsNoLock()
+{
     for (auto citExec = migrExecutors.cbegin(); citExec != migrExecutors.cend(); ++citExec) {
         fds_token_id tok = citExec->first;
         for (auto citSrcExec = migrExecutors[tok].cbegin(); citSrcExec != migrExecutors[tok].cend(); ++citSrcExec) {
             citSrcExec->second->waitForIOReqsCompletion(tok, citSrcExec->first);
         }
+        LOGMIGRATE << "Finished coalescing executors for token " << tok;
     }
 }
 
@@ -1477,6 +1502,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
 void
 MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
                                fds_token_id& smToken) {
+    LOGMIGRATE << "executorID " << std::hex << executorId << std::dec;
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
          cit != migrExecutors[smToken].cend(); ++cit) {
         if (cit->second->getId() == executorId) {
