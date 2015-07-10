@@ -1,8 +1,5 @@
 #!/bin/bash -l
 
-. ./jenkins_scripts/message.sh
-. ./jenkins_scripts/core_hunter.sh
-
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
 KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
 
@@ -404,6 +401,11 @@ function run_coroner
 error_trap_enabled
 
 auto_locate
+
+# Now we are sure to find our "includes".
+. ./jenkins_scripts/message.sh
+. ./jenkins_scripts/core_hunter.sh
+
 startup
 clean_up_environment
 configure_cache

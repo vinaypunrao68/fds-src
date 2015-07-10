@@ -315,11 +315,12 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 
         # If we have core files, return a failure and don't remove anything.
         cur_dir = os.getcwd()
-        jenkins_scripts_dir = fdscfg.rt_env.get_fds_source() + "/../jenkins_scripts"
-        os.chdir(jenkins_scripts_dir)
-        rc = subprocess.call(["bash", "-c", ". ./core_hunter.sh; core_hunter"])
+        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
         os.chdir(cur_dir)
 
+        # Note: core_hunter is looking for core files and returns a "success" code
+        # when it finds at least one.
         if rc == 0:
             self.log.error("Core files detected.")
             return False
@@ -433,11 +434,12 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
 
         # If we have core files, return a failure and don't remove anything.
         cur_dir = os.getcwd()
-        jenkins_scripts_dir = fdscfg.rt_env.get_fds_source() + "/../jenkins_scripts"
-        os.chdir(jenkins_scripts_dir)
-        rc = subprocess.call(["bash", "-c", ". ./core_hunter.sh; core_hunter"])
+        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
         os.chdir(cur_dir)
 
+        # Note: core_hunter is looking for core files and returns a "success" code
+        # when it finds at least one.
         if rc == 0:
             self.log.error("Core files detected.")
             return False
