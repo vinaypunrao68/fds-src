@@ -128,6 +128,10 @@ DmMigrationClient::processBlobDescDiff()
     return err;
 }
 
+/**
+ * For testing only
+ */
+#define MAX_TEST_BLOB_MSGS 20
 Error
 DmMigrationClient::processBlobFilterSet()
 {
@@ -151,6 +155,17 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
+	/**
+     * TODO(Neil) Used for testing for sendCtrlNotifyDeltaBlobs()
+	 */
+	generateRandomDeltaBlobs(myBlobMsgs);
+	fds_verify(myBlobMsgs.size() == MAX_TEST_BLOB_MSGS);
+
+	/**
+	 * TODO(Neil) Just a prototype. Currently coring, need more investigation.
+	 */
+	// sendCtrlNotifyDeltaBlobs();
+
     // free the in-memory snapshot diff after completion.
     err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, opts);
     if (ERR_OK != err) {
@@ -168,4 +183,56 @@ DmMigrationClient::processBlobFilterSet()
 	return err;
 }
 
+/**
+  * For testing only.
+  */
+#define MAX_TEST_BLOB_MSGS 20
+Error
+DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg)
+{
+	fds_bool_t testLast = false;
+	unsigned testBlobId = 0;
+	for (int i = 0; i < MAX_TEST_BLOB_MSGS; i++) {
+		fpi::CtrlNotifyDeltaBlobsMsgPtr aPtr(new fpi::CtrlNotifyDeltaBlobsMsg);
+		aPtr->volume_id = volId.v;
+		aPtr->msg_seq_id = i;
+		if ((i+1) == MAX_TEST_BLOB_MSGS) {
+			aPtr->last_msg_seq_id = true;
+			testLast = true;
+		}
+		testBlobId = i > 9 ? 2 : 1;
+
+		fpi::DMMigrationObjListDiff testObjList;
+		testObjList.blob_id = testBlobId;
+		fpi::DMBlobObjListDiff testBlobDiff;
+		testBlobDiff.obj_offset = 0x50; // random
+		// testBlobDiff.obj_id = fpi::FDS_ObjectIdType(0);
+		testObjList.blob_diff_list.push_back(testBlobDiff);
+		aPtr->blob_obj_list.push_back(testObjList);
+
+		blobsMsg.push_back(aPtr);
+	}
+
+	fds_verify(testLast);
+
+	return (ERR_OK);
+}
+
+void
+DmMigrationClient::sendCtrlNotifyDeltaBlobs()
+{
+	if (myBlobMsgs.size() == 0) {
+		return;
+	}
+	LOGMIGRATE << "Sending CtrlNotifyDeltaBlobsMsg msgs to DM: " << destDmUuid;
+	auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+	asyncDeltaBlobsMsg->setTimeoutMs(0);
+
+	for (unsigned i = 0; i < myBlobMsgs.size(); i++) {
+		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volId.v);
+		// TODO(Neil) - this needs to be fixed - currently coring.
+		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg), myBlobMsgs[i]);
+		asyncDeltaBlobsMsg->invoke();
+	}
+}
 }  // namespace fds

@@ -56,6 +56,18 @@ class DmMigrationClient {
      */
     Error processBlobDescDiff();
 
+    /**
+     * Called by the handleInitialBlobFilterMsg() after processing the diff to
+     * send the delta blobs the destination node.
+     */
+    void sendCtrlNotifyDeltaBlobs();
+
+    /*
+     * TODO Temp function
+     */
+    Error generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg);
+
+
  private:
     /**
      * Reference to the Data Manager.
@@ -70,11 +82,13 @@ class DmMigrationClient {
     NodeUuid destDmUuid;
     fds_volid_t volId;
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
+    std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> myBlobMsgs;
 
     /**
      * Snapshot used for diff.
      */
     Catalog::catalog_roptions_t opts;
+
 
     /**
      * Callback to talk to DM Migration Manager
