@@ -938,14 +938,16 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
 
         return True
 
+
 class TestModifyPlatformConf(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, **kwargs):
+    def __init__(self, parameters=None, node=None, applyAll=None, **kwargs):
         '''
         Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
         :param parameters: Params filled in by .ini file
         :current*: String in platform.conf to repalce e.g. authentication=true
         :replace*: String to replace current_string with. e.g. authentication=false
         :node: FDS node
+        :applyAll: Change the platform.conf file that affects all new and uninstantiated nodes
         '''
 
         super(self.__class__, self).__init__(parameters,
@@ -964,11 +966,16 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
                     raise Exception(err)
                 self.replace.append((value, replace_value))
         self.passedNode = node
+        self.applyAll = applyAll
 
+  
     def test_TestModifyPlatformConf(self):
-
         def doit(node):
-            plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+            if self.applyAll is not None:
+                plat_file = os.path.join(node.nd_conf_dict['fds_root'], '..', 'etc', 'platform.conf')
+            else:
+                plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+
             errcode = 0
             for mods in self.replace:
                 errcode += node.nd_agent.exec_wait(

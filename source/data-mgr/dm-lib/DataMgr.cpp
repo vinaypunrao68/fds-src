@@ -565,6 +565,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
+        return  err;
     }
 
     if (vdesc->isSnapshot()) {
@@ -1026,6 +1027,7 @@ void DataMgr::mod_enable_service() {
 
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
+        MODULEPROVIDER()->getSvcMgr()->getDLT();
     }
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());

@@ -219,7 +219,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 	 */
 	auto fds_volid = fds_volid_t(filterSet->volumeId);
 	auto search = clientMap.find(fds_volid);
-	DmMigrationClient::shared_ptr clientPtr = nullptr;
+	DmMigrationClient::shared_ptr client = nullptr;
 	if (search != clientMap.end()) {
 		LOGMIGRATE << "Client received request for volume " << filterSet->volumeId
 				<< " but it already exists";
@@ -230,12 +230,12 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 		 */
 		migrClientLock.write_lock();
 		LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
-        DmMigrationClient::shared_ptr client(new DmMigrationClient(DmReqHandler, dataManager,
-												mySvcUuid, destDmUuid, filterSet,
-												std::bind(&DmMigrationMgr::migrationClientDoneCb,
-												this, std::placeholders::_1,
-												std::placeholders::_2)));
-		clientMap.emplace(fds_volid, client);
+		clientMap.emplace(fds_volid,
+							(client = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
+															mySvcUuid, destDmUuid, filterSet,
+															std::bind(&DmMigrationMgr::migrationClientDoneCb,
+															this, std::placeholders::_1,
+															std::placeholders::_2)))));
 		migrClientLock.write_unlock();
 
 		err = client->processBlobFilterSet();
