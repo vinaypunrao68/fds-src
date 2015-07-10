@@ -163,7 +163,7 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public int read(Inode inode, byte[] bytes, long offset, int len) throws IOException {
+    public synchronized int read(Inode inode, byte[] bytes, long offset, int len) throws IOException {
         LOG.debug("read() inode=" + inode + ", bytes=" + bytes.length + ", offset=" + offset + ", len=" + len);
         NfsEntry nfsEntry = tryLoad(inode);
 
@@ -210,7 +210,7 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
+    public synchronized WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
         LOG.debug("write() inode=" + inode + ", data=" + data.length + ", offset=" + offset + ", count=" + count);
         NfsEntry nfsEntry = tryLoad(inode);
         NfsPath path = nfsEntry.path();
@@ -219,8 +219,9 @@ public class AmVfs implements VirtualFileSystem {
             chunker.write(path, objectSize, data, offset, count);
             return new WriteResult(stabilityLevel, count);
         } catch (Exception e) {
-            LOG.error("updateBlobOnce(), e");
-            throw new IOException(e);
+            String message = "chunker.write()" + path + ", data=" + data.length + "bytes, offset=" + offset + ", count=" + count;
+            LOG.error(message, e);
+            throw new IOException(message, e);
         }
     }
 

@@ -9,9 +9,25 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
-public class IOTest {
+public class ChunkerTest {
+    @Test
+    public void testLargeChunks() throws Exception {
+        MemoryIo io = new MemoryIo();
+        Chunker chunker = new Chunker(io);
+        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        int objectSize = 131072;
+        int objectCount = 11;
+        byte[] bytes = new byte[objectSize * objectCount];
+        new Random().nextBytes(bytes);
+        chunker.write(nfsPath, objectSize, bytes, 0, objectSize * objectCount);
+        byte[] buf = new byte[objectSize * objectCount];
+        chunker.read(nfsPath, objectSize, buf, 0, objectSize * objectCount);
+        assertArrayEquals(bytes, buf);
+    }
+
     @Test
     public void testWrite() throws Exception {
         MemoryIo io = new MemoryIo();
@@ -47,24 +63,34 @@ public class IOTest {
         NfsPath nfsPath = new NfsPath("foo", "/hello/world");
         byte[] bytes = new byte[8];
         new Random().nextBytes(bytes);
-        chunker.write(nfsPath, 4, bytes, 2, 8);
+        chunker.write(nfsPath, 4, bytes, 2, 10);
         byte[] readBuf = new byte[12];
         int read = chunker.read(nfsPath, 4, readBuf, 0, 10);
         assertEquals(10, read);
         assertEquals(0, readBuf[0]);
         assertEquals(0, readBuf[1]);
-        assertEquals(bytes[0], readBuf[2]);
-        assertEquals(bytes[1], readBuf[3]);
-        assertEquals(bytes[2], readBuf[4]);
-        assertEquals(bytes[3], readBuf[5]);
-        assertEquals(bytes[4], readBuf[6]);
-        assertEquals(bytes[5], readBuf[7]);
-        assertEquals(bytes[6], readBuf[8]);
-        assertEquals(bytes[7], readBuf[9]);
+        for (int i = 0; i < 8; i++) {
+            assertEquals(bytes[i], readBuf[i + 2]);
+        }
+
+        byte[] smallerBuf = new byte[8];
+        read = chunker.read(nfsPath, 4, smallerBuf, 2, 10);
+        assertEquals(8, read);
+        for (int i = 0; i < 8; i++) {
+            assertEquals(bytes[i], smallerBuf[i]);
+        }
+
+        byte[] tinyBuf = new byte[3];
+        read = chunker.read(nfsPath, 4, tinyBuf, 2, 10);
+        assertEquals(3, read);
+        for (int i = 0; i < 3; i++) {
+            assertEquals(bytes[i], tinyBuf[i]);
+        }
     }
 
     static class MemoryIo implements Chunker.ChunkIo {
         private Map<Long, byte[]> objects;
+
         public MemoryIo() {
             objects = new HashMap<>();
         }
@@ -78,7 +104,7 @@ public class IOTest {
         @Override
         public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
             if (!objects.containsKey(objectOffset.getValue())) {
-                throw new FileNotFoundException();
+                throw new FileNotFoundException(path + ", objectOffset=" + objectOffset.getValue());
             }
 
             return ByteBuffer.wrap(objects.get(objectOffset.getValue()));
@@ -86,6 +112,9 @@ public class IOTest {
 
         @Override
         public void write(NfsPath path, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) {
+            if (byteBuffer.remaining() == 0) {
+                throw new RuntimeException("WTF");
+            }
             byte[] bytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(bytes);
             objects.put(objectOffset.getValue(), bytes);

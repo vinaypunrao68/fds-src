@@ -22,7 +22,7 @@ public class AmIO implements Chunker.ChunkIo {
 
     @Override
     public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
-        LOG.debug("Reading " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue());
+        LOG.debug("AM reading " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue());
         try {
             return unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
         } catch (ApiException e) {
@@ -36,7 +36,7 @@ public class AmIO implements Chunker.ChunkIo {
 
     @Override
     public void write(NfsPath path, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception {
-        LOG.debug("Writing " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes");
+        LOG.debug("AM writing " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes");
         BlobDescriptor blobDescriptor =
                 unwindExceptions(() -> asyncAm.statBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName()).get());
 

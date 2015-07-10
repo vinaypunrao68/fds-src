@@ -13,11 +13,12 @@ public class Chunker {
     }
 
     public void write(NfsPath nfsPath, int objectSize, byte[] bytes, long offset, int length) throws Exception {
+        length = Math.min(bytes.length, length);
         if (length == 0) {
             return;
         }
 
-        int totalObjects = Math.floorDiv(length, objectSize) + 1;
+        long totalObjects = (long) Math.ceil((double) (length + (offset % objectSize)) / (double) objectSize);
         long startObject = Math.floorDiv(offset, objectSize);
         int startOffset = (int) (offset % objectSize);
         int writtenSoFar = 0;
@@ -28,14 +29,19 @@ public class Chunker {
                 return;
             }
             ByteBuffer newChunk = null;
-            try {
-                ByteBuffer existing = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
-                newChunk = ByteBuffer.allocate(Math.max(existing.remaining(), startOffset + toBeWritten));
-                newChunk.put(existing);
-                newChunk.position(0);
+            // No need to read the existing object if we're writing an entire one
+            if (toBeWritten == objectSize && startOffset == 0) {
+                newChunk = ByteBuffer.allocate(objectSize);
+            } else {
+                try {
+                    ByteBuffer existing = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+                    newChunk = ByteBuffer.allocate(Math.max(existing.remaining(), startOffset + toBeWritten));
+                    newChunk.put(existing);
+                    newChunk.position(0);
 
-            } catch (FileNotFoundException e) {
-                newChunk = ByteBuffer.allocate(startOffset + toBeWritten);
+                } catch (FileNotFoundException e) {
+                    newChunk = ByteBuffer.allocate(startOffset + toBeWritten);
+                }
             }
 
             newChunk.position(startOffset);
@@ -50,19 +56,26 @@ public class Chunker {
     }
 
     public int read(NfsPath nfsPath, int objectSize, byte[] destination, long offset, int length) throws Exception {
+        length = Math.min(destination.length, length);
         if (length == 0) {
             return 0;
         }
 
-        int totalObjects = Math.floorDiv(length, objectSize) + 1;
+        long totalObjects = (long) Math.ceil((double) (length + (offset % objectSize)) / (double) objectSize);
         long startObject = Math.floorDiv(offset, objectSize);
         int startOffset = (int) (offset % objectSize);
         int readSoFar = 0;
         ByteBuffer output = ByteBuffer.wrap(destination);
         
         for (long i = 0; i < totalObjects; i++) {
-            ByteBuffer buf = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+            ByteBuffer buf = null;
+            try {
+                buf = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+            } catch (FileNotFoundException e) {
+                break;
+            }
             int toBeRead = Math.min(buf.remaining() - startOffset, (objectSize - startOffset));
+            toBeRead = Math.min(toBeRead, output.remaining());
             buf.position(buf.position() + startOffset);
             buf.limit(buf.position() + toBeRead);
             output.put(buf);
