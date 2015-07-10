@@ -1,5 +1,8 @@
 #!/bin/bash -l
 
+. ./message.sh
+. ./core_hunter.sh
+
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
 KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
 
@@ -13,13 +16,6 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 # The list of system test scenarios, do not include the .ini"
 SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
 DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices"   ## This should be deleted when fs-2473 fs-2478 are resolved
-
-function message
-{
-    echo "================================================================================"
-    echo "$*"
-    echo "================================================================================"
-}
 
 function performance_report
 {
@@ -205,10 +201,9 @@ function cache_report
    ccache -s
 }
 
-function core_hunter
+function check_for_cores
 {
-    message  "POKING around for core files"
-    find /corefiles -type f -name "*.core" |grep -e ".*" > /dev/null
+    core_hunter
     return_code=$?
 
     if [[ ${return_code} -eq 0 ]]
@@ -323,7 +318,7 @@ function system_test_scenario_wrapper
     check_xunit_errors ${scenario}
     check_xunit_failures ${scenario}
 
-    core_hunter
+    check_for_cores
 }
 
 function run_system_test_scenarios
