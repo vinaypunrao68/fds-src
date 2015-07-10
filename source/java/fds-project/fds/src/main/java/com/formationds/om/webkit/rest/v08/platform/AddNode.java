@@ -95,22 +95,25 @@ public class AddNode
         if( status != 0 )
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
+            EventManager.notifyEvent( OmEvents.ADD_SERVICE_ERROR,
                                       nodeUuid );
         }
         else
         {
+            EventManager.notifyEvent( OmEvents.ADD_SERVICE, nodeUuid );
+            
+            // Now that we have added the services, go start them
             status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
        
             if( status != 0 )
             {
                 status= HttpServletResponse.SC_BAD_REQUEST;
-                EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
+                EventManager.notifyEvent( OmEvents.START_SERVICE_ERROR,
                                           nodeUuid );
             }
             else
             {
-                EventManager.notifyEvent( OmEvents.ADD_NODE,
+                EventManager.notifyEvent( OmEvents.START_SERVICE,
                                           nodeUuid );
             }
         }

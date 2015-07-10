@@ -62,27 +62,28 @@ public class RemoveService implements RequestHandler {
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         
         SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
-        				                        (node.getAddress().getHostAddress(),
-                                                 service);
+        				               (node.getAddress().getHostAddress(), service);
         svcInfList.add(svcInfo);
         		
         Service pmSvc = (new GetService()).getService(nodeId, nodeId);
         SvcInfo pmSvcInfo = PlatformModelConverter.convertServiceToSvcInfoType
-        			                                 (node.getAddress().getHostAddress(),
-                                                      pmSvc);
+        		                         (node.getAddress().getHostAddress(), pmSvc);
         svcInfList.add(pmSvcInfo);
         
+        // First stop the service
         int status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
         if ( status != 0 ) {
             status = HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR,
+            EventManager.notifyEvent( OmEvents.STOP_SERVICE_ERROR,
                                       nodeId );
-            logger.error( "Remove service failed." );
             
-            throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
+            throw new ApiException( "Stop service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
         else
         {
+            EventManager.notifyEvent( OmEvents.STOP_SERVICE, nodeId );
+            
+            //Stopped service successfully, now remove it
             status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
         
             if ( status != 0 ){
@@ -90,44 +91,15 @@ public class RemoveService implements RequestHandler {
                 status = HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR,
                                           nodeId );
-                logger.error( "Remove service failed." );
             
                 throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
             }
             else
             {
                 EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, nodeId );
-                logger.info( "Removed service successfully." );
             }
         }
-
         
-		/*
-		Boolean am = false;
-		Boolean sm = false;
-		Boolean dm = false;
-		
-		switch( service.getType() ){
-			case AM:
-				am = true;
-				break;
-			case DM:
-				dm = true;
-				break;
-			case SM:
-				sm = true;
-				break;
-			default:
-				break;
-		}
-		
-		getConfigApi().RemoveServices( new FDSP_RemoveServicesType(
-				node.getName(),
-				new FDSP_Uuid( node.getId() ),
-				sm,
-				dm, 
-				am) );
-		*/
 		return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
 	}
 	

@@ -100,22 +100,25 @@ public class RemoveNode
         if( status != 0 )
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+            EventManager.notifyEvent( OmEvents.STOP_SERVICE_ERROR,
                                       nodeUuid );
         }
         else 
         {
+            EventManager.notifyEvent( OmEvents.STOP_SERVICE, nodeUuid );
+            
+            // Now that we have stopped the services go remove them
         	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
         	
         	if(status != 0)
         	{
                 status= HttpServletResponse.SC_BAD_REQUEST;
-                EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+                EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR,
                                           nodeUuid );
         	}
         	else
         	{
-                EventManager.notifyEvent( OmEvents.REMOVE_NODE,
+                EventManager.notifyEvent( OmEvents.REMOVE_SERVICE,
                                           nodeUuid );
         	}
 
