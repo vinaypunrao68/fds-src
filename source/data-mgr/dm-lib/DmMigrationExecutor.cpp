@@ -121,4 +121,15 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     return err;
 }
 
+Error
+DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
+{
+	/**
+	 * TODO : start buffering process. FS-2486 is to be implemented here.
+	 */
+	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
+
+	return ERR_OK;
+}
 }  // namespace fds

@@ -569,7 +569,7 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
 class TestWaitForLog(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None, anyOccurrence=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_WaitForLog,
@@ -580,6 +580,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
         self.passedLogentry = logentry
         self.passedOccurrences = occurrences
         self.passedMaxwait = maxwait
+        self.anyOccurrence = anyOccurrence
 
     def test_WaitForLog(self):
         """
@@ -598,14 +599,20 @@ class TestWaitForLog(TestCase.FDSTestCase):
 
         fds_dir = self.passedNode.nd_conf_dict['fds_root']
 
-        self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
-                       (self.passedNode.nd_conf_dict['node-name'], self.passedService,
-                        self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
+        if self.anyOccurrence is not None:
+            self.log.info("Looking in node %s's %s logs for entry '%s' to occur at least once. Waiting for up to %s seconds." %
+                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                            self.passedLogentry, self.passedMaxwait))
+        else:
+            self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
+                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                            self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
 
         # We'll check for the specified log entry every 10 seconds until we
         # either find what we're looking for or timeout while looking.
         maxLooks = self.passedMaxwait / 10
         occurrencesFound = 0
+        oneFoundThenBreak = 0
         for i in range(1, maxLooks):
             occurrencesFound = 0
             sftp = None
@@ -620,6 +627,9 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
+                    if self.anyOccurrence is not None:
+                        # At least once, we're good to go
+                        break
 
             if sftp is not None:
                 sftp.close()
@@ -627,11 +637,17 @@ class TestWaitForLog(TestCase.FDSTestCase):
             if occurrencesFound == self.passedOccurrences:
                 # Saw what we were looking for.
                 break
+            elif ((self.anyOccurrence is not None) and (occurrencesFound > 0)):
+                break
             else:
                 time.sleep(10)
                 self.log.info("Looking ...")
 
-        self.log.info("Log entry found %s times." % occurrencesFound)
+        if ((self.anyOccurrence is not None) and (occurrencesFound > 0)):
+            self.log.info("Log entry found at least once")
+            return True
+        else:
+            self.log.info("Log entry found %s times." % occurrencesFound)
 
         if occurrencesFound != self.passedOccurrences:
             self.log.error("Expected %s occurrences." % self.passedOccurrences)

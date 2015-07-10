@@ -18,7 +18,7 @@ class DmIoReqHandler;
 
 class DmMigrationMgr {
 
-	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
     // Callbacks for migration handlers
 	using OmStartMigrationCBType = std::function<void (const Error& e)>;
@@ -134,6 +134,12 @@ class DmMigrationMgr {
 
     /**
      * Destination side DM:
+     * Gets an ptr to the migration executor. Used as part of handler.
+     */
+    DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
+
+    /**
+     * Destination side DM:
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
      */
@@ -149,7 +155,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
-    void ackMigrationComplete(const Error &status);
+    void waitThenAckMigrationComplete(const Error &status);
 
 	/*
      * Destination side DM:
