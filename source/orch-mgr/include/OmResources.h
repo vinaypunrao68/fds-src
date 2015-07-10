@@ -106,7 +106,8 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
-    virtual Error om_send_sm_abort_migration(fds_uint64_t dltVersion);
+    virtual Error om_send_sm_abort_migration(fds_uint64_t committedDltVersion,
+                                             fds_uint64_t targetDltVersion);
     virtual Error om_send_dm_abort_migration(fds_uint64_t dmtVersion);
     void om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
                                       EPSvcRequest* req,
@@ -577,7 +578,8 @@ class OM_NodeContainer : public DomainContainer
                                       fds_bool_t to_dm = true,
                                       fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
-    virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
+    virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version,
+                                                     fds_uint64_t tgt_dlt_version);
     virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 

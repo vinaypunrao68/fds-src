@@ -188,6 +188,7 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto abortMigrationReq = new SmIoAbortMigration(abortMsg);
     abortMigrationReq->io_type = FDS_SM_MIGRATION_ABORT;
     abortMigrationReq->abortMigrationDLTVersion = abortMsg->DLT_version;
+    abortMigrationReq->targetDLTVersion = abortMsg->DLT_target_version;
 
     abortMigrationReq->abortMigrationCb = std::bind(&SMSvcHandler::migrationAbortCb,
                                                     this,
