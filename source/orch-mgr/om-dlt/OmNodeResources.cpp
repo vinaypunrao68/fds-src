@@ -1399,12 +1399,12 @@ OM_PmAgent::send_remove_service
         return Error(ERR_INVALID_ARG);
     }
 
-    LOGNORMAL << "Remove services for node" << get_node_name()
+    LOGNORMAL << "Remove services for node " << get_node_name()
                     << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
                     << " remove sm ? " << remove_sm
                     << " remove dm ? " << remove_dm
                     << " remove am ? " << remove_am;
-/*
+
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     err = domain->om_del_services(node_uuid,
@@ -1419,7 +1419,7 @@ OM_PmAgent::send_remove_service
                         << std::hex << node_uuid
                         << std::dec << ", result: " << err.GetErrstr();
     }
-*/
+
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
 
