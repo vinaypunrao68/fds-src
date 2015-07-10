@@ -929,6 +929,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
+    handlers[FDS_DM_MIG_DELT_BLB] = new dm::DmMigrationDeltablobHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1026,6 +1027,7 @@ void DataMgr::mod_enable_service() {
 
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
+        MODULEPROVIDER()->getSvcMgr()->getDLT();
     }
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());

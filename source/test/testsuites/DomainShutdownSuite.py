@@ -57,11 +57,11 @@ def suiteConstruction(self, action="kill-uninst"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
-    if action.count("uninst") > 0:
+    #if action.count("uninst") > 0:
         # Cleanup FDS installation directory.
-        suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+        #suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
         # This one will take care of other product artifacts such as SHM files.
-        suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
+        #suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
 
     return suite
 
