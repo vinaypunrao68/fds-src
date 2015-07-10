@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-. ./message.sh
+. ./jenkins_scripts/message.sh
 
 function core_hunter
 {
