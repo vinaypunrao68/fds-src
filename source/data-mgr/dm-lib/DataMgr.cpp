@@ -1026,6 +1026,7 @@ void DataMgr::mod_enable_service() {
 
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
+        MODULEPROVIDER()->getSvcMgr()->getDLT();
     }
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
