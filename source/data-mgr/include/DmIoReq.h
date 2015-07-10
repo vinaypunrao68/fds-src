@@ -48,6 +48,7 @@ extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
+extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 // ======
 
     /*
@@ -773,6 +774,20 @@ struct DmIoResyncInitialBlob : dmCatReq {
     friend std::ostream& operator<<(std::ostream& out, const DmIoResyncInitialBlob& io) {
     	return out << "DmIoResyncInitialBlob vol " << io.volId.get();
     }
+};
+
+struct DmIoMigrationDeltaBlobDesc : dmCatReq {
+    explicit DmIoMigrationDeltaBlobDesc(const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
+            : message(msg),
+              dmCatReq(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC)
+    {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationDeltaBlobDesc& io) {
+    	return out << "DmIoMigrationDeltaBlobDesc vol:" << io.message->volume_id;
+    }
+
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr message;
 };
 
 }  // namespace fds

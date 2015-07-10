@@ -90,7 +90,12 @@ class DmMigrationMgr {
     // Handle deltaObject  in Migration executor 
     Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
 
-    typedef std::shared_ptr<DmMigrationMgr> unique_ptr;
+    /**
+     * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
+     */
+    Error applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+
+    typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
   protected:
