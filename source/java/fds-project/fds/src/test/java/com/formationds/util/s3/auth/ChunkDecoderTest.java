@@ -99,7 +99,7 @@ public class ChunkDecoderTest {
 
 
     private String makeHeader(int bytes, byte[] signature) {
-        return bytes + ";chunk-signature=" + Hex.encodeHexString(signature) + "\r\n";
+        return Integer.toHexString(bytes) + ";chunk-signature=" + Hex.encodeHexString(signature) + "\r\n";
     }
 
     private byte[] makeChunkData(int size, long seed) {

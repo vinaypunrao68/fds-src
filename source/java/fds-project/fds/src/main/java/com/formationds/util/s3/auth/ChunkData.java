@@ -53,10 +53,10 @@ public class ChunkData {
                 chunkBuffers.add(buf);
                 chunkBytesRemaining -= readLength;
                 digest.update(buf.slice());
-                if(chunkBytesRemaining == 0)
-                    chunkSha256 = digest.digest();
                 buffer.position(buffer.position() + readLength);
             } else if(chunkEndBytesRemaining > 0) {
+                if(chunkSha256 == null)
+                    chunkSha256 = digest.digest();
                 int readLength = Math.min(buffer.remaining(), chunkEndBytesRemaining);
                 // do we need to validate that the characters at the end are \r\n?
                 buffer.position(buffer.position() + readLength);
@@ -78,7 +78,7 @@ public class ChunkData {
 
             int length = 0;
             try {
-                length = Integer.parseInt(chunkSignatureParts[0]);
+                length = Integer.parseInt(chunkSignatureParts[0], 16); // parse this as hex
             } catch (NumberFormatException ex) {
                 throw new ChunkDecodingException("chunk read failed, malformed chunk header - expecting integer as first part of header", ex);
             }

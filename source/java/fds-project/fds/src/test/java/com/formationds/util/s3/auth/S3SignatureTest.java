@@ -16,10 +16,7 @@ import com.formationds.xdi.s3.S3Failure;
 import junit.framework.Assert;
 import org.junit.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -47,7 +44,7 @@ public class S3SignatureTest {
 
             ctx.test(client -> client.getObject("potato", "ole"));
             ctx.test(client -> client.putObject("muffins", "beans", makeStream(), new ObjectMetadata()));
-            // ctx.test(client -> client.putObject("muffins", "meatloaf", makeStream(4096 * 100), new ObjectMetadata()));
+            ctx.test(client -> client.putObject("muffins", "meatloaf", makeStream(4096 * 100), new ObjectMetadata()));
             ctx.test(client -> client.putObject("muffins", "beans", makeStream(), weirdContentType));
             ctx.test(client -> client.deleteObject("mop", "cand"));
             ctx.test(client -> client.deleteObjects(new DeleteObjectsRequest("mop").withKeys("sped", "maff", "parp")));
@@ -80,8 +77,11 @@ public class S3SignatureTest {
 
     private InputStream makeStream(int size) {
         byte[] data = new byte[size];
+        byte[] content =
+                "content ".getBytes();
+
         for (int i = 0; i < size; i++) {
-            data[i] = (byte) (i & 0xFF);
+            data[i] = content[i % content.length];
         }
 
         return new ByteArrayInputStream(data);
@@ -108,7 +108,7 @@ public class S3SignatureTest {
             badS3Client.setEndpoint("http://localhost:" + port);
         }
 
-        public void test(Consumer<AmazonS3Client> operation) {
+        public void test(Consumer<AmazonS3Client> operation) throws Exception {
             // v2 auth
             try {
                 operation.accept(s3client);
@@ -163,6 +163,7 @@ public class S3SignatureTest {
         private final int port;
         private final AWSCredentials credentials;
         private SecurityException lastSecurityException;
+        private Exception lastUnhandledException;
 
         public AuthorizerReferenceServer(int port, AWSCredentials credentials) throws Exception {
             this.port = port;
@@ -176,14 +177,15 @@ public class S3SignatureTest {
 
         public CompletableFuture<Void> handle(HttpContext context) {
             lastSecurityException = null;
+            lastUnhandledException = null;
             AuthenticationNormalizer normalizer = new AuthenticationNormalizer();
             try {
                 HttpContext authCtx = normalizer.authenticatingContext(credentials, context);
                 byte[] data = IoStreamUtil.buffer(authCtx.getInputStream());
             } catch(SecurityException ex) {
                 lastSecurityException = ex;
-            } catch (IOException e) {
-                throw new RuntimeException();
+            } catch (Exception e) {
+                lastUnhandledException = e;
             }
 
             closeRequest(context);
@@ -213,7 +215,10 @@ public class S3SignatureTest {
             serverThread.join();
         }
 
-        public boolean isLastAuthSuccessful() {
+        public boolean isLastAuthSuccessful() throws Exception {
+            if(lastUnhandledException != null)
+                throw new Exception("last operation failed", lastUnhandledException);
+
             return lastSecurityException == null;
         }
         public SecurityException getLastSecurityException() {

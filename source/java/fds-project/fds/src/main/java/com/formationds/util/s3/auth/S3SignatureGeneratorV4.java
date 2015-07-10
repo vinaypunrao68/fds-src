@@ -1,9 +1,9 @@
 package com.formationds.util.s3.auth;
 
 import com.formationds.util.DigestUtil;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.Charsets;
-import org.bouncycastle.util.encoders.Hex;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
@@ -19,7 +19,7 @@ public class S3SignatureGeneratorV4 {
         builder.append(scope.toScopeString());
         builder.append("\n");
 
-        builder.append(Hex.toHexString(canonicalRequestSha));
+        builder.append(Hex.encodeHexString(canonicalRequestSha));
         return builder.toString();
     }
 
@@ -34,14 +34,14 @@ public class S3SignatureGeneratorV4 {
         builder.append(scope.toScopeString());
         builder.append("\n");
 
-        builder.append(Hex.toHexString(priorSignature));
+        builder.append(Hex.encodeHexString(priorSignature));
         builder.append("\n");
 
         String emptyHash = DigestUtils.sha256Hex("");
         builder.append(emptyHash);
         builder.append("\n");
 
-        builder.append(Hex.toHexString(contentSha));
+        builder.append(Hex.encodeHexString(contentSha));
         return builder.toString();
     }
 

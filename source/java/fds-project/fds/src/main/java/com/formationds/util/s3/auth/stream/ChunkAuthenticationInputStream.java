@@ -47,7 +47,7 @@ public class ChunkAuthenticationInputStream extends InputStream {
                     break;
 
                 try {
-                    decoder.input(ByteBuffer.wrap(data));
+                    decoder.input(ByteBuffer.wrap(data, 0, read));
                 } catch (ChunkDecodingException e) {
                     throw new IOException("failure while decoding chunks", e);
                 }
