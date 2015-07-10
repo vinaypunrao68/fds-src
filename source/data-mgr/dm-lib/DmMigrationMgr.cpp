@@ -180,7 +180,7 @@ DmMigrationMgr::applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDe
     return ERR_OK;
 }
 
-// process the deltaObject request 
+// process the deltaObject request
 Error
 DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
     return ERR_OK;
@@ -253,6 +253,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 	return err;
 }
 
+Error
 DmMigrationMgr::activateStateMachine()
 {
 	Error err(ERR_OK);
