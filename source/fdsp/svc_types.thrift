@@ -184,6 +184,8 @@ enum  FDSPMsgTypeId {
   CtrlNotifyDMStartMigrationMsgTypeId;
   CtrlNotifyDMStartMigrationRspMsgTypeId;
   CtrlNotifyInitialBlobFilterSetMsgTypeId;
+  CtrlNotifyDeltaBlobsTypeId;
+  CtrlNotifyDeltaBlobsDescTypeId;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;

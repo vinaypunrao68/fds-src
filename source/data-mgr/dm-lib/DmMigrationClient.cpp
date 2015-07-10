@@ -106,8 +106,65 @@ DmMigrationClient::handleInitialBlobFilterMsg()
 	/**
 	 * TODO Use the diff function (FS-2259) and genrate the actual diff set.
 	 */
+	generateRandomDeltaBlobs(myBlobMsgs);
+	fds_verify(myBlobMsgs.size() == MAX_TEST_BLOB_MSGS);
+
+	/**
+	 * TODO(Neil) Just a prototype. Currently coring, need more investigation.
+	 */
+	// sendCtrlNotifyDeltaBlobs();
 
 	// migrDoneHandler(uniqueId, threadErr);
 	return (ERR_OK);
+}
+
+#define MAX_TEST_BLOB_MSGS 20
+Error
+DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsPtr> &blobsMsg)
+{
+	fds_bool_t testLast = false;
+	unsigned testBlobId = 0;
+	for (int i = 0; i < MAX_TEST_BLOB_MSGS; i++) {
+		fpi::CtrlNotifyDeltaBlobsPtr aPtr(new fpi::CtrlNotifyDeltaBlobs);
+		aPtr->volume_id = volID.v;
+		aPtr->msg_seq_id = i;
+		if ((i+1) == MAX_TEST_BLOB_MSGS) {
+			aPtr->last_msg_seq_id = true;
+			testLast = true;
+		}
+		testBlobId = i > 9 ? 2 : 1;
+
+		fpi::DMMigrationObjListDiff testObjList;
+		testObjList.blob_id = testBlobId;
+		fpi::DMBlobObjListDiff testBlobDiff;
+		testBlobDiff.obj_offset = 0x50; // random
+		// testBlobDiff.obj_id = fpi::FDS_ObjectIdType(0);
+		testObjList.blob_diff_list.push_back(testBlobDiff);
+		aPtr->blob_obj_list.push_back(testObjList);
+
+		blobsMsg.push_back(aPtr);
+	}
+
+	fds_verify(testLast);
+
+	return (ERR_OK);
+}
+
+void
+DmMigrationClient::sendCtrlNotifyDeltaBlobs()
+{
+	if (myBlobMsgs.size() == 0) {
+		return;
+	}
+	LOGMIGRATE << "Sending CtrlNotifyDeltaBlobs msgs to DM: " << destDmUuid;
+	auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+	asyncDeltaBlobsMsg->setTimeoutMs(0);
+
+	for (unsigned i = 0; i < myBlobMsgs.size(); i++) {
+		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volID.v);
+		// TODO(Neil) - this needs to be fixed - currently coring.
+		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobs), myBlobMsgs[i]);
+		asyncDeltaBlobsMsg->invoke();
+	}
 }
 }  // namespace fds

@@ -902,6 +902,42 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
 
         return True
 
+class TestModifyGlobalPlatformConf(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, **kwargs):
+        '''
+        Uses sed to modify particular lines in platform.conf. Used in cases where it must be changed
+        prior to the node being installed.
+        :param parameters: Params filled in by .ini file
+        :current*: String in platform.conf to repalce e.g. authentication=true
+        :replace*: String to replace current_string with. e.g. authentication=false
+        '''
+
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TestModifyGlobalPlatformConf,
+                                             "Modify Global Platform.conf")
+
+        self.replace = []
+        for key, value in kwargs.iteritems():
+            if key.startswith('current'):
+                replace_key = 'replace' + key[7:]
+                replace_value = kwargs.get(replace_key, None)
+                if replace_value == None:
+                    err = 'no replacement value found for [{}:{}]'.format(key, value)
+                    self.log.error(err)
+                    raise Exception(err)
+                self.replace.append((value, replace_value))
+        self.passedNode = node
+        fdscfg = self.parameters['fdscfg']
+        self.foundNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+
+    def test_TestModifyGlobalPlatformConf(self):
+        global_plat_file = os.path.join(self.foundNode.nd_conf_dict['fds_root'], '..', 'etc', 'platform.conf')
+        for mods in self.replace:
+            self.foundNode.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(mods[0], mods[1], global_plat_file))
+        return True
+ 
 class TestModifyPlatformConf(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None, **kwargs):
         '''
@@ -929,8 +965,8 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
                 self.replace.append((value, replace_value))
         self.passedNode = node
 
+  
     def test_TestModifyPlatformConf(self):
-
         def doit(node):
             plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
             errcode = 0
