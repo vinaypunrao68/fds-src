@@ -65,6 +65,11 @@ ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
 }
 
+Error
+ObjectMetadataStore::deleteMetadataDb(const std::string& diskPath,
+                                      const fds_token_id& smTokenLost) {
+    return metaDb_->deleteMetadataDb(diskPath, smTokenLost);
+}
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,

@@ -221,6 +221,13 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 
     struct DltAllOk: public msm::front::state<>
     {
+        DltAllOk() :  tryAgainTimer(new FdsTimer()),
+                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)) {}
+
+        ~DltAllOk() {
+            tryAgainTimer->destroy();
+        }
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -230,6 +237,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DltAllOk. Evt: " << e.logString();
         }
+        /**
+         * timer to try to compute DLT once we go from error state back
+         * in case we have pending SMs we couldn't add
+         */
+        FdsTimerPtr tryAgainTimer;
+        FdsTimerTaskPtr tryAgainTimerTask;
     };
     /**
      * DltErrorMode interrupts
@@ -251,6 +264,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 
         fds_uint32_t abortMigrAcksToWait;
         fds_uint32_t commitDltAcksToWait;
+        Error errFound;   /// error that got us to the error mode state
     };
 
     /**
@@ -908,7 +922,8 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_Error ";
+    dst.errFound = evt.error;
+    LOGDEBUG << "FSM DACT_Error " << dst.errFound;
 
     // if we did not even have target DLT computed, nothing to recover,
     // go back all ok / IDLE state
@@ -923,14 +938,16 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
 
         // revert to previously commited DLT locally in OM
+        fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
         dp->undoTargetDltCommit();
 
         // we already computed target DLT, so most likely sent start migration msg
         // send abort migration to SMs first, so that we can restart migratino later
         // (otherwise SMs will be left in bad state)
         LOGNORMAL << "Already computed or commited target DLT, will send abort migration msg "
-                  << " for target DLT version " << dp->getTargetDltVersion();
-        fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort(dp->getCommitedDltVersion());
+                  << " for target DLT version " << targetDltVersion;
+        fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort(dp->getCommitedDltVersion(),
+                                                                      targetDltVersion);
         LOGNORMAL << "Sent abort migration msgs to " << abortCnt << " SMs";
         dst.abortMigrAcksToWait = 0;
         if (abortCnt > 0) {
@@ -972,7 +989,19 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_EndError ";
+    LOGDEBUG << "FSM DACT_EndError " << src.errFound;
+
+    // since we failed to re-deploy DLT, retry again later (on some errors)
+    if (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS) {
+        LOGDEBUG << "We tried to re-deploy DLT while another migration is "
+                 << "still in progress (most likely resync due to restart)."
+                 << " Will retry in couple of minutes";
+        if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
+                                         std::chrono::seconds(2*60))) {
+            LOGWARN << "Failed to start try againtimer!!!"
+                    << " SM additions/deletions may be pending for long time!";
+        }
+    }
 }
 
 // DACT_ChkEndErr
