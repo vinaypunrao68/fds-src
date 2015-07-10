@@ -117,7 +117,11 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
     }
-    fds_verify(depth > 0);
+
+    if (depth == 0) {
+        // there are no DMs in the domain, nothing to compute
+        return ERR_NOT_FOUND;
+    }
 
     // allocate and compute new DMT
     newDmt = new(std::nothrow) DMT(curDmtWidth, depth, next_version, true);

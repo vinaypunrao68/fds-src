@@ -574,6 +574,8 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         LOGERROR << "Unexpected error from computeDMT " << err
                  << " Not commiting new DMT and ignoring error "
                  << " FIX IT!";
+    } else if (err == ERR_NOT_FOUND) {
+        LOGDEBUG << "No DMs joined yet";
     }
 
     LOGNORMAL << "Start DMT compute and deploying new DMT? " << bret;

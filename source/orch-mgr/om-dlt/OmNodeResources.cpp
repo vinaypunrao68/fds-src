@@ -1302,7 +1302,8 @@ OM_PmAgent::send_stop_service
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
               << " stop sm ? " << stop_sm
               << " stop dm ? " << stop_dm
-              << " stop am ? " << stop_am;
+              << " stop am ? " << stop_am
+              << " size of svcInfoList: " << svcInfos.size();
 
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     fds_mutex::scoped_lock l(dbNodeInfoLock);
