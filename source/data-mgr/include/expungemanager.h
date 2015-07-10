@@ -17,6 +17,7 @@ struct DataMgr;
 struct ExpungeDB {
     ExpungeDB();
     uint32_t increment(fds_volid_t volId, const ObjectID &objId);
+    uint32_t decrement(fds_volid_t volId, const ObjectID &objId);
     uint32_t getExpungeCount(fds_volid_t volId, const ObjectID &objId);
     void discard(fds_volid_t volId, const ObjectID &objId);
     ~ExpungeDB();
