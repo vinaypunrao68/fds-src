@@ -25,6 +25,9 @@ namespace fds
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo );
     fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus);
     
+    void updateSvcInfoList(std::vector<fpi::SvcInfo>& svcInfos,
+                           bool smFlag, bool dmFlag, bool amFlag);
+
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMUTILS_H_

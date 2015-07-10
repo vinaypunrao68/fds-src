@@ -21,10 +21,7 @@ class DmMigrationMgr {
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
     // Callbacks for migration handlers
-	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
-	using DmStartMigClientCbType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
+	using OmStartMigrationCBType = std::function<void (const Error& e)>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -74,7 +71,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(dmCatReq* dmRequest);
+    Error startMigrationExecutor(dmCatReq* dmRequest);
 
     /**
      * Source side DM:
@@ -89,6 +86,14 @@ class DmMigrationMgr {
      * multiple callback pointers, etc. For now, not doing it.
      */
     Error startMigrationClient(dmCatReq* dmRequest);
+    
+    // Handle deltaObject  in Migration executor 
+    Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
+
+    /**
+     * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
+     */
+    Error applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -96,14 +101,11 @@ class DmMigrationMgr {
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
-    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg;
-    fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
-    dmCatReq* dmReqPtr = nullptr;
+
     DataMgr& dataManager;
 
     /** check if the feature is enabled or not.
@@ -184,12 +186,6 @@ class DmMigrationMgr {
      * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
      */
     DmMigrationClientMap clientMap;
-
-    /**
-     * Source side DM:
-     * Callback for Source DM to ack back to the dest DM.
-     */
-    DmStartMigClientCbType DmStartMigClientCb;
 
     /**
      * Source side DM:

@@ -4,11 +4,10 @@
 function s3_setup {
     local node=$1
     echo "Setting up s3 on $node"
-    pushd /fds/sbin
-    ./fdsconsole.py accesslevel debug
-    ./fdsconsole.py volume create volume0 --vol-type object
-    popd
+    pushd ../../../cli
+    ./fds volume create -name $vol -type object -max_object_size $max_obj_size -max_object_size_unit B -media_policy HDD
     sleep 10
+    popd
 }
 
 function process_results {

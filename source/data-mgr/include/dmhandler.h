@@ -47,7 +47,7 @@ namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---
  * do NOT store any state in these classes for now.
- * handler functions should be reentrant 
+ * handler functions should be reentrant
  */
 struct RequestHelper {
     dmCatReq *dmRequest;
@@ -304,8 +304,8 @@ struct DmMigrationHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
     void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
+                            uint64_t dmtVersion,
+                            const Error& e);
 };
 
 /**
@@ -319,10 +319,27 @@ struct DmMigrationBlobFilterHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
-    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
 };
+
+struct DmMigrationDeltaBlobDescHandler : Handler {
+	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
+	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+};
+
+struct DmMigrationDeltablobHandler : Handler {
+    explicit DmMigrationDeltablobHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+    void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                          Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

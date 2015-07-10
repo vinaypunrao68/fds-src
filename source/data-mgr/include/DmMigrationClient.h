@@ -34,12 +34,12 @@ class DmMigrationClient {
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
      */
-    Error handleInitialBlobFilterMsg();
+    Error processBlobFilterSet();
 
     /**
      * Callback for the async task once done.
      */
-    Error handleInitialBlobFilterMsgDone();
+    Error processBlobFilterSetCb();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
@@ -48,8 +48,25 @@ class DmMigrationClient {
     // XXX: only public so we can unit test it
     static Error diffBlobLists(const std::map<int64_t, int64_t>& dest,
                                const std::map<int64_t, int64_t>& source,
-                        std::vector<fds_uint64_t>& update_list,
-                        std::vector<fds_uint64_t>& delete_list);
+                               std::vector<fds_uint64_t>& update_list,
+                               std::vector<fds_uint64_t>& delete_list);
+
+    /**
+     * Generate list of blobs to update or delete.
+     */
+    Error processBlobDescDiff();
+
+    /**
+     * Called by the handleInitialBlobFilterMsg() after processing the diff to
+     * send the delta blobs the destination node.
+     */
+    void sendCtrlNotifyDeltaBlobs();
+
+    /*
+     * TODO Temp function
+     */
+    Error generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg);
+
 
  private:
     /**
@@ -63,13 +80,15 @@ class DmMigrationClient {
      */
     NodeUuid mySvcUuid;
     NodeUuid destDmUuid;
-    fds_volid_t volID;
+    fds_volid_t volId;
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
+    std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> myBlobMsgs;
 
     /**
      * Snapshot used for diff.
      */
     Catalog::catalog_roptions_t opts;
+
 
     /**
      * Callback to talk to DM Migration Manager

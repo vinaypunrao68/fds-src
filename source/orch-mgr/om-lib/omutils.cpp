@@ -104,4 +104,43 @@ namespace fds
         }
         return retNodeState;
     }
+
+    void
+    updateSvcInfoList
+        (
+        std::vector<fpi::SvcInfo>& svcInfos,
+        bool smFlag,
+        bool dmFlag,
+        bool amFlag
+        )
+    {
+        int32_t index = 0;
+        int32_t smIdx = 0;
+        int32_t dmIdx = 0;
+        int32_t amIdx = 0;
+
+        // Check whether the service is present and the associated flag
+        // is set.(Flag is set if associated service needs to be removed).
+        // If so, save index so we can erase the service from the vector
+        for (fpi::SvcInfo svcInfo : svcInfos) {
+
+            if ( smFlag && svcInfo.svc_type == fpi::FDSP_STOR_MGR ) {
+                    smIdx = index;
+            }
+            if (dmFlag && svcInfo.svc_type == fpi::FDSP_DATA_MGR) {
+                    dmIdx = index;
+            }
+            if (amFlag && svcInfo.svc_type == fpi::FDSP_ACCESS_MGR) {
+                    amIdx = index;
+            }
+            ++index;
+        }
+
+        if (smFlag)
+            svcInfos.erase(svcInfos.begin() + smIdx);
+        if (dmFlag)
+            svcInfos.erase(svcInfos.begin() + dmIdx);
+        if (amFlag)
+            svcInfos.erase(svcInfos.begin() + amIdx);
+    }
 }  // namespace fds

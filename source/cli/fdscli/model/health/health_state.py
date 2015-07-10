@@ -12,6 +12,7 @@ class HealthState(object):
     EXCELLENT = "Excellent"
     MARGINAL = "Marignal"
     LIMITED = "Limited"
+    OKAY = "OKAY"
     
     MESSAGES = dict()    
     MESSAGES["l_services_good"] = "All expected services are running properly"

@@ -2,7 +2,6 @@ import getpass
 import requests
 import os
 from requests.exceptions import ConnectionError
-from __builtin__ import True
 from utils.configuration_manager import ConfigurationManager
 
 class FdsAuth():

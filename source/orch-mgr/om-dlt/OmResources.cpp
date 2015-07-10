@@ -2289,6 +2289,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 {
     TRACEFUNC;
     Error err(ERR_OK);
+
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
     // and unregister service resources

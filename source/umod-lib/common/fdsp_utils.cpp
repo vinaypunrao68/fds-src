@@ -148,6 +148,13 @@ std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSe
 	return oss.str();
 }
 
+std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg)
+{
+	std::ostringstream oss;
+	oss << " CtrlNotifyDeltaBlobDescMsg Vol Id: " << msg.volume_id;
+	return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
 {
     std::ostringstream oss;

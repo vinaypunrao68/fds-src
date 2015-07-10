@@ -460,7 +460,7 @@ class MigrationMgr {
 
     /// SM token token that is currently in the second round
     fds_token_id smTokenInProgressSecondRound;
-    fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
+    fds_bool_t resyncOnRestart {false};  // true if resyncing tokens without DLT change
 
     /// SM token for which retry token migration is going on.
     fds_token_id retrySmTokenInProgress;
