@@ -44,6 +44,54 @@ OM_NodeAgent::node_calc_stor_weight()
     return 0;
 }
 
+void
+OM_NodeAgent::set_state_from_svcmap()
+{
+    // setting service state from config DB
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if (!configDB) {
+        LOGNOTIFY << "configDB not initialized, not able to get service state for "
+                  << get_node_name() << ":0x" << std::hex << rs_get_uuid().uuid_get_val() << std::dec;
+        return;
+    }
+    fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( rs_get_uuid().uuid_get_val() );
+    if (serviceStatus == fpi::SVC_STATUS_INVALID) {
+        // most likely not in config DB, not change service state just in case
+        LOGNOTIFY << "Service either missing in configDB or state is invalid for "
+                  << get_node_name() << ":0x" << std::hex << rs_get_uuid().uuid_get_val() << std::dec;
+        return;
+    }
+    set_node_state(fromServiceStatus(serviceStatus));
+    LOGDEBUG << "Service " << get_node_name() << ":0x"
+             << std::hex << rs_get_uuid().uuid_get_val() << std::dec
+             << " moved to node state " << node_state() << " (service state "
+             << serviceStatus << ")";
+
+}
+
+void
+OM_NodeAgent::handle_service_deployed()
+{
+    LOGDEBUG << "Setting " << get_node_name() << " service ( uuid = " << std::hex
+             << rs_get_uuid().uuid_get_val() << std::dec << " ) state to ACTIVE";
+
+    // update this agent's state
+    if (node_state() == fpi::FDS_Node_Up) {
+        LOGNORMAL << "Service state already UP, not expected but OK ( uuid = "
+                  << std::hex << rs_get_uuid().uuid_get_val() << std::dec << " )";
+    } else if (node_state() == fpi::FDS_Node_Down) {
+        LOGNOTIFY << "Service is down, not changing its state to ACTIVE ( uuid = "
+                  << std::hex << rs_get_uuid().uuid_get_val() << std::dec << " )";
+        return;
+    }
+    set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    change_service_state( configDB,
+                          rs_get_uuid().uuid_get_val(),
+                          fpi::SVC_STATUS_ACTIVE );
+}
+
 // om_send_myinfo
 // --------------
 // Send a node event taken from the new node agent to a peer agent.
