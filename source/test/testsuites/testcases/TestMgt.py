@@ -660,10 +660,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             maxwait = int(scenario.nd_conf_dict['maxwait'])
 
 
-        if ('anyOccurrence' not in scenario.nd_conf_dict):
-            anyOccurrence = None
+        if ('atleastone' not in scenario.nd_conf_dict):
+            log.error("%s not found for any occurrence" %(scenario.nd_conf_dict['logentry']))
+            atleastone = None
         else:
-            anyOccurrence = 1
+            atleastone = 1
 
        # Locate the node.
         found = False
@@ -674,7 +675,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 suite.addTest(TestFDSSysVerify.TestWaitForLog(node=node, service=scenario.nd_conf_dict['service'],
                                                                         logentry=scenario.nd_conf_dict['logentry'],
                                                                         occurrences=occurrences, maxwait=maxwait,
-                                                                        anyOccurrence=anyOccurrence))
+                                                                        atleastone=atleastone))
                 break
 
         if found:

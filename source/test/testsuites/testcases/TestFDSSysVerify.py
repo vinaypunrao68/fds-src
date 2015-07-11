@@ -569,7 +569,7 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
 class TestWaitForLog(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None, anyOccurrence=None):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None, atleastone=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_WaitForLog,
@@ -580,7 +580,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
         self.passedLogentry = logentry
         self.passedOccurrences = occurrences
         self.passedMaxwait = maxwait
-        self.anyOccurrence = anyOccurrence
+        self.atleastone = atleastone
 
     def test_WaitForLog(self):
         """
@@ -599,7 +599,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
 
         fds_dir = self.passedNode.nd_conf_dict['fds_root']
 
-        if self.anyOccurrence is not None:
+        if self.atleastone is not None:
             self.log.info("Looking in node %s's %s logs for entry '%s' to occur at least once. Waiting for up to %s seconds." %
                            (self.passedNode.nd_conf_dict['node-name'], self.passedService,
                             self.passedLogentry, self.passedMaxwait))
@@ -612,7 +612,6 @@ class TestWaitForLog(TestCase.FDSTestCase):
         # either find what we're looking for or timeout while looking.
         maxLooks = self.passedMaxwait / 10
         occurrencesFound = 0
-        oneFoundThenBreak = 0
         for i in range(1, maxLooks):
             occurrencesFound = 0
             sftp = None
@@ -627,23 +626,23 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
-                    if self.anyOccurrence is not None:
+                    if self.atleastone is not None:
                         # At least once, we're good to go
                         break
 
             if sftp is not None:
                 sftp.close()
 
-            if occurrencesFound == self.passedOccurrences:
-                # Saw what we were looking for.
+            if ((self.atleastone is not None) and (occurrencesFound > 0)):
                 break
-            elif ((self.anyOccurrence is not None) and (occurrencesFound > 0)):
+            elif occurrencesFound == self.passedOccurrences:
+                # Saw what we were looking for.
                 break
             else:
                 time.sleep(10)
                 self.log.info("Looking ...")
 
-        if ((self.anyOccurrence is not None) and (occurrencesFound > 0)):
+        if ((self.atleastone is not None) and (occurrencesFound > 0)):
             self.log.info("Log entry found at least once")
             return True
         else:
