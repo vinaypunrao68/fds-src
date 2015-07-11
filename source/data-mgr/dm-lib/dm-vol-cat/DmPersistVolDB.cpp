@@ -331,7 +331,12 @@ Error DmPersistVolDB::getObject(const fds_uint64_t blob_id,
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
     auto dbIt = catalog_->NewIterator(m);
-    fds_assert(dbIt);
+
+    if (!dbIt) {
+        LOGERROR << "Error creating iterator for ldb on volume " << volId_;
+        return ERR_INVALID;
+    }
+
 
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
@@ -344,7 +349,13 @@ Error DmPersistVolDB::getObject(const fds_uint64_t blob_id,
 
         obj_list.push_back(std::move(blobInfo));
     }
-    fds_assert(dbIt->status().ok());  // check for any errors during the scan
+
+    if (!dbIt->status().ok()) {
+        LOGERROR << "Error getting offsets for blob " << blob_id << " for volume " << volId_
+                 << " : " << dbIt->status().ToString();
+
+        return status2error(dbIt->status());
+    }
 
     return ERR_OK;
 }
