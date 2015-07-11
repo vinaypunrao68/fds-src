@@ -47,7 +47,7 @@ public class Chunker {
             newChunk.position(startOffset);
             newChunk.put(bytes, writtenSoFar, toBeWritten);
             newChunk.position(0);
-            newChunk.limit(startOffset + toBeWritten);
+            //newChunk.limit(startOffset + toBeWritten);
             io.write(nfsPath, objectSize, new ObjectOffset(startObject + i), newChunk);
             startOffset = 0;
             length -= toBeWritten;

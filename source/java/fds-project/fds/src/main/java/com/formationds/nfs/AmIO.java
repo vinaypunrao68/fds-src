@@ -22,7 +22,6 @@ public class AmIO implements Chunker.ChunkIo {
 
     @Override
     public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
-        LOG.debug("AM reading " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue());
         try {
             return unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
         } catch (ApiException e) {
@@ -36,22 +35,33 @@ public class AmIO implements Chunker.ChunkIo {
 
     @Override
     public void write(NfsPath path, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception {
-        LOG.debug("AM writing " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes");
+        String message = path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes";
         BlobDescriptor blobDescriptor =
-                unwindExceptions(() -> asyncAm.statBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName()).get());
+                null;
+        try {
+            blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName()).get());
+        } catch (Exception e) {
+            LOG.error("AmIO.write() - statBlob() " + message, e);
+            throw e;
+        }
 
         NfsAttributes attributes = new NfsAttributes(blobDescriptor)
                 .updateMtime()
                 .updateSize(objectOffset.getValue() * objectSize + byteBuffer.remaining());
 
-        unwindExceptions(() ->
-                asyncAm.updateBlobOnce(AmVfs.DOMAIN,
-                        path.getVolume(),
-                        path.blobName(),
-                        1,
-                        byteBuffer,
-                        byteBuffer.remaining(),
-                        objectOffset,
-                        attributes.asMetadata()).get());
+        try {
+            unwindExceptions(() ->
+                    asyncAm.updateBlobOnce(AmVfs.DOMAIN,
+                            path.getVolume(),
+                            path.blobName(),
+                            1,
+                            byteBuffer,
+                            byteBuffer.remaining(),
+                            objectOffset,
+                            attributes.asMetadata()).get());
+        } catch (Exception e) {
+            LOG.error("AmIO.write() - updateBlobOnce() " + message, e);
+            throw e;
+        }
     }
 }

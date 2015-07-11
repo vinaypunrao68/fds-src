@@ -5,14 +5,44 @@ import org.junit.Test;
 
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 public class ChunkerTest {
+    @Test
+    public void testWriteChunksInArbitraryOrder() throws Exception {
+        MemoryIo io = new MemoryIo();
+        Chunker chunker = new Chunker(io);
+        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        int objectSize = 131072;
+        int blockSize = 4096;
+        int blockCount = 2;
+        int length = blockSize * blockCount; // About 400M
+        byte[] bytes = new byte[length];
+        new Random().nextBytes(bytes);
+        List<Integer> chunks = new ArrayList<>(blockCount);
+        for (int i = 0; i < blockCount; i++) {
+            chunks.add(blockCount - i - 1);
+        }
+
+        chunks.stream()
+                .forEach(i -> {
+                    byte[] chunk = new byte[blockSize];
+                    System.arraycopy(bytes, i * blockSize, chunk, 0, blockSize);
+                    try {
+                        chunker.write(nfsPath, objectSize, chunk, i * blockSize, blockSize);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        byte[] readBuf = new byte[length];
+        int read = chunker.read(nfsPath, objectSize, readBuf, 0, length);
+        assertEquals(length, read);
+        assertArrayEquals(bytes, readBuf);
+    }
+
     @Test
     public void testLargeChunks() throws Exception {
         MemoryIo io = new MemoryIo();
