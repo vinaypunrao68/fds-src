@@ -11,15 +11,8 @@ PYTHON_COVERAGE_TEST_RUNNER_DIRECTORIES="source/platform/python/tests"
 PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest"
+SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
 DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices"   ## This should be deleted when fs-2473 fs-2478 are resolved
-
-function message
-{
-    echo "================================================================================"
-    echo "$*"
-    echo "================================================================================"
-}
 
 function performance_report
 {
@@ -205,10 +198,9 @@ function cache_report
    ccache -s
 }
 
-function core_hunter
+function check_for_cores
 {
-    message  "POKING around for core files"
-    find /corefiles -type f -name "*.core" |grep -e ".*" > /dev/null
+    core_hunter
     return_code=$?
 
     if [[ ${return_code} -eq 0 ]]
@@ -288,22 +280,22 @@ function run_cpp_unit_tests
 
 function check_xunit_failures
 {
-    message "Checking xunit output for failure"
+    message "Checking xunit output for failure, system test:  ${1}"
     grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
-    if [[ $? -eq 0 ]] ; then
-        message "EEEEE Xunit Failures detected running System Test ${scenario}"
-        run_coroner 1
-    fi
+    [[ $? -eq 0 ]] && system_test_error ${scenario}
 }
 
 function check_xunit_errors
 {
-    message "Checking xunit output for errors"
+    message "Checking xunit output for errors, system test:  ${1}"
     grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
-    if [[ $? -eq 0 ]] ; then
-        message "EEEEE Xunit Errors detected running System Test ${scenario}"
-        run_coroner 1
-    fi
+    [[ $? -eq 0 ]] && system_test_error ${scenario}
+}
+
+function system_test_error
+{
+    message "EEEEE System Test problem(s) detected running ${1}"
+    run_coroner 1
 }
 
 function system_test_scenario_wrapper
@@ -313,25 +305,18 @@ function system_test_scenario_wrapper
     do_pushd source/test/testsuites
 
     message "IIIII RUNNING System Test Scenario:  ${scenario}"
-    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose
-    echo "***** Scenario complete:  ${scenario} complete - exit with: ${?}"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose || system_test_error ${scenario}
+    echo "***** Scenario complete:  ${scenario} passed"
 
     do_popd
 
-    capture_process_list ${FUNCNAME}.${scenario}
+    capture_process_list SysTest.${scenario}
 
     check_xunit_errors ${scenario}
     check_xunit_failures ${scenario}
 
-    if [[ $? -ne 0 ]]
-    then
-        message "EEEEE System Test problem(s) detected running ${scenario}"
-        run_coroner 1
-    fi
-
-    core_hunter
+    check_for_cores
 }
-
 
 function run_system_test_scenarios
 {
@@ -354,9 +339,10 @@ function system_test_force_failure
     run_coroner 1
 }
 
-
 function run_node_cleanup
 {
+    cd ${WORKSPACE}
+
     message "IIIII RUNNING post build node cleanup"
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
@@ -371,7 +357,6 @@ function run_node_cleanup
 
     exit $1
 }
-
 
 function run_coroner
 {
@@ -416,6 +401,11 @@ function run_coroner
 error_trap_enabled
 
 auto_locate
+
+# Now we are sure to find our "includes".
+. ./jenkins_scripts/message.sh
+. ./jenkins_scripts/core_hunter.sh
+
 startup
 clean_up_environment
 configure_cache

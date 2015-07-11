@@ -36,6 +36,10 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
 
 namespace fds {
 
+const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
+const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
+const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
+
 float_t DataMgr::getUsedCapacityAsPct() {
 
     // Error injection points
@@ -74,7 +78,6 @@ float_t DataMgr::getUsedCapacityAsPct() {
 
     return result;
 }
-
 
 /**
  * Receiver DM processing of volume sync state.
@@ -507,8 +510,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             err = timelineMgr->createSnapshot(vdesc);
         } else if (features.isTimelineEnabled()) {
             err = timelineMgr->createClone(vdesc);
-            if (err.ok()) fActivated = true;
         }
+        if (err.ok()) fActivated = true;
+
     } else {
         LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
         err = timeVolCat_->addVolume(*vdesc);
@@ -645,6 +649,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
+        return  err;
     }
 
     if (vdesc->isSnapshot()) {
@@ -1011,6 +1016,8 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
+    handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
+    handlers[FDS_DM_MIG_DELT_BLB] = new dm::DmMigrationDeltablobHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1108,13 +1115,15 @@ void DataMgr::mod_enable_service() {
 
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
+        MODULEPROVIDER()->getSvcMgr()->getDLT();
     }
+
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
     expungeMgr.reset(new ExpungeManager(this));
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
@@ -1420,7 +1429,13 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 std::string getSnapshotDir(fds_volid_t volId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     return util::strformat("%s/%ld/snapshot",
-                           root->dir_user_repo_dm().c_str(), volId.get());
+                           root->dir_user_repo_dm().c_str(), volId);
+}
+
+std::string getVolumeMetaDir(fds_volid_t volId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    return util::strformat("%s/%ld/volumemeta",
+                           root->dir_user_repo_dm().c_str(), volId);
 }
 
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
@@ -1433,6 +1448,19 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
                                  root->dir_sys_repo_dm().c_str(), volId, volId);
     }
 }
+
+std::string getTimelineDBPath() {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_sys_repo_dm();
+    return util::strformat("%s/timeline.db", dmDir.c_str());
+}
+
+std::string getExpungeDBPath() {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_user_repo_dm();
+    return util::strformat("%s/expunge.ldb", dmDir.c_str());
+}
+
 }  // namespace dmutil
 
 

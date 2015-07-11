@@ -2,8 +2,8 @@
 	"test_sets" : {
 		"test_basic_op" : [
 			{
-				"name" : "Test100GBBlockVolume",
-				"file" : "test_100gb_block_volume.py",
+				"name" : "TestVolumeBound",
+				"file" : "test_volume_bound.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""

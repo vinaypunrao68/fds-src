@@ -317,11 +317,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
+                case FDS_DM_MIG_DELT_BLB:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
                 case FDS_DM_RESYNC_INIT_BLOB:
+                case FDS_DM_MIG_DELTA_BLOBDESC:
                     // If serialization in enabled, serialize on the key
                     // otherwise just schedule directly.
                     // Note: We avoid this serialization in the block connector
@@ -562,8 +564,11 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id)
 
 // location of all snapshots for a volume
 std::string getSnapshotDir(fds_volid_t volId);
-
+std::string getVolumeMetaDir(fds_volid_t volId);
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+
+std::string getTimelineDBPath();
+std::string getExpungeDBPath();
 }  // namespace dmutil
 
 }  // namespace fds

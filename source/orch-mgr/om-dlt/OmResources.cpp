@@ -1650,6 +1650,20 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     
                     svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
                 }
+            } else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) {
+                if ( !isKnownService( *svcInfo ) ) {
+                    LOGDEBUG << "SM or DM service ("
+                             << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec
+                             << ") is a new service; set state = DISCOVERED";
+                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                } else {
+                    // currently service always reports it's active; but if OM knows that
+                    // it is in discovered state, then we should leave it in discovered state
+                    fpi::ServiceStatus status = configDB->getStateSvcMap( svcInfo->svc_id.svc_uuid.svc_uuid );
+                    if (status == fpi::SVC_STATUS_DISCOVERED) {
+                        svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                    }
+                }
             }
             /*
              * FS-1587 Tinius
@@ -1899,6 +1913,30 @@ bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
     return bRetCode;
 }
 
+bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
+{
+    bool bRetCode = false;
+
+    int64_t serviceUUID = svcInfo.svc_id.svc_uuid.svc_uuid;
+    std::vector<fpi::SvcInfo> configDBSvcs;
+
+    configDB->getSvcMap( configDBSvcs );
+    if ( configDBSvcs.size() > 0 )
+    {
+        for ( auto dbSvc : configDBSvcs )
+        {
+            int64_t knownUUID = dbSvc.svc_id.svc_uuid.svc_uuid;
+            if ( knownUUID == serviceUUID )
+            {
+                bRetCode = true;
+                break;
+            }
+        }
+    }
+
+    return bRetCode;
+}
+
 void OM_NodeDomainMod::fromSvcInfoToFDSP_RegisterNodeTypePtr( 
     fpi::SvcInfo svc, 
     fpi::FDSP_RegisterNodeTypePtr& reg_node_req )
@@ -2131,6 +2169,18 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     // tell parent PM Agent about its new service
     newNode->set_node_state(fpi::FDS_Node_Up);
+    // ANNA -- I don't want to mess with platform service state, so
+    // calling this method for SM and DM only. The register service method
+    // set correct discovered/active state for these services based on
+    // whether this is known service or restarting service. We are
+    // going to set node state based on service state in svc map
+    if (msg->node_type == fpi::FDSP_STOR_MGR) {
+        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
+        smAgent->set_state_from_svcmap();
+    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
+        dmAgent->set_state_from_svcmap();
+    }
 
     if ((msg->node_uuid).uuid != 0) {
         err = pmNodes->handle_register_service((msg->node_uuid).uuid,
@@ -2239,6 +2289,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 {
     TRACEFUNC;
     Error err(ERR_OK);
+
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
     // and unregister service resources

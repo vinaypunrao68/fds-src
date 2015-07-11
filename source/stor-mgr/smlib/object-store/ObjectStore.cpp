@@ -28,7 +28,11 @@ ObjectStore::ObjectStore(const std::string &modName,
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           conf_verify_data(true),
-          diskMap(new SmDiskMap("SM Disk Map Module")),
+          diskMap(new SmDiskMap("SM Disk Map Module",
+                                std::bind(&ObjectStore::handleDiskChanges,
+                                          this,
+                                          std::placeholders::_1,
+                                          std::placeholders::_2))),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")),
@@ -1340,6 +1344,54 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
 fds_uint32_t
 ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
+}
+
+/**
+ * Handle disk removal from the system.
+ * For Hybrid Storage System(2SSD - 10HDD default config):
+ *                    Metadata is stored on SSDs and data on HDDs.
+ * For All SSD system:
+ *                    Metadata and data are stored on the same SSD.
+ *
+ * If HDD is removed: Delete the corresponding metadata levelDBs
+ *                    for the smTokens whose token files are lost
+ *                    due to disk removal.
+ * If SSD is removed: For hybrid system, remove token files of lost
+ *                    smTokens.
+ *                    For all SSD system, since data and metadata
+ *                    was stored on the same disk. Nothing to be
+ *                    done.
+ */
+void
+ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
+                               const TokenDiskIdPairSet& tokenDiskPairs) {
+    if (!diskMap->isAllDisksSSD()) {
+        switch (tierType) {
+            case diskio::diskTier:
+                if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
+                    LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
+                    /**
+                     * Delete persisted levelDB for given SM Tokens.
+                     */
+                    for (auto& tokenPair: tokenDiskPairs) {
+                        LOGNOTIFY << tokenPair.first;
+                        metaStore->deleteMetadataDb(diskMap->getDiskPath(tokenPair.second),
+                                                    tokenPair.first);
+                    }
+                }
+                break;
+            case diskio::flashTier:
+                LOGNOTIFY << "Close and delete token files for smTokens ";
+                for (auto& tokenPair: tokenDiskPairs) {
+                    LOGNOTIFY << tokenPair.first;
+                    dataStore->deleteObjectDataFile(diskMap->getDiskPath(tokenPair.second), tokenPair.first, tokenPair.second);
+                }
+                break;
+            default:
+                fds_panic("Unidentified disk type");
+                LOGWARN << "Unidentified disk type removed. No disk failure handling done";
+        }
+    }
 }
 
 /**

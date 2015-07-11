@@ -22,6 +22,20 @@ import multinode
 import testsets.test_set as test_set
 import s3
 import utils
+import httplib
+import boto
+
+
+def boto_logging():
+    if not boto.config.has_section('Boto'):
+        boto.config.add_section('Boto')
+    boto.config.set("Boto", "debug", "2")
+    boto_log = os.path.join(os.getcwd(), "boto.log")
+    if not os.path.exists(boto_log):
+        fp = open(boto_log, 'w')
+        fp.close()
+    boto.set_file_logger("boto", os.path.join(os.getcwd(), "boto.log"))
+    logging.getLogger("boto").setLevel(logging.DEBUG)
 
 '''
 The class Operation is responsible for creating all the test sets, with
@@ -35,11 +49,11 @@ test_set_list : dict
 '''
 class Operation(object):
     # establish the basic logging operations
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
+    # httplib.HTTPConnection.debuglevel = 1
 
     def __init__(self, test_sets_list, args):
-
         # save args to class
         self.test_sets_list = test_sets_list
         self.args = args
@@ -262,6 +276,9 @@ if __name__ == '__main__':
                         default=1,
                         help='Specify how many nodes will go to a multi node' \
                         ' cluster.')
+    parser.add_argument('-l', '--log',
+                        default=None,
+                        help='Specify if logging is to be used')
     parser.add_argument('-t', '--type',
                         default='baremetal',
                         help='Specify if the cluster will be created using' \
