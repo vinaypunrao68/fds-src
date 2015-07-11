@@ -1378,7 +1378,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
 
         // Load DMT
-        err = vp->loadDmtsFromConfigDB(dm_services, deployed_sm_services);
+        err = vp->loadDmtsFromConfigDB(dm_services, deployed_dm_services);
         if (!err.ok()) {
             LOGERROR << "Persistent state mismatch: " << err
                      << std::endl << "OM will stay DOWN! Kill OM, cleanup "
