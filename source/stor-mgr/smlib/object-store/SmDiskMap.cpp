@@ -74,42 +74,24 @@ SmDiskMap::loadPersistentState() {
     return err;
 }
 
-SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
+DiskCapacityUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
-
-    // Cause method to return capacity
-    fiu_do_on("sm.diskmap.cause_used_capacity_alert", \
-              fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
-                       << ", 100). This should cause an alert."; \
-              SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_ALERT_THRESHOLD + 1, 100);
-              return retVals; );
-
-    fiu_do_on("sm.diskmap.cause_used_capacity_warn", \
-              fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
-                       << ", 100). This should cause a warning."; \
-              SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_WARNING_THRESHOLD + 1, 100);
-              return retVals; );
-
-    struct statvfs statbuf;
-    memset(&statbuf, 0, sizeof(statbuf));
 
     bool ssdMetadata = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta");
 
     // Get the total size info for the disk regardless of type
     std::string diskPath = getDiskPath(disk_id);
-    if (statvfs(diskPath.c_str(), &statbuf) < 0) {
-        LOGERROR << "Could not read disk " << diskPath;
-    }
-    fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
-    fds_uint64_t consumedSize = 0;
+
+    DiskCapacityUtils::capacity_tuple out = DiskCapacityUtils::getDiskConsumedSize(diskPath);
 
     // If we got an SSD disk id and have HDDs we still need to check metadata size
     if ((ssd_ids.find(disk_id) != ssd_ids.end()) && (hdd_ids.size() != 0)) {
         // Only calculate this value if we've got ssd metadata turned on
         if (ssdMetadata) {
             LOGDEBUG << "SM using SSD for metadata, checking metadata size...";
+
+            // Accumulator
+            fds_uint64_t acc = 0;
 
             SmTokenSet smToks = getSmTokens();
             // Find the LevelDBs
@@ -118,17 +100,15 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
                  ++cit) {
                 // Calculate a consumedSize based on the size of the level DBs
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
-                if (statvfs(filename.c_str(), &statbuf) < 0) {
-                    LOGERROR << "Could not read metadata filename" << filename;
-                }
-                consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
+                DiskCapacityUtils::capacity_tuple tmp = DiskCapacityUtils::getDiskConsumedSize(filename);
+
+                acc += tmp.first;
             }
+            return DiskCapacityUtils::capacity_tuple(acc, out.second);
         }
-    } else {
-        consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
     }
 
-    return std::pair<fds_uint64_t, fds_uint64_t>(consumedSize, totalSize);
+    return out;
 }
 
 

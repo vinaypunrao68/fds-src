@@ -13,6 +13,10 @@
 #include <dmhandler.h>
 #include <util/stringutils.h>
 #include <util/path.h>
+#include <include/util/disk_utils.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
+
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -31,6 +35,46 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
 } // namespace
 
 namespace fds {
+
+float_t DataMgr::getUsedCapacityAsPct() {
+
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("dm.get_used_capacity_error", \
+            fiu_disable("dm.get_used_capacity_warn"); \
+            fiu_disable("dm.get_used_capacity_alert"); \
+            LOGDEBUG << "Err inection: returning max used disk capacity as " \
+                     << DISK_CAPACITY_ERROR_THRESHOLD; \
+            return DISK_CAPACITY_ERROR_THRESHOLD; );
+
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_alert", \
+              fiu_disable("dm.get_used_capacity_warn"); \
+              fiu_disable("dm.get_used_capacity_error"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_warn", \
+              fiu_disable("dm.get_used_capacity_error"); \
+              fiu_disable("dm.get_used_capacity_alert"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
+    // Get fds root dir
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    // Get sys-repo dir
+    DiskCapacityUtils::capacity_tuple cap = DiskCapacityUtils::getDiskConsumedSize(root->dir_sys_repo_stats());
+
+    // Calculate pct
+    float_t result = ((1. * cap.first) / cap.second) * 100;
+    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
+
+    return result;
+}
+
 
 /**
  * Receiver DM processing of volume sync state.
@@ -159,6 +203,47 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                                                  STAT_DM_CUR_TOTAL_OBJECTS,
                                                  total_objects);
     }
+
+    /*
+     * Piggyback on this method to determine if we're nearing disk capacity
+     */
+    if (sampleCounter % 5 == 0) {
+        LOGDEBUG << "Checking disk utilization!";
+        float_t pct_used = getUsedCapacityAsPct();
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send message to OM
+
+
+        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+            LOGWARN << "ATTENTION: DM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send message to OM
+
+        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+            LOGNORMAL << "DM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+
+                // Send message to OM resetting us to OK state
+            }
+        }
+        sampleCounter = 0;
+    }
+    sampleCounter++;
+
 }
 
 void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
@@ -836,6 +921,9 @@ int DataMgr::mod_init(SysParams const *const param)
     numTestVols = 10;
     scheduleRate = 10000;
     shuttingDown = false;
+
+    lastCapacityMessageSentAt = 0;
+    sampleCounter = 0;
 
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();

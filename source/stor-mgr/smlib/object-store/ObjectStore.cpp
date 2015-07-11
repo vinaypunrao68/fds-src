@@ -16,6 +16,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 #include <object-store/TieringConfig.h>
+#include <include/util/disk_utils.h>
 
 namespace fds {
 
@@ -83,7 +84,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
-        SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        DiskCapacityUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
