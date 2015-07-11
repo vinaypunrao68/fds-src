@@ -560,7 +560,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         for (auto sm_uuid: src.sm_services) {
             // since updateMap keeps those nodes as pending, we tell cluster map that
             // they are not pending, since these nodes are already in the DLT
-            cm->rmPendingAddedService(fpi::FDSP_STOR_MGR, sm_uuid);
+            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, sm_uuid);
         }
 
         // move nodes that are already in DMT from pending list
@@ -577,7 +577,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         for (auto dm_uuid: src.dm_services) {
             // since updateMap keeps those nodes as pending, we tell cluster map that
             // they are not pending, since these nodes are already in the DMT
-            cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, dm_uuid);
+            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, dm_uuid);
         }
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -1813,7 +1813,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         // we want to remove service from pending services
                         // only if it is not in discovered state
                         if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
-                            cm->rmPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
+                            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
                         }
                     }
                     else if ( svc.svc_type == fpi::FDSP_DATA_MGR )
@@ -1827,7 +1827,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         // we want to remove service from pending services
                         // only if it is not in discovered state
                         if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
-                            cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
                         }
                     }
                 }
