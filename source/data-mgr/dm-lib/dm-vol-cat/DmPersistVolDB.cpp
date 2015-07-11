@@ -319,6 +319,36 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     return ERR_OK;
 }
 
+/* a much simpler implementation than the others, because we want all
+   the object offset mappings. start at 0, end before the blob descriptor */
+Error DmPersistVolDB::getObject(const fds_uint64_t blob_id,
+                                std::vector<fpi::DMBlobObjListDiff>& obj_list,
+                                Catalog::MemSnap m) {
+    BlobObjKey startKey(blob_id, 0);
+    const Record startRec(reinterpret_cast<const char *>(&startKey), sizeof(BlobObjKey));
+
+    BlobObjKey endKey(blob_id, BLOB_META_INDEX-1);
+    const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
+
+    auto dbIt = catalog_->NewIterator(m);
+    fds_assert(dbIt);
+
+    for (dbIt->Seek(startRec); dbIt->Valid() &&
+            catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
+            dbIt->Next()) {
+        const BlobObjKey * key = reinterpret_cast<const BlobObjKey *>(dbIt->key().data());
+
+        fpi::DMBlobObjListDiff blobInfo;
+        blobInfo.obj_offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
+        blobInfo.obj_id.digest = std::move(dbIt->value().ToString());
+
+        obj_list.push_back(std::move(blobInfo));
+    }
+    fds_assert(dbIt->status().ok());  // check for any errors during the scan
+
+    return ERR_OK;
+}
+
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t startOffset,
         fds_uint64_t endOffset, BlobObjList & objList) {
     fds_assert(startOffset <= endOffset);

@@ -10,6 +10,7 @@
 #include "fdsp/dm_api_types.h"
 #include <lib/Catalog.h>
 #include <functional>
+#include <DmBlobTypes.h>
 namespace fds {
 
 /**
@@ -114,6 +115,23 @@ class VolumeCatalogQueryIface {
     virtual Error listBlobs(fds_volid_t volume_id,
                             fpi::BlobDescriptorListType* bdescr_list) = 0;
 
+
+    /**
+     * Returns blob (descriptor + offset to object_id mappings) for a blob_id
+     * intended to be used for logical replication
+     * @param[in] volume_id volume uuid
+     * @param[in] blob_id id of the blob
+     * @param[out] meta the blob metadata descriptor
+     * @param[out] obj_list list of offset to object id mappings
+     * @param[in] m the snapshot to read from
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
+     */
+    virtual Error getBlobAndMetaFromSnapshot(fds_volid_t volume_id,
+                                             fds_uint64_t blob_id,
+                                             BlobMetaDesc &meta,
+                                             std::vector<fpi::DMBlobObjListDiff>* obj_list,
+                                             Catalog::MemSnap m) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
      */

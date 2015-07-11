@@ -403,6 +403,21 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
     return rc;
 }
 
+Error DmVolumeCatalog::getBlobAndMetaFromSnapshot(fds_volid_t volId,
+                                                  fds_uint64_t blob_id,
+                                                  BlobMetaDesc &meta,
+                                                  std::vector<fpi::DMBlobObjListDiff>* obj_list,
+                                                  Catalog::MemSnap m) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    Error rc = vol->getBlobMetaDesc(blob_id, meta, m);
+
+    rc = vol->getObject(blob_id, *obj_list, m);
+
+    return rc;
+}
+
 Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bDescrList) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();

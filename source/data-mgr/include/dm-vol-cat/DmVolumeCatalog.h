@@ -197,6 +197,23 @@ class DmVolumeCatalog : public Module, public HasLogger,
                   fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize) override;
 
     /**
+     * Returns blob (descriptor + offset to object_id mappings) for a blob_id
+     * intended to be used for logical replication
+     * @param[in] volume_id volume uuid
+     * @param[in] blob_id id of the blob
+     * @param[out] meta the blob metadata descriptor
+     * @param[out] obj_list list of offset to object id mappings
+     * @param[in] m the snapshot to read from
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
+     */
+    Error getBlobAndMetaFromSnapshot(fds_volid_t volume_id,
+                                     fds_uint64_t blob_id,
+                                     BlobMetaDesc &meta,
+                                     std::vector<fpi::DMBlobObjListDiff>* obj_list,
+                                     Catalog::MemSnap m) override;
+
+    /**
      * Returns the list of blobs in the volume with basic blob info
      * @param[out] binfoList list of blobs
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
