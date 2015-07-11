@@ -8,6 +8,7 @@
 #include <set>
 #include <map>
 
+#include <sys/mount.h>
 #include <concurrency/RwLock.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
@@ -269,9 +270,10 @@ class SmSuperblockMgr {
      * came from clean state and successfully persistent the superblock
      * Otherwise returns an error.
      */
-    Error loadSuperblock(const DiskIdSet& hddIds,
-                         const DiskIdSet& ssdIds,
-                         const DiskLocMap & latestDiskMap);
+    Error loadSuperblock(DiskIdSet& hddIds,
+                         DiskIdSet& ssdIds,
+                         const DiskLocMap & latestDiskMap,
+                         const DiskLocMap & latestDiskDevMap = DiskLocMap());
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
@@ -348,7 +350,14 @@ class SmSuperblockMgr {
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
     void
-    checkDiskTopology(const DiskIdSet& newHDDs, const DiskIdSet& newSSDs);
+    checkDiskTopology(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
+
+    void
+    checkDisksAlive(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
+
+    bool
+    isDiskUnreachable(const fds_uint16_t& diskId,
+                      const std::string& mountPnt);
 
     DiskIdSet
     diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
@@ -372,6 +381,7 @@ class SmSuperblockMgr {
 
     /// set of disks.
     DiskLocMap diskMap;
+    DiskLocMap diskDevMap;
 
     /// Name of the superblock file.
     const std::string superblockName = "SmSuperblock";

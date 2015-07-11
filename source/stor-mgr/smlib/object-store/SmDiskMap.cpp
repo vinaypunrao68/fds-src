@@ -65,7 +65,7 @@ Error
 SmDiskMap::loadPersistentState() {
     // Load superblock, tell superblock about disk map
     // it will handle changes in diskmap (vs. its persisted state)
-    Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map);
+    Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, diskDevMap);
     if (err.ok()) {
         LOGDEBUG << "Loaded superblock " << *superblock;
     } else {
@@ -210,6 +210,7 @@ void SmDiskMap::getDiskMap() {
         }
         fds_verify(disk_map.count(idx) == 0);
         disk_map[idx] = path;
+        diskDevMap[idx] = dev;
     }
     if (disk_map.size() == 0) {
         LOGCRITICAL << "Can't find any devices!";

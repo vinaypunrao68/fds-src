@@ -283,9 +283,10 @@ SmSuperblockMgr::getSuperblockPath(const std::string& dir_path) {
 }
 
 Error
-SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
-                                const DiskIdSet& ssdIds,
-                                const DiskLocMap& latestDiskMap)
+SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
+                                DiskIdSet& ssdIds,
+                                const DiskLocMap& latestDiskMap,
+                                const DiskLocMap& latestDiskDevMap)
 {
     Error err(ERR_OK);
 
@@ -298,6 +299,7 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
     /* Cache the diskMap to a local storage.
      */
     diskMap = latestDiskMap;
+    diskDevMap = latestDiskDevMap;
     LOGDEBUG << "Got disk map";
 
     /* Do initial state check.
@@ -332,8 +334,6 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          * 1) disk(s) were added.
          * 2) disk(s) were removed.
          * 3) 1 and 2.
-         * For now, if the topology has changed, just panic.  We don't have
-         * a mechanism to handle this case, yet.
          */
         checkDiskTopology(hddIds, ssdIds);
     }
@@ -478,18 +478,71 @@ SmSuperblockMgr::diffDiskSet(const DiskIdSet& diskSet1,
     return deltaDiskSet;
 }
 
+void
+SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
+                                 DiskIdSet& SSDs) {
+    DiskIdSet badDisks;
+    std::string tempMountDir = MODULEPROVIDER()->proc_fdsroot()->\
+                               dir_fds_etc() + "testDevMount";
+    FdsRootDir::fds_mkdir(tempMountDir.c_str());
+    umount2(tempMountDir.c_str(), MNT_FORCE);
+
+    // check for unreachable HDDs first.
+    for (auto& diskId : HDDs) {
+        if (isDiskUnreachable(diskId, tempMountDir)) {
+            badDisks.insert(diskId);
+        }
+    }
+    for (auto& badDiskId : badDisks) {
+        HDDs.erase(badDiskId);
+    }
+    badDisks.clear();
+
+    // check for unreachable SSDs.
+    for (auto& diskId : SSDs) {
+        if (isDiskUnreachable(diskId, tempMountDir)) {
+            badDisks.insert(diskId);
+        }
+    }
+    for (auto& badDiskId : badDisks) {
+        SSDs.erase(badDiskId);
+    }
+}
+
+bool
+SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
+                                   const std::string& mountPnt) {
+
+    if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
+        if (errno == ENODEV) {
+            LOGNOTIFY << "Disk " << diskId << " is not accessible ";
+            return true;
+        }
+    } else {
+        umount2(mountPnt.c_str(), MNT_FORCE);
+    }
+    return false;
+}
+
 /*
  * Determine if the node's disk topology has changed or not.
  *
  */
 void
-SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
-                                   const DiskIdSet& newSSDs)
+SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
+                                   DiskIdSet& newSSDs)
 {
     DiskIdSet persistentHDDs, persistentSSDs;
     DiskIdSet addedHDDs, removedHDDs;
     DiskIdSet addedSSDs, removedSSDs;
     bool recomputed = false;
+
+    /**
+     * Check for all HDDs and SSDs passed to SM via diskMap
+     * are up and accessible. Remove the bad ones from SSD
+     * and/or HDD DiskIdSet.
+     */
+    checkDisksAlive(newHDDs, newSSDs);
 
     /* Get the list of unique disk IDs from the OLT table.  This is
      * used to compare with the new set of HDDs and SSDs to determine
