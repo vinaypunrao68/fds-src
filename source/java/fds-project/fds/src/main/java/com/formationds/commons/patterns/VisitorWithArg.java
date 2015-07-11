@@ -10,7 +10,7 @@ package com.formationds.commons.patterns;
  */
 // @eclipseFormat:off
 public interface VisitorWithArg<
-        VisitableT extends VisitableWithArg<ThisT, VisitableT, ArgumentT, ExT>,
+        VisitableT extends VisitableWithArg<? super ThisT, VisitableT, ArgumentT, ? extends ExT>,
         ThisT extends VisitorWithArg<VisitableT, ThisT, ArgumentT, ExT>,
         ArgumentT,
         ExT extends Exception>

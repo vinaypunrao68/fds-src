@@ -1,8 +1,5 @@
 package com.formationds.iodriver.operations;
 
-import java.net.HttpURLConnection;
-import java.net.URI;
-
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.AbstractHttpEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
@@ -17,7 +14,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 public abstract class AbstractHttpOperation<
     ThisT extends AbstractHttpOperation<ThisT, EndpointT>,
     EndpointT extends AbstractHttpEndpoint<EndpointT, ThisT>>
-extends Operation<ThisT, EndpointT>
+extends AbstractOperation<ThisT, EndpointT> implements HttpOperation<ThisT, EndpointT>
 // @eclipseFormat:on
 {
     @Override
@@ -29,19 +26,6 @@ extends Operation<ThisT, EndpointT>
 
         endpoint.visit(getThis(), listener);
     }
-
-    /**
-     * Perform the actual operation.
-     * 
-     * @param endpoint The endpoint to run on.
-     * @param connection The connection provided by the endpoint.
-     * @param reporter The listener for events.
-     * 
-     * @throws ExecutionException when an error occurs.
-     */
-    public abstract void exec(EndpointT endpoint,
-                              HttpURLConnection connection,
-                              AbstractWorkflowEventListener reporter) throws ExecutionException;
 
     /**
      * Perform the actual operation without opening a connection first.
@@ -69,24 +53,6 @@ extends Operation<ThisT, EndpointT>
     {
         return true;
     }
-
-    /**
-     * Get the relative URI (to the endpoint) that will be requested.
-     * 
-     * @return A URI, or {@code null} if the endpoint's base URI is correct.
-     */
-    public URI getRelativeUri()
-    {
-        return null;
-    }
-
-    /**
-     * Get the HTTP request method to use.
-     *
-     * @return The HTTP request method to use. {@code null} may be returned if
-     *         {@link #getNeedsConnection()} returns {@code false}.
-     */
-    public abstract String getRequestMethod();
 
     /**
      * Get a typed reference to {@code this} in parent classes.

@@ -14,7 +14,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
  */
 // @eclipseFormat:off
 public abstract class Endpoint<ThisT extends Endpoint<ThisT, OperationT>,
-                               OperationT extends Operation<OperationT, ThisT>>
+                               OperationT extends Operation<OperationT, ? super ThisT>>
 implements VisitorWithArg<OperationT, ThisT, AbstractWorkflowEventListener, ExecutionException>
 // @eclipseFormat:on
 {

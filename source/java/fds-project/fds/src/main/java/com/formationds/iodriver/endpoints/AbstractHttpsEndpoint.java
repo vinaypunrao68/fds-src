@@ -13,7 +13,7 @@ import javax.net.ssl.SSLSocketFactory;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.AbstractHttpOperation;
+import com.formationds.iodriver.operations.HttpsOperation;
 
 /**
  * Endpoint that only accepts HTTPS connections.
@@ -24,8 +24,8 @@ import com.formationds.iodriver.operations.AbstractHttpOperation;
 // @eclipseFormat:off
 public abstract class AbstractHttpsEndpoint<
         ThisT extends AbstractHttpsEndpoint<ThisT, OperationT>,
-        OperationT extends AbstractHttpOperation<OperationT, ThisT>>
-extends AbstractHttpEndpoint<ThisT, OperationT>
+        OperationT extends HttpsOperation<OperationT, ? super ThisT>>
+extends AbstractHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
 // @eclipseFormat:on
 {
     /**
@@ -111,7 +111,9 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
     /**
      * Extend this class to allow deep copies even when superclass private members aren't available.
      */
-    protected class CopyHelper extends AbstractHttpEndpoint<ThisT, OperationT>.CopyHelper
+    protected class CopyHelper extends AbstractHttpEndpoint<ThisT,
+                                                            OperationT,
+                                                            HttpsURLConnection>.CopyHelper
     {
         /**
          * Whether normally-untrusted certificates should be accepted.

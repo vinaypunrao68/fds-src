@@ -1,15 +1,17 @@
 package com.formationds.iodriver.operations;
 
+import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.workloads.Workload;
 
-public final class CallChildWorkflow<
-        EndpointT extends Endpoint<EndpointT, CallChildWorkflow<EndpointT, ?>>,
-        WorkloadT extends Workload<EndpointT, ? super CallChildWorkflow<EndpointT, ?>>>
-        extends Operation<CallChildWorkflow<EndpointT, WorkloadT>, EndpointT>
+public final class CallChildWorkload<
+        EndpointT extends Endpoint<EndpointT, ? super CallChildWorkload<EndpointT, WorkloadT>>,
+        WorkloadT extends Workload<? extends EndpointT,
+                                   ? super CallChildWorkload<EndpointT, WorkloadT>>>
+        extends Operation<CallChildWorkload<EndpointT, WorkloadT>, EndpointT>
 {
-    public CallChildWorkflow(Workload<? super EndpointT, ?> workload, Observer<SimpleImmutableEntry<)
+    public CallChildWorkload(Workload<? super EndpointT, ?> workload)
     {
         if (workload == null) throw new NullArgumentException("workload");
         

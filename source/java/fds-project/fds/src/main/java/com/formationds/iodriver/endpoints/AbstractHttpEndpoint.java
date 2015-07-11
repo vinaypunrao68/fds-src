@@ -1,5 +1,7 @@
 package com.formationds.iodriver.endpoints;
 
+import static com.formationds.commons.util.Strings.javaString;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -14,18 +16,16 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 
-import com.google.common.io.CharStreams;
-import com.google.common.net.MediaType;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.AbstractHttpOperation;
+import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-
-import static com.formationds.commons.util.Strings.javaString;
+import com.google.common.io.CharStreams;
+import com.google.common.net.MediaType;
 
 /**
  * Basic HTTP endpoint.
@@ -35,8 +35,9 @@ import static com.formationds.commons.util.Strings.javaString;
  */
 // @eclipseFormat:off
 public abstract class AbstractHttpEndpoint<
-    ThisT extends AbstractHttpEndpoint<ThisT, OperationT>,
-    OperationT extends AbstractHttpOperation<OperationT, ThisT>>
+    ThisT extends AbstractHttpEndpoint<ThisT, OperationT, ConnectionT>,
+    OperationT extends BaseHttpOperation<OperationT, ? super ThisT, ? super ConnectionT>,
+    ConnectionT>
 extends Endpoint<ThisT, OperationT>
 // @eclipseFormat:on
 {
@@ -109,49 +110,42 @@ extends Endpoint<ThisT, OperationT>
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
 
-        if (operation.getNeedsConnection())
+        ConnectionT connection;
+        try
         {
-            HttpURLConnection connection;
-            try
+            URI relativeUri = operation.getRelativeUri();
+            if (relativeUri == null)
             {
-                URI relativeUri = operation.getRelativeUri();
-                if (relativeUri == null)
-                {
-                    connection = openConnection();
-                }
-                else
-                {
-                    connection = openRelativeConnection(relativeUri);
-                }
+                connection = openConnection();
             }
-            catch (IOException e)
+            else
             {
-                throw new ExecutionException(e);
-            }
-
-            String requestMethod = operation.getRequestMethod();
-            try
-            {
-                connection.setRequestMethod(requestMethod);
-            }
-            catch (ProtocolException e)
-            {
-                throw new ExecutionException(
-                        "Error setting request method to " + javaString(requestMethod) + ".", e);
-            }
-
-            try
-            {
-                operation.exec(getThis(), connection, listener);
-            }
-            finally
-            {
-                connection.disconnect();
+                connection = openRelativeConnection(relativeUri);
             }
         }
-        else
+        catch (IOException e)
         {
-            operation.exec(getThis(), listener);
+            throw new ExecutionException(e);
+        }
+
+        String requestMethod = operation.getRequestMethod();
+        try
+        {
+            connection.setRequestMethod(requestMethod);
+        }
+        catch (ProtocolException e)
+        {
+            throw new ExecutionException(
+                    "Error setting request method to " + javaString(requestMethod) + ".", e);
+        }
+
+        try
+        {
+            operation.exec(getThis(), connection, listener);
+        }
+        finally
+        {
+            connection.disconnect();
         }
     }
 
@@ -452,9 +446,9 @@ extends Endpoint<ThisT, OperationT>
      * 
      * @throws IOException when there is an error connecting.
      */
-    protected HttpURLConnection openConnection() throws IOException
+    protected ConnectionT openConnection() throws IOException
     {
-        return (HttpURLConnection)openConnection(_url);
+        return openConnection(_url);
     }
 
     /**
@@ -466,13 +460,7 @@ extends Endpoint<ThisT, OperationT>
      * 
      * @throws IOException when there is an error connecting.
      */
-    protected URLConnection openConnection(URL url) throws IOException
-    {
-        if (url == null) throw new NullArgumentException("url");
-
-        return url.openConnection();
-    }
-
+    protected abstract ConnectionT openConnection(URL url) throws IOException;
     /**
      * Open a connection to a relative URL.
      * 
@@ -482,7 +470,7 @@ extends Endpoint<ThisT, OperationT>
      * 
      * @throws IOException when there is an error connecting.
      */
-    protected HttpURLConnection openRelativeConnection(URI relativeUri) throws IOException
+    protected ConnectionT openRelativeConnection(URI relativeUri) throws IOException
     {
         if (relativeUri == null) throw new NullArgumentException("relativeUri");
 
@@ -507,7 +495,7 @@ extends Endpoint<ThisT, OperationT>
 
         try
         {
-            return (HttpURLConnection)openConnection(resolved.toURL());
+            return openConnection(resolved.toURL());
         }
         catch (MalformedURLException e)
         {
