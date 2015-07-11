@@ -48,6 +48,7 @@ extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
+extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 // ======
 
     /*
@@ -365,6 +366,28 @@ class DmIoQueryCat: public dmCatReq {
 
     /* response callback */
     CbType dmio_querycat_resp_cb;
+};
+
+
+class DmIoMigDeltaBlob : public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoMigDeltaBlob *req)> CbType;
+    explicit DmIoMigDeltaBlob(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& fwdMsg)
+            : dmCatReq(fds_volid_t(fwdMsg->volume_id), "", "", 0,
+                       FDS_DM_MIG_DELT_BLB), fwdCatMsg(fwdMsg) {}
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoMigDeltaBlob vol " << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigDeltaBlob& io) {
+        return out << "DmIoMigDeltaBlob vol " << std::hex << io.volId << std::dec;
+    }
+
+    boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> fwdCatMsg;
+    CbType dmio_fwdcat_resp_cb;
 };
 
 /**
@@ -751,6 +774,20 @@ struct DmIoResyncInitialBlob : dmCatReq {
     friend std::ostream& operator<<(std::ostream& out, const DmIoResyncInitialBlob& io) {
     	return out << "DmIoResyncInitialBlob vol " << io.volId.get();
     }
+};
+
+struct DmIoMigrationDeltaBlobDesc : dmCatReq {
+    explicit DmIoMigrationDeltaBlobDesc(const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
+            : message(msg),
+              dmCatReq(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC)
+    {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationDeltaBlobDesc& io) {
+    	return out << "DmIoMigrationDeltaBlobDesc vol:" << io.message->volume_id;
+    }
+
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr message;
 };
 
 }  // namespace fds

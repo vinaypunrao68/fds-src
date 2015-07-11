@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 #include <fds_process.h>
 #include <object-store/SmSuperblock.h>
+#include <net/SvcProcess.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -19,6 +20,18 @@ namespace fds {
 
 static const fds_uint32_t sbDefaultHddCount = 3;
 static const fds_uint32_t sbDefaultSsdCount = 0;
+
+class SmSuperblockUtProc : public SvcProcess {
+  public:
+    SmSuperblockUtProc(int argc, char * argv[], const std::string & config,
+                    const std::string & basePath, Module * vec[]) {
+        init(argc, argv, config, basePath, "sm_superblock.log", vec);
+    }
+
+    virtual int run() override {
+        return 0;
+    }
+};
 
 static const std::string logname = "sm_superblock";
 
@@ -704,9 +717,8 @@ main(int argc, char *argv[])
 {
     /* random seed */
     std::srand(std::time(0));
-
-    fds::init_process_globals(fds::logname);
-
+    fds::SmSuperblockUtProc superblockProc(argc, argv, "platform.conf",
+                                           "fds.sm.", NULL);
     ::testing::InitGoogleMock(&argc, argv);
 
     return RUN_ALL_TESTS();
