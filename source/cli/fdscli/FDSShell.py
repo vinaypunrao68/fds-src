@@ -5,6 +5,7 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
+from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
 
 class FDSShell( cmd.Cmd ):
@@ -29,7 +30,10 @@ class FDSShell( cmd.Cmd ):
         
         cmd.Cmd.__init__(self, *args)
         
-        setupHistoryFile()
+        val = FdsCliConfigurationManager().get_value(FdsCliConfigurationManager.TOGGLES, FdsCliConfigurationManager.CMD_HISTORY)
+        
+        if val == "true" or val is True or val == "True" or val == None:
+            setupHistoryFile()
 
         self.plugins = []
         self.__session = session
@@ -149,7 +153,7 @@ def setupHistoryFile():
     '''
     stores and retrieves the command history specific to the user
     '''
-        
+         
     import readline
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
     readline.set_history_length(20)

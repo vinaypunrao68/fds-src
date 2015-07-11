@@ -2,15 +2,18 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+extern "C" {
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
+}
 #include <platform/process.h>
+#include <platform/valgrind.h>
 #include <vector>
-#include <cstdio>
 
 #include "util/Log.h"
 #include "fds_assert.h"
@@ -20,6 +23,7 @@ namespace fds
 {
     namespace pm
     {
+
         int fds_get_fd_limit(void)
         {
             fds_int64_t      slim, rlim;
@@ -147,9 +151,22 @@ namespace fds
             size_t    len {0}, ret;
             char      exec[1024];
             char      root[1024];
-            char     *argv[12];
+            char     *argv[32];
             int       argvIndex = 0;
             int       extraIndex = 0;
+            bool      is_java = (0 == strncmp("java", prog, strlen("java")));
+
+            // This needs to live through the lifetime of the exec call
+            ValgrindOptions valgrind_options(prog, fds_root);
+            if (!is_java && valgrind_options.runningOnUnnestedValgrind()) {
+                // Adjust the argv to actually run valgrind...the rest of the
+                // arguments should be the same
+                for (auto const& option : valgrind_options()) {
+                    // This const cast is safe as long as the valgrind_options
+                    // instance is still alive throughout its usage in execvp
+                    argv[argvIndex++] = const_cast<char*>(option->data());
+                }
+            }
 
             argv[argvIndex++] = exec;
 
@@ -161,7 +178,7 @@ namespace fds
             /* Only allow 10 args for now */
             fds_verify(extra_args[extraIndex] == NULL);
 
-            if (0 != strncmp ("java", prog, strlen ("java")))
+            if (!is_java)
             {
                 if (getcwd(exec, sizeof (exec)) == NULL)
                 {

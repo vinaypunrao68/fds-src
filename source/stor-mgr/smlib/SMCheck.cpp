@@ -230,7 +230,8 @@ bool SMCheckOffline::full_consistency_check(bool checkOwnership, bool checkOnlyA
         ObjectID hashId = hash_data(dataPtr, obj_size);
 
         GLOGDEBUG << "Hasher found: " << hashId
-                    << " and objId was: " << id << "\n";
+                    << " and objId was: " << id
+                    << "Metadata for obj: " << *omd;
 
         // Only report active object metadata
         if (checkOnlyActive && (omd->getRefCnt() == 0)) {
@@ -438,9 +439,9 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
     // Get UUID of the SM.
     SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
 
-    LOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
+    GLOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
 
-    LOGDEBUG << "Starting SM Integrity Check:"
+    GLOGDEBUG << "Starting SM Integrity Check:"
              << " UUID=" << SMCheckUuid
              << " DLT=" << latestClosedDLT;
 
@@ -451,13 +452,13 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
         for (auto token : targetDLTTokens) {
             fds_token_id smToken;
             smToken = diskMap->smTokenId(token);
-            LOGDEBUG << "Token " << token << " found in sm token: " << smToken;
+            GLOGDEBUG << "Token " << token << " found in sm token: " << smToken;
             allTokens.insert(smToken);
         }
-        LOGDEBUG << "Received target tokens list, verifying " << allTokens.size() << " SM tokens"
+        GLOGDEBUG << "Received target tokens list, verifying " << allTokens.size() << " SM tokens"
                  << " and " << tgtDltTokens.size() << " dlt tokens.\n";
     } else {
-        LOGDEBUG << "No target tokens found, verifying ALL SM tokens.\n";
+        GLOGDEBUG << "No target tokens found, verifying ALL SM tokens.\n";
         // get all the SM tokens in the system.  Now
         allTokens = diskMap->getSmTokens();
     }
@@ -473,14 +474,14 @@ SMCheckOnline::startIntegrityCheck(std::set<fds_token_id> tgtDltTokens)
     // if the token set is not empty, then start checking.
     if (allTokens.end() != iterTokens) {
         snapRequest.token_id = *iterTokens;
-        LOGNORMAL << "Integrity check starting on token=" << *iterTokens;
+        GLOGNORMAL << "Integrity check starting on token=" << *iterTokens;
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapRequest);
     }
 
     // If the request has failed, then set it inactive.
     if (!err.ok()) {
         setInactive();
-        LOGERROR << "Failed to enqueue snapshot request: active=" << getActiveStatus()
+        GLOGERROR << "Failed to enqueue snapshot request: active=" << getActiveStatus()
                  << ", err=" << err;
     }
 
@@ -533,6 +534,7 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
 
         // This is set by scrubber functionality of GC.
         if (objMetaDataPtr->isObjCorrupted()) {
+            GLOGNORMAL << "Corruption found with object metadata: " << objMetaDataPtr->logString();
             ++numCorruptions;
             continue;
         }
@@ -545,6 +547,8 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
 
         // check the SM token ownership.
         if (!checkObjectOwnership(id)) {
+            GLOGNORMAL << "Ownership mismatch found with Object ID: " << id
+                        << " Object metadata: " << objMetaDataPtr->logString();
             ++numOwnershipMismatches;
         }
 
@@ -594,13 +598,13 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
     // to snapshot the next token to verify.
     if (allTokens.end() != iterTokens) {
         snapRequest.token_id = *iterTokens;
-        LOGNORMAL << "Integrity check starting on token=" << *iterTokens;
+        GLOGNORMAL << "Integrity check starting on token=" << *iterTokens;
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapRequest);
 
         // If the request has failed, then set it inactive.
         if (!err.ok()) {
             setInactive();
-            LOGERROR << "Failed to enqueue snapshot request: active=" << getActiveStatus()
+            GLOGERROR << "Failed to enqueue snapshot request: active=" << getActiveStatus()
                      << ", err=" << err;
         }
     } else {
@@ -611,7 +615,7 @@ SMCheckOnline::SMCheckSnapshotCB(const Error& error,
     // No longer doing the verification.  So, output the status to the log file.
     if (!getActiveStatus()) {
 
-        LOGNORMAL << "Completed SM Integrity Check: active=" << getActiveStatus()
+        GLOGNORMAL << "Completed SM Integrity Check: active=" << getActiveStatus()
                   << " totalNumTokens=" << totalNumTokens
                   << " totalNumTokensVerified=" << std::atomic_load(&totalNumTokensVerified)
                   << " numCorrupted=" << std::atomic_load(&numCorruptions)
@@ -654,7 +658,7 @@ SMCheckOnline::setActive()
     bool curState;
     curState = std::atomic_load(&SMChkActive);
     if (true == curState) {
-        LOGNOTIFY << "SM Checker is already running";
+        GLOGNOTIFY << "SM Checker is already running";
         return false;
     }
 
@@ -662,7 +666,7 @@ SMCheckOnline::setActive()
     // requests is received by this SM.
     bool oldState = false;
     if (!std::atomic_compare_exchange_strong(&SMChkActive, &oldState, true)) {
-        LOGNOTIFY << "SM Checker is already running";
+        GLOGNOTIFY << "SM Checker is already running";
         return false;
     }
     return true;

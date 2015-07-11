@@ -35,10 +35,6 @@ class Volume( BaseModel ):
     
     @settings.setter
     def settings(self, settings):
-        
-        if not isinstance(settings, VolumeSettings):
-            raise TypeError()
-        
         self.__settings = settings
         
     @property
@@ -48,8 +44,8 @@ class Volume( BaseModel ):
     @qos_policy.setter
     def qos_policy(self, policy):
         
-        if not isinstance(policy, QosPolicy):
-            raise TypeError()
+#         if not isinstance(policy, QosPolicy):
+#             raise TypeError()
         
         self.__qos_policy = policy
         
@@ -60,9 +56,6 @@ class Volume( BaseModel ):
     @data_protection_policy.setter
     def data_protection_policy(self, policy):
         
-        if not isinstance(policy, DataProtectionPolicy) and not isinstance(policy, DataProtectionPolicyPreset):
-            raise TypeError()
-        
         self.__data_protection_policy = policy
         
     @property
@@ -71,10 +64,7 @@ class Volume( BaseModel ):
     
     @status.setter
     def status(self, status): 
-        
-        if not isinstance(status, VolumeStatus):
-            raise TypeError()
-        
+    
         self.__status = status
         
     @property

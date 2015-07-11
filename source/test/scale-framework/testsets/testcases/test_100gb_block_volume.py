@@ -12,14 +12,22 @@ import requests
 import json
 import sys
 import time
+import shutil
 
 import ssh
 import os
 import utils
 
+nbd_path = os.path.abspath(os.path.join('..', ''))
+sys.path.append(nbd_path)
+
+print sys.path
+
 from boto.s3.key import Key
 
 import testsets.testcase as testcase
+# import the testlib utils
+import testlib.utils.nbd as nbd
 import utils
 import file_generator
 
@@ -33,7 +41,8 @@ class Test100GBBlockVolume(testcase.FDSTestCase):
                                                config_file=config_file,
                                                om_ip_address=om_ip_address)
 
-        self.fgen = file_generator.FileGenerator(10, 1, 'M')
+        self.fgen = file_generator.FileGenerator(10, 1, 'G')
+        self.ndblib = nbd.NBD(self.om_ip_address)
 
     def runTest(self):
         self.upload_block_volume()
@@ -82,53 +91,35 @@ class Test100GBBlockVolume(testcase.FDSTestCase):
                 self.log.info("request = %s", r.request)
                 self.log.info("response = %s", r.json())
                 self.log.info("status = %s", r.status_code)
-
                 #Check return code
                 self.assertTrue(200 == r.status_code)
-                fdsmount = config.FDS_MOUNT % "100_block_volume"
-                utils.execute_cmd("sudo mkdir -p %s" % fdsmount)
-                attach = 'sudo %s attach %s %s' % (config.NDBADM_ROOT, self.om_ip_address,
-                                              volume_name)
-                mount_point = utils.execute_cmd(attach)
-                # move any leading character
-                mount_point = mount_point.strip()
+                
+                # create the directory first 
+                path = config.FDS_MOUNT % "100_block_volume"
+                if not os.path.exists(path):
+                    # clean up the existing mount point
+                    os.makedirs(path)
+                # mount the volume
+                self.ndblib.mount_volume(volume_name, path, True)
+                # generate the file to be copied to
                 self.fgen.generate_files()
-                utils.execute_cmd("sudo mkfs.ext4 %s" % mount_point)
-                if not utils.is_device_mounted(fdsmount):
-                    self.log.info("Mounting from %s to %s" % (mount_point, fdsmount))
-                    output = utils.execute_cmd("sudo mount %s %s" % (mount_point, fdsmount))
-                    self.log.info(output)
-                self.fgen.sudo_copy_files(mount_point)
-                time.sleep(30)
-                detach = 'sudo %s detach %s' % (config.NDBADM_ROOT, volume_name)
-                self.log.info(utils.execute_cmd(detach))
-                # umount the file system
-                if utils.is_device_mounted(fdsmount):
-                    utils.execute_cmd("sudo umount %s" % fdsmount)
-                utils.execute_cmd("sudo rm -rf %s" % fdsmount)
+                # copy the file to the mount point
+                files = self.fgen.get_files()
+                for f in files:
+                    current = os.path.join(config.RANDOM_DATA, f)
+                    shutil.copy(current, path)
+                # remove the files created
                 self.fgen.clean_up()
-                #cmds = (
-                #'mkdir /fdsmount',
-                #'%s attach %s %s' % (config.NDBADM_ROOT, self.om_ip_address, volume_name),
-                # 'mkfs.ext4 /dev/nbd15',
-                # 'mount /dev/nbd15  /fdsmount',
-                # 'fallocate -l 10G sample_file',
-                # 'mv sample_file /fdsmount',
-                # 'umount /fdsmount',
-                #'rm -rf /fdsmount',
-                # 'rm -rf sample_file',
-                # './nbdadm.py detach %s' % (volume_name),
-                #)
-
-                #for cmd in cmds:
-                #    self.log.info("Executing %s" % cmd)
-                #    (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
-                #    self.log.info(stdout.readlines())
-
-                #local_ssh.client.close()
-                test_passed = True
+                # unmount the device
+                self.ndblib.unmount(path)
+                # detach the ndb device
+                if self.ndblib.detach(volume_name):
+                    test_passed = True
+                else:
+                    test_passed = False
 
         except Exception, e:
             self.log.exception(e)
+            test_passed = False
         finally:
             super(self.__class__, self).reportTestCaseResult(test_passed)

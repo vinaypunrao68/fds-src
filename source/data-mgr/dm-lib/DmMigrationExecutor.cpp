@@ -40,24 +40,31 @@ DmMigrationExecutor::startMigration()
 	LOGMIGRATE << "starting migration for VolDesc: " << volDesc;
 
     /** TODO(Sean):
-     * process_vol_add() doesn't quiet work for all cases for the use of DM migration.
-     * it doesn't work for resync on restart.
      *
-     * we should be:
-     * 1) check if the volume catalog exists.  if so, add to the volume map in inactive mode.
-     * or
-     * 2) if the volume catalog doesn't exists, create and add to the volume map in inactive mode.
+     * For now, assume that the volume exists on start migration.
+     * Currently, OM sends two messages to DMs  :  1) notifyVolumeAdd  and 2) startMigration.
      *
-     * unfortunately, process_vol_add() doesn't fit this model.  So, we need to add a new function
-     * that does this.  for now, just use this, since we are dealing with static migration with
-     * add node only.
+     * notifyVolumeAdd is broadcasted to all DMs in the cluster, and depending on the DMT it
+     * will create volumes.
+     *
+     * startMigration is sent only to the destination DM that needs sync volume(s) from the
+     * primary DM in the redundancey group.
+     *
+     * So, for now, we should just check for the existence of the volume.
      */
     err = dataMgr._process_add_vol(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
                                    volumeUuid,
                                    &volDesc,
                                    false);
 
-    // OM could have sent the volume descriptor over already
+    /** TODO(Sean):
+     * With current OM implementation, add node will send list of volumes and start migration
+     * message, which contains the list of volume descriptors to sync.  So, it's expected
+     * that at this point, we should be getting ERR_DUPLICATE.  When OM changes to send
+     * only one message (startMigration), we update this block of code.
+     *
+     * OM could have sent the volume descriptor over already
+     */
     if (err.ok() || (err == ERR_DUPLICATE)) {
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the

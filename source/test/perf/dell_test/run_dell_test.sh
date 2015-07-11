@@ -6,11 +6,8 @@ function volume_setup {
     local max_obj_size=$1
     local node=$2
     local vol=$3
-    pushd /fds/sbin 
-    ./fdsconsole.py accesslevel admin 
-    ./fdsconsole.py volume create $vol --vol-type block --blk-dev-size 10485760 --max-obj-size $max_obj_size
-    sleep 10
-    ./fdsconsole.py volume modify $vol --minimum 0 --maximum 0 --priority 1 
+    pushd ../../../cli
+    ./fds volume create -name $vol -type block -max_object_size $max_obj_size -max_object_size_unit B -media_policy HDD
     popd
     sleep 10
     nbd_disk=`../../../cinder/nbdadm.py attach $node $vol`

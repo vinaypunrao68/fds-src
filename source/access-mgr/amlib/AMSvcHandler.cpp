@@ -298,6 +298,16 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 
     LOGNOTIFY << "OMClient received shutdown message ... AM shutting down...";
 
+    /*
+     * Bind the callback for PrepareForShutdown Message. This will be called
+     * once the data servers are stopped.
+     */
+     amProcessor->prepareForShutdownMsgRespBindCb(std::bind(
+                                                    &AMSvcHandler::prepareForShutdownMsgRespCb,
+                                                    this,
+                                                    hdr,
+                                                    shutdownMsg));
+
      /**
       * Block any more requests.
       * Drain queues and allow outstanding requests to complete.
@@ -308,16 +318,6 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * It's an async shutdown as we cleanup. So acknowledge the message now.
       */
      hdr->msg_code = err.GetErrno();
-
-    /*
-     * Bind the callback for PrepareForShutdown Message. This will be called 
-     * once the data servers are stopped.
-     */
-     amProcessor->prepareForShutdownMsgRespBindCb(std::bind(
-                                                    &AMSvcHandler::prepareForShutdownMsgRespCb,
-                                                    this,
-                                                    hdr,
-                                                    shutdownMsg));
 }
 
 }  // namespace fds
