@@ -22,7 +22,7 @@ struct GetObjectReq: public AmRequest {
     // Data object
     buffer_type& obj_data;
 
-    // Parent GetBlob requeues
+    // Parent GetBlob request
     GetBlobReq* blobReq;
 
     inline GetObjectReq(GetBlobReq* blobReq, buffer_type& buf, ObjectID::ptr _obj_id);
