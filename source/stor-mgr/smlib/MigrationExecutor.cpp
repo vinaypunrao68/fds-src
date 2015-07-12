@@ -494,7 +494,13 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
-                handleMigrationRoundDone(error);
+                // if this is network error, don't return it to OM, because it may
+                // look like this node is unreachable
+                Error migrErr(error);
+                if ((error == ERR_SVC_REQUEST_TIMEOUT) || (error == ERR_SVC_REQUEST_INVOCATION)) {
+                    migrErr = ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST;
+                }
+                handleMigrationRoundDone(migrErr);
         }
     }
 }

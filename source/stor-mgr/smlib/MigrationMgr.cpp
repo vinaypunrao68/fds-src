@@ -210,8 +210,6 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                       bool onePhaseMigration,
                                       fds_uint32_t uniqueId,
                                       fds_uint16_t instanceNum) {
-
-    LOGMIGRATE << "Will create migration executor class";
     fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId,
                                                      (fds_uint32_t)instanceNum);
     fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);

@@ -199,6 +199,13 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
         err = ERR_PERSIST_STATE_MISMATCH;
         // second phase of initializing object store failed!
         currentState = OBJECT_STORE_UNAVAILABLE;
+    } else if (err == ERR_SM_NOERR_NOT_IN_DLT) {
+        // this is the case when SM started in pristine state, but restarted
+        // before migration happened and it gained token ownership
+        LOGDEBUG << "Looks like SM restarted before successfully joining the domain";
+        // no resync needed, but set store ready so that it can do migration
+        currentState = OBJECT_STORE_READY;
+        err = ERR_OK;
     }
 
     // if updating disk map determined that this SM restart case and it succeeded
