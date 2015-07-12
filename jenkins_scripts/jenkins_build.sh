@@ -1,5 +1,8 @@
 #!/bin/bash -le
 
+echo "$0 is deprecated, please update your workflow to use jenkins_tests_copy_for_build_test_coroner_cleanup.sh"
+exit 67
+
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
 KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
 

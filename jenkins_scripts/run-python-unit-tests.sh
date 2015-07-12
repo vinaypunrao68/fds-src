@@ -10,6 +10,9 @@
 ###################################################################################
 ###################################################################################
 
+echo "$0 is deprecated, please update your workflow to use jenkins_tests_copy_for_build_test_coroner_cleanup.sh"
+exit 67
+
 function run_coverage_test_runner_tests
 {
    for directory in ${COVERAGE_TEST_RUNNER_DIRECTORIES}
