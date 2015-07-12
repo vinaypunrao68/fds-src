@@ -398,6 +398,12 @@ function run_coroner
     run_node_cleanup $1
 }
 
+if [[ "${1}" == "jenkins_build_aborted" ]]
+then
+    message "EEEEE Jenkins Build Aborted"
+    run_coroner 1
+fi
+
 error_trap_enabled
 
 auto_locate
