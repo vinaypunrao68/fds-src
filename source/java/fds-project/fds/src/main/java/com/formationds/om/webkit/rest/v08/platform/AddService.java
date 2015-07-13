@@ -47,10 +47,8 @@ public class AddService implements RequestHandler {
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
-
-		long nodeId = requiredLong( routeParameters, NODE_ARG );
-        
-		logger.debug( "Adding service to node: " + nodeId );
+        long nodeId = requiredLong( routeParameters, NODE_ARG );
+        logger.debug( "Adding service to node: " + nodeId );
         
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         
@@ -96,18 +94,17 @@ public class AddService implements RequestHandler {
         
         List<Service> svcList = node.getServices().get(service.getType());
         Service newService = svcList.get(0);
-		String jsonString = ObjectModelHelper.toJSON( newService );
-		
-		return new TextResource( jsonString );
+
+        String jsonString = ObjectModelHelper.toJSON( newService );
+        return new TextResource( jsonString );
 	}
 
     private ConfigurationApi getConfigApi(){
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
     	
-    	if ( configApi == null ){
-    		configApi = SingletonConfigAPI.instance().api();
-    	}
-    	
-    	return configApi;
+        return configApi;
     }
 
 }
