@@ -85,10 +85,7 @@ AmVolumeTable::AmVolumeTable(size_t const qos_threads, fds_log *parent_log) :
     }
 }
 
-AmVolumeTable::~AmVolumeTable() {
-    map_rwlock.write_lock();
-    volume_map.clear();
-}
+AmVolumeTable::~AmVolumeTable() = default;
 
 void AmVolumeTable::registerCallback(processor_cb_type cb) {
     /** Create a closure for the QoS Controller to call when it wants to
