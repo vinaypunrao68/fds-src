@@ -275,6 +275,19 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>);
 
+  protected:
+    /**
+     * Create/update uncommitted blob in the Volume Catalog.
+     * These interfaces are used specifically for the DM Migrations.
+     */
+    Error putPartialBlob(fds_volid_t volId, const std::string& blobName,
+    		const BlobObjList::const_ptr& blobOnjList);
+    Error putCommitBlobMeta(fds_volid_t volID, const std::string& blobName,
+    		const MetaDataList::const_ptr& metaList);
+
+    friend class DmMigrationExecutor;
+
+
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
