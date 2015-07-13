@@ -212,7 +212,6 @@ void PerfTracer::reconfig() {
 void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
         const std::string& name) {
-    if (!isEnabled()) return;
     GLOGTRACE << "Updating performance counter for type='" << ctx.type
               << "' val='" << val << "' count='" << cnt << "' name='"
               << ctx.name << "'";
@@ -233,7 +232,6 @@ void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
 
 void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, uint64_t cnt, const std::string & name) {
-    if (!isEnabled()) return;
     PerfContext * ctx = 0;
 
     FDSGUARD(ptrace_mutex_named_);
@@ -264,7 +262,6 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
 
 void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, const std::string & name) {
-    if (!isEnabled()) return;
     FDSGUARD(ptrace_mutex_named_);
 
     PerfContextMap::iterator pos = namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid].find(name);
@@ -279,12 +276,10 @@ void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
 }
 
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, std::string const& name /* = "" */) {
-    if (!isEnabled()) return;
     PerfTracer::incr(type, volid, 1, 0, name);
 }
 
 void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
-    if (!isEnabled()) return;
     PerfTracer::decr(type, volid, 1, name);
 }
 
