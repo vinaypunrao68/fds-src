@@ -383,10 +383,10 @@ function run_coroner
                                                                   fds-node3:/fds/node3                                       \
                                                                   fds-node4:/fds/node4                                       \
                                                                   fds-node5:/fds/node5                                       \
-                                                                  fds-node5:/fds/node6                                       \
-                                                                  fds-node5:/fds/node7                                       \
-                                                                  fds-node5:/fds/node8                                       \
-                                                                  fds-node5:/fds/node9
+                                                                  fds-node6:/fds/node6                                       \
+                                                                  fds-node7:/fds/node7                                       \
+                                                                  fds-node8:/fds/node8                                       \
+                                                                  fds-node9:/fds/node9
 
     for file in /tmp/fdscoroner*.tar.gz
     do
