@@ -321,6 +321,12 @@ struct DmMigrationBlobFilterHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+struct DmMigrationDeltaBlobDescHandler : Handler {
+	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
+	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+};
+
 struct DmMigrationDeltablobHandler : Handler {
     explicit DmMigrationDeltablobHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

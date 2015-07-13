@@ -89,6 +89,18 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
 }
 
 Error
+ObjectMetadataDb::deleteMetadataDb(const std::string& diskPath,
+                                   const fds_token_id& smToken) {
+    Error err(ERR_OK);
+    std::string file = ObjectMetadataDb::getObjectMetaFilename(diskPath, smToken);
+    leveldb::Status status = leveldb::DestroyDB(file, leveldb::Options());
+    if (!status.ok()) {
+        LOGNOTIFY << "Could not delete metadataDB for smToken = " << smToken;
+    }
+    return err;
+}
+
+Error
 ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     Error err(ERR_OK);
     for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
@@ -105,6 +117,7 @@ ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     }
     return err;
 }
+
 
 Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
