@@ -1,5 +1,7 @@
 package com.formationds.fdsdiff.workloads;
 
+import static com.formationds.commons.util.Strings.javaString;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -7,25 +9,26 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import com.formationds.client.v08.model.Tenant;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.operations.GetTenants;
-import com.formationds.iodriver.operations.OmOperation;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.workloads.Workload;
 
-import static com.formationds.commons.util.Strings.javaString;
-
-public final class GetSystemConfigWorkload extends Workload<OrchestrationManagerEndpoint,
-                                                            OmOperation>
+public final class GetSystemConfigWorkload extends Workload
 {
 	public GetSystemConfigWorkload(boolean logOperations)
 	{
-		super(OrchestrationManagerEndpoint.class,
-		      OmOperation.class,
-		      logOperations);
+		super(logOperations);
 	}
+
+    @Override
+    public Class<?> getEndpointType()
+    {
+        return OmEndpoint.class;
+    }
 	
 	@Override
-	protected List<Stream<OmOperation>> createOperations()
+	protected List<Stream<Operation>> createOperations()
 	{
 		Consumer<Collection<Tenant>> readTenants = ct ->
 		{

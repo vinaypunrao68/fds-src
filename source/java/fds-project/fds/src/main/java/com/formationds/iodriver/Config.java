@@ -23,7 +23,7 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
@@ -59,7 +59,7 @@ public final class Config extends AbstractConfig
          *
          * @return An endpoint to the local system.
          */
-        public static OrchestrationManagerEndpoint getOMV8Endpoint()
+        public static OmEndpoint getOMV8Endpoint()
         {
             return _omV8Endpoint;
         }
@@ -103,15 +103,15 @@ public final class Config extends AbstractConfig
 
                 URI apiBase = Fds.Api.getBase();
                 URI v8ApiBase = Fds.Api.V08.getBase();
-                OrchestrationManagerEndpoint omEndpointV8 =
-                        new OrchestrationManagerEndpoint(v8ApiBase,
+                OmEndpoint omEndpointV8 =
+                        new OmEndpoint(v8ApiBase,
                                                          "admin",
                                                          "admin",
                                                          AbstractConfig.Defaults.getLogger(),
                                                          true,
                                                          null);
-                OrchestrationManagerEndpoint omEndpoint =
-                        new OrchestrationManagerEndpoint(apiBase,
+                OmEndpoint omEndpoint =
+                        new OmEndpoint(apiBase,
                                                          "admin",
                                                          "admin",
                                                          AbstractConfig.Defaults.getLogger(),
@@ -160,7 +160,7 @@ public final class Config extends AbstractConfig
         /**
          * Default version-8 API OM endpoint.
          */
-        private static final OrchestrationManagerEndpoint _omV8Endpoint;
+        private static final OmEndpoint _omV8Endpoint;
     }
 
     /**
@@ -328,7 +328,7 @@ public final class Config extends AbstractConfig
      * @throws ConfigurationException when system configuration is invalid.
      */
     // @eclipseFormat:off
-    public Workload<?, ?> getSelectedWorkload() throws ParseException, ConfigurationException
+    public Workload getSelectedWorkload() throws ParseException, ConfigurationException
     // @eclipseFormat:on
     {
         String workloadName = getSelectedWorkloadName();
@@ -346,12 +346,12 @@ public final class Config extends AbstractConfig
             throw new ConfigurationException("No such method " + workloadName + "().");
         }
 
-        Workload<?, ?> workload;
+        Workload workload;
         try
         {
             try
             {
-                workload = (Workload<?, ?>)workloadFactoryMethod.invoke(this);
+                workload = (Workload)workloadFactoryMethod.invoke(this);
             }
             catch (InvocationTargetException e)
             {

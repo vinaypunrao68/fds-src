@@ -11,10 +11,10 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public final class GetVolume extends OmOperation
+public final class GetVolume extends AbstractOmOperation
 {
     public GetVolume(long id, Consumer<? super Volume> setter)
     {
@@ -25,9 +25,9 @@ public final class GetVolume extends OmOperation
     }
     
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint,
-                     HttpsURLConnection connection,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(OmEndpoint endpoint,
+                       HttpsURLConnection connection,
+                       AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

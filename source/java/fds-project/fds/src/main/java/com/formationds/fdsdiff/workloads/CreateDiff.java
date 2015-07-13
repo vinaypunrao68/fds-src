@@ -6,18 +6,26 @@ import java.util.stream.Stream;
 
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.FdsOperation;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.workloads.Workload;
 
-public class CreateDiff extends Workload<FdsEndpoint, FdsOperation>
+public class CreateDiff extends Workload
 {
-    protected CreateDiff(boolean logOperations) {
-        super(FdsEndpoint.class, FdsOperation.class, logOperations);
+    @Override
+    public Class<?> getEndpointType()
+    {
+        return FdsEndpoint.class;
+    }
+    
+    protected CreateDiff(boolean logOperations)
+    {
+        super(logOperations);
     }
     
     @Override
-    protected List<Stream<FdsOperation>> createOperations()
+    protected List<Stream<Operation>> createOperations()
     {
-        Stream<FdsOperation> retval = Stream.empty();
+        Stream<Operation> retval = Stream.empty();
         
         retval = Stream.concat(retval, createReadVolumesOperations());
         

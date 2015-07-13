@@ -13,11 +13,11 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.google.gson.reflect.TypeToken;
 
-public class GetTenants extends OmOperation
+public class GetTenants extends AbstractOmOperation
 {
 	public GetTenants(Consumer<Collection<Tenant>> reader)
 	{
@@ -27,9 +27,9 @@ public class GetTenants extends OmOperation
 	}
 	
 	@Override
-	public void exec(OrchestrationManagerEndpoint endpoint,
-			HttpsURLConnection connection,
-			AbstractWorkflowEventListener reporter) throws ExecutionException
+	public void accept(OmEndpoint endpoint,
+			           HttpsURLConnection connection,
+			           AbstractWorkflowEventListener reporter) throws ExecutionException
 	{
 		if (endpoint == null) throw new NullArgumentException("endpoint");
 		if (connection == null) throw new NullArgumentException("connection");

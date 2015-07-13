@@ -3,22 +3,14 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 
 /**
  * Coordinates executing a workload on an endpoint.
- * 
- * @param <EndpointT> The type of endpoint to run the workload on.
- * @param <WorkloadT> The type of workload to run on the endpoint.
  */
-// @eclipseFormat:off
-public final class Driver<EndpointT extends Endpoint<EndpointT, ? super OperationT>,
-                          OperationT extends Operation<OperationT, ? super EndpointT>,
-                          WorkloadT extends Workload<EndpointT, OperationT>>
-// @eclipseFormat:on
+public final class Driver
 {
     /**
      * Constructor.
@@ -28,8 +20,8 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ? super Operatio
      * @param listener Receives events during the workload run.
      * @param validator Performs final check on the data {@code listener} gathered.
      */
-    public Driver(EndpointT endpoint,
-                  WorkloadT workload,
+    public Driver(Endpoint endpoint,
+                  Workload workload,
                   AbstractWorkflowEventListener listener,
                   Validator validator)
     {
@@ -77,7 +69,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ? super Operatio
      * 
      * @return The current property value.
      */
-    public EndpointT getEndpoint()
+    public Endpoint getEndpoint()
     {
         return _endpoint;
     }
@@ -128,7 +120,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ? super Operatio
      * 
      * @return The current property value.
      */
-    public WorkloadT getWorkload()
+    public Workload getWorkload()
     {
         return _workload;
     }
@@ -165,42 +157,23 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ? super Operatio
         _listener = listener;
     }
 
-    public static <IEndpointT extends Endpoint<IEndpointT, IOperationT>,
-                   IOperationT extends Operation<IOperationT, IEndpointT>,
-                   IWorkloadT extends Workload<IEndpointT, IOperationT>>
-    Driver<IEndpointT, IOperationT, IWorkloadT> newDriver(Endpoint<?, ?> endpoint,
-                                                          Workload<?, ?> workload,
-                                                          AbstractWorkflowEventListener listener,
-                                                          Validator validator)
+    public static Driver newDriver(Endpoint endpoint,
+                                   Workload workload,
+                                   AbstractWorkflowEventListener listener,
+                                   Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
         if (listener == null) throw new NullArgumentException("listener");
         if (validator == null) throw new NullArgumentException("validator");
 
-        Class<?> neededEndpointClass = workload.getEndpointType();  // IEndpointT
-
-        // FIXME: Do more type checking.
-        
-        // Make sure the workload knows what to do with the endpoint.
-        if (!neededEndpointClass.equals(endpoint.getClass()))
-        {
-            throw new IllegalArgumentException(
-                    "Workflow requires endpoint of type " + neededEndpointClass.toString() + ".");
-        }
-
-        // Okay, this should work. Because we checked with class.equals(class) above, this is safe
-        // unless someone constructed endpoint and/or workload unsafely.
-        @SuppressWarnings("unchecked") IEndpointT typedEndpoint = (IEndpointT)endpoint;
-        @SuppressWarnings("unchecked") IWorkloadT typedWorkload = (IWorkloadT)workload;
-
-        return new Driver<>(typedEndpoint, typedWorkload, listener, validator);
+        return new Driver(endpoint, workload, listener, validator);
     }
     
     /**
      * The service endpoint that {@link #_workload} is run on.
      */
-    private final EndpointT _endpoint;
+    private final Endpoint _endpoint;
 
     /**
      * Whether {@link #_workload} has run its setup routine on {@link #_endpoint} without running
@@ -216,7 +189,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ? super Operatio
     /**
      * The instructions to run on {@link #_endpoint}.
      */
-    private final WorkloadT _workload;
+    private final Workload _workload;
 
     /**
      * Checks the data gathered by {@link #_listener} and determines if {@link #_workload} was

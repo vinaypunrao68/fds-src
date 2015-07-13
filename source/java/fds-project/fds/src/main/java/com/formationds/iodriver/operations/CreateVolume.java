@@ -16,10 +16,10 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public class CreateVolume extends OmOperation
+public class CreateVolume extends AbstractOmOperation
 {
 	public CreateVolume(String name)
 	{
@@ -27,37 +27,37 @@ public class CreateVolume extends OmOperation
 		
 		_name = name;
 	}
-	
-	@Override
-	public void exec(OrchestrationManagerEndpoint endpoint,
-			HttpsURLConnection connection,
-			AbstractWorkflowEventListener reporter) throws ExecutionException
-	{
-		if (endpoint == null) throw new NullArgumentException("endpoint");
-		if (connection == null) throw new NullArgumentException("connection");
-		if (reporter == null) throw new NullArgumentException("reporter");
 
-		// Other than name, the values below are present only to prevent NullPointerExceptions
-		// when XDI converts the request.
-		Volume.Builder newVolumeBuilder = new Volume.Builder(_name);
-		newVolumeBuilder.settings(new VolumeSettingsObject());
-		newVolumeBuilder.mediaPolicy(MediaPolicy.HYBRID);
-		newVolumeBuilder.dataProtectionPolicy(24, TimeUnit.HOURS);
-		newVolumeBuilder.qosPolicy(new QosPolicy(1, 0, 0));
-		Volume newVolume = newVolumeBuilder.create();
-		
-		try
-		{
-			endpoint.doWrite(connection,
-			                 ObjectModelHelper.toJSON(newVolume),
-			                 StandardCharsets.UTF_8);
-		}
-		catch (HttpException e)
-		{
-			throw new ExecutionException(e);
-		}
-	}
-	
+    @Override
+    public void accept(OmEndpoint endpoint,
+                       HttpsURLConnection connection,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (connection == null) throw new NullArgumentException("connection");
+        if (listener == null) throw new NullArgumentException("listener");
+
+        // Other than name, the values below are present only to prevent NullPointerExceptions
+        // when XDI converts the request.
+        Volume.Builder newVolumeBuilder = new Volume.Builder(_name);
+        newVolumeBuilder.settings(new VolumeSettingsObject());
+        newVolumeBuilder.mediaPolicy(MediaPolicy.HYBRID);
+        newVolumeBuilder.dataProtectionPolicy(24, TimeUnit.HOURS);
+        newVolumeBuilder.qosPolicy(new QosPolicy(1, 0, 0));
+        Volume newVolume = newVolumeBuilder.create();
+        
+        try
+        {
+            endpoint.doWrite(connection,
+                             ObjectModelHelper.toJSON(newVolume),
+                             StandardCharsets.UTF_8);
+        }
+        catch (HttpException e)
+        {
+            throw new ExecutionException(e);
+        }
+    }
+
 	@Override
 	public URI getRelativeUri()
 	{

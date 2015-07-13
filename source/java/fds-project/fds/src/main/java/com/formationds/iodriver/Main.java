@@ -7,12 +7,11 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
-import com.formationds.iodriver.reporters.NullWorkflowEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
@@ -79,7 +78,7 @@ public final class Main
         throw new UnsupportedOperationException("Trying to instantiate a utility class.");
     }
 
-    private static Endpoint<?, ?> getCompatibleEndpoint(Workload<?, ?> workload)
+    private static Endpoint getCompatibleEndpoint(Workload workload)
     {
         if (workload == null) throw new NullArgumentException("workload");
 
@@ -89,7 +88,7 @@ public final class Main
             // TODO: Make this configurable.
             return Config.Defaults.getS3Endpoint();
         }
-        else if (neededEndpointClass.isAssignableFrom(OrchestrationManagerEndpoint.class))
+        else if (neededEndpointClass.isAssignableFrom(OmEndpoint.class))
         {
             return Config.Defaults.getOMV8Endpoint();
         }
@@ -143,16 +142,13 @@ public final class Main
                                             listener.stopped,
                                             listener.volumeAdded))
         {
-            Workload<?, ?> workload = config.getSelectedWorkload();
-            Endpoint<?, ?> endpoint = getCompatibleEndpoint(workload);
+            Workload workload = config.getSelectedWorkload();
+            Endpoint endpoint = getCompatibleEndpoint(workload);
             Validator validator = validate
                                   ? workload.getSuggestedValidator().orElse(config.getValidator())
                                   : new NullValidator();
             
-            Driver<?, ?, ?> driver = Driver.newDriver(endpoint,
-                                                      workload,
-                                                      listener,
-                                                      validator);
+            Driver driver = Driver.newDriver(endpoint, workload, listener, validator);
             driver.runWorkload();
             return driver.getResult();
         }

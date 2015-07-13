@@ -14,22 +14,14 @@ import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.HttpOperation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public abstract class AbstractHttpEndpoint<ThisT extends AbstractHttpEndpoint<ThisT, OperationT>,
-                                           OperationT extends HttpOperation<OperationT,
-                                                                            ? super ThisT>>
-extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpURLConnection>
-implements HttpEndpoint<ThisT, OperationT>
+public abstract class AbstractHttpEndpoint extends AbstractBaseHttpEndpoint<HttpURLConnection>
+                                           implements HttpEndpoint
 {
-    public AbstractHttpEndpoint(URL url, Logger logger, Class<OperationT> baseOperationClass)
+    public AbstractHttpEndpoint(URL url, Logger logger)
     {
-        super(url, logger, baseOperationClass);
+        super(url, logger);
     }
     
-    @Override
-    public ThisT copy() {
-        return null;
-    }
-
     /**
      * Visit an operation.
      * 
@@ -39,7 +31,7 @@ implements HttpEndpoint<ThisT, OperationT>
      * @throws ExecutionException when an error occurs.
      */
     // @eclipseFormat:off
-    public void visit(OperationT operation,
+    public void visit(HttpOperation operation,
                       AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
@@ -77,7 +69,7 @@ implements HttpEndpoint<ThisT, OperationT>
 
         try
         {
-            operation.exec(getThis(), connection, listener);
+            operation.accept(getThis(), connection, listener);
         }
         finally
         {
@@ -85,13 +77,13 @@ implements HttpEndpoint<ThisT, OperationT>
         }
     }
 
-    protected class CopyHelper extends AbstractBaseHttpEndpoint<ThisT,
-                                                                OperationT,
-                                                                HttpURLConnection>.CopyHelper
+    protected class CopyHelper extends AbstractBaseHttpEndpoint<HttpURLConnection>.CopyHelper
     { }
 
     protected AbstractHttpEndpoint(CopyHelper helper)
     {
         super(helper);
     }
+    
+    protected abstract AbstractHttpEndpoint getThis();
 }

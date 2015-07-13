@@ -7,18 +7,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.Endpoint;
 
 /**
  * An operation that may be executed.
- * 
- * @param <ThisT> The implementing class.
- * @param <EndpointT> The type of endpoint required.
  */
 // @eclipseFormat:off
-public abstract class AbstractOperation<ThisT extends AbstractOperation<ThisT, EndpointT>,
-                                        EndpointT extends Endpoint<EndpointT, ? super ThisT>>
-implements Operation<ThisT, EndpointT>
+public abstract class AbstractOperation implements Operation
 //@eclipseFormat:on
 {
     @Override
@@ -37,12 +31,6 @@ implements Operation<ThisT, EndpointT>
         }
         
         return getClass().getSimpleName() + "(" + membersAsString + ")";
-    }
-
-    @SuppressWarnings("unchecked")
-    protected ThisT getThis()
-    {
-        return (ThisT)this;
     }
 
     /**

@@ -1,6 +1,13 @@
 package com.formationds.iodriver.operations;
 
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import javax.net.ssl.HttpsURLConnection;
 
-public interface OmOperation extends HttpsOperation<OmOperation, OrchestrationManagerEndpoint>
-{ }
+import com.formationds.iodriver.endpoints.OmEndpoint;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+
+public interface OmOperation extends HttpsOperation
+{
+    void accept(OmEndpoint endpoint,
+                HttpsURLConnection connection,
+                AbstractWorkflowEventListener listener) throws ExecutionException;
+}

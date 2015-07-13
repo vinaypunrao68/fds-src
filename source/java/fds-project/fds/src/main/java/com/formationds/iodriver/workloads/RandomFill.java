@@ -12,11 +12,9 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.CreateVolume;
-import com.formationds.iodriver.operations.FdsOmOperationWrapper;
-import com.formationds.iodriver.operations.FdsOperation;
-import com.formationds.iodriver.operations.FdsS3OperationWrapper;
+import com.formationds.iodriver.operations.Operation;
 
-public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
+public class RandomFill extends Workload
 {
 	public RandomFill(int maxVolumes,
                       String pathSeparator,
@@ -26,7 +24,7 @@ public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
                       int maxDirectoryDepth,
                       boolean logOperations)
 	{
-        super(FdsEndpoint.class, FdsOperation.class, logOperations);
+        super(logOperations);
 
 		if (pathSeparator == null) throw new NullArgumentException("pathSeparator");
 
@@ -39,7 +37,13 @@ public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
 	}
 
 	@Override
-	protected List<Stream<FdsOperation>> createOperations()
+	public Class<?> getEndpointType()
+	{
+	    return FdsEndpoint.class;
+	}
+	
+	@Override
+	protected List<Stream<Operation>> createOperations()
 	{
 		return Collections.singletonList(createVolumesOperations());
 	}
@@ -56,17 +60,17 @@ public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
 
 	private final String _pathSeparator;
 
-	private Stream<FdsOperation> createVolumesOperations()
+	private Stream<Operation> createVolumesOperations()
 	{
 		Supplier<String> volumeNames = () -> UUID.randomUUID().toString();
 		
-		Function<String, Stream<FdsOperation>> createVolumesAndContent =
+		Function<String, Stream<Operation>> createVolumesAndContent =
 		        volumeName ->
         		{
-        		    Stream<FdsOperation> createVolume =
-        		            Stream.of(new FdsOmOperationWrapper(new CreateVolume(volumeName)));
+        		    Stream<Operation> createVolume =
+        		            Stream.of(new CreateVolume(volumeName));
 
-        		    Stream<FdsOperation> createDirectories =
+        		    Stream<Operation> createDirectories =
         		            createDirectoriesOperations(volumeName, 0, "");
         		    
         		    return Stream.concat(createVolume, createDirectories);
@@ -77,19 +81,18 @@ public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
 		             .flatMap(createVolumesAndContent);
 	}
 
-	private Stream<FdsOperation> createDirectoriesOperations(String volumeName,
+	private Stream<Operation> createDirectoriesOperations(String volumeName,
 	                                                         int depth,
 	                                                         String parentDir)
 	{
-	    Stream<FdsOperation> retval = Stream.empty();
+	    Stream<Operation> retval = Stream.empty();
 
 	    if (!parentDir.isEmpty())
 	    {
-	        retval = Stream.concat(retval, Stream.of(
-	                new FdsS3OperationWrapper(new CreateObject(volumeName,
-	                                                           parentDir,
-	                                                           "",
-	                                                           false))));
+	        retval = Stream.concat(retval, Stream.of(new CreateObject(volumeName,
+	                                                                  parentDir,
+	                                                                  "",
+	                                                                  false)));
 	    }
 
 	    retval = Stream.concat(retval, createObjectsOperations(volumeName, parentDir));
@@ -112,13 +115,12 @@ public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
 	    return retval;
 	}
 
-	private Stream<FdsOperation> createObjectsOperations(String volumeName,
-	                                                                      String parentPath)
+	private Stream<Operation> createObjectsOperations(String volumeName, String parentPath)
 	{
 	    if (volumeName == null) throw new NullArgumentException("volumeName");
 	    if (parentPath == null) throw new NullArgumentException("parentPath");
 	    
-        Stream<FdsOperation> createObjects = Stream.generate(
+        Stream<Operation> createObjects = Stream.generate(
                 () ->
                 {
                     int thisObjectSize = Fds.Random.nextInt(_maxObjectSize);
@@ -127,8 +129,7 @@ public class RandomFill extends Workload<FdsEndpoint, FdsOperation>
                     String fullPath = parentPath + fileName;
                     byte[] content = new byte[thisObjectSize];
                     
-                    return new FdsS3OperationWrapper(
-                            new CreateObject(volumeName, fullPath, content, false));
+                    return new CreateObject(volumeName, fullPath, content, false);
                 });
         
         return createObjects.limit(Fds.Random.nextInt(_maxObjectsPerDirectory));

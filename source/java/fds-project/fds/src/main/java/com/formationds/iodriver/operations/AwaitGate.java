@@ -5,13 +5,11 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.stream.Stream;
 
-import com.amazonaws.services.s3.AmazonS3Client;
-
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.S3Endpoint;
+import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public class AwaitGate extends S3Operation
+public class AwaitGate extends AbstractOperation
 {
     public AwaitGate(CyclicBarrier gate)
     {
@@ -20,13 +18,8 @@ public class AwaitGate extends S3Operation
         _gate = gate;
     }
     
-    @Override
-    public void exec(S3Endpoint endpoint,
-                     AmazonS3Client client,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(AbstractWorkflowEventListener reporter) throws ExecutionException
     {
-        if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
         
         try
@@ -41,6 +34,15 @@ public class AwaitGate extends S3Operation
         {
             throw new ExecutionException("Error waiting on gate.", e);
         }
+    }
+    
+    public void accept(Endpoint endpoint,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        endpoint.visit(this, listener);
     }
     
     @Override

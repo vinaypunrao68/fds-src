@@ -9,15 +9,16 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken;
+import com.formationds.iodriver.endpoints.OmEndpoint.AuthToken;
 import com.formationds.iodriver.operations.ExecutionException;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * An S3 service endpoint.
  */
-public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
+public final class S3Endpoint extends AbstractEndpoint
 {
     /**
      * Constructor.
@@ -29,11 +30,9 @@ public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
      * @throws MalformedURLException when {@code s3url} is not a valid absolute URL.
      */
     public S3Endpoint(String s3url,
-                      OrchestrationManagerEndpoint omEndpoint,
+                      OmEndpoint omEndpoint,
                       Logger logger) throws MalformedURLException
     {
-        super(S3Operation.class);
-
         if (s3url == null) throw new NullArgumentException("s3url");
         if (omEndpoint == null) throw new NullArgumentException("omEndpoint");
         if (logger == null) throw new NullArgumentException("logger");
@@ -43,23 +42,10 @@ public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
         _logger = logger;
     }
 
-    @Override
     public S3Endpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
         return new S3Endpoint(copyHelper);
-    }
-
-    @Override
-    // @eclipseFormat:off
-    public void doVisit(S3Operation operation,
-                        AbstractWorkflowEventListener listener) throws ExecutionException
-    // @eclipseFormat:on
-    {
-        if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
-
-        visit(operation, listener);
     }
 
     /**
@@ -67,7 +53,7 @@ public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
      * 
      * @return An OM endpoint.
      */
-    public OrchestrationManagerEndpoint getOmEndpoint()
+    public OmEndpoint getOmEndpoint()
     {
         return _omEndpoint;
     }
@@ -90,22 +76,28 @@ public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
 
         try
         {
-            operation.exec(this, getClient(), listener);
+            operation.accept(this, getClient(), listener);
         }
         catch (IOException e)
         {
             throw new ExecutionException(e);
         }
     }
+    
+    public void visit(Operation operation,
+                      AbstractWorkflowEventListener listener) throws ExecutionException
+    {
+        operation.accept(this, listener);
+    }
 
     /**
      * Extend this class to allow deep copies even when the private memebers of superclasses aren't
      * available.
      */
-    protected class CopyHelper extends AbstractEndpoint<S3Endpoint, S3Operation>.CopyHelper
+    protected class CopyHelper
     {
         public final Logger logger = _logger;
-        public final OrchestrationManagerEndpoint omEndpoint = _omEndpoint.copy();
+        public final OmEndpoint omEndpoint = _omEndpoint.copy();
         public final String s3url = _s3url;
     }
 
@@ -116,8 +108,6 @@ public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
      */
     protected S3Endpoint(CopyHelper helper)
     {
-        super(helper);
-
         _logger = helper.logger;
         _omEndpoint = helper.omEndpoint;
         _s3url = helper.s3url;
@@ -157,7 +147,7 @@ public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
     /**
      * OM endpoint used to authenticate.
      */
-    private final OrchestrationManagerEndpoint _omEndpoint;
+    private final OmEndpoint _omEndpoint;
 
     /**
      * The base URL for requests.

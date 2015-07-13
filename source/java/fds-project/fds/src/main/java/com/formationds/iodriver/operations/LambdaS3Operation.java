@@ -52,12 +52,16 @@ public class LambdaS3Operation extends S3Operation
 
     @Override
     // @eclipseFormat:off
-    public void exec(S3Endpoint endpoint,
-                     AmazonS3Client client,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(S3Endpoint endpoint,
+                       AmazonS3Client client,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
-        _delegate.exec(endpoint, client, reporter);
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (client == null) throw new NullArgumentException("client");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        _delegate.exec(endpoint, client, listener);
     }
 
     @Override

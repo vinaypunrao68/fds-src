@@ -12,7 +12,6 @@ import javax.net.ssl.SSLSocketFactory;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.HttpsOperation;
 
 /**
  * Endpoint that only accepts HTTPS connections.
@@ -21,10 +20,7 @@ import com.formationds.iodriver.operations.HttpsOperation;
  * @param <OperationT> Type of operations that may be visited.
  */
 // @eclipseFormat:off
-public abstract class AbstractHttpsEndpoint<
-        ThisT extends AbstractHttpsEndpoint<ThisT, OperationT>,
-        OperationT extends HttpsOperation<OperationT, ? super ThisT>>
-extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
+public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<HttpsURLConnection>
 // @eclipseFormat:on
 {
     /**
@@ -32,14 +28,12 @@ extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
      * 
      * @param uri Base URI for requests. Must be a valid absolute URL.
      * @param logger Log target.
-     * @param baseOperationClass Base class of operations this endpoint can service.
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
-    public AbstractHttpsEndpoint(URI uri, Logger logger, Class<OperationT> baseOperationClass)
-            throws MalformedURLException
+    public AbstractHttpsEndpoint(URI uri, Logger logger) throws MalformedURLException
     {
-        this(toUrl(uri), logger, baseOperationClass);
+        this(toUrl(uri), logger);
     }
 
     /**
@@ -48,16 +42,14 @@ extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
      * @param uri Base URI for requests. Must be a valid absolute URL>
      * @param logger Log target.
      * @param trusting Whether normally-untrusted certificates are accepted.
-     * @param baseOperationClass Base class of operations this endpoint can service.
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
     public AbstractHttpsEndpoint(URI uri,
                                  Logger logger,
-                                 boolean trusting,
-                                 Class<OperationT> baseOperationClass) throws MalformedURLException
+                                 boolean trusting) throws MalformedURLException
     {
-        this(toUrl(uri), logger, trusting, baseOperationClass);
+        this(toUrl(uri), logger, trusting);
     }
 
     /**
@@ -65,11 +57,10 @@ extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
      * 
      * @param url Base URL for requests.
      * @param logger Log target.
-     * @param baseOperationClass Base class of operations this endpoint can service.
      */
-    public AbstractHttpsEndpoint(URL url, Logger logger, Class<OperationT> baseOperationClass)
+    public AbstractHttpsEndpoint(URL url, Logger logger)
     {
-        this(url, logger, false, baseOperationClass);
+        this(url, logger, false);
     }
 
     /**
@@ -78,14 +69,12 @@ extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
      * @param url Base URL for requests.
      * @param logger Log target.
      * @param trusting Whether normally-untrusted certificates are accepted.
-     * @param baseOperationClass Base class of operations this endpoint can service.
      */
     public AbstractHttpsEndpoint(URL url,
                                  Logger logger,
-                                 boolean trusting,
-                                 Class<OperationT> baseOperationClass)
+                                 boolean trusting)
     {
-        super(url, logger, baseOperationClass);
+        super(url, logger);
 
         String scheme = url.getProtocol();
         if (scheme == null || !scheme.equalsIgnoreCase("https"))
@@ -110,9 +99,7 @@ extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
     /**
      * Extend this class to allow deep copies even when superclass private members aren't available.
      */
-    protected class CopyHelper extends AbstractBaseHttpEndpoint<ThisT,
-                                                            OperationT,
-                                                            HttpsURLConnection>.CopyHelper
+    protected class CopyHelper extends AbstractBaseHttpEndpoint<HttpsURLConnection>.CopyHelper
     {
         /**
          * Whether normally-untrusted certificates should be accepted.

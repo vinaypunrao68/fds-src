@@ -28,13 +28,13 @@ public class DeleteBucket extends S3Operation
     }
 
     @Override
-    public void exec(S3Endpoint endpoint,
-                     AmazonS3Client client,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(S3Endpoint endpoint,
+                       AmazonS3Client client,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (listener == null) throw new NullArgumentException("listener");
 
         try
         {

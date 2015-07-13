@@ -13,22 +13,22 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import com.codepoetics.protonpack.StreamUtils;
-
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.IoParams;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.LambdaS3Operation;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
-import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.operations.SetBucketQos;
 import com.formationds.iodriver.operations.StatBucketVolume;
 
 // TODO: This was intended to test the fairness QOS with multiple queues. Not complete.
-public final class S3QosTestWorkload extends S3Workload
+public final class S3QosTestWorkload extends Workload
 {
     public S3QosTestWorkload(Collection<IoParams> bucketParams,
                              Duration duration,
@@ -42,6 +42,12 @@ public final class S3QosTestWorkload extends S3Workload
                              boolean logOperations)
     {
         this(bucketParams, null, stopTime, logOperations);
+    }
+    
+    @Override
+    public Class<?> getEndpointType()
+    {
+        return S3Endpoint.class;
     }
 
     private S3QosTestWorkload(Collection<IoParams> bucketParams,
@@ -68,28 +74,28 @@ public final class S3QosTestWorkload extends S3Workload
         _stopTime = stopTime;
     }
 
-    protected Stream<S3Operation> createBucketOperations(String bucketName)
+    protected Stream<Operation> createBucketOperations(String bucketName)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
 
-        Stream<S3Operation> warmup =
+        Stream<Operation> warmup =
                 Stream.generate(_nameSupplier)
-                      .<S3Operation>map(content -> new CreateObject(bucketName,
-                                                                    _objectName,
-                                                                    content,
-                                                                    false))
+                      .<Operation>map(content -> new CreateObject(bucketName,
+                                                                  _objectName,
+                                                                  content,
+                                                                  false))
                       .limit(OPERATIONS_PER_BUCKET);
 
-        Stream<S3Operation> unlimitedLoad =
+        Stream<Operation> unlimitedLoad =
                 Stream.generate(_nameSupplier)
-                      .<S3Operation>map(content -> new CreateObject(bucketName,
-                                                                    _objectName,
-                                                                    content));
+                      .<Operation>map(content -> new CreateObject(bucketName,
+                                                                  _objectName,
+                                                                  content));
 
-        Stream<S3Operation> load =
+        Stream<Operation> load =
                 StreamUtils.takeWhile(unlimitedLoad, op -> ZonedDateTime.now().isBefore(_stopTime));
 
-        Stream<S3Operation> retval = Stream.of(new ReportStart(bucketName));
+        Stream<Operation> retval = Stream.of(new ReportStart(bucketName));
         retval = Stream.concat(retval, warmup);
         retval = Stream.concat(retval, Stream.of(new LambdaS3Operation(() ->
         {
@@ -104,7 +110,7 @@ public final class S3QosTestWorkload extends S3Workload
         return retval;
     }
 
-    protected Stream<S3Operation> CreateBucketSetup(String bucketName)
+    protected Stream<Operation> CreateBucketSetup(String bucketName)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
 
@@ -134,7 +140,7 @@ public final class S3QosTestWorkload extends S3Workload
     }
 
     @Override
-    protected List<Stream<S3Operation>> createOperations()
+    protected List<Stream<Operation>> createOperations()
     {
         return StreamSupport.stream(_bucketStats.keySet().spliterator(), false)
                             .map(bucketName -> createBucketOperations(bucketName))
@@ -142,14 +148,14 @@ public final class S3QosTestWorkload extends S3Workload
     }
 
     @Override
-    protected Stream<S3Operation> createSetup()
+    protected Stream<Operation> createSetup()
     {
         return StreamSupport.stream(_bucketStats.keySet().spliterator(), false)
                             .flatMap(bucketName -> CreateBucketSetup(bucketName));
     }
 
     @Override
-    protected Stream<S3Operation> createTeardown()
+    protected Stream<Operation> createTeardown()
     {
         // return StreamSupport.stream(Lists.reverse(_bucketNames).spliterator(), false)
         // .map(bucketName -> new DeleteBucket(bucketName));

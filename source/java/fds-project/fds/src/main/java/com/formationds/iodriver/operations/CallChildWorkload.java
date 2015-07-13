@@ -5,13 +5,9 @@ import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.workloads.Workload;
 
-public final class CallChildWorkload<
-        EndpointT extends Endpoint<EndpointT, ? super CallChildWorkload<EndpointT, WorkloadT>>,
-        WorkloadT extends Workload<? extends EndpointT,
-                                   ? super CallChildWorkload<EndpointT, WorkloadT>>>
-        extends AbstractOperation<CallChildWorkload<EndpointT, WorkloadT>, EndpointT>
+public final class CallChildWorkload extends AbstractOperation
 {
-    public CallChildWorkload(Workload<? super EndpointT, ?> workload)
+    public CallChildWorkload(Workload workload)
     {
         if (workload == null) throw new NullArgumentException("workload");
         
@@ -19,11 +15,14 @@ public final class CallChildWorkload<
     }
     
     @Override
-    public void accept(EndpointT visitor,
+    public void accept(Endpoint endpoint,
                        AbstractWorkflowEventListener listener) throws ExecutionException
     {
-        _workload.runOn(visitor, listener);
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        _workload.runOn(endpoint, listener);
     }
     
-    private final Workload<? super EndpointT, ?> _workload;
+    private final Workload _workload;
 }

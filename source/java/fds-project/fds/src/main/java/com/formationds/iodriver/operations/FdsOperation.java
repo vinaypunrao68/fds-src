@@ -1,6 +1,10 @@
 package com.formationds.iodriver.operations;
 
 import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public abstract class FdsOperation implements Operation<FdsOperation, FdsEndpoint>
-{ }
+public interface FdsOperation extends Operation
+{
+    void accept(FdsEndpoint endpoint,
+                AbstractWorkflowEventListener listener) throws ExecutionException;
+}

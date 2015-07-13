@@ -5,12 +5,7 @@ import java.net.URI;
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public interface BaseHttpOperation<ThisT extends BaseHttpOperation<ThisT, EndpointT, ConnectionT>,
-                                   EndpointT extends BaseHttpEndpoint<EndpointT,
-                                                                      ? super ThisT,
-                                                                      ? extends ConnectionT>,
-                                   ConnectionT>
-extends Operation<ThisT, EndpointT>
+public interface BaseHttpOperation<ConnectionT> extends Operation
 {
     /**
      * Perform the actual operation.
@@ -21,9 +16,9 @@ extends Operation<ThisT, EndpointT>
      * 
      * @throws ExecutionException when an error occurs.
      */
-    void exec(EndpointT endpoint,
-              ConnectionT connection,
-              AbstractWorkflowEventListener reporter) throws ExecutionException;
+    void accept(BaseHttpEndpoint<ConnectionT> endpoint,
+                ConnectionT connection,
+                AbstractWorkflowEventListener reporter) throws ExecutionException;
     
     /**
      * Get the relative URI (to the endpoint) that will be requested.

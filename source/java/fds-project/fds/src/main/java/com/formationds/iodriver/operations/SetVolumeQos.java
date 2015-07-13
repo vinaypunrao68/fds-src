@@ -15,14 +15,14 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Set the QoS parameters on a volume.
  */
-public final class SetVolumeQos extends OmOperation
+public final class SetVolumeQos extends AbstractOmOperation
 {
     /**
      * Constructor.
@@ -37,9 +37,9 @@ public final class SetVolumeQos extends OmOperation
     }
 
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint,
-                     HttpsURLConnection connection,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(OmEndpoint endpoint,
+                       HttpsURLConnection connection,
+                       AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
@@ -47,7 +47,7 @@ public final class SetVolumeQos extends OmOperation
 
         Volume[] volumeQosSetter = new Volume[1];
         GetVolume getter = new GetVolume(_input.getId(), volume -> volumeQosSetter[0] = volume);
-        endpoint.doVisit(getter, reporter);
+        endpoint.visit(getter, reporter);
 
         JSONObject oyVeh = new JSONObject(ObjectModelHelper.toJSON(volumeQosSetter[0]));
         JSONObject qos = oyVeh.getJSONObject("qosPolicy");

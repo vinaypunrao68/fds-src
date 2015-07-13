@@ -28,9 +28,9 @@ public class ReportStart extends S3Operation
 
     @Override
     // @eclipseFormat:off
-    public void exec(S3Endpoint endpoint,
-                     AmazonS3Client client,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(S3Endpoint endpoint,
+                       AmazonS3Client client,
+                       AbstractWorkflowEventListener reporter) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");

@@ -15,14 +15,14 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Get the QoS settings for a volume.
  */
-public final class StatVolume extends OmOperation
+public final class StatVolume extends AbstractOmOperation
 {
     /**
      * Constructor.
@@ -40,9 +40,9 @@ public final class StatVolume extends OmOperation
     }
 
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint,
-                     HttpsURLConnection connection,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(OmEndpoint endpoint,
+                       HttpsURLConnection connection,
+                       AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

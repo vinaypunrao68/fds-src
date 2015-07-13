@@ -17,25 +17,16 @@ import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.BaseHttpOperation;
-import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.google.common.io.CharStreams;
 import com.google.common.net.MediaType;
 
 /**
  * Basic HTTP endpoint.
- * 
- * @param <ThisT> The implementing class.
- * @param <OperationT> The type of operations that can be visited.
  */
 // @eclipseFormat:off
-public abstract class AbstractBaseHttpEndpoint<
-    ThisT extends AbstractBaseHttpEndpoint<ThisT, OperationT, ConnectionT>,
-    OperationT extends BaseHttpOperation<OperationT, ? super ThisT, ? extends ConnectionT>,
-    ConnectionT>
-extends AbstractEndpoint<ThisT, OperationT>
-implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
+public abstract class AbstractBaseHttpEndpoint<ConnectionT extends HttpURLConnection>
+        extends AbstractEndpoint
+        implements BaseHttpEndpoint<ConnectionT>
 // @eclipseFormat:on
 {
     /**
@@ -43,14 +34,13 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * 
      * @param uri The base URI for this endpoint. Must be a valid absolute URL.
      * @param logger The logger to log to.
-     * @param baseOperationClass Base class of operations this endpoint can service.
      *
      * @throws MalformedURLException when {@code uri} is a malformed URL.
      */
-    public AbstractBaseHttpEndpoint(URI uri, Logger logger, Class<OperationT> baseOperationClass)
+    public AbstractBaseHttpEndpoint(URI uri, Logger logger)
             throws MalformedURLException
     {
-        this(toUrl(uri), logger, baseOperationClass);
+        this(toUrl(uri), logger);
     }
 
     /**
@@ -58,12 +48,9 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * 
      * @param url The base URL for this endpoint.
      * @param logger The logger to log to.
-     * @param baseOperationClass Base class of operations this endpoint can service.
      */
-    public AbstractBaseHttpEndpoint(URL url, Logger logger, Class<OperationT> baseOperationClass)
+    public AbstractBaseHttpEndpoint(URL url, Logger logger)
     {
-        super(baseOperationClass);
-
         if (url == null) throw new NullArgumentException("url");
         {
             String scheme = url.getProtocol();
@@ -80,31 +67,9 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
     }
 
     @Override
-    // @eclipseFormat:off
-    public void doVisit(OperationT operation,
-                        AbstractWorkflowEventListener listener) throws ExecutionException
-    // @eclipseFormat:on
-    {
-        if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
-
-        operation.accept(getThis(), listener);
-    }
-
-    /**
-     * Write to a connection without reading from it. Response code (and error response if not
-     * successful) will still be read.
-     *
-     * @param connection PUT/POST/etc. here.
-     * @param content The content to write.
-     * @param charset {@code content} is in this charset.
-     *
-     * @throws HttpException when an error occurs sending the request or receiving the respsonse.
-     */
-    // @eclipseFormat:off
-    public void doWrite(HttpURLConnection connection, String content, Charset charset)
-            throws HttpException
-    // @eclipseFormat:on
+    public void doWrite(ConnectionT connection,
+                        String content,
+                        Charset charset) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");
         if (content == null) throw new NullArgumentException("content");
@@ -127,7 +92,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      *
      * @throws HttpException when an error occurs sending the request or receiving the response.
      */
-    public String doRead(HttpURLConnection connection) throws HttpException
+    public String doRead(ConnectionT connection) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");
 
@@ -152,8 +117,8 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      */
     // @eclipseFormat:off
     protected <T> T handleResponse(
-        HttpURLConnection connection,
-        ExceptionThrowingFunction<HttpURLConnection, T, HttpException> func) throws HttpException
+        ConnectionT connection,
+        ExceptionThrowingFunction<ConnectionT, T, HttpException> func) throws HttpException
     // @eclipseFormat:on
     {
         int responseCode = getResponseCode(connection);
@@ -192,7 +157,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * 
      * @throws HttpException when an error occurs getting the response message.
      */
-    protected String getResponseMessage(HttpURLConnection connection) throws HttpException
+    protected String getResponseMessage(ConnectionT connection) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");
 
@@ -227,7 +192,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
     /**
      * Extend this class to allow deep copies even when superclass private members aren't available.
      */
-    protected class CopyHelper extends AbstractEndpoint<ThisT, OperationT>.CopyHelper
+    protected class CopyHelper
     {
         /**
          * A reference to the source object's logger. Shouldn't need copying.
@@ -247,8 +212,6 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      */
     protected AbstractBaseHttpEndpoint(CopyHelper helper)
     {
-        super(helper);
-
         _logger = helper.logger;
         _url = helper.url;
     }
@@ -262,7 +225,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * 
      * @throws HttpException when there was an error retrieving the error.
      */
-    protected String getErrorResponse(HttpURLConnection connection) throws HttpException
+    protected String getErrorResponse(ConnectionT connection) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");
 
@@ -284,7 +247,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * 
      * @return The response charset if it could be determined, or ISO-8859-1 (HTTP default).
      */
-    protected Charset getResponseCharset(HttpURLConnection connection)
+    protected Charset getResponseCharset(ConnectionT connection)
     {
         if (connection == null) throw new NullArgumentException("connection");
 
@@ -324,7 +287,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * 
      * @throws HttpException when there is an error reading the response.
      */
-    protected String getResponse(HttpURLConnection connection) throws HttpException
+    protected String getResponse(ConnectionT connection) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");
 
@@ -350,7 +313,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * @throws HttpException when an error occurs getting the response code or the response code
      *             does not appear valid (>= 0).
      */
-    protected int getResponseCode(HttpURLConnection connection) throws HttpException
+    protected int getResponseCode(ConnectionT connection) throws HttpException
     {
         int responseCode = -2;
         try
@@ -368,17 +331,6 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
                                     connection.getRequestMethod());
         }
         return responseCode;
-    }
-
-    /**
-     * Get a typed reference to this object.
-     * 
-     * @return {@code this}.
-     */
-    @SuppressWarnings("unchecked")
-    protected final ThisT getThis()
-    {
-        return (ThisT)this;
     }
 
     /**
@@ -461,7 +413,7 @@ implements BaseHttpEndpoint<ThisT, OperationT, ConnectionT>
      * @throws HttpException when an error occurs sending the content.
      */
     // @eclipseFormat:off
-    protected void writeToRequest(HttpURLConnection connection, String content, Charset charset)
+    protected void writeToRequest(ConnectionT connection, String content, Charset charset)
             throws HttpException
     // @eclipseFormat:on
     {

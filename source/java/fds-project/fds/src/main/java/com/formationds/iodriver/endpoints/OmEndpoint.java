@@ -1,7 +1,6 @@
 package com.formationds.iodriver.endpoints;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -16,14 +15,16 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.OmOperation;
+import com.formationds.iodriver.operations.BaseHttpOperation;
+import com.formationds.iodriver.operations.ExecutionException;
+import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * An endpoint connecting to an FDS Orchestration Manager.
  */
 // @eclipseFormat:off
-public class OrchestrationManagerEndpoint
-        extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OmOperation>
+public class OmEndpoint extends AbstractHttpsEndpoint
 // @eclipseFormat:on
 {
     /**
@@ -67,15 +68,15 @@ public class OrchestrationManagerEndpoint
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
-    public OrchestrationManagerEndpoint(URI uri,
+    public OmEndpoint(URI uri,
                                         String username,
                                         String password,
                                         Logger logger,
                                         boolean trusting,
-                                        OrchestrationManagerEndpoint v8)
+                                        OmEndpoint v8)
             throws MalformedURLException
     {
-        super(uri, logger, trusting, OmOperation.class);
+        super(uri, logger, trusting);
 
         if (username == null) throw new NullArgumentException("username");
         if (password == null) throw new NullArgumentException("password");
@@ -86,11 +87,10 @@ public class OrchestrationManagerEndpoint
         _v8 = v8;
     }
 
-    @Override
-    public OrchestrationManagerEndpoint copy()
+    public OmEndpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
-        return new OrchestrationManagerEndpoint(copyHelper);
+        return new OmEndpoint(copyHelper);
     }
 
     /**
@@ -118,8 +118,7 @@ public class OrchestrationManagerEndpoint
                 throw new RuntimeException("Unexpected error creating auth URI.", e);
             }
             URL authUrl = toUrl(authUri);
-            HttpURLConnection authConnection =
-                    (HttpURLConnection)openConnectionWithoutAuth(authUrl);
+            HttpsURLConnection authConnection = openConnectionWithoutAuth(authUrl);
 
             JSONObject userObject;
             try
@@ -156,7 +155,7 @@ public class OrchestrationManagerEndpoint
      *
      * @return An OM endpoint that supports API version 8.
      */
-    public final OrchestrationManagerEndpoint getV8()
+    public final OmEndpoint getV8()
     {
         return _v8;
     }
@@ -165,18 +164,37 @@ public class OrchestrationManagerEndpoint
     {
         _s3 = value;
     }
+
+    @Override
+    public void visit(BaseHttpOperation<HttpsURLConnection> operation,
+                      AbstractWorkflowEventListener listener) throws ExecutionException
+    {
+        if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        operation.accept(this, listener);
+    }
+                      
+    
+    @Override
+    public void visit(Operation operation,
+                      AbstractWorkflowEventListener listener) throws ExecutionException
+    {
+        if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        operation.accept(this, listener);
+    }
     
     /**
      * Extend this class to allow deep copies even when the superclass private members aren't
      * available.
      */
-    protected final class CopyHelper
-            extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
-                                          OmOperation>.CopyHelper
+    protected final class CopyHelper extends AbstractHttpsEndpoint.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
-        public final OrchestrationManagerEndpoint v8 = _v8 == null ? null : _v8.copy();
+        public final OmEndpoint v8 = _v8 == null ? null : _v8.copy();
         public final S3Endpoint s3 = _s3 == null ? null : _s3.copy();
     }
 
@@ -185,7 +203,7 @@ public class OrchestrationManagerEndpoint
      * 
      * @param helper Object holding copied values to assign to the new object.
      */
-    protected OrchestrationManagerEndpoint(CopyHelper helper)
+    protected OmEndpoint(CopyHelper helper)
     {
         super(helper);
 
@@ -245,5 +263,5 @@ public class OrchestrationManagerEndpoint
     /**
      * Version 8 API OM endpoint.
      */
-    private final OrchestrationManagerEndpoint _v8;
+    private final OmEndpoint _v8;
 }

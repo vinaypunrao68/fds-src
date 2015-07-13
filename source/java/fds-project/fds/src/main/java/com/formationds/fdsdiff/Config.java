@@ -14,7 +14,7 @@ import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmEndpoint;
 
 /**
  * Global configuration for {@link com.formationds.fdsdiff}.
@@ -70,13 +70,13 @@ public final class Config extends AbstractConfig
 		return _comparisonDataFormat.get();
 	}
 	
-	public OrchestrationManagerEndpoint getEndpointA() throws ParseException
+	public OmEndpoint getEndpointA() throws ParseException
 	{
 		if (_endpointA == null)
 		{
 			URI endpointAUrl = getEndpointAUrl();
 			try {
-				_endpointA = new OrchestrationManagerEndpoint(endpointAUrl,
+				_endpointA = new OmEndpoint(endpointAUrl,
 						                                      "admin",
 						                                      "admin",
 						                                      AbstractConfig.Defaults.getLogger(),
@@ -154,11 +154,11 @@ public final class Config extends AbstractConfig
 	
 	private Optional<ComparisonDataFormat> _comparisonDataFormat;
 	
-	private OrchestrationManagerEndpoint _endpointA;
+	private OmEndpoint _endpointA;
 	
 	private URI _endpointAUrl;
 	
-	private Optional<Endpoint<?, ?>> _endpointB;
+	private Optional<Endpoint> _endpointB;
 
 	private Optional<URI> _endpointBUrl;
 	

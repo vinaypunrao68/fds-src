@@ -5,8 +5,8 @@ import java.util.stream.Stream;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
-
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
@@ -28,9 +28,9 @@ public class CreateBucket extends S3Operation
     }
 
     @Override
-    public void exec(S3Endpoint endpoint,
-                     AmazonS3Client client,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(S3Endpoint endpoint,
+                       AmazonS3Client client,
+                       AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");
@@ -46,6 +46,16 @@ public class CreateBucket extends S3Operation
         }
     }
 
+    @Override
+    public void accept(Endpoint endpoint,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        endpoint.visit(this, listener);
+    }
+    
     @Override
     protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
     {

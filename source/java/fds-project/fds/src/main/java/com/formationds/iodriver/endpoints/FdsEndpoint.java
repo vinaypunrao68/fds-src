@@ -2,15 +2,13 @@ package com.formationds.iodriver.endpoints;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.operations.FdsOperation;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public final class FdsEndpoint extends AbstractEndpoint<FdsEndpoint, FdsOperation>
+public final class FdsEndpoint extends AbstractEndpoint
 {
-    public FdsEndpoint(OrchestrationManagerEndpoint omEndpoint, S3Endpoint s3Endpoint)
+    public FdsEndpoint(OmEndpoint omEndpoint, S3Endpoint s3Endpoint)
     {
-        super(FdsOperation.class);
-        
         if (omEndpoint == null) throw new NullArgumentException("omEndpoint");
         if (s3Endpoint == null) throw new NullArgumentException("s3Endpoint");
         
@@ -18,7 +16,6 @@ public final class FdsEndpoint extends AbstractEndpoint<FdsEndpoint, FdsOperatio
         _s3Endpoint = s3Endpoint;
     }
 
-    @Override
     public FdsEndpoint copy()
     {
         _CopyHelper copyHelper = new _CopyHelper();
@@ -26,14 +23,7 @@ public final class FdsEndpoint extends AbstractEndpoint<FdsEndpoint, FdsOperatio
         return new FdsEndpoint(copyHelper);
     }
 
-    @Override
-    public void doVisit(FdsOperation operation,
-                        AbstractWorkflowEventListener listener) throws ExecutionException
-    {
-        operation.accept(this, listener);
-    }
-
-    public OrchestrationManagerEndpoint getOmEndpoint()
+    public OmEndpoint getOmEndpoint()
     {
         return _omEndpoint;
     }
@@ -42,22 +32,30 @@ public final class FdsEndpoint extends AbstractEndpoint<FdsEndpoint, FdsOperatio
     {
         return _s3Endpoint;
     }
-    
-    private final class _CopyHelper extends AbstractEndpoint<FdsEndpoint, FdsOperation>.CopyHelper
+
+    @Override
+    public void visit(Operation operation,
+                      AbstractWorkflowEventListener listener) throws ExecutionException
     {
-        public final OrchestrationManagerEndpoint omEndpoint = FdsEndpoint.this._omEndpoint;
+        if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        operation.accept(this, listener);
+    }
+    
+    private final class _CopyHelper
+    {
+        public final OmEndpoint omEndpoint = FdsEndpoint.this._omEndpoint;
         public final S3Endpoint s3Endpoint = FdsEndpoint.this._s3Endpoint;
     }
     
     private FdsEndpoint(_CopyHelper copyHelper)
     {
-        super(copyHelper);
-        
         _omEndpoint = copyHelper.omEndpoint;
         _s3Endpoint = copyHelper.s3Endpoint;
     }
     
-    private final OrchestrationManagerEndpoint _omEndpoint;
+    private final OmEndpoint _omEndpoint;
     
     private final S3Endpoint _s3Endpoint;
 }

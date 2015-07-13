@@ -32,33 +32,10 @@ import com.formationds.iodriver.validators.Validator;
  * The most important method to override is {@link #createOperations()}. {@link #createSetup()} and
  * {@link #createTeardown()} will also likely be overridden in most implementations.
  * 
- * @param <EndpointT> The type of endpoint the workload will be run on.
- * @param <OperationT> The base type of operations in this workload.
  */
-// @eclipseFormat:off
-public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super OperationT>,
-                               OperationT extends Operation<OperationT, ? super EndpointT>>
-// @eclipseFormat:on
+public abstract class Workload
 {
-    /**
-     * Get the type of endpoint this workload can use.
-     * 
-     * @return The current property value.
-     */
-    public final Class<EndpointT> getEndpointType()
-    {
-        return _endpointType;
-    }
-
-    /**
-     * Get the type of operation this workload can execute.
-     * 
-     * @return The current property value.
-     */
-    public final Class<OperationT> getOperationType()
-    {
-        return _operationType;
-    }
+    public abstract Class<?> getEndpointType();
     
     /**
      * Get a validator that will interpret this workload well.
@@ -72,44 +49,6 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
     }
     
     /**
-     * Constructor.
-     * 
-     * @param endpointType The type of endpoint this workload can use.
-     * @param operationType The type of operation this workload can run.
-     * @param logOperations Log operations executed by this workload.
-     */
-    protected Workload(Class<EndpointT> endpointType,
-                       Class<OperationT> operationType,
-                       boolean logOperations)
-    {
-        if (endpointType == null) throw new NullArgumentException("endpointType");
-        if (operationType == null) throw new NullArgumentException("operationType");
-        
-        _endpointType = endpointType;
-        _operationType = operationType;
-        _logOperations = logOperations;
-    }
-    
-    private ExceptionThrowingConsumer<OperationT, ExecutionException> debugWrap(
-            ExceptionThrowingConsumer<OperationT, ExecutionException> exec, Logger logger)
-    {
-        if (exec == null) throw new NullArgumentException("exec");
-        
-        if (logger == null)
-        {
-            return exec;
-        }
-        else
-        {
-            return op -> 
-                   {
-                       logger.logDebug("Executing: " + op);
-                       exec.accept(op);
-                   };
-        }
-    }
-    
-    /**
      * Execute this workload.
      * 
      * @param endpoint Operations will be run on this endpoint.
@@ -118,7 +57,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(EndpointT endpoint, AbstractWorkflowEventListener listener)
+    public final void runOn(Endpoint endpoint, AbstractWorkflowEventListener listener)
             throws ExecutionException
     // @eclipseFormat:on
     {
@@ -130,16 +69,16 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
         Map<Thread, NullableMutableReference<Throwable>> workerThreads =
                 new HashMap<>(_operations.size());
         CyclicBarrier startingGate = new CyclicBarrier(_operations.size());
-        for (Stream<OperationT> work : _operations)
+        for (Stream<Operation> work : _operations)
         {
             Thread workerThread =
                     new Thread(() ->
                     {
-                        ExceptionThrowingConsumer<OperationT, ExecutionException> exec =
-                                op -> endpoint.doVisit(op, listener);
+                        ExceptionThrowingConsumer<Operation, ExecutionException> exec =
+                                op -> endpoint.visit(op, listener);
 
                         // Log operations if requested.
-                        ExceptionThrowingConsumer<OperationT, ExecutionException> loggingExec =
+                        ExceptionThrowingConsumer<Operation, ExecutionException> loggingExec =
                                 debugWrap(exec, getLogOperations() ? listener.getLogger() : null); 
 
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
@@ -154,8 +93,8 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
                         //
                         // When this bug is fixed (check 8u40 and >= 8u45), reduce to just
                         // tunnel(...) with a static import.
-                        Consumer<OperationT> tunneledExec =
-                                ExceptionHelper.<OperationT, ExecutionException>
+                        Consumer<Operation> tunneledExec =
+                                ExceptionHelper.<Operation, ExecutionException>
                                                tunnel(loggingExec, ExecutionException.class);
                         
                         // Synchronize all worker threads. This only ensures that they start work
@@ -229,7 +168,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
      * @throws ExecutionException when there is an error running the setup commands.
      */
     // @eclipseFormat:off
-    public final void setUp(EndpointT endpoint,
+    public final void setUp(Endpoint endpoint,
                             AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
@@ -239,10 +178,10 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
         ensureInitialized();
 
         // See comment in runOn().
-        ExceptionHelper.<OperationT, ExecutionException>
+        ExceptionHelper.<Operation, ExecutionException>
                        tunnel(ExecutionException.class,
                               from -> _setup.forEach(from),
-                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
+                              debugWrap((Operation op) -> endpoint.visit(op, listener),
                                         getLogOperations() ? listener.getLogger() : null));
     }
 
@@ -256,7 +195,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
      * @throws ExecutionException when there is an error running the teardown commands.
      */
     // @eclipseFormat:off
-    public final void tearDown(EndpointT endpoint,
+    public final void tearDown(Endpoint endpoint,
                                AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
@@ -266,13 +205,25 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
         ensureInitialized();
 
         // See comment in runOn().
-        ExceptionHelper.<OperationT, ExecutionException>
+        ExceptionHelper.<Operation, ExecutionException>
                        tunnel(ExecutionException.class,
                               from -> _teardown.forEach(from),
-                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
+                              debugWrap((Operation op) -> endpoint.visit(op, listener),
                                         getLogOperations() ? listener.getLogger() : null));
     }
 
+    /**
+     * Constructor.
+     * 
+     * @param endpointType The type of endpoint this workload can use.
+     * @param operationType The type of operation this workload can run.
+     * @param logOperations Log operations executed by this workload.
+     */
+    protected Workload(boolean logOperations)
+    {
+        _logOperations = logOperations;
+    }
+    
     /**
      * Create the operations that will be executed.
      * 
@@ -280,7 +231,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
      * 
      * @return A list of streams of operations, with the list of streams run in parallel.
      */
-    protected List<Stream<OperationT>> createOperations()
+    protected List<Stream<Operation>> createOperations()
     {
         return Collections.emptyList();
     }
@@ -290,7 +241,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
      * 
      * @return A stream of operations.
      */
-    protected Stream<OperationT> createSetup()
+    protected Stream<Operation> createSetup()
     {
         return Stream.empty();
     }
@@ -300,7 +251,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
      * 
      * @return A stream of operations.
      */
-    protected Stream<OperationT> createTeardown()
+    protected Stream<Operation> createTeardown()
     {
         return Stream.empty();
     }
@@ -361,32 +312,41 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super Ope
     }
 
     /**
-     * The type of endpoint this workload can use.
-     */
-    private final Class<EndpointT> _endpointType;
-    
-    /**
      * Log operations executed by this workload.
      */
     private boolean _logOperations;
     
     /**
-     * The type of operation this workload can run.
-     */
-    private final Class<OperationT> _operationType;
-
-    /**
      * Workload body. Streams are run in parallel with each other.
      */
-    private List<Stream<OperationT>> _operations;
+    private List<Stream<Operation>> _operations;
 
     /**
      * Setup instructions.
      */
-    private Stream<OperationT> _setup;
+    private Stream<Operation> _setup;
 
     /**
      * Cleanup instructions.
      */
-    private Stream<OperationT> _teardown;
+    private Stream<Operation> _teardown;
+
+    private ExceptionThrowingConsumer<Operation, ExecutionException> debugWrap(
+            ExceptionThrowingConsumer<Operation, ExecutionException> exec, Logger logger)
+    {
+        if (exec == null) throw new NullArgumentException("exec");
+        
+        if (logger == null)
+        {
+            return exec;
+        }
+        else
+        {
+            return op -> 
+                   {
+                       logger.logDebug("Executing: " + op);
+                       exec.accept(op);
+                   };
+        }
+    }
 }
