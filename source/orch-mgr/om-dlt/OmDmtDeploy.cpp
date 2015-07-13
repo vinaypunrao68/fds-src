@@ -936,11 +936,19 @@ void
 DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     OM_Module* om = OM_Module::om_singleton();
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
     // persist commited DMT
     vp->persistCommitedTargetDmt();
+
+    // set all added DMs to ACTIVE state
+    NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+    for (auto uuid : addDms) {
+        OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(uuid);
+        dm_agent->handle_service_deployed();
+    }
 
     // since we accounted for added/removed nodes in DMT, reset pending nodes in
     // cluster map

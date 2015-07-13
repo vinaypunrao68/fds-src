@@ -279,8 +279,10 @@ struct CtrlNotifyMigrationStatus {
  * Abort an in progress migration of tokens.
  */
 struct CtrlNotifySMAbortMigration {
-  /** DLT version that started migration */
+  /** DLT version that was previously commited */
   1: i64    DLT_version;
+  /** DLT version that started this migration */
+  2: i64    DLT_target_version;
 }
 
 /**

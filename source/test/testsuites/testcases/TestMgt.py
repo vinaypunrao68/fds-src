@@ -226,7 +226,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                             suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
 
                         if (action.count("uninst") > 0):
-                            # suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+                            suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
 
                             # Shutdown Redis on the machine if we started it.
                             if 'redis' in node.nd_conf_dict:
@@ -258,7 +258,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
-                        #suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
+                        suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
                         break
 
                 if not found:

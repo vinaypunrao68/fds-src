@@ -23,6 +23,7 @@ namespace fds
                                const fpi::ServiceStatus svc_status );
     
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo );
+    fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus);
     
     void updateSvcInfoList(std::vector<fpi::SvcInfo>& svcInfos,
                            bool smFlag, bool dmFlag, bool amFlag);

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <fds_types.h>
+#include <SmTypes.h>
 #include <concurrency/RwLock.h>
 #include <ObjMeta.h>
 #include <odb.h>
@@ -61,6 +62,12 @@ class ObjectMetadataDb {
      * for at least one token in the given set of SM tokens
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    /**
+     * Destroy levelDBs of sm Tokens if the object DBs were not present.
+     */
+    Error deleteMetadataDb(const std::string& diskPath,
+                           const fds_token_id& smToken);
 
     /**
      * Set number of bits per (global) token

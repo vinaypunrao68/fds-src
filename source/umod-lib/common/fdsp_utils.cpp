@@ -79,6 +79,7 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << " From: " << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
         << " To: " << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
         << std::dec
+        << " DLT version: " << header.dlt_version
         << " error: " << header.msg_code;
     return oss.str();
 }
@@ -144,6 +145,13 @@ std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSe
 {
 	std::ostringstream oss;
 	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	return oss.str();
+}
+
+std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg)
+{
+	std::ostringstream oss;
+	oss << " CtrlNotifyDeltaBlobDescMsg Vol Id: " << msg.volume_id;
 	return oss.str();
 }
 

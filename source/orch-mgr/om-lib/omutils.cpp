@@ -83,6 +83,28 @@ namespace fds
         return nodeInfo;
     }
 
+    fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus) {
+        fpi::FDSP_NodeState retNodeState = fpi::FDS_Node_Down;
+        switch ( svcStatus )
+        {
+            case fpi::SVC_STATUS_INACTIVE:
+                retNodeState = fpi::FDS_Node_Down;
+                break;
+            case fpi::SVC_STATUS_INVALID:
+                retNodeState = fpi::FDS_Node_Down;
+                break;
+            case fpi::SVC_STATUS_ACTIVE:
+                retNodeState = fpi::FDS_Node_Up;
+                break;
+            case fpi::SVC_STATUS_DISCOVERED:
+                retNodeState = fpi::FDS_Node_Discovered;
+                break;
+            default:
+                LOGERROR << "Unexpected service status, fix this method!";
+        }
+        return retNodeState;
+    }
+
     void
     updateSvcInfoList
         (

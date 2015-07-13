@@ -19,6 +19,7 @@
 #include "AsyncResponseHandlers.h"
 
 #include "requests/requests.h"
+#include "requests/GetObjectReq.h"
 #include <net/MockSvcHandler.h>
 #include <AmDispatcherMocks.hpp>
 #include "lib/StatsCollector.h"

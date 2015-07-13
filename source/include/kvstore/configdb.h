@@ -95,7 +95,11 @@ struct ConfigDB : KVStore {
     bool updateSvcMap(const fpi::SvcInfo& svcinfo);
     bool changeStateSvcMap( const int64_t svc_uuid, 
                             const fpi::ServiceStatus svc_status );
-    
+    /**
+     * If service not found in configDB, returns SVC_STATUS_INVALID
+     */
+    fpi::ServiceStatus getStateSvcMap( const int64_t svc_uuid );
+
     // volume policies
     fds_uint32_t createQoSPolicy(const std::string& identifier,
                                  const fds_uint64_t minIops, const fds_uint64_t maxIops, const fds_uint32_t relPrio);

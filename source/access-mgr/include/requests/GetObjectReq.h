@@ -14,20 +14,27 @@ namespace fds
 {
 
 struct GetObjectReq: public AmRequest {
+    using buffer_type = boost::shared_ptr<std::string>;
+
     // ID for object
     ObjectID::ptr obj_id;
 
     // Data object
-    boost::shared_ptr<std::string> obj_data;
+    buffer_type& obj_data;
 
-    inline GetObjectReq(fds_volid_t _volid, ObjectID::ptr _obj_id);
+    // Parent GetBlob request
+    GetBlobReq* blobReq;
+
+    inline GetObjectReq(GetBlobReq* blobReq, buffer_type& buf, ObjectID::ptr _obj_id);
 
     ~GetObjectReq() override = default;
 };
 
-GetObjectReq::GetObjectReq(fds_volid_t _volid, ObjectID::ptr _obj_id)
-    : AmRequest(FDS_SM_GET_OBJECT, _volid, "", "", nullptr, 0, 0),
-      obj_id(_obj_id)
+GetObjectReq::GetObjectReq(GetBlobReq* blobReq, buffer_type& buf, ObjectID::ptr _obj_id)
+    : AmRequest(FDS_SM_GET_OBJECT, blobReq->io_vol_id, "", "", nullptr, 0, 0),
+      obj_id(_obj_id),
+      obj_data(buf),
+      blobReq(blobReq)
 {
     qos_perf_ctx.type = PerfEventType::AM_GET_QOS;
     hash_perf_ctx.type = PerfEventType::AM_GET_HASH;
