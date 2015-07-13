@@ -19,7 +19,7 @@ import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public class CreateVolume extends OrchestrationManagerOperation
+public class CreateVolume extends OmOperation
 {
 	public CreateVolume(String name)
 	{

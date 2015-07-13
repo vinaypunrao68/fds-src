@@ -149,10 +149,10 @@ public final class Main
                                   ? workload.getSuggestedValidator().orElse(config.getValidator())
                                   : new NullValidator();
             
-            Driver<?, ?> driver = Driver.newDriver(endpoint,
-                                                   workload,
-                                                   listener,
-                                                   validator);
+            Driver<?, ?, ?> driver = Driver.newDriver(endpoint,
+                                                      workload,
+                                                      listener,
+                                                      validator);
             driver.runWorkload();
             return driver.getResult();
         }

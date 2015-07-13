@@ -17,7 +17,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 /**
  * An S3 service endpoint.
  */
-public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
+public final class S3Endpoint extends AbstractEndpoint<S3Endpoint, S3Operation>
 {
     /**
      * Constructor.
@@ -102,7 +102,7 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
      * Extend this class to allow deep copies even when the private memebers of superclasses aren't
      * available.
      */
-    protected class CopyHelper extends Endpoint<S3Endpoint, S3Operation>.CopyHelper
+    protected class CopyHelper extends AbstractEndpoint<S3Endpoint, S3Operation>.CopyHelper
     {
         public final Logger logger = _logger;
         public final OrchestrationManagerEndpoint omEndpoint = _omEndpoint.copy();

@@ -9,7 +9,7 @@ public final class CallChildWorkload<
         EndpointT extends Endpoint<EndpointT, ? super CallChildWorkload<EndpointT, WorkloadT>>,
         WorkloadT extends Workload<? extends EndpointT,
                                    ? super CallChildWorkload<EndpointT, WorkloadT>>>
-        extends Operation<CallChildWorkload<EndpointT, WorkloadT>, EndpointT>
+        extends AbstractOperation<CallChildWorkload<EndpointT, WorkloadT>, EndpointT>
 {
     public CallChildWorkload(Workload<? super EndpointT, ?> workload)
     {

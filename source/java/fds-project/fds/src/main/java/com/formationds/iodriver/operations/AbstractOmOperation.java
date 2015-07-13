@@ -5,6 +5,7 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 /**
  * An operation that runs on the OM.
  */
-public abstract class OrchestrationManagerOperation
-extends AbstractHttpsOperation<OrchestrationManagerOperation, OrchestrationManagerEndpoint>
+public abstract class AbstractOmOperation
+extends AbstractHttpsOperation<AbstractOmOperation, OrchestrationManagerEndpoint>
+implements OmOperation
 { }

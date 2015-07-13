@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLConnection;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -25,7 +24,7 @@ import com.formationds.iodriver.operations.HttpsOperation;
 public abstract class AbstractHttpsEndpoint<
         ThisT extends AbstractHttpsEndpoint<ThisT, OperationT>,
         OperationT extends HttpsOperation<OperationT, ? super ThisT>>
-extends AbstractHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
+extends AbstractBaseHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
 // @eclipseFormat:on
 {
     /**
@@ -111,7 +110,7 @@ extends AbstractHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
     /**
      * Extend this class to allow deep copies even when superclass private members aren't available.
      */
-    protected class CopyHelper extends AbstractHttpEndpoint<ThisT,
+    protected class CopyHelper extends AbstractBaseHttpEndpoint<ThisT,
                                                             OperationT,
                                                             HttpsURLConnection>.CopyHelper
     {
@@ -140,11 +139,11 @@ extends AbstractHttpEndpoint<ThisT, OperationT, HttpsURLConnection>
     }
 
     @Override
-    protected URLConnection openConnection(URL url) throws IOException
+    protected HttpsURLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
 
-        URLConnection connection = super.openConnection(url);
+        HttpsURLConnection connection = openConnection(url);
 
         if (isTrusting())
         {

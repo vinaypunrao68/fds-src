@@ -14,7 +14,7 @@ import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public final class GetVolume extends OrchestrationManagerOperation
+public final class GetVolume extends OmOperation
 {
     public GetVolume(long id, Consumer<? super Volume> setter)
     {

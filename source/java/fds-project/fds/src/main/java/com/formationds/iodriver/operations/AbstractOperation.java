@@ -38,7 +38,13 @@ implements Operation<ThisT, EndpointT>
         
         return getClass().getSimpleName() + "(" + membersAsString + ")";
     }
-    
+
+    @SuppressWarnings("unchecked")
+    protected ThisT getThis()
+    {
+        return (ThisT)this;
+    }
+
     /**
      * Convert members to string format, suitable for embedding in
      * "Typename(memberName: value, ...)". Each member is individually converted, and it it is up

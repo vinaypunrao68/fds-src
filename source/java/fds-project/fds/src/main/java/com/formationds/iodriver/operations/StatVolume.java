@@ -22,7 +22,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 /**
  * Get the QoS settings for a volume.
  */
-public final class StatVolume extends OrchestrationManagerOperation
+public final class StatVolume extends OmOperation
 {
     /**
      * Constructor.

@@ -18,10 +18,10 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 public abstract class AbstractHttpsOperation<
     ThisT extends AbstractHttpsOperation<ThisT, EndpointT>,
     EndpointT extends AbstractHttpsEndpoint<EndpointT, ThisT>>
-extends AbstractOperation<ThisT, EndpointT> implements HttpsOperation<ThisT, EndpointT>
+extends AbstractBaseHttpOperation<ThisT, EndpointT, HttpsURLConnection>
+implements HttpsOperation<ThisT, EndpointT>
 // @eclipseFormat:on
 {
-    @Override
     public final void exec(EndpointT endpoint,
                            HttpURLConnection connection,
                            AbstractWorkflowEventListener reporter) throws ExecutionException

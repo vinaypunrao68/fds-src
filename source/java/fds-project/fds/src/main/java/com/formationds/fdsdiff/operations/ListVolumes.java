@@ -14,6 +14,6 @@ public final class ListVolumes extends FdsOperation
     {
         OrchestrationManagerEndpoint om = endpoint.getOmEndpoint();
         
-        om.visit(this, listener);
+        om.doVisit(this, listener);
     }
 }

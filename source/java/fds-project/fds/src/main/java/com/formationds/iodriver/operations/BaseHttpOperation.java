@@ -2,11 +2,13 @@ package com.formationds.iodriver.operations;
 
 import java.net.URI;
 
-import com.formationds.iodriver.endpoints.AbstractHttpEndpoint;
+import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 public interface BaseHttpOperation<ThisT extends BaseHttpOperation<ThisT, EndpointT, ConnectionT>,
-                                   EndpointT extends AbstractHttpEndpoint<EndpointT, ? super ThisT>,
+                                   EndpointT extends BaseHttpEndpoint<EndpointT,
+                                                                      ? super ThisT,
+                                                                      ? extends ConnectionT>,
                                    ConnectionT>
 extends Operation<ThisT, EndpointT>
 {

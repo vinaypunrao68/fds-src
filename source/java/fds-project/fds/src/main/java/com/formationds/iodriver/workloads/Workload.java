@@ -36,8 +36,8 @@ import com.formationds.iodriver.validators.Validator;
  * @param <OperationT> The base type of operations in this workload.
  */
 // @eclipseFormat:off
-public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
-                               OperationT extends Operation<OperationT, EndpointT>>
+public abstract class Workload<EndpointT extends Endpoint<EndpointT, ? super OperationT>,
+                               OperationT extends Operation<OperationT, ? super EndpointT>>
 // @eclipseFormat:on
 {
     /**

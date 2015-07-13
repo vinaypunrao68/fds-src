@@ -1,7 +1,6 @@
 package com.formationds.iodriver.operations;
 
 import com.amazonaws.services.s3.AmazonS3Client;
-
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
@@ -9,7 +8,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 /**
  * An operation on an S3 endpoint.
  */
-public abstract class S3Operation extends Operation<S3Operation, S3Endpoint>
+public abstract class S3Operation extends AbstractOperation<S3Operation, S3Endpoint>
 {
     /**
      * Perform the final operation.

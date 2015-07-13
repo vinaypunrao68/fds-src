@@ -17,7 +17,7 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.google.gson.reflect.TypeToken;
 
-public class GetTenants extends OrchestrationManagerOperation
+public class GetTenants extends OmOperation
 {
 	public GetTenants(Consumer<Collection<Tenant>> reader)
 	{

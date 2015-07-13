@@ -6,7 +6,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLConnection;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,14 +16,14 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.OrchestrationManagerOperation;
+import com.formationds.iodriver.operations.OmOperation;
 
 /**
  * An endpoint connecting to an FDS Orchestration Manager.
  */
 // @eclipseFormat:off
 public class OrchestrationManagerEndpoint
-    extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OrchestrationManagerOperation>
+        extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OmOperation>
 // @eclipseFormat:on
 {
     /**
@@ -74,7 +75,7 @@ public class OrchestrationManagerEndpoint
                                         OrchestrationManagerEndpoint v8)
             throws MalformedURLException
     {
-        super(uri, logger, trusting, OrchestrationManagerOperation.class);
+        super(uri, logger, trusting, OmOperation.class);
 
         if (username == null) throw new NullArgumentException("username");
         if (password == null) throw new NullArgumentException("password");
@@ -171,7 +172,7 @@ public class OrchestrationManagerEndpoint
      */
     protected final class CopyHelper
             extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
-                                          OrchestrationManagerOperation>.CopyHelper
+                                          OmOperation>.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
@@ -195,7 +196,7 @@ public class OrchestrationManagerEndpoint
     }
 
     @Override
-    protected final URLConnection openConnection(URL url) throws IOException
+    protected final HttpsURLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
 
@@ -213,11 +214,11 @@ public class OrchestrationManagerEndpoint
      * 
      * @throws IOException when an error occurs while connecting.
      */
-    protected final URLConnection openConnectionWithoutAuth(URL url) throws IOException
+    protected final HttpsURLConnection openConnectionWithoutAuth(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
 
-        URLConnection connection = super.openConnection(url);
+        HttpsURLConnection connection = super.openConnection(url);
         connection.setRequestProperty(Fds.FDS_AUTH_HEADER, _authToken == null ? null
                 : _authToken.toString());
 

@@ -15,8 +15,9 @@ import com.formationds.iodriver.workloads.Workload;
  * @param <WorkloadT> The type of workload to run on the endpoint.
  */
 // @eclipseFormat:off
-public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
-                          WorkloadT extends Workload<EndpointT, ?>>
+public final class Driver<EndpointT extends Endpoint<EndpointT, ? super OperationT>,
+                          OperationT extends Operation<OperationT, ? super EndpointT>,
+                          WorkloadT extends Workload<EndpointT, OperationT>>
 // @eclipseFormat:on
 {
     /**
@@ -165,12 +166,12 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     }
 
     public static <IEndpointT extends Endpoint<IEndpointT, IOperationT>,
-                   IWorkloadT extends Workload<IEndpointT, IOperationT>,
-                   IOperationT extends Operation<IOperationT, IEndpointT>>
-    Driver<IEndpointT, IWorkloadT> newDriver(Endpoint<?, ?> endpoint,
-                                             Workload<?, ?> workload,
-                                             AbstractWorkflowEventListener listener,
-                                             Validator validator)
+                   IOperationT extends Operation<IOperationT, IEndpointT>,
+                   IWorkloadT extends Workload<IEndpointT, IOperationT>>
+    Driver<IEndpointT, IOperationT, IWorkloadT> newDriver(Endpoint<?, ?> endpoint,
+                                                          Workload<?, ?> workload,
+                                                          AbstractWorkflowEventListener listener,
+                                                          Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
@@ -178,16 +179,9 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
         if (validator == null) throw new NullArgumentException("validator");
 
         Class<?> neededEndpointClass = workload.getEndpointType();  // IEndpointT
-        Class<?> baseOperationClass = workload.getOperationType();  // IOperationT
 
-        // Make sure the endpoint can handle our operations.
-        if (!endpoint.getBaseOperationClass().equals(baseOperationClass))
-        {
-            throw new IllegalArgumentException(
-                    "Provided endpoint cannot service operations of type "
-                    + baseOperationClass.getName() + ".");
-        }
-
+        // FIXME: Do more type checking.
+        
         // Make sure the workload knows what to do with the endpoint.
         if (!neededEndpointClass.equals(endpoint.getClass()))
         {

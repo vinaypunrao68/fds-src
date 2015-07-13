@@ -1,7 +1,9 @@
 package com.formationds.iodriver.operations;
 
+import java.net.HttpURLConnection;
+
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.AbstractHttpEndpoint;
+import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
@@ -13,20 +15,11 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 // @eclipseFormat:off
 public abstract class AbstractHttpOperation<
     ThisT extends AbstractHttpOperation<ThisT, EndpointT>,
-    EndpointT extends AbstractHttpEndpoint<EndpointT, ThisT>>
-extends AbstractOperation<ThisT, EndpointT> implements HttpOperation<ThisT, EndpointT>
+    EndpointT extends BaseHttpEndpoint<EndpointT, ? super ThisT, ? extends HttpURLConnection>>
+extends AbstractBaseHttpOperation<ThisT, EndpointT, HttpURLConnection>
+implements HttpOperation<ThisT, EndpointT>
 // @eclipseFormat:on
 {
-    @Override
-    public void accept(EndpointT endpoint,
-                       AbstractWorkflowEventListener listener) throws ExecutionException
-    {
-        if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
-
-        endpoint.visit(getThis(), listener);
-    }
-
     /**
      * Perform the actual operation without opening a connection first.
      *
