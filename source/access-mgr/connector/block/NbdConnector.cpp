@@ -79,6 +79,7 @@ void NbdConnector::initialize() {
         t.detach();
     } else {
         evIoWatcher->set(nbdSocket, ev::READ);
+        evIoWatcher->start(nbdSocket, ev::READ);
     }
 }
 
@@ -176,8 +177,9 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
             case EBADF:
                 // Reinitialize server
                 LOGWARN << "Accept error: " << strerror(errno)
-                        << " shutting down server.";
-                reset();
+                        << " resetting server.";
+                nbdSocket = -1;
+                initialize();
                 break;
             default:
                 break; // Nothing special, no more clients
