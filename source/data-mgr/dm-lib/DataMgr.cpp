@@ -271,6 +271,23 @@ std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
     return stream.str();
 }
 
+void DataMgr::deleteUnownedVolumes() {
+    std::vector<fds_volid_t> volIds;
+    dmutil::getVolumeIds(MODULEPROVIDER()->proc_fdsroot(), volIds);
+    auto mySvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    for (const auto &volId : volIds) {
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+        if (nodes->find(NodeUuid(mySvcUuid)) == -1) {
+            /* Volume is not owned..delete */
+            LOGNORMAL << "DELETING volume: " << volId;
+            auto err = process_rm_vol(volId, false);
+            if (err != ERR_OK) {
+                LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
+            }
+        }
+    }
+}
+
 //
 // handle finish forward for volume 'volid'
 //
@@ -1345,6 +1362,18 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
                                  root->dir_sys_repo_dm().c_str(), volId, volId);
     }
 }
+
+void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) {
+    std::vector<std::string> vecNames;
+
+    util::getSubDirectories(root->dir_sys_repo_dm(), vecNames);
+
+    for (const auto& name : vecNames) {
+        vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
+    }
+    std::sort(vecVolumes.begin(), vecVolumes.end());
+}
+
 }  // namespace dmutil
 
 

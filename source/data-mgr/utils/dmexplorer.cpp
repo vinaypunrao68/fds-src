@@ -5,6 +5,8 @@
 #include <dmexplorer.h>
 #include <util/path.h>
 #include <util/stringutils.h>
+#include <DataMgr.h>
+
 namespace fds {
 
 DMExplorer::DMExplorer(int argc,
@@ -189,14 +191,7 @@ Error DMExplorer::listBlobsWithObject(std::string strObjId) {
 
 void DMExplorer::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::vector<std::string> vecNames;
-
-    util::getSubDirectories(root->dir_sys_repo_dm(), vecNames);
-
-    for (const auto& name : vecNames) {
-        vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
-    }
-    std::sort(vecVolumes.begin(), vecVolumes.end());
+    dmutil::getVolumeIds(root, vecVolumes);
 }
 
 }  // namespace fds
