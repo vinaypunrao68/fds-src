@@ -526,7 +526,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
 }
 
 Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t offset) {
-    IS_OP_ALLOWED();
+    // IS_OP_ALLOWED();
 
     fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     const BlobObjKey key(blobId, offset / objSize_);
@@ -546,7 +546,8 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
 
 Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t startOffset,
         fds_uint64_t endOffset) {
-    IS_OP_ALLOWED();
+    // commenting this out to support snapshot delete
+    // IS_OP_ALLOWED();
 
     fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     CatWriteBatch batch;
@@ -566,10 +567,10 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
 }
 
 Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
-    IS_OP_ALLOWED();
+    //IS_OP_ALLOWED();
 
     LOGDEBUG << "Deleting metadata for blob: '" << blobName << "' volume: '" << std::hex
-            << volId_ << std::dec << "'";
+             << volId_ << std::dec << "'";
 
     const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
@@ -583,7 +584,7 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
 Error DmPersistVolDB::getInMemorySnapshot(Catalog::catalog_roptions_t &opts) {
     auto dbIt = getSnapshotIter(opts);
     if (!dbIt) {
-        LOGERROR << "Error searching latest sequence id for volume " << volId_;
+        LOGERROR << "unable to get ldb snapshot for vol:" << volId_;
         return ERR_INVALID;
     }
     return ERR_OK;
@@ -598,30 +599,20 @@ void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
     Catalog::catalog_roptions_t opts;
     auto dbIt = getSnapshotIter(opts);
     Error err;
+    ObjectID objId;
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record dbKey = dbIt->key();
-        if (reinterpret_cast<const BlobObjKey *>(dbKey.data())->objIndex == BLOB_META_INDEX) {
-            BlobMetaDesc blob;
-            fds_verify(blob.loadSerialized(dbIt->value().ToString()) == ERR_OK);
-
-            fds_uint32_t rc = blob.desc.blob_size ? (blob.desc.blob_size % getObjSize()) : 0;
-            fds_uint64_t lastObjectSize = (rc ? rc : getObjSize());
-
-            fds_uint64_t lastObjOffset = blob.desc.blob_size ? blob.desc.blob_size - lastObjectSize : 0;
-
-            BlobObjList objList;
-            err = getObject(blob.desc.blob_name, 0, lastObjOffset, objList);
-            if (!err.ok()) {
-                LOGERROR << "Failed to retrieve objects for blob: '" << blob.desc.blob_name;
-                continue;
-            }
-
-            for (const auto & obj : objList) {
-                func(obj.second.oid);
-            }
+        const BlobObjKey *blobKey = reinterpret_cast<const BlobObjKey *>(dbKey.data());
+        if (blobKey->blobId != VOL_META_ID &&
+            blobKey->objIndex !=BLOB_META_INDEX &&
+            blobKey->blobId != INVALID_BLOB_ID) {
+            objId.SetId(dbIt->value().ToString());
+            // LOGDEBUG << "blobid:" << blobKey->blobId << " idx:" << blobKey->objIndex << " " << objId;
+            func(objId);
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
+    catalog_->ReleaseSnapshot(opts);
 }
 }  // namespace fds
