@@ -8,7 +8,7 @@ machines="luke han c3po chewie"
 
 for p in $policies ; do
     pushd ../../../cli
-    ./fds volume create -name volume_$p  -type block -block_size 4096 -block_size_unit B -media_policy $p
+    ./fds volume create -name volume_$p  -type block -block_size 4 -block_size_unit KB -media_policy $p
 
     if [ $? -ne 0 ]; then
         echo "fdscli has failed creating the volume"

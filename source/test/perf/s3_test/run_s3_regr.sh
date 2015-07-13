@@ -5,7 +5,8 @@ function s3_setup {
     local node=$1
     echo "Setting up s3 on $node"
     pushd ../../../cli
-    ./fds volume create -name $vol -type object -max_object_size $max_obj_size -max_object_size_unit B -media_policy HDD
+    let max_obj_size_kb=$max_obj_size/1024
+    ./fds volume create -name $vol -type object -max_object_size $max_obj_size_kb -max_object_size_unit KB -media_policy HDD
     sleep 10
     popd
 }
