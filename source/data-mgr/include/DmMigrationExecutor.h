@@ -36,9 +36,16 @@ class DmMigrationExecutor {
     Error startMigration();
 
     /**
+     * Step 1:
      * process initial filter set of blobs to be sent to the source DM.
      */
     Error processInitialBlobFilterSet();
+
+    /**
+     * Step 2:
+     * Process the incoming deltaObject set coming from the source DM.
+     */
+    Error processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 
     inline fds_bool_t shouldAutoExecuteNext()
     {
