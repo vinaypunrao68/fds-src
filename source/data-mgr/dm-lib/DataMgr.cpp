@@ -290,6 +290,7 @@ void DataMgr::deleteUnownedVolumes() {
     for (const auto &volId : deleteList) {
         LOGNORMAL << "DELETING volume: " << volId;
         auto err = process_rm_vol(volId, false);
+        // TODO(xxx): Remove snapshots once the api is available
         if (err != ERR_OK) {
             LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
         }
