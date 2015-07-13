@@ -56,7 +56,7 @@ void AccessMgr::mod_enable_service()
      * and DLT information. At this time, we've already done the registration
      * with the OM so anything here is post-registration.
      */
-    if (amProcessor->haveTables()) {
+    if (!asyncServer && amProcessor->haveTables()) {
         LOGNOTIFY << "Enabling services ";
         initilizeConnectors();
     }
