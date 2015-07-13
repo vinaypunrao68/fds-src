@@ -642,6 +642,5 @@ void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    catalog_->ReleaseSnapshot(opts);
 }
 }  // namespace fds
