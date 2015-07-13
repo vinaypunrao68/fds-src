@@ -42,7 +42,7 @@ class AmProcessor_impl
     using shutdown_cb_type = std::function<void(void)>;
 
   public:
-    explicit AmProcessor_impl(Module* parent, CommonModuleProviderIf *modProvider)
+    AmProcessor_impl(Module* parent, CommonModuleProviderIf *modProvider)
         : amDispatcher(new AmDispatcher(modProvider)),
           txMgr(new AmTxManager()),
           volTable(nullptr),
@@ -512,10 +512,10 @@ Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb) {
     // If we successfully update the dlt, have the parent do it's init check
     auto e = amDispatcher->updateDlt(dlt_type, dlt_data, cb);
-    if (e.ok()) {
+    if (e.ok() && !have_tables.first) {
         have_tables.first = true;
+        parent_mod->mod_enable_service();
     }
-    parent_mod->mod_enable_service();
     return e;
 }
 
@@ -523,23 +523,22 @@ Error
 AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data) {
     // If we successfully update the dmt, have the parent do it's init check
     auto e = amDispatcher->updateDmt(dmt_type, dmt_data);
-    if (e.ok()) {
+    if (e.ok() && !have_tables.second) {
         have_tables.second = true;
+        parent_mod->mod_enable_service();
     }
-    parent_mod->mod_enable_service();
     return e;
 }
 
 bool
 AmProcessor_impl::haveTables() {
-    auto ret_val = true;
     if (!have_tables.first) {
-        ret_val = amDispatcher->getDLT().ok();
+        have_tables.first = amDispatcher->getDLT().ok();
     }
     if (!have_tables.second) {
-        ret_val = amDispatcher->getDMT().ok();
+        have_tables.second = amDispatcher->getDMT().ok();
     }
-    return ret_val;
+    return have_tables.first && have_tables.second;
 }
 
 void
