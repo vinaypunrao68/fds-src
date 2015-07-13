@@ -75,7 +75,10 @@ public class MutateService implements RequestHandler {
         
         Boolean myState = convertState( service.getStatus().getServiceState() );
         
-        switch( service.getType() ){
+        // Get the service object so we can access the type
+        Service svcObj = (new GetService()).getService(nodeId, serviceId);
+        
+        switch( svcObj.getType() ){
         	case AM:
         		am = myState;
         		break;
@@ -94,7 +97,7 @@ public class MutateService implements RequestHandler {
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
         		                                 (node.getAddress().getHostAddress(),
-        		                                  service);
+        		                                  svcObj);
         svcInfList.add(svcInfo);
         
     	Service pmSvc = (new GetService()).getService(nodeId, nodeId);
@@ -119,14 +122,12 @@ public class MutateService implements RequestHandler {
             status = HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE_ERROR,
                                       nodeId );
-            logger.error( "Service state changed failed." );
             
             throw new ApiException( "Service state change failed.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
         else {
             EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE,
                     nodeId );
-            logger.info( "Service state changed successfully." );
         }
         
         List<Service> services = (new ListServices()).getServicesForNode( nodeId );

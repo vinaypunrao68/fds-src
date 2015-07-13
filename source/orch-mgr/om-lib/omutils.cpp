@@ -127,15 +127,13 @@ namespace fds
         // If so, save index so we can erase the service from the vector
         for (fpi::SvcInfo svcInfo : svcInfos) {
 
-            if ( smFlag && svcInfo.svc_type == fpi::FDSP_STOR_MGR ) {
+            if (svcInfo.svc_type == fpi::FDSP_STOR_MGR  && smFlag) {
                     smIdx = index;
                     smPresent = true;
-            }
-            if (dmFlag && svcInfo.svc_type == fpi::FDSP_DATA_MGR) {
+            } else if (svcInfo.svc_type == fpi::FDSP_DATA_MGR && dmFlag) {
                     dmIdx = index;
                     dmPresent = true;
-            }
-            if (amFlag && svcInfo.svc_type == fpi::FDSP_ACCESS_MGR) {
+            }else if (svcInfo.svc_type == fpi::FDSP_ACCESS_MGR && amFlag) {
                     amIdx = index;
                     amPresent = true;
             }
