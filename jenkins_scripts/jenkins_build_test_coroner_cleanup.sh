@@ -16,8 +16,8 @@ DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServic
 
 function performance_report
 {
-    unit=$1
-    seconds=$2
+    unit=${1}
+    seconds=${2}
 
     if [[ ${seconds} -lt 60 ]]
     then
@@ -72,8 +72,7 @@ function auto_locate
 
 function capture_process_list
 {
-    funcname="$1"
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${funcname}.txt
+    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${1}.txt
 }
 
 function startup
@@ -355,7 +354,7 @@ function run_node_cleanup
 
     capture_process_list ${FUNCNAME}
 
-    exit $1
+    exit ${1}
 }
 
 function run_coroner
@@ -395,7 +394,7 @@ function run_coroner
 
     performance_report RUN_CORONER $(( ${end_time} - ${start_time} ))
 
-    run_node_cleanup $1
+    run_node_cleanup ${1}
 }
 
 error_trap_enabled
@@ -405,6 +404,17 @@ auto_locate
 # Now we are sure to find our "includes".
 . ./jenkins_scripts/message.sh
 . ./jenkins_scripts/core_hunter.sh
+
+error_trap_disabled
+
+# Check for special actions
+if [[ "${1}" == "jenkins_build_aborted" ]]
+then
+    message "EEEEE Jenkins Build Aborted"
+    run_coroner 1
+fi
+
+error_trap_enabled
 
 startup
 clean_up_environment
