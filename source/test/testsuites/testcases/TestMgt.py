@@ -226,7 +226,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                             suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
 
                         if (action.count("uninst") > 0):
-                            # suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+                            suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
 
                             # Shutdown Redis on the machine if we started it.
                             if 'redis' in node.nd_conf_dict:
@@ -258,7 +258,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
-                        #suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
+                        suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
                         break
 
                 if not found:
@@ -659,7 +659,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             occurrences = int(scenario.nd_conf_dict['occurrences'])
             maxwait = int(scenario.nd_conf_dict['maxwait'])
 
-        # Locate the node.
+
+        if ('atleastone' not in scenario.nd_conf_dict):
+            log.error("%s not found for any occurrence" %(scenario.nd_conf_dict['logentry']))
+            atleastone = None
+        else:
+            atleastone = 1
+
+       # Locate the node.
         found = False
         n = None
         for node in scenario.cfg_sect_nodes:
@@ -667,7 +674,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 found = True
                 suite.addTest(TestFDSSysVerify.TestWaitForLog(node=node, service=scenario.nd_conf_dict['service'],
                                                                         logentry=scenario.nd_conf_dict['logentry'],
-                                                                        occurrences=occurrences, maxwait=maxwait))
+                                                                        occurrences=occurrences, maxwait=maxwait,
+                                                                        atleastone=atleastone))
                 break
 
         if found:

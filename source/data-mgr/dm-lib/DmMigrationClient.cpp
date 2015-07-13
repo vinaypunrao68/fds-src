@@ -164,7 +164,7 @@ DmMigrationClient::processBlobFilterSet()
 	/**
 	 * TODO(Neil) Just a prototype. Currently coring, need more investigation.
 	 */
-	// sendCtrlNotifyDeltaBlobs();
+	sendCtrlNotifyDeltaBlobs();
 
     // free the in-memory snapshot diff after completion.
     err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
@@ -225,14 +225,14 @@ DmMigrationClient::sendCtrlNotifyDeltaBlobs()
 		return;
 	}
 	LOGMIGRATE << "Sending CtrlNotifyDeltaBlobsMsg msgs to DM: " << destDmUuid;
-	auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-	asyncDeltaBlobsMsg->setTimeoutMs(0);
 
 	for (unsigned i = 0; i < myBlobMsgs.size(); i++) {
+		auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+		asyncDeltaBlobsMsg->setTimeoutMs(0);
 		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volId.v);
-		// TODO(Neil) - this needs to be fixed - currently coring.
 		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg), myBlobMsgs[i]);
 		asyncDeltaBlobsMsg->invoke();
+		// asyncDeltaBlobsMsg is a shared_ptr and will be deleted on its own.
 	}
 }
 }  // namespace fds

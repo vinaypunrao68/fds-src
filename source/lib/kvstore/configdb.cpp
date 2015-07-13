@@ -1838,6 +1838,44 @@ bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid,
     return bRetCode;
 }
 
+//
+// If service not found in configDB, returns SVC_STATUS_INVALID
+//
+fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
+{
+    fpi::ServiceStatus retStatus = fpi::SVC_STATUS_INVALID;
+
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+
+        LOGDEBUG << "ConfigDB reading service status for service"
+                 << " uuid: " << std::hex << svc_uuid << std::dec;
+
+        Reply reply = r.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+        if ( reply.isValid() )
+        {
+            std::string value = reply.getString();
+            fpi::SvcInfo svcInfo;
+            fds::deserializeFdspMsg( value, svcInfo );
+
+            // got the status!
+            retStatus = svcInfo.svc_status;
+
+            LOGDEBUG << "ConfigDB retrieved service status for service"
+                     << " uuid: " << std::hex << svc_uuid << std::dec
+                     << " status: " << retStatus;
+        }
+    }
+    catch( const RedisException& e )
+    {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return retStatus;
+}
+
 void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 
                        kvstore::NodeInfoType nodeInfo )
 {

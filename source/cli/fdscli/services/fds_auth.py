@@ -2,8 +2,7 @@ import getpass
 import requests
 import os
 from requests.exceptions import ConnectionError
-from __builtin__ import True
-from utils.configuration_manager import ConfigurationManager
+from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 
 class FdsAuth():
     
@@ -22,18 +21,18 @@ class FdsAuth():
 #         self.__parser = SafeConfigParser()
 #         self.__parser.read( confFile )
         
-        self.__config = ConfigurationManager(["conf_file=" + confFile])
+        self.__config = FdsCliConfigurationManager(["conf_file=" + confFile])
         self.__token = None
         self.__user_id = -1
         self.__features = []
-        self.__hostname = self.get_from_parser( ConfigurationManager.HOSTNAME )
-        self.__port = self.get_from_parser( ConfigurationManager.PORT )
-        self.__username = self.get_from_parser( ConfigurationManager.USERNAME )
-        self.__password = self.get_from_parser( ConfigurationManager.PASSWORD )
+        self.__hostname = self.get_from_parser( FdsCliConfigurationManager.HOSTNAME )
+        self.__port = self.get_from_parser( FdsCliConfigurationManager.PORT )
+        self.__username = self.get_from_parser( FdsCliConfigurationManager.USERNAME )
+        self.__password = self.get_from_parser( FdsCliConfigurationManager.PASSWORD )
         
     def get_from_parser(self, option):
-        if self.__config.get_value(ConfigurationManager.CONNECTION, option) is not None:
-            return self.__config.get_value(ConfigurationManager.CONNECTION, option)
+        if self.__config.get_value(FdsCliConfigurationManager.CONNECTION, option) is not None:
+            return self.__config.get_value(FdsCliConfigurationManager.CONNECTION, option)
         else:
             return None
         

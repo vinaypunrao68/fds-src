@@ -828,7 +828,6 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DltFSM DACT_UpdDone";
     OM_Module *om = OM_Module::om_singleton();
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     ClusterMap* cm = om->om_clusmap_mod();
@@ -839,6 +838,13 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     // persist commited DLT
     dp->persistCommitedTargetDlt();
+
+    // set all added DMs to ACTIVE state
+    NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
+    for (auto uuid : addedNodes) {
+        OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
+        sm_agent->handle_service_deployed();
+    }
 
     // reset pending nodes in cluster map, since they are already
     // present in the DLT
