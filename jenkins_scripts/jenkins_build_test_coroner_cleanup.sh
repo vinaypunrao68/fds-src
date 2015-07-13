@@ -410,7 +410,7 @@ error_trap_disabled
 # Check for special actions
 if [[ "${1}" == "jenkins_build_aborted" ]]
 then
-    message "EEEEE Jenkins Build Aborted, PWD=${PWD}"
+    message "EEEEE Jenkins Build Aborted"
     run_coroner 1
 fi
 
