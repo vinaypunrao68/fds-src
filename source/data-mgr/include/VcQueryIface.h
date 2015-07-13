@@ -131,7 +131,7 @@ class VolumeCatalogQueryIface {
                                              fds_uint64_t blob_id,
                                              BlobMetaDesc &meta,
                                              std::vector<fpi::DMBlobObjListDiff>* obj_list,
-                                             Catalog::MemSnap m) = 0;
+                                             Catalog::MemSnap snap) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
      */

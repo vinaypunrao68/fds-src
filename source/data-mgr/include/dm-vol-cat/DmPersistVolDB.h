@@ -101,14 +101,14 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getObject(const fds_uint64_t blob_id,
                             std::vector<fpi::DMBlobObjListDiff>& obj_list,
-                            Catalog::MemSnap m) override;
+                            Catalog::MemSnap snap) override;
 
     virtual Error getLatestSequenceId(blob_version_t & max) override;
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::MemSnap m) override;
+														Catalog::MemSnap snap) override;
 
-    virtual Error getInMemorySnapshot(Catalog::MemSnap &m) override;
+    virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
@@ -136,7 +136,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
     virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 
-    virtual Error freeInMemorySnapshot(Catalog::MemSnap m) override;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) override;
 
     Catalog* getCatalog() {
         return catalog_.get();

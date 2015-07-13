@@ -126,7 +126,7 @@ class DmPersistVolCat {
     virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
 
     virtual Error getBlobMetaDesc(fds_uint64_t blobId, BlobMetaDesc & blobMeta,
-                                  Catalog::MemSnap m) = 0;
+                                  Catalog::MemSnap snap) = 0;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
 
@@ -141,14 +141,14 @@ class DmPersistVolCat {
 
     virtual Error getObject(const fds_uint64_t blob_id,
                             std::vector<fpi::DMBlobObjListDiff>& obj_list,
-                            Catalog::MemSnap m) = 0;
+                            Catalog::MemSnap snap) = 0;
 
     virtual Error getLatestSequenceId(blob_version_t & max) = 0;
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsWithSeqId,
-                                            Catalog::MemSnap m) = 0;
+                                            Catalog::MemSnap snap) = 0;
 
-    virtual Error getInMemorySnapshot(Catalog::MemSnap &m) = 0;
+    virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
@@ -175,7 +175,7 @@ class DmPersistVolCat {
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
 
-    virtual Error freeInMemorySnapshot(Catalog::MemSnap m) = 0;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) = 0;
 
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);

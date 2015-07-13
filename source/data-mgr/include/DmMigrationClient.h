@@ -87,7 +87,7 @@ class DmMigrationClient {
     /**
      * Snapshot used for diff.
      */
-    Catalog::MemSnap m;
+    Catalog::MemSnap snap_;
 
 
     /**

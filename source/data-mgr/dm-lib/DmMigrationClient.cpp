@@ -98,7 +98,7 @@ DmMigrationClient::processBlobDescDiff()
     std::map<int64_t, int64_t> localBlobMap;
 	err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId,
                                                                        localBlobMap,
-                                                                       m);
+                                                                       snap_);
     if (ERR_OK != err) {
         LOGERROR << "Failed to get blob descriptors with sequence id for volume=" << volId
                  << " with error=" << err;
@@ -140,7 +140,7 @@ DmMigrationClient::processBlobFilterSet()
 	LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
     // Get snapshot for the volume.
-	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, m);
+	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
@@ -167,7 +167,7 @@ DmMigrationClient::processBlobFilterSet()
 	// sendCtrlNotifyDeltaBlobs();
 
     // free the in-memory snapshot diff after completion.
-    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, m);
+    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
        LOGERROR << "Failed to free snapshot on volume=" << volId
                  << " with error=" << err;

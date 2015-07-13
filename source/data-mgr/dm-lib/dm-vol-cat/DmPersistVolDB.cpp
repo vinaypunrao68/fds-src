@@ -152,12 +152,12 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 
 Error DmPersistVolDB::getBlobMetaDesc(fds_uint64_t blobId,
                                       BlobMetaDesc & blobMeta,
-                                      Catalog::MemSnap m) {
+                                      Catalog::MemSnap snap) {
     const BlobObjKey key(blobId, BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
-    Error rc = catalog_->Query(keyRec, &value, m);
+    Error rc = catalog_->Query(keyRec, &value, snap);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to get metadata for blob: '" << blobId << "' volume: '"
                 << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
@@ -183,8 +183,8 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
 }
 
 Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::MemSnap m) {
-	auto dbIt = catalog_->NewIterator(m);
+														Catalog::MemSnap snap) {
+	auto dbIt = catalog_->NewIterator(snap);
 
 	if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
@@ -319,27 +319,26 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     return ERR_OK;
 }
 
-/* a much simpler implementation than the others, because we want all
+/* a simpler implementation than the others, because we want all
    the object offset mappings. start at 0, end before the blob descriptor */
 Error DmPersistVolDB::getObject(const fds_uint64_t blob_id,
                                 std::vector<fpi::DMBlobObjListDiff>& obj_list,
-                                Catalog::MemSnap m) {
+                                Catalog::MemSnap snap) {
     BlobObjKey startKey(blob_id, 0);
     const Record startRec(reinterpret_cast<const char *>(&startKey), sizeof(BlobObjKey));
 
-    BlobObjKey endKey(blob_id, BLOB_META_INDEX-1);
+    BlobObjKey endKey(blob_id, BLOB_META_INDEX);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    auto dbIt = catalog_->NewIterator(m);
+    auto dbIt = catalog_->NewIterator(snap);
 
     if (!dbIt) {
         LOGERROR << "Error creating iterator for ldb on volume " << volId_;
         return ERR_INVALID;
     }
 
-
     for (dbIt->Seek(startRec); dbIt->Valid() &&
-            catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
+            catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) < 0;
             dbIt->Next()) {
         const BlobObjKey * key = reinterpret_cast<const BlobObjKey *>(dbIt->key().data());
 
@@ -615,13 +614,13 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     return catalog_->Update(&batch);
 }
 
-Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap &m) {
-    catalog_->GetSnapshot(m);
+Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap &snap) {
+    catalog_->GetSnapshot(snap);
     return ERR_OK;
 }
 
-Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap m)  {
-    catalog_->ReleaseSnapshot(m);
+Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap snap)  {
+    catalog_->ReleaseSnapshot(snap);
     return ERR_OK;
 }
 

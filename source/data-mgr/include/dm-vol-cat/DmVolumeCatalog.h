@@ -211,7 +211,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
                                      fds_uint64_t blob_id,
                                      BlobMetaDesc &meta,
                                      std::vector<fpi::DMBlobObjListDiff>* obj_list,
-                                     Catalog::MemSnap m) override;
+                                     Catalog::MemSnap snap) override;
 
     /**
      * Returns the list of blobs in the volume with basic blob info
@@ -265,7 +265,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id);
 
     Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::MemSnap m);
+														Catalog::MemSnap snap);
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
@@ -278,12 +278,12 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * This is used for migrations, etc.
      * Caller MUST free the snapshot once done with it using freeInMemorySnapshot below.
      */
-    Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m);
+    Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap);
 
     /**
      * Given a volume snapshot within opts, delete the snapshot.
      */
-    Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m);
+    Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap);
 
     Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>);
 
