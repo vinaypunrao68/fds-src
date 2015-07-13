@@ -96,6 +96,9 @@ namespace fds
         int32_t smIdx = 0;
         int32_t dmIdx = 0;
         int32_t amIdx = 0;
+        bool smPresent = false;
+        bool dmPresent = false;
+        bool amPresent = false;
 
         // Check whether the service is present and the associated flag
         // is set.(Flag is set if associated service needs to be removed).
@@ -104,21 +107,30 @@ namespace fds
 
             if ( smFlag && svcInfo.svc_type == fpi::FDSP_STOR_MGR ) {
                     smIdx = index;
+                    smPresent = true;
             }
             if (dmFlag && svcInfo.svc_type == fpi::FDSP_DATA_MGR) {
                     dmIdx = index;
+                    dmPresent = true;
             }
             if (amFlag && svcInfo.svc_type == fpi::FDSP_ACCESS_MGR) {
                     amIdx = index;
+                    amPresent = true;
             }
             ++index;
         }
 
-        if (smFlag)
+        if (smFlag && smPresent)
+        {
             svcInfos.erase(svcInfos.begin() + smIdx);
-        if (dmFlag)
+        }
+        if (dmFlag && dmPresent)
+        {
             svcInfos.erase(svcInfos.begin() + dmIdx);
-        if (amFlag)
+        }
+        if (amFlag && amPresent)
+        {
             svcInfos.erase(svcInfos.begin() + amIdx);
+        }
     }
 }  // namespace fds
