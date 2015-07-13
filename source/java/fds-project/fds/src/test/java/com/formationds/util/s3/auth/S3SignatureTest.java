@@ -13,10 +13,11 @@ import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.xdi.s3.S3Failure;
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -44,11 +45,14 @@ public class S3SignatureTest {
 
             ctx.test(client -> client.getObject("potato", "ole"));
             ctx.test(client -> client.putObject("muffins", "beans", makeStream(), new ObjectMetadata()));
-            ctx.test(client -> client.putObject("muffins", "meatloaf", makeStream(4096 * 100), new ObjectMetadata()));
             ctx.test(client -> client.putObject("muffins", "beans", makeStream(), weirdContentType));
             ctx.test(client -> client.deleteObject("mop", "cand"));
             ctx.test(client -> client.deleteObjects(new DeleteObjectsRequest("mop").withKeys("sped", "maff", "parp")));
             ctx.test(client -> client.copyObject("smoop", "src", "smoop", "dst"));
+
+            // put and validate content
+            byte[] bytes = makeBytes(4096 * 100);
+            ctx.test(client -> client.putObject("muffins", "meatloaf", new ByteArrayInputStream(bytes), new ObjectMetadata()), bytes);
 
             // multipart
             ctx.test(client -> client.initiateMultipartUpload(new InitiateMultipartUploadRequest("wax", "breeks")));
@@ -64,6 +68,8 @@ public class S3SignatureTest {
             ctx.test(client -> client.completeMultipartUpload(new CompleteMultipartUploadRequest("prap", "flarp", "flarrrn", new ArrayList<PartETag>())));
             ctx.test(client -> client.listParts(new ListPartsRequest("buckey", "smap", "weefis")));
             ctx.test(client -> client.listMultipartUploads(new ListMultipartUploadsRequest("rooper")));
+            //ctx.test(client -> client.uploadPart(new UploadPartRequest().withPartNumber(1).withUploadId("proop").withBucketName("preepys").withKey("meps").withInputStream(new ByteArrayInputStream(bytes))), bytes);
+
 
             // acls
             ctx.test(client -> client.setBucketAcl("wax", CannedAccessControlList.AuthenticatedRead));
@@ -71,20 +77,23 @@ public class S3SignatureTest {
         }
     }
 
+    private byte[] makeBytes(int size) {
+        byte[] data = new byte[size];
+
+        ByteBuffer wrapper = ByteBuffer.wrap(data);
+        int i = 0;
+        while(wrapper.remaining() > 4) {
+            wrapper.putInt(i++);
+        }
+        return data;
+    }
+
     private InputStream makeStream() {
         return new ByteArrayInputStream(new byte[]{1, 2, 3, 4});
     }
 
-    private InputStream makeStream(int size) {
-        byte[] data = new byte[size];
-        byte[] content =
-                "content ".getBytes();
-
-        for (int i = 0; i < size; i++) {
-            data[i] = content[i % content.length];
-        }
-
-        return new ByteArrayInputStream(data);
+    private ByteArrayInputStream makeStream(int size) {
+        return new ByteArrayInputStream(makeBytes(size));
     }
 
     class SignatureGeneratorTestContext implements AutoCloseable {
@@ -109,6 +118,10 @@ public class S3SignatureTest {
         }
 
         public void test(Consumer<AmazonS3Client> operation) throws Exception {
+            test(operation, null);
+        }
+
+        public void test(Consumer<AmazonS3Client> operation, byte[] expectedContent) throws Exception {
             // v2 auth
             try {
                 operation.accept(s3client);
@@ -118,6 +131,10 @@ public class S3SignatureTest {
 
             if(!authReferenceServer.isLastAuthSuccessful())
                 throw new AssertionError("Expecting successful auth (v2)", authReferenceServer.lastSecurityException);
+
+            if(expectedContent != null)
+                Assert.assertArrayEquals(expectedContent, authReferenceServer.getLastReceivedContent());
+
 
             try {
                 operation.accept(badS3Client);
@@ -139,6 +156,10 @@ public class S3SignatureTest {
 
             if(!authReferenceServer.isLastAuthSuccessful())
                 throw new AssertionError("Expecting successful auth (v4)", authReferenceServer.lastSecurityException);
+
+            if(expectedContent != null) {
+                Assert.assertArrayEquals(expectedContent, authReferenceServer.getLastReceivedContent());
+            }
 
             try {
                 operation.accept(badS3Client);
@@ -164,6 +185,8 @@ public class S3SignatureTest {
         private final AWSCredentials credentials;
         private SecurityException lastSecurityException;
         private Exception lastUnhandledException;
+        private byte[] lastReceivedContent;
+        private byte[] lastRecievedRaw;
 
         public AuthorizerReferenceServer(int port, AWSCredentials credentials) throws Exception {
             this.port = port;
@@ -180,8 +203,10 @@ public class S3SignatureTest {
             lastUnhandledException = null;
             AuthenticationNormalizer normalizer = new AuthenticationNormalizer();
             try {
+                lastRecievedRaw = IoStreamUtil.buffer(context.getInputStream());
+                context = context.withInputWrapper(new ByteArrayInputStream(lastRecievedRaw));
                 HttpContext authCtx = normalizer.authenticatingContext(credentials, context);
-                byte[] data = IoStreamUtil.buffer(authCtx.getInputStream());
+                lastReceivedContent = IoStreamUtil.buffer(authCtx.getInputStream());
             } catch(SecurityException ex) {
                 lastSecurityException = ex;
             } catch (Exception e) {
@@ -223,6 +248,14 @@ public class S3SignatureTest {
         }
         public SecurityException getLastSecurityException() {
             return lastSecurityException;
+        }
+
+        public byte[] getLastRecievedRaw() {
+            return lastRecievedRaw;
+        }
+
+        public byte[] getLastReceivedContent() {
+            return lastReceivedContent;
         }
     }
 }

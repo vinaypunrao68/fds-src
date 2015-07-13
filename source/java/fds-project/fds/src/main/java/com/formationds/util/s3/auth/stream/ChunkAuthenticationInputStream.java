@@ -69,7 +69,7 @@ public class ChunkAuthenticationInputStream extends InputStream {
             }
         }
 
-        return chunkBuffers.poll();
+        return chunkBuffers.peek();
 
     }
 

@@ -31,6 +31,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.json.JSONObject;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -678,5 +680,22 @@ public class S3SmokeTest {
             String error = e.toString();
             assertTrue(error.contains("Status Code: 403"));
         }
+    }
+
+    public static class V4Auth extends S3SmokeTest {
+        public V4Auth() throws Exception {
+            super();
+        }
+
+        @Before
+        public void enableV4Auth() {
+            System.setProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY, "true");
+        }
+
+        @After
+        public void disableV4Auth() {
+            System.clearProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY);
+        }
+
     }
 }
