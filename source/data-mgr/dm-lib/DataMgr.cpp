@@ -936,7 +936,7 @@ void DataMgr::initHandlers() {
 DataMgr::~DataMgr()
 {
     // shutdown all data manager modules
-    LOGDEBUG << "Received shutdown message DM ... shutdown mnodules..";
+    LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 }
 

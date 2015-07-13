@@ -66,7 +66,19 @@ public enum OmEvents implements EventDescriptor {
     REMOVE_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
     		"Service {0}:{1} was removed from the system.", "serviceId"),
     REMOVE_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
-    		"Removal of service {0}:{1} failed.", "serviceId");
+    		"Removal of service {0}:{1} failed.", "serviceId"),
+    ADD_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0}:{1} was added to the system.", "serviceId"),
+    ADD_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Adding of service {0}:{1} failed.", "serviceId"),
+    STOP_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0}:{1} was stopped in the system.", "serviceId"),
+    STOP_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Stopping of service {0}:{1} failed.", "serviceId"),
+    START_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0}:{1} was started in the system.", "serviceId"),
+    START_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Starting of service {0}:{1} failed.", "serviceId");
 
     private final EventType     type;
     private final EventCategory category;

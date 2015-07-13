@@ -114,6 +114,12 @@ namespace fds
         bool amFlag
         )
     {
+        LOGDEBUG << "Updating svcInfoList "
+                 << " smFlag: " << smFlag
+                 << " dmFlag: " << dmFlag
+                 << " amFlag: " << amFlag
+                 << " size of vector: " << svcInfos.size();
+
         int32_t index = 0;
         int32_t smIdx = 0;
         int32_t dmIdx = 0;
