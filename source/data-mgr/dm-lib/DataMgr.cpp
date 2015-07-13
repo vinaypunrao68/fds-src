@@ -273,19 +273,28 @@ std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
 
 void DataMgr::deleteUnownedVolumes() {
     std::vector<fds_volid_t> volIds;
-    dmutil::getVolumeIds(MODULEPROVIDER()->proc_fdsroot(), volIds);
+    std::vector<fds_volid_t> deleteList;
     auto mySvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+
+    /* Filter out unowned volumes */
+    dmutil::getVolumeIds(MODULEPROVIDER()->proc_fdsroot(), volIds);
     for (const auto &volId : volIds) {
         DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
         if (nodes->find(NodeUuid(mySvcUuid)) == -1) {
-            /* Volume is not owned..delete */
-            LOGNORMAL << "DELETING volume: " << volId;
-            auto err = process_rm_vol(volId, false);
-            if (err != ERR_OK) {
-                LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
-            }
+            /* Volume is not owned..add for delete*/
+            deleteList.push_back(volId);
         }
     }
+
+    /* Delete unowned volumes one at a time */
+    for (const auto &volId : deleteList) {
+        LOGNORMAL << "DELETING volume: " << volId;
+        auto err = process_rm_vol(volId, false);
+        if (err != ERR_OK) {
+            LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
+        }
+    }
+
 }
 
 //
