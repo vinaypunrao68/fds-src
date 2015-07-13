@@ -103,17 +103,9 @@ DiskCapacityUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t di
                  ++cit) {
                 // Calculate a consumedSize based on the size of the level DBs
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
-<<<<<<< HEAD
                 DiskCapacityUtils::capacity_tuple tmp = DiskCapacityUtils::getDiskConsumedSize(filename);
 
                 acc += tmp.first;
-=======
-                if (statvfs(filename.c_str(), &statbuf) < 0) {
-                    LOGERROR << "Could not read metadata filename" << filename;
-                } else {
-                    consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
-                }
->>>>>>> origin/master
             }
             return DiskCapacityUtils::capacity_tuple(acc, out.second);
         }
