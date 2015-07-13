@@ -570,6 +570,8 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         // this is ok -- no changes in the domain to recompute a DMT
         LOGDEBUG << "Not continuing DMT commit cycle since no changes in "
                  << " in the domain that cause DMT re-computation";
+    } else if (err == ERR_NOT_FOUND) {
+        LOGDEBUG << "No DMs joined yet";
     } else if (!err.ok()) {
         LOGERROR << "Unexpected error from computeDMT " << err
                  << " Not commiting new DMT and ignoring error "
