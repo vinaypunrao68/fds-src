@@ -56,19 +56,19 @@ public abstract class AbstractHttpEndpoint extends AbstractBaseHttpEndpoint<Http
             throw new ExecutionException(e);
         }
 
-        String requestMethod = operation.getRequestMethod();
         try
         {
-            connection.setRequestMethod(requestMethod);
-        }
-        catch (ProtocolException e)
-        {
-            throw new ExecutionException(
-                    "Error setting request method to " + javaString(requestMethod) + ".", e);
-        }
+            String requestMethod = operation.getRequestMethod();
+            try
+            {
+                connection.setRequestMethod(requestMethod);
+            }
+            catch (ProtocolException e)
+            {
+                throw new ExecutionException(
+                        "Error setting request method to " + javaString(requestMethod) + ".", e);
+            }
 
-        try
-        {
             operation.accept(getThis(), connection, listener);
         }
         finally

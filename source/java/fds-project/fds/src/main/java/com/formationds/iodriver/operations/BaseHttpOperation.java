@@ -11,7 +11,8 @@ public interface BaseHttpOperation<ConnectionT> extends Operation
      * Perform the actual operation.
      * 
      * @param endpoint The endpoint to run on.
-     * @param connection The connection provided by the endpoint.
+     * @param connection A connection according to {@link #getRelativeUri()} and
+     *                   {@link #getRequestMethod()}.
      * @param reporter The listener for events.
      * 
      * @throws ExecutionException when an error occurs.

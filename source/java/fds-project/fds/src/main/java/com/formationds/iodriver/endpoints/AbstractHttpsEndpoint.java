@@ -120,12 +120,6 @@ public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<Htt
     }
 
     @Override
-    protected HttpsURLConnection openConnection() throws IOException
-    {
-        return (HttpsURLConnection)super.openConnection();
-    }
-
-    @Override
     protected HttpsURLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
@@ -144,14 +138,6 @@ public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<Htt
         }
 
         return connection;
-    }
-
-    @Override
-    protected HttpsURLConnection openRelativeConnection(URI relativeUri) throws IOException
-    {
-        if (relativeUri == null) throw new NullArgumentException("relativeUri");
-
-        return (HttpsURLConnection)super.openRelativeConnection(relativeUri);
     }
 
     /**

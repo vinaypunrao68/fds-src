@@ -69,12 +69,11 @@ public class OmEndpoint extends AbstractHttpsEndpoint
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
     public OmEndpoint(URI uri,
-                                        String username,
-                                        String password,
-                                        Logger logger,
-                                        boolean trusting,
-                                        OmEndpoint v8)
-            throws MalformedURLException
+                      String username,
+                      String password,
+                      Logger logger,
+                      boolean trusting,
+                      OmEndpoint v8) throws MalformedURLException
     {
         super(uri, logger, trusting);
 

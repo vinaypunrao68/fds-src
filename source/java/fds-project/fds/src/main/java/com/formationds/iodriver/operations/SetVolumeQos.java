@@ -3,6 +3,7 @@ package com.formationds.iodriver.operations;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -29,7 +30,7 @@ public final class SetVolumeQos extends AbstractOmOperation
      * 
      * @param input The parameters to set.
      */
-    public SetVolumeQos(VolumeQosSettings input)
+    public SetVolumeQos(Supplier<VolumeQosSettings> input)
     {
         if (input == null) throw new NullArgumentException("input");
 
@@ -45,15 +46,17 @@ public final class SetVolumeQos extends AbstractOmOperation
         if (connection == null) throw new NullArgumentException("connection");
         if (reporter == null) throw new NullArgumentException("reporter");
 
+        VolumeQosSettings settings = _input.get();
+        
         Volume[] volumeQosSetter = new Volume[1];
-        GetVolume getter = new GetVolume(_input.getId(), volume -> volumeQosSetter[0] = volume);
+        GetVolume getter = new GetVolume(settings.getId(), volume -> volumeQosSetter[0] = volume);
         endpoint.visit(getter, reporter);
 
         JSONObject oyVeh = new JSONObject(ObjectModelHelper.toJSON(volumeQosSetter[0]));
         JSONObject qos = oyVeh.getJSONObject("qosPolicy");
-        qos.put("priority", _input.getPriority());
-        qos.put("iopsMin", _input.getIopsAssured());
-        qos.put("iopsMax", _input.getIopsThrottle());
+        qos.put("priority", settings.getPriority());
+        qos.put("iopsMin", settings.getIopsAssured());
+        qos.put("iopsMax", settings.getIopsThrottle());
 
         try
         {
@@ -68,9 +71,11 @@ public final class SetVolumeQos extends AbstractOmOperation
     @Override
     public URI getRelativeUri()
     {
+        VolumeQosSettings settings = _input.get();
+        
         URI apiBase = Fds.Api.V08.getBase();
         URI volumes = Fds.Api.V08.getVolumes();
-        URI volumeId = Uris.tryGetRelativeUri(Long.toString(_input.getId()));
+        URI volumeId = Uris.tryGetRelativeUri(Long.toString(settings.getId()));
         URI putVolume = Uris.resolve(volumes, volumeId);
 
         return apiBase.relativize(putVolume);
@@ -92,5 +97,5 @@ public final class SetVolumeQos extends AbstractOmOperation
     /**
      * The parameters to set.
      */
-    private final VolumeQosSettings _input;
+    private final Supplier<VolumeQosSettings> _input;
 }

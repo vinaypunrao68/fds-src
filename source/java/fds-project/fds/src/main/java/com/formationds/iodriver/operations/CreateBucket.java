@@ -29,13 +29,12 @@ public class CreateBucket extends S3Operation
 
     @Override
     public void accept(S3Endpoint endpoint,
-                       AmazonS3Client client,
                        AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
 
+        AmazonS3Client client = getClientWrapped(endpoint);
         try
         {
             client.createBucket(_bucketName);

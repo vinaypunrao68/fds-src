@@ -24,8 +24,8 @@ import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
-import com.formationds.iodriver.operations.SetBucketQos;
-import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.operations.SetVolumeQos;
+import com.formationds.iodriver.operations.StatVolume;
 
 // TODO: This was intended to test the fairness QOS with multiple queues. Not complete.
 public final class S3QosTestWorkload extends Workload
@@ -123,7 +123,7 @@ public final class S3QosTestWorkload extends Workload
         };
 
         return Stream.of(new CreateBucket(bucketName),
-                         new StatBucketVolume(bucketName, statsSetter),
+                         new StatVolume(bucketName, statsSetter),
                          new LambdaS3Operation(() ->
                          {
                              BucketState state = _bucketStats.get(bucketName);
@@ -135,7 +135,7 @@ public final class S3QosTestWorkload extends Workload
                                                            state.currentState.getCommitLogRetention(),
                                                            state.currentState.getMediaPolicy());
                          }),
-                         new SetBucketQos(statsGetter),
+                         new SetVolumeQos(statsGetter),
                          new AddToReporter(bucketName, statsGetter));
     }
 

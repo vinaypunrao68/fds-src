@@ -18,7 +18,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 /**
  * An S3 service endpoint.
  */
-public final class S3Endpoint extends AbstractEndpoint
+public final class S3Endpoint implements Endpoint
 {
     /**
      * Constructor.
@@ -49,6 +49,26 @@ public final class S3Endpoint extends AbstractEndpoint
     }
 
     /**
+     * Get the S3 client.
+     * 
+     * @return The S3 client.
+     * 
+     * @throws IOException when an error occurs creating the client.
+     */
+    public final AmazonS3Client getClient() throws IOException
+    {
+        if (_client == null)
+        {
+            AuthToken authToken = _omEndpoint.getAuthToken();
+            _client = new AmazonS3Client(new BasicAWSCredentials(getOmEndpoint().getUsername(),
+                                                                 authToken.toString()));
+            _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+            _client.setEndpoint(_s3url);
+        }
+        return _client;
+    }
+
+    /**
      * Get the Orchestration Manager endpoint used to authenticate.
      * 
      * @return An OM endpoint.
@@ -74,14 +94,7 @@ public final class S3Endpoint extends AbstractEndpoint
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
 
-        try
-        {
-            operation.accept(this, getClient(), listener);
-        }
-        catch (IOException e)
-        {
-            throw new ExecutionException(e);
-        }
+        operation.accept(this, listener);
     }
     
     public void visit(Operation operation,
@@ -111,27 +124,6 @@ public final class S3Endpoint extends AbstractEndpoint
         _logger = helper.logger;
         _omEndpoint = helper.omEndpoint;
         _s3url = helper.s3url;
-    }
-
-    /**
-     * Get the S3 client.
-     * 
-     * @return The S3 client.
-     * 
-     * @throws IOException when an error occurs creating the client.
-     */
-    protected final AmazonS3Client getClient() throws IOException
-    {
-        if (_client == null)
-        {
-            AuthToken authToken = _omEndpoint.getAuthToken();
-            _client =
-                    new AmazonS3Client(new BasicAWSCredentials(getOmEndpoint().getUsername(),
-                                                               authToken.toString()));
-            _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-            _client.setEndpoint(_s3url);
-        }
-        return _client;
     }
 
     /**

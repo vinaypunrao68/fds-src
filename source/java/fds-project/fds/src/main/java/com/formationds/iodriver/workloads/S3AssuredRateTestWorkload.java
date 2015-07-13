@@ -25,8 +25,8 @@ import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
-import com.formationds.iodriver.operations.SetBucketQos;
-import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.operations.SetVolumeQos;
+import com.formationds.iodriver.operations.StatVolume;
 import com.formationds.iodriver.validators.AssuredRateValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.google.common.collect.ImmutableMap;
@@ -315,9 +315,9 @@ public final class S3AssuredRateTestWorkload extends Workload
         };
 
         CreateBucket createBucket = new CreateBucket(bucketName);
-        StatBucketVolume statBucket = new StatBucketVolume(bucketName, qosSetter);
+        StatVolume statBucket = new StatVolume(bucketName, qosSetter);
         LambdaS3Operation setTarget = new LambdaS3Operation(setQosParams);
-        SetBucketQos setQosToTarget = new SetBucketQos(qosGetter);
+        SetVolumeQos setQosToTarget = new SetVolumeQos(qosGetter);
         AddToReporter addToReporter = new AddToReporter(bucketName, qosGetter);
 
         return Stream.of(createBucket, statBucket, setTarget, setQosToTarget, addToReporter);

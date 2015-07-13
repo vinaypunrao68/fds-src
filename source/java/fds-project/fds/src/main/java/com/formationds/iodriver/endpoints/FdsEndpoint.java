@@ -5,7 +5,7 @@ import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-public final class FdsEndpoint extends AbstractEndpoint
+public final class FdsEndpoint implements Endpoint
 {
     public FdsEndpoint(OmEndpoint omEndpoint, S3Endpoint s3Endpoint)
     {

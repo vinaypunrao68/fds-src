@@ -18,8 +18,8 @@ import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
-import com.formationds.iodriver.operations.SetBucketQos;
-import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.operations.SetVolumeQos;
+import com.formationds.iodriver.operations.StatVolume;
 
 /**
  * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
@@ -107,7 +107,7 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload
     protected Stream<Operation> createSetup()
     {
         return Stream.of(new CreateBucket(_bucketName),
-                         new StatBucketVolume(_bucketName, settings -> _originalState = settings),
+                         new StatVolume(_bucketName, settings -> _originalState = settings),
                          new LambdaS3Operation(() ->
                          {
                              _targetState =
@@ -118,7 +118,7 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload
                                                            _originalState.getCommitLogRetention(),
                                                            _originalState.getMediaPolicy());
                          }),
-                         new SetBucketQos(() -> _targetState),
+                         new SetVolumeQos(() -> _targetState),
                          new AddToReporter(_bucketName, () -> _targetState));
     }
 

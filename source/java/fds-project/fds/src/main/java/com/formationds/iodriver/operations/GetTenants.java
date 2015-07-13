@@ -28,7 +28,7 @@ public class GetTenants extends AbstractOmOperation
 	
 	@Override
 	public void accept(OmEndpoint endpoint,
-			           HttpsURLConnection connection,
+	                   HttpsURLConnection connection,
 			           AbstractWorkflowEventListener reporter) throws ExecutionException
 	{
 		if (endpoint == null) throw new NullArgumentException("endpoint");

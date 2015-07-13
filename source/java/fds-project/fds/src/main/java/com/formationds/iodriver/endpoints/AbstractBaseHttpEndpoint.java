@@ -25,7 +25,6 @@ import com.google.common.net.MediaType;
  */
 // @eclipseFormat:off
 public abstract class AbstractBaseHttpEndpoint<ConnectionT extends HttpURLConnection>
-        extends AbstractEndpoint
         implements BaseHttpEndpoint<ConnectionT>
 // @eclipseFormat:on
 {
@@ -83,15 +82,7 @@ public abstract class AbstractBaseHttpEndpoint<ConnectionT extends HttpURLConnec
         handleResponse(connection, c -> null);
     }
 
-    /**
-     * Read from a connection.
-     * 
-     * @param connection The connection to read the response of.
-     *
-     * @return The content returned by the server.
-     *
-     * @throws HttpException when an error occurs sending the request or receiving the response.
-     */
+    @Override
     public String doRead(ConnectionT connection) throws HttpException
     {
         if (connection == null) throw new NullArgumentException("connection");

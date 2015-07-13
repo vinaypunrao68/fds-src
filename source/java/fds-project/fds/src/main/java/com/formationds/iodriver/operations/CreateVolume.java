@@ -45,7 +45,7 @@ public class CreateVolume extends AbstractOmOperation
         newVolumeBuilder.dataProtectionPolicy(24, TimeUnit.HOURS);
         newVolumeBuilder.qosPolicy(new QosPolicy(1, 0, 0));
         Volume newVolume = newVolumeBuilder.create();
-        
+
         try
         {
             endpoint.doWrite(connection,

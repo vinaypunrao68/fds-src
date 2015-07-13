@@ -105,13 +105,12 @@ public final class CreateObject extends S3Operation
 
     @Override
     public void accept(S3Endpoint endpoint,
-                       AmazonS3Client client,
                        AbstractWorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
 
+        AmazonS3Client client = getClientWrapped(endpoint);
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(_contentLength);
         try (InputStream input = _input.get())

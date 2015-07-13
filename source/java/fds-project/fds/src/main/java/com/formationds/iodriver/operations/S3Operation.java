@@ -1,5 +1,7 @@
 package com.formationds.iodriver.operations;
 
+import java.io.IOException;
+
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
@@ -15,13 +17,11 @@ public abstract class S3Operation extends AbstractOperation
      * Perform the final operation.
      * 
      * @param endpoint The endpoint to run the operation on.
-     * @param client The S3 client to use to run the operation.
      * @param listener Report progress here.
      * 
      * @throws ExecutionException when an error occurs.
      */
     public abstract void accept(S3Endpoint endpoint,
-                                AmazonS3Client client,
                                 AbstractWorkflowEventListener listener) throws ExecutionException;
     
     @Override
@@ -32,5 +32,19 @@ public abstract class S3Operation extends AbstractOperation
         if (listener == null) throw new NullArgumentException("listener");
         
         throw new UnsupportedOperationException(S3Endpoint.class.getName() + " is required.");
+    }
+    
+    protected final AmazonS3Client getClientWrapped(S3Endpoint endpoint) throws ExecutionException
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        
+        try
+        {
+            return endpoint.getClient();
+        }
+        catch (IOException e)
+        {
+            throw new ExecutionException("Error getting S3 client.", e);
+        }
     }
 }
