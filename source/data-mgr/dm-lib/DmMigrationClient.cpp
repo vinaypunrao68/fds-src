@@ -40,16 +40,17 @@ DmMigrationClient::~DmMigrationClient()
  *  Algorithm runtime is linear in the size of the input.
  */
 Error
-DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
-                                 const std::map<int64_t, int64_t>& source,
-                                 std::vector<fds_uint64_t>& update_list,
-                                 std::vector<fds_uint64_t>& delete_list)
+DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
+                                 const std::map<std::string, int64_t>& source,
+                                 std::vector<std::string>& update_list,
+                                 std::vector<std::string>& delete_list)
 {
     auto source_it = source.cbegin();
     auto dest_it = dest.cbegin();
 
     while (dest_it != dest.cend() && source_it != source.cend()) {
-        if (dest_it->first == source_it->first) {
+        if (DmPersistVolCat::getBlobIdFromName(dest_it->first) ==
+        		DmPersistVolCat::getBlobIdFromName(source_it->first)) {
             /* NOTE: this assumes we overwrite more recent versions on the Dest.
                Switch the comparison to '<' to only overwite older versions */
             if (dest_it->second != source_it->second) {
@@ -59,7 +60,8 @@ DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
 
             ++dest_it;
             ++source_it;
-        } else if (dest_it->first > source_it->first) {
+        } else if (DmPersistVolCat::getBlobIdFromName(dest_it->first) >
+        		DmPersistVolCat::getBlobIdFromName(source_it->first)) {
             // add blob on dest
             update_list.push_back(source_it->first);
             ++source_it;
@@ -95,7 +97,7 @@ DmMigrationClient::processBlobDescDiff()
 
     // gather all blob blob descriptors with sequence id.
     // the snapshot should've been taken before calling this.
-    std::map<int64_t, int64_t> localBlobMap;
+    std::map<std::string, int64_t> localBlobMap;
 	err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(volId,
                                                                            localBlobMap,
                                                                            opts);
@@ -108,8 +110,8 @@ DmMigrationClient::processBlobDescDiff()
     // using the destination DM's blob descs with seq id and
     // source DM's blob desc with seq ids, generate the list of blobs
     // to be updated or deleted on the destination side.
-    std::vector<fds_uint64_t> blobUpdateList;
-    std::vector<fds_uint64_t> blobDeleteList;
+    std::vector<std::string> blobUpdateList;
+    std::vector<std::string> blobDeleteList;
     err = diffBlobLists(ribfsm->blobFilterMap,
                         localBlobMap,
                         blobUpdateList,
@@ -203,7 +205,7 @@ DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlob
 		testBlobId = i > 9 ? 2 : 1;
 
 		fpi::DMMigrationObjListDiff testObjList;
-		testObjList.blob_id = testBlobId;
+		testObjList.blob_name = std::string("testName") + std::to_string(i);
 		fpi::DMBlobObjListDiff testBlobDiff;
 		testBlobDiff.obj_offset = 0x50; // random
 		// testBlobDiff.obj_id = fpi::FDS_ObjectIdType(0);

@@ -779,7 +779,7 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
     return vol->getLatestSequenceId(seq_id);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId);
 }
@@ -794,7 +794,7 @@ Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_ro
 	return vol->freeInMemorySnapshot(opts);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::catalog_roptions_t &opts) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
