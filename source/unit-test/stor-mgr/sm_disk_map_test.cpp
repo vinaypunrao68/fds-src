@@ -19,6 +19,7 @@
 #include <ObjectId.h>
 #include <FdsRandom.h>
 #include <object-store/SmDiskMap.h>
+#include <include/util/disk_utils.h>
 
 #include <sm_ut_utils.h>
 
@@ -108,7 +109,7 @@ TEST(SmDiskMap, getDiskConsumedSize) {
     SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
 
     for (auto diskId : smDiskMap->getDiskIds()) {
-        SmDiskMap::capacity_tuple cap_info = smDiskMap->getDiskConsumedSize(diskId);
+        DiskCapacityUtils::capacity_tuple cap_info = smDiskMap->getDiskConsumedSize(diskId);
         ASSERT_TRUE(cap_info.first < cap_info.second);
         ASSERT_TRUE(cap_info.second > 0);
     }
