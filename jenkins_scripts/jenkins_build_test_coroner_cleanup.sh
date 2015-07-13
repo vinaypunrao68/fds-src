@@ -84,7 +84,7 @@ function startup
 
 function configure_symlinks
 {
-    message "IIIII RUNNING /fds symlink configuration" 
+    message "IIIII RUNNING /fds symlink configuration"
     do_pushd source
     ./dev_make_install.sh
     do_popd
@@ -239,7 +239,7 @@ function python_unittest_discovery
             message "EEEEE Python unit test problem(s) detected running in ${directory}"
             run_coroner 1
         fi
-        do_popd 
+        do_popd
     done
 }
 
@@ -376,7 +376,17 @@ function run_coroner
 
     do_pushd ${TEST_WORKSPACE}
 
-    source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin build_release_bin:source/Build/linux-x86_64.release/bin fds-node1:/fds/node1 fds-node2:/fds/node2 fds-node3:/fds/node3 fds-node4:/fds/node4
+    source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
+                                                                  build_release_bin:source/Build/linux-x86_64.release/bin    \
+                                                                  fds-node1:/fds/node1                                       \
+                                                                  fds-node2:/fds/node2                                       \
+                                                                  fds-node3:/fds/node3                                       \
+                                                                  fds-node4:/fds/node4                                       \
+                                                                  fds-node5:/fds/node5                                       \
+                                                                  fds-node6:/fds/node6                                       \
+                                                                  fds-node7:/fds/node7                                       \
+                                                                  fds-node8:/fds/node8                                       \
+                                                                  fds-node9:/fds/node9
 
     for file in /tmp/fdscoroner*.tar.gz
     do
