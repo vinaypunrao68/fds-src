@@ -1075,7 +1075,13 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     // did not get DLT update, but just make sure SM ignores DLT close
     // for DLT this SM does not know about
     const DLT *curDlt = objStorMgr->getDLT();
-    if (curDlt->getVersion() != (fds_uint64_t)((dlt->dlt_close).DLT_version)) {
+    if (curDlt == nullptr) {
+        LOGNOTIFY << "SM did not receive DLT for version " << (dlt->dlt_close).DLT_version
+                  << ", will ignore this DLT close";
+        // OK to OM
+        sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        return;
+    } else if (curDlt->getVersion() != (fds_uint64_t)((dlt->dlt_close).DLT_version)) {
         LOGNOTIFY << "SM received DLT close for the version " << (dlt->dlt_close).DLT_version
                   << ", but the current DLT version is " << curDlt->getVersion()
                   << ". SM will ignore this DLT close";
