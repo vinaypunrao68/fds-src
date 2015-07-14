@@ -348,11 +348,15 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
 
     SCOPEDWRITE(sbLock);
     // If this is restart, DLT version stored in superblock must be the same
-    // as DLT version we received from OM now. If OM currently tries to update
-    // DLT and at least one SM node is down, DLT will be aborted and DLT change
-    // will not happen. TODO(Anna) make sure to handle the case when DLT changes
-    // during SM down if OM code changes...
-    if (dltVersion == superblockMaster.DLTVersion) {
+    // or greater than DLT version that we received from OM. Restarted SM may
+    // receive a greater version from OM if SM previously failed (shutdown)
+    // and OM rotated DLT columns to move this SM to a secondary position.
+    // Note that in this case (or in all cases when we receive DLT after restart),
+    // SM must not gain any tokens than it already knows about in the superblock.
+    if ( (dltVersion == superblockMaster.DLTVersion) ||
+         ( (superblockMaster.DLTVersion != DLT_VER_INVALID) &&
+           (dltVersion > superblockMaster.DLTVersion) &&
+           noDltReceived ) ) {
         // this is restart case, otherwise all duplicate DLTs are catched at upper layers
         fds_verify(superblockMaster.DLTVersion != DLT_VER_INVALID);
         // this is the extra check that SM is just coming up from persistent state
@@ -368,6 +372,9 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         // updated SM tokens that became invalid. I think that's fine. We
         // are going to check if all smTokensOwned are marked 'valid' in superblock
         // and invalidate all other tokens (invalidation will be done by the caller)
+        // Similar SM may lose DLT tokens between restarts if SM failed and OM moved
+        // this SM to secondary position or completely removed it from some DLT columns
+        // However, SM must bever gain DLT tokens between restarts
         err = superblockMaster.tokTbl.checkSmTokens(smTokensOwned);
         if (err == ERR_SM_SUPERBLOCK_INCONSISTENT) {
             LOGERROR << "Superblock knows about this DLT version " << dltVersion
@@ -393,15 +400,10 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
             }
         }
     } else if (noDltReceived && (superblockMaster.DLTVersion != DLT_VER_INVALID)) {
-        // If this is restart, DLT version stored in superblock must be the same
-        // as DLT version we received from OM now. If OM currently tries to update
-        // DLT and at least one SM node is down, DLT will be aborted and DLT change
-        // will not happen. TODO(Anna) make sure to handle the case when DLT changes
-        // during SM down if OM code changes...
-        LOGCRITICAL << "We expect first DLT on SM restart to be the same version "
-                    << " as when SM went down; OM DLT change should have been aborted "
-                    << " if at least one SM not responsive... if this changed "
-                    << " handle this case in SM."
+        // If this is restart, DLT version stored in superblock must be no greater than
+        // DLT version we received from OM now.
+        LOGCRITICAL << "We expect first DLT on SM restart to be the same or greater version "
+                    << " as when SM went down;"
                     << " Received DLT version " << dltVersion
                     << " DLT version in superblock " << superblockMaster.DLTVersion;
         err = ERR_INVALID_ARG;
