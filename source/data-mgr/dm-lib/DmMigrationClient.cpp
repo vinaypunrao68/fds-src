@@ -295,8 +295,8 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& 
     }
 
     /**
-     * Since this is the last blob desc set, mark it as the last msg and
-     * send the last payload.
+     * Send remaining descriptors to destination dm.
+     * This can be an empty message.
      */
     err = sendDeltaBlobDescs(deltaBlobDescMsg);
     fds_verify(ERR_OK == err);
