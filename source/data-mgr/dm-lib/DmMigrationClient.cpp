@@ -7,21 +7,55 @@
 
 namespace fds {
 
+extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
+extern std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg);
+
 DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 										DataMgr& _dataMgr,
 										const NodeUuid& _myUuid,
 										NodeUuid& _destDmUuid,
 										fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
-										DmMigrationClientDoneHandler _handle)
+										DmMigrationClientDoneHandler _handle,
+                                        uint64_t _maxDeltaBlobs,
+                                        uint64_t _maxDeltaBlobDescs)
     : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
-	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm)
+	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm),
+      maxNumBlobs(_maxDeltaBlobs), maxNumBlobDescs(_maxDeltaBlobDescs)
 {
 	volId = fds_volid_t(_ribfsm->volumeId);
+    seqNumBlobs = ATOMIC_VAR_INIT(0UL);
+    seqNumBlobDescs = ATOMIC_VAR_INIT(0UL);
 }
 
 DmMigrationClient::~DmMigrationClient()
 {
 
+}
+
+uint64_t
+DmMigrationClient::getSeqNumBlobs()
+{
+    return std::atomic_fetch_add(&seqNumBlobs, 1UL);
+}
+
+void
+DmMigrationClient::resetSeqNumBlobs()
+{
+    LOGMIGRATE << "Resetting seqNumBlobs=0";
+    std::atomic_store(&seqNumBlobs, 0UL);
+}
+
+uint64_t
+DmMigrationClient::getSeqNumBlobDescs()
+{
+    return std::atomic_fetch_add(&seqNumBlobDescs, 1UL);
+}
+
+void
+DmMigrationClient::resetSeqNumBlobDescs()
+{
+    LOGMIGRATE << "Resetting seqNumBlobs=0";
+    std::atomic_store(&seqNumBlobDescs, 0UL);
 }
 
 /**
@@ -89,7 +123,7 @@ DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
 
 
 Error
-DmMigrationClient::processBlobDescDiff()
+DmMigrationClient::processBlobDiff()
 {
     Error err(ERR_OK);
 
@@ -123,15 +157,182 @@ DmMigrationClient::processBlobDescDiff()
     LOGMIGRATE << "num blobs update=" << blobUpdateList.size()
                << "num blobs delete=" << blobDeleteList.size();
 
-    // TODO(Sean): fs-2260
+    // Now generate and set the blob delta set, which consists of list
+    // blobs to be updated and deleted (blobs + descriptors.
+    err = generateBlobDeltaSets(blobUpdateList, blobDeleteList);
+    if (ERR_OK != err) {
+        LOGERROR << "Failed go generate blob delta set for volume=" << volId
+                 << " with error=" << err;
+        return ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+    }
 
     return err;
 }
 
-/**
- * For testing only
- */
-#define MAX_TEST_BLOB_MSGS 20
+Error
+DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs)
+{
+    Error err(ERR_OK);
+
+    // Allocate the payload message and set the volume id and sequence number
+    // Allocate both blobs and blob desc list.
+    fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg(new fpi::CtrlNotifyDeltaBlobsMsg());
+	deltaBlobsMsg->volume_id = volId.get();
+    deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
+
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
+	deltaBlobDescMsg->volume_id = volId.get();
+    deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+
+    for (const auto & it: updateBlobs) {
+        /**
+         * TODO(Sean):
+         * Need to integrate fs-2426 and fs-2488 when James pushes to master.
+         */
+
+        // XXX: placeholder...
+        //
+        if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
+            /**
+             * send the blob desc to thd destination dm.
+             */
+            err = sendDeltaBlobDescs(deltaBlobDescMsg);
+            fds_verify(ERR_OK == err);
+            /**
+             * Need to allocate a new delta blobs desc message, since the message
+             * can be sitting in the service layer (or another possible threadpool)
+             * that can execute asynchronously.
+             */
+            deltaBlobDescMsg.reset(new fpi::CtrlNotifyDeltaBlobDescMsg);
+            deltaBlobDescMsg->volume_id = volId.get();
+            deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+        }
+
+        if (deltaBlobsMsg->blob_obj_list.size() >= maxNumBlobs) {
+            /**
+             * send the blob desc to thd destination dm.
+             */
+            err = sendDeltaBlobs(deltaBlobsMsg);
+            fds_verify(ERR_OK == err);
+            /**
+             * Need to allocate a new delta blobs message, since the message
+             * can be sitting in the service layer (or another possible threadpool)
+             * that can execute asynchronously.
+             */
+            deltaBlobsMsg.reset(new fpi::CtrlNotifyDeltaBlobsMsg);
+            deltaBlobsMsg->volume_id = volId.get();
+            deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
+        }
+    }
+
+    /**
+     * Send the deltaBlobDescMsg to the destination DM.  This can be empty.
+     * Note: Alway set the last_msg_seq_id to true here.
+     */
+    deltaBlobDescMsg->last_msg_seq_id = true;
+    err = sendDeltaBlobDescs(deltaBlobDescMsg);
+    fds_verify(ERR_OK == err);
+
+    /**
+     * Send the deltaBlobsMsg to the destination DM.  This can be empty.
+     * Note: Alway set the last_msg_seq_id to true here.
+     */
+    deltaBlobsMsg->last_msg_seq_id = true;
+    err = sendDeltaBlobs(deltaBlobsMsg);
+    fds_verify(ERR_OK == err);
+
+    return err;
+}
+
+Error
+DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& deleteBlobs)
+{
+    Error err(ERR_OK);
+
+    /**
+     * Since we are just dealing with delete blobs, use the blob desc msg to send
+     * blobs to be deleted.
+     * If the payload doesn't have vol_blob_desc set, then the blob will be deleted
+     * on the destination side.
+     */
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
+	deltaBlobDescMsg->volume_id = volId.get();
+    deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+
+    /**
+     * Loop and generate delta desc msg for the delete blobs.
+     * Occassionaly send the message if the max payload is achieved.
+     */
+    for (const auto & it: deleteBlobs) {
+        fpi::DMBlobDescListDiff blobDesc;
+
+        /**
+         * Add blob id to the descriptor list.
+         */
+        blobDesc.vol_blob_id = it;
+        /**
+         * Intentionally not mofidying vol_blob_desc, since it should be 0 strlen.
+         */
+        LOGMIGRATE << "Adding DELETE blob=" << blobDesc.vol_blob_id
+                   << " to the descriptor list";
+        deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
+
+        if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
+            /**
+             * send the blob desc to thd destination dm.
+             */
+            err = sendDeltaBlobDescs(deltaBlobDescMsg);
+            fds_verify(ERR_OK == err);
+            /**
+             * Need to allocate a new delta blobs desc message, since the message
+             * can be sitting in the service layer (or another possible threadpool)
+             * that can execute asynchronously.
+             */
+            deltaBlobDescMsg.reset(new fpi::CtrlNotifyDeltaBlobDescMsg());
+            deltaBlobDescMsg->volume_id = volId.get();
+            deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+         }
+    }
+
+    /**
+     * Send remaining descriptors to destination dm.
+     * This can be an empty message.
+     */
+    err = sendDeltaBlobDescs(deltaBlobDescMsg);
+    fds_verify(ERR_OK == err);
+
+    return err;
+}
+
+Error
+DmMigrationClient::generateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs,
+                                         const std::vector<fds_uint64_t>& deleteBlobs)
+{
+    Error err(ERR_OK);
+
+    /**
+     * First handle the delete blobs.
+     * Then handle the update blobs.
+     * Note: The order is very important since  generateUpdateBlobDeltaSets() will
+     *       set the last sequence number to true.
+     */
+    err = generateDeleteBlobDeltaSets(deleteBlobs);
+    if (ERR_OK != err) {
+        LOGERROR << "Failed generate delete blobs for volume=" << volId
+                 << " with error=" << err;
+        return err;
+    }
+
+    err = generateUpdateBlobDeltaSets(updateBlobs);
+    if (ERR_OK != err) {
+        LOGERROR << "Failed generate update blobs for volume=" << volId
+                 << " with error=" << err;
+        return err;
+    }
+
+    return err;
+}
+
 Error
 DmMigrationClient::processBlobFilterSet()
 {
@@ -148,23 +349,12 @@ DmMigrationClient::processBlobFilterSet()
     }
 
     // process blob diff
-    err = processBlobDescDiff();
+    err = processBlobDiff();
     if (ERR_OK != err) {
        LOGERROR << "Failed to process blob diff on volume=" << volId
                  << " with error=" << err;
         return err;
     }
-
-	/**
-     * TODO(Neil) Used for testing for sendCtrlNotifyDeltaBlobs()
-	 */
-	generateRandomDeltaBlobs(myBlobMsgs);
-	fds_verify(myBlobMsgs.size() == MAX_TEST_BLOB_MSGS);
-
-	/**
-	 * TODO(Neil) Just a prototype. Currently coring, need more investigation.
-	 */
-	sendCtrlNotifyDeltaBlobs();
 
     // free the in-memory snapshot diff after completion.
     err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, opts);
@@ -183,56 +373,46 @@ DmMigrationClient::processBlobFilterSet()
 	return err;
 }
 
-/**
-  * For testing only.
-  */
-#define MAX_TEST_BLOB_MSGS 20
 Error
-DmMigrationClient::generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg)
+DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDescMsg)
 {
-	fds_bool_t testLast = false;
-	unsigned testBlobId = 0;
-	for (int i = 0; i < MAX_TEST_BLOB_MSGS; i++) {
-		fpi::CtrlNotifyDeltaBlobsMsgPtr aPtr(new fpi::CtrlNotifyDeltaBlobsMsg);
-		aPtr->volume_id = volId.v;
-		aPtr->msg_seq_id = i;
-		if ((i+1) == MAX_TEST_BLOB_MSGS) {
-			aPtr->last_msg_seq_id = true;
-			testLast = true;
-		}
-		testBlobId = i > 9 ? 2 : 1;
+    Error err(ERR_OK);
 
-		fpi::DMMigrationObjListDiff testObjList;
-		testObjList.blob_id = testBlobId;
-		fpi::DMBlobObjListDiff testBlobDiff;
-		testBlobDiff.obj_offset = 0x50; // random
-		// testBlobDiff.obj_id = fpi::FDS_ObjectIdType(0);
-		testObjList.blob_diff_list.push_back(testBlobDiff);
-		aPtr->blob_obj_list.push_back(testObjList);
+	LOGMIGRATE << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
+               << " " << logString(*blobDescMsg);
 
-		blobsMsg.push_back(aPtr);
-	}
+    /**
+     * Send fire and forget message consisting of blob descriptors to the destination DM.
+     */
+    fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
+    auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    asyncDeltaBlobDescMsg->setTimeoutMs(0);
+	asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
+                                                      blobDescMsg);
+    asyncDeltaBlobDescMsg->invoke();
 
-	fds_verify(testLast);
-
-	return (ERR_OK);
+	return err;
 }
 
-void
-DmMigrationClient::sendCtrlNotifyDeltaBlobs()
+Error
+DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
 {
-	if (myBlobMsgs.size() == 0) {
-		return;
-	}
-	LOGMIGRATE << "Sending CtrlNotifyDeltaBlobsMsg msgs to DM: " << destDmUuid;
+    Error err(ERR_OK);
 
-	for (unsigned i = 0; i < myBlobMsgs.size(); i++) {
-		auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-		asyncDeltaBlobsMsg->setTimeoutMs(0);
-		fds_verify((unsigned)myBlobMsgs[i]->volume_id == volId.v);
-		asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg), myBlobMsgs[i]);
-		asyncDeltaBlobsMsg->invoke();
-		// asyncDeltaBlobsMsg is a shared_ptr and will be deleted on its own.
-	}
+	LOGMIGRATE << "Sending blobs to: " << std::hex << destDmUuid << std::dec
+               << " " << logString(*blobsMsg);
+
+    /**
+     * Send fire and forget message consisting of blobs to the destination DM.
+     */
+    fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
+    auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    asyncDeltaBlobsMsg->setTimeoutMs(0);
+	asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
+                                                   blobsMsg);
+    asyncDeltaBlobsMsg->invoke();
+
+    return err;
 }
+
 }  // namespace fds
