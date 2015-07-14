@@ -12,7 +12,7 @@ public class Chunker {
         this.io = io;
     }
 
-    public void write(NfsPath nfsPath, int objectSize, byte[] bytes, long offset, int length) throws Exception {
+    public synchronized void write(NfsEntry entry, int objectSize, byte[] bytes, long offset, int length) throws Exception {
         length = Math.min(bytes.length, length);
         if (length == 0) {
             return;
@@ -34,7 +34,7 @@ public class Chunker {
                 newChunk = ByteBuffer.allocate(objectSize);
             } else {
                 try {
-                    ByteBuffer existing = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+                    ByteBuffer existing = io.read(entry.path(), objectSize, new ObjectOffset(startObject + i));
                     newChunk = ByteBuffer.allocate(Math.max(existing.remaining(), startOffset + toBeWritten));
                     newChunk.put(existing);
                     newChunk.position(0);
@@ -48,7 +48,7 @@ public class Chunker {
             newChunk.put(bytes, writtenSoFar, toBeWritten);
             newChunk.position(0);
             //newChunk.limit(startOffset + toBeWritten);
-            io.write(nfsPath, objectSize, new ObjectOffset(startObject + i), newChunk);
+            io.write(entry, objectSize, new ObjectOffset(startObject + i), newChunk);
             startOffset = 0;
             length -= toBeWritten;
             writtenSoFar += toBeWritten;
@@ -76,7 +76,11 @@ public class Chunker {
             }
             int toBeRead = Math.min(buf.remaining() - startOffset, (objectSize - startOffset));
             toBeRead = Math.min(toBeRead, output.remaining());
-            buf.position(buf.position() + startOffset);
+            try {
+                buf.position(buf.position() + startOffset);
+            } catch (Exception e) {
+                throw e;
+            }
             buf.limit(buf.position() + toBeRead);
             output.put(buf);
             startOffset = 0;
@@ -89,6 +93,7 @@ public class Chunker {
 
     public interface ChunkIo {
         public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception;
-        public void write(NfsPath path, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception;
+
+        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception;
     }
 }

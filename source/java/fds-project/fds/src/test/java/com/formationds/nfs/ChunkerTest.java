@@ -15,7 +15,7 @@ public class ChunkerTest {
     public void testWriteChunksInArbitraryOrder() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
         int objectSize = 131072;
         int blockSize = 4096;
         int blockCount = 2;
@@ -32,13 +32,13 @@ public class ChunkerTest {
                     byte[] chunk = new byte[blockSize];
                     System.arraycopy(bytes, i * blockSize, chunk, 0, blockSize);
                     try {
-                        chunker.write(nfsPath, objectSize, chunk, i * blockSize, blockSize);
+                        chunker.write(nfsEntry, objectSize, chunk, i * blockSize, blockSize);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 });
         byte[] readBuf = new byte[length];
-        int read = chunker.read(nfsPath, objectSize, readBuf, 0, length);
+        int read = chunker.read(nfsEntry.path(), objectSize, readBuf, 0, length);
         assertEquals(length, read);
         assertArrayEquals(bytes, readBuf);
     }
@@ -47,14 +47,14 @@ public class ChunkerTest {
     public void testLargeChunks() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
         int objectSize = 131072;
         int objectCount = 11;
         byte[] bytes = new byte[objectSize * objectCount];
         new Random().nextBytes(bytes);
-        chunker.write(nfsPath, objectSize, bytes, 0, objectSize * objectCount);
+        chunker.write(nfsEntry, objectSize, bytes, 0, objectSize * objectCount);
         byte[] buf = new byte[objectSize * objectCount];
-        chunker.read(nfsPath, objectSize, buf, 0, objectSize * objectCount);
+        chunker.read(nfsEntry.path(), objectSize, buf, 0, objectSize * objectCount);
         assertArrayEquals(bytes, buf);
     }
 
@@ -62,10 +62,10 @@ public class ChunkerTest {
     public void testWrite() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
         byte[] bytes = new byte[6];
         new Random().nextBytes(bytes);
-        chunker.write(nfsPath, 4, bytes, 2, 6);
+        chunker.write(nfsEntry, 4, bytes, 2, 6);
         assertEquals(0, io.byteAt(4, 0));
         assertEquals(0, io.byteAt(4, 1));
         for (int i = 0; i < 6; i++) {
@@ -77,10 +77,10 @@ public class ChunkerTest {
     public void testWriteMisalignedBoundaries() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
         byte[] bytes = new byte[8];
         new Random().nextBytes(bytes);
-        chunker.write(nfsPath, 4, bytes, 2, 8);
+        chunker.write(nfsEntry, 4, bytes, 2, 8);
         for (int i = 0; i < 6; i++) {
             assertEquals(bytes[i], io.byteAt(4, i + 2));
         }
@@ -90,12 +90,12 @@ public class ChunkerTest {
     public void testReadWrite() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsPath nfsPath = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
         byte[] bytes = new byte[8];
         new Random().nextBytes(bytes);
-        chunker.write(nfsPath, 4, bytes, 2, 10);
+        chunker.write(nfsEntry, 4, bytes, 2, 10);
         byte[] readBuf = new byte[12];
-        int read = chunker.read(nfsPath, 4, readBuf, 0, 10);
+        int read = chunker.read(nfsEntry.path(), 4, readBuf, 0, 10);
         assertEquals(10, read);
         assertEquals(0, readBuf[0]);
         assertEquals(0, readBuf[1]);
@@ -104,14 +104,14 @@ public class ChunkerTest {
         }
 
         byte[] smallerBuf = new byte[8];
-        read = chunker.read(nfsPath, 4, smallerBuf, 2, 10);
+        read = chunker.read(nfsEntry.path(), 4, smallerBuf, 2, 10);
         assertEquals(8, read);
         for (int i = 0; i < 8; i++) {
             assertEquals(bytes[i], smallerBuf[i]);
         }
 
         byte[] tinyBuf = new byte[3];
-        read = chunker.read(nfsPath, 4, tinyBuf, 2, 10);
+        read = chunker.read(nfsEntry.path(), 4, tinyBuf, 2, 10);
         assertEquals(3, read);
         for (int i = 0; i < 3; i++) {
             assertEquals(bytes[i], tinyBuf[i]);
@@ -141,7 +141,7 @@ public class ChunkerTest {
         }
 
         @Override
-        public void write(NfsPath path, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) {
+        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) {
             if (byteBuffer.remaining() == 0) {
                 throw new RuntimeException("WTF");
             }

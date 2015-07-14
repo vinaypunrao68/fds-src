@@ -81,7 +81,7 @@ public class AmVfs implements VirtualFileSystem {
     public Inode lookup(Inode inode, String name) throws IOException {
         NfsPath parent = new NfsPath(inode);
         NfsPath child = new NfsPath(parent, name);
-        return tryLoad(child).inode();
+        return tryLoad(child).inode(resolver);
     }
 
     @Override
@@ -156,7 +156,7 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public synchronized int read(Inode inode, byte[] bytes, long offset, int len) throws IOException {
+    public int read(Inode inode, byte[] bytes, long offset, int len) throws IOException {
         NfsEntry nfsEntry = tryLoad(inode);
 
         if (!nfsEntry.attributes().getType().equals(Stat.Type.REGULAR)) {
@@ -201,12 +201,19 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public synchronized WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
+    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
         NfsEntry nfsEntry = tryLoad(inode);
         NfsPath path = nfsEntry.path();
         try {
+            long byteCount = nfsEntry.attributes().getSize();
+            int length = Math.min(data.length, count);
+            byteCount = Math.max(byteCount, offset + length);
+            nfsEntry = nfsEntry
+                    .withUpdatedAtime()
+                    .withUpdatedMtime()
+                    .withUpdatedSize(byteCount);
             int objectSize = config.statVolume(AmVfs.DOMAIN, path.getVolume()).getPolicy().getMaxObjectSizeInBytes();
-            chunker.write(path, objectSize, data, offset, count);
+            chunker.write(nfsEntry, objectSize, data, offset, count);
             return new WriteResult(stabilityLevel, count);
         } catch (Exception e) {
             String message = "chunker.write()" + path + ", data=" + data.length + "bytes, offset=" + offset + ", count=" + count;
@@ -267,7 +274,7 @@ public class AmVfs implements VirtualFileSystem {
 
     private Optional<NfsAttributes> load(NfsPath path) throws IOException {
         if (path.isRoot()) {
-            return Optional.of(new NfsAttributes(Stat.Type.DIRECTORY, new Subject(), Stat.S_IFDIR | 0755, 0, 0));
+            return Optional.of(new NfsAttributes(Stat.Type.DIRECTORY, new Subject(), Stat.S_IFDIR | 0755, 0));
         }
         try {
             BlobDescriptor blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(DOMAIN, path.getVolume(), path.blobName()).get());
@@ -304,7 +311,7 @@ public class AmVfs implements VirtualFileSystem {
     public Inode createInode(Stat.Type type, Subject subject, int mode, NfsPath path) throws IOException {
         Inode childInode = path.asInode(type, resolver);
         long fileId = idAllocator.nextId(path.getVolume());
-        NfsAttributes attributes = new NfsAttributes(type, subject, mode, fileId, 0);
+        NfsAttributes attributes = new NfsAttributes(type, subject, mode, fileId);
 
         try {
             updateMetadata(path, attributes);
@@ -340,7 +347,7 @@ public class AmVfs implements VirtualFileSystem {
                 Sets.newHashSet());
 
         NfsPath path = new NfsPath(volume, "/");
-        NfsAttributes attributes = new NfsAttributes(Stat.Type.DIRECTORY, unixRootUser, 0755, FileIdAllocator.EXPORT_ROOT_VALUE, 0);
+        NfsAttributes attributes = new NfsAttributes(Stat.Type.DIRECTORY, unixRootUser, 0755, FileIdAllocator.EXPORT_ROOT_VALUE);
 
         try {
             updateMetadata(path, attributes);
@@ -362,29 +369,4 @@ public class AmVfs implements VirtualFileSystem {
         return new NfsEntry(nfsPath, oa.get());
     }
 
-    private class NfsEntry {
-        private NfsPath path;
-        private NfsAttributes attributes;
-
-        private NfsEntry(NfsPath path, NfsAttributes attributes) {
-            this.path = path;
-            this.attributes = attributes;
-        }
-
-        public NfsPath path() {
-            return path;
-        }
-
-        public NfsAttributes attributes() {
-            return attributes;
-        }
-
-        public boolean isDirectory() {
-            return attributes.getType().equals(Stat.Type.DIRECTORY);
-        }
-
-        public Inode inode() {
-            return path.asInode(attributes.getType(), resolver);
-        }
-    }
 }

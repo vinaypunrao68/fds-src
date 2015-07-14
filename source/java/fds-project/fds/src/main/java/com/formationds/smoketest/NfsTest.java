@@ -7,9 +7,7 @@ import com.formationds.commons.Fds;
 import com.formationds.nfs.AmVfs;
 import com.formationds.nfs.ExportResolver;
 import com.formationds.nfs.NfsPath;
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -88,9 +86,7 @@ public class NfsTest extends BaseAmTest {
         int read = amVfs.read(inode, readBuf, 0, readBuf.length);
         assertEquals(length, read);
         assertArrayEquals(bytes, readBuf);
-        NfsPath thePath = new NfsPath(inode);
-        BlobDescriptor blobDescriptor = asyncAm.statBlob(AmVfs.DOMAIN, volumeName, thePath.blobName()).get();
-        assertEquals((long) length, blobDescriptor.getByteCount());
+        assertEquals((long) length, amVfs.getattr(inode).getSize());
     }
 
     private static XdiConfigurationApi config;
@@ -107,7 +103,6 @@ public class NfsTest extends BaseAmTest {
         int responsePort = new ServerPortFinder().findPort("Async AM response", 10000);
         asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, responsePort, 10, TimeUnit.SECONDS);
         asyncAm.start();
-        new Configuration("NfsTest", new String[]{"--console"});
         resolver = mock(ExportResolver.class);
         when(resolver.exportId(anyString())).thenReturn(0);
         amVfs = new AmVfs(asyncAm, new XdiConfigurationApi(config), resolver);
