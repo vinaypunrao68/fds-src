@@ -42,7 +42,7 @@ function process_results {
 outdir=$1
 workspace=$2
 
-client=han
+client=perf2-node3
 njobs=4
 
 n_reqs=1000000 
@@ -50,7 +50,7 @@ n_files=1000
 outs=100 
 test_type="GET"
 object_size=4096 
-hostname="luke" 
+hostname="perf2-node1" 
 n_conns=100 
 n_jobs=4
 
@@ -58,7 +58,7 @@ test_types="GET"
 object_sizes="4096 65536 262144"
 concurrencies="25 100"
 
-s3_setup luke
+s3_setup perf2-node1
 
 #FIXME: assuming trafficgen is installed on the client
 #pushd $workspace/source/Build/linux-x86_64.release
@@ -68,10 +68,10 @@ s3_setup luke
 #ssh $client 'tar xzvf java_tools.tgz'
 
 echo "loading dataset"
-cmd="cd /root/tools; ./trafficgen --n_reqs 20000 --n_files 1000 --outstanding_reqs 50 --test_type PUT --object_size 4096 --hostname luke --n_conns 50"
+cmd="cd /root/tools; ./trafficgen --n_reqs 20000 --n_files 1000 --outstanding_reqs 50 --test_type PUT --object_size 4096 --hostname perf2-node1 --n_conns 50"
 ssh $client "$cmd"
 
-cmd="cd /root/tools; ./trafficgen --n_reqs 1000000 --n_files 1000 --outstanding_reqs 100 --test_type GET --object_size 4096 --hostname luke --n_conns 100"
+cmd="cd /root/tools; ./trafficgen --n_reqs 1000000 --n_files 1000 --outstanding_reqs 100 --test_type GET --object_size 4096 --hostname perf2-node1 --n_conns 100"
 
 for t in $test_types ; do
     for o in $object_sizes ; do

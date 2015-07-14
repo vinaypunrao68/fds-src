@@ -47,7 +47,7 @@ function process_results {
 
 outdir=$1
 nodes=$2
-node=luke
+node=$3
 size="16m"
 worker=8
 workload="randread"
