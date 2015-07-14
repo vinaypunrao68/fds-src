@@ -87,12 +87,7 @@ class DmMigrationMgr {
      */
     Error startMigrationClient(dmCatReq* dmRequest);
     
-    /**
-     * Destination side DM:
-     * Given the delta blobs that the source has sent over, redirect these delta blobs
-     * requests to the appropriate executors for handling these requests, and apply them
-     * on the specific volume's levelDB.
-     */
+    // Handle deltaObject  in Migration executor 
     Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
 
     typedef std::shared_ptr<DmMigrationMgr> unique_ptr;
