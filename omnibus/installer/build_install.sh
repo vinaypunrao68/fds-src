@@ -28,10 +28,10 @@ while getopts "duD:P:h" opt; do
 			upload=true
 			;;
 		D)
-			DEPS=$OPTARGS
+			DEPS=$OPTARG
 			;;
 		P)
-			PLATFORM=$OPTARGS
+			PLATFORM=$OPTARG
 			;;
 		h)
 			usage

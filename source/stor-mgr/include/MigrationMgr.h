@@ -486,7 +486,7 @@ class MigrationMgr {
      * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
      * actually reused after it is popped out the QoS queue. Likely need more investigation
      */
-    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
+    std::vector<std::unique_ptr<SmIoSnapshotObjectDB>> snapshotRequests;
 
     /**
      * Timer to detect if there is no activities on the Executors.
