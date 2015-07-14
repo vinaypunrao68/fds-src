@@ -36,13 +36,15 @@
     <module>formationds-thrift</module>
     <module>formationds-commons</module>
     <module>formationds-external</module>
+    <module>thrift-client-util</module>
+    <module>jsvc-layer</module>
   </modules>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
         <groupId>com.formationds</groupId>
-        <artifactId>fds-thrift</artifactId>
+        <artifactId>formationds-thrift</artifactId>
         <version>${formationds.thrift.version}</version>
       </dependency>
     </dependencies>

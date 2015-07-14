@@ -21,6 +21,12 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 
     enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->
                 get<bool>("fds.dm.migration.enable_resync"));
+
+    maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
+
+    maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
 }
 
 
@@ -56,13 +62,13 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 
 		executorMap.emplace(fds_volid_t(vol.volUUID),
 				            DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataManager,
-														                            srcDmUuid,
-                                                                                    vol,
-																					autoIncrement,
-														                            std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
-																                              this,
-                                                                                              std::placeholders::_1,
-																                              std::placeholders::_2))));
+														        srcDmUuid,
+                                                                vol,
+																autoIncrement,
+														        std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
+														                  this,
+                                                                          std::placeholders::_1,
+														                  std::placeholders::_2))));
 	}
 	return err;
 }
@@ -187,7 +193,13 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
 	return err;
 }
 
-// process the deltaObject request 
+Error
+DmMigrationMgr::applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
+    // TODO(xxx): Route to the right executor
+    return ERR_OK;
+}
+
+// process the deltaObject request
 Error
 DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaObjRequest->fwdCatMsg;
@@ -201,7 +213,6 @@ DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
 
     return ERR_OK;
 }
-
 
 void
 DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
@@ -263,7 +274,9 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 															mySvcUuid, destDmUuid, filterSet,
 															std::bind(&DmMigrationMgr::migrationClientDoneCb,
 															this, std::placeholders::_1,
-															std::placeholders::_2)))));
+															std::placeholders::_2),
+                                                            maxNumBlobs,
+                                                            maxNumBlobDesc))));
 		migrClientLock.write_unlock();
 
 		err = client->processBlobFilterSet();

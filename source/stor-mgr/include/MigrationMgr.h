@@ -104,8 +104,14 @@ class MigrationMgr {
 
     /**
      * Handles message from OM to abort migration
+     * Aborts migration if given target DLT version matches version
+     * that this migration manager is doing migration; if version does not
+     * match, the method does not do anything, and returns ERR_INVALID_ARG
+     * @param tgtDltVersion DLT version for which we are aborting migration
+     * @return ERR_OK if success; ERR_INVALID_ARG if targetDltVersion does not
+     * match DLT version for which migration is in progress
      */
-    Error abortMigration();
+    Error abortMigrationFromOM(fds_uint64_t tgtDltVersion);
 
     /**
      * Abort migration for a given SM token. Currently
@@ -237,6 +243,7 @@ class MigrationMgr {
      * Coalesce all migration executor.
      */
     void coalesceExecutors();
+    void coalesceExecutorsNoLock();
 
     /**
      * Coalesce all migration client.
@@ -371,8 +378,10 @@ class MigrationMgr {
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
+     * @param checkedExecutorsDone true if executors already checked and they are done
+     *        so only check clients, and if they are also done, move to IDLE state
      */
-    void checkResyncDoneAndCleanup();
+    void checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone);
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
@@ -380,6 +389,7 @@ class MigrationMgr {
     /// does not mean anything if mgr in IDLE state
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
+    Error abortError;
 
     /**
      * Indexes this vector is a DLT token, and boolean value is true if
@@ -450,7 +460,7 @@ class MigrationMgr {
 
     /// SM token token that is currently in the second round
     fds_token_id smTokenInProgressSecondRound;
-    fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
+    fds_bool_t resyncOnRestart {false};  // true if resyncing tokens without DLT change
 
     /// SM token for which retry token migration is going on.
     fds_token_id retrySmTokenInProgress;
@@ -476,7 +486,7 @@ class MigrationMgr {
      * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
      * actually reused after it is popped out the QoS queue. Likely need more investigation
      */
-    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
+    std::vector<std::unique_ptr<SmIoSnapshotObjectDB>> snapshotRequests;
 
     /**
      * Timer to detect if there is no activities on the Executors.

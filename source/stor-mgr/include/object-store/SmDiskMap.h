@@ -13,6 +13,8 @@
 #include <dlt.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
+#include <include/util/disk_utils.h>
+
 
 namespace fds {
 
@@ -22,18 +24,16 @@ namespace fds {
  */
 class SmDiskMap : public Module, public boost::noncopyable {
   public:
-   const std::string DISK_MAP_FILE = "/disk-map";
+    const std::string DISK_MAP_FILE = "/disk-map";
 
-  public:
-    explicit SmDiskMap(const std::string& modName);
+    explicit SmDiskMap(const std::string& modName,
+                       DiskChangeFnObj diskChangeFn=DiskChangeFnObj());
     ~SmDiskMap();
 
     typedef std::unique_ptr<SmDiskMap> unique_ptr;
     typedef std::shared_ptr<SmDiskMap> ptr;
     typedef std::shared_ptr<const SmDiskMap> const_ptr;
 
-    // Type for storing (used capacity, total capacity) pairs
-    typedef std::pair<fds_uint64_t, fds_uint64_t> capacity_tuple;
 
     /**
      * Loads and validates superblock / disk map
@@ -102,6 +102,13 @@ class SmDiskMap : public Module, public boost::noncopyable {
     fds_uint32_t getTotalDisks() const;
     fds_uint32_t getTotalDisks(diskio::DataTier tier) const;
 
+
+    /**
+     * Checks and returns the type of storage this SM has.
+     * All SSD or hybrid.
+     */
+    bool isAllDisksSSD() const;
+
     /**
     * Determines if a write to SSD will cause SSD usage to go beyond capacity threshold.
     * When called it will add writeSize to the map, and if the new value exceeds
@@ -129,10 +136,10 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Gets the total consumed space and returns a pair (totalConsumed, totalAvailable).
      * The returned values can be divided out to get the % full
      */
-    capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
+    DiskCapacityUtils::capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
 
     /**
-     * Get current (i.e. closed DLT) from persitent storgate.
+     * Get current (i.e. closed DLT) from persitent storage.
      */
     fds_uint64_t getDLTVersion();
 
@@ -150,7 +157,6 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * shared memory
      */
     void getDiskMap();
-
   private:
     fds_uint32_t bitsPerToken_;
 

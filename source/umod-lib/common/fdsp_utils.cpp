@@ -79,6 +79,7 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << " From: " << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
         << " To: " << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
         << std::dec
+        << " DLT version: " << header.dlt_version
         << " error: " << header.msg_code;
     return oss.str();
 }
@@ -144,6 +145,26 @@ std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSe
 {
 	std::ostringstream oss;
 	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	return oss.str();
+}
+
+std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg)
+{
+	std::ostringstream oss;
+	oss << " CtrlNotifyDeltaBlobDescMsg volume=" << msg.volume_id
+        << " seq_id=" << msg.msg_seq_id
+        << " last_msg_seq_id=" << msg.last_msg_seq_id
+        << " list_size=" << msg.blob_desc_list.size();
+	return oss.str();
+}
+
+std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg)
+{
+	std::ostringstream oss;
+	oss << " CtrlNotifyDeltaBlobsMsg volume=" << msg.volume_id
+        << " seq_id=" << msg.msg_seq_id
+        << " last_msg_seq_id=" << msg.last_msg_seq_id
+        << " list_size=" << msg.blob_obj_list.size();
 	return oss.str();
 }
 
