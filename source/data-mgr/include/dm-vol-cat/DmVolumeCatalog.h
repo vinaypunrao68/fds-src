@@ -208,7 +208,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * to volume catalog
      */
     Error getBlobAndMetaFromSnapshot(fds_volid_t volume_id,
-                                     fds_uint64_t blob_id,
+                                     const std::string & blobName,
                                      BlobMetaDesc &meta,
                                      fpi::FDSP_BlobObjectList& obj_list,
                                      const Catalog::MemSnap snap) override;

@@ -124,7 +124,7 @@ class DmPersistVolCat {
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & blobMeta) = 0;
 
     virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta,
-                                  const Catalog::MemSnap snap) = 0;
+                                  const Catalog::MemSnap snap = NULL) = 0;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
 
@@ -135,7 +135,7 @@ class DmPersistVolCat {
                             fds_uint64_t startOffset,
                             fds_uint64_t endOffset,
                             fpi::FDSP_BlobObjectList& objList,
-                            const Catalog::MemSnap snap) = 0;
+                            const Catalog::MemSnap snap = NULL) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) = 0;

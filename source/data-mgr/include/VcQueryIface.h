@@ -128,9 +128,10 @@ class VolumeCatalogQueryIface {
      * to volume catalog
      */
     virtual Error getBlobAndMetaFromSnapshot(fds_volid_t volume_id,
-                                             fds_uint64_t blob_id,
+                                             const std::string & blobName,
                                              BlobMetaDesc &meta,
-                                             std::vector<fpi::DMBlobObjListDiff>* obj_list,
+                                             fpi::FDSP_BlobObjectList& obj_list,
+
                                              Catalog::MemSnap snap) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'

@@ -83,9 +83,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & volDesc) override;
 
     virtual Error getBlobMetaDesc(const std::string & blobName,
-            BlobMetaDesc & blobMeta) override;
-
-    virtual Error getBlobMetaDesc(fds_uint64_t blobId, BlobMetaDesc & blobMeta,
+                                  BlobMetaDesc & blobMeta,
                                   Catalog::MemSnap m = NULL) override;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) override;
@@ -94,14 +92,12 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
             ObjectID & obj) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
-            fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) override;
+                            fds_uint64_t endOffset,
+                            fpi::FDSP_BlobObjectList& objList,
+                            const Catalog::MemSnap snap = NULL) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) override;
-
-    virtual Error getObject(const fds_uint64_t blob_id,
-                            std::vector<fpi::DMBlobObjListDiff>& obj_list,
-                            Catalog::MemSnap snap) override;
 
     virtual Error getLatestSequenceId(blob_version_t & max) override;
 
