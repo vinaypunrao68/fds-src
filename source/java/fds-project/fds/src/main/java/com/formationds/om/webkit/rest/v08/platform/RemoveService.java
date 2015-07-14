@@ -75,13 +75,13 @@ public class RemoveService implements RequestHandler {
         if ( status != 0 ) {
             status = HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.STOP_SERVICE_ERROR,
-                                      nodeId );
+                                      serviceId );
             
             throw new ApiException( "Stop service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
         else
         {
-            EventManager.notifyEvent( OmEvents.STOP_SERVICE, nodeId );
+            EventManager.notifyEvent( OmEvents.STOP_SERVICE, serviceId );
             
             //Stopped service successfully, now remove it
             status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
@@ -90,13 +90,13 @@ public class RemoveService implements RequestHandler {
         	
                 status = HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR,
-                                          nodeId );
+                                          serviceId );
             
                 throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
             }
             else
             {
-                EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, nodeId );
+                EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
             }
         }
         

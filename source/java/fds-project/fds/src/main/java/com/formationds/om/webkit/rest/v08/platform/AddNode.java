@@ -89,31 +89,30 @@ public class AddNode
         	svcInfList.add(svcInfo);
         }
         
+        logger.debug("Adding and starting services on node");
         int status =
         		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
                 
         if( status != 0 )
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.ADD_SERVICE_ERROR,
+            EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
                                       nodeUuid );
         }
         else
-        {
-            EventManager.notifyEvent( OmEvents.ADD_SERVICE, nodeUuid );
-            
+        {   
             // Now that we have added the services, go start them
             status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
        
             if( status != 0 )
             {
                 status= HttpServletResponse.SC_BAD_REQUEST;
-                EventManager.notifyEvent( OmEvents.START_SERVICE_ERROR,
+                EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
                                           nodeUuid );
             }
             else
             {
-                EventManager.notifyEvent( OmEvents.START_SERVICE,
+                EventManager.notifyEvent( OmEvents.ADD_NODE,
                                           nodeUuid );
             }
         }
