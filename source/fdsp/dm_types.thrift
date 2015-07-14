@@ -135,8 +135,8 @@ struct DMVolumeMigrationDiff {
 }
 
 struct DMMigrationObjListDiff {
-  1: string                     blob_name;
-  2: list<FDSP_BlobObjectInfo>  blob_diff_list;
+  1: string               blob_name;
+  2: FDSP_BlobObjectList  blob_diff_list;
 }
 
 /**
