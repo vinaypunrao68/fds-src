@@ -286,7 +286,7 @@ OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t committedDltVersion,
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_sm_migration_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(5000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     LOGNORMAL << "OM: Send abort migration (committed DLT version " << committedDltVersion
@@ -415,7 +415,7 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTClose), msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_close_resp, this, msg,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(5000);
+    om_req->setTimeoutMs(10000);
     om_req->invoke();
 
     LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version

@@ -394,6 +394,13 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                                                 perTokenMsgs[tok]->seqNum));
             asyncRebalSetReq->setTimeoutMs(5000);
             asyncRebalSetReq->invoke();
+
+            // for each msg we sent, start tracking this as IO -- because we want callback still exist
+            // when reply happens on abort path
+            if (!trackIOReqs.startTrackIOReqs()) {
+                // For now, just return an error that migration is aborted.
+                return ERR_SM_TOK_MIGRATION_ABORTED;
+            }
         }
         /* TODO(Gurpreet): We should handle the exception and propogate the error to
          * Token Migration Manager.
@@ -431,6 +438,9 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
              << std::hex << executorId << std::dec << " DLT token " << dltToken
              << " " << error;
+
+    // Completed this IO request.  Stop tracking this IO.
+    trackIOReqs.finishTrackIOReqs();
 
     /**
      * If abort is pending for this Executor. Exit.
@@ -494,7 +504,13 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec
                          << " response " << error;
-                handleMigrationRoundDone(error);
+                // if this is network error, don't return it to OM, because it may
+                // look like this node is unreachable
+                Error migrErr(error);
+                if ((error == ERR_SVC_REQUEST_TIMEOUT) || (error == ERR_SVC_REQUEST_INVOCATION)) {
+                    migrErr = ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST;
+                }
+                handleMigrationRoundDone(migrErr);
         }
     }
 }

@@ -490,15 +490,23 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!error.ok()) {
         // This will set the ClientState to MC_ERROR
         handleMigrationError(error);
+        // the remaining of the error is handled in the next
+        // if statement, where cleanup snapshots and finish tracking req
     }
+
     // If the state is already set to error, then do nothing.
     if (getMigClientState() == MC_ERROR) {
         // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
 
+        // since we already took snapshot, cleanup dir
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+            env->DeleteDir(secondPhaseSnapshotDir);
+        }
+
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-
         return;
     }
 
@@ -543,6 +551,11 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
+        // since we already took snapshot, cleanup dir
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+            env->DeleteDir(secondPhaseSnapshotDir);
+        }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
         return;
@@ -554,6 +567,11 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for Second Phase snapshot."
                    << "status " << status.ToString();
+        // since we already took snapshot, cleanup dir
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+            env->DeleteDir(secondPhaseSnapshotDir);
+        }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
         return;
