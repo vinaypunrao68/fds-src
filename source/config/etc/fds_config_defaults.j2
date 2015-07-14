@@ -18,6 +18,7 @@
 #}
 {% set om_host = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
 {% set om_ip = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
+{% set this_node_runs_om = 'true' if this_node_runs_om is defined else 'false' %}
 {% set perf_tracing = fds_perf_tracing if fds_perf_tracing is defined else 'true' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
