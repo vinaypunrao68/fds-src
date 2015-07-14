@@ -14,6 +14,7 @@ import time
 import tempfile
 import TestFDSSysMgt
 from fdslib.TestUtils import findNodeFromInv
+import subprocess
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -97,18 +98,6 @@ class TestFDSInstall(TestCase.FDSTestCase):
 
         # Check to see if the FDS root directory is already there.
         fds_dir = node.nd_conf_dict['fds_root']
-
-        if os.path.exists(fds_dir):
-            self.log.info("FDS installation directory %s, exists (during startup) on node %s. Attempting to delete." %
-                          (fds_dir, node.nd_conf_dict['node-name']))
-
-            status = node.nd_agent.exec_wait('rm -rf \"%s\"' % fds_dir)
-
-            if status != 0:
-                self.log.error("FDS installation directory deletion on node %s returned status %d." %
-                              (n.nd_conf_dict['node-name'], status))
-                return False
-
         if not os.path.exists(fds_dir):
             # Not there, try to create it.
             self.log.info("FDS installation directory, %s, nonexistent on node %s. Attempting to create." %
@@ -323,7 +312,20 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        # If we have core files, return a failure and don't remove anything.
+        cur_dir = os.getcwd()
+        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
+        os.chdir(cur_dir)
+
+        # Note: core_hunter is looking for core files and returns a "success" code
+        # when it finds at least one.
+        if rc == 0:
+            self.log.error("Core files detected.")
+            return False
+        else:
+            self.log.info("No cores found.")
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
@@ -429,6 +431,20 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        # If we have core files, return a failure and don't remove anything.
+        cur_dir = os.getcwd()
+        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
+        os.chdir(cur_dir)
+
+        # Note: core_hunter is looking for core files and returns a "success" code
+        # when it finds at least one.
+        if rc == 0:
+            self.log.error("Core files detected.")
+            return False
+        else:
+            self.log.info("No cores found.")
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:

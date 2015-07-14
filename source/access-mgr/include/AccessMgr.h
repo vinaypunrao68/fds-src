@@ -39,16 +39,11 @@ class AccessMgr : public Module, public boost::noncopyable {
     void mod_shutdown() override;
 
     void run();
-    void stop();
+
+    void initilizeConnectors();
 
     std::shared_ptr<AmProcessor> getProcessor()
     { return amProcessor; }
-
-    // Wrapper method to call omClient's getDMT
-    void getDMT();
-
-    // Wrapper method to call omClient's getDLT
-    void getDLT();
 
   private:
     /// Raw pointer to an external dependency manager

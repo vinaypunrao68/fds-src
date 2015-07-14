@@ -30,18 +30,19 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     objStoreMgrUuid = (dynamic_cast<ObjectStorMgr *>(dataStore))->getUuid();
     LOGMIGRATE << "Object store manager uuid " << objStoreMgrUuid;
 
-    snapshotRequests.resize(SMTOKEN_COUNT);
+    snapshotRequests.reserve(SMTOKEN_COUNT);
     for (uint32_t i = 0; i < SMTOKEN_COUNT; ++i) {
-        snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
-        snapshotRequests[i].retryReq = false;
-        snapshotRequests[i].smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
-                                                      this,
-                                                      std::placeholders::_1,
-                                                      std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4,
-                                                      std::placeholders::_5,
-                                                      std::placeholders::_6);
+        snapshotRequests.emplace_back(new SmIoSnapshotObjectDB());
+        snapshotRequests.back()->io_type = FDS_SM_SNAPSHOT_TOKEN;
+        snapshotRequests.back()->retryReq = false;
+        snapshotRequests.back()->smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
+                                                           this,
+                                                           std::placeholders::_1,
+                                                           std::placeholders::_2,
+                                                           std::placeholders::_3,
+                                                           std::placeholders::_4,
+                                                           std::placeholders::_5,
+                                                           std::placeholders::_6);
     }
 
     parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 16);
@@ -251,9 +252,9 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
         LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
-        snapshotRequests[retrySmTokenInProgress].token_id = retrySmTokenInProgress;
-        snapshotRequests[retrySmTokenInProgress].retryReq = true;
-        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[retrySmTokenInProgress]);
+        snapshotRequests[retrySmTokenInProgress]->token_id = retrySmTokenInProgress;
+        snapshotRequests[retrySmTokenInProgress]->retryReq = true;
+        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequests[retrySmTokenInProgress].get());
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
             // for now, we are failing the whole migration on any error
@@ -325,14 +326,14 @@ MigrationMgr::startSmTokenMigration(fds_token_id smToken,
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
-    snapshotRequests[smToken].token_id = smToken;
-    snapshotRequests[smToken].unique_id = uid;
-    snapshotRequests[smToken].retryReq = false;
+    snapshotRequests[smToken]->token_id = smToken;
+    snapshotRequests[smToken]->unique_id = uid;
+    snapshotRequests[smToken]->retryReq = false;
     fiu_do_on("abort.sm.migration.at.start",
         LOGDEBUG << "fault abort.sm.migration.at.start enabled for SM token " << smToken; \
         if (smToken % 20 == 0) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     if (err.ok()) {
-        err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[smToken]);
+        err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequests[smToken].get());
     }
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
