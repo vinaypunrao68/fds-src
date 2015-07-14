@@ -208,7 +208,6 @@ class DmMigrationMgr {
      * Callback for migrationClient.
      */
     void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
-
 };  // DmMigrationMgr
 
 }  // namespace fds

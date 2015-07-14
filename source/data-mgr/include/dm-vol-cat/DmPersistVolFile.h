@@ -39,7 +39,7 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
 
     // gets
     virtual Error getBlobMetaDesc(const std::string & blobName,
-            BlobMetaDesc & blobMeta) override;
+                                  BlobMetaDesc & blobMeta, Catalog::MemSnap snap) override;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) override;
 
@@ -47,7 +47,9 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
             ObjectID & obj) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
-            fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) override;
+                            fds_uint64_t endOffset,
+                            fpi::FDSP_BlobObjectList& objList,
+                            Catalog::MemSnap snap) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) override;

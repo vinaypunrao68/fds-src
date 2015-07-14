@@ -24,12 +24,8 @@ namespace fds {
 
     using Catalog::Query;
     using Catalog::Update;
-    using Catalog::GetFile;
-    using Catalog::DbEmpty;
-    using Catalog::DbDelete;
+
     using Catalog::DbSnap;
-    using Catalog::QuerySnap;
-    using Catalog::QueryNew;
   };
 
   class TimeCatalog : public Catalog {

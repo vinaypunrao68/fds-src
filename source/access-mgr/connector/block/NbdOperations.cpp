@@ -375,13 +375,12 @@ NbdOperations::updateBlobResp(const Error &error, handle_type& requestId) {
         }
         // get response
         resp = it->second;
+        fds_assert(resp);
     }
 
     // Unblock other updates on the same object if they exist
     auto offset = resp->getOffset(seqId);
     drainUpdateChain(offset, resp->getBuffer(seqId), nullptr, error);
-
-    fds_assert(resp);
 
     // respond to all chained requests FIRST
     auto chain_it = resp->chained_responses.find(seqId);
@@ -403,7 +402,7 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
                                 NbdResponseVector::buffer_ptr_type buf,
                                 handle_type* queued_handle_ptr,
                                 Error const error) {
-    // The first call to hanldeRMWResponse will create a null buffer if this is
+    // The first call to handleRMWResponse will create a null buffer if this is
     // an error, afterwards ERR_OK for everyone.
     auto err = error;
     bool update_queued {true};
