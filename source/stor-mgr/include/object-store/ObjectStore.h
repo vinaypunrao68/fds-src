@@ -13,6 +13,7 @@
 #include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 
@@ -257,6 +258,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     fds_uint32_t getDiskCount() const;
 
     /**
+     * Handle disk change.
+     */
+    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
+    void handleDiskChanges(const diskio::DataTier& diskType,
+                           const TokenDiskIdPairSet& tokenDiskPairs);
+
+    /**
      * Check if object store is ready to serve IO/become source for SM token
      * migration.
      */
@@ -276,6 +284,11 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     Error SmCheckControlCmd(SmCheckCmd *checkCmd);
     void SmCheckUpdateDLT(const DLT *latestDLT);
+
+    /**
+     * Sets this ObjectStore to the UNAVAILABLE state
+     */
+    void setUnavailable();
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

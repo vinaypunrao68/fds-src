@@ -21,8 +21,6 @@ import utils
 nbd_path = os.path.abspath(os.path.join('..', ''))
 sys.path.append(nbd_path)
 
-print sys.path
-
 from boto.s3.key import Key
 
 import testsets.testcase as testcase

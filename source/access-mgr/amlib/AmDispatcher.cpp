@@ -19,6 +19,7 @@
 #include "AsyncResponseHandlers.h"
 
 #include "requests/requests.h"
+#include "requests/GetObjectReq.h"
 #include <net/MockSvcHandler.h>
 #include <AmDispatcherMocks.hpp>
 #include "lib/StatsCollector.h"
@@ -241,11 +242,12 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
 template<typename Msg>
 MultiPrimarySvcRequestPtr
 AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
+                                        DLT const* dlt,
                                         boost::shared_ptr<Msg> const& payload,
                                         MultiPrimarySvcRequestRespCb cb,
                                         uint32_t timeout) const {
-    auto const dlt = dltMgr->getDLT();
     auto token_group = dlt->getNodes(objId);
+    auto dlt_version = dlt->getVersion();
 
     // Assuming the first N (if any) nodes are the primaries and
     // the rest are backups.
@@ -259,7 +261,7 @@ AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
         secondaries.push_back(uuid);
     }
 
-    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries);
+    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries, dlt_version);
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
@@ -281,9 +283,8 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
     for (uint32_t i = 0; numNodes > i; ++i) {
         dmPrimariesForVol->set(i, dmsForVol->get(i));
     }
-    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(
-                            boost::make_shared<DmtVolumeIdEpProvider>(
-                                dmPrimariesForVol));
+    auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
+    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
     failoverReq->onResponseCb(cb);
     failoverReq->setTimeoutMs(timeout);
     failoverReq->setPayload(message_type_id(*payload), payload);
@@ -293,11 +294,12 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
 template<typename Msg>
 FailoverSvcRequestPtr
 AmDispatcher::createFailoverRequest(ObjectID const& objId,
-                                  boost::shared_ptr<Msg> const& payload,
-                                  FailoverSvcRequestRespCb cb,
-                                  uint32_t timeout) const {
-    auto const dlt = dltMgr->getDLT();
+                                    DLT const* dlt,
+                                    boost::shared_ptr<Msg> const& payload,
+                                    FailoverSvcRequestRespCb cb,
+                                    uint32_t timeout) const {
     auto token_group = dlt->getNodes(objId);
+    auto dlt_version = dlt->getVersion();
 
     // Build a group of only the primaries for this read
     auto numNodes = std::min(token_group->getLength(), numPrimaries);
@@ -305,8 +307,8 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
     for (uint32_t i = 0; numNodes > i; ++i) {
        primary_nodes->set(i, token_group->get(i));
     }
-    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(
-                            boost::make_shared<DltObjectIdEpProvider>(primary_nodes));
+    auto primary = boost::make_shared<DltObjectIdEpProvider>(primary_nodes);
+    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary, dlt_version);
     failoverReq->onResponseCb(cb);
     failoverReq->setTimeoutMs(timeout);
     failoverReq->setPayload(message_type_id(*payload), payload);
@@ -779,6 +781,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
                                      amReq, dlt->getVersion()));
     auto asyncPutReq = createMultiPrimaryRequest(blobReq->obj_id,
+                                                 dlt,
                                                  putObjMsg,
                                                  respCb,
                                                  message_timeout_io);
@@ -845,6 +848,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     auto const dlt = dltMgr->getAndLockCurrentDLT();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
     auto asyncGetReq = createFailoverRequest(objId,
+                                             dlt,
                                              getObjMsg,
                                              respCb,
                                              message_timeout_io);

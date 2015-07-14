@@ -413,4 +413,8 @@ Error DmPersistVolFile::getOIDArrayMmap(fds_uint64_t id,
 
     return ERR_OK;
 }
+
+void DmPersistVolFile::forEachObject(std::function<void(const ObjectID&)>) {
+    throw fds::Exception(ERR_NOT_IMPLEMENTED);
+}
 }  // namespace fds

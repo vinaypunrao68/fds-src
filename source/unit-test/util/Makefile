@@ -1,3 +1,4 @@
+test_topdir       := ../
 topdir            := ../..
 util_dir          := $(topdir)/util
 user_target       := test
@@ -31,9 +32,10 @@ user_cpp          :=  \
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := log_unit_test \
-	                 fds_panic_test
+                     fds_panic_test bloomtest
 
 log_unit_test     := log_unit_test.cpp
 fds_panic_test    := fds_panic_test.cpp
+bloomtest         := bloomtest.cpp
+include $(test_topdir)/Makefile.svc
 
-include $(topdir)/Makefile.incl
