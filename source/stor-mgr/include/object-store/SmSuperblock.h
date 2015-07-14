@@ -350,7 +350,7 @@ class SmSuperblockMgr {
     getSuperblockPath(const std::string& dir_path);
 
     bool
-    checkPristineState();
+    checkPristineState(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
     Error changeTokenCompactionState(fds_token_id smToken,
                                      diskio::DataTier tier,
@@ -379,6 +379,10 @@ class SmSuperblockMgr {
      * Set the latest committed DLT version.
      */
     Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
+
+    std::string getTempMount();
+
+    void checkForHandledErrors(Error& err);
 
   private:
     /// Master superblock. The master copy will persist
