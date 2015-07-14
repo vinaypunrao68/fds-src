@@ -15,7 +15,7 @@ namespace fds {
 
 /**
  * Plain Old Data definition of the object location table that maps
- * SM token id to disk id ot HDD and SSD tier. SM token can reside on
+ * SM token id to disk id to HDD and SSD tier. SM token can reside on
  * HDD, SSD or both tiers
  *
  * When persisting data on stable storage, we want to keep the data in a

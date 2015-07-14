@@ -202,7 +202,10 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
     synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolCat::ptr>::iterator iter =
                 volMap_.find(volId);
-        if (volMap_.end() != iter && (!checkDeleted || iter->second->isMarkedDeleted())) {
+        if (volMap_.end() != iter && (!checkDeleted ||
+                                      iter->second->isMarkedDeleted() ||
+                                      iter->second->isSnapshot()
+                                      )) {
             volMap_.erase(iter);
         }
     }
@@ -738,7 +741,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
             expungeList.push_back(obj);
         }
     }
-
+    bool fIsSnapshot = vol->isSnapshot();
     rc = vol->deleteObject(blobName, 0, endOffset);
     if (rc.ok()) {
         rc = vol->deleteBlobMetaDesc(blobName);
@@ -758,7 +761,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
         // actually expunge objects that were dereferenced by the blob
         // TODO(xxx): later that should become part of GC and done in background
         fds_verify(expungeCb_);
-        return expungeCb_(volId, expungeList, false);
+        return expungeCb_(volId, expungeList, fIsSnapshot);
     }
 
     return rc;

@@ -271,7 +271,8 @@ DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
 
 Error
 DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
-    if (isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
+    auto vol = volcat->getVolume(volId);
+    if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
     Error err = volcat->markVolumeDeleted(volId);
     if (err.ok()) {
         // TODO(Anna) @Umesh we should mark commit log as

@@ -86,16 +86,16 @@ class DmMigrationMgr {
      * multiple callback pointers, etc. For now, not doing it.
      */
     Error startMigrationClient(dmCatReq* dmRequest);
-    
-    /**
-     * Destination side DM:
-     * Given the delta blobs that the source has sent over, redirect these delta blobs
-     * requests to the appropriate executors for handling these requests, and apply them
-     * on the specific volume's levelDB.
-     */
+
+    // Handle deltaObject  in Migration executor
     Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
 
-    typedef std::shared_ptr<DmMigrationMgr> unique_ptr;
+    /**
+     * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
+     */
+    Error applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+
+    typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
   protected:
@@ -113,9 +113,19 @@ class DmMigrationMgr {
     bool enableMigrationFeature;
 
     /**
-     * check if resync feature is enabled.
+     * check if resync on restart feature is enabled.
      */
     bool enableResyncFeature;
+
+    /**
+     * maximum number of blobs per delta set sent from source DM.
+     */
+    uint64_t maxNumBlobs;
+
+    /**
+     * maximum number of blob desc per delta set sent from source DM.
+     */
+    uint64_t maxNumBlobDesc;
 
     /**
      * Throttles the number of max concurrent migrations
