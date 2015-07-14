@@ -242,6 +242,27 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
     }
 }
 
+// reset service from pending added svc map
+// but do not remove from cluster map
+void
+ClusterMap::resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+                                     const NodeUuid& svc_uuid) {
+    TRACEFUNC;
+    fds_mutex::scoped_lock l(mapMutex);
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            fds_verify(addedSMs.count(svc_uuid) != 0)
+            addedSMs.erase(svc_uuid);
+            break;
+        case fpi::FDSP_DATA_MGR:
+            fds_verify(addedDMs.count(svc_uuid) != 0);
+            addedDMs.erase(svc_uuid);
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+}
+
 std::unordered_set<NodeUuid, UuidHash>
 ClusterMap::getAddedServices(fpi::FDSP_MgrIdType svc_type) const {
     TRACEFUNC;

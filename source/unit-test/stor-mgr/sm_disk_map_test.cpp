@@ -402,6 +402,66 @@ TEST(SmDiskMap, restart) {
 
     // cleanup
     delete dlt;
+    dlt = nullptr;
+
+    // create the same DLT but with next version
+    // we should be able to restart as long as SM does not
+    // gain any new tokens
+    dlt = new DLT(8, 4, 2, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Restart with next DLT version: Using DLT: " << *dlt;
+    smDiskMap->mod_shutdown();
+    smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
+    smDiskMap->mod_init(NULL);
+    err = smDiskMap->loadPersistentState();
+    EXPECT_TRUE(err.ok());
+
+    // restart should work since SM did not gain any tokens
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_SM_NOERR_NEED_RESYNC);
+
+    // cleanup
+    delete dlt;
+    dlt = nullptr;
+
+    // restart again with next DLT version
+    // make SM lose a DLT token from one DLT column
+    dlt = new DLT(8, 4, 2, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    fds_uint64_t numTokens = pow(2, dlt->getWidth());
+    DltTokenGroup tg(dlt->getDepth());
+    fds_bool_t done = false;
+    for (fds_token_id i = 0; i < numTokens; i++) {
+        for (fds_uint32_t j = 0; j < dlt->getDepth(); j++) {
+            NodeUuid uuid = dlt->getNode(i, j);
+            if (uuid == myNodeUuid) {
+                // replace with some other uuid
+                NodeUuid newUuid(sm_count + 1);
+                dlt->setNode(i, j, newUuid);
+                done = true;
+                break;
+            }
+        }
+        if (done) {
+            break;
+        }
+    }
+    EXPECT_TRUE(done);
+    dlt->generateNodeTokenMap();
+
+    GLOGDEBUG << "Restart with next DLT version: Using DLT: " << *dlt;
+    smDiskMap->mod_shutdown();
+    smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
+    smDiskMap->mod_init(NULL);
+    err = smDiskMap->loadPersistentState();
+    EXPECT_TRUE(err.ok());
+
+    // restart should work since SM did not gain any tokens
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_SM_NOERR_LOST_SM_TOKENS);
+
+    // cleanup
+    delete dlt;
     SmUtUtils::cleanAllInDir(devPath);
 }
 

@@ -207,18 +207,17 @@ void ObjectStorMgr::mod_enable_service()
             // get DLT from OM
             Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
-                // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // even if SM is not yet in the DLT (this SM is not part of the domain yet),
+                // we need to tell disk map about DLT width so when migration happens, we
+                // can map objectID to DLT token
+
                 // Store the current DLT to the presistent storage to be used
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
-                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
-                } else {
-                    // if second phase of start up failes, object store will set the state
-                    // during validating token ownership in the superblock
-                    handleDltUpdate();
-                }
+
+                // if second phase of start up failes, object store will set the state
+                // during validating token ownership in the superblock
+                handleDltUpdate();
             }
             // else ok if no DLT yet
         }

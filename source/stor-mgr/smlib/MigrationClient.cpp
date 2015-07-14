@@ -148,7 +148,7 @@ MigrationClient::fwdPutObjectCb(SmIoPutObjectReq* putReq,
     LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId()
                << " " << error;
 
-    // on error, set error state (abort migration)
+    // on error, set error state
     if (!error.ok()) {
         handleMigrationError(error);
     }
@@ -162,7 +162,7 @@ MigrationClient::fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
     LOGMIGRATE << "Ack for forwarded DELETE request " << delReq->getObjId()
                << " " << error;
 
-    // on error, set error state (abort migration)
+    // on error, set error state
     if (!error.ok()) {
         handleMigrationError(error);
     }
@@ -486,19 +486,27 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                std::string &snapDir,
                                                leveldb::CopyEnv *env)
 {
-    // on error, set error state (abort migration)
+    // on error, set error state
     if (!error.ok()) {
         // This will set the ClientState to MC_ERROR
         handleMigrationError(error);
+        // the remaining of the error is handled in the next
+        // if statement, where cleanup snapshots and finish tracking req
     }
+
     // If the state is already set to error, then do nothing.
     if (getMigClientState() == MC_ERROR) {
         // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
 
+        // since we already took snapshot, cleanup dir
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+            env->DeleteDir(secondPhaseSnapshotDir);
+        }
+
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-
         return;
     }
 
@@ -543,6 +551,11 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
+        // since we already took snapshot, cleanup dir
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+            env->DeleteDir(secondPhaseSnapshotDir);
+        }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
         return;
@@ -554,6 +567,11 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for Second Phase snapshot."
                    << "status " << status.ToString();
+        // since we already took snapshot, cleanup dir
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+            env->DeleteDir(secondPhaseSnapshotDir);
+        }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
         return;
@@ -894,16 +912,11 @@ MigrationClient::setMigClientState(MigrationClientState newState)
 void
 MigrationClient::handleMigrationError(const Error& error) {
     if (getMigClientState() != MC_ERROR) {
-        // first time we see error, abort the whole migration
+        // first time we see error
+        // do not abort migration; destination will see the error
+        // or timeout, and either will retry with another client or
+        // report to OM.
         setMigClientState(MC_ERROR);
-        // report to OM directly, OM will abort the migration
-        LOGMIGRATE << "Migration Client error " << error
-                   << " reporting to OM to abort token migration";
-        fpi::CtrlTokenMigrationAbortPtr msg(new fpi::CtrlTokenMigrationAbort());
-        auto req = gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->\
-                                                    getSvcMgr()->getOmSvcUuid());
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTokenMigrationAbort), msg);
-        req->invoke();
     }
 }
 

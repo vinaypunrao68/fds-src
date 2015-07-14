@@ -124,29 +124,40 @@ namespace fds
         int32_t smIdx = 0;
         int32_t dmIdx = 0;
         int32_t amIdx = 0;
+        bool smFound = false;
+        bool dmFound = false;
+        bool amFound = false;
 
         // Check whether the service is present and the associated flag
         // is set.(Flag is set if associated service needs to be removed).
         // If so, save index so we can erase the service from the vector
         for (fpi::SvcInfo svcInfo : svcInfos) {
 
-            if ( smFlag && svcInfo.svc_type == fpi::FDSP_STOR_MGR ) {
+            if (svcInfo.svc_type == fpi::FDSP_STOR_MGR  && smFlag) {
                     smIdx = index;
-            }
-            if (dmFlag && svcInfo.svc_type == fpi::FDSP_DATA_MGR) {
+                    smFound = true;
+            } else if (svcInfo.svc_type == fpi::FDSP_DATA_MGR && dmFlag) {
                     dmIdx = index;
-            }
-            if (amFlag && svcInfo.svc_type == fpi::FDSP_ACCESS_MGR) {
+                    dmFound = true;
+            }else if (svcInfo.svc_type == fpi::FDSP_ACCESS_MGR && amFlag) {
                     amIdx = index;
+                    amFound = true;
             }
             ++index;
         }
 
-        if (smFlag)
+        // Erase svcInfo only if flag is set and service has been found in the vector
+        if (smFlag && smFound)
+        {
             svcInfos.erase(svcInfos.begin() + smIdx);
-        if (dmFlag)
+        }
+        if (dmFlag && dmFound)
+        {
             svcInfos.erase(svcInfos.begin() + dmIdx);
-        if (amFlag)
+        }
+        if (amFlag && amFound)
+        {
             svcInfos.erase(svcInfos.begin() + amIdx);
+        }
     }
 }  // namespace fds
