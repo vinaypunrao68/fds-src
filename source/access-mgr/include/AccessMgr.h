@@ -49,9 +49,6 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// Raw pointer to an external dependency manager
     CommonModuleProviderIf *modProvider_;
 
-    /// Block connector
-    std::unique_ptr<NbdConnector> blkConnector;
-
     /// Unique ptr to the async server that communicates with XDI
     std::unique_ptr<AsyncDataServer> asyncServer;
 
