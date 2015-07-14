@@ -15,6 +15,7 @@ import logging
 import re
 import string
 import random
+import fdslib.TestUtils as TestUtils
 
 import xmlrunner
 
@@ -661,7 +662,6 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         # Locate the node.
         found = False
-        n = None
         for node in scenario.cfg_sect_nodes:
             if node.nd_conf_dict['node-name'] == scenario.nd_conf_dict['fds_node']:
                 found = True
@@ -874,6 +874,13 @@ class TestForkScenario(TestCase.FDSTestCase):
         self.childPID = os.fork()
 
         if self.childPID == 0:
+            self.log.info("Child process executing scenario %s." % self.passedScenario.nd_conf_dict['scenario-name'])
+            for h in list(logging.getLogger().handlers):
+                logging.getLogger().removeHandler(h)
+            self.log = TestUtils._setup_logging(__name__,
+                                                "PyUnit_{}.log".format(self.passedScenario.nd_conf_dict['scenario-name']),
+                                                self.parameters["log_dir"], self.parameters["log_level"],
+                                                self.parameters["threads"])
             self.log.info("Child process executing scenario %s." % self.passedScenario.nd_conf_dict['scenario-name'])
         elif self.childPID > 0:
             self.log.info("Forked child %d to execute scenario %s." % (self.childPID,

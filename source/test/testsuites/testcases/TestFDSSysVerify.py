@@ -620,12 +620,15 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
+                if occurrencesFound > self.passedOccurrences:
+                    # Found too many.
+                    break
 
             if sftp is not None:
                 sftp.close()
 
-            if occurrencesFound == self.passedOccurrences:
-                # Saw what we were looking for.
+            if occurrencesFound >= self.passedOccurrences:
+                # Saw what we were looking for or found too many.
                 break
             else:
                 time.sleep(10)

@@ -25,6 +25,7 @@ import types
 import string
 import re
 from threading import Timer
+import logging
 
 class Helper:
     @staticmethod
@@ -740,22 +741,13 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
             verifiable_object = bucket.new_key('s3VerifiableObject_{0}'.format(self.passedSeedValue))
             verifiable_object.set_contents_from_string(verifiable_file_contents)
 
-            # Grab the object and capture the hash for verification
-            test_passed = False
-            try:
-                obj = bucket.get_key('s3VerifiableObject_{0}'.format(self.passedSeedValue))
-            except Exception as e:
-                self.log.error("Could not get object just put with key <{0}>".format(self.passedSeedValue))
-                self.log.error(e.message)
-            else:
-                if obj:
-                    stored_hash = hashlib.sha1(obj.get_contents_as_string()).hexdigest()
-                    self.log.info("Hash of object stored with key <s3VerifiableObject_{0}>: {1}".
-                                  format(self.passedSeedValue, stored_hash))
-                    self.parameters["s3"].verifiers['s3VerifiableObject_{0}'.format(self.passedSeedValue)] = stored_hash
-                    test_passed = True
+            # Capture the hash for verification
+            stored_hash = hashlib.sha1(verifiable_file_contents).hexdigest()
+            self.log.info("Hash of object stored with key <s3VerifiableObject_{0}>: {1}".
+                          format(self.passedSeedValue, stored_hash))
+            self.parameters["s3"].verifiers['s3VerifiableObject_{0}'.format(self.passedSeedValue)] = stored_hash
 
-            return test_passed
+            return True
 
 # This class contains the attributes and methods to test
 # the FDS S3 interface to verify an object with verifiable content
@@ -805,9 +797,9 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
             try:
                 verifiable_object = bucket.get_key('s3VerifiableObject_{0}'.format(self.passedSeedValue))
             except Exception as e:
-                self.log.error("Could not get object to be verified with key <s3VerifiableObject_{0}>".
+                self.log.warning("Could not get object to be verified with key <s3VerifiableObject_{0}>".
                                format(self.passedSeedValue))
-                self.log.error(e.message)
+                self.log.warning(e.message)
             else:
                 verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
                 self.log.info("Hash of object read with key <s3VerifiableObject_{0}>: {1}".
@@ -873,7 +865,13 @@ class TestS3DeleteVerifiableObject(TestCase.FDSTestCase):
                                format(self.passedSeedValue))
                 self.log.error(e.message)
             else:
-                test_passed = True
+                # Confirm the delete.
+                checkObject = TestS3CheckVerifiableObject(self.parameters, bucket=self.passedBucket,
+                                                          seedValue=self.passedSeedValue)
+                if not checkObject.test_S3CheckVerifiableObject():
+                    self.log.info("Verified delete of object with key <s3VerifiableObject_{0}>".
+                                     format(self.passedSeedValue))
+                    test_passed = True
 
             return test_passed
 
@@ -896,7 +894,7 @@ class TestS3VerifiableObjectLoop(TestCase.FDSTestCase):
         self.loopControl = "start"
 
     def timeout(self):
-        self.log.info("Loop on objects for {0} seconds timeout.".format(self.passedRunTime))
+        self.log.info("Stop loop on objects for {0} seconds timeout.".format(self.passedRunTime))
         self.loopControl = "stop"
 
     def test_S3VerifiableObjectLoop(self):
@@ -923,6 +921,8 @@ class TestS3VerifiableObjectLoop(TestCase.FDSTestCase):
             self.log.error("No S3 bucket on which to loop an object.")
             return False
         else:
+            logging.getLogger('boto').setLevel(logging.CRITICAL)
+
             self.log.info("Loop on objects for {0} seconds.".format(float(self.passedRunTime)))
             t = Timer(float(self.passedRunTime), self.timeout)
             t.start()
