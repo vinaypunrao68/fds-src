@@ -207,18 +207,17 @@ void ObjectStorMgr::mod_enable_service()
             // get DLT from OM
             Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
-                // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // even if SM is not yet in the DLT (this SM is not part of the domain yet),
+                // we need to tell disk map about DLT width so when migration happens, we
+                // can map objectID to DLT token
+
                 // Store the current DLT to the presistent storage to be used
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
-                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
-                } else {
-                    // if second phase of start up failes, object store will set the state
-                    // during validating token ownership in the superblock
-                    handleDltUpdate();
-                }
+
+                // if second phase of start up failes, object store will set the state
+                // during validating token ownership in the superblock
+                handleDltUpdate();
             }
             // else ok if no DLT yet
         }
@@ -472,6 +471,10 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+
+            objectStore->setUnavailable();
+            sendHealthCheckMsgToOM(fpi::ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
+
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
@@ -490,6 +493,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             // we re-hit this condition
             if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
+                sendHealthCheckMsgToOM(fpi::RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
@@ -1062,16 +1066,19 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "Abort Migration request";
+    LOGDEBUG << "Abort Migration request for target DLT " << abortMigrationReq->targetDLTVersion;
 
     // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration();
+    err = objStorMgr->migrationMgr->abortMigrationFromOM(abortMigrationReq->targetDLTVersion);
 
     // revert to DLT version provided in abort message
-    if (abortMigrationReq->abortMigrationDLTVersion > 0) {
+    if (err.ok() && (abortMigrationReq->abortMigrationDLTVersion > 0)) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
         MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+    } else if (err == ERR_INVALID_ARG) {
+        // this is ok
+        err = ERR_OK;
     }
 
     qosCtrl->markIODone(*abortMigrationReq);

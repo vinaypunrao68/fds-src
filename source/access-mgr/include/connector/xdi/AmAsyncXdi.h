@@ -44,6 +44,7 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     template<typename ... Args>
     void xdiClientCall(void (client_type::*func)(Args...), Args&&... args) {
+        using transport_exception = apache::thrift::transport::TTransportException;
         std::lock_guard<std::mutex> g(client_lock);
         for (auto i = max_response_retries; i >= 0; --i) {
         try {
@@ -52,9 +53,15 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
             }
             // Invoke the thrift method on our client
             return ((asyncRespClient.get())->*(func))(std::forward<Args>(args)...);
-        } catch(const apache::thrift::transport::TTransportException& e) {
+        } catch(const transport_exception& e) {
             // Reset the pointer and re-try (if we have any left)
+            try {
             initiateClientConnect();
+            } catch (const transport_exception& e) {
+                // ugh, Xdi probably died or we've become partitioned
+                // assume we'll never return this response
+                break;
+            }
         }
         }
         LOGERROR << "Unable to respond to XDI: "

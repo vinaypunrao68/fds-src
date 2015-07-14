@@ -13,6 +13,10 @@
 #include <dmhandler.h>
 #include <util/stringutils.h>
 #include <util/path.h>
+#include <include/util/disk_utils.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
+
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -31,6 +35,49 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
 } // namespace
 
 namespace fds {
+
+const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
+const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
+const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
+
+float_t DataMgr::getUsedCapacityAsPct() {
+
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("dm.get_used_capacity_error", \
+            fiu_disable("dm.get_used_capacity_warn"); \
+            fiu_disable("dm.get_used_capacity_alert"); \
+            LOGDEBUG << "Err inection: returning max used disk capacity as " \
+                     << DISK_CAPACITY_ERROR_THRESHOLD; \
+            return DISK_CAPACITY_ERROR_THRESHOLD; );
+
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_alert", \
+              fiu_disable("dm.get_used_capacity_warn"); \
+              fiu_disable("dm.get_used_capacity_error"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_warn", \
+              fiu_disable("dm.get_used_capacity_error"); \
+              fiu_disable("dm.get_used_capacity_alert"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
+    // Get fds root dir
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    // Get sys-repo dir
+    DiskCapacityUtils::capacity_tuple cap = DiskCapacityUtils::getDiskConsumedSize(root->dir_sys_repo_stats());
+
+    // Calculate pct
+    float_t result = ((1. * cap.first) / cap.second) * 100;
+    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
+
+    return result;
+}
 
 /**
  * Receiver DM processing of volume sync state.
@@ -159,6 +206,47 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                                                  STAT_DM_CUR_TOTAL_OBJECTS,
                                                  total_objects);
     }
+
+    /*
+     * Piggyback on this method to determine if we're nearing disk capacity
+     */
+    if (sampleCounter % 5 == 0) {
+        LOGDEBUG << "Checking disk utilization!";
+        float_t pct_used = getUsedCapacityAsPct();
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send message to OM
+
+
+        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+            LOGWARN << "ATTENTION: DM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send message to OM
+
+        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+            LOGNORMAL << "DM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+
+                // Send message to OM resetting us to OK state
+            }
+        }
+        sampleCounter = 0;
+    }
+    sampleCounter++;
+
 }
 
 void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
@@ -449,8 +537,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             err = timelineMgr->createSnapshot(vdesc);
         } else if (features.isTimelineEnabled()) {
             err = timelineMgr->createClone(vdesc);
-            if (err.ok()) fActivated = true;
         }
+        if (err.ok()) fActivated = true;
+
     } else {
         LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
         err = timeVolCat_->addVolume(*vdesc);
@@ -587,6 +676,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
+        return  err;
     }
 
     if (vdesc->isSnapshot()) {
@@ -600,7 +690,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // should do the calculation if the primary fails over to us. but if we set it
     // here, before failover, we could have a seq_id ahead of the primary.
     // is this a problem?
-    if (fPrimary) {
+    if (fPrimary && fActivated) {
         sequence_id_t seq_id;
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
@@ -864,6 +954,9 @@ int DataMgr::mod_init(SysParams const *const param)
     scheduleRate = 10000;
     shuttingDown = false;
 
+    lastCapacityMessageSentAt = 0;
+    sampleCounter = 0;
+
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
@@ -950,12 +1043,14 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
+    handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
+    handlers[FDS_DM_MIG_DELT_BLB] = new dm::DmMigrationDeltablobHandler(*this);
 }
 
 DataMgr::~DataMgr()
 {
     // shutdown all data manager modules
-    LOGDEBUG << "Received shutdown message DM ... shutdown mnodules..";
+    LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 }
 
@@ -1047,13 +1142,15 @@ void DataMgr::mod_enable_service() {
 
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
+        MODULEPROVIDER()->getSvcMgr()->getDLT();
     }
+
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
     expungeMgr.reset(new ExpungeManager(this));
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
@@ -1359,7 +1456,13 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 std::string getSnapshotDir(fds_volid_t volId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     return util::strformat("%s/%ld/snapshot",
-                           root->dir_user_repo_dm().c_str(), volId.get());
+                           root->dir_user_repo_dm().c_str(), volId);
+}
+
+std::string getVolumeMetaDir(fds_volid_t volId) {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    return util::strformat("%s/%ld/volumemeta",
+                           root->dir_user_repo_dm().c_str(), volId);
 }
 
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
@@ -1382,6 +1485,18 @@ void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) 
         vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
     }
     std::sort(vecVolumes.begin(), vecVolumes.end());
+}
+
+std::string getTimelineDBPath() {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_sys_repo_dm();
+    return util::strformat("%s/timeline.db", dmDir.c_str());
+}
+
+std::string getExpungeDBPath() {
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_user_repo_dm();
+    return util::strformat("%s/expunge.ldb", dmDir.c_str());
 }
 
 }  // namespace dmutil

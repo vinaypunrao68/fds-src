@@ -129,6 +129,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
             fds_uint64_t endOffset) override;
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
+    virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 
     virtual Error freeInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
 

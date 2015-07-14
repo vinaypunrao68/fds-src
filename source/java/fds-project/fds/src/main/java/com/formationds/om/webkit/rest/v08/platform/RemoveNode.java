@@ -7,8 +7,14 @@ package com.formationds.om.webkit.rest.v08.platform;
 import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.pm.NotifyStopServiceMsg;
+import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
+import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.client.v08.model.Node;
+import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.ServiceType;
+import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
@@ -27,6 +33,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.InputStreamReader;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RemoveNode
     implements RequestHandler {
@@ -52,32 +60,69 @@ public class RemoveNode
 	  		throw new ApiException( "The specified node uuid " + nodeUuid + " has no matching node name.", ErrorCode.MISSING_RESOURCE );
   		}
         
-        logger.debug( "Deactivating {}:{}",
+        logger.debug( "Removing {}:{}",
         		node.getName(),
         		nodeUuid );
 
+        List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
+        boolean pmPresent = false;
+        
+        for(List<Service> svcList : node.getServices().values())
+        {
+        	for(Service svc : svcList)
+        	{
+        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        				                                 (node.getAddress().getHostAddress(),
+                                                          svc);
+        		svcInfList.add(svcInfo);
+        		
+        		if (svc.getType() == ServiceType.PM) {
+        			pmPresent = true;
+        		}
+        		
+        	}
+        }
+        
+        if (!pmPresent)
+        {
+        	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
+        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        			                                 (node.getAddress().getHostAddress(),
+                                                      pmSvc);
+        	svcInfList.add(svcInfo);
+        }
+        
         // TODO: Fix when we support multiple domains
         
+        logger.debug("Stopping and removing services on node");
         int status =
-            getConfigApi().RemoveServices( new FDSP_RemoveServicesType(
-                                     node.getName(),
-                                     new FDSP_Uuid( nodeUuid ),
-                                     true,
-                                     true,
-                                     true ) );
-        if( status != 0 ) {
+            getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
 
+        if( status != 0 )
+        {
             status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.ADD_NODE_ERROR,
-                                      nodeUuid );
-
-        } else {
-
-            EventManager.notifyEvent( OmEvents.ADD_NODE,
-                                      nodeUuid );
+            EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+                                      node.getName(), nodeUuid );
+        }
+        else 
+        {   
+            // Now that we have stopped the services go remove them
+        	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
+        	
+        	if(status != 0)
+        	{
+                status= HttpServletResponse.SC_BAD_REQUEST;
+                EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+                                          node.getName(), nodeUuid );
+        	}
+        	else
+        	{
+                EventManager.notifyEvent( OmEvents.REMOVE_NODE,
+                                          node.getName(), nodeUuid );
+        	}
 
         }
-
+        
         return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
     }
     

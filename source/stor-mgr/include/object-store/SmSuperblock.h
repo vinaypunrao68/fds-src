@@ -7,7 +7,7 @@
 #include <string>
 #include <set>
 #include <map>
-
+#include <functional>
 #include <concurrency/RwLock.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
@@ -19,6 +19,10 @@ typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 
 typedef uint32_t fds_checksum32_t;
+
+typedef std::function<void (const diskio::DataTier&,
+                            const std::set<std::pair<fds_token_id, fds_uint16_t>>&
+                            )> DiskChangeFnObj;
 
 /*
  * Some constants for SM superblock.
@@ -249,7 +253,7 @@ static_assert((sizeof(struct SmSuperblock) % SM_SUPERBLOCK_SECTOR_SIZE) == 0,
  */
 class SmSuperblockMgr {
   public:
-    SmSuperblockMgr();
+    explicit SmSuperblockMgr(DiskChangeFnObj diskChangeFunc=DiskChangeFnObj());
     ~SmSuperblockMgr();
 
     typedef std::unique_ptr<SmSuperblockMgr> unique_ptr;
@@ -275,7 +279,8 @@ class SmSuperblockMgr {
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
-    /* Reconcile superblocks, is there is inconsistency.
+    /**
+     * Reconcile superblocks, if there is inconsistency.
      */
     Error reconcileSuperblock();
 
@@ -344,6 +349,11 @@ class SmSuperblockMgr {
     bool
     checkPristineState();
 
+    Error changeTokenCompactionState(fds_token_id smToken,
+                                     diskio::DataTier tier,
+                                     fds_bool_t inProg,
+                                     fds_uint16_t newFileId);
+
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
@@ -352,6 +362,8 @@ class SmSuperblockMgr {
 
     DiskIdSet
     diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
+
+    SmTokenSet getTokensOfThisSM(fds_uint16_t diskId);
 
     /**
      * Set the latest committed DLT version.
@@ -375,6 +387,8 @@ class SmSuperblockMgr {
 
     /// Name of the superblock file.
     const std::string superblockName = "SmSuperblock";
+
+    fds::DiskChangeFnObj diskChangeFn;
 };
 
 std::ostream& operator<< (std::ostream &out,

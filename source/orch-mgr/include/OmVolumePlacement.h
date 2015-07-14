@@ -230,7 +230,13 @@ namespace fds {
          */
         fds_bool_t hasNonCommitedTarget() const;
 
-        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
+        /**
+         * @param dm_services all known DM services
+         * @param deployed_dm_services all known DM services that are not
+         *        in discovered state
+         */
+        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
+                                   const NodeUuidSet& deployed_dm_services);
 
         /**
          * Validate that commited DMT has all given DMs and no other DMs

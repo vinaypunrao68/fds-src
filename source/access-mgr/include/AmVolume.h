@@ -40,7 +40,7 @@ struct AmVolume : public FDS_Volume {
     { return vol_sequence_id.fetch_add(1, std::memory_order_relaxed) + 1; }
 
     /** per volume queue */
-    FDS_VolumeQueue* volQueue;
+    std::unique_ptr<FDS_VolumeQueue> volQueue;
 
     /** access token */
     boost::shared_ptr<AmVolumeAccessToken> access_token;

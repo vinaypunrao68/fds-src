@@ -10,16 +10,18 @@ import sys
 import sh
 #import timeout_decorator
 
-nbd_path = os.path.abspath(os.path.join('..', '..', '..', 'cinder'))
+nbd_path = os.path.abspath(os.path.join('..', '..', ''))
 sys.path.append(nbd_path)
 
+print sys.path
+
 # import nbdadmin.py:
-from nbdadm import nbdlib
-from nbdadm import nbd_user_error
-from nbdadm import nbd_client_error
-from nbdadm import nbd_modprobe_error
-from nbdadm import nbd_volume_error
-from nbdadm import nbd_host_error
+from cinder.nbdadm import nbdlib
+from cinder.nbdadm import nbd_user_error
+from cinder.nbdadm import nbd_client_error
+from cinder.nbdadm import nbd_modprobe_error
+from cinder.nbdadm import nbd_volume_error
+from cinder.nbdadm import nbd_host_error
 
 class nbd_mount_error(Exception):
     def __init__(self, value):
@@ -60,7 +62,7 @@ class NBD(nbdlib):
         arg_list.append(device)
         # call mkfs
         response = sh.mkfs(arg_list)
-        if result.exit_code is not 0:
+        if response.exit_code is not 0:
             raise nbd_format_error("unknown error formatting device: {}".format(device))
 
     def mount_device(self, device, path):
@@ -75,9 +77,9 @@ class NBD(nbdlib):
     def mount_volume(self, volume, path, format_volume=False, fs_type=None):
         if not os.path.exists(path):
             raise ValueError("mount path must exist")
-        dev = self.attach(self.host, None, volume, True, False)
+        dev = super(NBD, self).attach(self.host, None, volume, True, False)
         if format_volume:
-            self.format_device(dev, fs_type)
+            self.format_dev(dev, fs_type)
         self.mount_device(dev, path)
         return dev
 

@@ -96,6 +96,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     }
     typedef std::unique_ptr<NbdOpsProc> unique_ptr;
 
+    void terminate() override {
+    }
+
     void attachResp(Error const& error,
                     boost::shared_ptr<VolumeDesc> const& volDesc) override {
         ASSERT_EQ(ERR_OK, error);

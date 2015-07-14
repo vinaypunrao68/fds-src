@@ -14,11 +14,6 @@ namespace fds {
 #define SMTOKEN_COUNT 256
 #define SM_TIER_COUNT  2
 
-// Disk capacity Thresholds
-#define DISK_CAPACITY_WARNING_THRESHOLD 50.0
-#define DISK_CAPACITY_ALERT_THRESHOLD 85.0
-#define DISK_CAPACITY_ERROR_THRESHOLD 99.0
-
 // file ID types
 #define SM_INVALID_FILE_ID         0
 /**
@@ -34,5 +29,6 @@ typedef std::multiset<fds_token_id> SmTokenMultiSet;
 /// Migration types
 #define SM_INVALID_EXECUTOR_ID     0
 
+const fds_uint16_t SM_INVALID_DISK_ID = 0xffff;
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_
