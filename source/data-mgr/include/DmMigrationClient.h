@@ -117,8 +117,8 @@ class DmMigrationClient {
      * From list of blob update and delete list, generate and send the
      * delta blob offset list and delta blob descriptor list.
      */
-    Error generateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs,
-                                const std::vector<fds_uint64_t>& deleteBlobs);
+    Error generateBlobDeltaSets(const std::vector<std::string>& updateBlobs,
+                                const std::vector<std::string>& deleteBlobs);
 
     /**
      * Generate list of blobs to update or delete.
@@ -128,8 +128,8 @@ class DmMigrationClient {
     /**
      * Generate delta set based on update blob ids and delete ids.
      */
-    Error generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& deleteBlobs);
-    Error generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs);
+    Error generateUpdateBlobDeltaSets(const std::vector<std::string>& deleteBlobs);
+    Error generateDeleteBlobDeltaSets(const std::vector<std::string>& updateBlobs);
 
     /**
      * Send blobs msg and blob descs msg.
