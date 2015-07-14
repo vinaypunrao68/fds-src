@@ -380,8 +380,22 @@ struct SvcMgr : HasModuleProvider, Module {
 
     Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
-    Error getDLT();
-    Error getDMT();
+    /**
+    * @brief Gets dlt from OM and upadtes dlt manager
+    *
+    * @param maxAttempts - maximum attempts to try.  Set to -1 to try a lot
+    *
+    * @return
+    */
+    Error getDLT(int maxAttempts = -1);
+    /**
+    * @brief Gets dmt from OM and upadtes dmt manager
+    *
+    * @param maxAttempts - maximum attempts to try.  Set to -1 to try a lot
+    *
+    * @return
+    */
+    Error getDMT(int maxAttempts = -1);
 
     /**
     * @brief Return true if e is an error service layer should handle
