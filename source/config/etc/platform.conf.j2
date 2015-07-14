@@ -249,6 +249,12 @@ fds: {
 
             /* Maximum concurrent migrations */
             migration_max_concurrency = {{ dm_migration_max_concurrency }}
+
+            /* Maximum number of blobs in delta set */
+            migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
+
+            /* Maximum number of blob desc in delta set */
+            migration_max_delta_blob_desc = {{ dm_migration_max_delta_blob_desc }}
         }
 
         /* Graphite is enabled or not */
