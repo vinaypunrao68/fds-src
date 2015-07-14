@@ -44,6 +44,10 @@ class DmMigrationExecutor {
     /**
      * Step 2:
      * Process the incoming deltaObject set coming from the source DM.
+     * This method will apply everything in the msg into the levelDB once it's
+     * finished. It will also update the client's internal mapping to know
+     * which blob has applied which sequence numbers, and whether or not the whole
+     * set has been applied.
      */
     Error processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 

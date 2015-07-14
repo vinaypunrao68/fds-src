@@ -128,8 +128,37 @@ DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &ms
 	 * TODO : start buffering process. FS-2486 is to be implemented here.
 	 */
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
-	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
+	if (msg->blob_obj_list.size() == 0) {
+		return ERR_INVALID_ARG;
+	}
+	// TODO: add sequence IDs and last_msg_seq_id from msg
 
-	return ERR_OK;
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
+	Error err(ERR_OK);
+	std::string blobName;
+
+	// Start with an empty lists, which will work on a single blob_name
+	BlobObjList list;
+	std::vector<fpi::DMMigrationObjListDiff>::const_iterator bolIter = msg->blob_obj_list.begin();
+	while (bolIter != msg->blob_obj_list.end()) {
+		blobName = blobName.empty() ? bolIter->blob_name : blobName;
+		if (blobName != bolIter->blob_name) {
+			// TODO: New blob. Flush current exist list and start new list
+			blobName = bolIter->blob_name;
+		}
+
+
+
+		++bolIter;
+	}
+
+
+
+#if 0
+	err = dataMgr.timeVolCat_->volcat->putPartialBlob(volumeUuid, blobName,
+			boost::make_shared<BlobObjList>(list));
+#endif
+
+	return err;
 }
 }  // namespace fds
