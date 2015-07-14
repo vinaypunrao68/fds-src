@@ -384,11 +384,15 @@ NbdOperations::updateBlobResp(const Error &error, handle_type& requestId) {
     fds_assert(resp);
 
     // respond to all chained requests FIRST
-    for (auto chained_resp : resp->chained_responses) {
-        if (chained_resp->handleWriteResponse(error)) {
-            finishResponse(chained_resp);
+    auto chain_it = resp->chained_responses.find(seqId);
+    if (resp->chained_responses.end() != chain_it) {
+        for (auto chained_resp : chain_it->second) {
+            if (chained_resp->handleWriteResponse(error)) {
+                finishResponse(chained_resp);
+            }
         }
     }
+
     if (resp->handleWriteResponse(error)) {
         finishResponse(resp);
     }
@@ -405,6 +409,7 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
     bool update_queued {true};
     handle_type queued_handle;
     NbdResponseVector* last_chained = nullptr;
+    std::deque<NbdResponseVector*> chain;
 
     //  Either we explicitly are handling a RMW or checking to see if there are
     //  any new ones in the queue
@@ -442,8 +447,7 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
                 if (nullptr != last_chained) {
                     // If we're chaining, use the last chain, copy the chain
                     // and add it to the chain
-                    queued_resp->chained_responses.swap(last_chained->chained_responses);
-                    queued_resp->chained_responses.push_back(last_chained);
+                    chain.push_back(last_chained);
                 }
                 last_chained = queued_resp;
             }
@@ -460,6 +464,7 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
 
     // Update the blob if we have updates to make
     if (nullptr != last_chained) {
+        last_chained->chained_responses[queued_handle.seq].swap(chain);
         auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
         auto off = boost::make_shared<apis::ObjectOffset>();
         off->value = offset;

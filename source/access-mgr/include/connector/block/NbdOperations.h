@@ -177,7 +177,7 @@ struct NbdResponseVector {
 
     // These are the responses we are also in charge of responding to, in order
     // with ourselves being last.
-    std::deque<NbdResponseVector*> chained_responses;
+    std::unordered_map<fds_uint32_t, std::deque<NbdResponseVector*>> chained_responses;
 
   private:
     NbdOperation operation;
