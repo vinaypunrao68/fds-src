@@ -407,16 +407,18 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
 }
 
 Error DmVolumeCatalog::getBlobAndMetaFromSnapshot(fds_volid_t volId,
-                                                  fds_uint64_t blob_id,
+                                                  const std::string& blobName,
                                                   BlobMetaDesc &meta,
-                                                  std::vector<fpi::DMBlobObjListDiff>* obj_list,
-                                                  Catalog::MemSnap snap) {
+                                                   fpi::FDSP_BlobObjectList& obj_list,
+                                                  const Catalog::MemSnap snap) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
-    Error rc = vol->getBlobMetaDesc(blob_id, meta, snap);
+    Error rc = vol->getBlobMetaDesc(blobName, meta, snap);
 
-    rc = vol->getObject(blob_id, *obj_list, snap);
+    fds_uint64_t reverse_engineer_last_offset = (std::numeric_limits<fds_uint32_t>::max()-1)* objSize_;
+
+    rc = vol->getObject(blobName, 0, reverse_engineer_last_offset, *obj_list, snap);
 
     return rc;
 }

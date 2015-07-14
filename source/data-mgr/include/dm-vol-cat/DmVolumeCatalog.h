@@ -210,8 +210,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getBlobAndMetaFromSnapshot(fds_volid_t volume_id,
                                      fds_uint64_t blob_id,
                                      BlobMetaDesc &meta,
-                                     std::vector<fpi::DMBlobObjListDiff>* obj_list,
-                                     Catalog::MemSnap snap) override;
+                                     fpi::FDSP_BlobObjectList& obj_list,
+                                     const Catalog::MemSnap snap) override;
 
     /**
      * Returns the list of blobs in the volume with basic blob info
@@ -265,7 +265,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id);
 
     Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::MemSnap snap);
+														const Catalog::MemSnap snap);
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 

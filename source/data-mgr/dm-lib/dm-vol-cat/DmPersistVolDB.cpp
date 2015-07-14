@@ -146,20 +146,15 @@ Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
 }
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
-        BlobMetaDesc & blobMeta) {
-    return getBlobMetaDesc(DmPersistVolCat::getBlobIdFromName(blobName), blobMeta);
-}
-
-Error DmPersistVolDB::getBlobMetaDesc(fds_uint64_t blobId,
                                       BlobMetaDesc & blobMeta,
                                       Catalog::MemSnap snap) {
-    const BlobObjKey key(blobId, BLOB_META_INDEX);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
     Error rc = catalog_->Query(keyRec, &value, snap);
     if (!rc.ok()) {
-        LOGNOTIFY << "Failed to get metadata for blob: '" << blobId << "' volume: '"
+        LOGNOTIFY << "Failed to get metadata for blob: '" << blobName << "' volume: '"
                 << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
         return rc;
     }
@@ -284,7 +279,8 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t startOffset,
-        fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) {
+                                fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList,
+                                const Catalog::MemSnap snap) {
     fds_assert(startOffset <= endOffset);
     fds_verify(0 == startOffset % objSize_);
     fds_verify(0 == endOffset % objSize_);
@@ -299,8 +295,13 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    auto dbIt = catalog_->NewIterator();
-    fds_assert(dbIt);
+    auto dbIt = catalog_->NewIterator(snap);
+
+    if (!dbIt) {
+        LOGERROR << "Error creating iterator for ldb on volume " << volId_;
+        return ERR_INVALID;
+    }
+
     objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
@@ -314,43 +315,9 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
 
         objList.push_back(std::move(blobInfo));
     }
-    fds_assert(dbIt->status().ok());  // check for any errors during the scan
-
-    return ERR_OK;
-}
-
-/* a simpler implementation than the others, because we want all
-   the object offset mappings. start at 0, end before the blob descriptor */
-Error DmPersistVolDB::getObject(const fds_uint64_t blob_id,
-                                std::vector<fpi::DMBlobObjListDiff>& obj_list,
-                                Catalog::MemSnap snap) {
-    BlobObjKey startKey(blob_id, 0);
-    const Record startRec(reinterpret_cast<const char *>(&startKey), sizeof(BlobObjKey));
-
-    BlobObjKey endKey(blob_id, BLOB_META_INDEX);
-    const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
-
-    auto dbIt = catalog_->NewIterator(snap);
-
-    if (!dbIt) {
-        LOGERROR << "Error creating iterator for ldb on volume " << volId_;
-        return ERR_INVALID;
-    }
-
-    for (dbIt->Seek(startRec); dbIt->Valid() &&
-            catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) < 0;
-            dbIt->Next()) {
-        const BlobObjKey * key = reinterpret_cast<const BlobObjKey *>(dbIt->key().data());
-
-        fpi::DMBlobObjListDiff blobInfo;
-        blobInfo.obj_offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
-        blobInfo.obj_id.digest = std::move(dbIt->value().ToString());
-
-        obj_list.push_back(std::move(blobInfo));
-    }
 
     if (!dbIt->status().ok()) {
-        LOGERROR << "Error getting offsets for blob " << blob_id << " for volume " << volId_
+        LOGERROR << "Error getting offsets for blob " << blobName << " for volume " << volId_
                  << " : " << dbIt->status().ToString();
 
         return status2error(dbIt->status());

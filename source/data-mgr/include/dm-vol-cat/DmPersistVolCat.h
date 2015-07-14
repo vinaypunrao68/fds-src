@@ -123,30 +123,27 @@ class DmPersistVolCat {
     // gets
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & blobMeta) = 0;
 
-    virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
-
-    virtual Error getBlobMetaDesc(fds_uint64_t blobId, BlobMetaDesc & blobMeta,
-                                  Catalog::MemSnap snap) = 0;
+    virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta,
+                                  const Catalog::MemSnap snap) = 0;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
             ObjectID & obj) = 0;
 
-    virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
-            fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) = 0;
+    virtual Error getObject(const std::string & blobName,
+                            fds_uint64_t startOffset,
+                            fds_uint64_t endOffset,
+                            fpi::FDSP_BlobObjectList& objList,
+                            const Catalog::MemSnap snap) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) = 0;
 
-    virtual Error getObject(const fds_uint64_t blob_id,
-                            std::vector<fpi::DMBlobObjListDiff>& obj_list,
-                            Catalog::MemSnap snap) = 0;
-
     virtual Error getLatestSequenceId(blob_version_t & max) = 0;
 
     virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsWithSeqId,
-                                            Catalog::MemSnap snap) = 0;
+                                            const Catalog::MemSnap snap) = 0;
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
 
