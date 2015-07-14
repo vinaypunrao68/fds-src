@@ -1,6 +1,6 @@
 package com.formationds.iodriver.validators;
 
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * Doesn't actually validate anything.
@@ -8,7 +8,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 public class NullValidator implements Validator
 {
     @Override
-    public boolean isValid(AbstractWorkflowEventListener listener)
+    public boolean isValid(AbstractWorkloadEventListener listener)
     {
         return true;
     }

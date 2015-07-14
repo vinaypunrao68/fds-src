@@ -10,7 +10,7 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
-public abstract class AbstractWorkflowEventListener
+public abstract class AbstractWorkloadEventListener
 {
     /**
      * QoS statistics used by this class.
@@ -153,7 +153,7 @@ public abstract class AbstractWorkflowEventListener
      *
      * @param logger Someplace people can log stuff in an emergency.
      */
-    protected AbstractWorkflowEventListener(Logger logger)
+    protected AbstractWorkloadEventListener(Logger logger)
     {
         if (logger == null) throw new NullArgumentException("logger");
         

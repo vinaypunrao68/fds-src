@@ -9,4 +9,9 @@ import java.net.HttpURLConnection;
 public abstract class AbstractHttpOperation extends AbstractBaseHttpOperation<HttpURLConnection>
                                             implements HttpOperation
 // @eclipseFormat:on
-{ }
+{
+    protected AbstractHttpOperation()
+    {
+        super(HttpURLConnection.class);
+    }
+}

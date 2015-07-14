@@ -7,10 +7,12 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.endpoints.OmEndpoint;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
@@ -83,14 +85,22 @@ public final class Main
         if (workload == null) throw new NullArgumentException("workload");
 
         Class<?> neededEndpointClass = workload.getEndpointType();
-        if (neededEndpointClass.isAssignableFrom(S3Endpoint.class))
+        if (neededEndpointClass.isAssignableFrom(FdsEndpoint.class))
+        {
+            return Config.Defaults.getFdsEndpoint();
+        }
+        else if (neededEndpointClass.isAssignableFrom(S3Endpoint.class))
         {
             // TODO: Make this configurable.
             return Config.Defaults.getS3Endpoint();
         }
-        else if (neededEndpointClass.isAssignableFrom(OmEndpoint.class))
+        else if (neededEndpointClass.isAssignableFrom(OmV8Endpoint.class))
         {
-            return Config.Defaults.getOMV8Endpoint();
+            return Config.Defaults.getOmV8Endpoint();
+        }
+        else if (neededEndpointClass.isAssignableFrom(OmV7Endpoint.class))
+        {
+            return Config.Defaults.getOmV7Endpoint();
         }
         else
         {
@@ -135,7 +145,7 @@ public final class Main
     {
         if (config == null) throw new NullArgumentException("config");
 
-        AbstractWorkflowEventListener listener = config.getListener();
+        AbstractWorkloadEventListener listener = config.getListener();
         try (ConsoleProgressReporter reporter =
                 new ConsoleProgressReporter(System.out,
                                             listener.started,

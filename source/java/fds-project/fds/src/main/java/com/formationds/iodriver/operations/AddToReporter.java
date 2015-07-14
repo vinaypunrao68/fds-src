@@ -7,7 +7,7 @@ import java.util.stream.Stream;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * Add a given bucket to the reporter.
@@ -32,7 +32,7 @@ public class AddToReporter extends AbstractOperation
 
     @Override
     public void accept(Endpoint endpoint,
-                       AbstractWorkflowEventListener reporter) throws ExecutionException
+                       AbstractWorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (reporter == null) throw new NullArgumentException("reporter");

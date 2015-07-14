@@ -4,15 +4,15 @@ import java.time.Duration;
 import java.time.Instant;
 
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
 
 // TODO: Intended to verify that volumes get their assured IOPS without exceeding their throttles.
 //       Kind of works, not complete.
 public final class QosValidator implements Validator
 {
     @Override
-    public boolean isValid(AbstractWorkflowEventListener listener)
+    public boolean isValid(AbstractWorkloadEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
 

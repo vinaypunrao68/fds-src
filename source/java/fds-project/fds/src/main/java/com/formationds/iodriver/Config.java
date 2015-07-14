@@ -23,9 +23,11 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.OmEndpoint;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.RandomFill;
@@ -54,12 +56,22 @@ public final class Config extends AbstractConfig
      */
     public final static class Defaults extends AbstractConfig.Defaults
     {
+        public static FdsEndpoint getFdsEndpoint()
+        {
+            return _fdsEndpoint;
+        }
+        
+        public static OmV7Endpoint getOmV7Endpoint()
+        {
+            return _omV7Endpoint;
+        }
+        
         /**
          * Get the default OM v8 API endpoint.
          *
          * @return An endpoint to the local system.
          */
-        public static OmEndpoint getOMV8Endpoint()
+        public static OmV8Endpoint getOmV8Endpoint()
         {
             return _omV8Endpoint;
         }
@@ -79,7 +91,7 @@ public final class Config extends AbstractConfig
          * 
          * @return A stats-gathering and 1-input-many-output event hub.
          */
-        public static WorkflowEventListener getListener()
+        public static WorkloadEventListener getListener()
         {
             return _listener;
         }
@@ -101,28 +113,26 @@ public final class Config extends AbstractConfig
                 URI s3EndpointUrl = Fds.getS3Endpoint();
                 String s3EndpointText = s3EndpointUrl.toString();
 
-                URI apiBase = Fds.Api.getBase();
+                @SuppressWarnings("deprecation")
+                URI v7ApiBase = Fds.Api.V07.getBase();
                 URI v8ApiBase = Fds.Api.V08.getBase();
-                OmEndpoint omEndpointV8 =
-                        new OmEndpoint(v8ApiBase,
-                                                         "admin",
-                                                         "admin",
-                                                         AbstractConfig.Defaults.getLogger(),
-                                                         true,
-                                                         null);
-                OmEndpoint omEndpoint =
-                        new OmEndpoint(apiBase,
-                                                         "admin",
-                                                         "admin",
-                                                         AbstractConfig.Defaults.getLogger(),
-                                                         true,
-                                                         omEndpointV8);
-                S3Endpoint s3 = new S3Endpoint(s3EndpointText, omEndpoint, AbstractConfig.Defaults.getLogger());
+                OmV8Endpoint omEndpointV8 = new OmV8Endpoint(v8ApiBase,
+                                                             "admin",
+                                                             "admin",
+                                                             AbstractConfig.Defaults.getLogger(),
+                                                             true);
+                OmV7Endpoint omEndpointV7 = new OmV7Endpoint(v7ApiBase,
+                                                             "admin",
+                                                             "admin",
+                                                             AbstractConfig.Defaults.getLogger(),
+                                                             true);
+                S3Endpoint s3 = new S3Endpoint(s3EndpointText,
+                                               omEndpointV8,
+                                               AbstractConfig.Defaults.getLogger());
 
-                omEndpointV8.setS3(s3);
-                omEndpoint.setS3(s3);
-                
+                _fdsEndpoint = new FdsEndpoint(omEndpointV7, omEndpointV8, s3);
                 _s3Endpoint = s3;
+                _omV7Endpoint = omEndpointV7;
                 _omV8Endpoint = omEndpointV8;
             }
             catch (MalformedURLException e)
@@ -130,7 +140,7 @@ public final class Config extends AbstractConfig
                 // Should be impossible.
                 throw new IllegalStateException(e);
             }
-            _listener = new WorkflowEventListener(AbstractConfig.Defaults.getLogger());
+            _listener = new WorkloadEventListener(AbstractConfig.Defaults.getLogger());
             _validator = new RateLimitValidator();
         }
 
@@ -142,10 +152,12 @@ public final class Config extends AbstractConfig
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
 
+        private static final FdsEndpoint _fdsEndpoint;
+        
         /**
          * Default event listener.
          */
-        private static final WorkflowEventListener _listener;
+        private static final WorkloadEventListener _listener;
 
         /**
          * Default S3 endpoint.
@@ -157,10 +169,12 @@ public final class Config extends AbstractConfig
          */
         private static final Validator _validator;
 
+        private static final OmV7Endpoint _omV7Endpoint;
+        
         /**
          * Default version-8 API OM endpoint.
          */
-        private static final OmEndpoint _omV8Endpoint;
+        private static final OmV8Endpoint _omV8Endpoint;
     }
 
     /**
@@ -209,7 +223,7 @@ public final class Config extends AbstractConfig
      * 
      * @return An event hub.
      */
-    public WorkflowEventListener getListener()
+    public WorkloadEventListener getListener()
     {
         // TODO: ALlow this to be configured.
         return Defaults.getListener();

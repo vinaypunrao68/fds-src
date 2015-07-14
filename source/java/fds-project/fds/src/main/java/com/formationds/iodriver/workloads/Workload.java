@@ -19,11 +19,10 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.commons.util.NullableMutableReference;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
-import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 
 /**
@@ -57,7 +56,7 @@ public abstract class Workload
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(Endpoint endpoint, AbstractWorkflowEventListener listener)
+    public final void runOn(Endpoint endpoint, AbstractWorkloadEventListener listener)
             throws ExecutionException
     // @eclipseFormat:on
     {
@@ -77,10 +76,6 @@ public abstract class Workload
                         ExceptionThrowingConsumer<Operation, ExecutionException> exec =
                                 op -> endpoint.visit(op, listener);
 
-                        // Log operations if requested.
-                        ExceptionThrowingConsumer<Operation, ExecutionException> loggingExec =
-                                debugWrap(exec, getLogOperations() ? listener.getLogger() : null); 
-
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
                         // but hits this compiler bug:
                         //
@@ -94,8 +89,8 @@ public abstract class Workload
                         // When this bug is fixed (check 8u40 and >= 8u45), reduce to just
                         // tunnel(...) with a static import.
                         Consumer<Operation> tunneledExec =
-                                ExceptionHelper.<Operation, ExecutionException>
-                                               tunnel(loggingExec, ExecutionException.class);
+                                ExceptionHelper.<Operation, ExecutionException>tunnel(
+                                        exec, ExecutionException.class);
                         
                         // Synchronize all worker threads. This only ensures that they start work
                         // at the same time--if you need to synchronize at different points, use
@@ -169,7 +164,7 @@ public abstract class Workload
      */
     // @eclipseFormat:off
     public final void setUp(Endpoint endpoint,
-                            AbstractWorkflowEventListener listener) throws ExecutionException
+                            AbstractWorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -178,11 +173,10 @@ public abstract class Workload
         ensureInitialized();
 
         // See comment in runOn().
-        ExceptionHelper.<Operation, ExecutionException>
-                       tunnel(ExecutionException.class,
-                              from -> _setup.forEach(from),
-                              debugWrap((Operation op) -> endpoint.visit(op, listener),
-                                        getLogOperations() ? listener.getLogger() : null));
+        ExceptionHelper.<Operation, ExecutionException>tunnel(
+                ExecutionException.class,
+                from -> _setup.forEach(from),
+                op -> endpoint.visit(op, listener));
     }
 
     /**
@@ -196,7 +190,7 @@ public abstract class Workload
      */
     // @eclipseFormat:off
     public final void tearDown(Endpoint endpoint,
-                               AbstractWorkflowEventListener listener) throws ExecutionException
+                               AbstractWorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -205,11 +199,10 @@ public abstract class Workload
         ensureInitialized();
 
         // See comment in runOn().
-        ExceptionHelper.<Operation, ExecutionException>
-                       tunnel(ExecutionException.class,
-                              from -> _teardown.forEach(from),
-                              debugWrap((Operation op) -> endpoint.visit(op, listener),
-                                        getLogOperations() ? listener.getLogger() : null));
+        ExceptionHelper.<Operation, ExecutionException>tunnel(
+                ExecutionException.class,
+                from -> _teardown.forEach(from),
+                op -> endpoint.visit(op, listener));
     }
 
     /**
@@ -330,23 +323,4 @@ public abstract class Workload
      * Cleanup instructions.
      */
     private Stream<Operation> _teardown;
-
-    private ExceptionThrowingConsumer<Operation, ExecutionException> debugWrap(
-            ExceptionThrowingConsumer<Operation, ExecutionException> exec, Logger logger)
-    {
-        if (exec == null) throw new NullArgumentException("exec");
-        
-        if (logger == null)
-        {
-            return exec;
-        }
-        else
-        {
-            return op -> 
-                   {
-                       logger.logDebug("Executing: " + op);
-                       exec.accept(op);
-                   };
-        }
-    }
 }

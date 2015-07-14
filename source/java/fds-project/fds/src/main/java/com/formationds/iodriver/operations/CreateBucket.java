@@ -6,9 +6,8 @@ import java.util.stream.Stream;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * Create an S3 bucket.
@@ -29,12 +28,13 @@ public class CreateBucket extends S3Operation
 
     @Override
     public void accept(S3Endpoint endpoint,
-                       AbstractWorkflowEventListener reporter) throws ExecutionException
+                       AmazonS3Client client,
+                       AbstractWorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
 
-        AmazonS3Client client = getClientWrapped(endpoint);
         try
         {
             client.createBucket(_bucketName);
@@ -43,16 +43,6 @@ public class CreateBucket extends S3Operation
         {
             throw new ExecutionException("Error creating bucket.", e);
         }
-    }
-
-    @Override
-    public void accept(Endpoint endpoint,
-                       AbstractWorkflowEventListener listener) throws ExecutionException
-    {
-        if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        endpoint.visit(this, listener);
     }
     
     @Override

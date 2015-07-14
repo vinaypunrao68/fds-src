@@ -6,8 +6,8 @@ import java.time.Instant;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
 
 /**
  * Validate that no volume exceeded its throttle by more than 1%.
@@ -15,7 +15,7 @@ import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQo
 public final class RateLimitValidator implements Validator
 {
     @Override
-    public boolean isValid(AbstractWorkflowEventListener listener)
+    public boolean isValid(AbstractWorkloadEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
 

@@ -18,12 +18,12 @@ import com.formationds.iodriver.model.VolumeQosSettings;
  * 
  * Gathers statistics from those events. Passes on events to multiple consumers.
  */
-public final class WorkflowEventListener extends AbstractWorkflowEventListener
+public final class WorkloadEventListener extends AbstractWorkloadEventListener
 {
     /**
      * Constructor.
      */
-    public WorkflowEventListener(Logger logger)
+    public WorkloadEventListener(Logger logger)
     {
         this(new HashMap<>(), logger);
     }
@@ -33,7 +33,7 @@ public final class WorkflowEventListener extends AbstractWorkflowEventListener
      * 
      * @param params QoS statistics.
      */
-    public WorkflowEventListener(Map<String, VolumeQosSettings> params, Logger logger)
+    public WorkloadEventListener(Map<String, VolumeQosSettings> params, Logger logger)
     {
         super(logger);
         

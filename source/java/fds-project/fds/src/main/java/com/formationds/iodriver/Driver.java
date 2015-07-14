@@ -3,7 +3,7 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 
@@ -22,7 +22,7 @@ public final class Driver
      */
     public Driver(Endpoint endpoint,
                   Workload workload,
-                  AbstractWorkflowEventListener listener,
+                  AbstractWorkloadEventListener listener,
                   Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -79,7 +79,7 @@ public final class Driver
      * 
      * @return The current property value.
      */
-    public AbstractWorkflowEventListener getListener()
+    public AbstractWorkloadEventListener getListener()
     {
         return _listener;
     }
@@ -91,7 +91,7 @@ public final class Driver
      */
     public int getResult()
     {
-        AbstractWorkflowEventListener listener = getListener();
+        AbstractWorkloadEventListener listener = getListener();
         Validator validator = getValidator();
 
         if (validator.isValid(listener))
@@ -133,7 +133,7 @@ public final class Driver
     public void runWorkload() throws ExecutionException
     {
         ensureSetUp();
-        AbstractWorkflowEventListener listener = getListener();
+        AbstractWorkloadEventListener listener = getListener();
         try
         {
             getWorkload().runOn(getEndpoint(), listener);
@@ -150,7 +150,7 @@ public final class Driver
      * 
      * @param listener The property value to set.
      */
-    public void setListener(AbstractWorkflowEventListener listener)
+    public void setListener(AbstractWorkloadEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
 
@@ -159,7 +159,7 @@ public final class Driver
 
     public static Driver newDriver(Endpoint endpoint,
                                    Workload workload,
-                                   AbstractWorkflowEventListener listener,
+                                   AbstractWorkloadEventListener listener,
                                    Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -184,7 +184,7 @@ public final class Driver
     /**
      * Observes events from {@link #_workload}.
      */
-    private AbstractWorkflowEventListener _listener;
+    private AbstractWorkloadEventListener _listener;
 
     /**
      * The instructions to run on {@link #_endpoint}.

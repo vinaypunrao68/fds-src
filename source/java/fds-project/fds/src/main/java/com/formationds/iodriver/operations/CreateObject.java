@@ -16,7 +16,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * Create an object in an S3 bucket.
@@ -105,12 +105,13 @@ public final class CreateObject extends S3Operation
 
     @Override
     public void accept(S3Endpoint endpoint,
-                       AbstractWorkflowEventListener reporter) throws ExecutionException
+                       AmazonS3Client client,
+                       AbstractWorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
 
-        AmazonS3Client client = getClientWrapped(endpoint);
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(_contentLength);
         try (InputStream input = _input.get())
@@ -137,7 +138,7 @@ public final class CreateObject extends S3Operation
     
     @Override
     public void accept(Endpoint endpoint,
-                       AbstractWorkflowEventListener listener) throws ExecutionException
+                       AbstractWorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");

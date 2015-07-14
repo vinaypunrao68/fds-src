@@ -12,4 +12,9 @@ import javax.net.ssl.HttpsURLConnection;
 public abstract class AbstractHttpsOperation extends AbstractBaseHttpOperation<HttpsURLConnection>
                                              implements HttpsOperation
 // @eclipseFormat:on
-{ }
+{
+    protected AbstractHttpsOperation()
+    {
+        super(HttpsURLConnection.class);
+    }
+}

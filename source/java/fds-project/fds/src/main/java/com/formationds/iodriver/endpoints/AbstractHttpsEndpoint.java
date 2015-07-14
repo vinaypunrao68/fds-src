@@ -17,10 +17,10 @@ import com.formationds.commons.util.logging.Logger;
  * Endpoint that only accepts HTTPS connections.
  * 
  * @param <ThisT> The implementing class.
- * @param <OperationT> Type of operations that may be visited.
  */
 // @eclipseFormat:off
-public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<HttpsURLConnection>
+public abstract class AbstractHttpsEndpoint<ThisT extends AbstractHttpsEndpoint<ThisT>>
+        extends AbstractBaseHttpEndpoint<ThisT, HttpsURLConnection>
 // @eclipseFormat:on
 {
     /**
@@ -74,7 +74,7 @@ public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<Htt
                                  Logger logger,
                                  boolean trusting)
     {
-        super(url, logger);
+        super(url, logger, HttpsURLConnection.class);
 
         String scheme = url.getProtocol();
         if (scheme == null || !scheme.equalsIgnoreCase("https"))
@@ -95,11 +95,12 @@ public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<Htt
     {
         return _trusting;
     }
-
+    
     /**
      * Extend this class to allow deep copies even when superclass private members aren't available.
      */
-    protected class CopyHelper extends AbstractBaseHttpEndpoint<HttpsURLConnection>.CopyHelper
+    protected class CopyHelper
+            extends AbstractBaseHttpEndpoint<ThisT, HttpsURLConnection>.CopyHelper
     {
         /**
          * Whether normally-untrusted certificates should be accepted.
@@ -124,17 +125,12 @@ public abstract class AbstractHttpsEndpoint extends AbstractBaseHttpEndpoint<Htt
     {
         if (url == null) throw new NullArgumentException("url");
 
-        HttpsURLConnection connection = openConnection(url);
+        HttpsURLConnection connection = super.openConnection(url);
 
         if (isTrusting())
         {
-            if (connection instanceof HttpsURLConnection)
-            {
-                HttpsURLConnection typedConnection = (HttpsURLConnection)connection;
-
-                typedConnection.setSSLSocketFactory(_trustingSocketFactory);
-                typedConnection.setHostnameVerifier(_trustingHostnameVerifier);
-            }
+            connection.setSSLSocketFactory(_trustingSocketFactory);
+            connection.setHostnameVerifier(_trustingHostnameVerifier);
         }
 
         return connection;

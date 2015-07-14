@@ -3,7 +3,7 @@ package com.formationds.iodriver.operations;
 import java.net.URI;
 
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 public interface BaseHttpOperation<ConnectionT> extends Operation
 {
@@ -19,7 +19,14 @@ public interface BaseHttpOperation<ConnectionT> extends Operation
      */
     void accept(BaseHttpEndpoint<ConnectionT> endpoint,
                 ConnectionT connection,
-                AbstractWorkflowEventListener reporter) throws ExecutionException;
+                AbstractWorkloadEventListener reporter) throws ExecutionException;
+
+    /**
+     * Get the type of connection this operation requires.
+     *
+     * @return The current property value.
+     */
+    Class<ConnectionT> getConnectionType();
     
     /**
      * Get the relative URI (to the endpoint) that will be requested.

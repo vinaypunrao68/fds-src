@@ -15,17 +15,9 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.operations.BaseHttpOperation;
-import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
-/**
- * An endpoint connecting to an FDS Orchestration Manager.
- */
-// @eclipseFormat:off
-public class OmEndpoint extends AbstractHttpsEndpoint
-// @eclipseFormat:on
+public abstract class OmBaseEndpoint<ThisT extends OmBaseEndpoint<ThisT>>
+        extends AbstractHttpsEndpoint<ThisT>
 {
     /**
      * An OM authentication token. This should be considered an opaque string.
@@ -64,16 +56,14 @@ public class OmEndpoint extends AbstractHttpsEndpoint
      * @param password The password to use to acquire the auth token.
      * @param logger Log messages are sent here.
      * @param trusting Whether to trust all SSL certs. Should not be {@code true} in production.
-     * @param v8 A version 8 API endpoint.
      * 
      * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
      */
-    public OmEndpoint(URI uri,
-                      String username,
-                      String password,
-                      Logger logger,
-                      boolean trusting,
-                      OmEndpoint v8) throws MalformedURLException
+    public OmBaseEndpoint(URI uri,
+                          String username,
+                          String password,
+                          Logger logger,
+                          boolean trusting) throws MalformedURLException
     {
         super(uri, logger, trusting);
 
@@ -82,16 +72,8 @@ public class OmEndpoint extends AbstractHttpsEndpoint
 
         _username = username;
         _password = password;
-
-        _v8 = v8;
     }
-
-    public OmEndpoint copy()
-    {
-        CopyHelper copyHelper = new CopyHelper();
-        return new OmEndpoint(copyHelper);
-    }
-
+    
     /**
      * Log into the OM and get the authentication token to be used in future requests.
      * 
@@ -134,10 +116,7 @@ public class OmEndpoint extends AbstractHttpsEndpoint
         return _authToken;
     }
 
-    public final S3Endpoint getS3()
-    {
-        return _s3;
-    }
+    public abstract ThisT copy();
     
     /**
      * Get the username to use to log into the OM.
@@ -150,51 +129,13 @@ public class OmEndpoint extends AbstractHttpsEndpoint
     }
 
     /**
-     * Get the version 8 API OM endpoint.
-     *
-     * @return An OM endpoint that supports API version 8.
-     */
-    public final OmEndpoint getV8()
-    {
-        return _v8;
-    }
-
-    public final void setS3(S3Endpoint value)
-    {
-        _s3 = value;
-    }
-
-    @Override
-    public void visit(BaseHttpOperation<HttpsURLConnection> operation,
-                      AbstractWorkflowEventListener listener) throws ExecutionException
-    {
-        if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        operation.accept(this, listener);
-    }
-                      
-    
-    @Override
-    public void visit(Operation operation,
-                      AbstractWorkflowEventListener listener) throws ExecutionException
-    {
-        if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        operation.accept(this, listener);
-    }
-    
-    /**
      * Extend this class to allow deep copies even when the superclass private members aren't
      * available.
      */
-    protected final class CopyHelper extends AbstractHttpsEndpoint.CopyHelper
+    protected final class CopyHelper extends AbstractHttpsEndpoint<ThisT>.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
-        public final OmEndpoint v8 = _v8 == null ? null : _v8.copy();
-        public final S3Endpoint s3 = _s3 == null ? null : _s3.copy();
     }
 
     /**
@@ -202,14 +143,12 @@ public class OmEndpoint extends AbstractHttpsEndpoint
      * 
      * @param helper Object holding copied values to assign to the new object.
      */
-    protected OmEndpoint(CopyHelper helper)
+    protected OmBaseEndpoint(CopyHelper helper)
     {
         super(helper);
 
         _password = helper.password;
         _username = helper.username;
-        _v8 = helper.v8;
-        _s3 = helper.s3;
     }
 
     @Override
@@ -246,8 +185,6 @@ public class OmEndpoint extends AbstractHttpsEndpoint
      * The token used to authenticate requests. {@code null} prior to login.
      */
     private AuthToken _authToken;
-
-    private S3Endpoint _s3;
     
     /**
      * The password to use when authenticating.
@@ -258,9 +195,4 @@ public class OmEndpoint extends AbstractHttpsEndpoint
      * The username to use when authenticating.
      */
     private final String _username;
-
-    /**
-     * Version 8 API OM endpoint.
-     */
-    private final OmEndpoint _v8;
 }

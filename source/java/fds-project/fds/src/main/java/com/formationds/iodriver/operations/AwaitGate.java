@@ -7,7 +7,7 @@ import java.util.stream.Stream;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 public class AwaitGate extends AbstractOperation
 {
@@ -18,9 +18,11 @@ public class AwaitGate extends AbstractOperation
         _gate = gate;
     }
     
-    public void accept(AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(Endpoint endpoint,
+                       AbstractWorkloadEventListener listener) throws ExecutionException
     {
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (listener == null) throw new NullArgumentException("listener");
         
         try
         {
@@ -34,15 +36,6 @@ public class AwaitGate extends AbstractOperation
         {
             throw new ExecutionException("Error waiting on gate.", e);
         }
-    }
-    
-    public void accept(Endpoint endpoint,
-                       AbstractWorkflowEventListener listener) throws ExecutionException
-    {
-        if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        endpoint.visit(this, listener);
     }
     
     @Override

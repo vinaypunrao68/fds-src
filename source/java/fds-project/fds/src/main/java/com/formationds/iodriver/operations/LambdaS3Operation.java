@@ -3,9 +3,10 @@ package com.formationds.iodriver.operations;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.stream.Stream;
 
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * Execute an arbitrary operation on an S3 endpoint.
@@ -20,7 +21,8 @@ public class LambdaS3Operation extends S3Operation
     {
         // @eclipseFormat:off
         void accept(S3Endpoint endpoint,
-                    AbstractWorkflowEventListener reporter) throws ExecutionException;
+                    AmazonS3Client client,
+                    AbstractWorkloadEventListener reporter) throws ExecutionException;
         // @eclipseFormat:on
     }
 
@@ -50,13 +52,15 @@ public class LambdaS3Operation extends S3Operation
     @Override
     // @eclipseFormat:off
     public void accept(S3Endpoint endpoint,
-                       AbstractWorkflowEventListener listener) throws ExecutionException
+                       AmazonS3Client client,
+                       AbstractWorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (client == null) throw new NullArgumentException("client");
         if (listener == null) throw new NullArgumentException("listener");
         
-        _delegate.accept(endpoint, listener);
+        _delegate.accept(endpoint, client, listener);
     }
 
     @Override
@@ -82,6 +86,6 @@ public class LambdaS3Operation extends S3Operation
     {
         if (action == null) throw new NullArgumentException("action");
 
-        return (e, r) -> action.run();
+        return (e, c, r) -> action.run();
     }
 }

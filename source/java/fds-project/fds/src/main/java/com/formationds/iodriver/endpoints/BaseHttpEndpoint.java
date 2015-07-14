@@ -4,7 +4,7 @@ import java.nio.charset.Charset;
 
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * An endpoint that targets an HTTP server.
@@ -34,8 +34,10 @@ public interface BaseHttpEndpoint<ConnectionT> extends Endpoint
      *
      * @throws HttpException when an error occurs sending the request or receiving the response.
      */
-    public String doRead(ConnectionT connection) throws HttpException;
-    
+    String doRead(ConnectionT connection) throws HttpException;
+
+    Class<ConnectionT> getConnectionType();
+
     /**
      * Execute an an operation that requires an HTTP connection.
      *
@@ -45,5 +47,5 @@ public interface BaseHttpEndpoint<ConnectionT> extends Endpoint
      * @throws ExecutionException when an error occurs.
      */
     void visit(BaseHttpOperation<ConnectionT> operation,
-               AbstractWorkflowEventListener listener) throws ExecutionException;
+               AbstractWorkloadEventListener listener) throws ExecutionException;
 }

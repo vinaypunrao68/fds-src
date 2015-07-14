@@ -9,11 +9,11 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.endpoints.OmEndpoint.AuthToken;
+import com.formationds.iodriver.endpoints.OmBaseEndpoint.AuthToken;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 /**
  * An S3 service endpoint.
@@ -30,7 +30,7 @@ public final class S3Endpoint implements Endpoint
      * @throws MalformedURLException when {@code s3url} is not a valid absolute URL.
      */
     public S3Endpoint(String s3url,
-                      OmEndpoint omEndpoint,
+                      OmBaseEndpoint<?> omEndpoint,
                       Logger logger) throws MalformedURLException
     {
         if (s3url == null) throw new NullArgumentException("s3url");
@@ -49,36 +49,6 @@ public final class S3Endpoint implements Endpoint
     }
 
     /**
-     * Get the S3 client.
-     * 
-     * @return The S3 client.
-     * 
-     * @throws IOException when an error occurs creating the client.
-     */
-    public final AmazonS3Client getClient() throws IOException
-    {
-        if (_client == null)
-        {
-            AuthToken authToken = _omEndpoint.getAuthToken();
-            _client = new AmazonS3Client(new BasicAWSCredentials(getOmEndpoint().getUsername(),
-                                                                 authToken.toString()));
-            _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-            _client.setEndpoint(_s3url);
-        }
-        return _client;
-    }
-
-    /**
-     * Get the Orchestration Manager endpoint used to authenticate.
-     * 
-     * @return An OM endpoint.
-     */
-    public OmEndpoint getOmEndpoint()
-    {
-        return _omEndpoint;
-    }
-
-    /**
      * Perform an operation on this endpoint.
      * 
      * @param operation The operation to perform.
@@ -88,19 +58,40 @@ public final class S3Endpoint implements Endpoint
      */
     // @eclipseFormatter:off
     public void visit(S3Operation operation,
-                      AbstractWorkflowEventListener listener) throws ExecutionException
+                      AbstractWorkloadEventListener listener) throws ExecutionException
     // @eclipseFormatter:on
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
 
-        operation.accept(this, listener);
+        AmazonS3Client client;
+        try
+        {
+            client = getClient();
+        }
+        catch (IOException e)
+        {
+            throw new ExecutionException("Error getting S3 client.", e);
+        }
+        
+        operation.accept(this, client, listener);
     }
     
+    @Override
     public void visit(Operation operation,
-                      AbstractWorkflowEventListener listener) throws ExecutionException
+                      AbstractWorkloadEventListener listener) throws ExecutionException
     {
-        operation.accept(this, listener);
+        if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        if (operation instanceof S3Operation)
+        {
+            visit((S3Operation)operation, listener);
+        }
+        else
+        {
+            operation.accept(this, listener);
+        }
     }
 
     /**
@@ -110,7 +101,7 @@ public final class S3Endpoint implements Endpoint
     protected class CopyHelper
     {
         public final Logger logger = _logger;
-        public final OmEndpoint omEndpoint = _omEndpoint.copy();
+        public final OmBaseEndpoint<?> omEndpoint = _omEndpoint.copy();
         public final String s3url = _s3url;
     }
 
@@ -127,6 +118,26 @@ public final class S3Endpoint implements Endpoint
     }
 
     /**
+     * Get the S3 client.
+     * 
+     * @return The S3 client.
+     * 
+     * @throws IOException when an error occurs creating the client.
+     */
+    protected final AmazonS3Client getClient() throws IOException
+    {
+        if (_client == null)
+        {
+            AuthToken authToken = _omEndpoint.getAuthToken();
+            _client = new AmazonS3Client(new BasicAWSCredentials(_omEndpoint.getUsername(),
+                                                                 authToken.toString()));
+            _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+            _client.setEndpoint(_s3url);
+        }
+        return _client;
+    }
+
+    /**
      * The S3 client used for operations. {@code null} if not authenticated yet.
      */
     private AmazonS3Client _client;
@@ -139,7 +150,7 @@ public final class S3Endpoint implements Endpoint
     /**
      * OM endpoint used to authenticate.
      */
-    private final OmEndpoint _omEndpoint;
+    private final OmBaseEndpoint<?> _omEndpoint;
 
     /**
      * The base URL for requests.

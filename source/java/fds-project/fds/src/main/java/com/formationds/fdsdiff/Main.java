@@ -8,7 +8,7 @@ import java.io.OutputStream;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
-import com.formationds.iodriver.endpoints.OmEndpoint;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.NullWorkflowEventListener;
 
@@ -77,7 +77,7 @@ public final class Main
 		throw new UnsupportedOperationException("Trying to instantiate a utility class.");
 	}
 	
-	private static int gatherSystemContent(OmEndpoint endpoint,
+	private static int gatherSystemContent(FdsEndpoint endpoint,
 										   ComparisonDataFormat format,
 										   OutputStream output,
 										   Logger logger) throws ExecutionException
@@ -95,7 +95,7 @@ public final class Main
 		return 0;
 	}
 
-	private static int gatherSystemContent(OmEndpoint endpoint,
+	private static int gatherSystemContent(FdsEndpoint endpoint,
 										   ComparisonDataFormat format,
 										   String outputFilename,
 										   Logger logger) throws FileNotFoundException,

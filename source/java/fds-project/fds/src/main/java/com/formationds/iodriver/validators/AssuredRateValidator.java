@@ -6,13 +6,13 @@ import java.time.Instant;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
 
 public class AssuredRateValidator implements Validator
 {
     @Override
-    public boolean isValid(AbstractWorkflowEventListener listener)
+    public boolean isValid(AbstractWorkloadEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
         
@@ -58,7 +58,8 @@ public class AssuredRateValidator implements Validator
         }
         
         double totalDeviation = (totalIops - totalAssuredIops) / totalAssuredIops;
-        System.out.println("Total system IOPS: " + totalIops + "(" + totalDeviation * 100.0 + "%.");
+        System.out.println("Total system IOPS: " + totalIops
+                           + "(" + totalDeviation * 100.0 + "%).");
 
         // If we can go over 10% of what we requested for assured, we're not stressing the system
         // hard enough.

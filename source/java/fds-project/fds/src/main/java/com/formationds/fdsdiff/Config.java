@@ -4,7 +4,6 @@ import static com.formationds.commons.util.Strings.javaString;
 
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Optional;
 
 import org.apache.commons.cli.Options;
@@ -13,8 +12,11 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.endpoints.OmEndpoint;
+import com.formationds.iodriver.ConfigurationException;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
+import com.formationds.iodriver.endpoints.S3Endpoint;
 
 /**
  * Global configuration for {@link com.formationds.fdsdiff}.
@@ -37,9 +39,9 @@ public final class Config extends AbstractConfig
 		
 		_comparisonDataFormat = Optional.empty();
 		_endpointA = null;
-		_endpointAUrl = null;
+		_endpointAHost = null;
 		_endpointB = null;
-		_endpointBUrl = null;
+		_endpointBHost = null;
 		_inputFilename = null;
 		_outputFilename = null;
 	}
@@ -70,50 +72,58 @@ public final class Config extends AbstractConfig
 		return _comparisonDataFormat.get();
 	}
 	
-	public OmEndpoint getEndpointA() throws ParseException
+	public FdsEndpoint getEndpointA() throws ConfigurationException, ParseException
 	{
 		if (_endpointA == null)
 		{
-			URI endpointAUrl = getEndpointAUrl();
-			try {
-				_endpointA = new OmEndpoint(endpointAUrl,
-						                                      "admin",
-						                                      "admin",
-						                                      AbstractConfig.Defaults.getLogger(),
-						                                      true,
-						                                      null);
-			} catch (MalformedURLException e) {
-				throw new ParseException("Error reading endpoint URL: " + endpointAUrl);
-			}
+			String endpointAHost = getEndpointAHost();
+
+			_endpointA = getFdsEndpoint(endpointAHost);
 		}
 		return _endpointA;
 	}
 	
-	public URI getEndpointAUrl() throws ParseException
+	public Optional<FdsEndpoint> getEndpointB() throws ConfigurationException, ParseException
 	{
-		if (_endpointAUrl == null)
+	    if (_endpointB == null)
+	    {
+	        Optional<String> endpointBHost = getEndpointBHost();
+	        if (endpointBHost.isPresent())
+	        {
+	            _endpointB = Optional.of(getFdsEndpoint(endpointBHost.get()));
+	        }
+	        else
+	        {
+	            _endpointB = Optional.empty();
+	        }
+	    }
+	    return _endpointB;
+	}
+	
+	public String getEndpointAHost() throws ParseException
+	{
+		if (_endpointAHost == null)
 		{
-			URI newEndpointAUrl = null;
-			Optional<String> newEndpointAUrlString = getCommandLineOptionValue("endpoint-a");
-			if (newEndpointAUrlString.isPresent())
+			Optional<String> newEndpointAHost = getCommandLineOptionValue("endpoint-a");
+			if (newEndpointAHost.isPresent())
 			{
-				String val = newEndpointAUrlString.get();
-				try
-				{
-					newEndpointAUrl = new URI(val);
-				}
-				catch (URISyntaxException e)
-				{
-					throw new ParseException("Error parsing URL: " + javaString(val) + ".");
-				}
+				_endpointAHost = newEndpointAHost.get();
 			}
 			else
 			{
-				newEndpointAUrl = Fds.Api.V08.getBase();
+				_endpointAHost = "localhost";
 			}
-			_endpointAUrl = newEndpointAUrl;
 		}
-		return _endpointAUrl;
+		return _endpointAHost;
+	}
+	
+	public Optional<String> getEndpointBHost() throws ParseException
+	{
+	    if (_endpointBHost == null)
+	    {
+	        _endpointBHost = getCommandLineOptionValue("endpoint-b");
+	    }
+	    return _endpointBHost;
 	}
 	
 	public String getInputFilename() throws ParseException
@@ -142,8 +152,10 @@ public final class Config extends AbstractConfig
 		if (options == null) throw new NullArgumentException("options");
 		
 		options.addOption(null, "format", true, "The data format used for comparing systems.");
+		options.addOption(null, "endpoint-a", true, "The first host to compare.");
+		options.addOption(null, "endpoint-b", true, "The second host to compare.");
+        options.addOption("i", "input", true, "Read comparison data from the specified file.");
 		options.addOption("o", "output", true, "Output comparison data to the specified file.");
-		options.addOption("i", "input", true, "Read comparison data from the specified file.");
 	}
 	
 	@Override
@@ -154,15 +166,56 @@ public final class Config extends AbstractConfig
 	
 	private Optional<ComparisonDataFormat> _comparisonDataFormat;
 	
-	private OmEndpoint _endpointA;
+	private FdsEndpoint _endpointA;
 	
-	private URI _endpointAUrl;
+	private String _endpointAHost;
 	
-	private Optional<Endpoint> _endpointB;
+	private Optional<FdsEndpoint> _endpointB;
 
-	private Optional<URI> _endpointBUrl;
+	private Optional<String> _endpointBHost;
 	
 	private String _inputFilename;
 	
 	private String _outputFilename;
+    
+    private static FdsEndpoint getFdsEndpoint(String host) throws ConfigurationException
+    {
+        if (host == null) throw new NullArgumentException("host");
+        
+        @SuppressWarnings("deprecation")
+        URI omV7Url = Fds.Api.V07.getBase(host);
+        URI omV8Url = Fds.Api.V08.getBase(host);
+        URI s3Url = Fds.getS3Endpoint(host);
+        
+        // FIXME: Allow UN/PW to be specified.
+        OmV7Endpoint omV7;
+        try
+        {
+            omV7 = new OmV7Endpoint(omV7Url, "admin", "admin", Defaults.getLogger(), true);
+        }
+        catch (MalformedURLException e)
+        {
+            throw new ConfigurationException("Error setting OM v7 URL: " + omV7Url, e);
+        }
+        OmV8Endpoint omV8;
+        try
+        {
+            omV8 = new OmV8Endpoint(omV8Url, "admin", "admin", Defaults.getLogger(), true);
+        }
+        catch (MalformedURLException e)
+        {
+            throw new ConfigurationException("Error setting OM v8 URL: " + omV8Url, e);
+        }
+        S3Endpoint s3;
+        try
+        {
+            s3 = new S3Endpoint(s3Url.toString(), omV8, Defaults.getLogger());
+        }
+        catch (MalformedURLException e)
+        {
+            throw new ConfigurationException("Error setting S3 URL: " + s3Url, e);
+        }
+        
+        return new FdsEndpoint(omV7, omV8, s3);
+    }
 }

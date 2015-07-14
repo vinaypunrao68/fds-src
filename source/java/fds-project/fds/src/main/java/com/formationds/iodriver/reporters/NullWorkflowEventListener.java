@@ -6,7 +6,7 @@ import java.util.Set;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
-public class NullWorkflowEventListener extends AbstractWorkflowEventListener
+public class NullWorkflowEventListener extends AbstractWorkloadEventListener
 {
     public NullWorkflowEventListener(Logger logger)
     {

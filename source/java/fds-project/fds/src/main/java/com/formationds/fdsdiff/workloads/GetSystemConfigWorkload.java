@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import com.formationds.client.v08.model.Tenant;
-import com.formationds.iodriver.endpoints.OmEndpoint;
+import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.operations.GetTenants;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.workloads.Workload;
@@ -24,7 +24,7 @@ public final class GetSystemConfigWorkload extends Workload
     @Override
     public Class<?> getEndpointType()
     {
-        return OmEndpoint.class;
+        return OmV7Endpoint.class;
     }
 	
 	@Override
