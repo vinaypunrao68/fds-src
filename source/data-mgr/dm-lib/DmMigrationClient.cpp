@@ -49,8 +49,7 @@ DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
     auto dest_it = dest.cbegin();
 
     while (dest_it != dest.cend() && source_it != source.cend()) {
-        if (DmPersistVolCat::getBlobIdFromName(dest_it->first) ==
-        		DmPersistVolCat::getBlobIdFromName(source_it->first)) {
+        if (dest_it->first == source_it->first) {
             /* NOTE: this assumes we overwrite more recent versions on the Dest.
                Switch the comparison to '<' to only overwite older versions */
             if (dest_it->second != source_it->second) {
@@ -60,8 +59,7 @@ DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
 
             ++dest_it;
             ++source_it;
-        } else if (DmPersistVolCat::getBlobIdFromName(dest_it->first) >
-        		DmPersistVolCat::getBlobIdFromName(source_it->first)) {
+        } else if (dest_it->first > source_it->first) {
             // add blob on dest
             update_list.push_back(source_it->first);
             ++source_it;
