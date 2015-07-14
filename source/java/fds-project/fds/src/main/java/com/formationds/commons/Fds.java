@@ -91,6 +91,14 @@ public final class Fds
             	
             	return Uris.resolve(apiBase, tenantsPath);
             }
+
+            public static URI getUsers()
+            {
+                final URI apiBase = V08.getBase();
+                final URI usersPath = Uris.tryGetRelativeUri("users/");
+                
+                return Uris.resolve(apiBase, usersPath);
+            }
             
             /**
              * URL to get system volumes.

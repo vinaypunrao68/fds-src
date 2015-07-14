@@ -13,11 +13,11 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.google.gson.reflect.TypeToken;
 
-public class GetTenants extends AbstractOmV7Operation
+public class GetTenants extends AbstractOmV8Operation
 {
 	public GetTenants(Consumer<Collection<Tenant>> reader)
 	{
@@ -27,7 +27,7 @@ public class GetTenants extends AbstractOmV7Operation
 	}
 	
 	@Override
-	public void accept(OmV7Endpoint endpoint,
+	public void accept(OmV8Endpoint endpoint,
 	                   HttpsURLConnection connection,
 			           AbstractWorkloadEventListener reporter) throws ExecutionException
 	{

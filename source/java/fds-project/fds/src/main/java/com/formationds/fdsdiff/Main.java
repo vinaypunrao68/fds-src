@@ -49,10 +49,12 @@ public final class Main
 			}
 			else
 			{
+			    ComparisonDataFormat format = config.getComparisonDataFormat();
+			    
 				// TODO: Full implementation.
-				// FIXME: Can't just call .get() like that.
-				result = gatherSystemContent(config.getEndpointA(),
-						                     config.getComparisonDataFormat(),
+				result = gatherSystemContent(_getSystemContentContainer(format),
+				                             config.getEndpointA(),
+						                     format,
 						                     config.getOutputFilename(),
 						                     logger);
 			}
@@ -68,7 +70,7 @@ public final class Main
 		
 		System.exit(result);
 	}
-	
+
 	/**
 	 * Prevent instantiation.
 	 */
@@ -77,16 +79,19 @@ public final class Main
 		throw new UnsupportedOperationException("Trying to instantiate a utility class.");
 	}
 	
-	private static int gatherSystemContent(FdsEndpoint endpoint,
+	private static int gatherSystemContent(SystemContent contentContainer,
+	                                       FdsEndpoint endpoint,
 										   ComparisonDataFormat format,
 										   OutputStream output,
 										   Logger logger) throws ExecutionException
     {
+	    if (contentContainer == null) throw new NullArgumentException("contentContainer");
 		if (endpoint == null) throw new NullArgumentException("endpoint");
 		if (output == null) throw new NullArgumentException("output");
 		if (logger == null) throw new NullArgumentException("logger");
 		
-		GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(true);
+		GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(contentContainer,
+		                                                                      true);
 		
 		getSystemConfig.runOn(endpoint, new NullWorkflowEventListener(logger));
 		
@@ -95,25 +100,42 @@ public final class Main
 		return 0;
 	}
 
-	private static int gatherSystemContent(FdsEndpoint endpoint,
+	private static int gatherSystemContent(SystemContent contentContainer,
+	                                       FdsEndpoint endpoint,
 										   ComparisonDataFormat format,
 										   String outputFilename,
 										   Logger logger) throws FileNotFoundException,
 										                         IOException,
 										                         ExecutionException
     {
+	    if (contentContainer == null) throw new NullArgumentException("contentContainer");
 		if (endpoint == null) throw new NullArgumentException("endpoint");
 		if (outputFilename == null) throw new NullArgumentException("outputFilename");
 		if (logger == null) throw new NullArgumentException("logger");
 		
 		if (outputFilename.equals("-"))
 		{
-			return gatherSystemContent(endpoint, format, Config.Console.getStdout(), logger);
+			return gatherSystemContent(contentContainer,
+			                           endpoint,
+			                           format,
+			                           Config.Console.getStdout(),
+			                           logger);
 		}
 		
 		try (FileOutputStream os = new FileOutputStream(outputFilename))
 		{
-			return gatherSystemContent(endpoint, format, os, logger);
+			return gatherSystemContent(contentContainer, endpoint, format, os, logger);
 		}
     }
+	
+	private static final SystemContent _getSystemContentContainer(ComparisonDataFormat format)
+	{
+	    switch (format)
+	    {
+	    case FULL:
+	        return new FullSystemContent();
+        default:
+            throw new IllegalArgumentException("format: " + format + " not recognized.");
+	    }
+	}
 }

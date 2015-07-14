@@ -1,4 +1,4 @@
-package com.formationds.fdsdiff.operations;
+package com.formationds.iodriver.operations;
 
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -8,20 +8,18 @@ import java.util.function.Consumer;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.User;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
-import com.formationds.iodriver.operations.AbstractOmV8Operation;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.google.gson.reflect.TypeToken;
 
-public final class ListVolumes extends AbstractOmV8Operation
+public final class GetUsers extends AbstractOmV8Operation
 {
-    public ListVolumes(Consumer<Collection<Volume>> setter)
+    public GetUsers(Consumer<Collection<User>> setter)
     {
         if (setter == null) throw new NullArgumentException("setter");
         
@@ -37,28 +35,28 @@ public final class ListVolumes extends AbstractOmV8Operation
         if (connection == null) throw new NullArgumentException("connection");
         if (listener == null) throw new NullArgumentException("listener");
         
-        String volumes;
+        String users;
         try
         {
-            volumes = endpoint.doRead(connection);
+            users = endpoint.doRead(connection);
         }
         catch (HttpException e)
         {
-            throw new ExecutionException("Error listing volumes.", e);
+            throw new ExecutionException("Error listing users.", e);
         }
 
-        _setter.accept(ObjectModelHelper.toObject(volumes, _VOLUME_LIST_TYPE));
+        _setter.accept(ObjectModelHelper.toObject(users, _USER_LIST_TYPE));
     }
-
+    
     @Override
     public URI getRelativeUri()
     {
         URI base = Fds.Api.V08.getBase();
-        URI getVolumes = Fds.Api.V08.getVolumes();
+        URI getUsers = Fds.Api.V08.getUsers();
         
-        return base.relativize(getVolumes);
+        return base.relativize(getUsers);
     }
-
+    
     @Override
     public String getRequestMethod()
     {
@@ -67,10 +65,10 @@ public final class ListVolumes extends AbstractOmV8Operation
     
     static
     {
-        _VOLUME_LIST_TYPE = new TypeToken<ArrayList<Volume>>() {}.getType();
+        _USER_LIST_TYPE = new TypeToken<ArrayList<User>>() {}.getType();
     }
     
-    private final Consumer<Collection<Volume>> _setter;
+    private final Consumer<Collection<User>> _setter;
     
-    private static final Type _VOLUME_LIST_TYPE;
+    private static final Type _USER_LIST_TYPE;
 }
