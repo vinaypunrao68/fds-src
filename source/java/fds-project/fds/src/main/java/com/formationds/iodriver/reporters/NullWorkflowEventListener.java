@@ -5,6 +5,7 @@ import java.util.Set;
 
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.operations.Operation;
 
 public class NullWorkflowEventListener extends AbstractWorkloadEventListener
 {
@@ -39,6 +40,12 @@ public class NullWorkflowEventListener extends AbstractWorkloadEventListener
     
     @Override
     public void reportIo(String volume, int count)
+    {
+        // No-op.
+    }
+    
+    @Override
+    public void reportOperationExecution(Operation operation)
     {
         // No-op.
     }

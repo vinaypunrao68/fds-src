@@ -9,6 +9,7 @@ import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.operations.Operation;
 
 public abstract class AbstractWorkloadEventListener
 {
@@ -68,6 +69,8 @@ public abstract class AbstractWorkloadEventListener
      */
     public final Subject<Void> finished;
 
+    public final Subject<Operation> operationExecuted;
+    
     /**
      * Notifies when the workload has started the main body.
      */
@@ -131,6 +134,8 @@ public abstract class AbstractWorkloadEventListener
      */
     public abstract void reportIo(String volume, int count);
     
+    public abstract void reportOperationExecution(Operation operation);
+    
     /**
      * Call when the main body of a workload is starting. Must not be called more than once for a
      * given volume.
@@ -158,6 +163,7 @@ public abstract class AbstractWorkloadEventListener
         if (logger == null) throw new NullArgumentException("logger");
         
         finished = new Subject<>();
+        operationExecuted = new Subject<>();
         started = new Subject<>();
         stopped = new Subject<>();
         volumeAdded = new Subject<>();

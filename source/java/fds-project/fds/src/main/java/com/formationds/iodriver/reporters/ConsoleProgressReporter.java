@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.Observable;
 import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.operations.Operation;
 
 /**
  * Reports workload progress on the system console.
@@ -25,17 +26,20 @@ public final class ConsoleProgressReporter implements Closeable
      * @param volumeAdded An event source for volume adds.
      */
     public ConsoleProgressReporter(PrintStream output,
+                                   Observable<Operation> operationExecuted,
                                    Observable<Entry<String, Instant>> started,
                                    Observable<Entry<String, Instant>> stopped,
                                    Observable<Entry<String, VolumeQosSettings>> volumeAdded)
     {
         if (output == null) throw new NullArgumentException("output");
+        if (operationExecuted == null) throw new NullArgumentException("operationExecuted");
         if (started == null) throw new NullArgumentException("started");
         if (stopped == null) throw new NullArgumentException("stopped");
         if (volumeAdded == null) throw new NullArgumentException("volumeAdded");
 
         _closed = new AtomicBoolean(false);
         _output = output;
+        _operationExecuted = operationExecuted.register(this::onOperationExecuted);
         _started = started.register(this::onStarted);
         _stopped = stopped.register(this::onStopped);
         _volumeAdded = volumeAdded.register(this::onVolumeAdded);
@@ -46,6 +50,7 @@ public final class ConsoleProgressReporter implements Closeable
     {
         if (_closed.compareAndSet(false, true))
         {
+            _operationExecuted.close();
             _started.close();
             _stopped.close();
             _volumeAdded.close();
@@ -54,6 +59,13 @@ public final class ConsoleProgressReporter implements Closeable
         }
     }
 
+    private void onOperationExecuted(Operation operation)
+    {
+        if (operation == null) throw new NullArgumentException("operationExecuted");
+        
+        _output.println("Executing: " + operation);
+    }
+    
     /**
      * Handle started event.
      * 
@@ -95,6 +107,11 @@ public final class ConsoleProgressReporter implements Closeable
      */
     private final AtomicBoolean _closed;
 
+    /**
+     * Operation executed event token.
+     */
+    private final Closeable _operationExecuted;
+    
     /**
      * Output.
      */

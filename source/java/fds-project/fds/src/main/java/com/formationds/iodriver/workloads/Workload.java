@@ -74,7 +74,14 @@ public abstract class Workload
                     new Thread(() ->
                     {
                         ExceptionThrowingConsumer<Operation, ExecutionException> exec =
-                                op -> endpoint.visit(op, listener);
+                                op ->
+                                {
+                                    if (getLogOperations())
+                                    {
+                                        listener.reportOperationExecution(op);
+                                    }
+                                    endpoint.visit(op, listener);
+                                };
 
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
                         // but hits this compiler bug:
@@ -176,7 +183,14 @@ public abstract class Workload
         ExceptionHelper.<Operation, ExecutionException>tunnel(
                 ExecutionException.class,
                 from -> _setup.forEach(from),
-                op -> endpoint.visit(op, listener));
+                op ->
+                {
+                    if (getLogOperations())
+                    {
+                        listener.reportOperationExecution(op);
+                    }
+                    endpoint.visit(op, listener);
+                });
     }
 
     /**
@@ -202,7 +216,14 @@ public abstract class Workload
         ExceptionHelper.<Operation, ExecutionException>tunnel(
                 ExecutionException.class,
                 from -> _teardown.forEach(from),
-                op -> endpoint.visit(op, listener));
+                op ->
+                {
+                    if (getLogOperations())
+                    {
+                        listener.reportOperationExecution(op);
+                    }
+                    endpoint.visit(op, listener);
+                });
     }
 
     /**

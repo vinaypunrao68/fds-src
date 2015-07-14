@@ -16,10 +16,10 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
-public class CreateVolume extends AbstractOmV7Operation
+public class CreateVolume extends AbstractOmV8Operation
 {
 	public CreateVolume(String name)
 	{
@@ -29,7 +29,7 @@ public class CreateVolume extends AbstractOmV7Operation
 	}
 
     @Override
-    public void accept(OmV7Endpoint endpoint,
+    public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
                        AbstractWorkloadEventListener listener) throws ExecutionException
     {

@@ -12,6 +12,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.operations.Operation;
 
 /**
  * Captures events from a {@link com.formationds.iodriver.workloads.Workload Workload} run.
@@ -158,6 +159,14 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
         stats.performance.addOps(count);
     }
 
+    @Override
+    public void reportOperationExecution(Operation operation)
+    {
+        if (operation == null) throw new NullArgumentException("operation");
+        
+        operationExecuted.send(operation);
+    }
+    
     @Override
     public void reportStart(String volume)
     {
