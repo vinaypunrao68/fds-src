@@ -301,6 +301,7 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
      */
     diskMap = latestDiskMap;
     diskDevMap = latestDiskDevMap;
+    setDiskHealthMap();
     LOGDEBUG << "Got disk map";
 
     /* Do initial state check.
@@ -497,8 +498,10 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << badDiskId << " is a bad disk. Removing it from data serving";
-	    HDDs.erase(badDiskId);
+        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        markDiskBad(badDiskId);
+        HDDs.erase(badDiskId);
+        diskMap.erase(badDiskId);
     }
     badDisks.clear();
 
@@ -509,14 +512,16 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-	LOGDEBUG << badDiskId << " is a bad disk. Removing it from data serving";
+        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
+        diskMap.erase(badDiskId);
     }
 }
 
 bool
-SmSuperblockMgr::devFlushTest(const std::string& superblockPath) {
-    std::ofstream fileStr(superblockPath.c_str());
+SmSuperblockMgr::devFlushTest(const std::string& path) {
+    std::ofstream fileStr(path.c_str());
     if (fileStr.good()) {
         try {
             fileStr.flush();
@@ -536,7 +541,7 @@ SmSuperblockMgr::devFlushTest(const std::string& superblockPath) {
 bool
 SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
                                    const std::string& mountPnt) {
-    bool retVal = devFlushTest(getSuperblockPath(diskMap[diskId]));
+    bool retVal = devFlushTest(diskMap[diskId] + "/.tempFlush");
     if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
         if (errno == ENODEV) {
             LOGNOTIFY << "Disk " << diskId << " is not accessible ";
@@ -682,6 +687,24 @@ SmSuperblockMgr::syncSuperblock()
     return err;
 }
 
+void
+SmSuperblockMgr::setDiskHealthMap()
+{ 
+    for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
+        diskHealthMap[cit->first] = true;
+    }
+}
+
+void
+SmSuperblockMgr::markDiskBad(const fds_uint16_t& diskId) {
+    diskHealthMap[diskId] = false;
+}
+
+bool
+SmSuperblockMgr::isDiskHealthy(const fds_uint16_t& diskId) {
+    return diskHealthMap[diskId];
+}
+
 Error
 SmSuperblockMgr::syncSuperblock(const std::set<uint16_t>& setSuperblock)
 {
@@ -725,6 +748,7 @@ SmSuperblockMgr::checkPristineState(DiskIdSet& HDDs,
     uint32_t noSuperblockCnt = 0;
     fds_assert(diskMap.size() > 0);
 
+    sleep(30);
     /**
      * Check for all HDDs and SSDs passed to SM via diskMap
      * are up and accessible. Remove the bad ones from SSD

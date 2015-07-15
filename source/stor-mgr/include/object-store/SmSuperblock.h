@@ -19,6 +19,7 @@ namespace fds {
 
 typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
+typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
 
 typedef uint32_t fds_checksum32_t;
 
@@ -387,6 +388,12 @@ class SmSuperblockMgr {
 
     void checkForHandledErrors(Error& err);
 
+    void setDiskHealthMap();
+
+    void markDiskBad(const fds_uint16_t& diskId);
+
+    bool isDiskHealthy(const fds_uint16_t& diskId);
+
   private:
     /// Master superblock. The master copy will persist
     SmSuperblock superblockMaster;
@@ -402,7 +409,8 @@ class SmSuperblockMgr {
     /// set of disks.
     DiskLocMap diskMap;
     DiskLocMap diskDevMap;
-
+    DiskHealthMap diskHealthMap;
+    
     /// Name of the superblock file.
     const std::string superblockName = "SmSuperblock";
 
