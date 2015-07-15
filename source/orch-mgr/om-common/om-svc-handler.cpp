@@ -257,10 +257,10 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
 {
-	LOGNORMAL << "Received Health Report from PM: "
-			<< msg->healthReport.serviceInfo.svc_id.svc_name
-			<< " state: " << msg->healthReport.serviceState
-			<< " status: " << msg->healthReport.statusCode << std::endl;
+	LOGDEBUG << "Received Health Report from PM: "
+			     << msg->healthReport.serviceInfo.svc_id.svc_name
+			     << " state: " << msg->healthReport.serviceState
+			     << " status: " << msg->healthReport.statusCode << std::endl;
 
 	ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
 	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
@@ -268,6 +268,8 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
 	switch (msg->healthReport.serviceState) {
 		case fpi::HEALTH_STATE_RUNNING:
+            healthReportRunning( msg );
+            break;
 		case fpi::HEALTH_STATE_INITIALIZING:
 		case fpi::HEALTH_STATE_DEGRADED:
 		case fpi::HEALTH_STATE_LIMITED:
@@ -287,25 +289,59 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 					// no break
 				case fpi::FDSP_STOR_MGR: {
 					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
-					heatlhReportUnexpectedExit(comp_type, msg);
+					healthReportUnexpectedExit(comp_type, msg);
 					break;
 				}
 				default:
-					// Panic on unhandled service
-					fds_panic("Unhandled process: %s with service type %d",
-							msg->healthReport.serviceInfo.svc_id.svc_name.c_str(),
-							service_type);
+					LOGERROR << "Unhandled process: "
+					         << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
+					         << " with service type "
+					         << service_type;
 					break;
 			}
 			break;
 		default:
-			// Panic on unhandled service states.
-			fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
+			LOGERROR << "Unknown service state: " << msg->healthReport.serviceState;
 			break;
 	}
 }
 
-void OmSvcHandler::heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
+void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg )
+{
+   LOGDEBUG << "Service Running health report";
+
+   ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+   fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
+   fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
+
+   switch (service_type)
+   {
+     case fpi::FDSP_ACCESS_MGR:
+       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+       // no break
+     case fpi::FDSP_DATA_MGR:
+       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+       // no break
+     case fpi::FDSP_STOR_MGR:
+       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+       break;
+     default:
+       LOGDEBUG << "unimplemented health report running service: "
+     	          << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
+     	          << " with service type "
+     		        << service_type;
+       break;
+   }
+
+   /*
+    * It is expected that if a service restarts, it will re-register with the
+    * OM. Which should update all the appropriate service dependencies.
+    *
+    * So I don't believe that is anything to do here.
+    */
+}
+
+void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 		boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
 	/**
 	 * When a PM pings this OM with the state of an individual service
@@ -338,18 +374,21 @@ void OmSvcHandler::heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 			break;
 		 }
 	 }
-	 fds_verify(pm_found);
-	 OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
-			om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
-	 /**
-	  * PM doesn't want to hear about the actual deactivate service but
-	  * OM side needs to deactiate it. So just call the response
-	  * which will do the OM side cleanup.
-	  */
-	 Error 			dummyErr (ERR_OK);
-	 om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
-			comp_type == fpi::FDSP_DATA_MGR,
-			comp_type == fpi::FDSP_ACCESS_MGR,
-			nullptr, dummyErr, nullptr);
+
+   if ( pm_found )
+   {
+     OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
+        om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
+     /**
+      * PM doesn't want to hear about the actual deactivate service but
+      * OM side needs to deactivate it. So just call the response
+      * which will do the OM side cleanup.
+      */
+     Error dummyErr (ERR_OK);
+     om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
+        comp_type == fpi::FDSP_DATA_MGR,
+        comp_type == fpi::FDSP_ACCESS_MGR,
+        nullptr, dummyErr, nullptr);
+	 }
 }
 }  //  namespace fds

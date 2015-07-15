@@ -198,6 +198,7 @@ struct NbdOperationsResponseIface {
 
     virtual void readWriteResp(NbdResponseVector* response) = 0;
     virtual void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
+    virtual void terminate() = 0;
 };
 
 struct HandleSeqPair {

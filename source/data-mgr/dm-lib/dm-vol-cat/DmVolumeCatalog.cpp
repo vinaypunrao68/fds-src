@@ -546,7 +546,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
             }
             newBlobSize += cit->second.size;
         } else if (cit->first == newLastOffset) {
-            fds_verify(oldIter->second.oid != NullObjectID);
+            // fds_verify(oldIter->second.oid != NullObjectID);
             fds_verify(newBlobSize >= vol->getObjSize());
             newBlobSize -= vol->getObjSize();
             newBlobSize += cit->second.size;
@@ -782,7 +782,7 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
     return vol->getLatestSequenceId(seq_id);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId);
 }
@@ -797,7 +797,7 @@ Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_ro
 	return vol->freeInMemorySnapshot(opts);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::catalog_roptions_t &opts) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);

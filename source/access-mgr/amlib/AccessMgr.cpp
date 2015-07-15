@@ -81,7 +81,7 @@ void AccessMgr::initilizeConnectors() {
     /**
      * Initialize the block connector
      */
-    blkConnector.reset(new NbdConnector(weakProcessor));
+    NbdConnector::start(weakProcessor);
 }
 
 void AccessMgr::mod_disable_service() {
@@ -97,7 +97,7 @@ AccessMgr::run() {
 
     LOGDEBUG << "Processing layer has shutdown, stop external services.";
     asyncServer->stop();
-    blkConnector->stop();
+    NbdConnector::stop();
 }
 
 }  // namespace fds

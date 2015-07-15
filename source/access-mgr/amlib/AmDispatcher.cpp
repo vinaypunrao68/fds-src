@@ -403,8 +403,8 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
     /**
      * Need an AmRequest to call the serialization setter.
      */
-    auto amReq = new AmRequest(fds::fds_io_op_t(0), vol_id, "", "", nullptr);
-    setSerialization(amReq, asyncCloseVolReq);
+    auto amReq = std::unique_ptr<AmRequest>(new AmRequest(fds::fds_io_op_t(0), vol_id, "", "", nullptr));
+    setSerialization(amReq.get(), asyncCloseVolReq);
 
     asyncCloseVolReq->invoke();
     return ready.get();
