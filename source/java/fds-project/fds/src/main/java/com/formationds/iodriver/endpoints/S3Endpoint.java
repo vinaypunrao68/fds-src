@@ -3,6 +3,9 @@ package com.formationds.iodriver.endpoints;
 import java.io.IOException;
 import java.net.MalformedURLException;
 
+import org.apache.log4j.LogManager;
+import org.apache.log4j.varia.NullAppender;
+
 import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -129,6 +132,26 @@ public final class S3Endpoint implements Endpoint
         if (_client == null)
         {
             AuthToken authToken = _omEndpoint.getAuthToken();
+            
+            // TODO: Logging should be configurable, but for now, we need this to be quiet.
+            LogManager.getRootLogger().removeAllAppenders();
+            LogManager.getRootLogger().addAppender(new NullAppender());
+            
+//            @SuppressWarnings("unchecked")
+//            List<org.apache.log4j.Logger> loggers =
+//                    Collections.<org.apache.log4j.Logger>list(LogManager.getCurrentLoggers());
+//            for (org.apache.log4j.Logger logger : loggers)
+//            {
+//                if (logger.getName().startsWith("com.amazon"))
+//                {
+//                    logger.setLevel(Level.OFF);
+//                }
+//            }
+            
+//            org.apache.log4j.Logger logger =
+//                    LogManager.getLogger(com.amazonaws.internal.config.InternalConfig.class);
+//            logger.setLevel(Level.OFF);
+            
             _client = new AmazonS3Client(new BasicAWSCredentials(_omEndpoint.getUsername(),
                                                                  authToken.toString()));
             _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));

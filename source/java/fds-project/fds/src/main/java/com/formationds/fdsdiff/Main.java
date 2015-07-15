@@ -4,13 +4,17 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.function.Consumer;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
+import com.formationds.fdsdiff.workloads.GetVolumeObjectsWorkload;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.NullWorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.NullWorkloadEventListener;
 
 /**
  * Entry class for fdsdiff.
@@ -93,7 +97,24 @@ public final class Main
 		GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(contentContainer,
 		                                                                      true);
 		
-		getSystemConfig.runOn(endpoint, new NullWorkflowEventListener(logger));
+		// TODO: Add a real listener here. Probably after refactoring the listener to be not so
+		//       specific to QoS test workloads.
+		AbstractWorkloadEventListener listener = new NullWorkloadEventListener(logger);
+		
+		getSystemConfig.runOn(endpoint, listener);
+		
+		for (Volume volume : contentContainer.getVolumes())
+		{
+		    String name = volume.getName();
+		    Consumer<String> setter = contentContainer.getVolumeObjectNameAdder(name);
+		    
+		    GetVolumeObjectsWorkload getVolumeObjects =
+		            new GetVolumeObjectsWorkload(volume.getName(), setter, true);
+		    
+		    getVolumeObjects.runOn(endpoint, listener);
+		}
+		
+		System.out.println(getSystemConfig.getContentContainer().toString());
 		
 		// FIXME: We'll get here for failure too.
 		// Success!

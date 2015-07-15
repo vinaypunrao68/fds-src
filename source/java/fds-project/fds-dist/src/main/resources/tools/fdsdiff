@@ -7,6 +7,6 @@ JAVA_LIB="${FDS_SRC}"/Build/linux-x86_64.debug/lib/java
 CLASSPATH="${CLASSPATH}":"${JAVA_LIB}"/\*
 
 java -classpath $CLASSPATH \
-     -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4050 \
+     -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,quiet=y,address=4050 \
      com.formationds.fdsdiff.Main "${@}" \
      || exit 1

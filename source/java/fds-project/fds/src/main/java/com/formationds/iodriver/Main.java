@@ -14,7 +14,7 @@ import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
-import com.formationds.iodriver.reporters.NullWorkflowEventListener;
+import com.formationds.iodriver.reporters.NullWorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
@@ -148,7 +148,7 @@ public final class Main
 
         AbstractWorkloadEventListener listener = validate
                                                  ? config.getListener()
-                                                 : new NullWorkflowEventListener(config.getLogger());
+                                                 : new NullWorkloadEventListener(config.getLogger());
         try (ConsoleProgressReporter reporter =
                 new ConsoleProgressReporter(System.out,
                                             listener.operationExecuted,

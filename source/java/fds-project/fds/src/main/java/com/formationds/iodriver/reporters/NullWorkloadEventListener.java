@@ -7,9 +7,9 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.Operation;
 
-public class NullWorkflowEventListener extends AbstractWorkloadEventListener
+public class NullWorkloadEventListener extends AbstractWorkloadEventListener
 {
-    public NullWorkflowEventListener(Logger logger)
+    public NullWorkloadEventListener(Logger logger)
     {
         super(logger);
     }
