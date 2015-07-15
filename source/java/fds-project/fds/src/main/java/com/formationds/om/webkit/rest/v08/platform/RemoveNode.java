@@ -94,6 +94,7 @@ public class RemoveNode
         
         // TODO: Fix when we support multiple domains
         
+        logger.debug("Stopping and removing services on node");
         int status =
             getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
 
@@ -101,22 +102,23 @@ public class RemoveNode
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
-                                      nodeUuid );
+                                      node.getName(), nodeUuid );
         }
         else 
-        {
+        {   
+            // Now that we have stopped the services go remove them
         	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
         	
         	if(status != 0)
         	{
                 status= HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
-                                          nodeUuid );
+                                          node.getName(), nodeUuid );
         	}
         	else
         	{
                 EventManager.notifyEvent( OmEvents.REMOVE_NODE,
-                                          nodeUuid );
+                                          node.getName(), nodeUuid );
         	}
 
         }

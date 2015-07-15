@@ -14,13 +14,19 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 	  migrState(MIGR_IDLE), cleanUpInProgress(false)
 {
 	maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
-				get<int>("fds.dm..migration.migration_max_concurrency"));
+				get<int>("fds.dm.migration.migration_max_concurrency"));
 
     enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->
                 get<bool>("fds.dm.migration.enable_feature"));
 
     enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->
                 get<bool>("fds.dm.migration.enable_resync"));
+
+    maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
+
+    maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
 }
 
 
@@ -56,15 +62,28 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 
 		executorMap.emplace(fds_volid_t(vol.volUUID),
 				            DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataManager,
-														                            srcDmUuid,
-                                                                                    vol,
-																					autoIncrement,
-														                            std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
-																                              this,
-                                                                                              std::placeholders::_1,
-																                              std::placeholders::_2))));
+														        srcDmUuid,
+                                                                vol,
+																autoIncrement,
+														        std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
+														                  this,
+                                                                          std::placeholders::_1,
+														                  std::placeholders::_2))));
 	}
 	return err;
+}
+
+
+DmMigrationExecutor::shared_ptr
+DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
+{
+	SCOPEDREAD(migrExecutorLock);
+	auto search = executorMap.find(uniqueId);
+	if (search == executorMap.end()) {
+		return nullptr;
+	} else {
+		return search->second;
+	}
 }
 
 Error
@@ -180,19 +199,34 @@ DmMigrationMgr::applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDe
     return ERR_OK;
 }
 
-// process the deltaObject request 
+// process the deltaObject request
 Error
 DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
+    fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaObjRequest->fwdCatMsg;
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(deltaObjRequest->io_vol_id);
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << deltaObjRequest->io_vol_id;
+    	fds_verify(0); // this is an race cond error that needs to be fixed in dev env.
+    	return ERR_NOT_FOUND;
+    }
+    executor->processIncomingDeltaSet(deltaBlobsMsg);
+
     return ERR_OK;
 }
 
 void
-DmMigrationMgr::ackMigrationComplete(const Error &status)
+DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
 {
 	fds_verify(OmStartMigrCb != NULL);
-	LOGMIGRATE << "Telling OM migration is done";
+	/**
+	 * TODO(Neil) : Two things need to be done: (FS-2539)
+	 * 1. DmMigrationMgr needs to have a monitor for all the executors to be finished.
+	 * 2. Once all executors are finished, clear the executorMap below and ack to OM.
+	 */
+	LOGMIGRATE << "Telling OM that DM Migrations have all been fired";
 	OmStartMigrCb(status);
-	executorMap.clear();
+	// For now, not clearing map because waiting isn't implemented yet.
+	// executorMap.clear();
 }
 
 // See note in header file for design decisions
@@ -240,7 +274,9 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 															mySvcUuid, destDmUuid, filterSet,
 															std::bind(&DmMigrationMgr::migrationClientDoneCb,
 															this, std::placeholders::_1,
-															std::placeholders::_2)))));
+															std::placeholders::_2),
+                                                            maxNumBlobs,
+                                                            maxNumBlobDesc))));
 		migrClientLock.write_unlock();
 
 		err = client->processBlobFilterSet();
@@ -317,7 +353,7 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 			if (mit != executorMap.end()) {
 				mit->second->startMigration();
 			} else {
-				ackMigrationComplete(result);
+				waitThenAckMigrationComplete(result);
 			}
 		}
 	}

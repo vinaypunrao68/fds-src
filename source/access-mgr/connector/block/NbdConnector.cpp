@@ -21,6 +21,22 @@ extern "C" {
 
 namespace fds {
 
+// The singleton
+std::unique_ptr<NbdConnector> NbdConnector::instance_ {nullptr};
+
+void NbdConnector::start(std::weak_ptr<AmProcessor> processor) {
+    static std::once_flag init;
+    // Initialize the singleton
+    std::call_once(init, [instance = &instance_, processor] () mutable
+                   { instance_.reset(new NbdConnector(processor)); });
+}
+
+void NbdConnector::stop() {
+    if (instance_ && instance_->asyncWatcher) {
+       instance_->asyncWatcher->send();
+    }
+}
+
 NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor)
         : nbdPort(10809),
           amProcessor(processor) {
@@ -37,7 +53,7 @@ void NbdConnector::initialize() {
 
     // Shutdown the socket if we are reinitializing
     if (0 <= nbdSocket)
-        { stop(); }
+        { reset(); }
 
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
@@ -46,21 +62,30 @@ void NbdConnector::initialize() {
         return;
     }
 
+    // This is our async event watcher for shutdown
+    if (!asyncWatcher) {
+        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+        asyncWatcher->set<NbdConnector, &NbdConnector::reset>(this);
+        asyncWatcher->start();
+    }
+
     // Setup event loop
     if (!evIoWatcher) {
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
         evIoWatcher->set<NbdConnector, &NbdConnector::nbdAcceptCb>(this);
         evIoWatcher->start(nbdSocket, ev::READ);
-        // Run event loop in thread
-        runThread.reset(new std::thread(&NbdConnector::runNbdLoop, this));
-        runThread->detach();
+        // Run event loop in a detached thread
+        auto t = std::thread(&NbdConnector::runNbdLoop, this);
+        t.detach();
     } else {
         evIoWatcher->set(nbdSocket, ev::READ);
+        evIoWatcher->start(nbdSocket, ev::READ);
     }
 }
 
-void NbdConnector::stop() {
+void NbdConnector::reset() {
     if (0 <= nbdSocket) {
+        evIoWatcher->stop();
         shutdown(nbdSocket, SHUT_RDWR);
         close(nbdSocket);
         nbdSocket = -1;
@@ -109,10 +134,6 @@ void NbdConnector::configureSocket(int fd) const {
     }
 }
 
-NbdConnector::~NbdConnector() {
-    stop();
-}
-
 void
 NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     if (EV_ERROR & revents) {
@@ -124,7 +145,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     auto processor = amProcessor.lock();
     if (!processor) {
         LOGNORMAL << "No processing layer, shutdown.";
-        stop();
+        reset();
         return;
     }
 
@@ -156,8 +177,9 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
             case EBADF:
                 // Reinitialize server
                 LOGWARN << "Accept error: " << strerror(errno)
-                        << " shutting down server.";
-                evIoWatcher->stop();
+                        << " resetting server.";
+                nbdSocket = -1;
+                initialize();
                 break;
             default:
                 break; // Nothing special, no more clients

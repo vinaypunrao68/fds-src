@@ -171,6 +171,7 @@ void DmMigrationDeltablobHandler::handleRequest(
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
     auto dmReq = new DmIoMigDeltaBlob(message);
 
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltablobHandler::handleResponse, asyncHdr, message);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELT_BLB);
 
     LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
@@ -191,5 +192,10 @@ void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
     dataManager.dmMigrationMgr->applyDeltaObjects(typedRequest);
 }
 
+void DmMigrationDeltablobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                        Error const& e, dmCatReq* dmRequest) {
+	delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds

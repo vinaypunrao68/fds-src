@@ -38,13 +38,13 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * SM token ownership is specified in the disk map
      * @param[in] map of SM tokens to disks
      */
-    Error openMetadataStore(const SmDiskMap::const_ptr& diskMap);
+    Error openMetadataStore(SmDiskMap::ptr& diskMap);
     /**
      * Opens object metadata store for given set of SM tokens
      * @param[in] diskMap map of SM tokens to disks
      * @param[in] smToks set of SM tokens for which to open store
      */
-    Error openMetadataStore(const SmDiskMap::const_ptr& diskMap,
+    Error openMetadataStore(SmDiskMap::ptr& diskMap,
                             const SmTokenSet& smToks);
 
     /**

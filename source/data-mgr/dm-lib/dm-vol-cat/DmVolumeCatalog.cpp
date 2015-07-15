@@ -202,7 +202,10 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
     synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolCat::ptr>::iterator iter =
                 volMap_.find(volId);
-        if (volMap_.end() != iter && (!checkDeleted || iter->second->isMarkedDeleted())) {
+        if (volMap_.end() != iter && (!checkDeleted ||
+                                      iter->second->isMarkedDeleted() ||
+                                      iter->second->isSnapshot()
+                                      )) {
             volMap_.erase(iter);
         }
     }
@@ -543,7 +546,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
             }
             newBlobSize += cit->second.size;
         } else if (cit->first == newLastOffset) {
-            fds_verify(oldIter->second.oid != NullObjectID);
+            // fds_verify(oldIter->second.oid != NullObjectID);
             fds_verify(newBlobSize >= vol->getObjSize());
             newBlobSize -= vol->getObjSize();
             newBlobSize += cit->second.size;
@@ -738,7 +741,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
             expungeList.push_back(obj);
         }
     }
-
+    bool fIsSnapshot = vol->isSnapshot();
     rc = vol->deleteObject(blobName, 0, endOffset);
     if (rc.ok()) {
         rc = vol->deleteBlobMetaDesc(blobName);
@@ -758,7 +761,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
         // actually expunge objects that were dereferenced by the blob
         // TODO(xxx): later that should become part of GC and done in background
         fds_verify(expungeCb_);
-        return expungeCb_(volId, expungeList, false);
+        return expungeCb_(volId, expungeList, fIsSnapshot);
     }
 
     return rc;
@@ -779,7 +782,7 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
     return vol->getLatestSequenceId(seq_id);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId);
 }
@@ -794,7 +797,7 @@ Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_ro
 	return vol->freeInMemorySnapshot(opts);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
+Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::catalog_roptions_t &opts) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);

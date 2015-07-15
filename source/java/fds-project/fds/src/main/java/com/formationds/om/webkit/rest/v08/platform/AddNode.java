@@ -89,6 +89,7 @@ public class AddNode
         	svcInfList.add(svcInfo);
         }
         
+        logger.debug("Adding and starting services on node");
         int status =
         		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
                 
@@ -99,7 +100,8 @@ public class AddNode
                                       nodeUuid );
         }
         else
-        {
+        {   
+            // Now that we have added the services, go start them
             status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
        
             if( status != 0 )
