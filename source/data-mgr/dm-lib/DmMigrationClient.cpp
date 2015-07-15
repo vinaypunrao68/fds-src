@@ -170,7 +170,7 @@ DmMigrationClient::processBlobDiff()
 }
 
 Error
-DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs)
+DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& updateBlobs)
 {
     Error err(ERR_OK);
 
@@ -245,7 +245,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& 
 }
 
 Error
-DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& deleteBlobs)
+DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& deleteBlobs)
 {
     Error err(ERR_OK);
 
@@ -269,11 +269,11 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& 
         /**
          * Add blob id to the descriptor list.
          */
-        blobDesc.vol_blob_id = it;
+        blobDesc.vol_blob_name = it;
         /**
          * Intentionally not mofidying vol_blob_desc, since it should be 0 strlen.
          */
-        LOGMIGRATE << "Adding DELETE blob=" << blobDesc.vol_blob_id
+        LOGMIGRATE << "Adding DELETE blob=" << blobDesc.vol_blob_name
                    << " to the descriptor list";
         deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
 
@@ -305,8 +305,8 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& 
 }
 
 Error
-DmMigrationClient::generateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs,
-                                         const std::vector<fds_uint64_t>& deleteBlobs)
+DmMigrationClient::generateBlobDeltaSets(const std::vector<std::string>& updateBlobs,
+                                         const std::vector<std::string>& deleteBlobs)
 {
     Error err(ERR_OK);
 
