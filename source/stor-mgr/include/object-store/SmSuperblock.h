@@ -367,6 +367,9 @@ class SmSuperblockMgr {
     checkDisksAlive(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
     bool
+    devFlushTest(const std::string& superblockPath);
+
+    bool
     isDiskUnreachable(const fds_uint16_t& diskId,
                       const std::string& mountPnt);
 

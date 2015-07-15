@@ -515,19 +515,38 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 }
 
 bool
+SmSuperblockMgr::devFlushTest(const std::string& superblockPath) {
+    std::ofstream fileStr(superblockPath.c_str());
+    if (fileStr.good()) {
+        try {
+            fileStr.flush();
+        } catch (const std::ios_base::failure& e) {
+            LOGNOTIFY << "Disk is not accessible ";
+            return true;
+        } catch (...) {
+            LOGNOTIFY << "Disk is not accessible ";
+            return true;
+        }
+        return false;
+    } else {
+        return true;
+    }
+}
+
+bool
 SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
                                    const std::string& mountPnt) {
-
+    bool retVal = devFlushTest(getSuperblockPath(diskMap[diskId]));
     if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
         if (errno == ENODEV) {
             LOGNOTIFY << "Disk " << diskId << " is not accessible ";
-            return true;
+            return  (retVal | true);
         }
     } else {
         umount2(mountPnt.c_str(), MNT_FORCE);
     }
     LOGNOTIFY << "Disk " << diskId << " is not accessible due to error errno=" << errno;
-    return false;
+    return (retVal | false);
 }
 
 /*
