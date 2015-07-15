@@ -34,14 +34,14 @@ ObjectPersistData::~ObjectPersistData() {
 }
 
 Error
-ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                                        fds_bool_t pristineState) {
     SmTokenSet smToks = diskMap->getSmTokens();
     return openObjectDataFiles(diskMap, smToks, pristineState);
 }
 
 Error
-ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                                        const SmTokenSet& smToks,
                                        fds_bool_t pristineState) {
     Error err(ERR_OK);
@@ -187,6 +187,7 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost)
 Error
 ObjectPersistData::writeObjectData(const ObjectID& objId,
                                    diskio::DiskRequest* req) {
+    Error err(ERR_OK);
     diskio::PersisDataIO *iop = nullptr;
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = getWriteFileId(req->getTier(), smTokId);
@@ -204,12 +205,17 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
         return ERR_NOT_FOUND;
     }
 
-    return iop->disk_write(req);
+    err = iop->disk_write(req);
+    if (!err.ok()) {
+        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+    }
+    return err;
 }
 
 Error
 ObjectPersistData::readObjectData(const ObjectID& objId,
                                   diskio::DiskRequest* req) {
+    Error err(ERR_OK);
     obj_phy_loc_t *loc = req->req_get_phy_loc();
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = loc->obj_file_id;
@@ -221,7 +227,11 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     }
 
     fds_verify(iop);
-    return iop->disk_read(req);
+    err = iop->disk_read(req);
+    if (!err.ok()) {
+        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+    }
+    return err;
 }
 
 void

@@ -158,8 +158,9 @@ class VolumeCatalogQueryIface {
      */
     virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
     virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
-    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::MemSnap m = NULL) = 0;
+    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId,
+                                            std::map<std::string, int64_t>& blobsSeqId,
+                                            Catalog::MemSnap m = NULL) = 0;
 
     virtual Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>) = 0;
 };

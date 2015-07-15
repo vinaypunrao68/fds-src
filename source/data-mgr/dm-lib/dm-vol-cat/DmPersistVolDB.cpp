@@ -177,7 +177,7 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId,
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) {
 	auto dbIt = catalog_->NewIterator(snap);
 
@@ -194,8 +194,7 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blob
                 LOGERROR << "Error deserializing blob metadata when searching latest sequence id for volume " << volId_;
                 return ERR_SERIALIZE_FAILED;
             }
-            blobsSeqId.emplace(reinterpret_cast<const BlobObjKey *>(dbKey.data())->blobId,
-                               blobMeta.desc.sequence_id);
+            blobsSeqId.emplace(blobMeta.desc.blob_name, blobMeta.desc.sequence_id);
         }
     }
 

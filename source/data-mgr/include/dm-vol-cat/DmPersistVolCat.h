@@ -142,7 +142,7 @@ class DmPersistVolCat {
 
     virtual Error getLatestSequenceId(blob_version_t & max) = 0;
 
-    virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsWithSeqId,
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsWithSeqId,
                                             const Catalog::MemSnap snap) = 0;
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
