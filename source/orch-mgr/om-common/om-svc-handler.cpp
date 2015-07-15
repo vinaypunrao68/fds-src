@@ -267,17 +267,17 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
 
 	switch (msg->healthReport.serviceState) {
-		case fpi::RUNNING:
-		case fpi::INITIALIZING:
-		case fpi::DEGRADED:
-		case fpi::LIMITED:
-		case fpi::SHUTTING_DOWN:
-		case fpi::ERROR:
-		case fpi::UNREACHABLE:
+		case fpi::HEALTH_STATE_RUNNING:
+		case fpi::HEALTH_STATE_INITIALIZING:
+		case fpi::HEALTH_STATE_DEGRADED:
+		case fpi::HEALTH_STATE_LIMITED:
+		case fpi::HEALTH_STATE_SHUTTING_DOWN:
+		case fpi::HEALTH_STATE_ERROR:
+		case fpi::HEALTH_STATE_UNREACHABLE:
 			LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
 					<< " state: " << msg->healthReport.serviceState << " not implemented yet.";
 			break;
-		case fpi::UNEXPECTED_EXIT:
+		case fpi::HEALTH_STATE_UNEXPECTED_EXIT:
 			switch (service_type) {
 				case fpi::FDSP_ACCESS_MGR:
 					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
