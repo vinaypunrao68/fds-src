@@ -42,7 +42,7 @@ function process_results {
 outdir=$1
 workspace=$2
 
-client=perf2-node3
+client=perf2-node4
 njobs=4
 
 n_reqs=1000000 
