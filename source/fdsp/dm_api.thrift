@@ -500,7 +500,7 @@ struct CtrlNotifyDeltaBlobsMsg {
    * between source DM and destination DM
    */
   2: i64                     msg_seq_id;
-  3: bool                    last_msg_seq_id;
+  3: bool                    last_msg_seq_id = false;
   /* list of <offset, oid> in give volume 
    */
   4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
@@ -522,7 +522,7 @@ struct CtrlNotifyDeltaBlobDescMsg {
    * between source DM and destination DM
    */
   3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id;
+  4: bool                    last_msg_seq_id = false;
   /* list of <blob, blob descriptor> in give volume 
    * empty blob descriptor  for delete operation
    */
@@ -617,8 +617,8 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
   1: i64                volumeId;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
-      map<blob ID, sequence number> */
-  2: map<i64, i64>      blobFilterMap;
+      map<blob Name, sequence number> */
+  2: map<string, i64>      blobFilterMap;
 }
 struct ResyncInitialBlobFilterSetRspMsg {
 }

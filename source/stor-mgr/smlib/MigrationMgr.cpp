@@ -211,8 +211,6 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                       bool onePhaseMigration,
                                       fds_uint32_t uniqueId,
                                       fds_uint16_t instanceNum) {
-
-    LOGMIGRATE << "Will create migration executor class";
     fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId,
                                                      (fds_uint32_t)instanceNum);
     fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
@@ -618,8 +616,13 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
         return ERR_SM_TOK_MIGRATION_ABORTED;
+    } else if (atomic_load(&migrState) == MIGR_IDLE) {
+        // possible to receive stray finish resync msg, if SM e.g. failed/restarted
+        // and the destination still thinks previous SM is up
+        LOGWARN << "Received finishClientResync in IDLE state for executor "
+                << std::hex << executorId << std::dec;
+        return ERR_NOT_FOUND;
     }
-    fds_verify(atomic_load(&migrState) == MIGR_IN_PROGRESS);
 
     // we must only receive this message when are resyncing on restart
     fds_verify(resyncOnRestart);

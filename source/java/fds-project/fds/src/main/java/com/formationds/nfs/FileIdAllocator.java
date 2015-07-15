@@ -22,6 +22,7 @@ public class FileIdAllocator {
         volumeLocks = new ConcurrentHashMap<>();
     }
 
+    // TODO: the allocation lock could be striped, perhaps using the NfsPath as a striping key
     public long nextId(String volume) throws IOException {
         Object volumeLock = volumeLocks.computeIfAbsent(volume, v -> new Object());
         synchronized (volumeLock) {
