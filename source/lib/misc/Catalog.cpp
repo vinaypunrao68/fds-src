@@ -116,8 +116,6 @@ Error
 Catalog::Update(const Record& key, const Record& val) {
     Error err(ERR_OK);
 
-    std::string test = val.ToString();
-
     leveldb::Status status = db->Put(write_options, key, val);
     if (!status.ok()) {
         err = Error(ERR_DISK_WRITE_FAILED);
@@ -139,15 +137,18 @@ Catalog::Update(CatWriteBatch* batch) {
 }
 
 /** Queries the catalog
- * @param[in]  key   the key to write to
+ * @param[in]  key   the key to read to
  * @param[out] value the data found
  * @return The result of the query
  */
 Error
-Catalog::Query(const Record& key, std::string* value) {
+Catalog::Query(const Record& key, std::string* value, MemSnap m) {
     Error err(ERR_OK);
 
-    leveldb::Status status = db->Get(read_options, key, value);
+    leveldb::ReadOptions ro{read_options};
+    ro.snapshot = m;
+
+    leveldb::Status status = db->Get(ro, key, value);
     if (status.IsNotFound()) {
         err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
         return err;
@@ -175,29 +176,6 @@ Catalog::Delete(const Record& key) {
     return err;
 }
 
-/*
- * browse through the  DB and  if the db is valid  data return 
- * False( non Empty) else return true ( empty)
- */
-
-bool
-Catalog::DbEmpty() {
-    auto db_it = NewIterator();
-    for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next()) {
-       return true;
-    }
-    return false;
-}
-
-bool
-Catalog::DbDelete() {
-    // Order is important. db references env, env references filter_policy.
-    db.reset();
-    env.reset();
-    filter_policy.reset();
-    return true;
-}
-
 Error
 Catalog::DbSnap(const std::string& fileName) {
     fds_assert(!fileName.empty());
@@ -219,79 +197,4 @@ Catalog::DbSnap(const std::string& fileName) {
     return err;
 }
 
-Error
-Catalog::QueryNew(const std::string& _file, const Record& key, std::string* value)
-{
-    filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
-
-    Error err(ERR_OK);
-    leveldb::Status status;
-    options.create_if_missing = 1;
-    options.filter_policy     = filter_policy.get();
-    options.write_buffer_size = WRITE_BUFFER_SIZE;
-
-    write_options.sync = true;
-
-    db.reset();
-    {
-        {
-            leveldb::DB* db_out;
-            status = leveldb::DB::Open(options, _file, &db_out);
-            db.reset(db_out);
-        }
-        assert(status.ok());
-
-        status = db->Get(read_options, key, value);
-        if (status.IsNotFound()) {
-            err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
-            return err;
-        } else if (!status.ok()) {
-            err = fds::Error(fds::ERR_DISK_READ_FAILED);
-            return err;
-        }
-    }
-
-    return err;
-}
-
-Error
-Catalog::QuerySnap(const std::string& _file, const Record& key, std::string* value) {
-    Error err(ERR_OK);
-
-    filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
-
-    std::unique_ptr<leveldb::DB> dbSnap;
-    leveldb::Status status;
-    options.create_if_missing = 1;
-    options.filter_policy     = filter_policy.get();
-    options.write_buffer_size = WRITE_BUFFER_SIZE;
-
-    write_options.sync = true;
-
-    {
-        leveldb::DB* dbSnap_out;
-        status = leveldb::DB::Open(options, _file, &dbSnap_out);
-        dbSnap.reset(dbSnap_out);
-    }
-    assert(status.ok());
-
-    status = dbSnap->Get(read_options, key, value);
-    if (status.IsNotFound()) {
-        err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
-        return err;
-    } else if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_READ_FAILED);
-        return err;
-    }
-
-    return err;
-}
-
-/** Gets backing file name
- * @return Copy of backing file name
- */
-std::string
-Catalog::GetFile() const {
-    return backing_file;
-}
 }  // namespace fds

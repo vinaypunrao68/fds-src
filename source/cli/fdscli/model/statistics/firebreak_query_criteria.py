@@ -9,8 +9,8 @@ class FirebreakQueryCriteria(QueryCriteria):
     @author: nate
     '''
     
-    def __init__(self, use_size_for_value=True, date_range=DateRange(), contexts=[], points=1 ):
-        QueryCriteria.__init__(self, date_range=date_range, contexts=contexts, points=points)
+    def __init__(self, use_size_for_value=True, date_range=DateRange(), points=1 ):
+        QueryCriteria.__init__(self, date_range=date_range, points=points)
         
         self.use_size_for_value = use_size_for_value
         

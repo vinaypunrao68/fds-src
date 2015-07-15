@@ -169,13 +169,15 @@ public class S3Endpoint {
     }
 
     private void syncRoute(HttpPath path, Function<AuthenticationToken, SyncRequestHandler> f) {
-        webApp.route(path, ctx -> CompletableFuture.runAsync(() -> {
+        webApp.route(path, ctx -> {
+                    CompletableFuture cf = new CompletableFuture();
                     Resource resource = new TextResource("");
                     try {
                         AuthenticationToken token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
                         AuthenticatedRequestContext.begin(token);
                         Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
                         resource = errorHandler.apply(token).handle(ctx);
+                        cf.complete(null);
                     } catch (Throwable t) {
                         if (t instanceof ExecutionException) {
                             t = t.getCause();
@@ -187,11 +189,12 @@ public class S3Endpoint {
                             LOG.debug("Got an exception: ", t);
                             resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
                         }
+                        cf.completeExceptionally(t);
                     } finally {
                         AuthenticatedRequestContext.complete();
                         resource.renderTo(ctx);
                     }
-                })
-        );
+                    return cf;
+                });
     }
 }

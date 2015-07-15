@@ -120,8 +120,6 @@ class S3Volumes(object):
             the S3 bucket (volume) where the data files will to uploaded to.
         '''
         # add the data files to the bucket.
-        #print("bucket name is {}".format(bucket.name))
-        #print("file is {}".format(filepath))
         k = None
         try:
             k = bucket.get_key(key_name)

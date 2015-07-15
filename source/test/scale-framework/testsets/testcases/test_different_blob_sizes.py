@@ -113,7 +113,6 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         '''
         # add the data files to the bucket.
         k = Key(bucket)
-        #path = os.path.join(config.TEST_DIR, sample)
         for sample in self.sample_files:
             path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):

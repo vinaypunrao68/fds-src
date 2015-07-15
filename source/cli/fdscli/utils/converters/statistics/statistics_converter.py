@@ -20,7 +20,7 @@ class StatisticsConverter(object):
         
         for j_seri in j_series:
             #if you don't reset this, it picks up the last values!!
-            series = Series(a_type=None, datapoints=[])
+            series = Series(a_type=None)
             series.type = j_seri.pop("type", series.type)
             
             j_dps = j_seri.pop("datapoints", [])
