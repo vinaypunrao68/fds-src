@@ -72,7 +72,7 @@ public class SmokeTestRunner {
         System.exit(0);
     }
 
-    private void runTest(final Class klass) {
+    public static void runTest(final Class klass) {
         BlockJUnit4ClassRunner runner = null;
         try {
             runner = new BlockJUnit4ClassRunner(klass) {
@@ -98,7 +98,7 @@ public class SmokeTestRunner {
         });
     }
 
-    private void runTest(final Class klass, String methodName) {
+    public static void runTest(final Class klass, String methodName) {
         BlockJUnit4ClassRunner runner = null;
         try {
             runner = new BlockJUnit4ClassRunner(klass) {

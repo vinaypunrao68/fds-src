@@ -8,14 +8,11 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.util.thrift.ThriftClientFactory;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
-
-import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -34,7 +31,14 @@ import static org.junit.Assert.*;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
-    //@Test
+    @Test
+    public void testUpdateBlobOnceNoTruncate() throws Exception {
+        Map<String, String> medatata = new HashMap<>();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, smallObject, smallObjectLength, new ObjectOffset(0), medatata).get();
+    }
+
+    @Test
+    @Ignore
     public void testParallelCreate() throws Exception {
         IntStream.range(0, 10)
                 .parallel()
@@ -42,7 +46,6 @@ public class AsyncAmTest extends BaseAmTest {
                     try {
                         asyncAm.updateBlobOnce(domainName, volumeName, Integer.toString(i),
                                 1, ByteBuffer.allocate(100), 100, new ObjectOffset(1), new HashMap<>()).get();
-                        System.out.println("Created " + i);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -53,7 +56,6 @@ public class AsyncAmTest extends BaseAmTest {
                 .parallel()
                 .map(i -> {
                     try {
-                        System.out.println("Reading " + i);
                         BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, Integer.toString(i)).get();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
