@@ -327,7 +327,8 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
          */
         err = reconcileSuperblock();
         if (err != ERR_OK) {
-            fds_panic("Cannot reconcile SM superblocks");
+            LOGERROR << "Error during superblock reconciliation error code = " << err;
+       //     fds_panic("Cannot reconcile SM superblocks");
         }
 
         /* Since, we have a "master" superblock, check if the disk topology
@@ -495,6 +496,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
+        LOGDEBUG << badDiskId << " is a bad disk. Removing it from data serving";
         HDDs.erase(badDiskId);
     }
     badDisks.clear();
@@ -506,6 +508,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
+        LOGDEBUG << badDiskId << " is a bad disk. Removing it from data serving";
         SSDs.erase(badDiskId);
     }
 }
@@ -519,6 +522,7 @@ SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
             LOGNOTIFY << "Disk " << diskId << " is not accessible ";
             return true;
         }
+        LOGNOTIFY << "Disk " << diskId << " mounting failed with error = " << errno;
     } else {
         umount2(mountPnt.c_str(), MNT_FORCE);
     }
@@ -842,7 +846,7 @@ SmSuperblockMgr::reconcileSuperblock()
         fds_verify(ERR_OK == err);
         if (diskBadSuperblock.size() > 0) {
             err = syncSuperblock(diskBadSuperblock);
-            fds_verify(ERR_OK == err);
+        //    fds_verify(ERR_OK == err);
         }
     } else {
         /* TODO(sean)
