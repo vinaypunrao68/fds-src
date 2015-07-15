@@ -50,12 +50,12 @@ ObjectMetadataStore::setNumBitsPerToken(fds_uint32_t nbits) {
 }
 
 Error
-ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
+ObjectMetadataStore::openMetadataStore(SmDiskMap::ptr& diskMap) {
     return metaDb_->openMetadataDb(diskMap);
 }
 
 Error
-ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap,
+ObjectMetadataStore::openMetadataStore(SmDiskMap::ptr& diskMap,
                                        const SmTokenSet& smToks) {
     return metaDb_->openMetadataDb(diskMap, smToks);
 }
