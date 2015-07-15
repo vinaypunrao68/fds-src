@@ -301,13 +301,14 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
      */
     diskMap = latestDiskMap;
     diskDevMap = latestDiskDevMap;
+    setDiskHealthMap();
     LOGDEBUG << "Got disk map";
 
     /* Do initial state check.
      * If there is no superblock anywhere on the system, then this is the
      * first time SM started on this node.
      */
-    bool pristineState = checkPristineState();
+    bool pristineState = checkPristineState(hddIds, ssdIds);
     if (pristineState) {
         /* If pristine state, where there is no SM superblock on the
          * node, then we are going to generate a new set of superblock
@@ -328,7 +329,7 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
         err = reconcileSuperblock();
         if (err != ERR_OK) {
             LOGERROR << "Error during superblock reconciliation error code = " << err;
-       //     fds_panic("Cannot reconcile SM superblocks");
+            checkForHandledErrors(err);
         }
 
         /* Since, we have a "master" superblock, check if the disk topology
@@ -489,6 +490,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
     FdsRootDir::fds_mkdir(tempMountDir.c_str());
     umount2(tempMountDir.c_str(), MNT_FORCE);
 
+    LOGDEBUG << "Do mount test on disks";
     // check for unreachable HDDs first.
     for (auto& diskId : HDDs) {
         if (isDiskUnreachable(diskId, tempMountDir)) {
@@ -496,8 +498,10 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << badDiskId << " is a bad disk. Removing it from data serving";
+        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        markDiskBad(badDiskId);
         HDDs.erase(badDiskId);
+        diskMap.erase(badDiskId);
     }
     badDisks.clear();
 
@@ -508,25 +512,47 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << badDiskId << " is a bad disk. Removing it from data serving";
+        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
+        diskMap.erase(badDiskId);
+    }
+}
+
+bool
+SmSuperblockMgr::devFlushTest(const std::string& path) {
+    std::ofstream fileStr(path.c_str());
+    if (fileStr.good()) {
+        try {
+            fileStr.flush();
+        } catch (const std::ios_base::failure& e) {
+            LOGNOTIFY << "Disk is not accessible ";
+            return true;
+        } catch (...) {
+            LOGNOTIFY << "Disk is not accessible ";
+            return true;
+        }
+        return false;
+    } else {
+        return true;
     }
 }
 
 bool
 SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
                                    const std::string& mountPnt) {
-
+    bool retVal = devFlushTest(diskMap[diskId] + "/.tempFlush");
     if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
         if (errno == ENODEV) {
             LOGNOTIFY << "Disk " << diskId << " is not accessible ";
-            return true;
+            return  (retVal | true);
         }
         LOGNOTIFY << "Disk " << diskId << " mounting failed with error = " << errno;
     } else {
         umount2(mountPnt.c_str(), MNT_FORCE);
     }
-    return false;
+    LOGNOTIFY << "Disk " << diskId << " is not accessible due to error errno=" << errno;
+    return (retVal | false);
 }
 
 /*
@@ -541,6 +567,7 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
     DiskIdSet addedHDDs, removedHDDs;
     DiskIdSet addedSSDs, removedSSDs;
     bool recomputed = false;
+    LOGDEBUG << "Checking disk topology";
 
     /**
      * Check for all HDDs and SSDs passed to SM via diskMap
@@ -661,6 +688,24 @@ SmSuperblockMgr::syncSuperblock()
     return err;
 }
 
+void
+SmSuperblockMgr::setDiskHealthMap()
+{ 
+    for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
+        diskHealthMap[cit->first] = true;
+    }
+}
+
+void
+SmSuperblockMgr::markDiskBad(const fds_uint16_t& diskId) {
+    diskHealthMap[diskId] = false;
+}
+
+bool
+SmSuperblockMgr::isDiskHealthy(const fds_uint16_t& diskId) {
+    return diskHealthMap[diskId];
+}
+
 Error
 SmSuperblockMgr::syncSuperblock(const std::set<uint16_t>& setSuperblock)
 {
@@ -698,11 +743,23 @@ SmSuperblockMgr::countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_
 }
 
 bool
-SmSuperblockMgr::checkPristineState()
+SmSuperblockMgr::checkPristineState(DiskIdSet& HDDs,
+                                    DiskIdSet& SSDs)
 {
     uint32_t noSuperblockCnt = 0;
-
     fds_assert(diskMap.size() > 0);
+
+    sleep(30);
+    /**
+     * Check for all HDDs and SSDs passed to SM via diskMap
+     * are up and accessible. Remove the bad ones from SSD
+     * and/or HDD DiskIdSet.
+     * Only checking for file path could sometimes be incorrect
+     * since the filepath check request could've been served from
+     * filesystem cache, when the actual underlying device is
+     * gone.
+     */
+    std::string tempMountDir = getTempMount();
 
     for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
         std::string superblockPath = getSuperblockPath(cit->second.c_str());
@@ -710,7 +767,7 @@ SmSuperblockMgr::checkPristineState()
         /* Check if the file exists.
          */
         std::ifstream diskStr(superblockPath.c_str());
-        if (diskStr.good()) {
+        if (!isDiskUnreachable(cit->first, tempMountDir) && diskStr.good()) {
             diskStr.close();
         } else {
             /* The superblock file doesn't exist in this directory.
@@ -721,6 +778,16 @@ SmSuperblockMgr::checkPristineState()
     }
 
     return (noSuperblockCnt == diskMap.size());
+}
+
+std::string
+SmSuperblockMgr::getTempMount() {
+
+    std::string tempMountDir = MODULEPROVIDER()->proc_fdsroot()->\
+                               dir_fds_etc() + "testMount";
+    FdsRootDir::fds_mkdir(tempMountDir.c_str());
+    umount2(tempMountDir.c_str(), MNT_FORCE);
+    return tempMountDir;
 }
 
 /*
@@ -753,6 +820,7 @@ SmSuperblockMgr::reconcileSuperblock()
                     << superblockPath
                     << " failed with error"
                     << err;
+            checkForHandledErrors(err);
             auto ret = diskBadSuperblock.emplace(cit->first);
             if (!ret.second) {
                 /* diskID is not unique.  Failed to add to diskBadSuperblock
@@ -773,6 +841,7 @@ SmSuperblockMgr::reconcileSuperblock()
                     << superblockPath
                     << " failed with error"
                     << err;
+            checkForHandledErrors(err);
             auto ret = diskBadSuperblock.emplace(cit->first);
                 /* diskID is not unique.  Failed to add to diskBadSuperblock
                  * set, because diskID already exists.  DiskID should be unique.
@@ -797,9 +866,9 @@ SmSuperblockMgr::reconcileSuperblock()
         auto ret = diskGoodSuperblock.emplace(cit->first,
                                               tmpSuperblock.getSuperblockChecksum());
         if (!ret.second) {
-                /* diskID is not unique.  Failed to add to diskGoodSuperblock
-                 * set, because diskID already exists.  DiskID should be unique.
-                 */
+            /* diskID is not unique.  Failed to add to diskGoodSuperblock
+             * set, because diskID already exists.  DiskID should be unique.
+             */
             fds_panic("Detected non-unique diskID entry");
         }
     }
@@ -846,7 +915,7 @@ SmSuperblockMgr::reconcileSuperblock()
         fds_verify(ERR_OK == err);
         if (diskBadSuperblock.size() > 0) {
             err = syncSuperblock(diskBadSuperblock);
-        //    fds_verify(ERR_OK == err);
+            checkForHandledErrors(err);
         }
     } else {
         /* TODO(sean)
@@ -869,6 +938,23 @@ SmSuperblockMgr::reconcileSuperblock()
     return err;
 }
 
+void
+SmSuperblockMgr::checkForHandledErrors(Error& err) {
+    switch (err.GetErrno()) {
+        case ERR_SM_SUPERBLOCK_READ_FAIL:
+        case ERR_SM_SUPERBLOCK_WRITE_FAIL:
+        case ERR_SM_SUPERBLOCK_MISSING_FILE:
+            /**
+             * Disk failures are handled in the code. So
+             * if a superblock file is not reachable just
+             * ignore the error.
+             */
+            err = ERR_OK;
+            break;
+        default:
+            break;
+    }
+}
 
 Error
 SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
