@@ -137,6 +137,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
+    /**
+    * @brief Detach in any in memory state for the volume
+    *
+    * @param vol_uuid
+    */
+    void detachVolume(fds_volid_t vol_uuid);
+
     typedef enum {
       NORMAL_MODE = 0,
       TEST_MODE   = 1,

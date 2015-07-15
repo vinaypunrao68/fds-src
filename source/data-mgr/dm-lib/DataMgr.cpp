@@ -360,6 +360,8 @@ std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
 }
 
 void DataMgr::deleteUnownedVolumes() {
+    LOGNORMAL << "DELETING unowned volumes";
+
     std::vector<fds_volid_t> volIds;
     std::vector<fds_volid_t> deleteList;
     auto mySvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
@@ -377,7 +379,13 @@ void DataMgr::deleteUnownedVolumes() {
     /* Delete unowned volumes one at a time */
     for (const auto &volId : deleteList) {
         LOGNORMAL << "DELETING volume: " << volId;
-        auto err = process_rm_vol(volId, false);
+        /* Flow for deleting the volume is to mark it for delete first
+         * followed by acutally deleting it
+         */
+        Error err = process_rm_vol(volId, true);        // Mark for delete
+        if (err == ERR_OK) {
+            err = process_rm_vol(volId, false);         // Do the actual delete
+        }
         // TODO(xxx): Remove snapshots once the api is available
         if (err != ERR_OK) {
             LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
@@ -803,27 +811,31 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     // we we are here, check_only == false
     err = timeVolCat_->deleteEmptyVolume(vol_uuid);
     if (err.ok()) {
-        VolumeMeta* vol_meta = NULL;
-        qosCtrl->deregisterVolume(vol_uuid);
-        vol_map_mtx->lock();
-        if (vol_meta_map.count(vol_uuid) > 0) {
-            vol_meta = vol_meta_map[vol_uuid];
-            vol_meta_map.erase(vol_uuid);
-        }
-        vol_map_mtx->unlock();
-        if (vol_meta) {
-            vol_meta->dmVolQueue.reset();
-            delete vol_meta;
-        }
-        statStreamAggr_->detachVolume(vol_uuid);
-        LOGNORMAL << "Removed vol meta for vol uuid "
-                  << std::hex << vol_uuid << std::dec;
+        detachVolume(vol_uuid);
     } else {
         LOGERROR << "Failed to remove volume " << std::hex
                  << vol_uuid << std::dec << " " << err;
     }
 
     return err;
+}
+
+void DataMgr::detachVolume(fds_volid_t vol_uuid) {
+    VolumeMeta* vol_meta = NULL;
+    qosCtrl->deregisterVolume(vol_uuid);
+    vol_map_mtx->lock();
+    if (vol_meta_map.count(vol_uuid) > 0) {
+        vol_meta = vol_meta_map[vol_uuid];
+        vol_meta_map.erase(vol_uuid);
+    }
+    vol_map_mtx->unlock();
+    if (vol_meta) {
+        vol_meta->dmVolQueue.reset();
+        delete vol_meta;
+    }
+    statStreamAggr_->detachVolume(vol_uuid);
+    LOGNORMAL << "Detached vol meta for vol uuid "
+        << std::hex << vol_uuid << std::dec;
 }
 
 Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
