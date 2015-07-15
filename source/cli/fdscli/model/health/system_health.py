@@ -7,8 +7,8 @@ class SystemHealth(object):
     @author: nate
     '''
 
-    def __init__(self, health_records=[], overall_health=HealthState.GOOD):
-        self.health_records = health_records
+    def __init__(self, overall_health=HealthState.GOOD):
+        self.health_records = []
         self.overall_health = overall_health
         
     @property
