@@ -13,6 +13,7 @@
 #include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 
@@ -255,6 +256,13 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Returns number of disks on this SM
      */
     fds_uint32_t getDiskCount() const;
+
+    /**
+     * Handle disk change.
+     */
+    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
+    void handleDiskChanges(const diskio::DataTier& diskType,
+                           const TokenDiskIdPairSet& tokenDiskPairs);
 
     /**
      * Check if object store is ready to serve IO/become source for SM token

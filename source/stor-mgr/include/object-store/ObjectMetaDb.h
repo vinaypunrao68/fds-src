@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <fds_types.h>
+#include <SmTypes.h>
 #include <concurrency/RwLock.h>
 #include <ObjMeta.h>
 #include <odb.h>
@@ -37,7 +38,7 @@ class ObjectMetadataDb {
      * Ownership is defined in disk map
      * @param[in] diskMap map of SM tokens to disks
      */
-    Error openMetadataDb(const SmDiskMap::const_ptr& diskMap);
+    Error openMetadataDb(SmDiskMap::ptr& diskMap);
 
     /**
      * Opens object metadata DB for given set of SM tokens
@@ -45,7 +46,7 @@ class ObjectMetadataDb {
      * @param[in] diskMap map of SM tokens to disks
      * @param[in] smToks set of SM tokens to open
      */
-    Error openMetadataDb(const SmDiskMap::const_ptr& diskMap,
+    Error openMetadataDb(SmDiskMap::ptr& diskMap,
                          const SmTokenSet& smToks);
 
     /**
@@ -61,6 +62,12 @@ class ObjectMetadataDb {
      * for at least one token in the given set of SM tokens
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    /**
+     * Destroy levelDBs of sm Tokens if the object DBs were not present.
+     */
+    Error deleteMetadataDb(const std::string& diskPath,
+                           const fds_token_id& smToken);
 
     /**
      * Set number of bits per (global) token
@@ -139,12 +146,15 @@ class ObjectMetadataDb {
                         fds_bool_t destroy);
 
   private:  // data
-     std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>> tokenTbl;
-     using TokenTblIter = std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>>::const_iterator;
-     fds_rwlock dbmapLock_;  // lock for tokenTbl
+    SmDiskMap::ptr smDiskMap;
+    diskio::DataTier metaTier;  /// tier used for metadata
 
-     // cached number of bits per (global) token
-     fds_uint32_t bitsPerToken_;
+    std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>> tokenTbl;
+    using TokenTblIter = std::unordered_map<fds_token_id, std::shared_ptr<osm::ObjectDB>>::const_iterator;
+    fds_rwlock dbmapLock_;  // lock for tokenTbl
+
+    // cached number of bits per (global) token
+    fds_uint32_t bitsPerToken_;
 };
 
 }  // namespace fds

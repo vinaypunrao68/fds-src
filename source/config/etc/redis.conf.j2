@@ -17,7 +17,7 @@ loglevel verbose
 logfile /fds/var/logs/redis/redis-server.log
 
 {# add slave of for none master, i.e. all hosts expect OM hosts #}
-{% if fds_om_host != inventory_hostname %}
+{% if fds_om_host != inventory_hostname and this_node_runs_om != "true" %}
 slaveof {{ fds_om_host }} {{ redis_port }}
 {% endif %}
 

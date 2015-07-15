@@ -44,7 +44,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * @param[in] map of SM tokens to disks
      * @param[in] true if SM comes up for the first time
      */
-    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+    Error openDataStore(SmDiskMap::ptr& diskMap,
                         fds_bool_t pristineState);
 
     /**
@@ -57,7 +57,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * @param[in] smToks set of SM tokens to open data store for
      * @param[in] true if SM comes up for the first time
      */
-    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+    Error openDataStore(SmDiskMap::ptr& diskMap,
                         const SmTokenSet& smToks,
                         fds_bool_t pristineState);
 
@@ -66,6 +66,13 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * @param[in] set of SM tokens for which this SM lost ownership
      */
     Error closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost);
+
+    /**
+     * Deletes SM token file for a given SM Token.
+     */
+    Error deleteObjectDataFile(const std::string& diskPath,
+                               const fds_token_id& smToken,
+                               const fds_uint16_t& diskId);
 
     /**
      * Peristently stores object data.

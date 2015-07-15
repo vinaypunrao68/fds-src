@@ -16,7 +16,7 @@ namespace timeline {
 struct TimelineManager {
     TimelineManager(fds::DataMgr* dm);
 
-    Error deleteSnapshot(fds_volid_t volid, fds_volid_t snapshotid);
+    Error deleteSnapshot(fds_volid_t volid, fds_volid_t snapshotid = invalid_vol_id);
     Error loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid = invalid_vol_id);
     Error unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid);
     Error createSnapshot(VolumeDesc *vdesc);
@@ -31,6 +31,8 @@ struct TimelineManager {
 
     std::string getSnapshotBloomFile(fds_volid_t snapshotId);
     Error markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId);
+
+    // map of volid -> [map of snapshotid->bloom filter]
     std::map<fds_volid_t , std::map<fds_volid_t,SHPTR<util::BloomFilter> > > blooms;
 };
 }  // namespace timeline

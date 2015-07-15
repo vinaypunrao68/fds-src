@@ -85,7 +85,7 @@ class ObjectPersistData : public Module,
         public boost::noncopyable,
         public SmPersistStoreHandler {
   private:
-    SmDiskMap::const_ptr smDiskMap;
+    SmDiskMap::ptr smDiskMap;
 
     /**
      * Map of <tier, SM token id, file id> to FilePersistDataIO struct
@@ -125,7 +125,7 @@ class ObjectPersistData : public Module,
      * @param[in] diskMap map of SM tokens to disks
      * @param[in] true if SM comes up for the first time
      */
-    Error openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+    Error openObjectDataFiles(SmDiskMap::ptr& diskMap,
                               fds_bool_t pristineState);
 
     /**
@@ -137,7 +137,7 @@ class ObjectPersistData : public Module,
      * @param[in] smToks set of SM tokens for which to open data files
      * @param[in] true if SM comes up for the first time
      */
-    Error openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+    Error openObjectDataFiles(SmDiskMap::ptr& diskMap,
                               const SmTokenSet& smToks,
                               fds_bool_t pristineState);
 
@@ -148,6 +148,13 @@ class ObjectPersistData : public Module,
      * lost ownership
      */
     Error closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost);
+
+    /**
+     * Deletes SM token file for a given SM Token.
+     */
+    Error deleteObjectDataFile(const std::string& diskPath,
+                               const fds_token_id& smToken,
+                               const fds_uint16_t& diskId);
 
     /**
      * Peristently stores object data.

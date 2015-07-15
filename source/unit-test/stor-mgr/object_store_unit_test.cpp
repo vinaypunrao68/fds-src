@@ -679,6 +679,19 @@ TEST_F(SmObjectStoreTest, findNewSrcSMAllInvalidTest) {
     delete dlt;
 }
 
+TEST_F(SmObjectStoreTest, concurrent_gets_fail) {
+    // for gets, do num ops = 2*dataset size
+    GLOGDEBUG << "Running concurrent_gets test";
+    numOps = 2 * (largeCapVolume->testdata_).dataset_.size();
+    fiu_enable("sm.persist.meta_readfail", 1, NULL, 0);
+    runMultithreadedTest(TestVolume::STORE_OP_GET, largeCapVolume, ERR_NO_BYTES_READ);
+    fiu_disable("sm.persist.meta_readfail");
+}
+
+// NEW TESTS SHOULD BE ADDED BEFORE concurrent_gets_fail
+// becuase we are 'failing' the disks, so the state of object store not
+// got for further testing
+
 }  // namespace fds
 
 int

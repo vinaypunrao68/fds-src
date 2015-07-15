@@ -50,12 +50,12 @@ ObjectMetadataStore::setNumBitsPerToken(fds_uint32_t nbits) {
 }
 
 Error
-ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
+ObjectMetadataStore::openMetadataStore(SmDiskMap::ptr& diskMap) {
     return metaDb_->openMetadataDb(diskMap);
 }
 
 Error
-ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap,
+ObjectMetadataStore::openMetadataStore(SmDiskMap::ptr& diskMap,
                                        const SmTokenSet& smToks) {
     return metaDb_->openMetadataDb(diskMap, smToks);
 }
@@ -65,6 +65,11 @@ ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
 }
 
+Error
+ObjectMetadataStore::deleteMetadataDb(const std::string& diskPath,
+                                      const fds_token_id& smTokenLost) {
+    return metaDb_->deleteMetadataDb(diskPath, smTokenLost);
+}
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,

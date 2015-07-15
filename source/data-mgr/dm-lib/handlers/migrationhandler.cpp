@@ -133,6 +133,30 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
     delete dmRequest;
 }
 
+DmMigrationDeltaBlobDescHandler::DmMigrationDeltaBlobDescHandler(DataMgr& dataManager)
+	: Handler(dataManager)
+{
+    REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyDeltaBlobDescMsg, handleRequest);
+}
+
+void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
+                                        fpi::CtrlNotifyDeltaBlobDescMsgPtr& message) {
+    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+
+    auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
+
+    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOBDESC);
+
+    addToQueue(dmReq);
+}
+
+void DmMigrationDeltaBlobDescHandler::handleQueueItem(dmCatReq* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    helper.skipImplicitCb = true;
+    DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
+    dataManager.dmMigrationMgr->applyDeltaBlobDescriptor(typedRequest);
+}
 
 DmMigrationDeltablobHandler::DmMigrationDeltablobHandler(DataMgr& dataManager)
     : Handler(dataManager)
@@ -147,6 +171,7 @@ void DmMigrationDeltablobHandler::handleRequest(
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
     auto dmReq = new DmIoMigDeltaBlob(message);
 
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltablobHandler::handleResponse, asyncHdr, message);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELT_BLB);
 
     LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
@@ -167,5 +192,10 @@ void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
     dataManager.dmMigrationMgr->applyDeltaObjects(typedRequest);
 }
 
+void DmMigrationDeltablobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                        Error const& e, dmCatReq* dmRequest) {
+	delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds

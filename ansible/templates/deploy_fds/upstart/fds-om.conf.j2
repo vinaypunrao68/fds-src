@@ -25,15 +25,17 @@ script
 
   echo '=====================================================' > ${fds_root}/bin/om.out
   echo 'UPTIME:\t'`date` >> ${fds_root}/bin/om.out
-  echo 'ENV   :\t'`set` >> ${fds_root}/bin/om.out
-  echo 'Loading '${fds_root}/etc/omenv >> ${fds_root}/bin/om.out  
+  echo 'Loading '${fds_root}/etc/omenv >> ${fds_root}/bin/om.out
   [ -f ${fds_root}/etc/omenv ] || exit 0
   . ${fds_root}/etc/omenv
-  echo 'Loaded '${fds_root}/etc/omenv >> ${fds_root}/bin/om.out  
-  echo 'is ENABLED:\t'${ENABLED} >> ${fds_root}/bin/om.out  
+  echo 'Loaded '${fds_root}/etc/omenv >> ${fds_root}/bin/om.out
+  echo 'ENV   :\t'`env` >> ${fds_root}/bin/om.out
+  echo ${fds_root}'/etc/omenv ENABLED:\t'${ENABLED} >> ${fds_root}/bin/om.out
+  [ -e ${fds_root}/var/this_node_runs_om ] && ENABLED="true" && this_node_runs_om="true"
+  echo ${fds_root}'/var/this_node_runs_om file found:\t'${this_node_runs_om} >> ${fds_root}/bin/om.out
+  [ "${ENABLED}" = "true" ] || [ "${this_node_runs_om}" = "true" ] || exit 0
   echo '=====================================================' >> ${fds_root}/bin/om.out
   echo ''
-
   [ "${ENABLED}" = "true" ] || exit 0
 
   exec ${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} >> ${fds_root}/bin/om.out 2>&1

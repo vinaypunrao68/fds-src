@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -243,11 +244,13 @@ public class S3SmokeTest {
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
 
         int partCount = 10;
+        AtomicInteger expectedLength = new AtomicInteger(0);
 
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
-                    byte[] buf = new byte[(1 + i) * (1024 * 1024)];
+                    byte[] buf = new byte[50 * (1024 * 1024)];
+                    expectedLength.addAndGet(buf.length);
                     for (int j = 0; j < buf.length; j++) {
                         buf[j] = (byte) -1;
                     }
@@ -267,7 +270,7 @@ public class S3SmokeTest {
         userClient.completeMultipartUpload(completeRequest);
 
         ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
-        assertEquals(57671680, objectMetadata.getContentLength());
+        assertEquals(expectedLength.get(), objectMetadata.getContentLength());
     }
 
     @Test

@@ -26,13 +26,13 @@ ObjectDataStore::~ObjectDataStore() {
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+ObjectDataStore::openDataStore(SmDiskMap::ptr& diskMap,
                                fds_bool_t pristineState) {
     return persistData->openObjectDataFiles(diskMap, pristineState);
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+ObjectDataStore::openDataStore(SmDiskMap::ptr& diskMap,
                                const SmTokenSet& smToks,
                                fds_bool_t pristineState) {
     return persistData->openObjectDataFiles(diskMap, smToks, pristineState);
@@ -41,6 +41,13 @@ ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
 Error
 ObjectDataStore::closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost) {
     return persistData->closeAndDeleteObjectDataFiles(smTokensLost);
+}
+
+Error
+ObjectDataStore::deleteObjectDataFile(const std::string& diskPath,
+                                      const fds_token_id& smToken,
+                                      const fds_uint16_t& diskId) {
+    return persistData->deleteObjectDataFile(diskPath, smToken, diskId);
 }
 
 Error
