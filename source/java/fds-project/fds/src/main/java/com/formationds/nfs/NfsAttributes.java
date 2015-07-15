@@ -22,7 +22,7 @@ public class NfsAttributes {
     public static final String NFS_NLINK = "NFS_NLINK";
     private Map<String, String> metadata;
 
-    public NfsAttributes(Stat.Type type, Subject subject, int mode, long fileId, long byteCount) {
+    public NfsAttributes(Stat.Type type, Subject subject, int mode, long fileId) {
         metadata = new HashMap<>();
         metadata.put(NFS_TYPE, type.name());
         int uid = (int) Subjects.getUid(subject);
@@ -36,14 +36,13 @@ public class NfsAttributes {
         metadata.put(NFS_ATIME, Long.toString(now));
         metadata.put(NFS_CTIME, Long.toString(now));
         metadata.put(NFS_MTIME, Long.toString(now));
-        metadata.put(NFS_SIZE, Long.toString(byteCount));
+        metadata.put(NFS_SIZE, Long.toString(0));
         metadata.put(NFS_GENERATION, Long.toString(0));
         metadata.put(NFS_NLINK, Long.toString(1));
     }
 
     public NfsAttributes(BlobDescriptor blobDescriptor) {
         this.metadata = blobDescriptor.metadata;
-        this.metadata.put(NFS_SIZE, Long.toString(blobDescriptor.getByteCount()));
     }
 
     public Map<String, String> asMetadata() {
@@ -76,14 +75,23 @@ public class NfsAttributes {
         return Enum.valueOf(Stat.Type.class, metadata.get(NFS_TYPE));
     }
 
-    public NfsAttributes updateMtime() {
+    public NfsAttributes withUpdatedMtime() {
         metadata.put(NFS_MTIME, Long.toString(System.currentTimeMillis()));
         return this;
     }
 
-    public NfsAttributes updateSize(long newSize) {
+    public NfsAttributes withUpdatedAtime() {
+        metadata.put(NFS_ATIME, Long.toString(System.currentTimeMillis()));
+        return this;
+    }
+
+    public NfsAttributes withUpdatedSize(long newSize) {
         metadata.put(NFS_SIZE, Long.toString(newSize));
         return this;
+    }
+
+    public long getSize() {
+        return Long.parseLong(metadata.get(NFS_SIZE));
     }
 
     public NfsAttributes update(Stat stat) {
