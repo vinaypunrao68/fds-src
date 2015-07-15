@@ -7,7 +7,9 @@ function volume_setup {
     local node=$2
     local vol=$3
     pushd  ../../../cli
-    ./fds volume create -name $vol -type block -max_object_size $max_obj_size -max_object_size_unit B -media_policy HDD
+    let max_obj_size_kb=$max_obj_size/1024
+    #./fds volume create -name $vol -type block -block_size $max_obj_size_kb -block_size_unit KB -media_policy HDD
+    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -media_policy HDD
     sleep 10
     popd
     nbd_disk=`../../../cinder/nbdadm.py attach $node $vol`
@@ -46,7 +48,7 @@ function process_results {
 
 outdir=$1
 nodes=$2
-node=luke
+node=$3
 size="16m"
 worker=8
 workload="randread"
