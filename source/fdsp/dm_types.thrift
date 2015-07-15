@@ -155,6 +155,6 @@ struct DMMigrationObjListDiff {
  * the serialized verion of the descriptors. 
  */
 struct DMBlobDescListDiff {
-  1: i64                        vol_blob_id,
+  1: string                     vol_blob_name,
   2: string                     vol_blob_desc;
 }
