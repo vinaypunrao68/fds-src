@@ -26,6 +26,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 {
     volumeUuid = volDesc.volUUID;
 	LOGMIGRATE << "Migration executor received for volume ID " << volDesc;
+	dsHelper.lastMsg = 0;
 }
 
 DmMigrationExecutor::~DmMigrationExecutor()
@@ -121,6 +122,28 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     return err;
 }
 
+void
+DmMigrationExecutor::deltaSetHelper::recordMsgSeqId(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
+{
+	fds_verify(msgMap.find(msg->msg_seq_id) == msgMap.end());
+	msgMap[msg->msg_seq_id] = true;
+	if (msg->last_msg_seq_id) {
+		lastMsg = msg->msg_seq_id;
+	}
+}
+
+fds_uint64_t
+DmMigrationExecutor::deltaSetHelper::recallNumOfMsgsReceived()
+{
+	return (msgMap.size());
+}
+
+fds_bool_t
+DmMigrationExecutor::deltaSetHelper::blobSetIsComplete()
+{
+	return (msgMap.size() == lastMsg);
+}
+
 Error
 DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
 {
@@ -131,30 +154,30 @@ DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &ms
 	if (msg->blob_obj_list.size() == 0) {
 		return ERR_INVALID_ARG;
 	}
-	// TODO: add sequence IDs and last_msg_seq_id from msg
+	dsHelper.recordMsgSeqId(msg);
 
 	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
 	Error err(ERR_OK);
 	std::string blobName;
-
-	// Start with an empty lists, which will work on a single blob_name
-	BlobObjList list;
-	std::vector<fpi::DMMigrationObjListDiff>::const_iterator bolIter = msg->blob_obj_list.begin();
-	while (bolIter != msg->blob_obj_list.end()) {
+	for (blobObjListIter bolIter = msg->blob_obj_list.begin();
+			bolIter != msg->blob_obj_list.end(); ++bolIter) {
+		// Each iter represents a blob and its diff list
 		blobName = blobName.empty() ? bolIter->blob_name : blobName;
-		if (blobName != bolIter->blob_name) {
-			// TODO: New blob. Flush current exist list and start new list
-			blobName = bolIter->blob_name;
+		if (bolIter->blob_name != blobName) {
+			// TODO NEW BLOB HANDLE
 		}
-
-
-
-		++bolIter;
+		BlobTxId newTx;
+		BlobTxId::ptr txPtr = boost::make_shared<BlobTxId>(newTx);
+		dataMgr.timeVolCat_->startBlobTx(volumeUuid, blobName, 0, txPtr);
 	}
 
 
-
 #if 0
+    Error startBlobTx(fds_volid_t volId,
+                      const std::string &blobName,
+                      fds_int32_t blobMode,
+                      BlobTxId::const_ptr txDesc);
+
 	err = dataMgr.timeVolCat_->volcat->putPartialBlob(volumeUuid, blobName,
 			boost::make_shared<BlobObjList>(list));
 #endif

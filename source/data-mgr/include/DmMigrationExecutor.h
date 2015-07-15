@@ -17,7 +17,6 @@ class DataMgr;
 typedef std::function<void (fds_volid_t volumeId,
                             const Error& error)> DmMigrationExecutorDoneCb;
 
-
 class DmMigrationExecutor {
   public:
     explicit DmMigrationExecutor(DataMgr& _dataMgr,
@@ -29,6 +28,8 @@ class DmMigrationExecutor {
 
     typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
     typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
+    using blobObjListIter = std::vector<fpi::DMMigrationObjListDiff>::const_iterator;
+
 
     /**
      * Executes the specified executor and runs the callback once done.
@@ -83,6 +84,34 @@ class DmMigrationExecutor {
      * Means that the callback above should now call the next executor
      */
     fds_bool_t autoIncrement;
+
+    struct deltaSetHelper {
+    	/**
+     	 * Bitmap of the msgs that we have received for CtrlNotifyDeltaBlobsMsg
+    	 */
+    	std::unordered_map<fds_uint64_t, fds_bool_t> msgMap;
+
+    	/**
+    	* The msg number that is counted as the last message in the CtrlNotifyDeltaBlobsMsg
+    	*/
+    	fds_uint64_t lastMsg;
+
+    	/**
+    	* Mark this msg sequence ID as the one that has been received.
+    	*/
+    	void recordMsgSeqId(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+
+    	/**
+    	* Recall the number of messages that have been received.
+    	*/
+    	fds_uint64_t recallNumOfMsgsReceived();
+
+    	/**
+    	 * Returns true if the complete Blob set has been received
+    	 */
+    	fds_bool_t blobSetIsComplete();
+    };
+    deltaSetHelper dsHelper;
 
 };  // DmMigrationExecutor
 
