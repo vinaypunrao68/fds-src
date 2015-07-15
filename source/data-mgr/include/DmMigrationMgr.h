@@ -88,12 +88,12 @@ class DmMigrationMgr {
     Error startMigrationClient(dmCatReq* dmRequest);
 
     // Handle deltaObject  in Migration executor
-    Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
+    Error applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobsReq);
 
     /**
      * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
      */
-    Error applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+    Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;

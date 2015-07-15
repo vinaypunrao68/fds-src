@@ -122,14 +122,29 @@ DmMigrationExecutor::processInitialBlobFilterSet()
 }
 
 Error
-DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
+DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
+{
+	/**
+     * TODO: Need to hold descriptors until all blobs are applied.
+	 */
+	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
+               << std::hex << volumeUuid << std::dec;
+
+	return ERR_OK;
+}
+
+Error
+DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 {
 	/**
 	 * TODO : start buffering process. FS-2486 is to be implemented here.
 	 */
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
-	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume="
+               << std::hex << volumeUuid << std::dec;
 
 	return ERR_OK;
 }
+
 }  // namespace fds
