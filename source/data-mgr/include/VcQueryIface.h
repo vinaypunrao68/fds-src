@@ -10,6 +10,7 @@
 #include "fdsp/dm_api_types.h"
 #include <lib/Catalog.h>
 #include <functional>
+#include <DmBlobTypes.h>
 namespace fds {
 
 /**
@@ -114,6 +115,24 @@ class VolumeCatalogQueryIface {
     virtual Error listBlobs(fds_volid_t volume_id,
                             fpi::BlobDescriptorListType* bdescr_list) = 0;
 
+
+    /**
+     * Returns blob (descriptor + offset to object_id mappings) for a blob_id
+     * intended to be used for logical replication
+     * @param[in] volume_id volume uuid
+     * @param[in] blob_id id of the blob
+     * @param[out] meta the blob metadata descriptor
+     * @param[out] obj_list list of offset to object id mappings
+     * @param[in] m the snapshot to read from
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
+     */
+    virtual Error getBlobAndMetaFromSnapshot(fds_volid_t volume_id,
+                                             const std::string & blobName,
+                                             BlobMetaDesc &meta,
+                                             fpi::FDSP_BlobObjectList& obj_list,
+
+                                             Catalog::MemSnap snap) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
      */
@@ -130,8 +149,6 @@ class VolumeCatalogQueryIface {
 
     virtual Error getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq_id) = 0;
 
-    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId) = 0;
-
     virtual Error activateCatalog(fds_volid_t volId) {
         return ERR_OK;
     };
@@ -139,10 +156,12 @@ class VolumeCatalogQueryIface {
     /**
      * Methods for DM Migration to take a volume's snapshot and do delta on it
      */
-    virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
-    virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) = 0;
-    virtual Error getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
-                                                Catalog::catalog_roptions_t &opts) = 0;
+    virtual Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
+    virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
+    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId,
+                                            std::map<std::string, int64_t>& blobsSeqId,
+                                            Catalog::MemSnap m = NULL) = 0;
+
     virtual Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>) = 0;
 };
 

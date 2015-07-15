@@ -57,7 +57,7 @@ class Catalog {
     std::unique_ptr<leveldb::DB> db;
 
     /*
-     * leveldb file system interface 
+     * leveldb file system interface
      */
     std::unique_ptr<leveldb::CopyEnv> env;
 
@@ -87,14 +87,21 @@ class Catalog {
 
     /** Uses the underlying leveldb iterator */
     typedef leveldb::Iterator catalog_iterator_t;
-    /** Gets catalog iterator
+
+    /** a NULL value means the associated actions should happen on live data */
+    typedef const leveldb::Snapshot* MemSnap;
+
+    /** Gets catalog iterator for a given snapshot
+     * @param[in] m the snapshot to use, NULL for latest data
      * @return Pointer to catalog iterator
      */
-    std::unique_ptr<catalog_iterator_t> NewIterator() {
-        return std::unique_ptr<catalog_iterator_t>(db->NewIterator(read_options));
-    }
+    std::unique_ptr<catalog_iterator_t> NewIterator(MemSnap m = NULL) {
+        leveldb::ReadOptions ro{read_options};
 
-    typedef leveldb::ReadOptions catalog_roptions_t;
+        ro.snapshot = m;
+
+        return std::unique_ptr<catalog_iterator_t>(db->NewIterator(ro));
+    }
 
     inline const leveldb::Options & GetOptions() const {
         return options;
@@ -106,27 +113,30 @@ class Catalog {
 
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Update(CatWriteBatch* batch);
-    fds::Error Query(const Record& key, std::string* val);
+    fds::Error Query(const Record& key, std::string* val, MemSnap m = NULL);
     fds::Error Delete(const Record& key);
 
     /**
      * Wrapper for leveldb::GetSnapshot(), ReleaseSnapshot()
      */
-    void GetSnapshot(catalog_roptions_t& opts) {
-        opts.snapshot = db->GetSnapshot();
-    }
-    void ReleaseSnapshot(catalog_roptions_t opts) {
-        db->ReleaseSnapshot(opts.snapshot);
-    }
-    std::unique_ptr<catalog_iterator_t> NewIterator(catalog_roptions_t opts) {
-        return std::unique_ptr<catalog_iterator_t>(db->NewIterator(opts));
+
+    /*
+     * all MemSnap Gets and Releases should be pass-by-reference, so any dangling
+     * pointers are zeroed by ReleaseSnapshot
+     */
+    void GetSnapshot(MemSnap &m) {
+        m = db->GetSnapshot();
     }
 
-    bool DbEmpty();
-    bool DbDelete();
+    /*
+     * after this call, m must not be used
+     */
+    void ReleaseSnapshot(MemSnap &m) {
+        db->ReleaseSnapshot(m);
+        m = NULL;
+    }
+
     fds::Error DbSnap(const std::string& fileName);
-    fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
-    fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
 
     inline void clearLogRotate() {
         fds_assert(env);
