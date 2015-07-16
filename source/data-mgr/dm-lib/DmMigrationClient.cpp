@@ -293,7 +293,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
         fpi::DMBlobDescListDiff blobDesc;
 
         /**
-         * Add blob id to the descriptor list.
+         * Add blob name to the descriptor list.
          */
         blobDesc.vol_blob_name = blobName;
         /**
