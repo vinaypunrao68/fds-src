@@ -327,8 +327,8 @@ struct DmMigrationDeltaBlobDescHandler : Handler {
     void handleQueueItem(dmCatReq* dmRequest);
 };
 
-struct DmMigrationDeltablobHandler : Handler {
-    explicit DmMigrationDeltablobHandler(DataMgr& dataManager);
+struct DmMigrationDeltaBlobHandler : Handler {
+    explicit DmMigrationDeltaBlobHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);

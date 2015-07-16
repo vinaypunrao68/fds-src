@@ -46,14 +46,16 @@ class DmMigrationExecutor {
     Error processInitialBlobFilterSet();
 
     /**
-     * Step 2:
-     * Process the incoming deltaObject set coming from the source DM.
-     * This method will apply everything in the msg into the levelDB once it's
-     * finished. It will also update the client's internal mapping to know
-     * which blob has applied which sequence numbers, and whether or not the whole
-     * set has been applied.
+     * Step 2.1:
+     * Process the incoming delta blobs set coming from the source DM.
      */
-    Error processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+    Error processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+
+    /**
+     * Step 2.2:
+     * Process the incoming delta blob descriptors set coming from the source DM.
+     */
+    Error processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 
     /**
      * Step 3:
@@ -104,17 +106,14 @@ class DmMigrationExecutor {
     RandNumGenerator randNumGen;
 
     /**
-     * Used for Handling seq numbers for processing Blobs
-     */
-    MigrationSeqNum deltaBlobSetHelper;
-
-    /**
+     * Used for Handling seq numbers for processing Blobs.
      * Because we're taking advantage of commit's callback instead of executor's
      * own QoS callback, we can't use a MigrationDoubleSeqNum as easily.
      * Since we know that the Cb only gets called after a commitTx has been issued,
      * we can take adv and use this as a cheating way of just doing counting, and
      * to know when all the Cbs have finished before moving on to BlobsDescs.
      */
+    MigrationSeqNum deltaBlobSetHelper;
     struct seqNumHelper {
     	fds_mutex 		mtx;
     	fds_uint64_t 	expectedCount;
@@ -122,6 +121,14 @@ class DmMigrationExecutor {
     	fds_uint64_t	actualCbCounted;
     };
     seqNumHelper deltaBlobSetCbHelper;
+
+    /*
+     * Maintain messages from the source DM, so we don't lost it.
+     * Each async message from the DM is unique.  We use double
+     * sequence number to ensure that all delta messages are handled
+     * and local IO through qos is complete.
+     */
+    MigrationDoubleSeqNum seqNumDeltaBlobDescs;
 
 };  // DmMigrationExecutor
 

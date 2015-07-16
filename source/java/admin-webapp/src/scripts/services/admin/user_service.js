@@ -13,7 +13,7 @@ angular.module( 'user-management' ).factory( '$user_service', [ '$http_fds', fun
 
     service.changePassword = function( user, success, failure ){
 
-        return $http_fds.put( webPrefix + '/users/' + user.uid, user, success, failure );
+        return $http_fds.put( webPrefix + '/users/' + user.userId, user, success, failure );
 
     };
 

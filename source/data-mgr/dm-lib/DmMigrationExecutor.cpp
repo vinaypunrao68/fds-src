@@ -127,7 +127,20 @@ DmMigrationExecutor::processInitialBlobFilterSet()
 }
 
 Error
-DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
+DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
+{
+	/**
+     * TODO: Need to hold descriptors until all blobs are applied.
+	 */
+	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
+               << std::hex << volumeUuid << std::dec;
+
+	return ERR_OK;
+}
+
+Error
+DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 {
 	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
@@ -168,8 +181,8 @@ DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &ms
 			return err;
 		}
 		err = dataMgr.timeVolCat_->commitBlobTx(volumeUuid, bolIter->blob_name, txPtr, msg->msg_seq_id,
-						std::bind(&dm::DmMigrationDeltablobHandler::volumeCatalogCb,
-						static_cast<dm::DmMigrationDeltablobHandler*>(dataMgr.handlers[FDS_DM_MIG_DELT_BLB]),
+						std::bind(&dm::DmMigrationDeltaBlobHandler::volumeCatalogCb,
+						static_cast<dm::DmMigrationDeltaBlobHandler*>(dataMgr.handlers[FDS_DM_MIG_DELTA_BLOB]),
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
 						std::placeholders::_4, std::placeholders::_5, commitBlobReq));
 		if(!err.OK()) {
@@ -213,4 +226,5 @@ DmMigrationExecutor::processIncomingDeltaSetCb()
 
 	return ERR_OK;
 }
+
 }  // namespace fds

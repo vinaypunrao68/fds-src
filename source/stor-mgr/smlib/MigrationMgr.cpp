@@ -1438,9 +1438,10 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
 
     // it only makes sense to retry if error happened on source SM side
     // or we could't reach SM
-    // TODO(Anna) add timeout in destination waiting for progress on delta sets
     if ((error == ERR_SVC_REQUEST_TIMEOUT) ||
         (error == ERR_SVC_REQUEST_INVOCATION) ||
+        (error == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
+        (error == ERR_SM_TOK_MIGRATION_TIMEOUT) ||
         /// we get this error from source SM which failed to start
         (error == ERR_NODE_NOT_ACTIVE)) {
         LOGMIGRATE << "Executor " << std::hex << executorId
