@@ -481,6 +481,19 @@ SmSuperblockMgr::diffDiskSet(const DiskIdSet& diskSet1,
     return deltaDiskSet;
 }
 
+/**
+ * This method tries to check if the disks passed
+ * are accessible or not.
+ * It creates a mount point and try to mount the
+ * device path on it. If it fails with device not
+ * found error. Then basically, device isn't there.
+ * Secondly, it tries to create a file and write to
+ * it and do a flush to the hardware. If the flush
+ * raises io exception. Then disk is assumed to be
+ * inaccessible.
+ * Basically either of the test failure for a disk
+ * results in marking disk as bad.
+ */
 void
 SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
                                  DiskIdSet& SSDs) {
@@ -522,7 +535,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 
 bool
 SmSuperblockMgr::devFlushTest(const std::string& path) {
-    std::fstream fileStr(path.c_str());
+    std::ofstream fileStr(path.c_str());
     if (fileStr.good()) {
         try {
             std::string tempStream = "testString";
