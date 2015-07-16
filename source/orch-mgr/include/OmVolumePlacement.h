@@ -274,7 +274,7 @@ namespace fds {
          * The DMT depth defines the maximum number of
          * replicas that can be specified in the DMT
          */
-        fds_uint64_t curDmtDepth;
+        fds_uint32_t curDmtDepth;
 
         /**
          * The DMT width defines the number of volume ranges and thereby
