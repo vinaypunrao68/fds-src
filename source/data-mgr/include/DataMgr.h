@@ -387,11 +387,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid, VolumeDesc* desc,
-                          fds_bool_t vol_will_sync);
+                          fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid, VolumeDesc* desc,
-                           fds_bool_t vol_will_sync);
+                           fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
