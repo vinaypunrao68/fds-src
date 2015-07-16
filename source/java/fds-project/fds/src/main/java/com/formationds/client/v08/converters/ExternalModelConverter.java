@@ -476,11 +476,16 @@ public class ExternalModelConverter {
 
 			internalSettings.setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
 
-			if ( blockSettings.getBlockSize() != null ){
-				internalSettings.setMaxObjectSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B )
+			Size blockSize = blockSettings.getBlockSize();
+			
+			if ( blockSize != null &&
+					blockSize.getValue( SizeUnit.B ).longValue() > Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
+					blockSize.getValue( SizeUnit.B ).longValue() < Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue()){
+				internalSettings.setMaxObjectSizeInBytes( blockSize.getValue( SizeUnit.B )
 						.intValue() );
 			}
 			else {
+				logger.warn( "Block size was either not set, or outside the bounds of 4KB-8MB so it is being set to the default of 128KB");
 				internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
 			}
 
@@ -490,10 +495,15 @@ public class ExternalModelConverter {
 		} else {
 			VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
 
-			if ( objectSettings.getMaxObjectSize() != null ){
-				internalSettings.setMaxObjectSizeInBytes( objectSettings.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+			Size maxObjSize = objectSettings.getMaxObjectSize();
+			
+			if ( maxObjSize != null && 
+					maxObjSize.getValue( SizeUnit.B ).longValue() > Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
+					maxObjSize.getValue( SizeUnit.B ).longValue() < Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue() ){
+				internalSettings.setMaxObjectSizeInBytes( maxObjSize.getValue( SizeUnit.B ).intValue() );
 			}
 			else {
+				logger.warn( "Maximum object size was either not set, or outside the bounds of 4KB-8MB so it is being set to the default of 2MB");
 				internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
 			}
 

@@ -115,6 +115,8 @@ class FdsAuth():
                 print response.pop("message")
                 return
             
+            print "Connected to: " + self.get_hostname() + "\n\n"
+            
             response = response.json()
             
             if ( "userId" in response ):
