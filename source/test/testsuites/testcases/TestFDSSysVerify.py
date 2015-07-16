@@ -268,6 +268,7 @@ class TestDMChecker(TestCase.FDSTestCase):
                                              self.__class__.__name__,
                                              self.test_DMChecker,
                                              "DM Static migration verification")
+    @TestCase.expectedFailure("Static migration code is incomplete as of July 17, 2015")
     def test_DMChecker(self):
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
@@ -280,109 +281,6 @@ class TestDMChecker(TestCase.FDSTestCase):
             self.log.error("DM Static Migration failed") 
             return False
         return True
-
-# This class contains the attributes and methods to test
-# whether there occurred successful DM Static migration
-# between two nodes using the DM Check utility.
-class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node1=None, node2=None, volume=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_VerifyDMStaticMigration,
-                                             "DM Static Migration checking")
-
-        self.passedNode1 = node1
-        self.passedNode2 = node2
-        self.passedVolume = volume
-
-    @TestCase.expectedFailure("FS-810")
-    def test_VerifyDMStaticMigration(self):
-        """
-        Test Case:
-        Verify whether DM Static migration successfully occurred
-        by comparing the output of the DM Check utility run for each node.
-        """
-
-        # Verify input.
-        if (self.passedNode1 is None) or (self.passedNode2 is None) or (self.passedVolume is None):
-            self.log.error("Test case construction requires parameters node1, node2 and volume.")
-            raise Exception
-
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-
-        # Locate our two nodes.
-        nodes = fdscfg.rt_obj.cfg_nodes
-        n1 = None
-        n2 = None
-        for n in nodes:
-            if self.passedNode1 == n.nd_conf_dict['node-name']:
-                n1 = n
-            if self.passedNode2 == n.nd_conf_dict['node-name']:
-                n2 = n
-
-            if (n1 is not None) and (n2 is not None):
-                break
-
-        if n1 is None:
-            self.log.error("Node not found for %s." % self.passedNode1)
-            raise
-        if n2 is None:
-            self.log.error("Node not found for %s." % self.passedNode2)
-            raise
-
-        # Locate our volume.
-        volumes = fdscfg.rt_get_obj('cfg_volumes')
-        v = None
-        for volume in volumes:
-            if self.passedVolume == volume.nd_conf_dict['vol-name']:
-                v = volume
-
-        if v is None:
-            self.log.error("Volume not found for %s." % self.passedVolume)
-            raise
-
-        fds_dir1 = n1.nd_conf_dict['fds_root']
-
-        fds_dir2 = n2.nd_conf_dict['fds_root']
-
-        # Capture stdout from dmchk for node1.
-        #
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout1 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/dmchk --fds-root=%s -l %s) \"' %
-                                                (bin_dir, fds_dir1, v.nd_conf_dict['id']), return_stdin=True)
-
-        if status != 0:
-            self.log.error("DM Static Migration checking using node %s returned status %d." %
-                           (n1.nd_conf_dict['node-name'], status))
-            return False
-
-        # Now capture stdout from dmchk for node2.
-        status, stdout2 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/dmchk --fds-root=%s -l %s) \"' %
-                                                (bin_dir, fds_dir2, v.nd_conf_dict['id']), return_stdin=True)
-
-        if status != 0:
-            self.log.error("DM Static Migration checking using node %s returned status %d." %
-                           (n2.nd_conf_dict['node-name'], status))
-            return False
-
-        # Let's compare.
-        if stdout1 != stdout2:
-            self.log.error("DM Static Migration checking showed differences for volume %s." %
-                           v.nd_conf_dict['vol-name'])
-            self.log.error("Node %s shows: \n%s" %
-                           (n1.nd_conf_dict['node-name'], stdout1))
-            self.log.error("Node %s shows: \n%s" %
-                           (n2.nd_conf_dict['node-name'], stdout2))
-            return False
-        else:
-            self.log.info("DM Static Migration checking showed match between nodes %s and %s for volume %s." %
-                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name'], v.nd_conf_dict['vol-name']))
-            self.log.info("Both nodes show: \n%s" % stdout1)
-
-        return True
-
 
 # This class contains the attributes and methods to test
 # whether there occurred successful SM Static migration
