@@ -17,6 +17,7 @@ from fdscli.model.volume.settings.block_settings import BlockSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
 from fdslib.TestUtils import get_volume_service
+from fdscli.model.fds_error import FdsError
 
 nbd_device = "/dev/nbd15"
 pwd = ""
@@ -52,9 +53,9 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         new_volume.settings = access
         vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
         status = vol_service.create_volume(new_volume)
-        if type(status).__name__ is not 'Volume':
+        if isinstance(status, FdsError):
             self.log.error("Volume nbd+vol creation on %s returned status %s." %
-                               (om_node.nd_conf_dict['node-name'], type(status).__name__))
+                               (om_node.nd_conf_dict['node-name'], status))
             return False
 
         return True

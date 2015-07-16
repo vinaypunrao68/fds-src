@@ -20,7 +20,7 @@ from fdscli.services.fds_auth import *
 from fdslib.TestUtils import create_fdsConf_file
 from fdslib.TestUtils import convertor
 from fdslib.TestUtils import get_volume_service
-from model.fds_error import FdsError
+from fdscli.model.fds_error import FdsError
 
 # This class contains the attributes and methods to test
 # volume creation.
@@ -61,9 +61,9 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             newVolume = convertor(volume)
             status = vol_service.create_volume(newVolume)
 
-            if type(status).__name__ is not 'Volume':
+            if isinstance(status, FdsError):
                 self.log.error("Volume %s creation on %s returned status %s." %
-                               (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], type(status).__name__))
+                               (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedVolume is not None:
                 break
