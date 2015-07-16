@@ -12,7 +12,7 @@ angular.module( 'main' ).controller( 'accountController', ['$scope', '$authentic
     
     $scope.stopChangingPassword = function(){
         $scope.password_changing = false;
-    }   
+    };
     
     $scope.changePassword = function(){
 
@@ -23,7 +23,10 @@ angular.module( 'main' ).controller( 'accountController', ['$scope', '$authentic
             return;
         }
 
-        $user_service.changePassword( $authorization.user.userId, $scope.newPassword,
+        var newPasswordUser = $authorization.user;
+        newPasswordUser.password = $scope.newPassword;
+        
+        $user_service.changePassword( newPasswordUser,
             function(){
                 $scope.newPassword = '';
                 $scope.confirmPassword = '';

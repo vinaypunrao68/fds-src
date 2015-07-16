@@ -8,10 +8,10 @@ class Statistics(object):
     @author: nate
     '''
     
-    def __init__(self, series_list=[], calculated_values=[], metadata=[]):
-        self.series_list = series_list
-        self.calculated_values = calculated_values
-        self.metadata = metadata
+    def __init__(self ):
+        self.series_list = []
+        self.calculated_values = []
+        self.metadata = []
         
     @property
     def series_list(self):

@@ -317,12 +317,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
-                case FDS_DM_MIG_DELT_BLB:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
                 case FDS_DM_RESYNC_INIT_BLOB:
+                case FDS_DM_MIG_DELTA_BLOB:
                 case FDS_DM_MIG_DELTA_BLOBDESC:
                     // If serialization in enabled, serialize on the key
                     // otherwise just schedule directly.
@@ -387,11 +387,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid, VolumeDesc* desc,
-                          fds_bool_t vol_will_sync);
+                          fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid, VolumeDesc* desc,
-                           fds_bool_t vol_will_sync);
+                           fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 

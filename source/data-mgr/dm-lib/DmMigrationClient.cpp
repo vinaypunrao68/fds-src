@@ -74,10 +74,10 @@ DmMigrationClient::resetSeqNumBlobDescs()
  *  Algorithm runtime is linear in the size of the input.
  */
 Error
-DmMigrationClient::diffBlobLists(const std::map<int64_t, int64_t>& dest,
-                                 const std::map<int64_t, int64_t>& source,
-                                 std::vector<fds_uint64_t>& update_list,
-                                 std::vector<fds_uint64_t>& delete_list)
+DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
+                                 const std::map<std::string, int64_t>& source,
+                                 std::vector<std::string>& update_list,
+                                 std::vector<std::string>& delete_list)
 {
     auto source_it = source.cbegin();
     auto dest_it = dest.cbegin();
@@ -129,10 +129,11 @@ DmMigrationClient::processBlobDiff()
 
     // gather all blob blob descriptors with sequence id.
     // the snapshot should've been taken before calling this.
-    std::map<int64_t, int64_t> localBlobMap;
-	err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(volId,
-                                                                           localBlobMap,
-                                                                           opts);
+    std::map<std::string, int64_t> localBlobMap;
+	err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId,
+                                                                       localBlobMap,
+                                                                       snap_);
+
     if (ERR_OK != err) {
         LOGERROR << "Failed to get blob descriptors with sequence id for volume=" << volId
                  << " with error=" << err;
@@ -142,8 +143,8 @@ DmMigrationClient::processBlobDiff()
     // using the destination DM's blob descs with seq id and
     // source DM's blob desc with seq ids, generate the list of blobs
     // to be updated or deleted on the destination side.
-    std::vector<fds_uint64_t> blobUpdateList;
-    std::vector<fds_uint64_t> blobDeleteList;
+    std::vector<std::string> blobUpdateList;
+    std::vector<std::string> blobDeleteList;
     err = diffBlobLists(ribfsm->blobFilterMap,
                         localBlobMap,
                         blobUpdateList,
@@ -170,7 +171,7 @@ DmMigrationClient::processBlobDiff()
 }
 
 Error
-DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs)
+DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& updateBlobs)
 {
     Error err(ERR_OK);
 
@@ -185,13 +186,33 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& 
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
 
     for (const auto & it: updateBlobs) {
-        /**
-         * TODO(Sean):
-         * Need to integrate fs-2426 and fs-2488 when James pushes to master.
-         */
 
-        // XXX: placeholder...
-        //
+        BlobMetaDesc metaDesc;
+        fpi::DMMigrationObjListDiff objList;
+        objList.blob_name = it;
+
+        // Now get blobs and blob descriptor for given blob name.
+	    err = dataMgr.timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
+                                                                            it,
+                                                                            metaDesc,
+                                                                            objList.blob_diff_list,
+                                                                            snap_);
+        // for now, just panic if they don't work.
+        fds_verify(ERR_OK == err);
+
+        // Add blobs to the delta blobs msg.
+        deltaBlobsMsg->blob_obj_list.emplace_back(objList);
+
+        // Add blob descriptor to delta blob desc msg.
+        fpi::DMBlobDescListDiff blobDesc;
+        blobDesc.vol_blob_name = it;
+
+        err = metaDesc.getSerialized(blobDesc.vol_blob_desc);
+        // for now, just panic if they don't work.
+        fds_verify(ERR_OK == err);
+
+        deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
+
         if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
             /**
              * send the blob desc to thd destination dm.
@@ -245,7 +266,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<fds_uint64_t>& 
 }
 
 Error
-DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& deleteBlobs)
+DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& deleteBlobs)
 {
     Error err(ERR_OK);
 
@@ -269,11 +290,11 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& 
         /**
          * Add blob id to the descriptor list.
          */
-        blobDesc.vol_blob_id = it;
+        blobDesc.vol_blob_name = it;
         /**
          * Intentionally not mofidying vol_blob_desc, since it should be 0 strlen.
          */
-        LOGMIGRATE << "Adding DELETE blob=" << blobDesc.vol_blob_id
+        LOGMIGRATE << "Adding DELETE blob=" << blobDesc.vol_blob_name
                    << " to the descriptor list";
         deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
 
@@ -305,8 +326,8 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<fds_uint64_t>& 
 }
 
 Error
-DmMigrationClient::generateBlobDeltaSets(const std::vector<fds_uint64_t>& updateBlobs,
-                                         const std::vector<fds_uint64_t>& deleteBlobs)
+DmMigrationClient::generateBlobDeltaSets(const std::vector<std::string>& updateBlobs,
+                                         const std::vector<std::string>& deleteBlobs)
 {
     Error err(ERR_OK);
 
@@ -341,7 +362,7 @@ DmMigrationClient::processBlobFilterSet()
 	LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
     // Get snapshot for the volume.
-	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, opts);
+	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
@@ -357,7 +378,7 @@ DmMigrationClient::processBlobFilterSet()
     }
 
     // free the in-memory snapshot diff after completion.
-    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, opts);
+    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
        LOGERROR << "Failed to free snapshot on volume=" << volId
                  << " with error=" << err;
@@ -369,27 +390,6 @@ DmMigrationClient::processBlobFilterSet()
         LOGMIGRATE << "Calling migration client done handler";
         migrDoneHandler(volId, err);
     }
-
-	return err;
-}
-
-Error
-DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDescMsg)
-{
-    Error err(ERR_OK);
-
-	LOGMIGRATE << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
-               << " " << logString(*blobDescMsg);
-
-    /**
-     * Send fire and forget message consisting of blob descriptors to the destination DM.
-     */
-    fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
-    auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobDescMsg->setTimeoutMs(0);
-	asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
-                                                      blobDescMsg);
-    asyncDeltaBlobDescMsg->invoke();
 
 	return err;
 }
@@ -415,4 +415,24 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     return err;
 }
 
+Error
+DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDescMsg)
+{
+     Error err(ERR_OK);
+
+       LOGMIGRATE << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
+                << " " << logString(*blobDescMsg);
+
+     /**
+      * Send fire and forget message consisting of blob descriptors to the destination DM.
+      */
+     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
+     auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+     asyncDeltaBlobDescMsg->setTimeoutMs(0);
+       asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
+                                                       blobDescMsg);
+     asyncDeltaBlobDescMsg->invoke();
+
+       return err;
+}
 }  // namespace fds

@@ -496,6 +496,12 @@ struct SvcMgr : HasModuleProvider, Module {
     void notifyOMSvcIsDown(const fpi::SvcInfo &info);
 
     /**
+     * Sets unreachable fault injection for testing at
+     * a given frequency.
+     */
+    void setUnreachableInjection(float frequency);
+
+    /**
     * @brief Minimum connection retries
     */
     static int32_t MIN_CONN_RETRIES;
@@ -503,11 +509,6 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief Max connection retries
     */
     static int32_t MAX_CONN_RETRIES;
-
-    /** 
-     * Toggles
-     */
-    bool notifyOMOnSvcDown;
 
  protected:
     /**

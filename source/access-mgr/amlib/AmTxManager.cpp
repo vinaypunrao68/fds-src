@@ -238,7 +238,7 @@ AmTxManager::getObjects(GetBlobReq* blobReq) {
     auto buf_it = cb->return_buffers->begin();
     for (auto end = cb->return_buffers->cend(); end != buf_it; ++obj_it, ++buf_it) {
         if (!*buf_it) {
-            LOGDEBUG << "Instantiating GetObject for object: " << *obj_it;
+            LOGDEBUG << "Instantiating GetObject for object: " << **obj_it;
             getObject(blobReq, *obj_it, *buf_it);
         }
     }

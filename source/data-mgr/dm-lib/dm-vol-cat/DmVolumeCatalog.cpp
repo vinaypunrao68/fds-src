@@ -406,6 +406,23 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
     return rc;
 }
 
+Error DmVolumeCatalog::getBlobAndMetaFromSnapshot(fds_volid_t volId,
+                                                  const std::string& blobName,
+                                                  BlobMetaDesc &meta,
+                                                  fpi::FDSP_BlobObjectList& obj_list,
+                                                  const Catalog::MemSnap snap) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    Error rc = vol->getBlobMetaDesc(blobName, meta, snap);
+
+    fds_uint64_t reverse_engineer_last_offset = (std::numeric_limits<fds_uint32_t>::max()-1)* vol->getObjSize();
+
+    rc = vol->getObject(blobName, 0, reverse_engineer_last_offset, obj_list, snap);
+
+    return rc;
+}
+
 Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bDescrList) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
@@ -546,7 +563,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
             }
             newBlobSize += cit->second.size;
         } else if (cit->first == newLastOffset) {
-            fds_verify(oldIter->second.oid != NullObjectID);
+            // fds_verify(oldIter->second.oid != NullObjectID);
             fds_verify(newBlobSize >= vol->getObjSize());
             newBlobSize -= vol->getObjSize();
             newBlobSize += cit->second.size;
@@ -619,7 +636,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     return expungeCb_(volId, expungeList, false);
 }
 
-// XXX: (JLL) commenting out this function doesn't seem to break anything
+// NOTE: used by the Batch ifdef, not currently called by compiled code
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
         CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate /* = true */) {
@@ -782,25 +799,20 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
     return vol->getLatestSequenceId(seq_id);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+                                                 Catalog::MemSnap snap) {
     GET_VOL_N_CHECK_DELETED(volId);
-    return vol->getAllBlobsWithSequenceId(blobsSeqId);
+    return vol->getAllBlobsWithSequenceId(blobsSeqId, snap);
 }
 
-Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
 	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->getInMemorySnapshot(opts);
+	return vol->getInMemorySnapshot(snap);
 }
 
-Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
 	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->freeInMemorySnapshot(opts);
-}
-
-Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) {
-    GET_VOL_N_CHECK_DELETED(volId);
-    return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
+	return vol->freeInMemorySnapshot(snap);
 }
 
 Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {
