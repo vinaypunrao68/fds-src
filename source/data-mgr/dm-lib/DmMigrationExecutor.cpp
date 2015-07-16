@@ -56,8 +56,7 @@ DmMigrationExecutor::startMigration()
      */
     err = dataMgr._process_add_vol(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
                                    volumeUuid,
-                                   &volDesc,
-                                   false);
+                                   &volDesc);
 
     /** TODO(Sean):
      * With current OM implementation, add node will send list of volumes and start migration

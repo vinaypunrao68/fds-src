@@ -436,8 +436,7 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
 
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc, true);
-
+    err = _add_vol_locked(vol_name, vol_uuid, desc);
 
     return err;
 }
@@ -465,8 +464,7 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
  */
 Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                fds_volid_t vol_uuid,
-                               VolumeDesc *vdesc,
-                               fds_bool_t vol_will_sync) {
+                               VolumeDesc *vdesc) {
     Error err(ERR_OK);
     bool fActivated = false;
     // create vol catalogs, etc first
@@ -525,7 +523,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
-    if (err.ok() && !vol_will_sync && !fActivated) {
+    if (err.ok() && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
@@ -581,7 +579,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
 
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue " << std::hex
-             << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
+             << vol_uuid << std::dec << ", created catalogs";
 
     vol_map_mtx->lock();
     if (needReg) {
@@ -592,40 +590,6 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         delete volmeta;
         vol_map_mtx->unlock();
         return err;
-    }
-
-    // if we will sync vol meta, block processing IO requests from this volume's
-    // qos queue and create a shadow queue for receiving volume meta from another DM
-    if (vol_will_sync) {
-        // we will use the priority of the volume, but no min iops (otherwise we will
-        // need to implement temp deregister of vol queue, so we have enough total iops
-        // to admit iops of shadow queue)
-        FDS_VolumeQueue* shadowVolQueue =
-                new(std::nothrow) FDS_VolumeQueue(4096, 10000, 0, vdesc->relativePrio);
-        if (shadowVolQueue) {
-            fds_volid_t shadow_volid = catSyncRecv->shadowVolUuid(vol_uuid);
-            // block volume's qos queue
-            volmeta->dmVolQueue->stopDequeue();
-            // register shadow queue
-            err = qosCtrl->registerVolume(shadow_volid, shadowVolQueue);
-            if (err.ok()) {
-                LOGERROR << "Registered shadow volume queue for volume 0x"
-                         << std::hex << vol_uuid << " shadow id " << shadow_volid << std::dec;
-                // pass ownership of shadow volume queue to volume meta receiver
-                catSyncRecv->startRecvVolmeta(vol_uuid, shadowVolQueue);
-            } else {
-                LOGERROR << "Failed to register shadow volume queue for volume 0x"
-                         << std::hex << vol_uuid << " shadow id " << shadow_volid
-                         << std::dec << " " << err;
-                // cleanup, we will revert volume registration and creation
-                delete shadowVolQueue;
-                shadowVolQueue = NULL;
-            }
-        } else {
-            LOGERROR << "Failed to allocate shadow volume queue for volume "
-                     << std::hex << vol_uuid << std::dec;
-            err = ERR_OUT_OF_MEMORY;
-        }
     }
 
     if (err.ok()) {
@@ -701,8 +665,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid,
-                                VolumeDesc *desc,
-                                fds_bool_t vol_will_sync) {
+                                VolumeDesc *desc) {
     Error err(ERR_OK);
 
     vol_map_mtx->lock();
@@ -715,7 +678,7 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     }
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc, vol_will_sync);
+    err = _add_vol_locked(vol_name, vol_uuid, desc);
     return err;
 }
 

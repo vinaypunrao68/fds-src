@@ -21,6 +21,7 @@ class FdsCliConfigurationManager(object):
     PASSWORD = "password"
     PORT = "port"
     USERNAME = "username"
+    PROTOCOL = "protocol"
 
     def __new__(cls, *args, **kwargs):
         '''

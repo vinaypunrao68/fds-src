@@ -101,6 +101,11 @@ AmDispatcher::start() {
             StatsCollector::singleton()->startStreaming(nullptr, nullptr);
         }
     }
+    if (conf.get<bool>("fault.unreachable", false)) {
+        float frequency = 0.001;
+        MODULEPROVIDER()->getSvcMgr()->setUnreachableInjection(frequency);
+    }
+
     numPrimaries = conf.get_abs<fds_uint32_t>("fds.dm.number_of_primary", DmDefaultPrimaryCnt);
 
     /**
