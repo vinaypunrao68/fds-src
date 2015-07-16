@@ -7,6 +7,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <boost/filesystem.hpp>
 
 #include <sys/mount.h>
 #include <functional>
@@ -385,6 +386,8 @@ class SmSuperblockMgr {
     Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
 
     std::string getTempMount();
+
+    void deleteMount(std::string& path);
 
     void checkForHandledErrors(Error& err);
 

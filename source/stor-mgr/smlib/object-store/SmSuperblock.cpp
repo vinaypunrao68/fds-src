@@ -517,6 +517,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         SSDs.erase(badDiskId);
         diskMap.erase(badDiskId);
     }
+    deleteMount(tempMountDir);
 }
 
 bool
@@ -531,12 +532,16 @@ SmSuperblockMgr::devFlushTest(const std::string& path) {
         } catch (const std::ios_base::failure& e) {
             LOGNOTIFY << "Disk is not accessible. Exception: ios_base ";
             fileStr.close();
+            std::remove(path.c_str());
             return true;
         } catch (...) {
             LOGNOTIFY << "Disk is not accessible ";
             fileStr.close();
+            std::remove(path.c_str());
             return true;
         }
+        fileStr.close();
+        std::remove(path.c_str());
         return false;
     } else {
         return true;
@@ -752,7 +757,6 @@ SmSuperblockMgr::checkPristineState(DiskIdSet& HDDs,
     uint32_t noSuperblockCnt = 0;
     fds_assert(diskMap.size() > 0);
 
-    sleep(30);
     /**
      * Check for all HDDs and SSDs passed to SM via diskMap
      * are up and accessible. Remove the bad ones from SSD
@@ -779,7 +783,7 @@ SmSuperblockMgr::checkPristineState(DiskIdSet& HDDs,
             diskStr.close();
         }
     }
-
+    deleteMount(tempMountDir);
     return (noSuperblockCnt == diskMap.size());
 }
 
@@ -791,6 +795,12 @@ SmSuperblockMgr::getTempMount() {
     FdsRootDir::fds_mkdir(tempMountDir.c_str());
     umount2(tempMountDir.c_str(), MNT_FORCE);
     return tempMountDir;
+}
+
+void
+SmSuperblockMgr::deleteMount(std::string& path) {
+    umount2(path.c_str(), MNT_FORCE);
+    boost::filesystem::remove_all(path.c_str());
 }
 
 /*
