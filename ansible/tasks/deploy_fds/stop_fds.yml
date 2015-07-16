@@ -11,6 +11,11 @@
     tags:
         - shutdown
 
+-   stat: path=/etc/init/fds-influxdb.conf
+    register: influxdb_upstart_stat
+    tags:
+        - shutdown
+
 -   name: shutdown_om
     service: name=fds-om state=stopped
     when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
@@ -38,9 +43,15 @@
     tags:
         - shutdown
 
--   name: stop influxdb
+-   name: stop influxdb sysv
     service: name=influxdb state=stopped
-    when: influxdb_init_stat.stat.exists and fds_installed|success
+    when: influxdb_init_stat.stat.exists == True and fds_installed|success and fds_om_host is defined and fds_om_host == inventory_hostname
+    tags:
+        - shutdown
+
+-   name: stop influxdb upstart
+    service: name=fds-influxdb state=stopped
+    when: influxdb_upstart_stat.stat.exists == True and fds_installed|success and fds_om_host is defined and fds_om_host == inventory_hostname
     tags:
         - shutdown
 
