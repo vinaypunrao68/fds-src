@@ -484,6 +484,8 @@ class OM_DmContainer : public OM_AgentContainer
 class OM_AmContainer : public OM_AgentContainer
 {
   public:
+    typedef boost::intrusive_ptr<OM_AmContainer> pointer;
+
     OM_AmContainer();
     virtual ~OM_AmContainer() {}
 

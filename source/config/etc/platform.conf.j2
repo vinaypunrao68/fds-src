@@ -578,6 +578,12 @@ fds: {
             probe_sleep_period = 500
             /* Enable printing of fine-grained QoS stats to var/stats/stats-data dir */
             print_qos_stats = false
+
+            /* Fault injection toggles */
+            fault: {
+                /* Injects unreachable faults into service communication */
+                unreachable = false
+            }
         }
     }
 
@@ -593,6 +599,11 @@ fds: {
             }
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
+        svc_event_threshold: {
+            timeout: {
+                threshold = 10
             }
         }
 
