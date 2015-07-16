@@ -1,19 +1,30 @@
-package com.formationds.fdsdiff;
+package com.formationds.iodriver.model;
 
 import static com.formationds.commons.util.Strings.javaString;
 
+import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.commons.NullArgumentException;
 
 public class ObjectManifest
 {
     public static class Builder<ThisT extends Builder<ThisT>>
     {
+        public Builder() { }
+        
+        public Builder(ObjectManifest source)
+        {
+            if (source == null) throw new NullArgumentException("source");
+            
+            source.setBuilderProperties(getThis());
+        }
+        
         public ObjectManifest build()
         {
             validate();
@@ -24,6 +35,14 @@ public class ObjectManifest
         public final String getName()
         {
             return _name;
+        }
+        
+        public ThisT set(S3Object object) throws IOException
+        {
+            if (object == null) throw new NullArgumentException("object");
+            
+            setName(object.getKey());
+            return getThis();
         }
         
         public final ThisT setName(String value)
@@ -59,6 +78,11 @@ public class ObjectManifest
                && Objects.equals(_name, ((ObjectManifest)other)._name);
     }
 
+    public final String getName()
+    {
+        return _name;
+    }
+    
     @Override
     public int hashCode()
     {
@@ -93,6 +117,13 @@ public class ObjectManifest
         _name = builder.getName();
     }
 
+    protected void setBuilderProperties(Builder<?> builder)
+    {
+        if (builder == null) throw new NullArgumentException("builder");
+        
+        builder.setName(getName());
+    }
+    
     protected Stream<Entry<String, String>> toJsonStringMembers()
     {
         return Stream.of(memberToJsonString("name", javaString(_name)));
@@ -102,7 +133,7 @@ public class ObjectManifest
     {
         return Stream.of(memberToString("name", _name));
     }
-    
+
     protected static Entry<String, String> memberToJsonString(String name, Object value)
     {
         if (name == null) throw new NullArgumentException("name");
@@ -128,7 +159,7 @@ public class ObjectManifest
         }
         else
         {
-            return new SimpleImmutableEntry<>(name, value.toString());
+            return new SimpleImmutableEntry<>(javaString(name), value.toString());
         }
     }
     

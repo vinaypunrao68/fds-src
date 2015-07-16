@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.DataProtectionPolicy;
@@ -25,18 +26,60 @@ import com.formationds.client.v08.model.VolumeAccessPolicy;
 import com.formationds.client.v08.model.VolumeSettings;
 import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.model.ObjectManifest;
 
 public class SystemContent
 {
     public SystemContent()
     {
+        _objectNames = new HashMap<>();
         _tenants = new HashSet<>();
         _users = new HashSet<>();
         _volumeNames = new HashMap<>();
         _volumes = new HashMap<>();
     }
     
-    public Consumer<String> getVolumeObjectNameAdder(String volumeName)
+    public final Set<String> getObjectNames(String volumeName)
+    {
+        if (volumeName == null) throw new NullArgumentException("volumeName");
+        
+        Volume volume = getVolume(volumeName);
+        Set<ObjectManifest> volumeContent = getVolumeContent(volume);
+
+        return volumeContent.stream()
+                            .map(manifest -> manifest.getName())
+                            .collect(Collectors.toSet());
+    }
+    
+    public final Volume getVolume(String volumeName)
+    {
+        if (volumeName == null) throw new NullArgumentException("volumeName");
+        
+        Volume volume = _volumeNames.get(volumeName);
+        if (volume == null)
+        {
+            throw new IllegalArgumentException(
+                    "volume " + javaString(volumeName) + " does not exist.");
+        }
+
+        return volume;
+    }
+    
+    public final Set<ObjectManifest> getVolumeContent(Volume volume)
+    {
+        if (volume == null) throw new NullArgumentException("volume");
+        
+        Set<ObjectManifest> volumeContent = _volumes.get(volume);
+        if (volumeContent == null)
+        {
+            throw new IllegalArgumentException(
+                    "volume " + javaString(volume.getName()) + " does not exist.");
+        }
+        
+        return volumeContent;
+    }
+    
+    public final Consumer<String> getVolumeObjectNameAdder(String volumeName)
     {
         if (volumeName == null) throw new NullArgumentException("volumeName");
         
@@ -47,34 +90,32 @@ public class SystemContent
                                                                         .build());
     }
     
-    public Consumer<ObjectManifest> getVolumeObjectAdder(String volumeName)
+    public final Consumer<ObjectManifest> getVolumeObjectAdder(String volumeName)
     {
         if (volumeName == null) throw new NullArgumentException("volumeName");
         
-        Volume volume = _volumeNames.get(volumeName);
-        if (volume == null)
-        {
-            throw new IllegalArgumentException(
-                    "volume " + javaString(volumeName) + " does not exist.");
-        }
-        
+        Volume volume = getVolume(volumeName);
         Set<ObjectManifest> volumeContent = _volumes.get(volume);
-        if (volumeContent == null)
-        {
-            throw new RuntimeException(
-                    "volume " + javaString(volumeName)
-                    + " does not exist, although a name mapping does.");
-        }
         
-        return manifest -> volumeContent.add(manifest);
+        return manifest ->
+        {
+            String objectName = manifest.getName();
+            ObjectManifest oldManifest = _objectNames.get(objectName);
+            if (oldManifest != null)
+            {
+                volumeContent.remove(oldManifest);
+            }
+            volumeContent.add(manifest);
+            _objectNames.put(objectName, manifest);
+        };
     }
     
-    public Set<Volume> getVolumes()
+    public final Set<Volume> getVolumes()
     {
         return Collections.unmodifiableSet(_volumes.keySet());
     }
     
-    public void setTenants(Collection<Tenant> value)
+    public final void setTenants(Collection<Tenant> value)
     {
         if (value == null) throw new NullArgumentException("value");
         
@@ -82,7 +123,7 @@ public class SystemContent
         _tenants.addAll(value);
     }
     
-    public void setUsers(Collection<User> value)
+    public final void setUsers(Collection<User> value)
     {
         if (value == null) throw new NullArgumentException("value");
         
@@ -90,7 +131,7 @@ public class SystemContent
         _users.addAll(value);
     }
     
-    public void setVolumes(Collection<Volume> value)
+    public final void setVolumes(Collection<Volume> value)
     {
         if (value == null) throw new NullArgumentException("value");
         
@@ -103,7 +144,7 @@ public class SystemContent
     }
     
     @Override
-    public String toString()
+    public final String toString()
     {
         return "{\n"
                + "  \"tenants\": [\n"
@@ -124,12 +165,14 @@ public class SystemContent
                + "}\n";
     }
     
+    private final Map<String, ObjectManifest> _objectNames;
+    
     private final Set<Tenant> _tenants;
-    
+
     private final Set<User> _users;
-    
+
     private final Map<String, Volume> _volumeNames;
-    
+
     private final Map<Volume, Set<ObjectManifest>> _volumes;
     
     private static <T> String toJson(Collection<T> collection, Function<T, String> elementConverter)

@@ -9,9 +9,11 @@ import java.util.function.Consumer;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.fdsdiff.workloads.GetObjectsDetailsWorkload;
 import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
 import com.formationds.fdsdiff.workloads.GetVolumeObjectsWorkload;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.model.ObjectManifest;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.NullWorkloadEventListener;
@@ -105,13 +107,22 @@ public final class Main
 		
 		for (Volume volume : contentContainer.getVolumes())
 		{
-		    String name = volume.getName();
-		    Consumer<String> setter = contentContainer.getVolumeObjectNameAdder(name);
+		    String volumeName = volume.getName();
 		    
+		    Consumer<String> objectNameSetter =
+		            contentContainer.getVolumeObjectNameAdder(volumeName);
 		    GetVolumeObjectsWorkload getVolumeObjects =
-		            new GetVolumeObjectsWorkload(volume.getName(), setter, true);
-		    
+		            new GetVolumeObjectsWorkload(volumeName, objectNameSetter, true);
 		    getVolumeObjects.runOn(endpoint, listener);
+
+		    Consumer<ObjectManifest> objectDetailSetter =
+		            contentContainer.getVolumeObjectAdder(volumeName);
+		    GetObjectsDetailsWorkload getObjectsDetails =
+		            new GetObjectsDetailsWorkload(volumeName,
+		                                          contentContainer.getObjectNames(volumeName),
+		                                          objectDetailSetter,
+		                                          true);
+		    getObjectsDetails.runOn(endpoint, listener);
 		}
 		
 		System.out.println(getSystemConfig.getContentContainer().toString());

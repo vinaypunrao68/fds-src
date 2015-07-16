@@ -128,6 +128,7 @@ public class RandomFill extends Workload
                     String fileName = UUID.randomUUID().toString();
                     String fullPath = parentPath + fileName;
                     byte[] content = new byte[thisObjectSize];
+                    Fds.Random.nextBytes(content);
                     
                     return new CreateObject(volumeName, fullPath, content, false);
                 });
