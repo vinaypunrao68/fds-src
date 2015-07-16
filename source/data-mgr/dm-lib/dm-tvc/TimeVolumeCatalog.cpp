@@ -289,11 +289,18 @@ Error
 DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
     Error err = volcat->deleteEmptyCatalog(volId);
     if (err.ok()) {
-        fds_scoped_lock l(commitLogLock_);
-        if (commitLogs_.count(volId) > 0) {
-            // found commit log
-            commitLogs_.erase(volId);
+        {
+            fds_scoped_lock l(commitLogLock_);
+            if (commitLogs_.count(volId) > 0) {
+                // found commit log
+                commitLogs_.erase(volId);
+            }
         }
+
+        auto volDir = dmutil::getVolumeDir(volId);
+        const std::string rmCmd = "rm -rf  " + volDir;
+        int retcode = std::system((const char *)rmCmd.c_str());
+        LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
     }
     return err;
 }

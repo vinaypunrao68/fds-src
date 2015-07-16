@@ -359,6 +359,41 @@ std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
     return stream.str();
 }
 
+void DataMgr::deleteUnownedVolumes() {
+    LOGNORMAL << "DELETING unowned volumes";
+
+    std::vector<fds_volid_t> volIds;
+    std::vector<fds_volid_t> deleteList;
+    auto mySvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+
+    /* Filter out unowned volumes */
+    dmutil::getVolumeIds(MODULEPROVIDER()->proc_fdsroot(), volIds);
+    for (const auto &volId : volIds) {
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+        if (nodes->find(NodeUuid(mySvcUuid)) == -1) {
+            /* Volume is not owned..add for delete*/
+            deleteList.push_back(volId);
+        }
+    }
+
+    /* Delete unowned volumes one at a time */
+    for (const auto &volId : deleteList) {
+        LOGNORMAL << "DELETING volume: " << volId;
+        /* Flow for deleting the volume is to mark it for delete first
+         * followed by acutally deleting it
+         */
+        Error err = process_rm_vol(volId, true);        // Mark for delete
+        if (err == ERR_OK) {
+            err = process_rm_vol(volId, false);         // Do the actual delete
+        }
+        // TODO(xxx): Remove snapshots once the api is available
+        if (err != ERR_OK) {
+            LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
+        }
+    }
+
+}
+
 //
 // handle finish forward for volume 'volid'
 //
@@ -739,27 +774,31 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     // we we are here, check_only == false
     err = timeVolCat_->deleteEmptyVolume(vol_uuid);
     if (err.ok()) {
-        VolumeMeta* vol_meta = NULL;
-        qosCtrl->deregisterVolume(vol_uuid);
-        vol_map_mtx->lock();
-        if (vol_meta_map.count(vol_uuid) > 0) {
-            vol_meta = vol_meta_map[vol_uuid];
-            vol_meta_map.erase(vol_uuid);
-        }
-        vol_map_mtx->unlock();
-        if (vol_meta) {
-            vol_meta->dmVolQueue.reset();
-            delete vol_meta;
-        }
-        statStreamAggr_->detachVolume(vol_uuid);
-        LOGNORMAL << "Removed vol meta for vol uuid "
-                  << std::hex << vol_uuid << std::dec;
+        detachVolume(vol_uuid);
     } else {
         LOGERROR << "Failed to remove volume " << std::hex
                  << vol_uuid << std::dec << " " << err;
     }
 
     return err;
+}
+
+void DataMgr::detachVolume(fds_volid_t vol_uuid) {
+    VolumeMeta* vol_meta = NULL;
+    qosCtrl->deregisterVolume(vol_uuid);
+    vol_map_mtx->lock();
+    if (vol_meta_map.count(vol_uuid) > 0) {
+        vol_meta = vol_meta_map[vol_uuid];
+        vol_meta_map.erase(vol_uuid);
+    }
+    vol_map_mtx->unlock();
+    if (vol_meta) {
+        vol_meta->dmVolQueue.reset();
+        delete vol_meta;
+    }
+    statStreamAggr_->detachVolume(vol_uuid);
+    LOGNORMAL << "Detached vol meta for vol uuid "
+        << std::hex << vol_uuid << std::dec;
 }
 
 Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
@@ -1410,6 +1449,17 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
                                  root->dir_sys_repo_dm().c_str(), volId, volId);
     }
+}
+
+void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) {
+    std::vector<std::string> vecNames;
+
+    util::getSubDirectories(root->dir_sys_repo_dm(), vecNames);
+
+    for (const auto& name : vecNames) {
+        vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
+    }
+    std::sort(vecVolumes.begin(), vecVolumes.end());
 }
 
 std::string getTimelineDBPath() {
