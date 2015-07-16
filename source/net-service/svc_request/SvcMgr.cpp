@@ -21,6 +21,8 @@
 #include <net/SvcMgr.h>
 #include <dlt.h>
 #include <fds_dmt.h>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -120,9 +122,6 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
-
-    // TODO(Rao): Get this from config
-    notifyOMOnSvcDown = false;
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -560,6 +559,16 @@ void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)
     asyncReq->invoke();
 }
 
+void SvcMgr::setUnreachableInjection(float frequency) {
+    // Enable unreachable faults that occur infrequently. Since SvcLayer doesn't
+    // know the request type, basic startup communication would fail if this
+    // was triggered every time.
+    // This enables the probability to be low enough to have the system run
+    // for a bit before eventually hitting it.
+    fiu_enable_random("svc.fault.unreachable", 1, NULL, 0, frequency);
+    LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
+}
+
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
 : HasModuleProvider(moduleProvider)
@@ -636,6 +645,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
                                                                SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
+            fiu_do_on("svc.fault.unreachable",
+                      LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
             svcClient_->asyncReqt(*header, *payload);
         } else {
             svcClient_->asyncResp(*header, *payload);
@@ -645,7 +656,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
         markSvcDown_();
     } catch (...) {
-        GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
+        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header;
         markSvcDown_();
     }
     return false;
@@ -699,8 +710,8 @@ void SvcHandle::markSvcDown_()
     GLOGDEBUG << logString();
 
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
-    if (svcMgr->notifyOMOnSvcDown &&
-        svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
+    // Don't report OM to itself.
+    if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
         svcMgr->notifyOMSvcIsDown(svcInfo_);
     }
 }

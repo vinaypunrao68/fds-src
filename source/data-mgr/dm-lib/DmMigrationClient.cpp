@@ -130,9 +130,10 @@ DmMigrationClient::processBlobDiff()
     // gather all blob blob descriptors with sequence id.
     // the snapshot should've been taken before calling this.
     std::map<std::string, int64_t> localBlobMap;
-	err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceIdSnap(volId,
-                                                                           localBlobMap,
-                                                                           opts);
+	err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId,
+                                                                       localBlobMap,
+                                                                       snap_);
+
     if (ERR_OK != err) {
         LOGERROR << "Failed to get blob descriptors with sequence id for volume=" << volId
                  << " with error=" << err;
@@ -185,13 +186,33 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
 
     for (const auto & it: updateBlobs) {
-        /**
-         * TODO(Sean):
-         * Need to integrate fs-2426 and fs-2488 when James pushes to master.
-         */
 
-        // XXX: placeholder...
-        //
+        BlobMetaDesc metaDesc;
+        fpi::DMMigrationObjListDiff objList;
+        objList.blob_name = it;
+
+        // Now get blobs and blob descriptor for given blob name.
+	    err = dataMgr.timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
+                                                                            it,
+                                                                            metaDesc,
+                                                                            objList.blob_diff_list,
+                                                                            snap_);
+        // for now, just panic if they don't work.
+        fds_verify(ERR_OK == err);
+
+        // Add blobs to the delta blobs msg.
+        deltaBlobsMsg->blob_obj_list.emplace_back(objList);
+
+        // Add blob descriptor to delta blob desc msg.
+        fpi::DMBlobDescListDiff blobDesc;
+        blobDesc.vol_blob_name = it;
+
+        err = metaDesc.getSerialized(blobDesc.vol_blob_desc);
+        // for now, just panic if they don't work.
+        fds_verify(ERR_OK == err);
+
+        deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
+
         if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
             /**
              * send the blob desc to thd destination dm.
@@ -341,7 +362,7 @@ DmMigrationClient::processBlobFilterSet()
 	LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
     // Get snapshot for the volume.
-	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, opts);
+	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
@@ -357,7 +378,7 @@ DmMigrationClient::processBlobFilterSet()
     }
 
     // free the in-memory snapshot diff after completion.
-    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, opts);
+    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
        LOGERROR << "Failed to free snapshot on volume=" << volId
                  << " with error=" << err;
