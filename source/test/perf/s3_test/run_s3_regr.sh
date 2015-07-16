@@ -54,8 +54,8 @@ hostname="perf2-node1"
 n_conns=100 
 n_jobs=4
 
-test_types="GET"
-object_sizes="4096 65536 262144"
+test_types="GET PUT"
+object_sizes="4096 65536 262144 1048576"
 concurrencies="25 100"
 
 s3_setup perf2-node1
