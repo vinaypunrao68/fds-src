@@ -36,6 +36,8 @@ create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_
     size_t window = get_config(svc_event_prefix + event + ".window", d_w);
     size_t threshold = get_config(svc_event_prefix + event + ".threshold", d_t);
 
+    LOGNORMAL << "Setting event " << event << " handling threshold to " << threshold;
+
     return std::unique_ptr<TrackerBase<NodeUuid>>
         (new TrackerMap<Cb, NodeUuid, T>(std::forward<Cb>(cb), window, threshold));
 }
