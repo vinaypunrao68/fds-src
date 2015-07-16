@@ -1,7 +1,8 @@
 # These options are required for all software definitions
 name "fds-platform"
 
-fds_version = "2015.06.19"
+mydir = File.dirname(__FILE__)
+fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
 build_type = ENV['BUILD_TYPE']
 git_sha = `git rev-parse HEAD`.chomp
 fds_src_dir = ENV['FDS_SRC_DIR']

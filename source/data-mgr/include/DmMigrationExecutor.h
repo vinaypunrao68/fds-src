@@ -5,6 +5,9 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 
+
+#include <MigrationUtility.h>
+
 namespace fds {
 
 // Forward declaration.
@@ -92,13 +95,8 @@ class DmMigrationExecutor {
      * sequence number to ensure that all delta messages are handled
      * and local IO through qos is complete.
      */
-    // TODO (Sean):
-    // Currently, this is defined in SM util directory. Need to move
-    // it out of it in lib/util directory.
-    //
-    // MigrationDoubleSeqNum seqNumDeltaBlobDescs;
-    //
-    // MigrationDoubleSeqNum seqNumDeltaBlobs;
+    MigrationDoubleSeqNum seqNumDeltaBlobDescs;
+    MigrationDoubleSeqNum seqNumDeltaBlobs;
 
 };  // DmMigrationExecutor
 
