@@ -67,8 +67,8 @@ NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>
     }
 }
 
-std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
-NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
+std::pair<Error, boost::shared_ptr<std::string>>
+NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
                                  fds_uint32_t len,
                                  fds_uint32_t seqId,
                                  const Error& err) {
@@ -77,11 +77,11 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
                      (err != ERR_BLOB_NOT_FOUND)) {
         opError = err;
         LOGERROR << "Error: " << err << " for: 0x" << std::hex << handle;
-        return std::make_pair(offVec[seqId], boost::shared_ptr<std::string>());
+        return std::make_pair(err, boost::shared_ptr<std::string>());
     }
 
     fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
-    boost::shared_ptr<std::string>& writeBytes = bufVec[seqId];
+    auto& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
     if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND) ||
         0 == len || !retBuf) {
@@ -99,7 +99,9 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
         fauxBytes->replace(iOff, writeBytes->length(),
                            writeBytes->c_str(), writeBytes->length());
     }
-    return std::make_pair(offVec[seqId], fauxBytes);
+    // Update the resp so the next in the chain can grab the buffer
+    writeBytes = fauxBytes;
+    return std::make_pair(ERR_OK, fauxBytes);
 }
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
@@ -269,10 +271,11 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         // duration of the operation and queue other requests to that offset
         // behind it. When the operation finishes it pull the next op off the
         // queue and enqueue it to QoS
+        auto partial_write = (iLength != maxObjectSizeInBytes);
         resp->keepBufferForWrite(seqId, objectOff, objBuf);
         if (sector_type::QueueResult::FirstEntry ==
                 sector_map.queue_update(objectOff, reqId)) {
-            if (iLength != maxObjectSizeInBytes) {
+            if (partial_write) {
                 // For objects that we are only updating a part of, we need to
                 // perform a Read-Modify-Write operation, keep the data for the
                 // update to the first and last object in the response so that
@@ -334,51 +337,24 @@ NbdOperations::getBlobResp(const Error &error,
         LOGDEBUG << "Write after read, handle 0x" << std::hex << handle << std::dec << " seqId " << seqId;
 
         // RMW only operates on a single buffer...
-        auto& buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
+        auto buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
 
-        // apply the update from NBD connector to this object
-        auto rwm_pair = resp->handleRMWResponse(buf, length, seqId, error);
-        if (rwm_pair.second) {
-           // rwm_pair.second contains object updated with data from NBD connector
-           // rwm_pair.first is the object offset for this buffer
-            boost::shared_ptr<int32_t> objLength =
-                boost::make_shared<int32_t>(rwm_pair.second->length());
-            boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-            off->value = rwm_pair.first;
-            amAsyncDataApi->updateBlobOnce(requestId,
-                                           domainName,
-                                           volumeName,
-                                           blobName,
-                                           blobMode,
-                                           rwm_pair.second,
-                                           objLength,
-                                           off,
-                                           emptyMeta);
-            return;
-        }
-    } else {
-        // this is response for read operation,
-        if (error.ok() || (error == ERR_BLOB_OFFSET_INVALID) ||
-                          (error == ERR_BLOB_NOT_FOUND)) {
-            // Adjust the buffers in our vector so they align and are of the
-            // correct length according to the original request
-            resp->handleReadResponse(*bufs, length);
-        }
+        // Chain all pending updates together and issue update
+        return drainUpdateChain(resp->getOffset(seqId), buf, &requestId, error);
     }
 
-    bool response_removed = finishResponse(handle);
-    if (response_removed) {
-        // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(resp);
-    } else {
-        LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
-                  << " was missing from the response map!";
+    // this is response for read operation,
+    if (error.ok() || (error == ERR_BLOB_OFFSET_INVALID) ||
+        (error == ERR_BLOB_NOT_FOUND)) {
+        // Adjust the buffers in our vector so they align and are of the
+        // correct length according to the original request
+        resp->handleReadResponse(*bufs, length);
     }
+    finishResponse(resp);
 }
 
 void
-NbdOperations::updateBlobResp(const Error &error,
-                              handle_type& requestId) {
+NbdOperations::updateBlobResp(const Error &error, handle_type& requestId) {
     NbdResponseVector* resp = nullptr;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
@@ -399,14 +375,50 @@ NbdOperations::updateBlobResp(const Error &error,
         }
         // get response
         resp = it->second;
+        fds_assert(resp);
     }
 
     // Unblock other updates on the same object if they exist
     auto offset = resp->getOffset(seqId);
-    bool update_queued;
+    drainUpdateChain(offset, resp->getBuffer(seqId), nullptr, error);
+
+    // respond to all chained requests FIRST
+    auto chain_it = resp->chained_responses.find(seqId);
+    if (resp->chained_responses.end() != chain_it) {
+        for (auto chained_resp : chain_it->second) {
+            if (chained_resp->handleWriteResponse(error)) {
+                finishResponse(chained_resp);
+            }
+        }
+    }
+
+    if (resp->handleWriteResponse(error)) {
+        finishResponse(resp);
+    }
+}
+
+void
+NbdOperations::drainUpdateChain(fds_uint64_t const offset,
+                                NbdResponseVector::buffer_ptr_type buf,
+                                handle_type* queued_handle_ptr,
+                                Error const error) {
+    // The first call to handleRMWResponse will create a null buffer if this is
+    // an error, afterwards ERR_OK for everyone.
+    auto err = error;
+    bool update_queued {true};
     handle_type queued_handle;
-    std::tie(update_queued, queued_handle) = sector_map.pop_and_delete(offset);
-    if (update_queued) {
+    NbdResponseVector* last_chained = nullptr;
+    std::deque<NbdResponseVector*> chain;
+
+    //  Either we explicitly are handling a RMW or checking to see if there are
+    //  any new ones in the queue
+    if (nullptr == queued_handle_ptr) {
+        std::tie(update_queued, queued_handle) = sector_map.pop_and_delete(offset);
+    } else {
+        queued_handle = *queued_handle_ptr;
+    }
+
+    while (update_queued) {
         NbdResponseVector* queued_resp = nullptr;
         {
             fds_mutex::scoped_lock l(respLock);
@@ -416,64 +428,80 @@ NbdOperations::updateBlobResp(const Error &error,
             }
         }
         if (queued_resp) {
-            auto buffer = queued_resp->getBuffer(queued_handle.seq);
-            boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-            off->value = offset;
-            boost::shared_ptr<int32_t> objLength =
-                boost::make_shared<int32_t>(maxObjectSizeInBytes);
-            if (maxObjectSizeInBytes != buffer->length()) {
-                amAsyncDataApi->getBlob(queued_handle,
-                                        domainName,
-                                        volumeName,
-                                        blobName,
-                                        objLength,
-                                        off);
+            auto new_data = queued_resp->getBuffer(queued_handle.seq);
+            if (maxObjectSizeInBytes != new_data->length()) {
+                std::tie(err, new_data) = queued_resp->handleRMWResponse(buf,
+                                                                         maxObjectSizeInBytes,
+                                                                         queued_handle.seq,
+                                                                         err);
+            }
+
+            // Respond to request if error
+            if (!err.ok()) {
+                if (queued_resp->handleWriteResponse(err)) {
+                    finishResponse(queued_resp);
+                }
             } else {
-                amAsyncDataApi->updateBlobOnce(queued_handle,
-                                               domainName,
-                                               volumeName,
-                                               blobName,
-                                               blobMode,
-                                               buffer,
-                                               objLength,
-                                               off,
-                                               emptyMeta);
+                buf = new_data;
+                if (nullptr != last_chained) {
+                    // If we're chaining, use the last chain, copy the chain
+                    // and add it to the chain
+                    chain.push_back(last_chained);
+                }
+                last_chained = queued_resp;
             }
         } else {
             fds_panic("Missing response vector for update!");
         }
+        handle_type next_handle;
+        std::tie(update_queued, next_handle) = sector_map.pop(offset);
+        // Leave queued_handle pointing to the last handle
+        if (update_queued) {
+            queued_handle = next_handle;
+        }
     }
 
-    // update response vector
-    fds_verify(resp);
-    fds_bool_t done = resp->handleWriteResponse(seqId, error);
-    if (done) {
-        if (finishResponse(handle)) {
-            // we are done collecting responses for this handle, notify nbd connector
-            nbdResp->readWriteResp(resp);
-        } else {
-            LOGNOTIFY << "Handle 0x" << std::hex << handle << std::dec
-                      << " was missing from the response map!";
-        }
+    // Update the blob if we have updates to make
+    if (nullptr != last_chained) {
+        last_chained->chained_responses[queued_handle.seq].swap(chain);
+        auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
+        auto off = boost::make_shared<apis::ObjectOffset>();
+        off->value = offset;
+        amAsyncDataApi->updateBlobOnce(queued_handle,
+                                       domainName,
+                                       volumeName,
+                                       blobName,
+                                       blobMode,
+                                       buf,
+                                       objLength,
+                                       off,
+                                       emptyMeta);
     }
 }
 
-bool
-NbdOperations::finishResponse(fds_int64_t const handle) {
+
+void
+NbdOperations::finishResponse(NbdResponseVector* response) {
     // nbd connector will free resp, just accounting here
     bool done_responding, response_removed;
     {
         fds_mutex::scoped_lock l(respLock);
-        response_removed = (1 == responses.erase(handle));
+        response_removed = (1 == responses.erase(response->getHandle()));
         done_responding = responses.empty();
     }
+    if (response_removed) {
+        nbdResp->readWriteResp(response);
+    } else {
+        LOGNOTIFY << "Handle 0x" << std::hex << response->getHandle() << std::dec
+                  << " was missing from the response map!";
+    }
+
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
     if (shutting_down && done_responding) {
         LOGDEBUG << "Nbd responses drained, finalizing detach from: " << *volumeName;
         detachVolume();
     }
-    return response_removed;
 }
 
 void
