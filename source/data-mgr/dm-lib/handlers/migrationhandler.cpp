@@ -155,10 +155,10 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
-    dataManager.dmMigrationMgr->applyDeltaBlobDescriptor(typedRequest);
+    dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
 }
 
-DmMigrationDeltablobHandler::DmMigrationDeltablobHandler(DataMgr& dataManager)
+DmMigrationDeltaBlobHandler::DmMigrationDeltaBlobHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
     if (!dataManager.features.isTestMode()) {
@@ -166,33 +166,33 @@ DmMigrationDeltablobHandler::DmMigrationDeltablobHandler(DataMgr& dataManager)
     }
 }
 
-void DmMigrationDeltablobHandler::handleRequest(
+void DmMigrationDeltaBlobHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
-    auto dmReq = new DmIoMigDeltaBlob(message);
+    auto dmReq = new DmIoMigrationDeltaBlobs(message);
 
-    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltablobHandler::handleResponse, asyncHdr, message);
-    fds_verify(dmReq->io_type == FDS_DM_MIG_DELT_BLB);
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
+    fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);
 
     LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
-        << " " << *reinterpret_cast<DmIoMigDeltaBlob*>(dmReq);
+        << " " << *reinterpret_cast<DmIoMigrationDeltaBlobs*>(dmReq);
 
     addToQueue(dmReq);
 
 }
 
-void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationDeltaBlobHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
-    DmIoMigDeltaBlob* typedRequest = static_cast<DmIoMigDeltaBlob*>(dmRequest);
+    DmIoMigrationDeltaBlobs* typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
 
     LOGMIGRATE << "Sending the delta blob migration dequest to migration Mgr " << *typedRequest;
     /*
-     *  revisit this - Migration Migration executor integration 
+     *  revisit this - Migration Migration executor integration
      */
-    dataManager.dmMigrationMgr->applyDeltaObjects(typedRequest);
+    dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
 }
 
-void DmMigrationDeltablobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                         Error const& e, dmCatReq* dmRequest) {
 	delete dmRequest;
