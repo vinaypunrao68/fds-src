@@ -13,6 +13,11 @@ import sys
 import os
 import subprocess
 import time
+from fdscli.model.volume.settings.block_settings import BlockSettings
+from fdscli.model.common.size import Size
+from fdscli.model.volume.volume import Volume
+from fdslib.TestUtils import get_volume_service
+from fdscli.model.fds_error import FdsError
 
 nbd_device = "/dev/nbd15"
 pwd = ""
@@ -41,11 +46,16 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        cmd = "volume create  nbd_vol --vol-type block --blk-dev-size 104857600"
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
-                                            fds_tools=True)
-        if status != 0:
-            self.log.error("Failed to create block volume")
+        new_volume = Volume();
+        new_volume.name= 'nbd_vol'
+        access = BlockSettings()
+        access.capacity = Size( size = '104857600', unit = 'B')
+        new_volume.settings = access
+        vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+        status = vol_service.create_volume(new_volume)
+        if isinstance(status, FdsError):
+            self.log.error("Volume nbd+vol creation on %s returned status %s." %
+                               (om_node.nd_conf_dict['node-name'], status))
             return False
 
         return True
