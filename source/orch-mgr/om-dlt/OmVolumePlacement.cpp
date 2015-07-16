@@ -37,9 +37,10 @@ VolumePlacement::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    // Should we also get DMT width, depth, algo from config?
+    // TODO(Andrew): Should we also get DMT width and algo from config?
     curDmtWidth = 4;
-    curDmtDepth = 4;
+    curDmtDepth = MODULEPROVIDER()->get_fds_config()->
+            get<int>("fds.om.replica_factor");;
 
     std::string algo_type_str("RoundRobinDynamic");
     VolPlacementAlgorithm::AlgorithmTypes type =
