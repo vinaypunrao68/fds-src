@@ -1,4 +1,4 @@
-package com.formationds.fdsdiff.operations;
+package com.formationds.iodriver.operations;
 
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -14,8 +14,6 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
-import com.formationds.iodriver.operations.AbstractOmV8Operation;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.google.gson.reflect.TypeToken;
 

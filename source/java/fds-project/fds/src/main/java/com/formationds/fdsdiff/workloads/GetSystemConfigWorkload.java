@@ -11,10 +11,10 @@ import com.formationds.client.v08.model.User;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.fdsdiff.SystemContent;
-import com.formationds.fdsdiff.operations.ListVolumes;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.operations.GetTenants;
 import com.formationds.iodriver.operations.GetUsers;
+import com.formationds.iodriver.operations.ListVolumes;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.workloads.Workload;
 

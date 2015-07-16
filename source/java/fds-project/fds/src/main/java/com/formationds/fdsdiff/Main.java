@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
@@ -13,6 +14,10 @@ import com.formationds.fdsdiff.workloads.GetObjectsDetailsWorkload;
 import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
 import com.formationds.fdsdiff.workloads.GetVolumeObjectsWorkload;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.model.BasicObjectManifest;
+import com.formationds.iodriver.model.ComparisonDataFormat;
+import com.formationds.iodriver.model.ExtendedObjectManifest;
+import com.formationds.iodriver.model.FullObjectManifest;
 import com.formationds.iodriver.model.ObjectManifest;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
@@ -58,7 +63,7 @@ public final class Main
 			    ComparisonDataFormat format = config.getComparisonDataFormat();
 			    
 				// TODO: Full implementation.
-				result = gatherSystemContent(_getSystemContentContainer(format),
+				result = gatherSystemContent(new SystemContent(),
 				                             config.getEndpointA(),
 						                     format,
 						                     config.getOutputFilename(),
@@ -115,14 +120,19 @@ public final class Main
 		            new GetVolumeObjectsWorkload(volumeName, objectNameSetter, true);
 		    getVolumeObjects.runOn(endpoint, listener);
 
-		    Consumer<ObjectManifest> objectDetailSetter =
-		            contentContainer.getVolumeObjectAdder(volumeName);
-		    GetObjectsDetailsWorkload getObjectsDetails =
-		            new GetObjectsDetailsWorkload(volumeName,
-		                                          contentContainer.getObjectNames(volumeName),
-		                                          objectDetailSetter,
-		                                          true);
-		    getObjectsDetails.runOn(endpoint, listener);
+		    // Minimal format doesn't gather any details.
+		    if (format != ComparisonDataFormat.MINIMAL)
+		    {
+    		    Consumer<ObjectManifest> objectDetailSetter =
+    		            contentContainer.getVolumeObjectAdder(volumeName);
+    		    GetObjectsDetailsWorkload getObjectsDetails =
+    		            new GetObjectsDetailsWorkload(volumeName,
+    		                                          contentContainer.getObjectNames(volumeName),
+    		                                          _getBuilderSupplier(format),
+    		                                          objectDetailSetter,
+    		                                          true);
+    		    getObjectsDetails.runOn(endpoint, listener);
+		    }
 		}
 		
 		System.out.println(getSystemConfig.getContentContainer().toString());
@@ -160,14 +170,31 @@ public final class Main
 		}
     }
 	
-	private static final SystemContent _getSystemContentContainer(ComparisonDataFormat format)
+	private static Supplier<ObjectManifest.Builder<?>>
+	_getBuilderSupplier(ComparisonDataFormat format)
 	{
 	    switch (format)
 	    {
-	    case FULL:
-	        return new FullSystemContent();
-        default:
-            throw new IllegalArgumentException("format: " + format + " not recognized.");
+	    case FULL: return Main::_getFullBuilderSupplier;
+	    case EXTENDED: return Main::_getExtendedBuilderSupplier;
+	    case BASIC: return Main::_getBasicBuilderSupplier;
+	    case MINIMAL: throw new IllegalArgumentException("Minimal format does not need this.");
+	    default: throw new IllegalArgumentException(format + " not recognized.");
 	    }
+	}
+	
+	private static ObjectManifest.Builder<?> _getFullBuilderSupplier()
+	{
+	    return new FullObjectManifest.Builder<>();
+	}
+	
+	private static ObjectManifest.Builder<?> _getExtendedBuilderSupplier()
+	{
+	    return new ExtendedObjectManifest.Builder<>();
+	}
+	
+	private static ObjectManifest.Builder<?> _getBasicBuilderSupplier()
+	{
+	    return new BasicObjectManifest.Builder<>();
 	}
 }

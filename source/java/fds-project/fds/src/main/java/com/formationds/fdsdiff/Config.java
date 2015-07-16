@@ -4,7 +4,9 @@ import static com.formationds.commons.util.Strings.javaString;
 
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
@@ -17,6 +19,7 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
+import com.formationds.iodriver.model.ComparisonDataFormat;
 
 /**
  * Global configuration for {@link com.formationds.fdsdiff}.
@@ -29,7 +32,7 @@ public final class Config extends AbstractConfig
 		
 		static
 		{
-			COMPARISON_DATA_FORMAT = ComparisonDataFormat.FULL;
+			COMPARISON_DATA_FORMAT = ComparisonDataFormat.EXTENDED;
 		}
 	}
 	
@@ -151,9 +154,16 @@ public final class Config extends AbstractConfig
 	{
 		if (options == null) throw new NullArgumentException("options");
 		
-		options.addOption(null, "format", true, "The data format used for comparing systems.");
-		options.addOption(null, "endpoint-a", true, "The first host to compare.");
-		options.addOption(null, "endpoint-b", true, "The second host to compare.");
+		options.addOption("A", "endpoint-a", true, "The first host to compare.");
+		options.addOption("B", "endpoint-b", true, "The second host to compare.");
+        options.addOption("f",
+                          "format",
+                          true,
+                          "The data format used for comparing systems. Available formats are: "
+                          + Arrays.asList(ComparisonDataFormat.values())
+                                  .stream()
+                                  .<String>map(v -> v.toString())
+                                  .collect(Collectors.joining(", ")));
         options.addOption("i", "input", true, "Read comparison data from the specified file.");
 		options.addOption("o", "output", true, "Output comparison data to the specified file.");
 	}
