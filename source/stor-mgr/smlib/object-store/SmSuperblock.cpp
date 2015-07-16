@@ -521,15 +521,20 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 
 bool
 SmSuperblockMgr::devFlushTest(const std::string& path) {
-    std::ofstream fileStr(path.c_str());
+    std::fstream fileStr(path.c_str());
     if (fileStr.good()) {
         try {
+            std::string tempStream = "testString";
+            fileStr << tempStream;
             fileStr.flush();
+            fileStr.close();
         } catch (const std::ios_base::failure& e) {
-            LOGNOTIFY << "Disk is not accessible ";
+            LOGNOTIFY << "Disk is not accessible. Exception: ios_base ";
+            fileStr.close();
             return true;
         } catch (...) {
             LOGNOTIFY << "Disk is not accessible ";
+            fileStr.close();
             return true;
         }
         return false;
@@ -547,11 +552,9 @@ SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
             LOGNOTIFY << "Disk " << diskId << " is not accessible ";
             return  (retVal | true);
         }
-        LOGNOTIFY << "Disk " << diskId << " mounting failed with error = " << errno;
     } else {
         umount2(mountPnt.c_str(), MNT_FORCE);
     }
-    LOGNOTIFY << "Disk " << diskId << " is not accessible due to error errno=" << errno;
     return (retVal | false);
 }
 
