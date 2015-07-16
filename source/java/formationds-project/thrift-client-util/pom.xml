@@ -7,7 +7,6 @@
 		<artifactId>formationds</artifactId>
 		<groupId>com.formationds</groupId>
 		<version>2015.07.17-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<name>${formationds.project.name} Thrift Client Utils</name>
