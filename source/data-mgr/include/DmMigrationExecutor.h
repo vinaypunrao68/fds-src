@@ -5,6 +5,8 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 
+#include <FdsRandom.h>
+
 namespace fds {
 
 // Forward declaration.
@@ -85,7 +87,15 @@ class DmMigrationExecutor {
      */
     fds_bool_t autoIncrement;
 
+    /**
+     * A helper struct to put everything related to handling Delta Blobs here.
+     */
     struct deltaSetHelper {
+    	typedef std::function<void (const Error &,
+                                blob_version_t,
+                                const BlobObjList::const_ptr&,
+                                const MetaDataList::const_ptr&,
+                                const fds_uint64_t)> CommitCb;
     	/**
      	 * Bitmap of the msgs that we have received for CtrlNotifyDeltaBlobsMsg
     	 */
@@ -110,6 +120,11 @@ class DmMigrationExecutor {
     	 * Returns true if the complete Blob set has been received
     	 */
     	fds_bool_t blobSetIsComplete();
+
+    	/**
+    	 * Number generator for transactionID
+    	 */
+    	std::unique_ptr<RandNumGenerator> randNumGen;
     };
     deltaSetHelper dsHelper;
 

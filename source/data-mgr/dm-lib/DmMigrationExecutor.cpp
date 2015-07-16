@@ -6,6 +6,7 @@
 #include <DmMigrationExecutor.h>
 #include <fdsp/dm_types_types.h>
 #include <fdsp/dm_api_types.h>
+#include <dmhandler.h>
 
 #include "fds_module_provider.h"
 #include <net/SvcMgr.h>
@@ -150,15 +151,18 @@ DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &ms
 	/**
 	 * TODO : start buffering process. FS-2486 is to be implemented here.
 	 */
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
 	if (msg->blob_obj_list.size() == 0) {
+		LOGERROR << "Volume Blob object list size is 0 for volume: "
+				<< msg->volume_id;
 		return ERR_INVALID_ARG;
 	}
-	dsHelper.recordMsgSeqId(msg);
 
-	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume " << volumeUuid;
+	LOGMIGRATE "NEIL DEBUG START volume: " << msg->volume_id;
 	Error err(ERR_OK);
 	std::string blobName;
+	fds_uint32_t blobMode = 0;
 	for (blobObjListIter bolIter = msg->blob_obj_list.begin();
 			bolIter != msg->blob_obj_list.end(); ++bolIter) {
 		// Each iter represents a blob and its diff list
@@ -166,17 +170,85 @@ DmMigrationExecutor::processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &ms
 		if (bolIter->blob_name != blobName) {
 			// TODO NEW BLOB HANDLE
 		}
-		BlobTxId newTx;
+		// The version numbers will not matter since we're going to overwrite it w/ blobdesc later
+		DmIoCommitBlobTx* commitBlobReq = new DmIoCommitBlobTx(volumeUuid, blobName, 0, 0, 0);
+		BlobTxId newTx(dsHelper.randNumGen->genNumSafe());
 		BlobTxId::ptr txPtr = boost::make_shared<BlobTxId>(newTx);
-		dataMgr.timeVolCat_->startBlobTx(volumeUuid, blobName, 0, txPtr);
+		err = dataMgr.timeVolCat_->startBlobTx(volumeUuid, blobName, blobMode, txPtr);
+		if(!err.OK()) {
+			LOGERROR << "Failed to start transaction for volume " << volumeUuid
+					<< " blob: " << blobName;
+			return err;
+		}
+		dataMgr.timeVolCat_->updateBlobTx(volumeUuid, txPtr, bolIter->blob_diff_list);
+		if(!err.OK()) {
+			LOGERROR << "Failed to update blob " << blobName << " for volume " << volumeUuid;
+			err = dataMgr.timeVolCat_->abortBlobTx(volumeUuid, txPtr);
+			if (!err.OK()) {
+				LOGERROR << "Failed to abort blob " << blobName << " for volume " << volumeUuid;
+			}
+			return err;
+		}
+		LOGMIGRATE << "NEIL DEBUG COMMITTING BLOB";
+		err = dataMgr.timeVolCat_->commitBlobTx(volumeUuid, blobName, txPtr, msg->msg_seq_id,
+						std::bind(&dm::DmMigrationDeltablobHandler::volumeCatalogCb,
+						static_cast<dm::DmMigrationDeltablobHandler*>(dataMgr.handlers[FDS_DM_MIG_DELT_BLB]),
+						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+						std::placeholders::_4, std::placeholders::_5, commitBlobReq));
+		if(!err.OK()) {
+			LOGERROR << "Failed to commit blob " << blobName << " for volume " << volumeUuid;
+			err = dataMgr.timeVolCat_->abortBlobTx(volumeUuid, txPtr);
+			if (!err.OK()) {
+				LOGERROR << "Failed to abort blob " << blobName << " for volume " << volumeUuid;
+			}
+			/**
+			 * It's ok to return because commitBlobReq gets freed in the callback that gets called
+			 * regardless of the error code.
+			 */
+			return err;
+		}
 	}
 
-
 #if 0
+    /**
+     * Applies a new offset update to an existing transaction
+     * @param[in] volId volume ID
+     * @param[in] txDesc  Transaction ID
+     * @param[in] objList List of blob offsets being updated
+     *
+     * @return ERR_OK if the update was successfully applied
+     * to the transaction
+     */
+    Error updateBlobTx(fds_volid_t volId,
+                       BlobTxId::const_ptr txDesc,
+                       const fpi::FDSP_BlobObjectList &objList);
+
+
     Error startBlobTx(fds_volid_t volId,
                       const std::string &blobName,
                       fds_int32_t blobMode,
                       BlobTxId::const_ptr txDesc);
+    /**
+     * Commits the updates associated with an existing transaction
+     * @param[in] volId volume ID
+     * @param[in] blobName Name of blob
+     * @param[in] txDesc Transaction ID
+     * @param[in] commitCb commit callback
+     *
+     * @return ERR_OK if the commit was successfully applied
+     */
+    Error commitBlobTx(fds_volid_t volId,
+                       const std::string &blobName,
+                       BlobTxId::const_ptr txDesc,
+                       sequence_id_t seq_id,
+                       const DmTimeVolCatalog::CommitCb &commitCb);
+
+    typedef std::function<void (const Error &,
+                                blob_version_t,
+                                const BlobObjList::const_ptr&,
+                                const MetaDataList::const_ptr&,
+                                const fds_uint64_t)> CommitCb;
+
 
 	err = dataMgr.timeVolCat_->volcat->putPartialBlob(volumeUuid, blobName,
 			boost::make_shared<BlobObjList>(list));

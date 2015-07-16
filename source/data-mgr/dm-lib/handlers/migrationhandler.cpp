@@ -192,9 +192,30 @@ void DmMigrationDeltablobHandler::handleQueueItem(dmCatReq* dmRequest) {
     dataManager.dmMigrationMgr->applyDeltaObjects(typedRequest);
 }
 
+void DmMigrationDeltablobHandler::volumeCatalogCb(Error const& e, blob_version_t blob_version,
+                                          	  	  BlobObjList::const_ptr const& blob_obj_list,
+												  MetaDataList::const_ptr const& meta_list,
+												  fds_uint64_t const blobSize,
+												  DmIoCommitBlobTx* commitBlobReq) {
+    QueueHelper helper(dataManager, commitBlobReq);
+    helper.err = e;
+    if (!helper.err.ok()) {
+        LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        return;
+    }
+
+    LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
+             << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
+             << " current DMT version " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+
+    helper.markIoDone();
+    delete commitBlobReq;
+}
+
 void DmMigrationDeltablobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                         Error const& e, dmCatReq* dmRequest) {
+	LOGMIGRATE << "NEIL DEBUG finished deleting request for volume " << message->volume_id;
 	delete dmRequest;
 }
 }  // namespace dm

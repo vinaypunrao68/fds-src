@@ -174,6 +174,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
 {
     Error err(ERR_OK);
 
+    LOGMIGRATE << "NEIL DEBUG Update size: " << updateBlobs.size();
     // Allocate the payload message and set the volume id and sequence number
     // Allocate both blobs and blob desc list.
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg(new fpi::CtrlNotifyDeltaBlobsMsg());
@@ -238,6 +239,8 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
      * Note: Alway set the last_msg_seq_id to true here.
      */
     deltaBlobsMsg->last_msg_seq_id = true;
+    LOGMIGRATE << "NEIL DEBUG Sending deltaBlobs Msg with "
+    		<< deltaBlobsMsg->blob_obj_list.size() << " blob_objs";
     err = sendDeltaBlobs(deltaBlobsMsg);
     fds_verify(ERR_OK == err);
 
