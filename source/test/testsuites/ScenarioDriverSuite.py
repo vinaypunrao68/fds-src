@@ -19,6 +19,7 @@ import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import testcases.TestFDSSysVerify
+import testcases.TestFDSPolMgt
 import testcases.TestFDSVolMgt
 import testcases.TestMgt
 import logging
