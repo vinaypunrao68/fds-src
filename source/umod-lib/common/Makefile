@@ -13,6 +13,7 @@ user_cpp         := \
     fds-fsm.cpp \
     fds-aio.cpp \
     fds_process.cpp \
+    MigrationUtility.cpp \
     PerfTrace.cpp \
     Tracebuffer.cpp
 

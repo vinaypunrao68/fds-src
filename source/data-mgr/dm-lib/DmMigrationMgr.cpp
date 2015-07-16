@@ -214,6 +214,19 @@ DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
     return ERR_OK;
 }
 
+Error
+DmMigrationMgr::applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e) {
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << volId;
+    	fds_verify(0); // this is an race cond error that needs to be fixed in dev env.
+    	return ERR_NOT_FOUND;
+    }
+    executor->processIncomingDeltaSetCb();
+	return ERR_OK;
+}
+
+
 void
 DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
 {

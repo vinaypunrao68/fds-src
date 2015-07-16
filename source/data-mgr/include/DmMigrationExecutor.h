@@ -6,6 +6,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 
 #include <FdsRandom.h>
+#include <MigrationUtility.h>
 
 namespace fds {
 
@@ -54,6 +55,16 @@ class DmMigrationExecutor {
      */
     Error processIncomingDeltaSet(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 
+    /**
+     * Step 3:
+     * As each list of blobs are applied to the levelDB, the commit is done asynchronously
+     * and this is the callback from having the blobs committed. The callback will keep
+     * track of whether or not the blobs have all been applied, and then synchronize with
+     * the blobs descriptor application process and call the method to commit the blobs desc
+     * if that's the case.
+     */
+    Error processIncomingDeltaSetCb();
+
     inline fds_bool_t shouldAutoExecuteNext()
     {
     	return autoIncrement;
@@ -88,45 +99,29 @@ class DmMigrationExecutor {
     fds_bool_t autoIncrement;
 
     /**
-     * A helper struct to put everything related to handling Delta Blobs here.
+     * Used for generating a random TransactionID.
      */
-    struct deltaSetHelper {
-    	typedef std::function<void (const Error &,
-                                blob_version_t,
-                                const BlobObjList::const_ptr&,
-                                const MetaDataList::const_ptr&,
-                                const fds_uint64_t)> CommitCb;
-    	/**
-     	 * Bitmap of the msgs that we have received for CtrlNotifyDeltaBlobsMsg
-    	 */
-    	std::unordered_map<fds_uint64_t, fds_bool_t> msgMap;
+    RandNumGenerator randNumGen;
 
-    	/**
-    	* The msg number that is counted as the last message in the CtrlNotifyDeltaBlobsMsg
-    	*/
-    	fds_uint64_t lastMsg;
+    /**
+     * Used for Handling seq numbers for processing Blobs
+     */
+    MigrationSeqNum deltaBlobSetHelper;
 
-    	/**
-    	* Mark this msg sequence ID as the one that has been received.
-    	*/
-    	void recordMsgSeqId(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
-
-    	/**
-    	* Recall the number of messages that have been received.
-    	*/
-    	fds_uint64_t recallNumOfMsgsReceived();
-
-    	/**
-    	 * Returns true if the complete Blob set has been received
-    	 */
-    	fds_bool_t blobSetIsComplete();
-
-    	/**
-    	 * Number generator for transactionID
-    	 */
-    	std::unique_ptr<RandNumGenerator> randNumGen;
+    /**
+     * Because we're taking advantage of commit's callback instead of executor's
+     * own QoS callback, we can't use a MigrationDoubleSeqNum as easily.
+     * Since we know that the Cb only gets called after a commitTx has been issued,
+     * we can take adv and use this as a cheating way of just doing counting, and
+     * to know when all the Cbs have finished before moving on to BlobsDescs.
+     */
+    struct seqNumHelper {
+    	fds_mutex 		mtx;
+    	fds_uint64_t 	expectedCount;
+    	fds_bool_t		expectedCountFinalized;
+    	fds_uint64_t	actualCbCounted;
     };
-    deltaSetHelper dsHelper;
+    seqNumHelper deltaBlobSetCbHelper;
 
 };  // DmMigrationExecutor
 
