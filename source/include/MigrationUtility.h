@@ -2,8 +2,8 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_INCLUDE_MIGRATIONUTILITY_H_
-#define SOURCE_STOR_MGR_INCLUDE_MIGRATIONUTILITY_H_
+#ifndef SOURCE_INCLUDE_MIGRATIONUTILITY_H_
+#define SOURCE_INCLUDE_MIGRATIONUTILITY_H_
 
 #include <mutex>
 #include <chrono>
@@ -235,4 +235,4 @@ class MigrationTrackIOReqs {
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONUTILITY_H_
+#endif  // SOURCE_INCLUDE_MIGRATIONUTILITY_H_
