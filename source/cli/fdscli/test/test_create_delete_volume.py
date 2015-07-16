@@ -44,6 +44,24 @@ class VolumeTest1( BaseCliTest ):
         print "Making sure we call the find method with the ID and get a certain name to the delete call."
         
         assert v_id == "3"
+        
+    @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
+    @patch( "services.volume_service.VolumeService.delete_volume", side_effect=mock_functions.deleteVolume )
+    def test_deleteVolume_by_name(self, mockDelete, listCall ):
+        
+        args = ["volume", "delete", "-volume_name=FakeVol" ]
+        
+        self.callMessageFormatter(args)
+        
+        self.cli.run( args )
+        
+        assert mockDelete.call_count == 1
+        
+        v_id = mockDelete.call_args[0][0]
+        
+        print "Making sure we call the find method with the name and get a certain ID to the delete call."
+        
+        assert v_id == 1        
 
 
     @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
