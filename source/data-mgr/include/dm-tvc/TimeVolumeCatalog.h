@@ -304,6 +304,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog);
 
     /**
+     * insert blob descriptors into catalog during static migration, bypassing the
+     * commit log.
+     * NOTE: do NOT use for any data path operation.
+     */
+ protected:
+    Error migrateDescriptor(fds_volid_t volId,
+                            const std::string& blobName,
+                            const std::string& blobData);
+    friend class DmMigrationExecutor;
+ public:
+
+    /**
      * Returns query interface to volume catalog. Provides
      * abstraction of volume catalog objects and management
      * from caller.
