@@ -185,15 +185,17 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
 	deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
 
-    for (const auto & it: updateBlobs) {
+    for (const auto & blobName: updateBlobs) {
 
         BlobMetaDesc metaDesc;
         fpi::DMMigrationObjListDiff objList;
-        objList.blob_name = it;
+        objList.blob_name = blobName;
+
+        LOGMIGRATE << "Getting blobs and blob descriptor for blob=" << blobName;
 
         // Now get blobs and blob descriptor for given blob name.
 	    err = dataMgr.timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
-                                                                            it,
+                                                                            blobName,
                                                                             metaDesc,
                                                                             objList.blob_diff_list,
                                                                             snap_);
@@ -205,13 +207,16 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
 
         // Add blob descriptor to delta blob desc msg.
         fpi::DMBlobDescListDiff blobDesc;
-        blobDesc.vol_blob_name = it;
+        blobDesc.vol_blob_name = blobName;
 
         err = metaDesc.getSerialized(blobDesc.vol_blob_desc);
         // for now, just panic if they don't work.
         fds_verify(ERR_OK == err);
 
         deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
+
+        LOGMIGRATE << "Got blobs and blob descriptor for blob name=" << blobName
+                   << ", Nblobs=" << deltaBlobDescMsg->blob_desc_list.size();
 
         if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
             /**
@@ -284,13 +289,13 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
      * Loop and generate delta desc msg for the delete blobs.
      * Occassionaly send the message if the max payload is achieved.
      */
-    for (const auto & it: deleteBlobs) {
+    for (const auto & blobName: deleteBlobs) {
         fpi::DMBlobDescListDiff blobDesc;
 
         /**
          * Add blob id to the descriptor list.
          */
-        blobDesc.vol_blob_name = it;
+        blobDesc.vol_blob_name = blobName;
         /**
          * Intentionally not mofidying vol_blob_desc, since it should be 0 strlen.
          */
