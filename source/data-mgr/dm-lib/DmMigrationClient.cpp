@@ -186,13 +186,33 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
 
     for (const auto & it: updateBlobs) {
-        /**
-         * TODO(Sean):
-         * Need to integrate fs-2426 and fs-2488 when James pushes to master.
-         */
 
-        // XXX: placeholder...
-        //
+        BlobMetaDesc metaDesc;
+        fpi::DMMigrationObjListDiff objList;
+        objList.blob_name = it;
+
+        // Now get blobs and blob descriptor for given blob name.
+	    err = dataMgr.timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
+                                                                            it,
+                                                                            metaDesc,
+                                                                            objList.blob_diff_list,
+                                                                            snap_);
+        // for now, just panic if they don't work.
+        fds_verify(ERR_OK == err);
+
+        // Add blobs to the delta blobs msg.
+        deltaBlobsMsg->blob_obj_list.emplace_back(objList);
+
+        // Add blob descriptor to delta blob desc msg.
+        fpi::DMBlobDescListDiff blobDesc;
+        blobDesc.vol_blob_name = it;
+
+        err = metaDesc.getSerialized(blobDesc.vol_blob_desc);
+        // for now, just panic if they don't work.
+        fds_verify(ERR_OK == err);
+
+        deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
+
         if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
             /**
              * send the blob desc to thd destination dm.
