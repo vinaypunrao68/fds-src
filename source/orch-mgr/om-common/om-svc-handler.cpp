@@ -270,6 +270,8 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     switch (msg->healthReport.serviceState) {
         case fpi::RUNNING:
+            healthReportRunning( msg );
+            break;
         case fpi::INITIALIZING:
         case fpi::DEGRADED:
         case fpi::LIMITED:
