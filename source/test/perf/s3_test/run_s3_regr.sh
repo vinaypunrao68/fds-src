@@ -54,7 +54,7 @@ hostname="perf2-node1"
 n_conns=100 
 n_jobs=4
 
-test_types="GET PUT"
+test_types="GET"
 object_sizes="4096 65536 262144 1048576"
 concurrencies="25 100"
 
@@ -68,10 +68,8 @@ s3_setup perf2-node1
 #ssh $client 'tar xzvf java_tools.tgz'
 
 echo "loading dataset"
-cmd="cd /root/tools; ./trafficgen --n_reqs 20000 --n_files 1000 --outstanding_reqs 50 --test_type PUT --object_size 4096 --hostname perf2-node1 --n_conns 50"
+cmd="cd /root/tools; ./trafficgen --n_reqs 20000 --n_files 1000 --outstanding_reqs 50 --test_type PUT --object_size 1048576 --hostname perf2-node1 --n_conns 50"
 ssh $client "$cmd"
-
-cmd="cd /root/tools; ./trafficgen --n_reqs 1000000 --n_files 1000 --outstanding_reqs 100 --test_type GET --object_size 4096 --hostname perf2-node1 --n_conns 100"
 
 for t in $test_types ; do
     for o in $object_sizes ; do
@@ -97,6 +95,5 @@ for t in $test_types ; do
         done
     done
 done
-
 
 
