@@ -954,7 +954,18 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void deregisterStream(boost::shared_ptr<int32_t>& registration_id) {
-        configDB->removeStreamRegistration(*registration_id);
+        LOGDEBUG << "De-registering stream id " << *registration_id;
+        if ( configDB->removeStreamRegistration(*registration_id) )
+        {
+            LOGDEBUG << "broadcasting De-registration for stream id "
+                     << *registration_id;
+            /*
+             * FS-2561 Tinius 07/16/2015
+             * tell everyone to de-register this stat stream.
+             */
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl( );
+            local->om_bcast_stream_de_register_cmd( *registration_id );
+        }
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
