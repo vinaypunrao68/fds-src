@@ -111,10 +111,10 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_str, help="The block size you would like to use for block type volumes.", type=int, default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_str, help="The block size you would like to use for block type volumes.  This value must be between 4KB and 8MB.  If it is not, the system default will be applied.", type=int, default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_unit_str, help="The units that you wish the block size to be in.  The default is KB.", choices=["KB","MB"], default="KB")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_str, help="The maximum size object the volume should accept.  This is only applicable to OBJECT volumes.", type=int, default=None)
-        __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_unit_str, help="Thie units that you with the max object size to be in.  The default is KB.", choices=["B", "KB", "MB", "GB", "TB"], default="KB")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_str, help="The internal maximum size for one blob.  This is only applicable to OBJECT volumes and must be within 4KB and 8MB.  If it is not, the system default will be applied.", type=int, default=None)
+        __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_unit_str, help="The units that you with the max object size to be in.  The default is MB.", choices=["B", "KB", "MB", "GB", "TB"], default="MB")
         
         __createParser.set_defaults( func=self.create_volume, format="tabular" )
 
@@ -294,13 +294,31 @@ class VolumePlugin( AbstractPlugin):
                 volume.settings = BlockSettings()
                 volume.settings.capacity = Size( size=args[AbstractPlugin.size_str], unit=args[AbstractPlugin.size_unit_str] )
                 
+                if args[AbstractPlugin.max_obj_size_str] is not None:
+                    print "The argument " + AbstractPlugin.max_obj_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.block_size_str + " instead."
+                    return
+                
+                block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
+                
+                if block_size.get_bytes() < (4*1024) or block_size.get_bytes() > (8*pow(1024,2)):
+                    print "Warning: The block size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 128KB)"
+                
                 if args[AbstractPlugin.block_size_str] is not None:
-                    volume.settings.block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
+                    volume.settings.block_size = block_size
             else:
                 volume.settings = ObjectSettings()
                 
+                if args[AbstractPlugin.block_size_str] is not None:
+                    print "The argument " + AbstractPlugin.block_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.max_obj_size_str + " instead."
+                    return
+                
+                obj_size = Size( size=args[AbstractPlugin.max_obj_size_str], unit=args[AbstractPlugin.max_obj_size_unit_str])
+                
+                if obj_size.get_bytes() < (4*1024) or obj_size.get_bytes() > (8*pow(1024,2)):
+                    print "Warning: The maximum object size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 2MB)"
+                
                 if args[AbstractPlugin.max_obj_size_str] is not None:
-                    volume.settings.max_object_size = Size( size=args[AbstractPlugin.max_obj_size_str], unit=args[AbstractPlugin.max_obj_size_unit_str])
+                    volume.settings.max_object_size = obj_size
             
             # deal with the QOS preset selection if there was one
             if args[AbstractPlugin.qos_preset_str] != None:
