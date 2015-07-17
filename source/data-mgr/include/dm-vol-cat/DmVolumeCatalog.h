@@ -258,6 +258,15 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) override;
 
     /**
+     * insert blob descriptors into catalog during static migration, bypassing
+     * the commit log.
+     * NOTE: do NOT use for any data path operation.
+     */
+    Error migrateDescriptor(fds_volid_t volId,
+                            const std::string& blobName,
+                            const std::string& blobData);
+
+    /**
      * Get total matadata size for a volume
      */
      fds_uint64_t getTotalMetadataSize(fds_volid_t volId) override {
