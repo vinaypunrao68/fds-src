@@ -86,6 +86,7 @@ struct AmTxReq {
     AmTxReq() : tx_desc(nullptr) {}
     explicit AmTxReq(BlobTxId::ptr _tx_desc) : tx_desc(_tx_desc) {}
     BlobTxId::ptr tx_desc;
+    fds_uint64_t dmt_version;
 };
 
 }  // namespace fds

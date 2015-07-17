@@ -10,6 +10,24 @@ class Size(object):
         self.size = size
         self.unit = unit
         
+    def get_bytes(self):
+        '''
+        convert the values into BYTES
+        '''
+        
+        sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB"]
+        b = self.size
+        index = 0
+        
+        for s in sizes:
+            if s == self.unit:
+                b = self.size * pow(1024, index)
+                break
+            index += 1
+        # end for loop
+        
+        return b
+                
     @property
     def size(self):
         return self.__size

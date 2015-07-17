@@ -5,6 +5,7 @@
 #include <DataMgr.h>
 #include <util/path.h>
 #include <util/stringutils.h>
+#include <unistd.h> // for unlink
 
 namespace fds { namespace timeline {
 
@@ -24,6 +25,38 @@ boost::shared_ptr<TimelineDB> TimelineManager::getDB() {
 Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
     Error err = loadSnapshot(volId, snapshotId);
 
+    //get the list of snapIds
+    std::vector<fds_volid_t> vecSnaps;
+
+    if (invalid_vol_id == snapshotId) {
+        vecSnaps.reserve(blooms[volId].size());
+
+        for (auto const& item : blooms[volId]) {
+            vecSnaps.push_back(item.first);
+        }
+        LOGDEBUG << "will delete [" << vecSnaps.size() << "] snaps of vol:" << volId;
+    } else {
+        vecSnaps.push_back(snapshotId);
+    }
+
+    for (const auto& snapshotId : vecSnaps) {
+        LOGDEBUG << "deleting snap:" << snapshotId
+                 << " of vol:" << volId;
+        // remove the bloom filter from the map
+        // we need to do this first because we should not check this bf 
+        // during expunge check.
+        blooms[volId].erase(snapshotId);
+
+        // node remove the contents of the snapshot
+        err = dm->deleteVolumeContents(snapshotId);
+        err = dm->process_rm_vol(snapshotId, true);
+
+        // remove info about this snapshot from timelinedb
+        timelineDB->removeSnapshot(snapshotId);
+
+        // remove the bloomfilter file
+        unlink(getSnapshotBloomFile(snapshotId).c_str());
+    }
     return err;
 }
 
@@ -157,7 +190,7 @@ Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snap
 
     std::function<void (const ObjectID&)> func = [&bloom](const ObjectID& objId) {
         bloom->add(objId);
-        // LOGDEBUG << "adding obj:" << objId;
+        // LOGDEBUG << "adding to bf:" << objId;
     };
 
     dm->timeVolCat_->queryIface()->forEachObject(snapshotId, func);
@@ -243,7 +276,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
         LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
         err = dm->timeVolCat_->activateVolume(vdesc->volUUID);
         Error replayErr = journalMgr->replayTransactions(srcVolumeId, vdesc->volUUID,
-                                                              snapshotTime, createTime);
+                                                         snapshotTime, createTime);
 
         if (!replayErr.ok()) {
             LOGERROR << "replay error of src:" << srcVolumeId
@@ -258,7 +291,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
 bool TimelineManager::isObjectInSnapshot(const ObjectID& objId, fds_volid_t volId) {
     auto snapMapIter = blooms.find(volId);
     if (snapMapIter == blooms.end()) {
-        LOGWARN << "no snaps found for vol:" << volId;
+        // LOGDEBUG << "no snaps found for vol:" << volId;
         return false;
     }
 

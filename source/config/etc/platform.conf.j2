@@ -249,6 +249,12 @@ fds: {
 
             /* Maximum concurrent migrations */
             migration_max_concurrency = {{ dm_migration_max_concurrency }}
+
+            /* Maximum number of blobs in delta set */
+            migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
+
+            /* Maximum number of blob desc in delta set */
+            migration_max_delta_blob_desc = {{ dm_migration_max_delta_blob_desc }}
         }
 
         /* Graphite is enabled or not */
@@ -572,6 +578,12 @@ fds: {
             probe_sleep_period = 500
             /* Enable printing of fine-grained QoS stats to var/stats/stats-data dir */
             print_qos_stats = false
+
+            /* Fault injection toggles */
+            fault: {
+                /* Injects unreachable faults into service communication */
+                unreachable = false
+            }
         }
     }
 
@@ -587,6 +599,11 @@ fds: {
             }
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
+        svc_event_threshold: {
+            timeout: {
+                threshold = 10
             }
         }
 
@@ -605,7 +622,7 @@ fds: {
         control_port=8904
         ip_address = "{{ om_ip }}"
         token_factor=8
-        replica_factor=4
+        replica_factor=3
         placement_algo="ConsistHash"
         default_iops_min=0
         default_iops_max=0

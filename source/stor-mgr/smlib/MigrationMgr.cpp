@@ -30,18 +30,19 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     objStoreMgrUuid = (dynamic_cast<ObjectStorMgr *>(dataStore))->getUuid();
     LOGMIGRATE << "Object store manager uuid " << objStoreMgrUuid;
 
-    snapshotRequests.resize(SMTOKEN_COUNT);
+    snapshotRequests.reserve(SMTOKEN_COUNT);
     for (uint32_t i = 0; i < SMTOKEN_COUNT; ++i) {
-        snapshotRequests[i].io_type = FDS_SM_SNAPSHOT_TOKEN;
-        snapshotRequests[i].retryReq = false;
-        snapshotRequests[i].smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
-                                                      this,
-                                                      std::placeholders::_1,
-                                                      std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4,
-                                                      std::placeholders::_5,
-                                                      std::placeholders::_6);
+        snapshotRequests.emplace_back(new SmIoSnapshotObjectDB());
+        snapshotRequests.back()->io_type = FDS_SM_SNAPSHOT_TOKEN;
+        snapshotRequests.back()->retryReq = false;
+        snapshotRequests.back()->smio_snap_resp_cb = std::bind(&MigrationMgr::smTokenMetadataSnapshotCb,
+                                                           this,
+                                                           std::placeholders::_1,
+                                                           std::placeholders::_2,
+                                                           std::placeholders::_3,
+                                                           std::placeholders::_4,
+                                                           std::placeholders::_5,
+                                                           std::placeholders::_6);
     }
 
     parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 16);
@@ -210,8 +211,6 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                       bool onePhaseMigration,
                                       fds_uint32_t uniqueId,
                                       fds_uint16_t instanceNum) {
-
-    LOGMIGRATE << "Will create migration executor class";
     fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId,
                                                      (fds_uint32_t)instanceNum);
     fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
@@ -253,9 +252,9 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
         LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
-        snapshotRequests[retrySmTokenInProgress].token_id = retrySmTokenInProgress;
-        snapshotRequests[retrySmTokenInProgress].retryReq = true;
-        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[retrySmTokenInProgress]);
+        snapshotRequests[retrySmTokenInProgress]->token_id = retrySmTokenInProgress;
+        snapshotRequests[retrySmTokenInProgress]->retryReq = true;
+        Error err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequests[retrySmTokenInProgress].get());
         if (!err.ok()) {
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
             // for now, we are failing the whole migration on any error
@@ -327,14 +326,14 @@ MigrationMgr::startSmTokenMigration(fds_token_id smToken,
     LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
-    snapshotRequests[smToken].token_id = smToken;
-    snapshotRequests[smToken].unique_id = uid;
-    snapshotRequests[smToken].retryReq = false;
+    snapshotRequests[smToken]->token_id = smToken;
+    snapshotRequests[smToken]->unique_id = uid;
+    snapshotRequests[smToken]->retryReq = false;
     fiu_do_on("abort.sm.migration.at.start",
         LOGDEBUG << "fault abort.sm.migration.at.start enabled for SM token " << smToken; \
         if (smToken % 20 == 0) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     if (err.ok()) {
-        err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, &snapshotRequests[smToken]);
+        err = smReqHandler->enqueueMsg(FdsSysTaskQueueId, snapshotRequests[smToken].get());
     }
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
@@ -617,8 +616,13 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
         return ERR_SM_TOK_MIGRATION_ABORTED;
+    } else if (atomic_load(&migrState) == MIGR_IDLE) {
+        // possible to receive stray finish resync msg, if SM e.g. failed/restarted
+        // and the destination still thinks previous SM is up
+        LOGWARN << "Received finishClientResync in IDLE state for executor "
+                << std::hex << executorId << std::dec;
+        return ERR_NOT_FOUND;
     }
-    fds_verify(atomic_load(&migrState) == MIGR_IN_PROGRESS);
 
     // we must only receive this message when are resyncing on restart
     fds_verify(resyncOnRestart);
@@ -1434,9 +1438,10 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
 
     // it only makes sense to retry if error happened on source SM side
     // or we could't reach SM
-    // TODO(Anna) add timeout in destination waiting for progress on delta sets
     if ((error == ERR_SVC_REQUEST_TIMEOUT) ||
         (error == ERR_SVC_REQUEST_INVOCATION) ||
+        (error == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
+        (error == ERR_SM_TOK_MIGRATION_TIMEOUT) ||
         /// we get this error from source SM which failed to start
         (error == ERR_NODE_NOT_ACTIVE)) {
         LOGMIGRATE << "Executor " << std::hex << executorId

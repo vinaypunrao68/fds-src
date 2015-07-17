@@ -207,18 +207,17 @@ void ObjectStorMgr::mod_enable_service()
             // get DLT from OM
             Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
-                // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // even if SM is not yet in the DLT (this SM is not part of the domain yet),
+                // we need to tell disk map about DLT width so when migration happens, we
+                // can map objectID to DLT token
+
                 // Store the current DLT to the presistent storage to be used
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
-                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
-                } else {
-                    // if second phase of start up failes, object store will set the state
-                    // during validating token ownership in the superblock
-                    handleDltUpdate();
-                }
+
+                // if second phase of start up failes, object store will set the state
+                // during validating token ownership in the superblock
+                handleDltUpdate();
             }
             // else ok if no DLT yet
         }
@@ -474,7 +473,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
 
             objectStore->setUnavailable();
-            sendHealthCheckMsgToOM(fpi::ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
 
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
@@ -482,7 +481,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            sendHealthCheckMsgToOM(fpi::LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
 
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
@@ -494,7 +493,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             // we re-hit this condition
             if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
-                sendHealthCheckMsgToOM(fpi::RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;

@@ -238,21 +238,56 @@ AmTxManager::getObjects(GetBlobReq* blobReq) {
     auto buf_it = cb->return_buffers->begin();
     for (auto end = cb->return_buffers->cend(); end != buf_it; ++obj_it, ++buf_it) {
         if (!*buf_it) {
-            LOGDEBUG << "Instantiating GetObject for object: " << *obj_it;
-            auto objReq = new GetObjectReq(blobReq->io_vol_id, *obj_it);
-            objReq->proc_cb =  [this, &buf = *buf_it, blobReq, objReq] (Error const& error) {
-                if (error.ok()) {
-                    // Put the newly found object in cache
-                    amCache->putObject(objReq->io_vol_id, *objReq->obj_id, objReq->obj_data);
-                    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
-                    // set the return buffer
-                    buf = std::move(objReq->obj_data);
-                }
-                blobReq->notifyResponse(error);
-                delete objReq;
-            };
-            processor_enqueue(objReq);
+            LOGDEBUG << "Instantiating GetObject for object: " << **obj_it;
+            getObject(blobReq, *obj_it, *buf_it);
         }
+    }
+}
+
+void
+AmTxManager::getObject(GetBlobReq* blobReq,
+                       ObjectID::ptr const& obj_id,
+                       boost::shared_ptr<std::string>& buf) {
+    auto objReq = new GetObjectReq(blobReq, buf, obj_id);
+    objReq->proc_cb = [this, objId = *obj_id] (Error const& error) {
+                        this->getObjectCb(objId, error);
+                      };
+
+    std::lock_guard<std::mutex> g(obj_get_lock);
+    auto q = obj_get_queue.find(*obj_id);
+    if (obj_get_queue.end() == q) {
+        processor_enqueue(objReq);
+        auto new_queue = new std::deque<GetObjectReq*>();
+        obj_get_queue[*obj_id].reset(new_queue);
+        new_queue->push_back(objReq);
+    } else {
+        q->second->push_back(objReq);
+    }
+}
+
+void
+AmTxManager::getObjectCb(ObjectID const obj_id, Error const& error) {
+    std::unique_ptr<std::deque<GetObjectReq*>> queue;
+    {
+        // Find the waiting get requeust queue
+        std::lock_guard<std::mutex> g(obj_get_lock);
+        auto q = obj_get_queue.find(obj_id);
+        fds_assert(obj_get_queue.end() != q);
+        queue.swap(q->second);
+        obj_get_queue.erase(q);
+    }
+
+    // For each request waiting on this object, respond to it and set the buffer
+    // data member from the first request (the one that was actually dispatched)
+    // and populate the volume's cache
+    auto buf = queue->front()->obj_data;
+    for (auto& objReq : *queue) {
+        if (error.ok()) {
+            objReq->obj_data = buf;
+            amCache->putObject(objReq->io_vol_id, *objReq->obj_id, objReq->obj_data);
+        }
+        objReq->blobReq->notifyResponse(error);
+        delete objReq;
     }
 }
 

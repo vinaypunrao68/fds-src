@@ -1149,7 +1149,7 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
             message->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
             message->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
             message->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
-            message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
+            message->healthReport.serviceState = fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             message->healthReport.statusInfo = textualContent.str();
 

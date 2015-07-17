@@ -58,13 +58,11 @@ public class ListVolumes implements RequestHandler {
 			// TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
 			.filter( descriptor -> {
 				logger.debug( "Removing volume " + descriptor.getName() + " from the volume list." );
-				Boolean systemVolume = descriptor.getName().startsWith( "SYSTEM_VOLUME" );
-				return !systemVolume;
+				return !descriptor.getName().startsWith( "SYSTEM_VOLUME" );
 			})
 			.filter( descriptor -> {
 				logger.debug( "Removing a volume that the caller does not have access to." );
-				Boolean owns = getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
-				return owns;
+				return getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
 			})
 			.collect( Collectors.toList() );
 		

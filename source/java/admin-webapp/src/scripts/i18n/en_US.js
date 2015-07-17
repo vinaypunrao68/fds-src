@@ -54,6 +54,7 @@ var en_US = {
         
         l_minutes_ago: 'minutes ago',
         l_hours_ago: 'hours ago',
+        l_days_ago: 'days ago',
         l_weeks_ago: 'weeks ago',
         l_years_ago: 'years ago',
         l_seconds_ago: 'seconds ago',

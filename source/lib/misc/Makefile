@@ -24,7 +24,9 @@ user_cpp         :=      \
     ObjectLogger.cpp 	 \
 	Histogram.cpp 	     \
     S3Client.cpp         \
-	BitSet.cpp
+	BitSet.cpp           \
+	disk_utils.cpp		 \
+	MigrationUtility.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \

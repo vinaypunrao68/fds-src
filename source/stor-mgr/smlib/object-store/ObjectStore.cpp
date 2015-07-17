@@ -16,6 +16,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 #include <object-store/TieringConfig.h>
+#include <include/util/disk_utils.h>
 
 namespace fds {
 
@@ -87,7 +88,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
-        SmDiskMap::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        DiskCapacityUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
@@ -199,6 +200,13 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
         err = ERR_PERSIST_STATE_MISMATCH;
         // second phase of initializing object store failed!
         currentState = OBJECT_STORE_UNAVAILABLE;
+    } else if (err == ERR_SM_NOERR_NOT_IN_DLT) {
+        // this is the case when SM started in pristine state, but restarted
+        // before migration happened and it gained token ownership
+        LOGDEBUG << "Looks like SM restarted before successfully joining the domain";
+        // no resync needed, but set store ready so that it can do migration
+        currentState = OBJECT_STORE_READY;
+        err = ERR_OK;
     }
 
     // if updating disk map determined that this SM restart case and it succeeded

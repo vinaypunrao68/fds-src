@@ -137,6 +137,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
+    /**
+    * @brief Detach in any in memory state for the volume
+    *
+    * @param vol_uuid
+    */
+    void detachVolume(fds_volid_t vol_uuid);
+
     typedef enum {
       NORMAL_MODE = 0,
       TEST_MODE   = 1,
@@ -317,12 +324,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
-                case FDS_DM_MIG_DELT_BLB:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
                 case FDS_DM_RELOAD_VOLUME:
                 case FDS_DM_RESYNC_INIT_BLOB:
+                case FDS_DM_MIG_DELTA_BLOB:
                 case FDS_DM_MIG_DELTA_BLOBDESC:
                     // If serialization in enabled, serialize on the key
                     // otherwise just schedule directly.
@@ -387,11 +394,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid, VolumeDesc* desc,
-                          fds_bool_t vol_will_sync);
+                          fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid, VolumeDesc* desc,
-                           fds_bool_t vol_will_sync);
+                           fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
@@ -488,6 +493,10 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     virtual std::string getSnapDirName(const fds_volid_t &volId,
                                        const fds_volid_t snapId) const override;
+    /**
+     * Deletes unowned volumes.
+     */
+    void deleteUnownedVolumes();
 
     ///
     /// Cleanly shut down.
@@ -532,6 +541,15 @@ private:
      * Number of primary DMs
      */
     fds_uint32_t _numOfPrimary;
+
+    /**
+     * Method to get % of utilized space for the DM's partition
+     */
+    float_t getUsedCapacityAsPct();
+
+    // Variables to track how frequently we call the diskCapacity checks
+    fds_uint8_t sampleCounter;
+    float_t lastCapacityMessageSentAt;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
@@ -557,6 +575,14 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id)
 std::string getSnapshotDir(fds_volid_t volId);
 std::string getVolumeMetaDir(fds_volid_t volId);
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+
+/**
+* @brief Returns list of volume id in dm catalog under FdsRootDir root
+*
+* @param root
+* @param vecVolumes
+*/
+void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
 
 std::string getTimelineDBPath();
 std::string getExpungeDBPath();

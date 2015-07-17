@@ -16,9 +16,6 @@ struct PutBlobReq
     :   public AmRequest,
         public AmTxReq
 {
-    // Needed fields
-    fds_uint64_t dmt_version;
-
     // Calculated object id
     ObjectID obj_id;
 

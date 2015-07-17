@@ -2,19 +2,16 @@
 outdir=$1
 tools=/fds/sbin
 # policies="hdd ssd hybrid"
-policies="hybrid"
+policies="HYBRID"
 
 machines="luke han c3po chewie"
 
-pushd $tools
-./fdsconsole.py accesslevel admin
-popd
-
 for p in $policies ; do
-    pushd $tools
-    ./fdsconsole.py volume create volume_$p --vol-type block --blk-dev-size 10737418240 --media-policy $p --max-obj-size 4096
+    pushd ../../../cli
+    ./fds volume create -name volume_$p  -type block -block_size 4 -block_size_unit KB -media_policy $p
+
     if [ $? -ne 0 ]; then
-        echo "fdsconsole has failed creating the volume"
+        echo "fdscli has failed creating the volume"
         exit 1
     fi
     popd

@@ -110,8 +110,7 @@ struct DMTester :  SvcProcess {
                   << std::endl;
         return dataMgr->_process_add_vol(dataMgr->getPrefix() +
                                         std::to_string(volumes[num]->volUUID.get()),
-                                        volumes[num]->volUUID, volumes[num].get(),
-                                        false);
+                                        volumes[num]->volUUID, volumes[num].get());
     }
 
     uint64_t getNextTxnId() {
@@ -127,7 +126,7 @@ struct DMTester :  SvcProcess {
         shutdown_modules();
     }
 
-    void clean() {        
+    void clean() {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         if (root) {
             std::ostringstream oss;

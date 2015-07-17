@@ -14,7 +14,6 @@
 
   <name>${formationds.project.name} Thrift</name>
   <artifactId>formationds-thrift</artifactId>
-  <version>2015.07.17-SNAPSHOT</version>
 
   <dependencies>
         <dependency>
