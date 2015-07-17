@@ -552,4 +552,11 @@ DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) 
     COMMITLOG_GET(volId, commitLog);
     return rc;
 }
+
+Error
+DmTimeVolCatalog::migrateDescriptor(fds_volid_t volId,
+                                    const std::string& blobName,
+                                    const std::string& blobData) {
+    return volcat->migrateDescriptor(volId, blobName, blobData);
+}
 }  // namespace fds
