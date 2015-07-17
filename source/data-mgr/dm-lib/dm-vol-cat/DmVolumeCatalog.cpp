@@ -777,8 +777,10 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
                                          const std::string& blobData){
     GET_VOL_N_CHECK_DELETED(volId);
     Error err;
+    bool fTruncate = true;
 
-    // This is actually the volume descriptor, but we did fancy hacks (empty blob name) to avoid a special case message for it
+    /* This is actually the volume descriptor, but we did fancy hacks
+       (empty blob name) to avoid a special case message for it */
     if (blobName.size() == 0) {
         fpi::FDSP_MetaDataList metadataList;
         VolumeMetaDesc newDesc(metadataList, 0);
@@ -786,6 +788,14 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
         if (err.ok()) {
             err = vol->putVolumeMetaDesc(newDesc);
+
+            if (!err.ok()) {
+                LOGERROR << "Failed to insert migrated Volume Descriptor into catalog for volume: "
+                         << volId << " error: " << err;
+            }
+        }else{
+            LOGERROR << "Failed to deserialize migrated Volume Descriptor for volume: "
+                     << volId << " error: " << err;
         }
 
         return err;
@@ -796,17 +806,38 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
         // version is ignored, so set to zero
         err = deleteBlob(volId, blobName, 0);
 
+        if (!err.ok()) {
+            LOGERROR << "During migration, failed to delete blob: " << blobName
+                     << " from catalog for volume: " << volId << " error: "
+                     << err;
+        }
+
         return err;
     }
 
     // This is really a blob descriptor update. we may need to trunctate the offsets.
     BlobMetaDesc oldBlob;
-    vol->getBlobMetaDesc(blobName, oldBlob);
+    err = vol->getBlobMetaDesc(blobName, oldBlob);
+
+    if (ERR_CAT_ENTRY_NOT_FOUND == err) {
+        fTruncate = false;
+    }else if (!err.ok()) {
+        LOGERROR << "During migration, failed to read existing blob: " << blobName
+                 << " from catalog for volume: " << volId << " error: "
+                 << err;
+        return err;
+    }
 
     BlobMetaDesc newBlob;
     err = newBlob.loadSerialized(blobData);
 
-    if (err.ok()) {
+    if (!err.ok()) {
+        LOGERROR << "Failed to deserialize migrated blob: " << blobName
+                 << " from catalog for volume: " << volId << " error: " << err;
+        return err;
+    }
+
+    if (fTruncate) {
         const fds_uint64_t oldLastOffset = DmVolumeCatalog::getLastOffset(oldBlob.desc.blob_size,
                                                                           vol->getObjSize());
 
@@ -815,11 +846,21 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
         if (newLastOffset < oldLastOffset) {
             err = vol->deleteObject(blobName, newLastOffset, oldLastOffset);
-        }
 
-        if (err.ok()) {
-            vol->putBlobMetaDesc(blobName, newBlob);
+            if (!err.ok()) {
+                LOGERROR << "During migration, failed to truncate blob: "
+                         << blobName << " from catalog for volume: " << volId
+                         << " error: " << err;
+                return err;
+            }
         }
+    }
+
+    err = vol->putBlobMetaDesc(blobName, newBlob);
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to insert migrated blob: " << blobName
+                 << " into catalog for volume: " << volId << " error: " << err;
     }
 
     return err;
