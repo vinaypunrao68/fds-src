@@ -51,7 +51,7 @@ public class CreateVolume implements RequestHandler {
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 
-		Volume newVolume = null;
+		Volume newVolume;
 		
 		logger.debug( "Creating a new volume." );
 		
@@ -104,11 +104,7 @@ public class CreateVolume implements RequestHandler {
 		try {
 			setQosForVolume( newVolume );
 		}
-		catch( ApiException apiException ){
-			logger.error( "CREATE::FAILED::" + apiException.getMessage(), apiException );
-			throw apiException;
-		}
-		catch( TException thriftException ){
+        catch( TException thriftException ){
 			logger.error( "CREATE::FAILED::" + thriftException.getMessage(), thriftException );
 			throw thriftException;
 		}

@@ -175,7 +175,8 @@ public class Main {
         /*
          * TODO(Tinius) should be using the https port here, but requires more SSL certs ( AM service )
          */
-        configCache.startStatStreamRegistrationHandler( grabFirstOmIpAddress, httpPort );
+        configCache.createStatStreamRegistrationHandler( grabFirstOmIpAddress,
+                                                         httpPort );
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
