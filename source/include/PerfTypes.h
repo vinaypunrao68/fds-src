@@ -81,6 +81,7 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (AM_DELETE_DM)              /* End2end DM latency from AM */
     (AM_DELETE_HASH)            /* */
 
+    (AM_GET_BLOB_REQ)            /* End2end GET Blob request */
     (AM_STAT_BLOB_OBJ_REQ)      /* End2end stat_blob latency */
     (AM_SET_BLOB_META_OBJ_REQ)  /* End2end set_blob_meta latency */
     (AM_GET_BLOB_META_OBJ_REQ)  /* End2end get_blob_meta latency */
