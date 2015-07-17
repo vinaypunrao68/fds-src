@@ -1,4 +1,5 @@
 import boto
+import math
 import os
 import random
 import logging
@@ -6,7 +7,7 @@ import shutil
 import sys
 
 from boto.s3.key import Key
-
+from filechunkio import FileChunkIO
 import config
 import s3
 import samples
@@ -120,8 +121,6 @@ class S3Volumes(object):
             the S3 bucket (volume) where the data files will to uploaded to.
         '''
         # add the data files to the bucket.
-        #print("bucket name is {}".format(bucket.name))
-        #print("file is {}".format(filepath))
         k = None
         try:
             k = bucket.get_key(key_name)
@@ -136,6 +135,42 @@ class S3Volumes(object):
                                          num_cb=10)
             self.log.info("Uploaded file %s to bucket %s" % 
                          (filepath, bucket.name))
+
+    def store_multipart_uploads(self, bucket, source_path, chunk_size=52428800):
+        '''
+        Given a large file (size >= 200MB), we want to perform a multipart
+        upload. This method breaks a file into pieces of chunk_size (default 50MB)
+        and perform a multipart upload in each of those pieces. This allows us
+        to upload a large file much faster.
+        
+        Attributes:
+        ===========
+        bucket: a bucket object
+        source_path: full path to where is the file to be uploaded is located.
+        chunk_size: The size of the partition. Defaults to 50MB
+        '''
+        if not os.path.exists(source_path):
+            raise IOError("File %s doesn't exist or full path not given")
+            sys.exit(2)
+
+        source_size = os.stat(source_path).st_size
+        multipart = bucket.initiate_multipart_upload(os.path.basename(source_path))
+        assert chunk_size != 0
+        chunk_count = int(math.ceil(source_size / float(chunk_size)))
+        self.log.info("Multipart uploading: %s" % source_path)
+        # send the file parts, using FileChunkIO to create a file-like object
+        # that points to a certain byte range within the original file. We
+        # set bytes to never exceed the original file size.
+        for i in xrange(0, chunk_count):
+            offset = chunk_size*i
+            bytes = min(chunk_size, source_size - offset)
+            with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
+                multipart.upload_part_from_file(fp, part_num=i+1)
+                
+        # finish the upload
+        multipart.complete_upload()
+
+        
 
     def delete_volumes(self, buckets):
         '''
