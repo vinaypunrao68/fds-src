@@ -24,7 +24,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
       volDesc(_volDesc),
 	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback),
-	  randNumGen(5)
+	  randNumGen(RandNumGenerator::getRandSeed())
 {
     volumeUuid = volDesc.volUUID;
     deltaBlobSetHelper.resetSeqNum();
