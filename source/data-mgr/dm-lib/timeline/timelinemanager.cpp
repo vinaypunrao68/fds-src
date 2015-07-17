@@ -291,7 +291,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
 bool TimelineManager::isObjectInSnapshot(const ObjectID& objId, fds_volid_t volId) {
     auto snapMapIter = blooms.find(volId);
     if (snapMapIter == blooms.end()) {
-        LOGWARN << "no snaps found for vol:" << volId;
+        // LOGDEBUG << "no snaps found for vol:" << volId;
         return false;
     }
 
