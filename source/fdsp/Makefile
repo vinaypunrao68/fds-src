@@ -25,8 +25,10 @@ user_thrift      := \
 	sm_api.thrift \
 	config_api.thrift \
 	xdi.thrift \
-        health_monitoring_types.thrift \
-        health_monitoring_api.thrift \
+    health_monitoring_types.thrift \
+    health_monitoring_api.thrift \
+	event_api.thrift \
+	event_types.thrift \
 	svc_test.thrift
 
 user_thrift_loc  := $(topdir)/include/fdsp
