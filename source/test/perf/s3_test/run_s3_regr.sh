@@ -45,7 +45,7 @@ workspace=$2
 client=perf2-node4
 njobs=4
 
-n_reqs=1000000 
+n_reqs=100000 
 n_files=1000 
 outs=100 
 test_type="GET"
