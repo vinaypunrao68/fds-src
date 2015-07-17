@@ -21,6 +21,7 @@ from fdscli.model.volume.settings.block_settings import BlockSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
 from fdscli.services.volume_service import VolumeService
+from fdscli.model.volume.qos_policy import QosPolicy
 
 def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -416,7 +417,7 @@ def create_fdsConf_file(om_ip):
     file.write(writeString)
     file.close()
 
-def convertor(volume):
+def convertor(volume, fdscfg):
     new_volume = Volume();
     new_volume.name=volume.nd_conf_dict['vol-name']
     new_volume.id=volume.nd_conf_dict['id']
@@ -439,6 +440,9 @@ def convertor(volume):
             access = BlockSettings()
             access.capacity = Size( size = volume.nd_conf_dict['size'], unit = 'B')
     new_volume.settings = access
+    if 'policy' in volume.nd_conf_dict:
+        #Set QOS policy which is defined is volume definition.
+        new_volume.qos_policy = get_volume_policy(volume.nd_conf_dict['policy'], fdscfg)
 
     return new_volume
 
@@ -448,3 +452,19 @@ def get_volume_service(self,om_ip):
     self.__om_auth = FdsAuth(file_name)
     self.__om_auth.login()
     return VolumeService(self.__om_auth)
+
+def get_volume_policy(policy_id, fdscfg):
+    qos_policy = QosPolicy()
+    policies = fdscfg.rt_get_obj('cfg_vol_pol')
+    for policy in policies:
+        if policy.nd_conf_dict['id'] == policy_id:
+            if 'iops_min' in policy.nd_conf_dict:
+                qos_policy.iops_min = policy.nd_conf_dict['iops_min']
+
+            if 'iops_max' in policy.nd_conf_dict:
+                qos_policy.iops_max = policy.nd_conf_dict['iops_max']
+
+            if 'priority' in policy.nd_conf_dict:
+                qos_policy.priority = policy.nd_conf_dict['priority']
+
+    return qos_policy
