@@ -97,6 +97,8 @@ namespace fds {
          */
         void getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const;
 
+        bool isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const;
+
   private:
         fds_uint64_t version;  /**< DMT version */
         fds_uint32_t depth;  /**< DMT column size */

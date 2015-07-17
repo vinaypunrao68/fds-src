@@ -105,6 +105,11 @@ class LocalDomainPlugin( AbstractPlugin):
         shutdown a specific domain
         '''
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
+        
+        if domain is None:
+            print "The Domain ID entered does not exist.  Please use an ID found from the command: local_domain list"
+            return
+        
         response = self.get_local_domain_service().shutdown(domain)
         
         if not isinstance( response, FdsError ):
@@ -115,6 +120,11 @@ class LocalDomainPlugin( AbstractPlugin):
         start a specific domain gracefully
         '''
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
+        
+        if domain is None:
+            print "The Domain ID entered does not exist.  Please use an ID found from the command: local_domain list"
+            return
+        
         response = self.get_local_domain_service().start(domain)
         
         if not isinstance( response, FdsError ):

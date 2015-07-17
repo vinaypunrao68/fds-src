@@ -464,11 +464,27 @@ DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id,
     return dmtMgr_->getVersionNodeGroup(vol_id, dmt_version);  // thread-safe, do not hold lock
 }
 
-Error SvcMgr::getDLT() {
+Error SvcMgr::getDLT(int maxAttempts) {
+    ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
 	Error err(ERR_OK);
-	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
-	getDLTData(fdsp_dlt);
+    int triedCnt = 0;
+    while (true) {
+        try {
+            getDLTData(fdsp_dlt);
+            break;
+        } catch (Exception &e) {
+            LOGWARN << "Failed to get dlt: " << e.what() << ".  Attempt# " << triedCnt;
+        } catch (...) {
+            LOGWARN << "Failed to get dlt.  Attempt# " << triedCnt;
+        }
+        /* Caught an exception...try again if needed */
+        triedCnt++;
+        if (triedCnt == maxAttempts) {
+            return ERR_NOT_FOUND;
+        }
+    }
 
+    /* Got the DLT */
 	if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
 		err = ERR_NOT_FOUND;
 	} else {
@@ -477,10 +493,25 @@ Error SvcMgr::getDLT() {
 	return err;
 }
 
-Error SvcMgr::getDMT() {
+Error SvcMgr::getDMT(int maxAttempts) {
+    ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
 	Error err(ERR_OK);
-	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
-	getDMTData(fdsp_dmt);
+    int triedCnt = 0;
+    while (true) {
+        try {
+            getDMTData(fdsp_dmt);
+            break;
+        } catch (Exception &e) {
+            LOGWARN << "Failed to get dmt: " << e.what() << ".  Attempt# " << triedCnt;
+        } catch (...) {
+            LOGWARN << "Failed to get dmt.  Attempt# " << triedCnt;
+        }
+        /* Caught an exception...try again if needed */
+        triedCnt++;
+        if (triedCnt == maxAttempts) {
+            return ERR_NOT_FOUND;
+        }
+    }
 
 	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
 		err = ERR_NOT_FOUND;
