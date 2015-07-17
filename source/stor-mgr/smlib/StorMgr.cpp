@@ -473,7 +473,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
 
             objectStore->setUnavailable();
-            sendHealthCheckMsgToOM(fpi::ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
 
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
@@ -481,7 +481,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            sendHealthCheckMsgToOM(fpi::LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
 
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
@@ -493,7 +493,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             // we re-hit this condition
             if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
-                sendHealthCheckMsgToOM(fpi::RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
