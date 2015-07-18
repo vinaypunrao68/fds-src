@@ -158,7 +158,7 @@ public class S3Endpoint {
         notImplementedObjectSubResource("cors", path.clone(), HttpMethod.OPTIONS);
         notImplementedObjectSubResource("lifecycle", path.clone().withUrlParam("restore"), HttpMethod.POST);
 
-zHop    }
+    }
 
     // end object pathing hack
 
