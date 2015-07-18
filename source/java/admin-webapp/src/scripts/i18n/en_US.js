@@ -199,7 +199,7 @@ var en_US = {
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
         f_priority: 'Priority:',
-        th_capacity: 'Capacity',
+        th_capacity: 'Capacity Used',
         th_capacity_limit: 'Capacity Limit',
         th_expiration: 'Expiration',
         th_priority: 'Priority',

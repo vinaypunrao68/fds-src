@@ -42,6 +42,8 @@
 #include <object-store/ObjectStore.h>
 #include <MigrationMgr.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <fdsp/event_types_types.h>
+
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -345,11 +347,19 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                  fds_errno_t statusCode,
                                  const std::string& statusInfo);
 
+     void sendEventMessageToOM(fpi::EventType eventType,
+                               fpi::EventCategory eventCategory,
+                               fpi::EventSeverity eventSeverity,
+                               fpi::EventState eventState,
+                               const std::string& messageKey,
+                               std::vector<fpi::MessageArgs> messageArgs,
+                               const std::string& messageFormat);
+
 
      static Error registerVolume(fds::fds_volid_t volume_id,
                                  fds::VolumeDesc *vdb,
                                  FDSP_NotifyVolFlag vol_flag,
-                                 FDSP_ResultType resut);
+                                 FDSP_ResultType result);
 
      // for standalone test
      DLT* standaloneTestDlt;
