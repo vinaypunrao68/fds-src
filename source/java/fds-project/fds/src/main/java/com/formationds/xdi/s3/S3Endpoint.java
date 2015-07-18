@@ -116,6 +116,9 @@ public class S3Endpoint {
     }
 
     private void setupObjectRoutes(HttpPath path) {
+        // unimplemented
+        notImplementedObjectSubResource("cors", path.clone(), HttpMethod.OPTIONS);
+        notImplementedObjectSubResource("lifecycle", path.clone().withUrlParam("restore"), HttpMethod.POST);
 
         syncObjectRoute(path.clone().withMethod(HttpMethod.GET)
                         .withUrlParam("uploadId"),
@@ -153,11 +156,6 @@ public class S3Endpoint {
 
         syncObjectRoute(path.clone().withMethod(HttpMethod.HEAD), (t) -> new HeadObject(xdi, t));
         syncObjectRoute(path.clone().withMethod(HttpMethod.DELETE), (t) -> new DeleteObject(xdi, t));
-
-        // unimplemented
-        notImplementedObjectSubResource("cors", path.clone(), HttpMethod.OPTIONS);
-        notImplementedObjectSubResource("lifecycle", path.clone().withUrlParam("restore"), HttpMethod.POST);
-
     }
 
     // end object pathing hack
@@ -180,7 +178,7 @@ public class S3Endpoint {
 
     private void notImplementedObjectSubResource(String feature, HttpPath path, HttpMethod...methods) {
         for(HttpMethod method : methods)
-            webApp.route(path.withMethod(method), ctx -> notImplementedHandler(ctx, feature));
+            webApp.route(path.clone().withMethod(method), ctx -> notImplementedHandler(ctx, feature));
     }
 
     private void notImplementedBucketSubResource(String feature, Function<HttpPath, HttpPath> path, HttpMethod...methods) {
