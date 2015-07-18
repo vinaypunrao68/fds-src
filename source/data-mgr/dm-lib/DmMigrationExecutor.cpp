@@ -24,10 +24,14 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
       volDesc(_volDesc),
 	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback),
-	  randNumGen(RandNumGenerator::getRandSeed())
+	  randNumGen(RandNumGenerator::getRandSeed()),
+	  timerInterval(fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+			  get<int>("fds.dm.migration.migration_max_delta_blobs_to"))),
+	  seqTimer(new FdsTimer),
+	  deltaBlobSetHelper(seqTimer, timerInterval,
+						  std::bind(&DmMigrationExecutor::sequenceTimeoutHandler, this))
 {
     volumeUuid = volDesc.volUUID;
-    deltaBlobSetHelper.resetSeqNum();
 	LOGMIGRATE << "Migration executor received for volume ID " << volDesc;
     deltaBlobSetCbHelper.expectedCount = 0;
     deltaBlobSetCbHelper.actualCbCounted = 0;
@@ -225,6 +229,12 @@ DmMigrationExecutor::processIncomingDeltaSetCb()
 	}
 
 	return ERR_OK;
+}
+
+void
+DmMigrationExecutor::sequenceTimeoutHandler()
+{
+	// TODO - part of error handling (FS-2619)
 }
 
 }  // namespace fds

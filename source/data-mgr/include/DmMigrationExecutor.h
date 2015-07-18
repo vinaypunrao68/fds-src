@@ -7,6 +7,7 @@
 
 #include <FdsRandom.h>
 #include <MigrationUtility.h>
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -106,6 +107,12 @@ class DmMigrationExecutor {
     RandNumGenerator randNumGen;
 
     /**
+     * Timeout between each Blobs/BlobsDesc messages.
+     */
+    uint32_t 	timerInterval;
+    FdsTimerPtr seqTimer;
+
+    /**
      * Used for Handling seq numbers for processing Blobs.
      * Because we're taking advantage of commit's callback instead of executor's
      * own QoS callback, we can't use a MigrationDoubleSeqNum as easily.
@@ -120,6 +127,7 @@ class DmMigrationExecutor {
     	fds_bool_t		expectedCountFinalized;
     	fds_uint64_t	actualCbCounted;
     };
+
     seqNumHelper deltaBlobSetCbHelper;
 
     /*
@@ -129,6 +137,8 @@ class DmMigrationExecutor {
      * and local IO through qos is complete.
      */
     MigrationDoubleSeqNum seqNumDeltaBlobDescs;
+
+    void sequenceTimeoutHandler();
 
 };  // DmMigrationExecutor
 

@@ -47,6 +47,8 @@
 {% set dm_migration_timeout = fds_dm_migration_timeout if fds_dm_migration_timeout is defined else '300' %}
 {% set dm_migration_max_concurrency = fds_dm_migration_max_concurrency if fds_dm_migration_max_concurrency is defined else '1' %}
 {% set dm_migration_max_delta_blobs = fds_dm_migration_max_delta_blobs if fds_dm_migration_delta_blobs is defined else '4096' %}
+{% set dm_migration_max_delta_blobs = fds_dm_migration_max_delta_blobs if fds_dm_migration_delta_blobs is defined else '4096' %}
+{% set dm_migration_max_delta_blobs_to = fds_dm_migration_max_delta_blobs_to if fds_dm_migration_delta_blobs_to is defined else '180' %}
 {% set dm_migration_max_delta_blob_desc = fds_dm_migration_max_delta_desc if fds_dm_migration_delta_desc is defined else '4096' %}
 {#
    fds.sm. specific entries
