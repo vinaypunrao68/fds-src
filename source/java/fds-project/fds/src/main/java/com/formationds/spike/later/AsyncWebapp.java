@@ -115,7 +115,7 @@ public class AsyncWebapp extends HttpServlet {
             response.addHeader("Server", "Formation");
             CompletableFuture<Void> cf = handler.apply(context.withRouteParameters(matchResult.getRouteParameters()));
             cf.exceptionally(ex -> handleError(ex, context));
-            cf.thenAccept(x -> asyncContext.complete());
+            cf.whenComplete((_x, _z) -> asyncContext.complete());
             return;
         }
 
