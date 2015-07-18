@@ -18,8 +18,14 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.model.ObjectManifest.GsonAdapter;
 import com.google.common.base.Objects;
+import com.google.gson.TypeAdapter;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 
+@JsonAdapter(GsonAdapter.class)
 public class BasicObjectManifest extends ObjectManifest
 {
     public static class Builder<ThisT extends Builder<ThisT>> extends ObjectManifest.Builder<ThisT>
@@ -203,6 +209,25 @@ public class BasicObjectManifest extends ObjectManifest
         private MessageDigest _md5Summer;
         
         private Long _newSize;
+    }
+    
+    public static class GsonAdapter extends TypeAdapter<BasicObjectManifest>
+    {
+        @Override
+        public BasicObjectManifest read(JsonReader in) throws IOException
+        {
+            if (in == null) throw new NullArgumentException("in");
+            
+            Builder<?> builder = new Builder<>();
+            
+            
+        }
+        
+        @Override
+        public void write(JsonWriter out, BasicObjectManifest source) throws IOException
+        {
+            if (out == null) throw new NullArgumentExcepiton("out");
+        }
     }
     
     @Override

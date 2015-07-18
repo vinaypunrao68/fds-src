@@ -1,9 +1,13 @@
 package com.formationds.fdsdiff;
 
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -60,7 +64,31 @@ public final class Main
 			}
 			else
 			{
-			    ComparisonDataFormat format = config.getComparisonDataFormat();
+                ComparisonDataFormat format = config.getComparisonDataFormat();
+                
+			    Optional<Path> inputAPath = config.getInputAPath();
+                Optional<Path> inputBPath = config.getInputBPath();
+			    if ((inputAPath.isPresent() && config.getEndpointAHost().isPresent())
+			        || (inputBPath.isPresent() && config.getEndpointBHost().isPresent()))
+			    {
+			        logger.logError("Cannot specify both input file and endpoint.");
+			        result = 2;
+			    }
+			    else
+			    {
+			        Optional<SystemContent> aContent = Optional.empty();
+			        Optional<SystemContent> bContent = Optional.empty();
+			        if (inputAPath.isPresent())
+			        {
+			            try (BufferedReader reader = Files.newBufferedReader(inputAPath.get()))
+			            {
+			                aContent = SystemContent.deserialize(reader);
+			            }
+			        }
+			    }
+			    
+			    Optional<String> endpointAHost = config.getEndpointA();
+			    Optional<SystemContent> aContent = gatherSystemContent(format, inputA, endpointA);
 			    
 				// TODO: Full implementation.
 				result = gatherSystemContent(new SystemContent(),
@@ -88,6 +116,13 @@ public final class Main
 	private Main()
 	{
 		throw new UnsupportedOperationException("Trying to instantiate a utility class.");
+	}
+	
+	private static Optional<SystemContent> gatherSystemContent(Config config)
+	{
+	    if (config == null) throw new NullArgumentException("config");
+	    
+	    Optional<String> 
 	}
 	
 	private static int gatherSystemContent(SystemContent contentContainer,

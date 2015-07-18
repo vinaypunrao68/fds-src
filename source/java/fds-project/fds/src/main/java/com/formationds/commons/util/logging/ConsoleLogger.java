@@ -21,6 +21,12 @@ public final class ConsoleLogger implements Logger
     {
         logError(getErrorOutput(), message, t);
     }
+    
+    @Override
+    public void logError(String message)
+    {
+        logError(message, null);
+    }
 
     @Override
     public void logWarning(String message, Throwable t)

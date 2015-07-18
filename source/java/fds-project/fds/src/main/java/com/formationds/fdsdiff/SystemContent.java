@@ -2,6 +2,7 @@ package com.formationds.fdsdiff;
 
 import static com.formationds.commons.util.Strings.javaString;
 
+import java.io.Reader;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -27,6 +28,9 @@ import com.formationds.client.v08.model.VolumeSettings;
 import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.ObjectManifest;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class SystemContent
 {
@@ -163,6 +167,17 @@ public class SystemContent
                                             .<String>toArray(size -> new String[size])) + "\n"
                + "  ]\n"
                + "}\n";
+    }
+    
+    public static SystemContent deserialize(Reader source)
+    {
+        JsonParser parser = new JsonParser();
+        
+        JsonElement json = parser.parse(source);
+        
+        JsonObject serialized = json.getAsJsonObject();
+        
+        serialized.getAsJsonArray("tenants");
     }
     
     private final Map<String, ObjectManifest> _objectNames;

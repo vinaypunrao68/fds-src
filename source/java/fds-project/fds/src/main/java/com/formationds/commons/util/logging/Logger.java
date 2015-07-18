@@ -20,6 +20,8 @@ public interface Logger
      */
     void logError(String message, Throwable t);
 
+    void logError(String message);
+    
     /**
      * Log a warning.
      * 
