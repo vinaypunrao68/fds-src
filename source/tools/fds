@@ -738,7 +738,7 @@ CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
 TESTNAME=""
-
+FDSLOGROOT=${FDSROOT}/var/logs
 
 
 #echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \
