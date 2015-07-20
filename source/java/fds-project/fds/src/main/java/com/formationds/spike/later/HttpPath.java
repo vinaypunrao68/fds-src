@@ -10,7 +10,7 @@ import java.util.function.Predicate;
 public class HttpPath {
     private HttpMethod method;
     private PathTemplate pathTemplate;
-    private final List<Predicate<HttpContext>> predicates;
+    private List<Predicate<HttpContext>> predicates;
 
     public HttpPath() {
         predicates = new ArrayList<>();
@@ -21,6 +21,15 @@ public class HttpPath {
         withMethod(method);
         withPath(routePattern);
     }
+
+    public HttpPath clone() {
+        HttpPath path = new HttpPath();
+        path.method = method;
+        path.pathTemplate = pathTemplate;
+        path.predicates = new ArrayList<>(predicates);
+        return path;
+    }
+
 
     public HttpPath withMethod(HttpMethod method) {
         this.method = method;
@@ -72,12 +81,18 @@ public class HttpPath {
     }
 
     public Optional<RouteSignature> routeSignature() {
-        if(pathTemplate != null)
+        if(pathTemplate != null && method != null)
             return Optional.of(new RouteSignature(method, pathTemplate.getPathTemplateElements().size()));
         return Optional.empty();
     }
 
     private static final MatchResult failedMatch = new MatchResult(false, null);
+
+    public HttpPath withPredicate(Predicate<HttpContext> predicate) {
+        predicates.add(predicate);
+        return this;
+    }
+
     public static class MatchResult {
         private boolean isMatch;
         private Map<String, String> pathParameters;

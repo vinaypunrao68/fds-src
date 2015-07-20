@@ -583,7 +583,7 @@ void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)
 {
     auto svcDownMsg = boost::make_shared<fpi::NotifyHealthReport>();
     svcDownMsg->healthReport.serviceInfo = info;
-    svcDownMsg->healthReport.serviceState = fpi::UNREACHABLE; 
+    svcDownMsg->healthReport.serviceState = fpi::HEALTH_STATE_UNREACHABLE;
 
     auto asyncReq = getSvcRequestMgr()->newEPSvcRequest(getOmSvcUuid());
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::NotifyHealthReport), svcDownMsg);

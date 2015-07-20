@@ -117,6 +117,7 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
+                             fpi::SvcUuid const& client_uuid,
                              fds_int64_t& token,
                              fpi::VolumeAccessMode const& mode,
                              sequence_id_t& sequence_id) {
@@ -130,12 +131,12 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
             auto table = new DmVolumeAccessTable(volId);
-            table->getToken(token, mode, vol_tok_lease_time);
+            table->getToken(client_uuid, token, mode, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
             // Table already exists, check if we can attach again or
             // renew the existing token.
-            err = it->second->getToken(token, mode, vol_tok_lease_time);
+            err = it->second->getToken(client_uuid, token, mode, vol_tok_lease_time);
         }
     }
 
@@ -551,5 +552,12 @@ DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) 
     Error rc(ERR_OK);
     COMMITLOG_GET(volId, commitLog);
     return rc;
+}
+
+Error
+DmTimeVolCatalog::migrateDescriptor(fds_volid_t volId,
+                                    const std::string& blobName,
+                                    const std::string& blobData) {
+    return volcat->migrateDescriptor(volId, blobName, blobData);
 }
 }  // namespace fds

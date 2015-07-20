@@ -156,6 +156,11 @@ class OM_NodeAgent : public NodeAgent
                           boost::shared_ptr<std::string> payload);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
+    /*
+     * FS-2561 ( Tinius )
+     */
+    virtual Error om_send_stream_de_reg_cmd( fds_int32_t regId );
+    // FS-2561
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
     virtual Error om_send_shutdown();
     void om_send_shutdown_resp(EPSvcRequest* req,
@@ -166,6 +171,13 @@ class OM_NodeAgent : public NodeAgent
   private:
     void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                     const NodeUuid& stream_dest_uuid);
+    /*
+     * FS-2561 ( Tinius )
+     */
+    void om_send_one_stream_de_reg_cmd(
+      const fds_int32_t regId,
+      const NodeUuid& stream_dest_uuid );
+    // FS-2561
 
   protected:
     std::string             ndSessionId;
@@ -607,6 +619,11 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_stream_register_cmd(fds_int32_t regId,
                                               fds_bool_t bAll);
     virtual void om_bcast_stream_reg_list(NodeAgent::pointer node);
+
+    /*
+     * FS-2561 ( Tinius )
+     */
+    virtual void om_bcast_stream_de_register_cmd( fds_int32_t regId );
 
     /**
      * conditional broadcast to platform (nodes) to
