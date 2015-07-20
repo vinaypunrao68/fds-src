@@ -58,7 +58,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
             vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
-            newVolume = convertor(volume)
+            newVolume = convertor(volume, fdscfg)
             status = vol_service.create_volume(newVolume)
 
             if isinstance(status, FdsError):
@@ -130,7 +130,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
                 cinder_dir= os.path.join('/fds/sbin')
             status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
                                                         (cinder_dir, cmd), return_stdin=True)
-            if (status != 0) or self.expect_to_fail:
+            if (status != 0) != self.expect_to_fail:
                 self.log.error("Attach volume %s on %s returned status %d." %
                                (volName, am_node, status))
                 return False

@@ -21,6 +21,7 @@
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
 #include "PerfTypes.h"
+#include <fdsp/event_api_types.h>
 
 using diskio::DataTier;
 
@@ -487,6 +488,13 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+
+            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                                 fpi::EVENT_SEVERITY_WARNING,
+                                 fpi::EVENT_STATE_SOFT,
+                                 "sm.capacity.warn",
+                                 std::vector<fpi::MessageArgs>(), "");
+
             lastCapacityMessageSentAt = pct_used;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
@@ -528,6 +536,42 @@ void ObjectStorMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
 
 }
 
+
+/**
+ * Send an Event to OM using the events API
+ */
+
+void ObjectStorMgr::sendEventMessageToOM(fpi::EventType eventType,
+                                         fpi::EventCategory eventCategory,
+                                         fpi::EventSeverity eventSeverity,
+                                         fpi::EventState eventState,
+                                         const std::string& messageKey,
+                                         std::vector<fpi::MessageArgs> messageArgs,
+                                         const std::string& messageFormat) {
+
+    fpi::NotifyEventMsgPtr eventMsg(new fpi::NotifyEventMsg());
+
+    eventMsg->event.type = eventType;
+    eventMsg->event.category = eventCategory;
+    eventMsg->event.severity = eventSeverity;
+    eventMsg->event.state = eventState;
+
+    auto now = std::chrono::system_clock::now();
+    fds_uint64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+    eventMsg->event.initialTimestamp = seconds;
+    eventMsg->event.modifiedTimestamp = seconds;
+    eventMsg->event.messageKey = messageKey;
+    eventMsg->event.messageArgs = messageArgs;
+    eventMsg->event.messageFormat = messageFormat;
+    eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
+    request->invoke();
+
+}
 
 /* Initialize an instance specific vector of locks to cover the entire
  * range of potential sm tokens.

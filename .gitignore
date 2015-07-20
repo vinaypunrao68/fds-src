@@ -46,7 +46,7 @@ source/am-engine
 source/am-engine/misc/am-urls.cpp
 source/am-engine/misc/build.linux-x86_64
 source/cit/*.xml
-source/cit/PyUnit.log*
+source/cit/*.log*
 source/cit/classes
 source/cit/surefire-reports
 source/config/sys-repo/
