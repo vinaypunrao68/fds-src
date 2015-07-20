@@ -915,7 +915,7 @@ class FdsConfigFile(object):
         self.cfg_install   = []
         self.cfg_cli       = None
         self.cfg_om        = None
-        self.cfg_parser    = ConfigParser.ConfigParser()
+        self.cfg_parser    = None
         self.cfg_localHost = None
 
     def config_parse(self):
@@ -923,6 +923,7 @@ class FdsConfigFile(object):
             'verbose': self.cfg_verbose,
             'dryrun' : self.cfg_dryrun
         }
+        self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)
         if len (self.cfg_parser.sections()) < 1:
             print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
@@ -1001,34 +1002,6 @@ class FdsConfigFile(object):
         # node agent to execute commands locally when necessary.
         items = [('enable', True), ('ip','localhost'), ('fds_root', '/fds')]
         self.cfg_localhost = FdsNodeConfig("localhost", items, verbose)
-
-    def config_parse_scenario(self):
-        """
-        Parse a potentially new FDS Scenario config file looking
-        just for scenario sections. This one supports running
-        different scenarios against the same resources and topology
-        of a given FDS Scenario config but in a forked process.
-        """
-        verbose = {
-            'verbose': self.cfg_verbose,
-            'dryrun' : self.cfg_dryrun
-        }
-
-        self.cfg_parser.read(self.cfg_file)
-        if len (self.cfg_parser.sections()) < 1:
-            print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
-            sys.exit (1)
-
-        for section in self.cfg_parser.sections():
-            items = self.cfg_parser.items(section)
-            if re.match('scenario', section)!= None:
-                self.cfg_scenarios.append(FdsScenarioConfig(section, items, verbose))
-
-        for sce in self.cfg_scenarios:
-            sce.sce_bind_sections(self.cfg_user, self.cfg_nodes,
-                                  self.cfg_am, self.cfg_vol_pol,
-                                  self.cfg_volumes, [self.cfg_cli],
-                                  self.cfg_om)
 
 
 ###

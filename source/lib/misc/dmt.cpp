@@ -255,6 +255,11 @@ void DMT::getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const {
     (*ret_nodes).swap(nodes);
 }
 
+bool DMT::isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const {
+    auto nodeGroup = getNodeGroup(volId);
+    return (nodeGroup->find(NodeUuid(svcUuid)) != -1);
+}
+
 /***** DMTManager implementation ****/
 
 DMTManager::DMTManager(fds_uint32_t history_dmts)

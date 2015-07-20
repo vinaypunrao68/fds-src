@@ -19,8 +19,6 @@ struct SetBlobMetaDataReq :
 {
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataList> metaDataList;
 
-    fds_uint64_t dmt_version;
-
     SetBlobMetaDataReq(fds_volid_t _volid,
                        const std::string   &_vol_name,
                        const std::string   &_blob_name,

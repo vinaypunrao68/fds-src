@@ -30,7 +30,7 @@ class AddressConverter(object):
             
         address = Address()
         
-        address.ipv4address = j_address.pop("ipv4address", address.ipv4address)
-        address.ipv6address = j_address.pop("ipv6address", address.ipv6address)
+        address.ipv4address = j_address.pop("ipv4Address", address.ipv4address)
+        address.ipv6address = j_address.pop("ipv6Address", address.ipv6address)
         
         return address

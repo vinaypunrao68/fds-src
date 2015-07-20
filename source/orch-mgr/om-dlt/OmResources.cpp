@@ -2508,16 +2508,12 @@ void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
-    TRACEFUNC;
-    OM_Module *om = OM_Module::om_singleton();
-    // notify DLT state machine if this is SM
     if (svcType == fpi::FDSP_STOR_MGR) {
-        OM_DLTMod *dltMod = om->om_dlt_mod();
-        dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
+        // this is SM -- notify DLT state machine
+        om_dlt_update_cluster();
     } else if (svcType == fpi::FDSP_DATA_MGR) {
         // this is DM -- notify DMT state machine
-        OM_DMTMod *dmtMod = om->om_dmt_mod();
-        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+        om_dmt_update_cluster();
     }
 }
 

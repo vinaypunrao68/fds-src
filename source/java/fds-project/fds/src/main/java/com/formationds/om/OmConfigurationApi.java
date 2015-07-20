@@ -146,9 +146,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         } );
     }
 
-    void startStatStreamRegistrationHandler( final String urlHostname, final int urlPortNo) {
-        this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
-        this.statStreamRegistrationHandler.start( );
+    void createStatStreamRegistrationHandler( final String urlHostname,
+                                              final int urlPortNo ) {
+        this.statStreamRegistrationHandler =
+            new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
     }
 
     void startConfigurationUpdater() {

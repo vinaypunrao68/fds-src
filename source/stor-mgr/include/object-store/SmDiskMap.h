@@ -176,6 +176,10 @@ class SmDiskMap : public Module, public boost::noncopyable {
 
     /// disk ID to path map
     DiskLocMap disk_map;
+
+    /// disk ID to disk dev path map
+    DiskLocMap diskDevMap;
+
     /// set of disk IDs of existing SDD devices
     DiskIdSet  ssd_ids;
     /// set of disk IDs of existing HDD devices

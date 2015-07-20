@@ -693,6 +693,12 @@ AmProcessor_impl::detachVolume(AmRequest *amReq) {
 
 void
 AmProcessor_impl::abortBlobTx(AmRequest *amReq) {
+    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
 }
@@ -762,6 +768,11 @@ AmProcessor_impl::deleteBlob(AmRequest *amReq) {
                 << " txn:" << blobReq->tx_desc;
 
     // Update the tx manager with the delete op
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
@@ -804,6 +815,12 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
         blobReq->vol_sequence = vol->getNextSequenceId();
         amDispatcher->dispatchUpdateCatalogOnce(amReq);
     } else {
+        // Verify we have a dmt version (and transaction) for this update
+        auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        if (!err.ok()) {
+            respond_and_delete(amReq, err);
+            return;
+        }
         amDispatcher->dispatchUpdateCatalog(amReq);
     }
 
@@ -1018,7 +1035,12 @@ AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
 
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
-    fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
+    // Assert that we have a tx and dmt_version for the message
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
 
     amDispatcher->dispatchSetBlobMetadata(amReq);
@@ -1100,6 +1122,13 @@ AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
       return;
     }
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
+
     blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);

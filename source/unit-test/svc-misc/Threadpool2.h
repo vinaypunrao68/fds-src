@@ -10,7 +10,7 @@
 #include <future>
 #include <functional>
 #include <stdexcept>
-#include <concurrency/spinlock.h>
+#include <concurrency/SpinLock.h>
 
 struct TPWorker {
     TPWorker()
@@ -66,7 +66,7 @@ struct TPWorker {
     
     // synchronization
     std::mutex cond_mutex;
-    fds::Spinlock queue_lock;
+    fds::fds_spinlock queue_lock;
     std::condition_variable condition;
     bool stop;
 };

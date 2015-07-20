@@ -505,7 +505,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 void
 NbdConnection::readWriteResp(NbdResponseVector* response) {
     LOGDEBUG << (response->isRead() ? "READ" : "WRITE")
-              << " response from NbdOperations handle " << response->handle
+              << " response from NbdOperations handle: 0x" << std::hex << response->handle
               << " " << response->getError();
 
     // add to quueue

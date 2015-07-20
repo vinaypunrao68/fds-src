@@ -146,12 +146,13 @@ Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
 }
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
-        BlobMetaDesc & blobMeta) {
+                                      BlobMetaDesc & blobMeta,
+                                      Catalog::MemSnap snap) {
     const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
-    Error rc = catalog_->Query(keyRec, &value);
+    Error rc = catalog_->Query(keyRec, &value, snap);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to get metadata for blob: '" << blobName << "' volume: '"
                 << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
@@ -161,8 +162,7 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 }
 
 Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) {
-    Catalog::catalog_roptions_t opts;
-    auto dbIt = getSnapshotIter(opts);
+    auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record dbKey = dbIt->key();
@@ -177,9 +177,10 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     return ERR_OK;
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<std::string, int64_t>& blobsSeqId,
-                                                    Catalog::catalog_roptions_t &opts) {
-	auto dbIt = getExistingSnapshotIter(opts);
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap) {
+	auto dbIt = catalog_->NewIterator(snap);
+
 	if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
         return ERR_INVALID;
@@ -206,20 +207,8 @@ Error DmPersistVolDB::getAllBlobsWithSequenceIdSnap(std::map<std::string, int64_
 	return (ERR_OK);
 }
 
-Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId) {
-    Catalog::catalog_roptions_t opts;
-    Error err(ERR_OK);
-
-    catalog_->GetSnapshot(opts);
-    err = getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
-    catalog_->ReleaseSnapshot(opts);
-
-    return err;
-}
-
 Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
-    Catalog::catalog_roptions_t opts;
-    auto dbIt = getSnapshotIter(opts);
+    auto dbIt = catalog_->NewIterator();
     if (!dbIt) {
         LOGERROR << "Error searching latest sequence id for volume " << volId_;
         return ERR_INVALID;
@@ -289,7 +278,8 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t startOffset,
-        fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) {
+                                fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList,
+                                const Catalog::MemSnap snap) {
     fds_assert(startOffset <= endOffset);
     fds_verify(0 == startOffset % objSize_);
     fds_verify(0 == endOffset % objSize_);
@@ -304,8 +294,13 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     BlobObjKey endKey(blobId, endObjIndex);
     const Record endRec(reinterpret_cast<const char *>(&endKey), sizeof(BlobObjKey));
 
-    auto dbIt = catalog_->NewIterator();
-    fds_assert(dbIt);
+    auto dbIt = catalog_->NewIterator(snap);
+
+    if (!dbIt) {
+        LOGERROR << "Error creating iterator for ldb on volume " << volId_;
+        return ERR_INVALID;
+    }
+
     objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
@@ -319,7 +314,13 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
 
         objList.push_back(std::move(blobInfo));
     }
-    fds_assert(dbIt->status().ok());  // check for any errors during the scan
+
+    if (!dbIt->status().ok()) {
+        LOGERROR << "Error getting offsets for blob " << blobName << " for volume " << volId_
+                 << " : " << dbIt->status().ToString();
+
+        return status2error(dbIt->status());
+    }
 
     return ERR_OK;
 }
@@ -580,23 +581,18 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     return catalog_->Update(&batch);
 }
 
-Error DmPersistVolDB::getInMemorySnapshot(Catalog::catalog_roptions_t &opts) {
-    auto dbIt = getSnapshotIter(opts);
-    if (!dbIt) {
-        LOGERROR << "unable to get ldb snapshot for vol:" << volId_;
-        return ERR_INVALID;
-    }
+Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap &snap) {
+    catalog_->GetSnapshot(snap);
     return ERR_OK;
 }
 
-Error DmPersistVolDB::freeInMemorySnapshot(Catalog::catalog_roptions_t &opts)  {
-	catalog_->ReleaseSnapshot(opts);
-	return ERR_OK;
+Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap snap)  {
+    catalog_->ReleaseSnapshot(snap);
+    return ERR_OK;
 }
 
 void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
-    Catalog::catalog_roptions_t opts;
-    auto dbIt = getSnapshotIter(opts);
+    auto dbIt = catalog_->NewIterator();
     Error err;
     ObjectID objId;
     fds_assert(dbIt);
@@ -612,6 +608,5 @@ void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
         }
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
-    catalog_->ReleaseSnapshot(opts);
 }
 }  // namespace fds

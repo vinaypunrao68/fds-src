@@ -4,11 +4,12 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
 
-#include <vector>
-#include <string>
+#include <deque>
 #include <map>
-#include <utility>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
@@ -57,7 +58,7 @@ struct SectorLockMap {
         return result;
     }
 
-    std::pair<bool, entry_type> pop_and_delete(key_type const& k)
+    std::pair<bool, entry_type> pop(key_type const& k, bool and_delete = false)
     {
         static std::pair<bool, entry_type> const no = {false, entry_type()};
         std::lock_guard<lock_type> g(map_lock);
@@ -68,12 +69,19 @@ struct SectorLockMap {
                 return std::make_pair(true, entry);
             } else {
                 // No more queued requests, return nullptr
-                sector_map.erase(it);
+                if (and_delete) {
+                    sector_map.erase(it);
+                }
             }
         } else {
             fds_assert(false);  // This shouldn't happen, let's know in debug
         }
         return no;
+    }
+
+    std::pair<bool, entry_type> pop_and_delete(key_type const& k)
+    {
+        return pop(k, true);
     }
 
  private:
@@ -144,7 +152,7 @@ struct NbdResponseVector {
     /**
      * \return true if all responses were received
      */
-    fds_bool_t handleWriteResponse(fds_uint32_t seqId, const Error& err) {
+    fds_bool_t handleWriteResponse(const Error& err) {
         fds_verify(operation == WRITE);
         if (!err.ok()) {
             // Note, we're always setting the most recent
@@ -159,14 +167,17 @@ struct NbdResponseVector {
      * Handle read response for read-modify-write
      * \return true if all responses were received or operation error
      */
-    std::pair<fds_uint64_t, buffer_ptr_type>
-        handleRMWResponse(buffer_ptr_type retBuf,
+    std::pair<Error, buffer_ptr_type>
+        handleRMWResponse(buffer_ptr_type const& retBuf,
                           fds_uint32_t len,
                           fds_uint32_t seqId,
                           const Error& err);
 
-    void setError(const Error& err) { opError = err; }
     fds_int64_t handle;
+
+    // These are the responses we are also in charge of responding to, in order
+    // with ourselves being last.
+    std::unordered_map<fds_uint32_t, std::deque<NbdResponseVector*>> chained_responses;
 
   private:
     NbdOperation operation;
@@ -249,7 +260,12 @@ class NbdOperations
     void shutdown();
 
   private:
-    bool finishResponse(fds_int64_t const handle);
+    void finishResponse(NbdResponseVector* response);
+
+    void drainUpdateChain(fds_uint64_t const offset,
+                          NbdResponseVector::buffer_ptr_type buf,
+                          handle_type* queued_handle_ptr,
+                          Error const error);
 
     fds_uint32_t getObjectCount(fds_uint32_t length,
                                 fds_uint64_t offset);

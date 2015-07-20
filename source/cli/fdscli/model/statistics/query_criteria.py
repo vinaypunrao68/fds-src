@@ -9,9 +9,9 @@ class QueryCriteria(object):
     @author: nate
     '''
     
-    def __init__(self, date_range=DateRange(), contexts=[], points=None):
+    def __init__(self, date_range=DateRange(), points=None):
         self.date_range = date_range
-        self.contexts = contexts
+        self.contexts = []
         self.points = points
         
     @property

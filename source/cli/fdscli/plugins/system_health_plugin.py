@@ -5,6 +5,7 @@ from services.response_writer import ResponseWriter
 import json
 from model.health.health_state import HealthState
 from model.fds_error import FdsError
+from model.health.system_health import SystemHealth
 
 class SystemHealthPlugin( AbstractPlugin):
     '''
@@ -48,7 +49,7 @@ class SystemHealthPlugin( AbstractPlugin):
         '''
         health = self.get_stat_service().get_system_health_report()
         
-        if not isinstance( health, FdsError ):        
+        if not isinstance( health, SystemHealth ):        
             return
         
         if AbstractPlugin.format_str in args and args[AbstractPlugin.format_str] == "json":

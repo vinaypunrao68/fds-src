@@ -194,22 +194,33 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
 }
 
 Error
-DmMigrationMgr::applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
-    // TODO(xxx): Route to the right executor
+DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
+    fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(deltaBlobDescReq->io_vol_id);
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << deltaBlobDescReq->io_vol_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+    	fds_assert(0);
+    	return ERR_NOT_FOUND;
+    }
+    executor->processDeltaBlobDescs(deltaBlobDescMsg);
     return ERR_OK;
 }
 
 // process the deltaObject request
 Error
-DmMigrationMgr::applyDeltaObjects(DmIoMigDeltaBlob* deltaObjRequest) {
-    fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaObjRequest->fwdCatMsg;
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(deltaObjRequest->io_vol_id);
+DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
+    fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(deltaBlobReq->io_vol_id);
     if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << deltaObjRequest->io_vol_id;
-    	fds_verify(0); // this is an race cond error that needs to be fixed in dev env.
+    	LOGERROR << "Unable to find executor for volume " << deltaBlobReq->io_vol_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+    	fds_assert(0);
     	return ERR_NOT_FOUND;
     }
-    executor->processIncomingDeltaSet(deltaBlobsMsg);
+    executor->processDeltaBlobs(deltaBlobsMsg);
 
     return ERR_OK;
 }

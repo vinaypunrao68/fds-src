@@ -31,7 +31,7 @@ TraceEntry* TracebufferPool::allocTraceEntry()
 {
     TraceEntry *item;
     {
-        ScopedSpinlock l(lock_);
+        fds_spinlock::scoped_lock g(lock_);
         if (freelistHead_ == nullptr) {
             return nullptr;
         }
@@ -44,7 +44,7 @@ TraceEntry* TracebufferPool::allocTraceEntry()
 
 void TracebufferPool::freeTraceEntry(TraceEntry *e)
 {
-    ScopedSpinlock l(lock_);
+  fds_spinlock::scoped_lock l(lock_);
     e->next = freelistHead_;
     freelistHead_ = e;
 }
@@ -104,7 +104,7 @@ TraceEntry* Tracebuffer::alloc_()
 
 void Tracebuffer::pushBack_(TraceEntry *e)
 {
-    ScopedSpinlock l(lock_);
+    fds_spinlock::scoped_lock l(lock_);
     if (head_ == nullptr) {
         fds_assert(tail_ == nullptr);
         head_ = tail_ = e;
@@ -117,7 +117,7 @@ void Tracebuffer::pushBack_(TraceEntry *e)
 
 TraceEntry* Tracebuffer::popFront_()
 {
-    ScopedSpinlock l(lock_);
+    fds_spinlock::scoped_lock l(lock_);
     if (head_ == nullptr) {
         fds_assert(tail_ == nullptr);
         return nullptr;

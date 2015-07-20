@@ -101,6 +101,11 @@ AmDispatcher::start() {
             StatsCollector::singleton()->startStreaming(nullptr, nullptr);
         }
     }
+    if (conf.get<bool>("fault.unreachable", false)) {
+        float frequency = 0.001;
+        MODULEPROVIDER()->getSvcMgr()->setUnreachableInjection(frequency);
+    }
+
     numPrimaries = conf.get_abs<fds_uint32_t>("fds.dm.number_of_primary", DmDefaultPrimaryCnt);
 
     /**
@@ -209,10 +214,14 @@ AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
 template<typename Msg>
 MultiPrimarySvcRequestPtr
 AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
+                                        fds_uint64_t const dmt_ver,
                                         boost::shared_ptr<Msg> const& payload,
                                         MultiPrimarySvcRequestRespCb cb,
                                         uint32_t timeout) const {
-    auto token_group = dmtMgr->getCommittedNodeGroup(volId);
+    // Take either the group from a provided table version or the latest
+    auto token_group = ((DMT_VER_INVALID == dmt_ver) ?
+                                          dmtMgr->getCommittedNodeGroup(volId) :
+                                          dmtMgr->getVersionNodeGroup(volId, dmt_ver));
 
     // Assuming the first N (if any) nodes are the primaries and
     // the rest are backups.
@@ -355,7 +364,7 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
 
     /** What to do with the response */
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchOpenVolumeCb, amReq));
-    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volMDMsg, respCb);
+    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, DMT_VER_INVALID, volMDMsg, respCb);
     setSerialization(amReq, asyncOpenVolReq);
     asyncOpenVolReq->invoke();
 }
@@ -398,7 +407,7 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
             return done.set_value(error); // Trigger processor thread
         };
 
-    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, volMDMsg, cb);
+    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, DMT_VER_INVALID, volMDMsg, cb);
 
     /**
      * Need an AmRequest to call the serialization setter.
@@ -456,6 +465,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setVolumeMetadataCb, amReq));
     auto asyncSetVolMetadataReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                            DMT_VER_INVALID,
                                                             volMetaMsg,
                                                             respCb);
     setSerialization(amReq, asyncSetVolMetadataReq);
@@ -517,18 +527,19 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
 
     fds_volid_t volId = amReq->io_vol_id;
 
-    auto stBlobTxMsg = boost::make_shared<fpi::AbortBlobTxMsg>();
-    stBlobTxMsg->blob_name      = amReq->getBlobName();
-    stBlobTxMsg->blob_version   = blob_version_invalid;
-    stBlobTxMsg->txId           = static_cast<AbortBlobTxReq *>(amReq)->tx_desc->getValue();
-    stBlobTxMsg->volume_id      = volId.get();
+    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
+    auto abBlobTxMsg = boost::make_shared<fpi::AbortBlobTxMsg>();
+    abBlobTxMsg->blob_name      = amReq->getBlobName();
+    abBlobTxMsg->blob_version   = blob_version_invalid;
+    abBlobTxMsg->volume_id      = volId.get();
+    abBlobTxMsg->txId           = blobReq->tx_desc->getValue();
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, amReq));
-    auto asyncAbortBlobTxReq = createMultiPrimaryRequest(volId, stBlobTxMsg,respCb);
+    auto asyncAbortBlobTxReq = createMultiPrimaryRequest(volId, blobReq->dmt_version, abBlobTxMsg,respCb);
     setSerialization(amReq, asyncAbortBlobTxReq);
     asyncAbortBlobTxReq->invoke();
 
-    LOGDEBUG << asyncAbortBlobTxReq->logString() << fds::logString(*stBlobTxMsg);
+    LOGDEBUG << asyncAbortBlobTxReq->logString() << fds::logString(*abBlobTxMsg);
 }
 
 void
@@ -563,7 +574,10 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     startBlobTxMsg->dmt_version  = blobReq->dmt_version;
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
-    auto asyncStartBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id, startBlobTxMsg, respCb);
+    auto asyncStartBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                         blobReq->dmt_version,
+                                                         startBlobTxMsg,
+                                                         respCb);
     setSerialization(amReq, asyncStartBlobTxReq);
     asyncStartBlobTxReq->invoke();
 
@@ -596,7 +610,7 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, amReq));
-    auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id, message,respCb);
+    auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id, blobReq->dmt_version, message, respCb);
     asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
                                         this, amReq, std::placeholders::_1,
                                         std::placeholders::_2));
@@ -650,6 +664,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
     auto asyncUpdateCatReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                       blobReq->dmt_version,
                                                        updCatMsg,
                                                        respCb,
                                                        message_timeout_io);
@@ -668,13 +683,15 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
               blobReq->notifyResponse(ERR_OK); \
               return;);
 
+    blobReq->dmt_version = dmtMgr->getCommittedVersion();
+
     auto updCatMsg(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = amReq->io_vol_id.get();
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
-    updCatMsg->dmt_version  = dmtMgr->getCommittedVersion();
+    updCatMsg->dmt_version  = blobReq->dmt_version;
     updCatMsg->sequence_id  = blobReq->vol_sequence;
 
     // Setup blob offset updates
@@ -700,6 +717,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
     // Always use the current DMT version since we're updating in a single request
     auto asyncUpdateCatReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                       blobReq->dmt_version,
                                                        updCatMsg,
                                                        respCb,
                                                        message_timeout_io);
@@ -1057,7 +1075,10 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, amReq));
-    auto asyncSetMDReq = createMultiPrimaryRequest(vol_id, setMDMsg, respCb);
+    auto asyncSetMDReq = createMultiPrimaryRequest(vol_id,
+                                                   blobReq->dmt_version,
+                                                   setMDMsg,
+                                                   respCb);
     setSerialization(amReq, asyncSetMDReq);
     asyncSetMDReq->invoke();
 }
@@ -1113,12 +1134,15 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     commitBlobTxMsg->blob_version = blob_version_invalid;
     commitBlobTxMsg->volume_id    = amReq->io_vol_id.get();
     commitBlobTxMsg->txId         = blobReq->tx_desc->getValue();
-    commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
+    commitBlobTxMsg->dmt_version  = blobReq->dmt_version;
     commitBlobTxMsg->sequence_id  = blobReq->vol_sequence;
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
-    auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id, commitBlobTxMsg,respCb);
+    auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                          blobReq->dmt_version,
+                                                          commitBlobTxMsg,
+                                                          respCb);
     setSerialization(amReq, asyncCommitBlobTxReq);
     asyncCommitBlobTxReq->invoke();
 
