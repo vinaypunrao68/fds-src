@@ -338,6 +338,40 @@ ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
 }
 
 NodeUuidSet
+ClusterMap::getFailedServices(fpi::FDSP_MgrIdType svc_type) const {
+    NodeUuidSet retSet;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            {
+                for (const_sm_iterator it = cbegin_sm();
+                     it != cend_sm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() != fpi::FDS_Node_Up ) &&
+                        ( ((*it).second)->node_state() != fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+                    }
+                }
+            }
+            break;
+        case fpi::FDSP_DATA_MGR:
+            {
+                for (const_dm_iterator it = cbegin_dm();
+                     it != cend_dm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() != fpi::FDS_Node_Up ) &&
+                        ( ((*it).second)->node_state() != fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+                    }
+                }
+            }
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return retSet;
+}
+
+NodeUuidSet
 ClusterMap::getServiceUuids(fpi::FDSP_MgrIdType svc_type) const {
     NodeUuidSet retSet;
     switch (svc_type) {

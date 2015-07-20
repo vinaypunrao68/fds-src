@@ -587,6 +587,27 @@ OM_NodeAgent::om_send_stream_reg_cmd(fds_int32_t regId,
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_stream_de_reg_cmd( fds_int32_t regId )
+{
+  Error error(ERR_OK);
+
+  // get UUID of any AM
+  OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+  OM_AmContainer::pointer amNodes = local->om_am_nodes();
+  NodeAgent::pointer agent = amNodes->agent_info(0);
+  if ( !agent )
+  {
+      LOGERROR << "There are no AMs, cannot broadcast stream de-registration "
+               << " to DMs, will do when at least one AM joins";
+      return ERR_NOT_READY;
+  }
+
+  om_send_one_stream_de_reg_cmd( regId, agent->get_uuid() );
+
+  return error;
+}
+
 void
 OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                          const NodeUuid& stream_dest_uuid) {
@@ -617,6 +638,24 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& r
 
     auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
     asyncStreamRegReq->setPayload(FDSP_MSG_TYPEID(fpi::StatStreamRegistrationMsg), reg_msg);
+    // HACK
+    asyncStreamRegReq->setTimeoutMs(0);
+    asyncStreamRegReq->invoke();
+}
+
+void
+OM_NodeAgent::om_send_one_stream_de_reg_cmd(
+  const fds_int32_t regId,
+  const NodeUuid& stream_dest_uuid ) {
+    fpi::StatStreamDeregistrationMsgPtr reg_msg(new fpi::StatStreamDeregistrationMsg());
+    reg_msg->id = regId;
+
+    LOGDEBUG << "Will send StatStreamDeregistrationMsg with id " << regId
+             << " to DM " << std::hex << rs_uuid.uuid_get_val() << ", AM uuid is "
+             << std::hex << stream_dest_uuid.uuid_get_val() << std::dec;
+
+    auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
+    asyncStreamRegReq->setPayload(FDSP_MSG_TYPEID(fpi::StatStreamDeregistrationMsg), reg_msg);
     // HACK
     asyncStreamRegReq->setTimeoutMs(0);
     asyncStreamRegReq->invoke();
@@ -2956,11 +2995,15 @@ OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCm
         cmd, om_send_scavenger_cmd);
 }
 
-
 static void
 om_send_stream_reg_cmd(fds_int32_t regId, fds_bool_t bAll,
                        NodeAgent::pointer agent) {
     OM_DmAgent::agt_cast_ptr(agent)->om_send_stream_reg_cmd(regId, bAll);
+}
+
+static void
+om_send_stream_de_reg_cmd(fds_int32_t regId, NodeAgent::pointer agent) {
+    OM_DmAgent::agt_cast_ptr(agent)->om_send_stream_de_reg_cmd( regId );
 }
 
 void
@@ -2968,6 +3011,12 @@ OM_NodeContainer::om_bcast_stream_register_cmd(fds_int32_t regId,
                                                fds_bool_t bAll)
 {
     dc_dm_nodes->agent_foreach<fds_int32_t, fds_bool_t>(regId, bAll, om_send_stream_reg_cmd);
+}
+
+void
+OM_NodeContainer::om_bcast_stream_de_register_cmd( fds_int32_t regId )
+{
+    dc_dm_nodes->agent_foreach<fds_int32_t>(regId, om_send_stream_de_reg_cmd);
 }
 
 static Error
