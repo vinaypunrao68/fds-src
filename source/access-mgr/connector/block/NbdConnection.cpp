@@ -115,15 +115,13 @@ NbdConnection::NbdConnection(NbdConnector* server,
 
 NbdConnection::~NbdConnection() {
     LOGNORMAL << "NBD client disconnected for " << clientSocket;
-    asyncWatcher->stop();
-    ioWatcher->stop();
     shutdown(clientSocket, SHUT_RDWR);
     close(clientSocket);
 }
 
 void
 NbdConnection::terminate() {
-    terminate_ = true;
+    state_ = ConnectionState::STOPPING;
     asyncWatcher->send();
 }
 
@@ -417,10 +415,21 @@ NbdConnection::dispatchOp() {
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
-    if (terminate_) {
-        delete this;
-        return;
+    if (ConnectionState::STOPPED == state_ ||
+        ConnectionState::STOPPING == state_) {
+        if (ConnectionState::STOPPED == state_) {
+            asyncWatcher->stop();
+            ioWatcher->stop();
+        }
+        if (nbdOps) {
+            nbdOps->shutdown();
+            nbdOps.reset();
+        }
+        if (ConnectionState::STOPPED == state_) {
+            return;
+        }
     }
+
     // It's ok to keep writing responses if we've been shutdown
     // but don't start watching for requests if we do
     auto writting = (nbd_state == NbdProtoState::SENDOPTS ||
@@ -491,14 +500,10 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
         }
     }
     } catch(NbdError const& e) {
-        // If we had an error, stop the event loop too
+        state_ = ConnectionState::STOPPING;
         if (e == NbdError::connection_closed) {
-            asyncWatcher->stop();
-        }
-
-        if (nbdOps) {
-            nbdOps->shutdown();
-            nbdOps.reset();
+            // If we had an error, stop the event loop too
+            state_ = ConnectionState::STOPPED;
         }
     }
     // Unblocks the ev loop to handle events again on this connection

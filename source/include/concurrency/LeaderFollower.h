@@ -31,7 +31,7 @@ namespace fds
  */
 struct LeaderFollower {
     LeaderFollower(size_t const num_followers, bool const reentrant_lead)
-        : num_followers_(num_followers),
+        : followers_to_create_(num_followers),
           reentrant_lead_(reentrant_lead)
     {}
     LeaderFollower(LeaderFollower const& rhs) = delete;
@@ -55,7 +55,7 @@ struct LeaderFollower {
     virtual void lead() = 0;
 
  private:
-    size_t                  num_followers_      {0};
+    size_t                  followers_to_create_      {0};
     bool                    being_led_          {false};
     bool                    reentrant_lead_     {true};
 

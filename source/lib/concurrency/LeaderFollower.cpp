@@ -11,6 +11,7 @@ namespace fds
 
 void LeaderFollower::follow()
 {
+    // This indicates whether we have already entered the event loop or not
     thread_local bool has_led {false};
     {
         std::unique_lock<std::mutex> l(leader_lock_);
@@ -20,10 +21,10 @@ void LeaderFollower::follow()
         } else {
             // Hmm, no one was waiting, if we still have followers to create
             // let's create one now
-            if (0 < num_followers_) {
+            if (0 < followers_to_create_) {
                 auto t = std::thread(&LeaderFollower::follow, this);
                 t.detach();
-                --num_followers_;
+                --followers_to_create_;
             }
         }
         being_led_ = true;

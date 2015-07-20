@@ -73,7 +73,11 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
     bool standalone_mode { false };
 
-    bool terminate_ { false };
+    enum class ConnectionState { RUNNING,
+                                 STOPPING,
+                                 STOPPED };
+
+     ConnectionState state_ { ConnectionState::RUNNING };
 
     int clientSocket;
     size_t volume_size;
