@@ -294,7 +294,8 @@ public class BasicObjectManifest extends ObjectManifest
             switch (name)
             {
             case "lastModified":
-                builder.setLastModified(Optional.of(ZonedDateTime.parse(in.nextString())));
+                builder.setLastModified(Optional.ofNullable(readNullable(in, r -> r.nextString()))
+                                                .map(v -> ZonedDateTime.parse(v)));
                 break;
             case "md5":
                 builder.setMd5(DatatypeConverter.parseBase64Binary(in.nextString()));

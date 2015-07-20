@@ -39,6 +39,7 @@ import com.formationds.client.v08.model.VolumeState;
 import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.client.v08.model.VolumeType;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.fdsdiff.SystemContent.GsonAdapter;
 import com.formationds.iodriver.model.AbstractGsonAdapter;
 import com.formationds.iodriver.model.BasicObjectManifest;
 import com.formationds.iodriver.model.ComparisonDataFormat;
@@ -46,9 +47,14 @@ import com.formationds.iodriver.model.ExtendedObjectManifest;
 import com.formationds.iodriver.model.FullObjectManifest;
 import com.formationds.iodriver.model.ObjectManifest;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
+@JsonAdapter(GsonAdapter.class)
 public final class SystemContent
 {
     public final static class GsonAdapter extends AbstractGsonAdapter<SystemContent, SystemContent>
@@ -150,33 +156,25 @@ public final class SystemContent
             if (in == null) throw new NullArgumentException("in");
             
             Gson gson = new Gson();
+            JsonParser parser = new JsonParser();
             Set<ObjectManifest> retval = new HashSet<>();
             
             in.beginArray();
             while (in.hasNext())
             {
-                in.beginObject();
-                while (in.hasNext())
+                JsonElement json = parser.parse(in);
+                JsonObject tree = json.getAsJsonObject();
+                
+                Class<? extends ObjectManifest> manifestClass = null;
+                switch (ComparisonDataFormat.valueOf(tree.get("type").getAsString()))
                 {
-                    Class<?> manifestClass = null;
-                    
-                    switch (in.nextString())
-                    {
-                    case "type":
-                        switch (ComparisonDataFormat.valueOf(in.nextString()))
-                        {
-                        case MINIMAL: manifestClass = ObjectManifest.class; break;
-                        case BASIC: manifestClass = BasicObjectManifest.class; break;
-                        case EXTENDED: manifestClass = ExtendedObjectManifest.class; break;
-                        case FULL: manifestClass = FullObjectManifest.class; break;
-                        }
-                        break;
-                    case "value":
-                        retval.add(gson.fromJson(in, manifestClass));
-                        break;
-                    }
+                case MINIMAL: manifestClass = ObjectManifest.class; break;
+                case BASIC: manifestClass = BasicObjectManifest.class; break;
+                case EXTENDED: manifestClass = ExtendedObjectManifest.class; break;
+                case FULL: manifestClass = FullObjectManifest.class; break;
                 }
-                in.endObject();
+
+                retval.add(gson.fromJson(tree.get("value"), manifestClass));
             }
             in.endArray();
             
@@ -733,7 +731,7 @@ public final class SystemContent
             out.name("id");
             out.value(value.getId());
             out.name("tenantId");
-            out.value(Optional.of(value.getTenant()).map(t -> t.getId()).orElse(null));
+            out.value(Optional.ofNullable(value.getTenant()).map(t -> t.getId()).orElse(null));
             out.name("name");
             out.value(value.getName());
             out.name("roleId");

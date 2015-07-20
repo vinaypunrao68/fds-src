@@ -118,7 +118,7 @@ public final class Main
         Optional<Path> inputAPath = config.getInputAPath();
         Optional<Path> inputBPath = config.getInputBPath();
         Optional<Path> outputAPath = config.getOutputAPath();
-        Optional<Path> outputBPath = config.getOutputAPath();
+        Optional<Path> outputBPath = config.getOutputBPath();
         boolean haveInputA = inputAPath.isPresent();
         boolean haveInputB = inputBPath.isPresent();
         boolean haveOutputB = outputBPath.isPresent();

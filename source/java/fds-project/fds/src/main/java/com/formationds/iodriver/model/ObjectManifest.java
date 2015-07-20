@@ -154,7 +154,7 @@ public class ObjectManifest
             if (in == null) throw new NullArgumentException("in");
             if (builder == null) throw new NullArgumentException("builder");
             
-            if (name == "name")
+            if (name.equals("name"))
             {
                 builder.setName(in.nextString());
             }

@@ -193,6 +193,11 @@ public class ExtendedObjectManifest extends BasicObjectManifest
         return _metadata;
     }
     
+    public final byte[] getSha512()
+    {
+        return _sha512;
+    }
+    
     @Override
     public int hashCode()
     {
@@ -239,7 +244,7 @@ public class ExtendedObjectManifest extends BasicObjectManifest
             out.name("metadata");
             writeNullableMap(out, source.getMetadata(), GsonAdapter::writeMapStringEntry);
             out.name("sha512");
-            out.value(DatatypeConverter.printBase64Binary(source.getMd5()));
+            out.value(DatatypeConverter.printBase64Binary(source.getSha512()));
         }
     }
     

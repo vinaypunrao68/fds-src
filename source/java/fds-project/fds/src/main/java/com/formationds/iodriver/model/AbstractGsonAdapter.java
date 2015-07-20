@@ -39,9 +39,18 @@ public abstract class AbstractGsonAdapter<T, ContextT> extends TypeAdapter<T>
         if (out == null) throw new NullArgumentException("out");
         if (source == null) throw new NullArgumentException("source");
         
-        out.beginObject();
-        writeValues(source, out);
-        out.endObject();
+        boolean originalSerializeNulls = out.getSerializeNulls();
+        out.setSerializeNulls(true);
+        try
+        {
+            out.beginObject();
+            writeValues(source, out);
+            out.endObject();
+        }
+        finally
+        {
+            out.setSerializeNulls(originalSerializeNulls);
+        }
     }
     
     protected abstract T build(ContextT context);
@@ -210,6 +219,7 @@ public abstract class AbstractGsonAdapter<T, ContextT> extends TypeAdapter<T>
         
         if (in.peek().equals(JsonToken.NULL))
         {
+            in.nextNull();
             return null;
         }
         else
@@ -236,10 +246,12 @@ public abstract class AbstractGsonAdapter<T, ContextT> extends TypeAdapter<T>
         }
         else
         {
+            out.beginObject();
             for (Entry<KeyT, ValueT> entry : map.entrySet())
             {
                 entryWriter.accept(out, entry);
             }
+            out.endObject();
         }
     }
 
