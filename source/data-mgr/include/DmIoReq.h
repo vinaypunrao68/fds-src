@@ -633,10 +633,13 @@ struct DmIoVolumeOpen : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
 
     boost::shared_ptr<fpi::OpenVolumeMsg> msg;
+    fpi::SvcUuid const client_uuid_;
 
-    explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
+    explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message,
+                            fpi::SvcUuid const& client_uuid)
             : dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_OPEN_VOLUME),
               msg(message),
+              client_uuid_(client_uuid),
               token(message->token),
               access_mode(message->mode) {
     }
