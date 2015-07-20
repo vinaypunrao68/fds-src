@@ -27,6 +27,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.json.JSONObject;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -271,6 +272,31 @@ public class S3SmokeTest {
 
         ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
         assertEquals(expectedLength.get(), objectMetadata.getContentLength());
+    }
+
+    @Test
+    public void testSlashyPaths() throws Exception {
+        String b1 = UUID.randomUUID().toString();
+        byte[] bytes = new byte[] { 1, 2, 3, 4 };
+
+        checkIo(bytes, "/");
+        checkIo(bytes, "a/a");
+        checkIo(bytes, "/a");
+        checkIo(bytes, "a/");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(b1);
+        for(int i = 0; i < 100; i++) {
+            sb.append("/" + i);
+            checkIo(bytes, sb.toString());
+        }
+    }
+
+    private void checkIo(byte[] bytes, String key) throws IOException {
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
+        S3Object object = userClient.getObject(userBucket, key);
+        Assert.assertArrayEquals(bytes, IOUtils.toByteArray(object.getObjectContent()));
+        userClient.deleteObject(userBucket, key);
     }
 
     @Test

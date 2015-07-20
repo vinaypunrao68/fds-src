@@ -51,6 +51,8 @@
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
 #include <expungemanager.h>
+#include <fdsp/event_types_types.h>
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -416,6 +418,18 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * A callback from stats collector to sample DM-specific stats
      */
     void sampleDMStats(fds_uint64_t timestamp);
+
+    /**
+     * Send event message to OM
+     */
+    void sendEventMessageToOM(fpi::EventType eventType,
+                              fpi::EventCategory eventCategory,
+                              fpi::EventSeverity eventSeverity,
+                              fpi::EventState eventState,
+                              const std::string& messageKey,
+                              std::vector<fpi::MessageArgs> messageArgs,
+                              const std::string& messageFormat);
+
 
     /**
      * A callback from stats collector with stats for a given volume
