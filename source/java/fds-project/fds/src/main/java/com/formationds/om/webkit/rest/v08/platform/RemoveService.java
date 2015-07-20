@@ -4,6 +4,7 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import java.util.Map;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -17,6 +18,8 @@ import org.slf4j.LoggerFactory;
 import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.ServiceType;
+import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
@@ -59,6 +62,11 @@ public class RemoveService implements RequestHandler {
 		// instead of focusing on this.
 		Service service = (new GetService()).getService( nodeId, serviceId );
 	
+        if ( service.getStatus().getServiceState() != ServiceState.NOT_RUNNING )
+        {
+        	throw new ApiException("Trying to remove a service that has not been stopped!", ErrorCode.BAD_REQUEST);
+        }
+        
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         
         SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
@@ -70,36 +78,21 @@ public class RemoveService implements RequestHandler {
         		                         (node.getAddress().getHostAddress(), pmSvc);
         svcInfList.add(pmSvcInfo);
         
-        // First stop the service
-        int status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
-        if ( status != 0 ) {
-            status = HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.STOP_SERVICE_ERROR,
-                                      serviceId );
-            
-            throw new ApiException( "Stop service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
-        }
-        else
-        {
-            EventManager.notifyEvent( OmEvents.STOP_SERVICE, serviceId );
-            
-            //Stopped service successfully, now remove it
-            status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
+
+       int status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
         
-            if ( status != 0 ){
-        	
-                status = HttpServletResponse.SC_BAD_REQUEST;
-                EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR,
-                                          serviceId );
+       if ( status != 0 ){
+
+    	   status = HttpServletResponse.SC_BAD_REQUEST;
+           EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR, serviceId );
             
-                throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
-            }
-            else
-            {
-                EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
-            }
-        }
-        
+           throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
+       }
+       else
+       {
+                //EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
+       }
+
 		return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
 	}
 	

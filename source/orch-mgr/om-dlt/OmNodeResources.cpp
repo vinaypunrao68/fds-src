@@ -869,6 +869,9 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
         configDB->setNodeServices(get_uuid(), services);
     }
 
+    //fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( activeSmAgent->get_uuid().uuid_get_val();
+
+
     return Error(ERR_OK);
 }
 
@@ -1164,6 +1167,7 @@ OM_PmAgent::send_add_service
     TRACEFUNC;
     Error err(ERR_OK);
 
+
     // We only do addService from 'discovered' state or 'node up' state
     if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
         (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
@@ -1171,8 +1175,8 @@ OM_PmAgent::send_add_service
         return Error(ERR_INVALID_ARG);
     }
 
-    LOGNORMAL << "Add service for node" << get_node_name()
-              << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
+    LOGNORMAL << "Add service for node: " << get_node_name()
+              << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec;
 
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
@@ -1208,7 +1212,6 @@ OM_PmAgent::send_add_service
                 << " to configDB";
     }
 
-
     fpi::NotifyAddServiceMsgPtr addServiceMsg =
                             boost::make_shared<fpi::NotifyAddServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = addServiceMsg->services;
@@ -1217,6 +1220,70 @@ OM_PmAgent::send_add_service
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
     req->invoke();
+
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    std::vector<fpi::SvcInfo>::iterator iter;
+    bool add_sm = false;
+    bool add_dm= false;
+    bool add_am = false;
+
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+            [](fpi::SvcInfo info)->bool
+            {
+            return info.svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR;
+            });
+
+    if (iter != svcInfos.end())
+        add_sm = true;
+    iter = svcInfos.begin();
+
+    iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+            [](fpi::SvcInfo info)->bool
+            {
+            return info.svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR;
+            });
+
+    if (iter != svcInfos.end())
+        add_dm = true;
+    iter = svcInfos.begin();
+
+    iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+            [](fpi::SvcInfo info)->bool
+            {
+            return info.svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR;
+            });
+
+    if (iter != svcInfos.end())
+        add_am = true;
+    iter = svcInfos.begin();
+
+    // Now that we have added service on the pm side, get the proper svc id, and update svc map
+    // since if we removed an individual service, it was removed from the svcMap in the configuration
+    // database through om_del_services
+    if (! (add_sm && add_dm && add_am) )
+    {
+    for (iter = svcInfos.begin(); iter != svcInfos.end(); iter++)
+    {
+        if ((*iter).svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR ||
+           (*iter).svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR ||
+           (*iter).svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR)
+
+        {
+            LOGDEBUG << "Adding service of type:" << (*iter).svc_type <<" to the configDB service map";
+
+            (*iter).svc_id.svc_uuid = SvcMgr::mapToSvcUuid(svc_uuid, (*iter).svc_type);
+
+            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*iter});
+            configDB->updateSvcMap(*iter);
+            //needed ? : local->om_bcast_svcmap();
+
+        }
+    }
+    }
 
     return err;
 }
@@ -1238,6 +1305,9 @@ OM_PmAgent::send_start_service
     TRACEFUNC;
     Error err(ERR_OK);
 
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
     // Check if the requested services are already running
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         bool smRunning = false;
@@ -1245,26 +1315,41 @@ OM_PmAgent::send_start_service
         bool amRunning = false;
 
         if (service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: SM service already running, "
+
+            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( activeSmAgent->get_uuid().uuid_get_val() );
+
+            if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+                LOGNOTIFY << "OM_PmAgent: SM service already running, "
                       << "not going to restart...";
-            smRunning = true;
+                smRunning = true;
+            }
         }
         if (service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: DM service already running, "
+            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( activeDmAgent->get_uuid().uuid_get_val() );
+
+            if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+                LOGNOTIFY << "OM_PmAgent: DM service already running, "
                       << "not going to restart...";
-            dmRunning = true;
+                dmRunning = true;
+            }
         }
         if (service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
+            // if activeAgent is NOT null, either the service is already running OR the service was stopped
+            // the way to distinguish that is to check for the inactive state
+           fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( activeAmAgent->get_uuid().uuid_get_val() );
+
+            if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
             LOGNOTIFY << "OM_PmAgent: AM service already running. Allowing another "
-                      << "AM instance...";
-            // enable this if we want to prevent multiple instances of AM
-            //amRunning = true;
+                      << "not going to restart...";
+            amRunning = true;
+            }
         }
 
         // Perform updates to list only if necessary
         if (smRunning || dmRunning || amRunning) {
             fds::updateSvcInfoList(svcInfos, smRunning, dmRunning, amRunning);
         }
+
     }
     else
     {
@@ -1279,6 +1364,9 @@ OM_PmAgent::send_start_service
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
 
+    // The hope is that if we did a remove service, then addService, in the addService
+    // we updated the map which should take us through the whole om_register_service
+    // path, so all should be well in the world
     fpi::NotifyStartServiceMsgPtr startServiceMsg =
                               boost::make_shared<fpi::NotifyStartServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = startServiceMsg->services;
@@ -1368,8 +1456,6 @@ OM_PmAgent::send_stop_service
         change_service_state( configDB,
                               ( activeSmAgent->get_uuid() ).uuid_get_val(),
                               fpi::SVC_STATUS_INACTIVE );
-
-        activeSmAgent = nullptr;
     }
 
     // Set DM service state to inactive
@@ -1383,8 +1469,6 @@ OM_PmAgent::send_stop_service
         change_service_state( configDB,
                               ( activeDmAgent->get_uuid() ).uuid_get_val(),
                               fpi::SVC_STATUS_INACTIVE );
-
-        activeDmAgent = nullptr;
     }
 
     // Set AM service state to inactive
@@ -1397,8 +1481,6 @@ OM_PmAgent::send_stop_service
         change_service_state( configDB,
                               ( activeAmAgent->get_uuid() ).uuid_get_val(),
                               fpi::SVC_STATUS_INACTIVE );
-
-        activeAmAgent = nullptr;
     }
 
     fpi::NotifyStopServiceMsgPtr stopServiceMsg =
@@ -1437,6 +1519,7 @@ OM_PmAgent::send_remove_service
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
+    //fds_mutex::scoped_lock l(dbNodeInfoLock);
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up)
     {
         if (!configDB->getNodeServices(node_uuid, services)) {
@@ -1471,6 +1554,55 @@ OM_PmAgent::send_remove_service
                         << std::dec << ", result: " << err.GetErrstr();
     }
 
+    std::vector<fpi::SvcInfo>::iterator iter;
+    if (remove_sm)
+    {
+        iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+                            [](fpi::SvcInfo info)->bool
+                            {
+                            return info.svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR;
+                            });
+
+        if (iter != svcInfos.end())
+            configDB->deleteSvcMap(*iter);
+        else
+            LOGERROR << "Could not find SM svcInfo to remove";
+
+        activeSmAgent = nullptr;
+    }
+    if (remove_dm)
+    {
+        iter = svcInfos.begin();
+        iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+                            [](fpi::SvcInfo info)->bool
+                            {
+                            return info.svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR;
+                            });
+
+        if (iter != svcInfos.end())
+            configDB->deleteSvcMap(*iter);
+        else
+            LOGERROR << "Could not find DM svcInfo to remove";
+
+        activeDmAgent = nullptr;
+
+    }
+    if (remove_am)
+    {
+        iter = svcInfos.begin();
+        iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+                            [](fpi::SvcInfo info)->bool
+                            {
+                            return info.svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR;
+                            });
+
+        if (iter != svcInfos.end())
+            configDB->deleteSvcMap(*iter);
+        else
+            LOGERROR << "Could not find AM svcInfo to remove";
+
+        activeAmAgent = nullptr;
+    }
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
 
@@ -1497,7 +1629,6 @@ OM_PmAgent::send_remove_service
             fds::change_service_state( configDB,
                                        get_uuid().uuid_get_val(),
                                        fpi::SVC_STATUS_INACTIVE );
-
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";

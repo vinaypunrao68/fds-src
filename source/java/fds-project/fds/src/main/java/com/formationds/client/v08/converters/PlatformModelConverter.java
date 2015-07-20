@@ -313,9 +313,10 @@ public class PlatformModelConverter
     switch( internalState )
     {
       case FDS_Node_Down:
+      case FDS_Node_Discovered:
         externalState = Optional.of( ServiceState.NOT_RUNNING );
         break;
-      case FDS_Node_Discovered:
+
       case FDS_Node_Up:
         externalState = Optional.of( ServiceState.RUNNING );
         break;
