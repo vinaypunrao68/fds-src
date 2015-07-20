@@ -20,6 +20,7 @@ namespace fds
 {
 
 struct AmProcessor;
+struct NbdConnector;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -51,7 +52,8 @@ struct message {
 };
 
 struct NbdConnection : public NbdOperationsResponseIface {
-    NbdConnection(int clientsd,
+    NbdConnection(NbdConnector* server,
+                  int clientsd,
                   std::shared_ptr<AmProcessor> processor);
     NbdConnection(NbdConnection const& rhs) = delete;
     NbdConnection(NbdConnection const&& rhs) = delete;
@@ -78,6 +80,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     size_t object_size;
 
     std::shared_ptr<AmProcessor> amProcessor;
+    NbdConnector* nbd_server;
     NbdOperations::shared_ptr nbdOps;
 
     size_t resp_needed;
@@ -96,8 +99,11 @@ struct NbdConnection : public NbdOperationsResponseIface {
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
 
+    /** Indicates to ev loop if it's safe to handle events on this connection */
+    bool processing_ {false};
+
     void wakeupCb(ev::async &watcher, int revents);
-    void callback(ev::io &watcher, int revents);
+    void ioEvent(ev::io &watcher, int revents);
 
     enum class NbdProtoState {
         INVALID   = 0,
