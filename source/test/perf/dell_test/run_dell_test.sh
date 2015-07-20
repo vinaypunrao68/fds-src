@@ -13,8 +13,9 @@ function volume_setup {
 function volume_attach {
     local node=$1
     local vol=$2
+    echo $node $vol
     pushd ../../../cli
-    nbd_disk_$m=`../../../cinder/nbdadm.py attach $node $vol`
+    disks[$m]=`../../../cinder/nbdadm.py attach $node $vol`
     popd
 }
 function volume_detach {
@@ -71,18 +72,15 @@ declare -A disks
 for m in $machines ; do
     volume_setup volume_block_$m
 
-    disks[$m]=""
-    volume_attach $m volume_block_$m
-
-    disks[$m]=`../../../cinder/nbdadm.py attach $node $vol`
-
+    # disks[$m]=`../../../cinder/nbdadm.py attach $m  volume_block_$m`
+    disks[$m]=`ssh $m "cd /fds/sbin && ./nbdadm.py attach $m  volume_block_$m"`
 
     echo "nbd disk: ${disks[$m]}"
     if [ "${disks[$m]}" = "" ]; then
         echo "Volume setup failed"
         exit 1;
     fi
-    fio --name=write --rw=write --filename=${disks[$m]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size
+    ssh $m "fio --name=write --rw=write --filename=${disks[$m]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size
 done
 
 
@@ -102,4 +100,6 @@ for bs in $bsizes ; do
             done
         done
 done
-volume_detach volume_block
+for m in $machines ; do
+       volume_detach volume_block_$m
+done
