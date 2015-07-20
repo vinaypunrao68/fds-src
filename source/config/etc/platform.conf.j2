@@ -253,6 +253,9 @@ fds: {
             /* Maximum number of blobs in delta set */
             migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
 
+            /* Timeout value (secs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
+            migration_max_delta_blobs_to = {{ dm_migration_max_delta_blobs_to }}
+
             /* Maximum number of blob desc in delta set */
             migration_max_delta_blob_desc = {{ dm_migration_max_delta_blob_desc }}
         }
