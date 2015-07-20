@@ -439,14 +439,14 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
         }
     }
     
-    if (e.OK()) {
-        fds_verify(commit_data != nullptr);
+    if (commit_data != nullptr) {
         cb(e,
            blob_version,
            commit_data->blobObjList,
            commit_data->metaDataList,
            commit_data->blobSize);
     } else {
+        fds_verify(!e.OK());
         cb(e,
            blob_version,
            nullptr,
