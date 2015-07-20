@@ -18,7 +18,7 @@ namespace dm {
 AbortBlobTxHandler::AbortBlobTxHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::AbortBlobTxMsg, handleRequest);
     }
 }
