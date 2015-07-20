@@ -276,9 +276,11 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         case fpi::HEALTH_STATE_DEGRADED:
         case fpi::HEALTH_STATE_LIMITED:
         case fpi::HEALTH_STATE_SHUTTING_DOWN:
-        case fpi::HEALTH_STATE_ERROR:
             LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
                     << " state: " << msg->healthReport.serviceState << " not implemented yet.";
+            break;
+        case fpi::HEALTH_STATE_ERROR:
+            healthReportError(service_type, msg);
             break;
         case fpi::HEALTH_STATE_UNREACHABLE:
             LOGNORMAL << "Handling unreachable event for service " << msg->healthReport.serviceInfo.name
@@ -401,4 +403,43 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
         nullptr, dummyErr, nullptr);
 	 }
 }
+
+void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
+                                     boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
+    Error reportError(msg->healthReport.statusCode);
+
+    // we only handle specific erorrs from SM and DM for now
+    if ((svc_type == fpi::FDSP_STOR_MGR) ||
+        (svc_type == fpi::FDSP_DATA_MGR)) {
+        if ((reportError == ERR_SERVICE_CAPACITY_FULL) ||
+            // service is unavailable -- most likely failed to initialize
+            (reportError == ERR_NODE_NOT_ACTIVE)) {
+            // when a service reports these errors, it sets itself inactive
+            // so OM should also set service state to failed and update
+            // DLT/DMT accordingly
+            auto domain = OM_NodeDomainMod::om_local_domain();
+            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+            OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
+            if (agent) {
+                LOGDEBUG << "Will set service to failed state: "
+                         << msg->healthReport.serviceInfo.name
+                         << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+                agent->set_node_state(fpi::FDS_Node_Down);
+                domain->om_service_down(reportError, uuid, agent->node_get_svc_type());
+            } else {
+                LOGDEBUG << "Got error health report from service "
+                         << msg->healthReport.serviceInfo.svc_id.svc_name
+                         << ":0x" << std::hex << uuid.uuid_get_val() << std::dec
+                         << " that OM does not know about; ignoring";
+            }
+            return;
+        }
+    }
+
+    // if we are here, we don't handle the error and/or service yet
+    LOGWARN << "Handling ERROR report for service " << msg->healthReport.serviceInfo.name
+            << " state: " << msg->healthReport.serviceState
+            << " error: " << msg->healthReport.statusCode << " not implemented yet.";
+}
+
 }  //  namespace fds
