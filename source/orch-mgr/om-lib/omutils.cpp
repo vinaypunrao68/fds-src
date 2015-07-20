@@ -128,7 +128,7 @@ namespace fds
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
         if ((iter != svcInfos.end()) && smFlag)
         {
-            LOGDEBUG << "Erasing sm svc from vector";
+            LOGDEBUG << "Erasing SM svcInfo from list";
             svcInfos.erase(iter);
         }
 
@@ -137,7 +137,7 @@ namespace fds
 
         if ((iter != svcInfos.end()) && dmFlag)
         {
-            LOGDEBUG << "Erasing dm svc from vector";
+            LOGDEBUG << "Erasing DM svcInfo from list";
             svcInfos.erase(iter);
         }
 
@@ -145,7 +145,7 @@ namespace fds
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
         if ((iter != svcInfos.end()) && amFlag)
         {
-            LOGDEBUG << "Erasing am svc from vector";
+            LOGDEBUG << "Erasing AM svcInfo from list";
             svcInfos.erase(iter);
         }
     }
@@ -162,12 +162,6 @@ namespace fds
                             {
                             return info.svc_type == svcType;
                             });
-
-        if (iter == svcInfos.end())
-        {
-            LOGDEBUG << "No match found, type:" << svcType << " is not present in the svcInfoList";
-        }
-
         return iter;
 
     }

@@ -908,9 +908,6 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
         configDB->setNodeServices(get_uuid(), services);
     }
 
-    //fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( activeSmAgent->get_uuid().uuid_get_val();
-
-
     return Error(ERR_OK);
 }
 
@@ -1260,10 +1257,6 @@ OM_PmAgent::send_add_service
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
     req->invoke();
 
-    //OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
-    //OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
-
     std::vector<fpi::SvcInfo>::iterator iter;
     bool add_sm = false;
     bool add_dm = false;
@@ -1283,9 +1276,10 @@ OM_PmAgent::send_add_service
     if (iter != svcInfos.end())
         add_am = true;
 
-    // Now that we have added service on the pm side, get the proper svc id, and update svc map
-    // since if we removed an individual service, it was removed from the svcMap in the configuration
-    // database through om_del_services
+    // If we are adding *individual* services, get the proper svc id, and update svc map
+    // The potential prior remove of this service would have caused it to be removed
+    // from the svcMap in the configuration database through om_del_services. A full
+    // registeration will happen once we start the service
     if (! (add_sm && add_dm && add_am) )
     {
         for (iter = svcInfos.begin(); iter != svcInfos.end(); iter++)
@@ -1300,7 +1294,6 @@ OM_PmAgent::send_add_service
 
                 MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*iter});
                 configDB->updateSvcMap(*iter);
-                //needed ? : local->om_bcast_svcmap();
             }
         }
     }
@@ -1327,7 +1320,7 @@ OM_PmAgent::send_start_service
 
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
-    //fds_mutex::scoped_lock l(dbNodeInfoLock); -- putting this in causes issues!
+
     // Check if the requested services are already running
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         bool smRunning = false;
@@ -1345,7 +1338,7 @@ OM_PmAgent::send_start_service
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
                 LOGNOTIFY << "OM_PmAgent: SM service already running, "
-                      << "not going to restart...";
+                          << "not going to restart...";
                 smRunning = true;
             }
         }
@@ -1355,7 +1348,7 @@ OM_PmAgent::send_start_service
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
                 LOGNOTIFY << "OM_PmAgent: DM service already running, "
-                      << "not going to restart...";
+                          << "not going to restart...";
                 dmRunning = true;
             }
         }
@@ -1364,9 +1357,9 @@ OM_PmAgent::send_start_service
                                                         activeAmAgent->get_uuid().uuid_get_val() );
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
-            LOGNOTIFY << "OM_PmAgent: AM service already running,"
-                      << "not going to restart...";
-            amRunning = true;
+                LOGNOTIFY << "OM_PmAgent: AM service already running,"
+                          << "not going to restart...";
+                amRunning = true;
             }
         }
 
@@ -1389,9 +1382,8 @@ OM_PmAgent::send_start_service
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
 
-    // The hope is that if we did a remove service followed by addService, in the addService
-    // we updated the map which should take us through the whole om_register_service
-    // path when we do this, so all should be well in the world
+    // Once this is done, an om_register_service call should be triggered for the
+    // services that are attempting to be started
     fpi::NotifyStartServiceMsgPtr startServiceMsg =
                               boost::make_shared<fpi::NotifyStartServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = startServiceMsg->services;
@@ -1585,9 +1577,14 @@ OM_PmAgent::send_remove_service
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
 
         if (iter != svcInfos.end())
+        {
+            LOGNOTIFY <<"Deleting SM from service map for node:"
+                      << std::hex << node_uuid << std::dec;
             configDB->deleteSvcMap(*iter);
+        }
         else
-            LOGERROR << "Could not find SM svcInfo to remove";
+            LOGERROR << "Failed to delete SM from service map for node:"
+                     << std::hex << node_uuid << std::dec;
 
         activeSmAgent = nullptr;
     }
@@ -1596,9 +1593,14 @@ OM_PmAgent::send_remove_service
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR );
 
         if (iter != svcInfos.end())
+        {
+            LOGNOTIFY <<"Deleting DM from service map for node:"
+                      << std::hex << node_uuid << std::dec;
             configDB->deleteSvcMap(*iter);
+        }
         else
-            LOGERROR << "Could not find DM svcInfo to remove";
+            LOGERROR << "Failed to delete DM from service map for node:"
+                     << std::hex << node_uuid << std::dec;
 
         activeDmAgent = nullptr;
 
@@ -1608,9 +1610,14 @@ OM_PmAgent::send_remove_service
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
 
         if (iter != svcInfos.end())
+        {
+            LOGNOTIFY <<"Deleting AM from service map for node:"
+                      << std::hex << node_uuid << std::dec;
             configDB->deleteSvcMap(*iter);
+        }
         else
-            LOGERROR << "Could not find AM svcInfo to remove";
+            LOGERROR << "Failed to delete AM from service map for node:"
+                     << std::hex << node_uuid << std::dec;
 
         activeAmAgent = nullptr;
     }

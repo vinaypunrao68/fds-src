@@ -74,7 +74,8 @@ public class MutateService implements RequestHandler {
 		
 		if ( curServices == null || curServices.size() == 0 ){
         	throw new ApiException( "Could not find service: " + service.getType() + "for node: "
-                    + nodeId + ", try adding first: ", ErrorCode.MISSING_RESOURCE );
+                                    + nodeId + ", try adding first: ",
+                                    ErrorCode.MISSING_RESOURCE );
 		}
 		
         Boolean am = isServiceOnAlready( ServiceType.AM, node );
@@ -86,7 +87,8 @@ public class MutateService implements RequestHandler {
         // Get the service object so we can access the type
         Service svcObj = (new GetService()).getService(nodeId, serviceId);
         if (svcObj == null) {
-        	throw new ApiException( "Could not retrieve valid service object", ErrorCode.MISSING_RESOURCE );
+        	throw new ApiException( "Could not retrieve valid service object",
+        			                ErrorCode.MISSING_RESOURCE );
         }
         
         switch( svcObj.getType() ){
@@ -137,8 +139,8 @@ public class MutateService implements RequestHandler {
             throw new ApiException( "Service state change failed.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
         else {
-            //EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE,
-            //        nodeId );
+            EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE,
+                    nodeId );
         }
         
         List<Service> services = (new ListServices()).getServicesForNode( nodeId );

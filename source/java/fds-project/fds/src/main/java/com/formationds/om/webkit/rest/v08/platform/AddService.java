@@ -7,7 +7,6 @@ import java.util.Map;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.io.Reader;
 import javax.servlet.http.HttpServletResponse;
 
@@ -58,7 +57,8 @@ public class AddService implements RequestHandler {
         
         Service service = ObjectModelHelper.toObject( reader, Service.class );
         if( service == null ) {
-	  		throw new ApiException( "No valid service object provided to add to node. " + nodeId, ErrorCode.MISSING_RESOURCE );
+	  		throw new ApiException( "No valid service object provided to add to node. "
+                                    + nodeId, ErrorCode.MISSING_RESOURCE );
   		}
         
         Node node = (new GetNode()).getNode(nodeId);
@@ -85,12 +85,13 @@ public class AddService implements RequestHandler {
         }
         else
         {
-        	// EventManager.notifyEvent( OmEvents.ADD_SERVICE, 0 );
+        	EventManager.notifyEvent( OmEvents.ADD_SERVICE, 0 );
         }  
         
         long serviceId = retrieveSvcId(service.getType(), nodeId);
         if(serviceId == -1) {
-        	throw new ApiException( "Valid service id could not be retrieved for type:" + service.getType(), ErrorCode.MISSING_RESOURCE );
+        	throw new ApiException( "Valid service id could not be retrieved for type:"
+                                     + service.getType(), ErrorCode.MISSING_RESOURCE );
         }
         
         Service newService = (new GetService()).getService(nodeId, serviceId);

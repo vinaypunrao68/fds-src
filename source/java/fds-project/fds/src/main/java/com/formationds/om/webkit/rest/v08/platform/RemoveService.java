@@ -4,7 +4,6 @@
 package com.formationds.om.webkit.rest.v08.platform;
 
 import java.util.Map;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -64,7 +63,8 @@ public class RemoveService implements RequestHandler {
 	
         if ( service.getStatus().getServiceState() != ServiceState.NOT_RUNNING )
         {
-        	throw new ApiException("Trying to remove a service that has not been stopped!", ErrorCode.BAD_REQUEST);
+        	throw new ApiException("Trying to remove a service that has not been stopped!",
+        			               ErrorCode.BAD_REQUEST);
         }
         
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
@@ -90,7 +90,7 @@ public class RemoveService implements RequestHandler {
        }
        else
        {
-                //EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
+    	   EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
        }
 
 		return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );

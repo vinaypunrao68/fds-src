@@ -96,7 +96,7 @@ public class MutateNode implements RequestHandler {
         
         if ( stopNodeServices )
         {
-        	logger.debug("Request to shutdown node, stopping all services, svcList size:" + svcInfList.size());
+        	logger.debug("Request to shutdown node, uuid:" + nodeUuid);
         	// Note: This action will *not* change the state of the node to "down"
         	// It will however shutdown any existing am/dm/sm services on the node
         	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
@@ -109,12 +109,12 @@ public class MutateNode implements RequestHandler {
             }
             else 
             {
-            	//EventManager.notifyEvent( OmEvents.STOP_NODE, nodeUuid );
+            	EventManager.notifyEvent( OmEvents.STOP_NODE, nodeUuid );
             }
         }
         else
         {
-        	logger.debug("Request to start node, starting all services, svcList size:" + svcInfList.size());
+        	logger.debug("Request to start node, uuid:" + nodeUuid);
         	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
         	
         	if( status != 0 )
@@ -125,7 +125,7 @@ public class MutateNode implements RequestHandler {
             }
             else 
             {
-            	//EventManager.notifyEvent( OmEvents.START_NODE, nodeUuid );
+            	EventManager.notifyEvent( OmEvents.START_NODE, nodeUuid );
             }
         }
         
