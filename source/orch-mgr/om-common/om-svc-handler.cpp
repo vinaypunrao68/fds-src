@@ -269,27 +269,27 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
 
     switch (msg->healthReport.serviceState) {
-        case fpi::RUNNING:
+        case fpi::HEALTH_STATE_RUNNING:
             healthReportRunning( msg );
             break;
-        case fpi::INITIALIZING:
-        case fpi::DEGRADED:
-        case fpi::LIMITED:
-        case fpi::SHUTTING_DOWN:
+        case fpi::HEALTH_STATE_INITIALIZING:
+        case fpi::HEALTH_STATE_DEGRADED:
+        case fpi::HEALTH_STATE_LIMITED:
+        case fpi::HEALTH_STATE_SHUTTING_DOWN:
             LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
                     << " state: " << msg->healthReport.serviceState << " not implemented yet.";
             break;
-        case fpi::ERROR:
+        case fpi::HEALTH_STATE_ERROR:
             healthReportError(service_type, msg);
             break;
-        case fpi::UNREACHABLE:
+        case fpi::HEALTH_STATE_UNREACHABLE:
             LOGNORMAL << "Handling unreachable event for service " << msg->healthReport.serviceInfo.name
                       << " in state " << msg->healthReport.serviceState;
             // Track this error event as a timeout. We're assuming a timeout is
             // indistingusable from a service being unreachable.
             event_tracker.feed_event(ERR_SVC_REQUEST_TIMEOUT, service_UUID);
             break;
-        case fpi::UNEXPECTED_EXIT:
+        case fpi::HEALTH_STATE_UNEXPECTED_EXIT:
             // Generally dispatched by PM when it sees a service's process abort unexpectedly
             switch (service_type) {
                 case fpi::FDSP_ACCESS_MGR:
