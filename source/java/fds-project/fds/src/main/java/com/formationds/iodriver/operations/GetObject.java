@@ -17,7 +17,7 @@ public final class GetObject extends S3Operation
 {
     public GetObject(String bucketName,
                      String key,
-                     Supplier<ObjectManifest.Builder<?>> builderSupplier,
+                     Supplier<ObjectManifest.Builder<?, ? extends ObjectManifest>> builderSupplier,
                      Consumer<ObjectManifest> setter)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
@@ -42,7 +42,7 @@ public final class GetObject extends S3Operation
 
         try (S3Object object = client.getObject(_bucketName, _key))
         {
-            ObjectManifest.Builder<?> builder = _builderSupplier.get();
+            ObjectManifest.Builder<?, ? extends ObjectManifest> builder = _builderSupplier.get();
             builder.set(object);
             _setter.accept(builder.build());
         }
@@ -56,7 +56,7 @@ public final class GetObject extends S3Operation
     
     private final String _bucketName;
 
-    private final Supplier<ObjectManifest.Builder<?>> _builderSupplier;
+    private final Supplier<ObjectManifest.Builder<?, ? extends ObjectManifest>> _builderSupplier;
     
     private final String _key;
     

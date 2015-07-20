@@ -11,26 +11,17 @@ import java.util.stream.Stream;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.model.ObjectManifest.GsonAdapter;
-import com.google.gson.TypeAdapter;
+import com.formationds.iodriver.model.ObjectManifest.ConcreteGsonAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
-@JsonAdapter(GsonAdapter.class)
+@JsonAdapter(ConcreteGsonAdapter.class)
 public class ObjectManifest
 {
-    public static class Builder<ThisT extends Builder<ThisT>>
+    public static class Builder<ThisT extends Builder<ThisT, BuiltT>,
+                                   BuiltT extends ObjectManifest>
     {
-        public Builder() { }
-        
-        public Builder(ObjectManifest source)
-        {
-            if (source == null) throw new NullArgumentException("source");
-            
-            source.setBuilderProperties(getThis());
-        }
-        
         public ObjectManifest build()
         {
             validate();
@@ -62,6 +53,15 @@ public class ObjectManifest
             return getThis();
         }
         
+        protected Builder() { }
+        
+        protected Builder(BuiltT source)
+        {
+            if (source == null) throw new NullArgumentException("source");
+            
+            source.setBuilderProperties(getThis());
+        }
+        
         @SuppressWarnings("unchecked")
         protected ThisT getThis()
         {
@@ -75,75 +75,25 @@ public class ObjectManifest
         
         private String _name;
     }
+
+    public final static class ConcreteBuilder extends Builder<ConcreteBuilder, ObjectManifest>
+    { }
     
-    public static class GsonAdapter extends TypeAdapter<ObjectManifest>
+    public final static class ConcreteGsonAdapter extends GsonAdapter<ObjectManifest,
+                                                                      ConcreteBuilder>
     {
         @Override
-        public ObjectManifest read(JsonReader in) throws IOException
+        protected ObjectManifest build(ConcreteBuilder builder)
         {
-            if (in == null) throw new NullArgumentException("in");
+            if (builder == null) throw new NullArgumentException("builder");
             
-            Builder<?> builder = new Builder<>();
-            readAllValues(in, getAttributeCount(), builder);
             return builder.build();
         }
         
         @Override
-        public void write(JsonWriter out, ObjectManifest source) throws IOException
+        protected ConcreteBuilder newContext()
         {
-            if (out == null) throw new NullArgumentException("out");
-            if (source == null) throw new NullArgumentException("source");
-            
-            out.beginObject();
-            writeValues(source, out);
-            out.endObject();
-        }
-
-        public static int getAttributeCount()
-        {
-            return 1;
-        }
-        
-        public static void readValue(String name,
-                                     JsonReader in,
-                                     Builder<?> builder) throws IOException
-        {
-            if (name == null) throw new NullArgumentException("name");
-            if (in == null) throw new NullArgumentException("in");
-            if (builder == null) throw new NullArgumentException("builder");
-            
-            if (name == "name")
-            {
-                builder.setName(in.nextString());
-            }
-            else
-            {
-                throw new IOException("Unrecognized attribute: " + javaString(name) + ".");
-            }
-        }
-        
-        public static void readAllValues(JsonReader in,
-                                         int attributeCount,
-                                         Builder<?> builder) throws IOException
-        {
-            if (in == null) throw new NullArgumentException("in");
-            if (builder == null) throw new NullArgumentException("builder");
-            
-            in.beginObject();
-            for (int attribute = 0; attribute != attributeCount; ++attribute)
-            {
-                readValue(in.nextName(), in, builder);
-            }
-            in.endObject();
-        }
-        
-        public static void writeValues(ObjectManifest source, JsonWriter out) throws IOException
-        {
-            if (source == null) throw new NullArgumentException("source");
-            if (out == null) throw new NullArgumentException("out");
-            
-            out.name("name");
-            out.value(source._name);
+            return new ConcreteBuilder();
         }
     }
     
@@ -155,6 +105,11 @@ public class ObjectManifest
                && Objects.equals(_name, ((ObjectManifest)other)._name);
     }
 
+    public ComparisonDataFormat getFormat()
+    {
+        return ComparisonDataFormat.MINIMAL;
+    }
+    
     public final String getName()
     {
         return _name;
@@ -179,6 +134,7 @@ public class ObjectManifest
                + ")";
     }
     
+    // TODO: This should probably be removed now that we're using Gson.
     public final String toJsonString()
     {
         return "{ "
@@ -187,14 +143,46 @@ public class ObjectManifest
                + " }";
     }
     
-    protected ObjectManifest(Builder<?> builder)
+    protected static abstract class GsonAdapter<T extends ObjectManifest,
+                                                BuilderT extends Builder<?, T>>
+            extends AbstractGsonAdapter<T, BuilderT>
+    {
+        @Override
+        protected void readValue(String name, JsonReader in, BuilderT builder) throws IOException
+        {
+            if (name == null) throw new NullArgumentException("name");
+            if (in == null) throw new NullArgumentException("in");
+            if (builder == null) throw new NullArgumentException("builder");
+            
+            if (name == "name")
+            {
+                builder.setName(in.nextString());
+            }
+            else
+            {
+                throw new IOException("Unrecognized attribute: " + javaString(name) + ".");
+            }
+        }
+
+        @Override
+        protected void writeValues(T source, JsonWriter out) throws IOException
+        {
+            if (source == null) throw new NullArgumentException("source");
+            if (out == null) throw new NullArgumentException("out");
+            
+            out.name("name");
+            out.value(source.getName());
+        }
+    }
+    
+    protected ObjectManifest(Builder<?, ? extends ObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         
         _name = builder.getName();
     }
 
-    protected void setBuilderProperties(Builder<?> builder)
+    protected void setBuilderProperties(Builder<?, ? extends ObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         

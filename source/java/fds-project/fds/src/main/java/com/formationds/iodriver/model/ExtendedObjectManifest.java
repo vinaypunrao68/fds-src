@@ -16,19 +16,18 @@ import javax.xml.bind.DatatypeConverter;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.model.ExtendedObjectManifest.ConcreteGsonAdapter;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 
+@JsonAdapter(ConcreteGsonAdapter.class)
 public class ExtendedObjectManifest extends BasicObjectManifest
 {
-    public static class Builder<ThisT extends Builder<ThisT>>
-            extends BasicObjectManifest.Builder<ThisT>
+    public static class Builder<ThisT extends Builder<ThisT, BuiltT>,
+                                BuiltT extends ExtendedObjectManifest>
+            extends BasicObjectManifest.Builder<ThisT, BuiltT>
     {
-        public Builder() { }
-        
-        public Builder(ObjectManifest source)
-        {
-            super(source);
-        }
-        
         @Override
         public ExtendedObjectManifest build()
         {
@@ -64,13 +63,20 @@ public class ExtendedObjectManifest extends BasicObjectManifest
             return getThis();
         }
         
+        protected Builder() { }
+        
+        protected Builder(BuiltT source)
+        {
+            super(source);
+        }
+        
         @Override
         protected void setInternal(S3Object object) throws IOException
         {
             if (object == null) throw new NullArgumentException("object");
             
             super.setInternal(object);
-
+            
             setMetadata(object.getObjectMetadata().getUserMetadata());
         }
         
@@ -141,6 +147,28 @@ public class ExtendedObjectManifest extends BasicObjectManifest
         private MessageDigest _sha512Summer;
     }
     
+    public final static class ConcreteBuilder extends Builder<ConcreteBuilder,
+                                                              ExtendedObjectManifest>
+    { }
+    
+    public final static class ConcreteGsonAdapter extends GsonAdapter<ExtendedObjectManifest,
+                                                                      ConcreteBuilder>
+    {
+        @Override
+        protected ExtendedObjectManifest build(ConcreteBuilder builder)
+        {
+            if (builder == null) throw new NullArgumentException("builder");
+            
+            return builder.build();
+        }
+        
+        @Override
+        protected ConcreteBuilder newContext()
+        {
+            return new ConcreteBuilder();
+        }
+    }
+    
     @Override
     public boolean equals(Object other)
     {
@@ -152,6 +180,12 @@ public class ExtendedObjectManifest extends BasicObjectManifest
         ExtendedObjectManifest typedOther = (ExtendedObjectManifest)other;
         return Objects.equals(_metadata, typedOther._metadata)
                && Arrays.equals(_sha512, typedOther._sha512);
+    }
+    
+    @Override
+    public ComparisonDataFormat getFormat()
+    {
+        return ComparisonDataFormat.EXTENDED;
     }
     
     public final Map<String, String> getMetadata()
@@ -170,7 +204,46 @@ public class ExtendedObjectManifest extends BasicObjectManifest
         return hash;
     }
     
-    protected ExtendedObjectManifest(Builder<?> builder)
+    protected static abstract class GsonAdapter<T extends ExtendedObjectManifest,
+                                                BuilderT extends Builder<?, T>>
+            extends BasicObjectManifest.GsonAdapter<T, BuilderT>
+    {
+        @Override
+        protected void readValue(String name, JsonReader in, BuilderT builder) throws IOException
+        {
+            if (name == null) throw new NullArgumentException("name");
+            if (in == null) throw new NullArgumentException("in");
+            if (builder == null) throw new NullArgumentException("builder");
+
+            switch (name)
+            {
+            case "metadata":
+                builder.setMetadata(readMapNullable(in, GsonAdapter::readMapStringEntry));
+                break;
+            case "sha512":
+                builder.setSha512(DatatypeConverter.parseBase64Binary(in.nextString()));
+                break;
+            default:
+                super.readValue(name, in, builder);
+            }
+        }
+        
+        @Override
+        protected void writeValues(T source, JsonWriter out) throws IOException
+        {
+            if (source == null) throw new NullArgumentException("source");
+            if (out == null) throw new NullArgumentException("out");
+
+            super.writeValues(source, out);
+
+            out.name("metadata");
+            writeNullableMap(out, source.getMetadata(), GsonAdapter::writeMapStringEntry);
+            out.name("sha512");
+            out.value(DatatypeConverter.printBase64Binary(source.getMd5()));
+        }
+    }
+    
+    protected ExtendedObjectManifest(Builder<?, ? extends ExtendedObjectManifest> builder)
     {
         super(builder);
         
@@ -181,13 +254,18 @@ public class ExtendedObjectManifest extends BasicObjectManifest
     }
     
     @Override
-    protected void setBuilderProperties(BasicObjectManifest.Builder<?> builder)
+    protected void setBuilderProperties(
+            BasicObjectManifest.Builder<?, ? extends BasicObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         
         if (builder instanceof Builder)
         {
-            setBuilderProperties((Builder<?>)builder);
+            // We know this is safe because these are the constraints set on Builder<>.
+            @SuppressWarnings("unchecked")
+            Builder<?, ? extends ExtendedObjectManifest> typedBuilder =
+                    (Builder<?, ? extends ExtendedObjectManifest>)builder;
+            setBuilderProperties(typedBuilder);
         }
         else
         {
@@ -195,7 +273,7 @@ public class ExtendedObjectManifest extends BasicObjectManifest
         }
     }
     
-    protected void setBuilderProperties(Builder<?> builder)
+    protected void setBuilderProperties(Builder<?, ? extends ExtendedObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         

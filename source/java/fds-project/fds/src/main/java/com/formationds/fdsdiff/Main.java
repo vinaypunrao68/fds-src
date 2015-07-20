@@ -1,15 +1,19 @@
 package com.formationds.fdsdiff;
 
+import static com.formationds.commons.util.ExceptionHelper.tunnel;
+
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+
+import org.apache.commons.cli.ParseException;
 
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
@@ -17,6 +21,8 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.fdsdiff.workloads.GetObjectsDetailsWorkload;
 import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
 import com.formationds.fdsdiff.workloads.GetVolumeObjectsWorkload;
+import com.formationds.iodriver.ConfigurationException;
+import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.model.BasicObjectManifest;
 import com.formationds.iodriver.model.ComparisonDataFormat;
@@ -25,13 +31,19 @@ import com.formationds.iodriver.model.FullObjectManifest;
 import com.formationds.iodriver.model.ObjectManifest;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
-import com.formationds.iodriver.reporters.NullWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.google.gson.Gson;
 
 /**
  * Entry class for fdsdiff.
  */
 public final class Main
 {
+    public static final int EXIT_SUCCESS;
+    public static final int EXIT_FAILURE;
+    public static final int EXIT_COMMAND_LINE_ERROR;
+    public static final int EXIT_NO_MATCH;
+    
 	/**
 	 * Program entry point.
 	 * 
@@ -55,47 +67,16 @@ public final class Main
 				config.showHelp();
 				if (config.isHelpExplicitlyRequested())
 				{
-					result = 0;
+					result = EXIT_SUCCESS;
 				}
 				else
 				{
-					result = 2;
+					result = EXIT_COMMAND_LINE_ERROR;
 				}
 			}
 			else
 			{
-                ComparisonDataFormat format = config.getComparisonDataFormat();
-                
-			    Optional<Path> inputAPath = config.getInputAPath();
-                Optional<Path> inputBPath = config.getInputBPath();
-			    if ((inputAPath.isPresent() && config.getEndpointAHost().isPresent())
-			        || (inputBPath.isPresent() && config.getEndpointBHost().isPresent()))
-			    {
-			        logger.logError("Cannot specify both input file and endpoint.");
-			        result = 2;
-			    }
-			    else
-			    {
-			        Optional<SystemContent> aContent = Optional.empty();
-			        Optional<SystemContent> bContent = Optional.empty();
-			        if (inputAPath.isPresent())
-			        {
-			            try (BufferedReader reader = Files.newBufferedReader(inputAPath.get()))
-			            {
-			                aContent = SystemContent.deserialize(reader);
-			            }
-			        }
-			    }
-			    
-			    Optional<String> endpointAHost = config.getEndpointA();
-			    Optional<SystemContent> aContent = gatherSystemContent(format, inputA, endpointA);
-			    
-				// TODO: Full implementation.
-				result = gatherSystemContent(new SystemContent(),
-				                             config.getEndpointA(),
-						                     format,
-						                     config.getOutputFilename(),
-						                     logger);
+			    result = _execPrimaryPath(config, logger);
 			}
 		}
 		catch (Exception ex)
@@ -109,7 +90,15 @@ public final class Main
 		
 		System.exit(result);
 	}
-
+	
+	static
+	{
+	    EXIT_SUCCESS = 0;
+	    EXIT_FAILURE = 1;
+	    EXIT_COMMAND_LINE_ERROR = 2;
+	    EXIT_NO_MATCH = 3;
+	}
+	
 	/**
 	 * Prevent instantiation.
 	 */
@@ -118,95 +107,157 @@ public final class Main
 		throw new UnsupportedOperationException("Trying to instantiate a utility class.");
 	}
 	
-	private static Optional<SystemContent> gatherSystemContent(Config config)
+	private static int _execPrimaryPath(Config config, Logger logger)
+	        throws IOException, RuntimeException, ParseException, ExecutionException, ConfigurationException
 	{
 	    if (config == null) throw new NullArgumentException("config");
+	    if (logger == null) throw new NullArgumentException("logger");
 	    
-	    Optional<String> 
+        ComparisonDataFormat format = config.getComparisonDataFormat();
+        
+        Optional<Path> inputAPath = config.getInputAPath();
+        Optional<Path> inputBPath = config.getInputBPath();
+        Optional<Path> outputAPath = config.getOutputAPath();
+        Optional<Path> outputBPath = config.getOutputAPath();
+        boolean haveInputA = inputAPath.isPresent();
+        boolean haveInputB = inputBPath.isPresent();
+        boolean haveOutputB = outputBPath.isPresent();
+        boolean haveEndpointA = config.getEndpointAHost().isPresent();
+        boolean haveEndpointB = config.getEndpointBHost().isPresent();
+        if ((haveInputA && haveEndpointA) || (haveInputB && haveEndpointB))
+        {
+            logger.logError("Cannot specify both input file and endpoint.");
+            return EXIT_COMMAND_LINE_ERROR;
+        }
+        else if (haveOutputB && !haveInputA && !haveEndpointB)
+        {
+            logger.logError("No endpoint specified for output-b.");
+            return EXIT_COMMAND_LINE_ERROR;
+        }
+        else
+        {
+            Gson gson = new Gson();
+
+            // First try to deserialize any provided input files.
+            Optional<SystemContent> aContentWrapper =
+                    tunnel(IOException.class,
+                           in -> { return inputAPath.map(in); },
+                           (Path path) -> _getSystemContent(path, gson));
+            Optional<SystemContent> bContentWrapper =
+                    tunnel(IOException.class,
+                           in -> { return inputBPath.map(in); },
+                           (Path path) -> _getSystemContent(path, gson));
+            
+            // We can only use the default endpoint once.
+            boolean defaultEndpointUsed = false;
+
+            // We always have an "A" content--if absolutely nothing is specified on the command-
+            // line, we gather data from the default host (defined by FDS config) and output to
+            // stdout.
+            if (!aContentWrapper.isPresent())
+            {
+                Optional<FdsEndpoint> endpointAWrapper = config.getEndpointA();
+                if (!endpointAWrapper.isPresent())
+                {
+                    defaultEndpointUsed = true;
+                    endpointAWrapper = Optional.of(config.getDefaultEndpoint());
+                }
+                FdsEndpoint endpointA = endpointAWrapper.get();
+                aContentWrapper = Optional.of(_getSystemContent(endpointA, logger, format));
+            }
+            SystemContent aContent = aContentWrapper.get();
+            
+            // Spit out the content if requested.
+            if (outputAPath.isPresent())
+            {
+                _outputContent(outputAPath.get(), aContent, gson);
+            }
+            
+            // "B" content is optional.
+            if (!bContentWrapper.isPresent())
+            {
+                Optional<FdsEndpoint> endpointBWrapper = config.getEndpointB();
+                if (!endpointBWrapper.isPresent() && !defaultEndpointUsed)
+                {
+                    defaultEndpointUsed = true;
+                    endpointBWrapper = Optional.of(config.getDefaultEndpoint());
+                }
+                if (endpointBWrapper.isPresent())
+                {
+                    FdsEndpoint endpointB = endpointBWrapper.get();
+                    bContentWrapper = Optional.of(_getSystemContent(endpointB, logger, format));
+                }
+            }
+
+            // We have as much content as we're going to get. Can we do a compare?
+            if (bContentWrapper.isPresent())
+            {
+                SystemContent bContent = bContentWrapper.get();
+                
+                if (outputBPath.isPresent())
+                {
+                    _outputContent(outputBPath.get(), bContent, gson);
+                }
+                
+                if (aContent.equals(bContentWrapper.get()))
+                {
+                    return EXIT_SUCCESS;
+                }
+                else
+                {
+                    return EXIT_NO_MATCH;
+                }
+            }
+            else
+            {
+                // If we weren't able to do a compare (we're in this else), the only action that
+                // can be taken is to output the comparison file. If nobody requested the output,
+                // spit it out on stdout anyway.
+                if (!outputAPath.isPresent())
+                {
+                    _outputContent(aContent, gson);
+                }
+                return EXIT_SUCCESS;
+            }
+        }
 	}
 	
-	private static int gatherSystemContent(SystemContent contentContainer,
-	                                       FdsEndpoint endpoint,
-										   ComparisonDataFormat format,
-										   OutputStream output,
-										   Logger logger) throws ExecutionException
-    {
-	    if (contentContainer == null) throw new NullArgumentException("contentContainer");
-		if (endpoint == null) throw new NullArgumentException("endpoint");
-		if (output == null) throw new NullArgumentException("output");
-		if (logger == null) throw new NullArgumentException("logger");
-		
-		GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(contentContainer,
-		                                                                      true);
-		
-		// TODO: Add a real listener here. Probably after refactoring the listener to be not so
-		//       specific to QoS test workloads.
-		AbstractWorkloadEventListener listener = new NullWorkloadEventListener(logger);
-		
-		getSystemConfig.runOn(endpoint, listener);
-		
-		for (Volume volume : contentContainer.getVolumes())
-		{
-		    String volumeName = volume.getName();
-		    
-		    Consumer<String> objectNameSetter =
-		            contentContainer.getVolumeObjectNameAdder(volumeName);
-		    GetVolumeObjectsWorkload getVolumeObjects =
-		            new GetVolumeObjectsWorkload(volumeName, objectNameSetter, true);
-		    getVolumeObjects.runOn(endpoint, listener);
-
-		    // Minimal format doesn't gather any details.
-		    if (format != ComparisonDataFormat.MINIMAL)
-		    {
-    		    Consumer<ObjectManifest> objectDetailSetter =
-    		            contentContainer.getVolumeObjectAdder(volumeName);
-    		    GetObjectsDetailsWorkload getObjectsDetails =
-    		            new GetObjectsDetailsWorkload(volumeName,
-    		                                          contentContainer.getObjectNames(volumeName),
-    		                                          _getBuilderSupplier(format),
-    		                                          objectDetailSetter,
-    		                                          true);
-    		    getObjectsDetails.runOn(endpoint, listener);
-		    }
-		}
-		
-		System.out.println(getSystemConfig.getContentContainer().toString());
-		
-		// FIXME: We'll get here for failure too.
-		// Success!
-		return 0;
+	private static void _outputContent(Appendable writer, SystemContent content, Gson gson)
+	{
+	    if (writer == null) throw new NullArgumentException("writer");
+	    if (content == null) throw new NullArgumentException("content");
+	    if (gson == null) throw new NullArgumentException("gson");
+	    
+	    gson.toJson(content, writer);
 	}
-
-	private static int gatherSystemContent(SystemContent contentContainer,
-	                                       FdsEndpoint endpoint,
-										   ComparisonDataFormat format,
-										   String outputFilename,
-										   Logger logger) throws FileNotFoundException,
-										                         IOException,
-										                         ExecutionException
+	
+	private static void _outputContent(Path path, SystemContent content, Gson gson) throws IOException
+	{
+        if (path == null) throw new NullArgumentException("path");
+        if (content == null) throw new NullArgumentException("content");
+        if (gson == null) throw new NullArgumentException("gson");
+        
+        try (BufferedWriter writer = Files.newBufferedWriter(path,
+                                                             StandardCharsets.UTF_8,
+                                                             StandardOpenOption.CREATE,
+                                                             StandardOpenOption.TRUNCATE_EXISTING))
+        {
+            _outputContent(writer, content, gson);
+        }
+	}
+	
+	private static void _outputContent(SystemContent content, Gson gson) throws IOException
+	{
+	    _outputContent(System.out, content, gson);
+	}
+	
+    private static ObjectManifest.Builder<?, ?> _getBasicBuilderSupplier()
     {
-	    if (contentContainer == null) throw new NullArgumentException("contentContainer");
-		if (endpoint == null) throw new NullArgumentException("endpoint");
-		if (outputFilename == null) throw new NullArgumentException("outputFilename");
-		if (logger == null) throw new NullArgumentException("logger");
-		
-		if (outputFilename.equals("-"))
-		{
-			return gatherSystemContent(contentContainer,
-			                           endpoint,
-			                           format,
-			                           Config.Console.getStdout(),
-			                           logger);
-		}
-		
-		try (FileOutputStream os = new FileOutputStream(outputFilename))
-		{
-			return gatherSystemContent(contentContainer, endpoint, format, os, logger);
-		}
+        return new BasicObjectManifest.ConcreteBuilder();
     }
-	
-	private static Supplier<ObjectManifest.Builder<?>>
-	_getBuilderSupplier(ComparisonDataFormat format)
+    
+	private static Supplier<ObjectManifest.Builder<?, ?>> _getBuilderSupplier(
+	        ComparisonDataFormat format)
 	{
 	    switch (format)
 	    {
@@ -218,18 +269,67 @@ public final class Main
 	    }
 	}
 	
-	private static ObjectManifest.Builder<?> _getFullBuilderSupplier()
+    private static ObjectManifest.Builder<?, ?> _getExtendedBuilderSupplier()
+    {
+        return new ExtendedObjectManifest.ConcreteBuilder();
+    }
+    
+	private static ObjectManifest.Builder<?, ?> _getFullBuilderSupplier()
 	{
-	    return new FullObjectManifest.Builder<>();
+	    return new FullObjectManifest.ConcreteBuilder();
 	}
+
+    private static SystemContent _getSystemContent(Path serializedComparisonFile,
+                                                   Gson gson) throws IOException
+    {
+        if (serializedComparisonFile == null) throw new NullArgumentException(
+                "serializedComparisonFile");
+        
+        try (BufferedReader reader = Files.newBufferedReader(serializedComparisonFile))
+        {
+            return gson.fromJson(reader, SystemContent.class);
+        }
+    }
 	
-	private static ObjectManifest.Builder<?> _getExtendedBuilderSupplier()
-	{
-	    return new ExtendedObjectManifest.Builder<>();
-	}
-	
-	private static ObjectManifest.Builder<?> _getBasicBuilderSupplier()
-	{
-	    return new BasicObjectManifest.Builder<>();
-	}
+    private static SystemContent _getSystemContent(Endpoint endpoint,
+                                                   Logger logger,
+                                                   ComparisonDataFormat format)
+            throws ExecutionException
+    {
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (logger == null) throw new NullArgumentException("logger");
+        
+        SystemContent content = new SystemContent();
+        
+        // FIXME: Log operations should be configurable.
+        GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(content, true);
+        AbstractWorkloadEventListener listener = new WorkloadEventListener(logger);
+        getSystemConfig.runOn(endpoint, listener);
+        
+        // Now gather individual volume contents.
+        for (Volume volume : content.getVolumes())
+        {
+            String volumeName = volume.getName();
+            
+            // First just get object names.
+            Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volume);
+            GetVolumeObjectsWorkload getVolumeObjects =
+                    new GetVolumeObjectsWorkload(volumeName, objectNameSetter, true);
+            getVolumeObjects.runOn(endpoint, listener);
+            
+            // Now fill in the details (minimal doesn't have any details).
+            if (format != ComparisonDataFormat.MINIMAL)
+            {
+                GetObjectsDetailsWorkload getObjectsDetails =
+                        new GetObjectsDetailsWorkload(volumeName,
+                                                      content.getObjectNames(volume),
+                                                      _getBuilderSupplier(format),
+                                                      content.getVolumeObjectAdder(volume),
+                                                      true);
+                getObjectsDetails.runOn(endpoint, listener);
+            }
+        }
+        
+        return content;
+    }
 }

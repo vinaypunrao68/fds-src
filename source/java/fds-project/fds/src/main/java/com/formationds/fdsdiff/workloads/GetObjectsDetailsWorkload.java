@@ -16,11 +16,12 @@ import com.formationds.iodriver.workloads.Workload;
 
 public final class GetObjectsDetailsWorkload extends Workload
 {
-    public GetObjectsDetailsWorkload(String volumeName,
-                                     Set<String> objectNames,
-                                     Supplier<ObjectManifest.Builder<?>> builderSupplier,
-                                     Consumer<ObjectManifest> setter,
-                                     boolean logOperations)
+    public GetObjectsDetailsWorkload(
+            String volumeName,
+            Set<String> objectNames,
+            Supplier<ObjectManifest.Builder<?, ? extends ObjectManifest>> builderSupplier,
+            Consumer<ObjectManifest> setter,
+            boolean logOperations)
     {
         super(logOperations);
         
@@ -51,7 +52,7 @@ public final class GetObjectsDetailsWorkload extends Workload
                                             _setter)));
     }
 
-    private final Supplier<ObjectManifest.Builder<?>> _builderSupplier;
+    private final Supplier<ObjectManifest.Builder<?, ? extends ObjectManifest>> _builderSupplier;
     
     private final Set<String> _objectNames;
     

@@ -18,30 +18,19 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.model.ObjectManifest.GsonAdapter;
+import com.formationds.iodriver.model.BasicObjectManifest.ConcreteGsonAdapter;
 import com.google.common.base.Objects;
-import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
-@JsonAdapter(GsonAdapter.class)
+@JsonAdapter(ConcreteGsonAdapter.class)
 public class BasicObjectManifest extends ObjectManifest
 {
-    public static class Builder<ThisT extends Builder<ThisT>> extends ObjectManifest.Builder<ThisT>
+    public static class Builder<ThisT extends Builder<ThisT, BuiltT>,
+                                BuiltT extends BasicObjectManifest>
+            extends ObjectManifest.Builder<ThisT, BuiltT>
     {
-        public Builder()
-        {
-            _md5Summer = null;
-        }
-        
-        public Builder(ObjectManifest source)
-        {
-            super(source);
-            
-            _md5Summer = null;
-        }
-        
         @Override
         public BasicObjectManifest build()
         {
@@ -69,7 +58,7 @@ public class BasicObjectManifest extends ObjectManifest
         public ThisT set(S3Object object) throws IOException
         {
             if (object == null) throw new NullArgumentException("object");
-
+            
             setInternal(object);
             streamContent(object);
             return getThis();
@@ -103,6 +92,18 @@ public class BasicObjectManifest extends ObjectManifest
             return getThis();
         }
         
+        protected Builder()
+        {
+            _md5Summer = null;
+        }
+        
+        protected Builder(BuiltT source)
+        {
+            super(source);
+            
+            _md5Summer = null;
+        }
+        
         protected void setInternal(S3Object object) throws IOException
         {
             if (object == null) throw new NullArgumentException("object");
@@ -111,7 +112,7 @@ public class BasicObjectManifest extends ObjectManifest
             
             ObjectMetadata metadata = object.getObjectMetadata();
             setLastModified(Optional.ofNullable(
-                    metadata.getLastModified()).map(d -> d.toInstant().atZone(_PACIFIC)));
+            metadata.getLastModified()).map(d -> d.toInstant().atZone(_PACIFIC)));
             String contentMd5 = metadata.getContentMD5();
             setMd5(_md5 = contentMd5 == null
                           ? null
@@ -210,23 +211,25 @@ public class BasicObjectManifest extends ObjectManifest
         
         private Long _newSize;
     }
+
+    public final static class ConcreteBuilder extends Builder<ConcreteBuilder, BasicObjectManifest>
+    { }
     
-    public static class GsonAdapter extends TypeAdapter<BasicObjectManifest>
+    public final static class ConcreteGsonAdapter extends GsonAdapter<BasicObjectManifest,
+                                                                      ConcreteBuilder>
     {
         @Override
-        public BasicObjectManifest read(JsonReader in) throws IOException
+        protected BasicObjectManifest build(ConcreteBuilder builder)
         {
-            if (in == null) throw new NullArgumentException("in");
+            if (builder == null) throw new NullArgumentException("builder");
             
-            Builder<?> builder = new Builder<>();
-            
-            
+            return builder.build();
         }
-        
+
         @Override
-        public void write(JsonWriter out, BasicObjectManifest source) throws IOException
+        protected ConcreteBuilder newContext()
         {
-            if (out == null) throw new NullArgumentExcepiton("out");
+            return new ConcreteBuilder();
         }
     }
     
@@ -242,6 +245,12 @@ public class BasicObjectManifest extends ObjectManifest
         return Objects.equal(_lastModified.orElse(null), typedOther._lastModified.orElse(null))
                && Arrays.equals(_md5, typedOther._md5)
                && _size == typedOther._size;
+    }
+    
+    @Override
+    public ComparisonDataFormat getFormat()
+    {
+        return ComparisonDataFormat.BASIC;
     }
     
     public final Optional<ZonedDateTime> getLastModified()
@@ -271,7 +280,51 @@ public class BasicObjectManifest extends ObjectManifest
         return hash;
     }
     
-    protected BasicObjectManifest(Builder<?> builder)
+    protected static abstract class GsonAdapter<T extends BasicObjectManifest,
+                                                BuilderT extends Builder<?, T>>
+            extends ObjectManifest.GsonAdapter<T, BuilderT>
+    {
+        @Override
+        protected void readValue(String name, JsonReader in, BuilderT builder) throws IOException
+        {
+            if (name == null) throw new NullArgumentException("name");
+            if (in == null) throw new NullArgumentException("in");
+            if (builder == null) throw new NullArgumentException("builder");
+
+            switch (name)
+            {
+            case "lastModified":
+                builder.setLastModified(Optional.of(ZonedDateTime.parse(in.nextString())));
+                break;
+            case "md5":
+                builder.setMd5(DatatypeConverter.parseBase64Binary(in.nextString()));
+                break;
+            case "size":
+                builder.setSize(in.nextLong());
+                break;
+            default:
+                super.readValue(name, in, builder);
+            }
+        }
+        
+        @Override
+        protected void writeValues(T source, JsonWriter out) throws IOException
+        {
+            if (source == null) throw new NullArgumentException("source");
+            if (out == null) throw new NullArgumentException("out");
+
+            super.writeValues(source, out);
+            
+            out.name("lastModified");
+            out.value(source.getLastModified().map(lm -> lm.toString()).orElse(null));
+            out.name("md5");
+            out.value(DatatypeConverter.printBase64Binary(source.getMd5()));
+            out.name("size");
+            out.value(source.getSize());
+        }
+    }
+    
+    protected BasicObjectManifest(Builder<?, ? extends BasicObjectManifest> builder)
     {
         super(builder);
         
@@ -283,13 +336,17 @@ public class BasicObjectManifest extends ObjectManifest
     }
     
     @Override
-    protected void setBuilderProperties(ObjectManifest.Builder<?> builder)
+    protected void setBuilderProperties(ObjectManifest.Builder<?, ? extends ObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         
         if (builder instanceof Builder)
         {
-            setBuilderProperties((Builder<?>)builder);
+            // We know this is safe because these are the constraints set on Builder<>.
+            @SuppressWarnings("unchecked")
+            Builder<?, ? extends BasicObjectManifest> typedBuilder =
+                    (Builder<?, ? extends BasicObjectManifest>)builder;
+            setBuilderProperties(typedBuilder);
         }
         else
         {
@@ -297,7 +354,7 @@ public class BasicObjectManifest extends ObjectManifest
         }
     }
     
-    protected void setBuilderProperties(Builder<?> builder)
+    protected void setBuilderProperties(Builder<?, ? extends BasicObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
 

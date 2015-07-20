@@ -28,6 +28,12 @@ public final class NullLogger implements Logger
     }
 
     @Override
+    public void logError(String message)
+    {
+        // No-op.
+    }
+    
+    @Override
     public void logWarning(String message, Throwable t)
     {
         // No-op.

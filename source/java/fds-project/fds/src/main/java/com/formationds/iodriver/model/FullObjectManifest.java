@@ -11,19 +11,18 @@ import javax.xml.bind.DatatypeConverter;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.model.FullObjectManifest.ConcreteGsonAdapter;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 
+@JsonAdapter(ConcreteGsonAdapter.class)
 public class FullObjectManifest extends ExtendedObjectManifest
 {
-    public static class Builder<ThisT extends Builder<ThisT>>
-            extends ExtendedObjectManifest.Builder<ThisT>
+    public static class Builder<ThisT extends Builder<ThisT, BuiltT>,
+                                   BuiltT extends FullObjectManifest>
+            extends ExtendedObjectManifest.Builder<ThisT, BuiltT>
     {
-        public Builder() { }
-        
-        public Builder(ObjectManifest source)
-        {
-            super(source);
-        }
-        
         @Override
         public FullObjectManifest build()
         {
@@ -41,6 +40,13 @@ public class FullObjectManifest extends ExtendedObjectManifest
         {
             _content = value;
             return getThis();
+        }
+        
+        public Builder() { }
+        
+        public Builder(BuiltT source)
+        {
+            super(source);
         }
         
         @Override
@@ -132,6 +138,28 @@ public class FullObjectManifest extends ExtendedObjectManifest
             }
         }
     }
+
+    public final static class ConcreteBuilder extends Builder<ConcreteBuilder,
+                                                              FullObjectManifest>
+    { }
+    
+    public final static class ConcreteGsonAdapter extends GsonAdapter<FullObjectManifest,
+                                                                      ConcreteBuilder>
+    {
+        @Override
+        protected FullObjectManifest build(ConcreteBuilder builder)
+        {
+            if (builder == null) throw new NullArgumentException("builder");
+            
+            return builder.build();
+        }
+        
+        @Override
+        protected ConcreteBuilder newContext()
+        {
+            return new ConcreteBuilder();
+        }
+    }
     
     @Override
     public boolean equals(Object other)
@@ -151,6 +179,12 @@ public class FullObjectManifest extends ExtendedObjectManifest
     }
     
     @Override
+    public ComparisonDataFormat getFormat()
+    {
+        return ComparisonDataFormat.FULL;
+    }
+    
+    @Override
     public int hashCode()
     {
         int hash = super.hashCode();
@@ -160,7 +194,41 @@ public class FullObjectManifest extends ExtendedObjectManifest
         return hash;
     }
     
-    protected FullObjectManifest(Builder<?> builder)
+    protected static abstract class GsonAdapter<T extends FullObjectManifest,
+                                                BuilderT extends Builder<?, T>>
+            extends ExtendedObjectManifest.GsonAdapter<T, BuilderT>
+    {
+        @Override
+        protected void readValue(String name, JsonReader in, BuilderT builder) throws IOException
+        {
+            if (name == null) throw new NullArgumentException("name");
+            if (in == null) throw new NullArgumentException("in");
+            if (builder == null) throw new NullArgumentException("builder");
+
+            switch (name)
+            {
+            case "content":
+                builder.setContent(DatatypeConverter.parseBase64Binary(in.nextString()));
+                break;
+            default:
+                super.readValue(name, in, builder);
+            }
+        }
+        
+        @Override
+        protected void writeValues(T source, JsonWriter out) throws IOException
+        {
+            if (source == null) throw new NullArgumentException("source");
+            if (out == null) throw new NullArgumentException("out");
+
+            super.writeValues(source, out);
+
+            out.name("content");
+            out.value(DatatypeConverter.printBase64Binary(source.getContent()));
+        }
+    }
+
+    protected FullObjectManifest(Builder<?, ? extends FullObjectManifest> builder)
     {
         super(builder);
         
@@ -170,13 +238,18 @@ public class FullObjectManifest extends ExtendedObjectManifest
     }
     
     @Override
-    protected void setBuilderProperties(ExtendedObjectManifest.Builder<?> builder)
+    protected void setBuilderProperties(
+            ExtendedObjectManifest.Builder<?, ? extends ExtendedObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         
         if (builder instanceof Builder)
         {
-            setBuilderProperties((Builder<?>)builder);
+            // We know this is safe because these are the constraints set on Builder<>.
+            @SuppressWarnings("unchecked")
+            Builder<?, ? extends FullObjectManifest> typedBuilder =
+                    (Builder<?, ? extends FullObjectManifest>)builder;
+            setBuilderProperties(typedBuilder);
         }
         else
         {
@@ -184,7 +257,7 @@ public class FullObjectManifest extends ExtendedObjectManifest
         }
     }
     
-    protected void setBuilderProperties(Builder<?> builder)
+    protected void setBuilderProperties(Builder<?, ? extends FullObjectManifest> builder)
     {
         if (builder == null) throw new NullArgumentException("builder");
         

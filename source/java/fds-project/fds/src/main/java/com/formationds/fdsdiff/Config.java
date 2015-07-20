@@ -47,6 +47,7 @@ public final class Config extends AbstractConfig
 		super(args);
 		
 		_comparisonDataFormat = null;
+		_defaultEndpoint = null;
 		_endpointA = null;
 		_endpointAHost = null;
 		_endpointB = null;
@@ -67,6 +68,13 @@ public final class Config extends AbstractConfig
 	            ? (_comparisonDataFormat = getCommandLineOptionValue("format").map(
 	                    fs -> Enum.valueOf(ComparisonDataFormat.class, fs)))
 	            : _comparisonDataFormat).orElse(Defaults.COMPARISON_DATA_FORMAT);
+	}
+	
+	public FdsEndpoint getDefaultEndpoint() throws ConfigurationException
+	{
+	    return _defaultEndpoint == null
+	           ? (_defaultEndpoint = getFdsEndpoint(Fds.getFdsHost()))
+	           : _defaultEndpoint;
 	}
 	
 	public Optional<FdsEndpoint> getEndpointA() throws ConfigurationException, ParseException
@@ -185,6 +193,8 @@ public final class Config extends AbstractConfig
 	}
 	
 	private Optional<ComparisonDataFormat> _comparisonDataFormat;
+    
+    private FdsEndpoint _defaultEndpoint;
 	
 	private Optional<FdsEndpoint> _endpointA;
 	
