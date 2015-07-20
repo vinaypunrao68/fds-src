@@ -261,7 +261,7 @@ namespace fds
                         }
 
                         realDeviceName = item->second;
- 
+
                         int retCode = mount (realDeviceName.c_str(), tabEntry->m_mountPath.c_str(), tabEntry->m_fileSystemType.c_str(), 0, nullptr);
 
                         if (0 != retCode)
@@ -271,41 +271,32 @@ namespace fds
                         }
 
                         // add the entry to the mtab
+                        FILE *tab;
 
-        FILE *tab;
-                
-        tab = setmntent ("/etc/mtab", "a");
+                        tab = setmntent ("/etc/mtab", "a");
 
-        if (nullptr == tab)
-        {   
-            LOGERROR << "Unable to open '" << "/etc/mtab" << "' due to errno:  " << errno << ".  Unable to mount any unmounted FDS file systems";
-            return;
-        }   
+                        if (nullptr == tab)
+                        {
+                            LOGERROR << "Unable to open '" << "/etc/mtab" << "' due to errno:  " << errno << ".  Unable to mount any unmounted FDS file systems";
+                            return;
+                        }
 
-        struct mntent entryToAddToMtab;
+                        struct mntent entryToAddToMtab;
 
-        entryToAddToMtab.mnt_fsname = const_cast <char *> (realDeviceName.c_str());
-        entryToAddToMtab.mnt_dir = const_cast <char *> (tabEntry->m_mountPath.c_str());
-        entryToAddToMtab.mnt_type = const_cast <char *> (tabEntry->m_fileSystemType.c_str());
-        entryToAddToMtab.mnt_opts = "rw";
-        entryToAddToMtab.mnt_freq = 0;
-        entryToAddToMtab.mnt_passno = 0;
+                        entryToAddToMtab.mnt_fsname = const_cast <char *> (realDeviceName.c_str());
+                        entryToAddToMtab.mnt_dir = const_cast <char *> (tabEntry->m_mountPath.c_str());
+                        entryToAddToMtab.mnt_type = const_cast <char *> (tabEntry->m_fileSystemType.c_str());
+                        entryToAddToMtab.mnt_opts = "rw";
+                        entryToAddToMtab.mnt_freq = 0;
+                        entryToAddToMtab.mnt_passno = 0;
 
-        if (addmntent (tab, &entryToAddToMtab) != 0)
-        {
-            LOGERROR << "Unabled to add entry to /etc/mtab for " << entryToAddToMtab.mnt_fsname;
-        }
-           
-        endmntent (tab);
+                        if (addmntent (tab, &entryToAddToMtab) != 0)
+                        {
+                            LOGERROR << "Unabled to add entry to /etc/mtab for " << entryToAddToMtab.mnt_fsname;
+                            // TODO(donavan), probably need to deal with an umount for the failure to add this FS to the mtab
+                        }
 
-
-
-
-
-
-
-
-
+                        endmntent (tab);
                     }
                     else
                     {
@@ -313,10 +304,7 @@ namespace fds
                     }
                 }
             }
-
         }
-
-
 
         /*
          *  Load the key to the redis DB contents for this node or generate a new key and store is on the disk.
