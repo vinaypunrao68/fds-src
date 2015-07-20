@@ -120,6 +120,8 @@ namespace fds
                 std::string                         m_nodeRedisKeyId;              // A unique id across that the nodes in a cluster, this is differentthen the
                                                                                    // node UUID used in other places.  This persists across cleans, reboots, etc.
 
+                std::map <std::string, std::string> m_diskUuidToDeviceMap;
+
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
@@ -129,6 +131,8 @@ namespace fds
                 void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
                 void checkPidsDuringRestart();
                 bool procCheck (std::string procName, pid_t pid);
+                bool loadDiskUuidToDeviceMap();
+                void verifyAndMountFDSFileSystems();
         };
     }  // namespace pm
 }  // namespace fds

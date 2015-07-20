@@ -2,6 +2,12 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <sys/mount.h>
+#include <dirent.h>
+
+
+
+
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -33,6 +39,8 @@
 #include "platform/platform_manager.h"
 #include "platform/disk_capabilities.h"
 
+#include "file_system_table.h"
+
 namespace fds
 {
     namespace pm
@@ -46,7 +54,7 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false), m_nodeRedisKeyId ("")
+        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false), m_nodeRedisKeyId (""), m_diskUuidToDeviceMap()
         {
         }
 
@@ -95,7 +103,59 @@ namespace fds
 
             determineDiskCapability();
 
+            if (loadDiskUuidToDeviceMap())
+            {
+                verifyAndMountFDSFileSystems();
+            }
+
             return 0;
+        }
+
+        bool PlatformManager::loadDiskUuidToDeviceMap()
+        {
+            std::string const uuidToDeviceDirectory = "/dev/disk/by-uuid";
+
+            DIR *directory = opendir (uuidToDeviceDirectory.c_str());
+            int enoHold = errno;
+
+            if (nullptr == directory)
+            {
+                LOGERROR << "Unabled to open directory:  " << uuidToDeviceDirectory << ", " << strerror (enoHold) << "(errno=" << enoHold << ").  No FDS file systems will be mounted";
+                return false;
+            }
+
+            int returnCode;
+            struct dirent *entry;
+
+            while (NULL != (entry = readdir (directory)))
+            {
+                if (DT_LNK == entry->d_type)    // Verify this entry is a link
+                {
+                    size_t const BUFFER_LENGTH = 256;
+                    char buffer[BUFFER_LENGTH];
+
+                    std::string pathToLink = uuidToDeviceDirectory + '/' + entry->d_name;
+
+                    int bufferBytesFilled = readlink (pathToLink.c_str(), buffer, BUFFER_LENGTH);
+                    enoHold = errno;
+
+                    if (bufferBytesFilled < 0)
+                    {
+                        LOGERROR << "Unabled to dereference link:  " << entry->d_name << ", " << strerror (enoHold) << "(errno=" << enoHold << ").  The file system referenced by " << entry->d_name << " will not be mounted (if mounting was desired)";
+                        continue;
+                    }
+
+                    buffer[bufferBytesFilled] = '\0';          // readlink does not append a NULL
+
+                    std::string deviceName = "/dev";
+                    deviceName += strrchr (buffer, '/');
+
+                    m_diskUuidToDeviceMap[entry->d_name] = deviceName;
+                }
+            }
+
+            closedir (directory);
+            return true;
         }
 
         void PlatformManager::checkPidsDuringRestart()
@@ -164,11 +224,104 @@ namespace fds
             m_startupAuditComplete = true;
         }
 
+        //
+        void PlatformManager::verifyAndMountFDSFileSystems ()
+        {
+            std::vector <std::string> fileSystemsToMount;
+            fds::FileSystemTable fstab ("/etc/fstab");
+            fstab.loadTab();
+
+            fds::FileSystemTable mtab ("/etc/mtab");
+            mtab.loadTab();
+
+            // Uinsg the fstab and the mtab, determine which file systems need to be mounted
+            fstab.findNoneMountedFileSystems (mtab, fileSystemsToMount);
+
+            if (fileSystemsToMount.size() > 0)
+            {
+                for (auto const &vectItem : fileSystemsToMount)
+                {
+                    std::string realDeviceName ("");
+                    auto tabEntry = fstab.findByDeviceName (vectItem);
+
+                    if (nullptr != tabEntry)
+                    {
+                        LOGDEBUG << "Mounting FDS File System:  " << vectItem;
+
+                        FdsRootDir::fds_mkdir (tabEntry->m_mountPath.c_str());      // Create the mount point
+
+                        std::string uuid = tabEntry->m_deviceName.substr(5);
+
+                        std::map <std::string, std::string>::iterator item = m_diskUuidToDeviceMap.find(uuid);
+
+                        if (m_diskUuidToDeviceMap.end() == item)
+                        {
+                            LOGERROR << "Unable to the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
+                            continue;
+                        }
+
+                        realDeviceName = item->second;
+ 
+                        int retCode = mount (realDeviceName.c_str(), tabEntry->m_mountPath.c_str(), tabEntry->m_fileSystemType.c_str(), 0, nullptr);
+
+                        if (0 != retCode)
+                        {
+                            LOGERROR << "Failure mounting file system " << uuid << " with errno=" << errno;
+                            continue;
+                        }
+
+                        // add the entry to the mtab
+
+        FILE *tab;
+                
+        tab = setmntent ("/etc/mtab", "a");
+
+        if (nullptr == tab)
+        {   
+            LOGERROR << "Unable to open '" << "/etc/mtab" << "' due to errno:  " << errno << ".  Unable to mount any unmounted FDS file systems";
+            return;
+        }   
+
+        struct mntent entryToAddToMtab;
+
+        entryToAddToMtab.mnt_fsname = const_cast <char *> (realDeviceName.c_str());
+        entryToAddToMtab.mnt_dir = const_cast <char *> (tabEntry->m_mountPath.c_str());
+        entryToAddToMtab.mnt_type = const_cast <char *> (tabEntry->m_fileSystemType.c_str());
+        entryToAddToMtab.mnt_opts = "rw";
+        entryToAddToMtab.mnt_freq = 0;
+        entryToAddToMtab.mnt_passno = 0;
+
+        if (addmntent (tab, &entryToAddToMtab) != 0)
+        {
+            LOGERROR << "Unabled to add entry to /etc/mtab for " << entryToAddToMtab.mnt_fsname;
+        }
+           
+        endmntent (tab);
+
+
+
+
+
+
+
+
+
+                    }
+                    else
+                    {
+                        LOGERROR << "Unable to find:  " << vectItem << " in fstab";
+                    }
+                }
+            }
+
+        }
+
+
+
         /*
          *  Load the key to the redis DB contents for this node or generate a new key and store is on the disk.
          *
          */
-
         void PlatformManager::loadRedisKeyId()
         {
             std::string const hostRedisKeyFilename = rootDir + "/var/.redis.id";

@@ -390,7 +390,9 @@ namespace fds
 
         std::string device = rs_name;
 
-        if (use_new_superblock)
+        std::string::size_type pos = device.length() > 0 ? device.length() -1 : 0;
+
+        if (use_new_superblock && (!isdigit (device[pos])))
         {
             device += '1';
         }
