@@ -12,11 +12,6 @@ namespace fds
 
     FileSystemTable::FileSystemTable (std::string fstabFile) : m_tabFile (fstabFile)
     {
-        LOGDEBUG << "I've been called.";
-    }
-
-    FileSystemTable::~FileSystemTable()
-    {
     }
 
     void FileSystemTable::loadTab()
@@ -43,11 +38,10 @@ namespace fds
         endmntent (tab);
     }
 
-    bool FileSystemTable::findByMountPoint (std::string mountPoint)
+    bool FileSystemTable::findByMountPoint (const std::string mountPoint) const
     {
-        std::vector <struct TabEntry>::iterator vectIter = m_entries.begin();
 
-        for (; vectIter != m_entries.end(); ++vectIter)
+        for (auto vectIter = m_entries.begin(); vectIter != m_entries.end(); ++vectIter)
         {
             if (vectIter->m_mountPath == mountPoint)
             {
@@ -58,8 +52,7 @@ namespace fds
         return false;
     }
 
-    //struct TabEntry const &FileSystemTable::findByDeviceName (std::string deviceName)
-    struct fds::FileSystemTable::TabEntry *FileSystemTable::findByDeviceName (std::string deviceName)
+    const struct fds::FileSystemTable::TabEntry *FileSystemTable::findByDeviceName (std::string const deviceName)
     {
         std::vector <struct TabEntry>::iterator vectIter = m_entries.begin();
 
@@ -74,11 +67,11 @@ namespace fds
         return nullptr;
     }
 
-    void FileSystemTable::findNoneMountedFileSystems (FileSystemTable &mtab, std::vector <std::string> &fileSystemsToMount)
+    void FileSystemTable::findNoneMountedFileSystems (const FileSystemTable & mtab, std::vector <std::string> &fileSystemsToMount)
     {
         const std::string fdsRoot (g_fdsprocess->proc_fdsroot()->dir_fdsroot());
 
-        std::vector <struct TabEntry>::iterator vectIter = m_entries.begin();
+        auto vectIter = m_entries.begin();
 
         for (; vectIter != m_entries.end(); ++vectIter)
         {
@@ -90,7 +83,6 @@ namespace fds
                     continue;
                 }
 
-LOGDEBUG << "DID NOT Find mounted FDS file system:  " << vectIter->m_mountPath;
                 fileSystemsToMount.push_back (vectIter->m_deviceName);
             }
         }

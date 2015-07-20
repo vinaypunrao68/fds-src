@@ -5,8 +5,12 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_FILE_SYSTEM_TABLE_H_
 #define SOURCE_PLATFORM_INCLUDE_FILE_SYSTEM_TABLE_H_
 
+extern "C"
+{
+    #include <mntent.h>
+}
+
 #include <string>
-#include <mntent.h>
 
 namespace fds
 {
@@ -19,27 +23,26 @@ namespace fds
                 {
                 }
 
-                std::string m_deviceName;
-                std::string m_mountPath;
-                std::string m_fileSystemType;
-                std::string m_mountOptions;
+                const std::string m_deviceName;
+                const std::string m_mountPath;
+                const std::string m_fileSystemType;
+                const std::string m_mountOptions;
             };
 
             explicit FileSystemTable (std::string const tabFile);
-            ~FileSystemTable();
+            ~FileSystemTable() = default;
 
             void loadTab();
-            void findNoneMountedFileSystems (FileSystemTable &mtab, std::vector <std::string> &fileSystemsToMount);
-            // struct TabEntry const &findByDeviceName (std::string deviceName);
-            struct TabEntry *findByDeviceName (std::string deviceName);
+            void findNoneMountedFileSystems (const FileSystemTable &mtab, std::vector <std::string> &fileSystemsToMount);
+            const struct TabEntry *findByDeviceName (std::string const deviceName);
 
         protected:
 
         private:
-            std::string m_tabFile;
+            const std::string m_tabFile;
             std::vector <struct TabEntry> m_entries;
 
-            bool findByMountPoint (std::string mountPoint);
+            bool findByMountPoint (const std::string mountPoint) const;
     };
 
 }  // namespace fds

@@ -2,14 +2,13 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include <sys/mount.h>
-#include <dirent.h>
-
-
-
-
-#include <sys/types.h>
-#include <sys/wait.h>
+extern "C"
+{
+    #include <sys/mount.h>
+    #include <dirent.h>
+    #include <sys/types.h>
+    #include <sys/wait.h>
+}
 
 #include <uuid/uuid.h>
 
@@ -228,6 +227,7 @@ namespace fds
         void PlatformManager::verifyAndMountFDSFileSystems ()
         {
             std::vector <std::string> fileSystemsToMount;
+
             fds::FileSystemTable fstab ("/etc/fstab");
             fstab.loadTab();
 
@@ -252,7 +252,7 @@ namespace fds
 
                         std::string uuid = tabEntry->m_deviceName.substr(5);
 
-                        std::map <std::string, std::string>::iterator item = m_diskUuidToDeviceMap.find(uuid);
+                        auto item = m_diskUuidToDeviceMap.find(uuid);
 
                         if (m_diskUuidToDeviceMap.end() == item)
                         {
@@ -262,7 +262,7 @@ namespace fds
 
                         realDeviceName = item->second;
 
-                        int retCode = mount (realDeviceName.c_str(), tabEntry->m_mountPath.c_str(), tabEntry->m_fileSystemType.c_str(), 0, nullptr);
+                        auto retCode = mount (realDeviceName.c_str(), tabEntry->m_mountPath.c_str(), tabEntry->m_fileSystemType.c_str(), 0, nullptr);
 
                         if (0 != retCode)
                         {
@@ -270,10 +270,9 @@ namespace fds
                             continue;
                         }
 
+                        // Meh, this should be a function TODO(donavan)
                         // add the entry to the mtab
-                        FILE *tab;
-
-                        tab = setmntent ("/etc/mtab", "a");
+                        auto tab = setmntent ("/etc/mtab", "a");
 
                         if (nullptr == tab)
                         {
