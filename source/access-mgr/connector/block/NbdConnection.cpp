@@ -415,29 +415,22 @@ NbdConnection::dispatchOp() {
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
-    if (ConnectionState::STOPPED == state_ ||
-        ConnectionState::STOPPING == state_) {
+    if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
+        nbdOps->shutdown();
         if (ConnectionState::STOPPED == state_) {
             asyncWatcher->stop();
             ioWatcher->stop();
-        }
-        if (nbdOps) {
-            nbdOps->shutdown();
             nbdOps.reset();
-        }
-        if (ConnectionState::STOPPED == state_) {
             return;
         }
     }
 
     // It's ok to keep writing responses if we've been shutdown
-    // but don't start watching for requests if we do
     auto writting = (nbd_state == NbdProtoState::SENDOPTS ||
                      current_response ||
                      !readyResponses.empty()) ? ev::WRITE : ev::NONE;
-    auto reading  = (nbdOps) ? ev::READ : ev::NONE;
 
-    ioWatcher->set(writting | reading);
+    ioWatcher->set(writting | ev::READ);
     ioWatcher->start();
 }
 
