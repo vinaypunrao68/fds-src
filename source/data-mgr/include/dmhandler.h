@@ -338,6 +338,11 @@ struct DmMigrationDeltaBlobHandler : Handler {
     void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                           boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                           Error const& e, dmCatReq* dmRequest);
+    void volumeCatalogCb(Error const& e, blob_version_t blob_version,
+                         BlobObjList::const_ptr const& blob_obj_list,
+                         MetaDataList::const_ptr const& meta_list,
+                         fds_uint64_t const blobSize,
+                         DmIoCommitBlobTx* commitBlobReq);
 };
 
 }  // namespace dm
