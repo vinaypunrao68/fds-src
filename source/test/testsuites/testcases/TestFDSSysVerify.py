@@ -527,14 +527,18 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     if self.atleastone is not None:
                         # At least once, we're good to go
                         break
+                        
+                if occurrencesFound > self.passedOccurrences:
+                    # Found too many.
+                    break
 
             if sftp is not None:
                 sftp.close()
 
             if ((self.atleastone is not None) and (occurrencesFound > 0)):
                 break
-            elif occurrencesFound == self.passedOccurrences:
-                # Saw what we were looking for.
+            elif occurrencesFound >= self.passedOccurrences:
+                # Saw what we were looking for or found too many.
                 break
             else:
                 time.sleep(10)

@@ -38,7 +38,7 @@ void VolumeOpenHandler::handleRequest(
         return;
     }
 
-    auto dmReq = new DmIoVolumeOpen(message);
+    auto dmReq = new DmIoVolumeOpen(message, asyncHdr->msg_src_uuid);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeOpenHandler::handleResponse, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
@@ -53,7 +53,9 @@ void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
+    helper.err = dataManager.timeVolCat_->openVolume(request->volId,
+                                                     request->client_uuid_,
+                                                     request->token,
                                                      request->access_mode,
                                                      request->sequence_id);
 
