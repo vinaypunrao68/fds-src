@@ -17,7 +17,6 @@ struct StartBlobTxReq :
     public AmTxReq
 {
     fds_int32_t     blob_mode;
-    fds_uint64_t    dmt_version;
 
     /**
      * Request constructor. Some of the fields

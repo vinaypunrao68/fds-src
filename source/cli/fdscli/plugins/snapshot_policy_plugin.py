@@ -59,7 +59,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         __list_parser = subparser.add_parser( "list", help="List all of the snapshot policies in the system, or for a single volume.")
         self.add_format_arg( __list_parser )
         
-        __list_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="If a volume UUID is specified it will only list the policies attached to the specified volume", default=None)
+        __list_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume for which you would like to list the snapshot policies", default=None, required=True)
         
         __list_parser.set_defaults( func=self.list_snapshot_policies, format="tabular")
     
@@ -135,6 +135,9 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         
         #means we want only policies attached to this volume
         j_list = self.get_snapshot_policy_service().list_snapshot_policies( args[AbstractPlugin.volume_id_str])
+        
+        if isinstance(j_list, FdsError):
+            return None
         
         if ( args[AbstractPlugin.format_str] == "json" ):
             j_policies = []

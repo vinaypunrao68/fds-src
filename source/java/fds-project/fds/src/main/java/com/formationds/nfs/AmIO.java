@@ -2,7 +2,6 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.xdi.AsyncAm;
 import org.apache.log4j.Logger;
@@ -22,7 +21,6 @@ public class AmIO implements Chunker.ChunkIo {
 
     @Override
     public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
-        LOG.debug("Reading " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue());
         try {
             return unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
         } catch (ApiException e) {
@@ -35,23 +33,22 @@ public class AmIO implements Chunker.ChunkIo {
     }
 
     @Override
-    public void write(NfsPath path, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception {
-        LOG.debug("Writing " + path.toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes");
-        BlobDescriptor blobDescriptor =
-                unwindExceptions(() -> asyncAm.statBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName()).get());
-
-        NfsAttributes attributes = new NfsAttributes(blobDescriptor)
-                .updateMtime()
-                .updateSize(objectOffset.getValue() * objectSize + byteBuffer.remaining());
-
-        unwindExceptions(() ->
-                asyncAm.updateBlobOnce(AmVfs.DOMAIN,
-                        path.getVolume(),
-                        path.blobName(),
-                        1,
-                        byteBuffer,
-                        byteBuffer.remaining(),
-                        objectOffset,
-                        attributes.asMetadata()).get());
+    public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception {
+        String message = entry.path().toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes";
+        LOG.debug("AmIO.write(): " + message);
+        try {
+            unwindExceptions(() ->
+                    asyncAm.updateBlobOnce(AmVfs.DOMAIN,
+                            entry.path().getVolume(),
+                            entry.path().blobName(),
+                            1,
+                            byteBuffer,
+                            byteBuffer.remaining(),
+                            objectOffset,
+                            entry.attributes().asMetadata()).get());
+        } catch (Exception e) {
+            LOG.error("AmIO.write() - updateBlobOnce() " + message, e);
+            throw e;
+        }
     }
 }

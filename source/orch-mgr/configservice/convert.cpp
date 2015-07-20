@@ -72,9 +72,28 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
     volDescriptor.name = vol->vol_get_name();
     VolumeDesc* volDesc = vol->vol_get_properties();
 
+    // volume settings
+    switch ( volDesc->mediaPolicy )
+    {
+        case FDS_ProtocolInterface::FDSP_MEDIA_POLICY_UNSET:
+          volDescriptor.policy.mediaPolicy = apis::HDD_ONLY;
+          break;
+        case FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD:
+          volDescriptor.policy.mediaPolicy = apis::HDD_ONLY;
+          break;
+        case FDS_ProtocolInterface::FDSP_MEDIA_POLICY_SSD:
+          volDescriptor.policy.mediaPolicy = apis::SSD_ONLY;
+          break;
+        case FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HYBRID:
+        case FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HYBRID_PREFCAP:
+          volDescriptor.policy.mediaPolicy = apis::HYBRID_ONLY;
+          break;
+    }
+
     switch (volDesc->volType) {
         case fpi::FDSP_VOL_BLKDEV_TYPE:
-            volDescriptor.policy.blockDeviceSizeInBytes = volDesc->capacity * (1024 * 1024);
+            volDescriptor.policy.blockDeviceSizeInBytes =
+              ( volDesc->capacity * ( 1024 * 1024 ) );
             volDescriptor.policy.volumeType = apis::BLOCK;
             break;
         default:

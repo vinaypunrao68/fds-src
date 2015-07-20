@@ -42,17 +42,20 @@ class AmProcessor_impl
     using shutdown_cb_type = std::function<void(void)>;
 
   public:
-    explicit AmProcessor_impl(CommonModuleProviderIf *modProvider) : amDispatcher(new AmDispatcher(modProvider)),
-                         txMgr(new AmTxManager()),
-                         volTable(nullptr),
-                         prepareForShutdownCb(nullptr)
+    AmProcessor_impl(Module* parent, CommonModuleProviderIf *modProvider)
+        : amDispatcher(new AmDispatcher(modProvider)),
+          txMgr(new AmTxManager()),
+          volTable(nullptr),
+          parent_mod(parent),
+          have_tables(std::make_pair(false, false)),
+          prepareForShutdownCb(nullptr)
     { }
 
     AmProcessor_impl(AmProcessor_impl const&) = delete;
     AmProcessor_impl& operator=(AmProcessor_impl const&) = delete;
     ~AmProcessor_impl() = default;
 
-    void start(shutdown_cb_type&& cb);
+    void start();
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
         { prepareForShutdownCb = cb; }
@@ -77,17 +80,11 @@ class AmProcessor_impl
     Error updateQoS(long int const* rate, float const* throttle)
         { return volTable->updateQoS(rate, throttle); }
 
-    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
-        { return amDispatcher->updateDlt(dlt_type, dlt_data, cb); }
+    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
 
-    Error updateDmt(bool dmt_type, std::string& dmt_data)
-        { return amDispatcher->updateDmt(dmt_type, dmt_data); }
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
 
-    Error getDMT()
-    { return amDispatcher->getDMT(); }
-
-    Error getDLT()
-    { return amDispatcher->getDLT(); }
+    bool haveTables();
 
     bool isShuttingDown() const
     { SCOPEDREAD(shut_down_lock); return shut_down; }
@@ -107,7 +104,10 @@ class AmProcessor_impl
 
     FdsTimer token_timer;
 
-    shutdown_cb_type shutdown_cb;
+    Module* parent_mod {nullptr};
+
+    std::pair<bool, bool> have_tables;
+
     bool shut_down { false };
     mutable fds_rwlock shut_down_lock;
 
@@ -341,7 +341,7 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
 }
 
 void
-AmProcessor_impl::start(shutdown_cb_type&& cb)
+AmProcessor_impl::start()
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
@@ -360,7 +360,6 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
             std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
     }
 
-    shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
     amDispatcher->start();
@@ -411,7 +410,7 @@ bool AmProcessor_impl::stop() {
         for (auto const& vol : volTable->getVolumes()) {
           removeVolume(*vol->voldesc);
         }
-        shutdown_cb();
+        parent_mod->mod_shutdown();
         return true;
     }
     return false;
@@ -507,6 +506,39 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     txMgr->removeVolume(volDesc);
 
     return err;
+}
+
+Error
+AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb) {
+    // If we successfully update the dlt, have the parent do it's init check
+    auto e = amDispatcher->updateDlt(dlt_type, dlt_data, cb);
+    if (e.ok() && !have_tables.first) {
+        have_tables.first = true;
+        parent_mod->mod_enable_service();
+    }
+    return e;
+}
+
+Error
+AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data) {
+    // If we successfully update the dmt, have the parent do it's init check
+    auto e = amDispatcher->updateDmt(dmt_type, dmt_data);
+    if (e.ok() && !have_tables.second) {
+        have_tables.second = true;
+        parent_mod->mod_enable_service();
+    }
+    return e;
+}
+
+bool
+AmProcessor_impl::haveTables() {
+    if (!have_tables.first) {
+        have_tables.first = amDispatcher->getDLT().ok();
+    }
+    if (!have_tables.second) {
+        have_tables.second = amDispatcher->getDMT().ok();
+    }
+    return have_tables.first && have_tables.second;
 }
 
 void
@@ -661,6 +693,12 @@ AmProcessor_impl::detachVolume(AmRequest *amReq) {
 
 void
 AmProcessor_impl::abortBlobTx(AmRequest *amReq) {
+    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
 }
@@ -730,6 +768,11 @@ AmProcessor_impl::deleteBlob(AmRequest *amReq) {
                 << " txn:" << blobReq->tx_desc;
 
     // Update the tx manager with the delete op
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
@@ -772,6 +815,12 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
         blobReq->vol_sequence = vol->getNextSequenceId();
         amDispatcher->dispatchUpdateCatalogOnce(amReq);
     } else {
+        // Verify we have a dmt version (and transaction) for this update
+        auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        if (!err.ok()) {
+            respond_and_delete(amReq, err);
+            return;
+        }
         amDispatcher->dispatchUpdateCatalog(amReq);
     }
 
@@ -986,7 +1035,12 @@ AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
 
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
-    fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
+    // Assert that we have a tx and dmt_version for the message
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
 
     amDispatcher->dispatchSetBlobMetadata(amReq);
@@ -1068,6 +1122,13 @@ AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
       return;
     }
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
+
     blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
@@ -1093,15 +1154,15 @@ AmProcessor_impl::commitBlobTxCb(AmRequest *amReq, const Error &error) {
 /**
  * Pimpl forwarding methods. Should just call the underlying implementaion
  */
-AmProcessor::AmProcessor(CommonModuleProviderIf *modProvider)
+AmProcessor::AmProcessor(Module* parent, CommonModuleProviderIf *modProvider)
         : enable_shared_from_this<AmProcessor>(),
-          _impl(new AmProcessor_impl(modProvider))
+          _impl(new AmProcessor_impl(parent, modProvider))
 { }
 
 AmProcessor::~AmProcessor() = default;
 
-void AmProcessor::start(shutdown_cb_type&& cb)
-{ return _impl->start(std::move(cb)); }
+void AmProcessor::start()
+{ return _impl->start(); }
 
 void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
 {
@@ -1118,6 +1179,9 @@ bool AmProcessor::stop()
 
 Error AmProcessor::enqueueRequest(AmRequest* amReq)
 { return _impl->enqueueRequest(amReq); }
+
+bool AmProcessor::haveTables()
+{ return _impl->haveTables(); }
 
 bool AmProcessor::isShuttingDown() const
 { return _impl->isShuttingDown(); }
@@ -1139,11 +1203,5 @@ Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
 
 Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
 { return _impl->updateQoS(rate, throttle); }
-
-Error AmProcessor::getDMT()
-{ return _impl->getDMT(); }
-
-Error AmProcessor::getDLT()
-{ return _impl->getDLT(); }
 
 }  // namespace fds

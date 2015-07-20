@@ -37,9 +37,10 @@ VolumePlacement::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    // Should we also get DMT width, depth, algo from config?
+    // TODO(Andrew): Should we also get DMT width and algo from config?
     curDmtWidth = 4;
-    curDmtDepth = 4;
+    curDmtDepth = MODULEPROVIDER()->get_fds_config()->
+            get<int>("fds.om.replica_factor");;
 
     std::string algo_type_str("RoundRobinDynamic");
     VolPlacementAlgorithm::AlgorithmTypes type =
@@ -117,7 +118,11 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
     }
-    fds_verify(depth > 0);
+
+    if (depth == 0) {
+        // there are no DMs in the domain, nothing to compute
+        return ERR_NOT_FOUND;
+    }
 
     // allocate and compute new DMT
     newDmt = new(std::nothrow) DMT(curDmtWidth, depth, next_version, true);
@@ -561,7 +566,8 @@ VolumePlacement::validateDmtOnDomainActivate(const NodeUuidSet& dm_services) {
     return err;
 }
 
-Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
+Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
+                                            const NodeUuidSet& deployed_dm_services)
 {
     Error err(ERR_OK);
     // NOTE: Copy paste code from DLT.  May need different handling
@@ -579,10 +585,6 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
     }
 
     fds_uint64_t committedVersion = configDB->getDmtVersionForType("committed");
-    fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
-    // We only support graceful restart.  We shouldn't have any cruft.
-    fds_verify(targetVersion == 0);
-
     if (committedVersion > 0) {
         DMT* dmt = new DMT(0, 0, 0, false);
         if (!configDB->getDmt(*dmt, committedVersion)) {
@@ -595,8 +597,7 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
             // does not contain any zeroes, etc.
             std::set<fds_uint64_t> uniqueNodes;
             dmt->getUniqueNodes(&uniqueNodes);
-            fds_verify(dm_services.size() == uniqueNodes.size())
-            for (auto dm_uuid : dm_services) {
+            for (auto dm_uuid : deployed_dm_services) {
                 fds_verify(uniqueNodes.count(dm_uuid.uuid_get_val()) == 1);
             }
             // we will set as target and distribute this dmt around
@@ -615,6 +616,29 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
                 << dm_services.size() << " nodes";
         fds_verify(!"No persisted dmt");
         return Error(ERR_PERSIST_STATE_MISMATCH);
+    }
+
+
+    // If we saved target DMT version, we were in the middle of migration
+    // when domain shutdown or OM went down. We are going to restart migration
+    // and re-compute the DMT again, so throw away this DMT
+    // Maybe in the future, we can re-start migration with saved target DMT
+    // but this is an optimization, may do later
+    fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
+    if (targetVersion > 0 && targetVersion != committedVersion) {
+        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+                  << "persisted  target DMT and re-compute it again if discovered "
+                  << "SMs re-register";
+        if (!configDB->setDmtType(0, "next")) {
+            LOGWARN << "unable to reset target DMT version to config db ";
+        }
+    } else {
+        if (0 == targetVersion) {
+            LOGDEBUG << "There is only commited DMT in configDB (OK)";
+        } else {
+            LOGDEBUG << "Both current and target DMT are of same version (OK): "
+                     << targetVersion;
+        }
     }
 
     return err;

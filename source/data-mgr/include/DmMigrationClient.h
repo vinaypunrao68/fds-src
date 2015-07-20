@@ -26,10 +26,12 @@ class DmMigrationClient {
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
 			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
-			DmMigrationClientDoneHandler _handle);
+			DmMigrationClientDoneHandler _handle,
+            uint64_t _maxDeltaBlobs,
+            uint64_t _maxDeltaBlobDesc);
     ~DmMigrationClient();
 
-    /*
+    /**
      * Takes a snapshot of the volume that this client is in charge of,
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
@@ -46,27 +48,10 @@ class DmMigrationClient {
 
 
     // XXX: only public so we can unit test it
-    static Error diffBlobLists(const std::map<int64_t, int64_t>& dest,
-                               const std::map<int64_t, int64_t>& source,
-                               std::vector<fds_uint64_t>& update_list,
-                               std::vector<fds_uint64_t>& delete_list);
-
-    /**
-     * Generate list of blobs to update or delete.
-     */
-    Error processBlobDescDiff();
-
-    /**
-     * Called by the handleInitialBlobFilterMsg() after processing the diff to
-     * send the delta blobs the destination node.
-     */
-    void sendCtrlNotifyDeltaBlobs();
-
-    /*
-     * TODO Temp function
-     */
-    Error generateRandomDeltaBlobs(std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> &blobsMsg);
-
+    static Error diffBlobLists(const std::map<std::string, int64_t>& dest,
+                               const std::map<std::string, int64_t>& source,
+                               std::vector<std::string>& update_list,
+                               std::vector<std::string>& delete_list);
 
  private:
     /**
@@ -76,25 +61,95 @@ class DmMigrationClient {
     DmIoReqHandler* DmReqHandler;
 
     /**
-     * Local copies
+     * local svc uuid
      */
     NodeUuid mySvcUuid;
+
+    /**
+     * destination dm svc uuid.
+     */
     NodeUuid destDmUuid;
+
+    /**
+     * volume ID that the client manages.
+     */
     fds_volid_t volId;
+
+    /**
+     * Number of blob descriptors before sending to destination DM.
+     */
+    uint64_t maxNumBlobDescs;
+
+    /**
+     * Number of blob descriptors before sending to destination DM.
+     */
+    uint64_t maxNumBlobs;
+
+    /**
+     * Maintain the sequence number for the delta set of blob offset set to
+     * the destination DM.
+     */
+    std::atomic<uint64_t> seqNumBlobs;
+
+    /**
+     * Maintain the sequence number for the delta set of blob offset set to
+     * the destination DM.
+     */
+    std::atomic<uint64_t> seqNumBlobDescs;
+
+    /**
+     * shared pointer to the initial blob filter set message
+     */
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
-    std::vector<fpi::CtrlNotifyDeltaBlobsMsgPtr> myBlobMsgs;
 
     /**
      * Snapshot used for diff.
      */
-    Catalog::catalog_roptions_t opts;
-
+    Catalog::MemSnap snap_;
 
     /**
      * Callback to talk to DM Migration Manager
      */
     DmMigrationClientDoneHandler migrDoneHandler;
     friend class DmMigrationMgr;
+
+    /**
+     * From list of blob update and delete list, generate and send the
+     * delta blob offset list and delta blob descriptor list.
+     */
+    Error generateBlobDeltaSets(const std::vector<std::string>& updateBlobs,
+                                const std::vector<std::string>& deleteBlobs);
+
+    /**
+     * Generate list of blobs to update or delete.
+     */
+    Error processBlobDiff();
+
+    /**
+     * Generate delta set based on update blob ids and delete ids.
+     */
+    Error generateUpdateBlobDeltaSets(const std::vector<std::string>& deleteBlobs);
+    Error generateDeleteBlobDeltaSets(const std::vector<std::string>& updateBlobs);
+
+    /**
+     * Send blobs msg and blob descs msg.
+     */
+    Error sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg);
+    Error sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDescMsg);
+
+    /**
+     * sequence number apis for blobs.
+     * When getSeqNumBlobs() is called, it will automatically increment.
+     */
+    uint64_t getSeqNumBlobs();
+    void resetSeqNumBlobs();
+
+    /**
+     * sequence number apis for blobs.
+     * When getSeqNumBlobDesc() is called, it will automatically increment.
+     */
+    uint64_t getSeqNumBlobDescs();
+    void resetSeqNumBlobDescs();
 
 };  // DmMigrationClient
 

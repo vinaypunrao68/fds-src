@@ -207,6 +207,7 @@ struct AmDispatcher : HasModuleProvider
 
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
+                                                        fds_uint64_t const dmt_ver,
                                                         boost::shared_ptr<Msg> const& payload,
                                                         MultiPrimarySvcRequestRespCb mpCb,
                                                         uint32_t timeout=0) const;

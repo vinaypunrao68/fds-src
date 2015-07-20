@@ -586,8 +586,12 @@ namespace fds {
          * Will read commited and target DLT from configDB
          * and save commited DLT as non-commited. DLT will be commited
          * later when all nodes in DLT come up, or DLT will be recomputed.
+         * @param sm_service all known SM services
+         * @param deployed_sm_services all known SM services that are
+         * not in 'discovered' state
          */
-        Error loadDltsFromConfigDB(const NodeUuidSet& ms_services);
+        Error loadDltsFromConfigDB(const NodeUuidSet& ms_services,
+                                   const NodeUuidSet& deployed_sm_services);
 
         /**
          * Make sure that current DLT matches given SM services

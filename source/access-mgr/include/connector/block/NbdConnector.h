@@ -5,7 +5,6 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
 
 #include <memory>
-#include <thread>
 
 #include "connector/block/common.h"
 
@@ -20,20 +19,27 @@ class NbdConnector {
     uint32_t cfg_keep_alive {0};
 
     std::unique_ptr<ev::io> evIoWatcher;
-    std::unique_ptr<std::thread> runThread;
+    std::unique_ptr<ev::async> asyncWatcher;
     std::weak_ptr<AmProcessor> amProcessor;
 
     int createNbdSocket();
     void configureSocket(int fd) const;
     void initialize();
+    void reset();
     void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);
 
-  public:
     explicit NbdConnector(std::weak_ptr<AmProcessor> processor);
-    ~NbdConnector();
+    NbdConnector(NbdConnector const& rhs) = delete;
+    NbdConnector& operator=(NbdConnector const& rhs) = delete;
 
-    void stop();
+    static std::unique_ptr<NbdConnector> instance_;
+
+  public:
+    ~NbdConnector() = default;
+
+    static void start(std::weak_ptr<AmProcessor> processor);
+    static void stop();
 };
 
 }  // namespace fds

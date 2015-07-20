@@ -6,7 +6,7 @@
 
 #include <string>
 #include <atomic>
-#include <concurrency/spinlock.h>
+#include <concurrency/SpinLock.h>
 #include <fds_assert.h>
 
 /**
@@ -61,7 +61,7 @@ struct TracebufferPool {
     void freeTraceEntry(TraceEntry *e);
 
  protected:
-    Spinlock lock_;
+    fds_spinlock lock_;
     TraceEntry *pool_;
     TraceEntry *freelistHead_;
 };
@@ -113,7 +113,7 @@ struct Tracebuffer : HasModuleProvider {
     void pushBack_(TraceEntry *e);
     TraceEntry* popFront_();
 
-    Spinlock            lock_;
+    fds_spinlock        lock_;
     TraceEntry          *head_;
     TraceEntry          *tail_;
     std::atomic<int>    traceCntr_;

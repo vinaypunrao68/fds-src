@@ -957,7 +957,7 @@ std::string MultiPrimarySvcRequest::logString()
 {
     std::stringstream oss;
     logSvcReqCommon_(oss, "MultiPrimarySvcRequest");
-    oss << " primaries cnt: " << primariesCnt_;
+    oss << " primaries cnt: " << unsigned(primariesCnt_);
     return oss.str();
 }
 

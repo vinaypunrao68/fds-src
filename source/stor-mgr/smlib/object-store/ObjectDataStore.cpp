@@ -26,13 +26,13 @@ ObjectDataStore::~ObjectDataStore() {
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+ObjectDataStore::openDataStore(SmDiskMap::ptr& diskMap,
                                fds_bool_t pristineState) {
     return persistData->openObjectDataFiles(diskMap, pristineState);
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+ObjectDataStore::openDataStore(SmDiskMap::ptr& diskMap,
                                const SmTokenSet& smToks,
                                fds_bool_t pristineState) {
     return persistData->openObjectDataFiles(diskMap, smToks, pristineState);

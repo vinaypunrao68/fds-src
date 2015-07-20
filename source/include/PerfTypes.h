@@ -140,10 +140,9 @@ typedef struct PerfContext_ {
             timeout(PERF_CONTEXT_TIMEOUT),
             start_cycle(0),
             end_cycle(0),
-            data(0),
-            once(new std::once_flag()) {}
+            data(0) {}
 
-    PerfContext_(PerfEventType type_, std::string name_ = "") :
+    PerfContext_(PerfEventType type_, std::string const& name_ = "") :
             type(type_),
             name(name_),
             volid_valid(false),
@@ -152,13 +151,12 @@ typedef struct PerfContext_ {
             timeout(PERF_CONTEXT_TIMEOUT),
             start_cycle(0),
             end_cycle(0),
-            data(0),
-            once(new std::once_flag()) {
+            data(0) {
         fds_assert(false);  // TODO(matteo): remove
         fds_assert(fds_enum::get_index<PerfEventType>(type) < fds_enum::get_size<PerfEventType>());
     }
 
-    PerfContext_(PerfEventType type_, fds_volid_t volid_, std::string name_ = "") :
+    PerfContext_(PerfEventType type_, fds_volid_t volid_, std::string const& name_ = "") :
             type(type_),
             name(name_),
             volid_valid(true),
@@ -167,8 +165,7 @@ typedef struct PerfContext_ {
             timeout(PERF_CONTEXT_TIMEOUT),
             start_cycle(0),
             end_cycle(0),
-            data(0),
-            once(new std::once_flag()) {
+            data(0) {
         fds_assert(fds_enum::get_index<PerfEventType>(type) < fds_enum::get_size<PerfEventType>());
     }
 
@@ -187,7 +184,7 @@ typedef struct PerfContext_ {
     uint64_t start_cycle;
     uint64_t end_cycle;
     boost::shared_ptr<FdsBaseCounter> data;
-    boost::shared_ptr<std::once_flag> once;
+    std::once_flag once;
 } PerfContext;
 
 }  // namespace fds

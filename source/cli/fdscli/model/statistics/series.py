@@ -8,10 +8,10 @@ class Series(object):
     @author: nate
     '''
     
-    def __init__(self, a_type="PUTS", context=None, datapoints=[]):
+    def __init__(self, a_type="PUTS", context=None):
         self.context = context
         self.type = a_type
-        self.datapoints = datapoints
+        self.datapoints = []
         
     @property
     def context(self):

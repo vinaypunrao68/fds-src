@@ -165,6 +165,13 @@ class ClusterMap : public Module {
                                const NodeUuid& svc_uuid);
 
     /**
+     * Removes service with uuid 'svc_uuid' from pending added services mao
+     * but NOT from cluster map
+     */
+    void resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+                                  const NodeUuid& svc_uuid);
+
+    /**
      * Module methods.
      */
     virtual int  mod_init(SysParams const *const param);

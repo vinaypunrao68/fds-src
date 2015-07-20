@@ -1,0 +1,115 @@
+
+-   name: Setup ssh key
+    hosts: 127.0.0.1
+    connection: local
+    tasks:
+
+    -   name: sysctl_params
+        sysctl: name={{ item.key }} value={{ item.value }} state={{ item.state }}
+        delegate_to: 127.0.0.1
+        when: ansible_virtualization_type != "lxc"
+        with_items:
+            - { key: 'fs.file-max', value: '400000', state: 'present' }
+            - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
+            - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
+            - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
+
+    -   name: install_limits_conf
+        delegate_to: 127.0.0.1
+        template:
+            src=../templates/deploy_fds/fds_limits.conf
+            dest=/etc/security/limits.conf
+            owner=root
+            group=root
+            mode=0644
+
+    -   name: ensure_corefiles_exists
+        delegate_to: 127.0.0.1
+        file:
+            path=/corefiles
+            owner=root
+            group=root
+            mode=0755
+            state=directory
+
+    -   name: render /fds/etc config files
+        delegate_to: 127.0.0.1
+        template:
+            src=../../source/config/etc/{{item}}.conf.j2
+            dest=/fds/etc/{{item}}.conf
+            owner=root
+            group=root
+            mode=0644
+        with_items:
+            - fds
+            - fds-features
+            - platform
+            - orch_mgr
+            - redis
+
+    -   name: render /fds/etc/omenv config files
+        delegate_to: 127.0.0.1
+        template:
+            src=../../source/config/etc/omenv.j2
+            dest=/fds/etc/omenv
+            owner=root
+            group=root
+            mode=0754
+        with_items:
+            - omenv
+
+    -   name: setup influxdb user and group
+        delegate_to: 127.0.0.1
+        group: name=influxdb
+        tags:
+            - post-install
+            - influxdb
+
+    -   user: name=influxdb
+            createhome=no
+            group=influxdb
+
+    -   name: render influxdb config
+        delegate_to: 127.0.0.1
+        template:
+            src=../templates/deploy_fds/influxdb_config.toml.j2
+            dest=/fds/etc/influxdb_config.toml
+            owner=influxdb
+            group=influxdb
+            mode=0644
+
+    -   name: copy influxdb init script
+        delegate_to: 127.0.0.1
+        template:
+            src=../templates/deploy_fds/influxdb_init.sh.j2
+            dest=/etc/init.d/influxdb
+            owner=root
+            group=root
+            mode=0744
+
+    -   name: create influxdb log/data dir
+        delegate_to: 127.0.0.1
+        file:
+            path=/opt/influxdb/shared
+            state=directory
+            owner=influxdb
+            group=root
+            mode=0755
+
+    -   name: put upstart configs in place
+        delegate_to: 127.0.0.1
+        template:
+            src=../templates/deploy_fds/upstart/fds-{{item}}.conf.j2
+            dest=/etc/init/fds-{{item}}.conf
+            owner=root
+            group=root
+            mode=0644
+        with_items:
+            - om
+            - am
+            - bare_am
+            - disktype
+            - sm
+            - dm
+            - pm
+            - redis

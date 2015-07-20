@@ -186,7 +186,7 @@ Error TimelineDB::addSnapshot(fds_volid_t volId, fds_volid_t snapshotId, TimeSta
     return ERR_OK;
 }
 
-Error TimelineDB::removeSnaphot(fds_volid_t snapshotId) {
+Error TimelineDB::removeSnapshot(fds_volid_t snapshotId) {
     DECLARE_DB_VARS();
     sql = util::strformat("delete from snapshottbl where snapshotid=%ld",
                           snapshotId.get());

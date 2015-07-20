@@ -119,6 +119,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Attempt to "open" this volume for access
      */
     Error openVolume(fds_volid_t const volId,
+                     fpi::SvcUuid const& client_uuid,
                      fds_int64_t& token,
                      fpi::VolumeAccessMode const& mode,
                      sequence_id_t& sequence_id);
@@ -302,6 +303,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                            const sequence_id_t seq_id,
                            const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
     Error getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog);
+
+    /**
+     * insert blob descriptors into catalog during static migration, bypassing the
+     * commit log.
+     * NOTE: do NOT use for any data path operation.
+     */
+ protected:
+    Error migrateDescriptor(fds_volid_t volId,
+                            const std::string& blobName,
+                            const std::string& blobData);
+    friend class DmMigrationExecutor;
+ public:
 
     /**
      * Returns query interface to volume catalog. Provides

@@ -5,6 +5,9 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 
+
+#include <MigrationUtility.h>
+
 namespace fds {
 
 // Forward declaration.
@@ -36,9 +39,22 @@ class DmMigrationExecutor {
     Error startMigration();
 
     /**
+     * Step 1:
      * process initial filter set of blobs to be sent to the source DM.
      */
     Error processInitialBlobFilterSet();
+
+    /**
+     * Step 2.1:
+     * Process the incoming delta blobs set coming from the source DM.
+     */
+    Error processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+
+    /**
+     * Step 2.2:
+     * Process the incoming delta blob descriptors set coming from the source DM.
+     */
+    Error processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 
     inline fds_bool_t shouldAutoExecuteNext()
     {
@@ -72,6 +88,15 @@ class DmMigrationExecutor {
      * Means that the callback above should now call the next executor
      */
     fds_bool_t autoIncrement;
+
+    /**
+     * Maintain messages from the source DM, so we don't lost it.
+     * Each async message from the DM is unique.  We use double
+     * sequence number to ensure that all delta messages are handled
+     * and local IO through qos is complete.
+     */
+    MigrationDoubleSeqNum seqNumDeltaBlobDescs;
+    MigrationDoubleSeqNum seqNumDeltaBlobs;
 
 };  // DmMigrationExecutor
 

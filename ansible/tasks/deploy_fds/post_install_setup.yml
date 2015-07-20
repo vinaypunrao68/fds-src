@@ -115,6 +115,7 @@
         - dm
         - pm
         - redis
+        - influxdb
 
     tags:
         - post-install

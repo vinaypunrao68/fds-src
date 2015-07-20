@@ -33,7 +33,7 @@ class TimelineDB : public HasLogger {
     Error getJournalFiles(fds_volid_t volId, TimeStamp fromTime, TimeStamp toTime,
                    std::vector<JournalFileInfo>& vecJournalFiles);
     Error addSnapshot(fds_volid_t volId, fds_volid_t snapshotId, TimeStamp createTime);
-    Error removeSnaphot(fds_volid_t snapshotId);
+    Error removeSnapshot(fds_volid_t snapshotId);
     Error getLatestSnapshotAt(fds_volid_t volId,
                               TimeStamp uptoTime,
                               fds_volid_t& snapshotId);

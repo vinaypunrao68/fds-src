@@ -369,26 +369,6 @@ class DmIoQueryCat: public dmCatReq {
 };
 
 
-class DmIoMigDeltaBlob : public dmCatReq {
-  public:
-    typedef std::function<void (const Error &e, DmIoMigDeltaBlob *req)> CbType;
-    explicit DmIoMigDeltaBlob(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& fwdMsg)
-            : dmCatReq(fds_volid_t(fwdMsg->volume_id), "", "", 0,
-                       FDS_DM_MIG_DELT_BLB), fwdCatMsg(fwdMsg) {}
-
-    virtual std::string log_string() const override {
-        std::stringstream ret;
-        ret << "DmIoMigDeltaBlob vol " << std::hex << volId << std::dec;
-        return ret.str();
-    }
-
-    friend std::ostream& operator<<(std::ostream& out, const DmIoMigDeltaBlob& io) {
-        return out << "DmIoMigDeltaBlob vol " << std::hex << io.volId << std::dec;
-    }
-
-    boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> fwdCatMsg;
-    CbType dmio_fwdcat_resp_cb;
-};
 
 /**
  * New request to update catalog
@@ -653,10 +633,13 @@ struct DmIoVolumeOpen : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
 
     boost::shared_ptr<fpi::OpenVolumeMsg> msg;
+    fpi::SvcUuid const client_uuid_;
 
-    explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
+    explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message,
+                            fpi::SvcUuid const& client_uuid)
             : dmCatReq(fds_volid_t(message->volume_id), "", "", 0, FDS_OPEN_VOLUME),
               msg(message),
+              client_uuid_(client_uuid),
               token(message->token),
               access_mode(message->mode) {
     }
@@ -776,18 +759,41 @@ struct DmIoResyncInitialBlob : dmCatReq {
     }
 };
 
+struct DmIoMigrationDeltaBlobs : public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoMigrationDeltaBlobs *req)> CbType;
+    explicit DmIoMigrationDeltaBlobs(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& msg)
+            : dmCatReq(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOB),
+              deltaBlobsMsg(msg) {}
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoMigrationDeltaBlobs vol " << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationDeltaBlobs& io) {
+        return out << "DmIoMigrationDeltaBlobs vol="
+                   << std::hex << io.deltaBlobsMsg->volume_id << std::dec;
+    }
+
+    boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> deltaBlobsMsg;
+    CbType dmio_fwdcat_resp_cb;
+};
+
 struct DmIoMigrationDeltaBlobDesc : dmCatReq {
     explicit DmIoMigrationDeltaBlobDesc(const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
-            : message(msg),
-              dmCatReq(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC)
+            : dmCatReq(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
+             deltaBlobDescMsg(msg)
     {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationDeltaBlobDesc& io) {
-    	return out << "DmIoMigrationDeltaBlobDesc vol:" << io.message->volume_id;
+    	return out << "DmIoMigrationDeltaBlobDesc vol:"
+                   << std::hex << io.deltaBlobDescMsg->volume_id << std::dec;
     }
 
-	fpi::CtrlNotifyDeltaBlobDescMsgPtr message;
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg;
 };
 
 }  // namespace fds

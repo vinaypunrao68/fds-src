@@ -17,6 +17,18 @@ uint32_t ExpungeDB::increment(fds_volid_t volId, const ObjectID &objId) {
     return value;
 }
 
+uint32_t ExpungeDB::decrement(fds_volid_t volId, const ObjectID &objId) {
+    uint32_t value = getExpungeCount(volId, objId);
+    if (0 == value) {
+        LOGERROR << "decrementing a refcount which already zero";
+        return 0;
+    }
+    value--;
+    if (value == 0) discard(volId, objId);
+    else db.Update(getKey(volId, objId), util::strformat("%d", value));
+    return value;
+}
+
 uint32_t ExpungeDB::getExpungeCount(fds_volid_t volId, const ObjectID &objId) {
     std::string value;
     Error err = db.Query(getKey(volId, objId), &value);
@@ -129,6 +141,14 @@ void ExpungeManager::onDeleteResponse(fds_uint64_t dltVersion,
              << " objId:" << objId
              << " err:" << error;
 
+    if (error.ok()) {
+        expungeDB->decrement((fds_volid_t)delobj->volId, objId);
+    } else {
+        LOGWARN << "error response for volid:" << delobj->volId
+                << " objId:" << objId
+                << " err:" << error;
+    }
+
     DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
     taskStatus->done();
@@ -149,14 +169,15 @@ void ExpungeManager::threadTask(fds_volid_t volId, ObjectID objId, bool fFromSna
         }
     } else {
         uint32_t count = expungeDB->getExpungeCount(volId, objId);
-        count++; // old count + current request;
+        if (!fFromSnapshot) count++; // old count + current request;
         LOGDEBUG << "will send [" << count << "] delete requests for "
                  << "vol:" << volId << " obj:" << objId;
 
-        for (; count > 0; count--) {
+        // the double check is to avoid race conditions
+        // the decrement happens after a response is received.
+        for (; expungeDB->getExpungeCount(volId, objId) > 0 && count > 0; count--) {
             sendDeleteRequest(volId, objId);
         }
-        expungeDB->discard(volId, objId);
     }
 }
 

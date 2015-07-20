@@ -2,8 +2,8 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
-#define SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
+#ifndef SOURCE_INCLUDE_UTIL_EVENTTRACKER_H_
+#define SOURCE_INCLUDE_UTIL_EVENTTRACKER_H_
 
 #include <chrono>
 #include <map>
@@ -168,4 +168,4 @@ class EventTracker {
     event_map_type      registered_events;
 };
 }  // namespace fds
-#endif  // SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
+#endif  // SOURCE_INCLUDE_UTIL_EVENTTRACKER_H_

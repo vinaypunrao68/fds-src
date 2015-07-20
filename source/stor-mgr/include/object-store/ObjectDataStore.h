@@ -44,7 +44,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * @param[in] map of SM tokens to disks
      * @param[in] true if SM comes up for the first time
      */
-    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+    Error openDataStore(SmDiskMap::ptr& diskMap,
                         fds_bool_t pristineState);
 
     /**
@@ -57,7 +57,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * @param[in] smToks set of SM tokens to open data store for
      * @param[in] true if SM comes up for the first time
      */
-    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+    Error openDataStore(SmDiskMap::ptr& diskMap,
                         const SmTokenSet& smToks,
                         fds_bool_t pristineState);
 

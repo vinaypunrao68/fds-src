@@ -13,6 +13,8 @@
 #include <dlt.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
+#include <include/util/disk_utils.h>
+#include <util/EventTracker.h>
 
 namespace fds {
 
@@ -32,8 +34,6 @@ class SmDiskMap : public Module, public boost::noncopyable {
     typedef std::shared_ptr<SmDiskMap> ptr;
     typedef std::shared_ptr<const SmDiskMap> const_ptr;
 
-    // Type for storing (used capacity, total capacity) pairs
-    typedef std::pair<fds_uint64_t, fds_uint64_t> capacity_tuple;
 
     /**
      * Loads and validates superblock / disk map
@@ -136,12 +136,21 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Gets the total consumed space and returns a pair (totalConsumed, totalAvailable).
      * The returned values can be divided out to get the % full
      */
-    capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
+    DiskCapacityUtils::capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
 
     /**
      * Get current (i.e. closed DLT) from persitent storage.
      */
     fds_uint64_t getDLTVersion();
+
+    /**
+     * Called when encounted IO error when writing to token file or metadata DB
+     * When SmDiskMap sees too many IO errors from the same disk, it declares disk
+     * failed and migrates SM tokens from that disk to other disks
+     */
+    void notifyIOError(fds_token_id smTokId,
+                       diskio::DataTier tier,
+                       const Error& error);
 
     /**
      * Module methods
@@ -157,15 +166,28 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * shared memory
      */
     void getDiskMap();
+
+    /**
+     * To handle disk errors
+     */
+    void initDiskErrorHandlers();
   private:
     fds_uint32_t bitsPerToken_;
 
     /// disk ID to path map
     DiskLocMap disk_map;
+
+    /// disk ID to disk dev path map
+    DiskLocMap diskDevMap;
+
     /// set of disk IDs of existing SDD devices
     DiskIdSet  ssd_ids;
     /// set of disk IDs of existing HDD devices
     DiskIdSet hdd_ids;
+
+    // to track disk errors: disk id -> error
+    EventTracker<fds_uint16_t, Error, std::hash<fds_uint16_t>, ErrorHash> hdd_tracker;
+    EventTracker<fds_uint16_t, Error, std::hash<fds_uint16_t>, ErrorHash> ssd_tracker;
 
     /// Superblock caches and persists SM token info
     SmSuperblockMgr::unique_ptr superblock;

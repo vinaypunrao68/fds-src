@@ -54,6 +54,7 @@ var en_US = {
         
         l_minutes_ago: 'minutes ago',
         l_hours_ago: 'hours ago',
+        l_days_ago: 'days ago',
         l_weeks_ago: 'weeks ago',
         l_years_ago: 'years ago',
         l_seconds_ago: 'seconds ago',
@@ -198,7 +199,7 @@ var en_US = {
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
         f_priority: 'Priority:',
-        th_capacity: 'Capacity',
+        th_capacity: 'Capacity Used',
         th_capacity_limit: 'Capacity Limit',
         th_expiration: 'Expiration',
         th_priority: 'Priority',

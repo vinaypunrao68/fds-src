@@ -54,8 +54,7 @@ DmMigrationExecutor::startMigration()
      */
     err = dataMgr._process_add_vol(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
                                    volumeUuid,
-                                   &volDesc,
-                                   false);
+                                   &volDesc);
 
     /** TODO(Sean):
      * With current OM implementation, add node will send list of volumes and start migration
@@ -119,6 +118,32 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->invoke();
 
     return err;
+}
+
+Error
+DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
+{
+	/**
+     * TODO: Need to hold descriptors until all blobs are applied.
+	 */
+	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
+               << std::hex << volumeUuid << std::dec;
+
+	return ERR_OK;
+}
+
+Error
+DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
+{
+	/**
+	 * TODO : start buffering process. FS-2486 is to be implemented here.
+	 */
+	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg for volume="
+               << std::hex << volumeUuid << std::dec;
+
+	return ERR_OK;
 }
 
 }  // namespace fds

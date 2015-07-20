@@ -57,4 +57,13 @@ public class NfsPathTest {
         assertEquals("foo", child.getVolume());
         assertEquals("/", child.blobName());
     }
+
+    @Test
+    public void testEquality() throws Exception {
+        NfsPath left = new NfsPath("foo", "bar");
+        NfsPath center = new NfsPath("foo", "bar");
+        NfsPath right = new NfsPath("foo", "hello");
+        assertEquals(left, center);
+        assertNotEquals(center, right);
+    }
 }

@@ -117,6 +117,12 @@ NbdConnection::~NbdConnection() {
     close(clientSocket);
 }
 
+void
+NbdConnection::terminate() {
+    terminate_ = true;
+    asyncWatcher->send();
+}
+
 bool
 NbdConnection::write_response() {
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
@@ -405,6 +411,10 @@ NbdConnection::dispatchOp() {
 
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
+    if (terminate_) {
+        delete this;
+        return;
+    }
     // It's ok to keep writing responses if we've been shutdown
     // but don't start watching for requests if we do
     ioWatcher->set(ev::WRITE | (nbdOps ? ev::READ : ev::NONE));
@@ -479,7 +489,6 @@ NbdConnection::callback(ev::io &watcher, int revents) {
     } catch(NbdError const& e) {
         // If we had an error, stop the event loop too
         if (e == NbdError::connection_closed) {
-            asyncWatcher->stop();
             ioWatcher->stop();
         }
 
@@ -496,7 +505,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 void
 NbdConnection::readWriteResp(NbdResponseVector* response) {
     LOGDEBUG << (response->isRead() ? "READ" : "WRITE")
-              << " response from NbdOperations handle " << response->handle
+              << " response from NbdOperations handle: 0x" << std::hex << response->handle
               << " " << response->getError();
 
     // add to quueue

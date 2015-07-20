@@ -18,7 +18,7 @@ class DmIoReqHandler;
 
 class DmMigrationMgr {
 
-	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
     // Callbacks for migration handlers
 	using OmStartMigrationCBType = std::function<void (const Error& e)>;
@@ -86,14 +86,14 @@ class DmMigrationMgr {
      * multiple callback pointers, etc. For now, not doing it.
      */
     Error startMigrationClient(dmCatReq* dmRequest);
-    
-    // Handle deltaObject  in Migration executor 
-    Error applyDeltaObjects(DmIoMigDeltaBlob* deltaObjectRequest);
+
+    // Handle deltaObject  in Migration executor
+    Error applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobsReq);
 
     /**
      * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
      */
-    Error applyDeltaBlobDescriptor(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+    Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -113,9 +113,19 @@ class DmMigrationMgr {
     bool enableMigrationFeature;
 
     /**
-     * check if resync feature is enabled.
+     * check if resync on restart feature is enabled.
      */
     bool enableResyncFeature;
+
+    /**
+     * maximum number of blobs per delta set sent from source DM.
+     */
+    uint64_t maxNumBlobs;
+
+    /**
+     * maximum number of blob desc per delta set sent from source DM.
+     */
+    uint64_t maxNumBlobDesc;
 
     /**
      * Throttles the number of max concurrent migrations
@@ -139,6 +149,12 @@ class DmMigrationMgr {
 
     /**
      * Destination side DM:
+     * Gets an ptr to the migration executor. Used as part of handler.
+     */
+    DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
+
+    /**
+     * Destination side DM:
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
      */
@@ -154,7 +170,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
-    void ackMigrationComplete(const Error &status);
+    void waitThenAckMigrationComplete(const Error &status);
 
 	/*
      * Destination side DM:
@@ -192,7 +208,6 @@ class DmMigrationMgr {
      * Callback for migrationClient.
      */
     void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
-
 };  // DmMigrationMgr
 
 }  // namespace fds

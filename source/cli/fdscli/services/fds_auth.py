@@ -3,6 +3,7 @@ import requests
 import os
 from requests.exceptions import ConnectionError
 from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
+from requests.packages import urllib3
 
 class FdsAuth():
     
@@ -29,12 +30,19 @@ class FdsAuth():
         self.__port = self.get_from_parser( FdsCliConfigurationManager.PORT )
         self.__username = self.get_from_parser( FdsCliConfigurationManager.USERNAME )
         self.__password = self.get_from_parser( FdsCliConfigurationManager.PASSWORD )
+        self.__protocol = self.get_from_parser( FdsCliConfigurationManager.PROTOCOL )
         
     def get_from_parser(self, option):
         if self.__config.get_value(FdsCliConfigurationManager.CONNECTION, option) is not None:
             return self.__config.get_value(FdsCliConfigurationManager.CONNECTION, option)
         else:
             return None
+        
+    def get_protocol(self):
+        if self.__protocol is None:
+            return "http"
+        
+        return self.__protocol
         
     def get_hostname(self):
         
@@ -97,12 +105,17 @@ class FdsAuth():
             
             #get rid of the password immediately after its used
             self.__password = None
-            response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + "/fds/config/v08/token", params=payload )
+
+            urllib3.disable_warnings()
+            url = "{}://{}:{}/fds/config/v08/token".format( self.get_protocol(), self.get_hostname(), self.get_port())
+            response = requests.post( url, params=payload, verify=False )
             
             if "message" in response:
                 print "Login failed.\n"
                 print response.pop("message")
                 return
+            
+            print "Connected to: " + self.get_hostname() + "\n\n"
             
             response = response.json()
             

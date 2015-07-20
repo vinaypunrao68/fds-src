@@ -17,7 +17,8 @@ whitelist = [
         ['sudo', 'su', '-'],
         ['su', '-'],
         ['/usr/bin/python', 'jenkins_scripts/python/cleanup_jenkins_slave.py'],
-        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh']
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh'],
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_aborted']
 ]
 
 # Be very careful adding stuff here - if you add 'java' you will

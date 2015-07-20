@@ -15,7 +15,12 @@ from fdslib.TestUtils import check_localhost
 import sys
 import os
 import socket
-
+from fdscli.services.volume_service import VolumeService
+from fdscli.services.fds_auth import *
+from fdslib.TestUtils import create_fdsConf_file
+from fdslib.TestUtils import convertor
+from fdslib.TestUtils import get_volume_service
+from fdscli.model.fds_error import FdsError
 
 # This class contains the attributes and methods to test
 # volume creation.
@@ -46,41 +51,18 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             # If we were passed a volume, create that one and exit.
             if self.passedVolume is not None:
                 volume = self.passedVolume
-
-            cmd = (' volume create %s' % volume.nd_conf_dict['vol-name'])
-
             if 'id' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "id" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' --tenant-id %s' % volume.nd_conf_dict['id'])
-
-            if 'access' not in volume.nd_conf_dict:
-                access = 'object'
-            else:
-                access = volume.nd_conf_dict['access']
-
-            # Size only makes sense for block volumes
-            if 'block' == access:
-                if 'size' not in volume.nd_conf_dict:
-                    raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-                cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
-
-            cmd = cmd + (' --vol-type %s' % access)
-            if 'media' not in volume.nd_conf_dict:
-                media = 'hdd'
-            else:
-                media = volume.nd_conf_dict['media']
-
-            cmd = cmd + (' --media-policy %s' % media)
 
             self.log.info("Create volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1 &) \"' %
-                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
-                                                fds_tools=True)
+            vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+            newVolume = convertor(volume)
+            status = vol_service.create_volume(newVolume)
 
-            if status != 0:
-                self.log.error("Volume %s creation on %s returned status %d." %
+            if isinstance(status, FdsError):
+                self.log.error("Volume %s creation on %s returned status %s." %
                                (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedVolume is not None:
@@ -148,7 +130,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
                 cinder_dir= os.path.join('/fds/sbin')
             status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
                                                         (cinder_dir, cmd), return_stdin=True)
-            if (status != 0) or self.expect_to_fail:
+            if (status != 0) != self.expect_to_fail:
                 self.log.error("Attach volume %s on %s returned status %d." %
                                (volName, am_node, status))
                 return False
@@ -263,19 +245,16 @@ class TestVolumeDelete(TestCase.FDSTestCase):
             # If we were passed a volume, attach that one and exit.
             if self.passedVolume is not None:
                 volume = self.passedVolume
-
-            cmd = (' volume delete %s' %
-               (volume.nd_conf_dict['vol-name']))
+            volume_id = volume.nd_conf_dict['id']
 
             self.log.info("Delete volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1) \"' %
-                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
-                                                fds_tools=True)
+            vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+            status = vol_service.delete_volume(volume_id)
 
-            if status != 0:
-                self.log.error("Delete volume %s on %s returned status %d." %
+            if isinstance(status, FdsError):
+                self.log.error("Delete volume %s on %s returned status as %s." %
                                (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedVolume is not None:

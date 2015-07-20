@@ -15,6 +15,12 @@ else:
 
 import BringUpCfg as fdscfg
 import socket
+from fdscli.services.fds_auth import *
+from fdscli.model.volume.settings.object_settings import ObjectSettings
+from fdscli.model.volume.settings.block_settings import BlockSettings
+from fdscli.model.common.size import Size
+from fdscli.model.volume.volume import Volume
+from fdscli.services.volume_service import VolumeService
 
 def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -403,4 +409,42 @@ def check_localhost(ip):
     else:
         return False
 
+def create_fdsConf_file(om_ip):
+    fileName = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
+    file = open(fileName, "w")
+    writeString = '[connection]\nhostname='+om_ip+'\nusername=admin\npassword=admin\nport=7777\n'
+    file.write(writeString)
+    file.close()
 
+def convertor(volume):
+    new_volume = Volume();
+    new_volume.name=volume.nd_conf_dict['vol-name']
+    new_volume.id=volume.nd_conf_dict['id']
+
+    if 'media' not in volume.nd_conf_dict:
+        media = 'hdd'
+    else:
+        media = volume.nd_conf_dict['media']
+    new_volume.media_policy =media.upper()
+
+    if 'access' not in volume.nd_conf_dict or volume.nd_conf_dict['access'] == 'object':
+        #set default volume settings to ObjectSettings
+        access = ObjectSettings()
+    else:
+        #if its a block then set the size in BlockSettings
+        access = volume.nd_conf_dict['access']
+        if access == 'block':
+            if 'size' not in volume.nd_conf_dict:
+                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
+            access = BlockSettings()
+            access.capacity = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+    new_volume.settings = access
+
+    return new_volume
+
+def get_volume_service(self,om_ip):
+    create_fdsConf_file(om_ip)
+    file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
+    self.__om_auth = FdsAuth(file_name)
+    self.__om_auth.login()
+    return VolumeService(self.__om_auth)
