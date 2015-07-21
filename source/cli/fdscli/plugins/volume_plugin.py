@@ -535,9 +535,9 @@ class VolumePlugin( AbstractPlugin):
         '''
         vol_id = args[AbstractPlugin.volume_id_str]
         
-        if AbstractPlugin.name_str in args and args[AbstractPlugin.name_str] is not None:
-            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.name_str])
-            vol_id = volume.id.uuid
+        if AbstractPlugin.volume_name_str in args and args[AbstractPlugin.volume_name_str] is not None:
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str])
+            vol_id = volume.id
         
         response = self.get_volume_service().delete_volume( vol_id )
         

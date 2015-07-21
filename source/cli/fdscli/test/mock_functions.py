@@ -37,7 +37,7 @@ def writeJson( data ):
     return
 
 def listVolumes():
-    volume = Volume()
+    volume = Volume(name="FakeVol",an_id=1)
     vols = []
 
     vols.append( volume )
