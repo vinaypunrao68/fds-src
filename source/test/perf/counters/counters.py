@@ -17,10 +17,10 @@ class CounterMonitor(object):
     def __init__(self, config):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
-        self.svc_map = SvcMap(self.config["ip"], self.config["port"])
         self.stop = threading.Event()
 
     def get_svc_table(self):    
+        self.svc_map = SvcMap(self.config["ip"], self.config["port"])
         table = []
         for e in self.svc_map.list():
             table.append({
@@ -106,7 +106,7 @@ def main():
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "matteo-vm",
+        "ip" : "c3po.formationds.com",
         "port" : 8086,
         "user" : "root",
         "password" : "root",
