@@ -76,6 +76,9 @@ for m in $machines ; do
     let i=$i-1
 done
 
+for i in $marray; do echo $i; done
+for m in $machines; do echo $m ${mremap[$m]}; done
+
 ##############################
 
 for m in $machines ; do
@@ -83,14 +86,15 @@ for m in $machines ; do
     	volume_setup volume_block_$m\_$i
 
     	# disks[$m]=`../../../cinder/nbdadm.py attach $m  volume_block_$m`
-    	disks[$m:$i]=`ssh ${remap[$m]} "cd /fds/sbin && ./nbdadm.py attach ${remap[$m]}  volume_block_$m\_$i"`
+	echo "$m ->  ${mremap[$m]} $i"
+    	disks[$m:$i]=`ssh ${mremap[$m]} "cd /fds/sbin && ./nbdadm.py attach ${mremap[$m]}  volume_block_$m\_$i"`
 
     	echo "nbd disk: ${disks[$m:$i]}"
     	if [ "${disks[$m:$i]}" = "" ]; then
     	    echo "Volume setup failed"
     	    exit 1;
     	fi
-    	ssh ${ramap[$m]} "fio --name=write --rw=write --filename=${disks[$m:$i]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size"
+    	ssh ${mremap[$m]} "fio --name=write --rw=write --filename=${disks[$m:$i]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size"
     done
 done
 
