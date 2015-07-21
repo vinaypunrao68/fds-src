@@ -145,6 +145,7 @@ class ClusterMap : public Module {
      * Returns a list of services that are in non-failed state
      */
     NodeUuidSet getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const;
+    NodeUuidSet getFailedServices(fpi::FDSP_MgrIdType svc_type) const;
     NodeUuidSet getServiceUuids(fpi::FDSP_MgrIdType svc_type) const;
 
     void resetPendServices(fpi::FDSP_MgrIdType svc_type);
