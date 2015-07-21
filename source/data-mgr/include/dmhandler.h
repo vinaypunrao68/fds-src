@@ -47,7 +47,7 @@ namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---
  * do NOT store any state in these classes for now.
- * handler functions should be reentrant 
+ * handler functions should be reentrant
  */
 struct RequestHelper {
     dmCatReq *dmRequest;
@@ -184,9 +184,9 @@ struct UpdateCatalogOnceHandler : Handler {
     void handleQueueItem(dmCatReq* dmRequest);
     void handleCommitBlobOnceResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       Error const& e, dmCatReq* dmRequest);
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                                Error const& e, dmCatReq* dmRequest);
 };
 
 struct SetBlobMetaDataHandler : Handler {
@@ -293,7 +293,7 @@ struct ReloadVolumeHandler : Handler {
 };
 
 /**
- * dm checker  for validating the DM migration
+ * DmMigration starting point handler from OM
  */
 struct DmMigrationHandler : Handler {
     explicit DmMigrationHandler(DataMgr& dataManager);
@@ -303,6 +303,46 @@ struct DmMigrationHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
+    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                            uint64_t dmtVersion,
+                            const Error& e);
+};
+
+/**
+ * Handler for the initial Executor to the client
+ */
+struct DmMigrationBlobFilterHandler : Handler {
+	explicit DmMigrationBlobFilterHandler(DataMgr &dataManager);
+	void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+struct DmMigrationDeltaBlobDescHandler : Handler {
+	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
+	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+};
+
+struct DmMigrationDeltaBlobHandler : Handler {
+    explicit DmMigrationDeltaBlobHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+    void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+                          Error const& e, dmCatReq* dmRequest);
+    void volumeCatalogCb(Error const& e, blob_version_t blob_version,
+                         BlobObjList::const_ptr const& blob_obj_list,
+                         MetaDataList::const_ptr const& meta_list,
+                         fds_uint64_t const blobSize,
+                         DmIoCommitBlobTx* commitBlobReq);
 };
 
 }  // namespace dm

@@ -16,6 +16,12 @@ public final class NullLogger implements Logger
     }
 
     @Override
+    public void logDebug(String message)
+    {
+        // No-op.
+    }
+    
+    @Override
     public void logError(String message, Throwable t)
     {
         // No-op.

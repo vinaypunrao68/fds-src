@@ -64,11 +64,6 @@ namespace fds
         nodeInfo.data_port = svcinfo.svc_port;
         nodeInfo.migration_port = 0;
 
-        LOGDEBUG << "node UUID: " << std::hex << nodeInfo.node_uuid << std::dec
-                 << " service UUID: " << std::hex << nodeInfo.service_uuid << std::dec
-                 << " service status: " << svcinfo.svc_status 
-                 << " service type: " << svcinfo.svc_type;
-
         switch ( svcinfo.svc_status )
         {
             case fpi::SVC_STATUS_INACTIVE:
@@ -80,8 +75,89 @@ namespace fds
             case fpi::SVC_STATUS_ACTIVE:
                 nodeInfo.node_state = fpi::FDS_Node_Up;
                 break;
+            case fpi::SVC_STATUS_DISCOVERED:
+                nodeInfo.node_state = fpi::FDS_Node_Discovered;
+                break;    
         }
 
         return nodeInfo;
+    }
+
+    fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus) {
+        fpi::FDSP_NodeState retNodeState = fpi::FDS_Node_Down;
+        switch ( svcStatus )
+        {
+            case fpi::SVC_STATUS_INACTIVE:
+                retNodeState = fpi::FDS_Node_Down;
+                break;
+            case fpi::SVC_STATUS_INVALID:
+                retNodeState = fpi::FDS_Node_Down;
+                break;
+            case fpi::SVC_STATUS_ACTIVE:
+                retNodeState = fpi::FDS_Node_Up;
+                break;
+            case fpi::SVC_STATUS_DISCOVERED:
+                retNodeState = fpi::FDS_Node_Discovered;
+                break;
+            default:
+                LOGERROR << "Unexpected service status, fix this method!";
+        }
+        return retNodeState;
+    }
+
+    void
+    updateSvcInfoList
+        (
+        std::vector<fpi::SvcInfo>& svcInfos,
+        bool smFlag,
+        bool dmFlag,
+        bool amFlag
+        )
+    {
+        LOGDEBUG << "Updating svcInfoList "
+                 << " smFlag: " << smFlag
+                 << " dmFlag: " << dmFlag
+                 << " amFlag: " << amFlag
+                 << " size of vector: " << svcInfos.size();
+
+        int32_t index = 0;
+        int32_t smIdx = 0;
+        int32_t dmIdx = 0;
+        int32_t amIdx = 0;
+        bool smFound = false;
+        bool dmFound = false;
+        bool amFound = false;
+
+        // Check whether the service is present and the associated flag
+        // is set.(Flag is set if associated service needs to be removed).
+        // If so, save index so we can erase the service from the vector
+        for (fpi::SvcInfo svcInfo : svcInfos) {
+
+            if (svcInfo.svc_type == fpi::FDSP_STOR_MGR  && smFlag) {
+                    smIdx = index;
+                    smFound = true;
+            } else if (svcInfo.svc_type == fpi::FDSP_DATA_MGR && dmFlag) {
+                    dmIdx = index;
+                    dmFound = true;
+            }else if (svcInfo.svc_type == fpi::FDSP_ACCESS_MGR && amFlag) {
+                    amIdx = index;
+                    amFound = true;
+            }
+            ++index;
+        }
+
+        // Erase svcInfo only if flag is set and service has been found in the vector
+        if (smFlag && smFound)
+        {
+            svcInfos.erase(svcInfos.begin() + smIdx);
+        }
+        if (dmFlag && dmFound)
+        {
+            svcInfos.erase(svcInfos.begin() + dmIdx);
+        }
+        if (amFlag && amFound)
+        {
+            svcInfos.erase(svcInfos.begin() + amIdx);
+        }
     }
 }  // namespace fds

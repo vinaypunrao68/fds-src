@@ -2,19 +2,9 @@
 
 MY_DIR="$(dirname "${0}")"
 FDS_SRC="${MY_DIR}"/../../..
+# FIXME: We should really be getting this from the install.
 JAVA_LIB="${FDS_SRC}"/Build/linux-x86_64.debug/lib/java
 CLASSPATH="${CLASSPATH}":"${JAVA_LIB}"/\*
-PLATFORM_CONF="${FDS_SRC}"/config/etc/platform.conf
-
-"${FDS_SRC}"/tools/fds stop || exit 1
-
-sed -ri 's/(\s*disk_iops_max\s*=\s*)[0-9]+\s*$/\1100/' "${PLATFORM_CONF}" || exit 1
-sed -ri 's/(\s*disk_iops_min\s*=\s*)[0-9]+\s*$/\150/' "${PLATFORM_CONF}" || exit 1
-
-"${FDS_SRC}"/tools/fds cleanstart || exit 1
-
-# We'll get 500s (sub-error 4003) without this.
-sleep 20
 
 java -classpath $CLASSPATH \
      -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4005 \

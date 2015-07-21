@@ -11,9 +11,15 @@ import com.formationds.commons.NullArgumentException;
 public final class ConsoleLogger implements Logger
 {
     @Override
-    public void logError(String message, Throwable ex)
+    public void logDebug(String message)
     {
-        logError(getErrorOutput(), message, ex);
+        logDebug(getStandardOutput(), message);
+    }
+    
+    @Override
+    public void logError(String message, Throwable t)
+    {
+        logError(getErrorOutput(), message, t);
     }
 
     @Override
@@ -85,6 +91,29 @@ public final class ConsoleLogger implements Logger
     }
 
     /**
+     * Log something. All fields MAY be {@code null}, any that can be non-{@code null} should be.
+     * 
+     * @param out Output destination.
+     * @param text Detail text.
+     * @param level Error level text, goes in [] at the beginning of the line.
+     */
+    private void log(PrintStream out, String text, String level)
+    {
+        log(out, text, level, null);
+    }
+    
+    /**
+     * Log a debug message.
+     * 
+     * @param out Output destination.
+     * @param message The message to log.
+     */
+    private void logDebug(PrintStream out, String message)
+    {
+        log(out, message, "DEBUG");
+    }
+    
+    /**
      * Log an error.
      * 
      * @param out Output destination.
@@ -149,6 +178,16 @@ public final class ConsoleLogger implements Logger
      * @return A destination, probably {@code System.out}.
      */
     private static PrintStream getErrorOutput()
+    {
+        return System.out;
+    }
+    
+    /**
+     * Get the output destination for standard messages.
+     * 
+     * @return A destination, probably {@code System.out}.
+     */
+    private static PrintStream getStandardOutput()
     {
         return System.out;
     }

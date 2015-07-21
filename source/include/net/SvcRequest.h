@@ -32,6 +32,7 @@ using StringPtr = boost::shared_ptr<std::string>;
 
 /* Async svc request identifier */
 using SvcRequestId = uint64_t;
+using TaskExecutorId = size_t;
 
 /* Async svc request callback types */
 struct SvcRequestIf;
@@ -231,6 +232,13 @@ struct SvcRequestIf : HasModuleProvider {
     void setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
                        boost::shared_ptr<std::string> &buf);
 
+    template<class PayloadT>
+    boost::shared_ptr<PayloadT> getRequestPayload(const fpi::FDSPMsgTypeId &msgTypeId) {
+        if (msgTypeId != msgTypeId_) return NULL;
+        Error e;
+        return fds::deserializeFdspMsg<PayloadT>(e, payloadBuf_);
+    }
+
     virtual void invoke();
 
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
@@ -250,8 +258,12 @@ struct SvcRequestIf : HasModuleProvider {
     uint32_t getTimeout();
 
     SvcRequestId getRequestId();
+    TaskExecutorId getTaskExecutorId();
 
     void setRequestId(const SvcRequestId &id);
+    void setTaskExecutorId(const TaskExecutorId &teid);
+    void unsetTaskExecutorId();
+    bool taskExecutorIdIsSet();
 
     void setCompletionCb(SvcRequestCompletionCb &completionCb);
     inline const fpi::AsyncHdrPtr& responseHeader() const { return respHeader_; }
@@ -272,6 +284,9 @@ struct SvcRequestIf : HasModuleProvider {
         mutable uint64_t        rspHndlrTs;
     } ts;
 
+    /* DLT Version (if applicable) */
+    fds_uint64_t dlt_version_ { DLT_VER_INVALID };
+
  protected:
     virtual void invokeWork_() = 0;
     void sendPayload_(const fpi::SvcUuid &epId);
@@ -282,6 +297,9 @@ struct SvcRequestIf : HasModuleProvider {
     fds_mutex respLock_;
     /* Request Id */
     SvcRequestId id_;
+    /* Task executor ID. When set, replaces the Request ID for task serialization. */
+    TaskExecutorId teid_;
+    bool teidIsSet_;
     /* My endpoint id */
     fpi::SvcUuid myEpId_;
     /* Async svc request state */
@@ -359,10 +377,11 @@ struct MultiEpSvcRequest : SvcRequestIf {
     MultiEpSvcRequest(CommonModuleProviderIf* provider,
                       const SvcRequestId& id,
                       const fpi::SvcUuid &myEpId,
+                      fds_uint64_t const dlt_version,
                       const std::vector<fpi::SvcUuid>& peerEpIds);
 
-    void addEndpoint(const fpi::SvcUuid& peerEpId);
-    void addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds);
+    void addEndpoint(const fpi::SvcUuid& peerEpId, fds_uint64_t const dlt_version);
+    void addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds, fds_uint64_t const dlt_version);
 
     void onEPAppStatusCb(EPAppStatusCb cb);
 
@@ -386,11 +405,13 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
     FailoverSvcRequest(CommonModuleProviderIf* provider,
                        const SvcRequestId& id,
                        const fpi::SvcUuid &myEpId,
+                       fds_uint64_t const dlt_version,
                        const std::vector<fpi::SvcUuid>& peerEpIds);
 
     FailoverSvcRequest(CommonModuleProviderIf* provider,
                        const SvcRequestId& id,
                        const fpi::SvcUuid &myEpId,
+                       fds_uint64_t const dlt_version,
                        const EpIdProviderPtr epProvider);
 
 
@@ -432,11 +453,13 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
     QuorumSvcRequest(CommonModuleProviderIf* provider,
                      const SvcRequestId& id,
                      const fpi::SvcUuid &myEpId,
+                     fds_uint64_t const dlt_ver,
                      const std::vector<fpi::SvcUuid>& peerEpIds);
 
     QuorumSvcRequest(CommonModuleProviderIf* provider,
                      const SvcRequestId& id,
                      const fpi::SvcUuid &myEpId,
+                     fds_uint64_t const dlt_ver,
                      const EpIdProviderPtr epProvider);
 
     ~QuorumSvcRequest();
@@ -477,6 +500,7 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
     MultiPrimarySvcRequest(CommonModuleProviderIf* provider,
                            const SvcRequestId& id,
                            const fpi::SvcUuid &myEpId,
+                           fds_uint64_t const dlt_version,
                            const std::vector<fpi::SvcUuid>& primarySvcs,
                            const std::vector<fpi::SvcUuid>& optionalSvcs);
     void invoke() override;

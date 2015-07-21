@@ -7,12 +7,13 @@ import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
+
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * An S3 service endpoint.
@@ -51,7 +52,7 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
     @Override
     // @eclipseFormat:off
     public void doVisit(S3Operation operation,
-                        WorkflowEventListener listener) throws ExecutionException
+                        AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
@@ -80,7 +81,7 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
      */
     // @eclipseFormatter:off
     public void visit(S3Operation operation,
-                      WorkflowEventListener listener) throws ExecutionException
+                      AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormatter:on
     {
         if (operation == null) throw new NullArgumentException("operation");

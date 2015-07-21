@@ -58,6 +58,7 @@ void SvcProcess::init(int argc, char *argv[],
 
     /* Extract service name pm/sm/dm/am etc */
     std::vector<std::string> strs;
+    // FIXME: What if there's two dots in the name?
     boost::split(strs, base_path, boost::is_any_of("."));
     fds_verify(strs.size() >= 2);
     svcName_ = strs[1];
@@ -129,15 +130,6 @@ void SvcProcess::registerSvcProcess()
 {
     LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
     std::vector<fpi::SvcInfo> svcMap;
-
-    auto config = get_conf_helper();
-    if (true == config.get<bool>("testing.enable_sleep_before_svcregister", false)) {
-        auto sleep_time = config.get<int>("testing.sleep_duration_before_svcregister");
-        LOGNOTIFY << "Sleep for " << sleep_time
-                  << " before register service process ( parent )"
-                  << fds::logDetailedString(svcInfo_);
-        sleep(sleep_time);
-    }
 
     do {
         try {

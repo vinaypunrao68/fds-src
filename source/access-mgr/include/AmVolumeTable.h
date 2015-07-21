@@ -6,9 +6,9 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 
 #include <string>
-#include <deque>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include <fds_error.h>
 #include <fds_types.h>
@@ -32,6 +32,8 @@ struct AmVolumeTable : public HasLogger {
 
     /// Use logger that passed in to the constructor
     AmVolumeTable(size_t const qos_threads, fds_log *parent_log);
+    AmVolumeTable(AmVolumeTable const& rhs) = delete;
+    AmVolumeTable& operator=(AmVolumeTable const& rhs) = delete;
     ~AmVolumeTable();
     
     /// Registers the callback we make to the transaction layer
@@ -42,7 +44,9 @@ struct AmVolumeTable : public HasLogger {
     Error processAttach(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
 
     Error registerVolume(const VolumeDesc& volDesc);
-    Error removeVolume(const VolumeDesc& volDesc);
+    volume_ptr_type removeVolume(std::string const& volName, fds_volid_t const volId);
+    volume_ptr_type removeVolume(const VolumeDesc& volDesc)
+        { return removeVolume(volDesc.name, volDesc.volUUID); }
 
     /**
      * Returns NULL is volume does not exist
@@ -50,9 +54,9 @@ struct AmVolumeTable : public HasLogger {
     volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     /**
-     * Return tokens to all attached volumes
+     * Return volumes that we are currently attached to
      */
-    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
+    std::vector<volume_ptr_type> getVolumes() const;
 
     /**
      * Returns the volumes max object size

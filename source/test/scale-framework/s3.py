@@ -47,10 +47,11 @@ class S3Connection():
                                     aws_secret_access_key=self.secret_access_key,
                                     host=self.host,
                                     port=self.port,
-                                    calling_format = boto.s3.connection.OrdinaryCallingFormat())
+                                    calling_format = boto.s3.connection.OrdinaryCallingFormat(),
+                                    is_secure=False)
         assert(self.conn)
         self.log.info('S3 Connected!')
-    
+
     def authenticate(self):
         if self.is_authenticated:
             self.log.info("S3 Connection already authenticated")
@@ -62,7 +63,7 @@ class S3Connection():
                 self.om_ip_address,
                 config.FDS_REST_PORT, 0, 1))
             self.is_authenticated = True
-            
+
     def s3_disconnect(self):
         if self.conn:
             self.conn.close()

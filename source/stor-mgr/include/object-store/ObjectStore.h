@@ -13,6 +13,7 @@
 #include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 
@@ -88,6 +89,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
 
+    // Track when the last capacity message was sent
+    float_t lastCapacityMessageSentAt;
+
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
@@ -95,6 +99,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
+
+    /**
+     * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
+     * Does not consider tiering data in calculations, but does include SM metadata stored in SSDs.
+     * Returns 0 and logs an error if either the used capacity or the total capacity is 0.
+     */
+    float_t getUsedCapacityAsPct();
 
     /**
      * Open store for a given set of SM tokens. One or more
@@ -247,6 +258,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     fds_uint32_t getDiskCount() const;
 
     /**
+     * Handle disk change.
+     */
+    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
+    void handleDiskChanges(const diskio::DataTier& diskType,
+                           const TokenDiskIdPairSet& tokenDiskPairs);
+
+    /**
      * Check if object store is ready to serve IO/become source for SM token
      * migration.
      */
@@ -266,6 +284,11 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     Error SmCheckControlCmd(SmCheckCmd *checkCmd);
     void SmCheckUpdateDLT(const DLT *latestDLT);
+
+    /**
+     * Sets this ObjectStore to the UNAVAILABLE state
+     */
+    void setUnavailable();
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

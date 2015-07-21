@@ -24,11 +24,20 @@ if [[ -e $RELEASEMODEFILE ]]; then
     BUILDMODE="release"
 fi
 
+RUNMODE="nomemchk"
+RUNMODEFILE="${SOURCEDIR}/Build/.run-mode-memchk.chk"
+if [[ -e $RUNMODEFILE ]]; then
+    RUNMODE="memchk"
+fi
+
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=/fds
+FDSLOGROOT=${FDSROOT}/var/logs
 FDSTEST_ROOT=/fds-test
+
+VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
 
 # else run from install dir
 run_from_install_dir=0
@@ -74,15 +83,33 @@ function usage() {
     log "   - $(yellow tail)      : tail the application log file"
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
+    log "   - $(yellow nomemchk)  : run services $(green normally)"
+    log "   - $(yellow memchk)    : run services under $(red valgrind)"
     log "   - $(yellow release)   : switch to $(green release) build"
     log "   - $(yellow debug)     : switch to $(red debug) build"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
+    log "   : $(yellow --om-debug-port) java debugger port #"
     log " app : om/pm/sm/am/dm/all"
     log " $(yellow testname): name of a test"
     echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
     printBuildMode
+    printRunMode
     exit 0
+}
+
+function printRunMode() {
+    case "${RUNMODE}" in
+        nomemchk)
+            logwarn "$(blue current run mode) : $(green ${RUNMODE})"
+            ;;
+        memchk)
+            logwarn "$(blue current run mode) : $(red ${RUNMODE})"
+            ;;
+        *)
+            logerror "unknown run mode : ${RUNMODE}"
+            ;;
+    esac
 }
 
 function printBuildMode() {
@@ -97,6 +124,22 @@ function printBuildMode() {
             logerror "unknown build mode : ${BUILDMODE}"
             ;;
     esac
+}
+
+function setRunMode() {
+    local mode="$1"
+
+    if [[ $mode == "memchk" ]]; then
+        touch "${RUNMODEFILE}"
+    elif [[ $mode == "nomemchk" ]]; then
+        rm -f "${RUNMODEFILE}"
+    else
+        logerror "unknown run mode : $mode"
+        return 1
+    fi
+    RUNMODE=$mode
+    printRunMode
+    return 0
 }
 
 function setBuildMode() {
@@ -187,6 +230,11 @@ function startApp() {
                     sm|dm|am)
                         params="--foreground --fds.pm.platform_uuid=$(echo 'keys node* '| redis-cli | cut -d: -f2)"
                         ;;
+                    om)
+                        if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
+                            params="--debug-port=${OM_DEBUG_PORT}"
+                        fi
+                        ;;
                     *)
                         params=""
                         ;;
@@ -194,7 +242,11 @@ function startApp() {
 
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
                 echo $params
-                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
+		valgrind=""
+                if test ${RUNMODE} == "memchk"; then
+                    valgrind="valgrind ${VALGRIND_OPTIONS}${apps[$name]}.%p.memcheck"
+                fi
+	        (cd ${BINDIR}; ${valgrind} ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
 
 		if ! (waitForApp $name) ; then
@@ -239,7 +291,7 @@ function stopApp() {
             else
                 logwarn "$(yellow stopping ${name}..)"
                 for procid in $pid; do
-                    kill -9 ${procid}
+                    kill -KILL ${procid}
                 done
             fi
         fi
@@ -365,12 +417,10 @@ function getAppPid() {
     local pid
     if [[ $name == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
-    elif [[ $name == "am" ]]; then
-        pid="$(pgrep bare_am)"
     elif [[  $name == "xdi"  ]]; then
         pid="$(pgrep -f com.formationds.am.Main)"
     else
-        pid="$(pgrep ${apps[$name]})"
+        pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
     fi
     if [[ $2 == "zombie" ]]; then
         echo -n $pid
@@ -457,9 +507,9 @@ function taillog() {
     local logfiles
     case "${app}" in
         om|am|dm|sm|pm)
-            ls -1 ${FDSROOT}/var/logs/${app}.log*.log
+            ls -1 ${FDSLOGROOT}/${app}.log*.log
             for n in $(seq 0 20); do
-                logfiles="$logfiles ${FDSROOT}/var/logs/${app}.log_${n}.log"
+                logfiles="$logfiles ${FDSLOGROOT}/${app}.log_${n}.log"
             done
             tail -qF ${logfiles} 2>/dev/null
             ;;
@@ -481,13 +531,13 @@ function showerrors() {
         loginfo $(yellow "showing errors/warn/critical log data for : ") $(blue $app)
         case "${app}" in
             om|am|dm|sm)
-                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/${app}.log*.log 2>/dev/null
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSLOGROOT}/${app}.log*.log 2>/dev/null
                 ;;
             pm)
-                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/platform.log*.log 2>/dev/null
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSLOGROOT}/platform.log*.log 2>/dev/null
                 ;;
             xdi)
-                grep -E " (WARN|ERROR|FATAL) " ${FDSROOT}/var/logs/om-xdi*.log ${FDSROOT}/var/logs/xdi*.log 2>/dev/null
+                grep -E " (WARN|ERROR|FATAL) " ${FDSLOGROOT}/om-xdi*.log ${FDSLOGROOT}/xdi*.log 2>/dev/null
                 ;;
             *)
                 logerror "can grep logs of only om|am|dm|sm|pm|xdi"
@@ -551,8 +601,11 @@ function clean() {
                 rm -rf /${node}/var/db/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
+		# valgrind stuff
+                rm -rf /${node}/memcheck/*.memcheck
 
-				rm -rf /${node}/var/logs
+		rm -rf /${node}/var/logs/*.log*
+		rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null
         fi
@@ -598,21 +651,40 @@ function source_lib() {
 args=( "$@" )
 for ((n=0; n<$#; n++ ))
 do
-    opt=${args[$n]}
-    case $opt in
+    opt="${args[$n]}"
+    case "${opt}" in
         -f|--fds-root)
             (( n++ ))
             if [[ $n -ge $# ]]; then
                 logerror "value expected for fdsroot"
                 usage
             fi
-            FDSROOT=${args[$n]}
+            FDSROOT="${args[$n]}"
+            ;;
+        --om-debug-port)
+            (( n++ ))
+            if [[ $n -ge $# ]]; then
+                logerror "value expected for om-debug-port"
+                usage
+            fi
+            OM_DEBUG_PORT="${args[$n]}"
+            ;;
+        --om-debug-port=*)
+            OM_DEBUG_PORT="${opt#*=}"
             ;;
         -i|--from-install-dir)
             run_from_install_dir=1
             ;;
         -h|--help)
             usage
+            ;;
+        nomemchk)
+            setRunMode nomemchk
+            exit 0
+            ;;
+        memchk)
+            setRunMode memchk
+            exit 0
             ;;
         release)
             setBuildMode release
@@ -624,6 +696,7 @@ do
             ;;
         mode)
             printBuildMode
+            printRunMode
             exit 0
             ;;
         bindir)
@@ -689,6 +762,7 @@ case "${APP}" in
 esac
 
 printBuildMode
+printRunMode
 
 case "${CMD}" in
     start) startApp $APP

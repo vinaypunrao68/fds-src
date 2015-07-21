@@ -62,7 +62,7 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
         &typedRequest->queryMsg->meta_list,
         &typedRequest->queryMsg->obj_list,
         reinterpret_cast<fds_uint64_t *>(&typedRequest->queryMsg->byteCount));
-    if (!helper.err.ok()) {
+    if (!helper.err.ok() && ERR_BLOB_OFFSET_INVALID != helper.err) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType, typedRequest->getVolId());
     }
 }

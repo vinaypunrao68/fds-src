@@ -16,6 +16,7 @@
 #include <net/net-service.h>
 #include <fdsp/svc_types_types.h>
 #include <net/SvcRequestPool.h>
+#include <list>
 #include "fdsp/sm_api_types.h"
 
 namespace fds {
@@ -27,15 +28,15 @@ namespace fds {
 DataPlacement::DataPlacement()
         : Module("Data Placement Engine"),
           placeAlgo(NULL),
+          placementMutex("Data Placement mutex"),
           prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL) {
-    placementMutex = new fds_mutex("data placement mutex");
     curClusterMap = &gl_OMClusMapMod;
+    numOfPrimarySMs = 0;
 }
 
 DataPlacement::~DataPlacement() {
-    delete placementMutex;
     // delete curClusterMap;
     if (commitedDlt != NULL) {
         delete commitedDlt;
@@ -47,7 +48,7 @@ DataPlacement::~DataPlacement() {
 
 void
 DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     delete placeAlgo;
     switch (type) {
         case PlacementAlgorithm::AlgorithmTypes::RoundRobin:
@@ -62,64 +63,99 @@ DataPlacement::setAlgorithm(PlacementAlgorithm::AlgorithmTypes type) {
                       type);
     }
     algoType = type;
-    placementMutex->unlock();
 }
 
 Error
 DataPlacement::updateMembers(const NodeList &addNodes,
                              const NodeList &rmNodes) {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
+    LOGDEBUG << "Updating OM Cluster Map "
+             << " Add Nodes: " << addNodes.size()
+             << " Remove Nodes: " << rmNodes.size();
+    
     Error err = curClusterMap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // TODO(Andrew): We should be recomputing the DLT here.
-    placementMutex->unlock();
 
     return err;
 }
 
-void
+Error
 DataPlacement::computeDlt() {
     // Currently always create a new empty DLT.
     // Will change to be relative to the current.
     fds_uint64_t version;
-    fds_verify(newDlt == NULL);
-
-    if (commitedDlt == NULL) {
+    Error err(ERR_OK);
+    
+    fds_verify( newDlt == NULL );
+    
+    if (commitedDlt == NULL) 
+    {
         version = DLT_VER_INVALID + 1;
-    } else {
+    } 
+    else 
+    {
         version = commitedDlt->getVersion() + 1;
     }
+    
     // If we have fewer members than total replicas
     // use the number of members as the replica count
     fds_uint32_t depth = curDltDepth;
-    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) {
+    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) 
+    {
         depth = curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR);
+    }
+    if (depth == 0) {
+        // there are no SMs in the domain, nothing to compute
+        return ERR_NOT_FOUND;
     }
 
     // Allocate and compute new DLT
+    fds_mutex::scoped_lock l(placementMutex);
     newDlt = new DLT(curDltWidth,
                      depth,
                      version,
                      true);
-    placementMutex->lock();
-    placeAlgo->computeNewDlt(curClusterMap,
-                             commitedDlt,
-                             newDlt);
+    err = placeAlgo->computeNewDlt(curClusterMap,
+                                   commitedDlt,
+                                   newDlt, getNumOfPrimarySMs());
 
     // Compute DLT's reverse node to token map
-    newDlt->generateNodeTokenMap();
+    if (err.ok()) {
+        newDlt->generateNodeTokenMap();
 
-    // store the dlt to config db
-    fds_verify(configDB != NULL);
-    if (!configDB->storeDlt(*newDlt, "next")) {
-        GLOGWARN << "unable to store dlt to config db "
-                << "[" << newDlt->getVersion() << "]";
+        // it is possible that this method is called
+        // when there are no changes in cluster map that require
+        // a change in the DLT, check that newDlt is different from commited
+        if (commitedDlt && (*commitedDlt == *newDlt)) {
+            LOGDEBUG << "Newly computed DLT is the same as committed DLT."
+                     << " Not going to commit";
+            LOGDEBUG << *commitedDlt;
+            LOGDEBUG << "Computed DLT (same as commited)" << *newDlt;
+            err = ERR_NOT_READY;
+        }
+    }
+
+    if (err.ok()) {
+        // we computed new DLT which we want to commit
+        // store the dlt to config db
+        fds_verify(configDB != NULL);
+        if (!configDB->storeDlt(*newDlt, "next")) 
+        {
+            GLOGERROR << "unable to store dlt to config db "
+                      << "[" << newDlt->getVersion() << "]";
+            err = ERR_DISK_WRITE_FAILED;
+        }
+    } else {
+        LOGNORMAL << "Did not update DLT " << err;
+        delete newDlt;
+        newDlt = nullptr;
     }
 
     // TODO(Andrew): We should version the (now) old DLT
     // before we delete it and replace it with the
     // new DLT. We should also update the DLT's
     // internal version.
-    placementMutex->unlock();
+    return err;
 }
 
 /**
@@ -130,98 +166,145 @@ Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
 
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
 
-    if (!commitedDlt) {
+    if (!commitedDlt) 
+    {
         LOGNOTIFY << "Not going to rebalance data, because this is "
                   << " the first DLT we computed";
-        placementMutex->unlock();
         return err;
     }
 
-    for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
-         cit != curClusterMap->cend_sm();
-         ++cit) {
-        // see if this node has any new tokens it is responsible for
-        // this includes primary, secondary, other responsibilities
-        const TokenList& new_toks = newDlt->getTokens(cit->first);
-        if (!commitedDlt) {
-            // this node did not have tokens before, and now it does
-            rebalanceNodes.insert(cit->first);
-            break;
-        }
-        const TokenList& old_toks = commitedDlt->getTokens(cit->first);
+    // at this point we have commited DLT
+    // find all SMs that will either get a new responsibility for a DLT token
+    // or need resync because an SM became a primary
+    NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
+    // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
+    std::unordered_map<fds_uint64_t, fpi::CtrlNotifySMStartMigrationPtr> startMigrMsgs;
+    for (fds_token_id tokId = 0; tokId < newDlt->getNumTokens(); ++tokId) {
+        DltTokenGroupPtr cmtCol = commitedDlt->getNodes(tokId);
+        DltTokenGroupPtr tgtCol = newDlt->getNodes(tokId);
 
-        // TODO(anna) TokenList should be a set so we can easily
-        // search rather than vector -- anyway we shouldn't have duplicate
-        // tokens in the TokenList
-        for (fds_uint32_t i = 0; i < new_toks.size(); ++i) {
-            fds_bool_t found = false;
-            for (fds_uint32_t j = 0; j < old_toks.size(); ++j) {
-                if (new_toks[i] == old_toks[j]) {
-                    found = true;
+        // find all SMs in target column that need resync: either they
+        // got a new responsibility for a DLT token or became a primary
+        NodeUuidSet destSms = tgtCol->getNewAndNewPrimaryUuids(*cmtCol, getNumOfPrimarySMs());
+        if (destSms.size() == 0) continue;
+        LOGDEBUG << "Found " << destSms.size() << " SMs that need to sync token " << tokId;
+
+        // get list of candidates to sync from
+        fds_uint32_t rows = (getNumOfPrimarySMs() > 0) ? getNumOfPrimarySMs() : cmtCol->getLength();
+        NodeUuidSet srcCandidates = cmtCol->getUuids(rows);
+
+        // exclude SMs that were removed
+        for (auto sm : rmSMs) {
+            srcCandidates.erase(sm);
+        }
+        // exclude SMs that failed
+        for (auto sm : failedSMs) {
+            srcCandidates.erase(sm);
+        }
+
+        // if all SMs need resync, this means that we moved a secondary to be
+        // a primary (both primaries failed)
+        if (destSms.size() == tgtCol->getLength()) {
+            // this should not happen if number of primary SMs == 0 (this config
+            // means original implementation where we do not resync when promoting secondaries)
+            // If that happens, it means that DLT calculation algorithm managed to
+            // place all new SMs into the same column -- will need to fix that!
+            fds_verify(getNumOfPrimarySMs() > 0);
+
+            // there must be one SM that is in committed and target column
+            // and in a primary row. Otherwise all SMs failed in that column
+            NodeUuidSet intersectSMs = tgtCol->getIntersection(*cmtCol);
+            NodeUuid nosyncSm;
+            for (auto sm: intersectSMs) {
+                int index = tgtCol->find(sm);
+                if ((index >= 0) && (index < (int)getNumOfPrimarySMs())) {
+                    if (nosyncSm.uuid_get_val() == 0) {
+                        nosyncSm = sm;
+                    } else {
+                        // if we are here, means the whole column fail
+                        // and we just skip doing anything for that column
+                        nosyncSm.uuid_set_val(0);
+                        break;
+                    }
+                }
+            }
+            if (nosyncSm.uuid_get_val() > 0) {
+                // secondary SM survived, but both primaries didn't
+                // do not sync to this SM
+                destSms.erase(nosyncSm);
+                // but everyone should sync from this SM
+                srcCandidates.clear();
+                srcCandidates.insert(nosyncSm);
+            } else {
+                LOGWARN << "Looks like the whole column for DLT token "
+                        << tokId << " failed; no SM to sync from";
+                continue;
+            }
+        }
+
+        // there need to be at least one candidate to be a source
+        // otherwise we need to revisit DLT computation algorithm
+        LOGMIGRATE << "Found " << srcCandidates.size() << " candidates for a source "
+                   << " for DLT token " << tokId;
+        fds_verify(srcCandidates.size() > 0);
+
+        for (auto smUuid: destSms) {
+            // see if we already have a startMigration msg prepared for this source
+            fpi::CtrlNotifySMStartMigrationPtr startMigrMsg;
+            if (startMigrMsgs.count(smUuid.uuid_get_val()) == 0) {
+                // create start migration msg for this source SM
+                fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
+                startMigrMsgs[smUuid.uuid_get_val()] = msg;
+            }
+            startMigrMsg = startMigrMsgs[smUuid.uuid_get_val()];
+
+            // find a source for this destination SM
+            NodeUuid sourceUuid;
+            for (auto srcCandidate: srcCandidates) {
+                // cannot be myself
+                if (srcCandidate != smUuid) {
+                    sourceUuid = srcCandidate;
                     break;
                 }
             }
-            // at least one new token for this node
-            if (!found) {
-                rebalanceNodes.insert(cit->first);
-                break;
-            }
-        }
-    }
+            fds_verify(sourceUuid.uuid_get_val() !=0);
+            LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
+                       << " Source " << sourceUuid.uuid_get_val() << std::dec
+                       << " token " << tokId;
 
-    if (!err.ok()) {
-        LOGERROR << "Failed to fill in dlt_data, not sending migration msgs";
-        placementMutex->unlock();
-        return err;
-    }
-
-    // send start migration message to all nodes that have new tokens
-    for (NodeUuidSet::const_iterator nit = rebalanceNodes.cbegin();
-         nit != rebalanceNodes.cend();
-         ++nit) {
-        NodeUuid  uuid = *nit;
-
-        fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
-        std::map<NodeUuid, std::vector<fds_int32_t>> newTokenMap;
-        std::set<fds_uint32_t> diff = newDlt->token_diff(uuid, newDlt, commitedDlt);
-        LOGMIGRATE << "New tokens for node " << std::hex << uuid.uuid_get_val()
-                   << std::dec << " " << diff.size() << " tokens";
-
-        // Build the newTokenMap
-        for (auto token : diff) {
-            // Determine an appropriate SM to use as a source
-            // This should not be ourselves and should be in the
-            // intersection of old/new DLTs
-            std::set<NodeUuid> sourcesSet;
-            fds_verify(commitedDlt);  // we already checked above, so must exist
-            DltTokenGroupPtr sources = commitedDlt->getNodes(token);
-            for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
-                NodeUuid srcUuid = sources->get(i);
-                // do not add ourselves
-                if (uuid != srcUuid) {
-                    sourcesSet.insert(srcUuid);
+            // find if there is already a migration group created for this src SM
+            fds_bool_t found = false;
+            for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
+                if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
+                    found = true;
+                    (startMigrMsg->migrations)[index].tokens.push_back(tokId);
+                    LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
+                             << ", source: " << sourceUuid.uuid_get_val() << std::dec
+                             << ", adding token " << tokId;
+                    break;
                 }
             }
+            if (!found) {
+                fpi::SMTokenMigrationGroup grp;
+                grp.source = sourceUuid.toSvcUuid();
+                grp.tokens.push_back(tokId);
+                startMigrMsg->migrations.push_back(grp);
+                LOGTRACE << "Starting new group for destination: " << std::hex << smUuid.uuid_get_val()
+                         << ", source: " << std::hex<< sourceUuid.uuid_get_val()
+                         << ", adding token " << tokId;
+            }
+        }
+    }
 
-            // Now push to newTokenMap
-            if (sourcesSet.size() == 0) { continue; }
-            NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
-            newTokenMap[sourceId].push_back(token);
-            LOGMIGRATE << "Destination " << std::hex << uuid.uuid_get_val()
-                       << " Source " << sourceId.uuid_get_val() << std::dec
-                       << " token " << token;
-        }
-        // At this point we should have a complete map
-        for (auto entry : newTokenMap) {
-            fpi::SMTokenMigrationGroup grp;
-            grp.source = entry.first.toSvcUuid();
-            grp.tokens = entry.second;
-            msg->migrations.push_back(grp);
-        }
+    // actually send start migration messages
+    for (auto entry: startMigrMsgs) {
+        NodeUuid uuid(entry.first);
+        fpi::CtrlNotifySMStartMigrationPtr msg = entry.second;
 
         auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
 
@@ -238,8 +321,9 @@ DataPlacement::beginRebalance() {
 
         LOGNOTIFY << "Sending the DLT migration request to node 0x"
                   << std::hex << uuid.uuid_get_val() << std::dec;
+
+        rebalanceNodes.insert(uuid);
     }
-    placementMutex->unlock();
 
     LOGNOTIFY << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
     newDlt->dump();
@@ -309,8 +393,12 @@ fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
  */
 void
 DataPlacement::commitDlt() {
+    commitDlt( false );
+}
+void
+DataPlacement::commitDlt( const bool unsetTarget ) {
     fds_verify(newDlt != NULL);
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
         oldVersion = commitedDlt->getVersion();
@@ -322,13 +410,20 @@ DataPlacement::commitDlt() {
     }
 
     commitedDlt = newDlt;
-    placementMutex->unlock();
+
+    if ( unsetTarget )
+    {
+        if (!configDB->setDltType(0, "next")) {
+            LOGWARN << "Failed to unset target DLT in config db";
+        }
+        newDlt = NULL;
+    }
 }
 
 ///  only reverts if we did not persist it..
 void
 DataPlacement::undoTargetDltCommit() {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     if (newDlt) {
         if (!hasNonCommitedTarget()) {
             // we already assigned commitedDlt target, revert back
@@ -347,12 +442,11 @@ DataPlacement::undoTargetDltCommit() {
                     << "[" << targetDltVersion << "]";
         }
     }
-    placementMutex->unlock();
 }
 
 void
 DataPlacement::persistCommitedTargetDlt() {
-    placementMutex->lock();
+    fds_mutex::scoped_lock l(placementMutex);
     fds_verify(newDlt != NULL);
     fds_verify(commitedDlt != NULL);
     fds_verify(newDlt->getVersion() == commitedDlt->getVersion());
@@ -374,7 +468,6 @@ DataPlacement::persistCommitedTargetDlt() {
     // oldVersion ?
 
     newDlt = NULL;
-    placementMutex->unlock();
 }
 
 const DLT*
@@ -439,19 +532,21 @@ DataPlacement::mod_init(SysParams const *const param) {
     } else if (algo_type_str.compare("RoundRobin") == 0) {
         type = PlacementAlgorithm::AlgorithmTypes::RoundRobin;
     } else {
-        FDS_PLOG_SEV(g_fdslog, fds_log::warning)
-                <<"DataPlacement: unknown placement algorithm type in "
+        LOGWARN << "DataPlacement: unknown placement algorithm type in "
                 << "config file, will use Consistent Hashing algorith";
     }
-
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "DataPlacement: DLT width " << curDltWidth
-            << ", dlt depth " << curDltDepth
-            << ", algorithm " << algo_type_str;
 
     setAlgorithm(type);
 
     curClusterMap = OM_Module::om_singleton()->om_clusmap_mod();
+
+    numOfPrimarySMs = MODULEPROVIDER()->get_fds_config()->
+            get<int>("fds.sm.number_of_primary");
+
+    LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
+              << ", dlt depth " << curDltDepth
+              << ", algorithm " << algo_type_str
+              <<", number of primary SMs" << numOfPrimarySMs;
 
     return 0;
 }
@@ -469,7 +564,7 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     Error err(ERR_OK);
 
     if (commitedDlt) {
-        err = checkDltValid(commitedDlt, sm_services);
+        err = commitedDlt->verify(sm_services);
         if (err.ok()) {
             LOGDEBUG << "DLT is valid!";
             // but we must not have any target DLT at this point
@@ -491,7 +586,8 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     return err;
 }
 
-Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
+Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
+                                          const NodeUuidSet& deployed_sm_services) {
     Error err(ERR_OK);
 
     // this function should be called only during init..
@@ -514,9 +610,9 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
             err = Error(ERR_PERSIST_STATE_MISMATCH);
         } else {
             // check if DLT is valid with respect to nodes
-            // i.e. only contains node uuis that are in nodes' set
-            // does not contain any zeroes, etc.
-            err = checkDltValid(dlt, sm_services);
+            // i.e. only contains node uuis that are in deployed_sm_services
+            // set and does not contain any zeroes, etc.
+            err = dlt->verify(deployed_sm_services);
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
                 // we will set newDLT because we don't know yet if
@@ -537,30 +633,19 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
         return Error(ERR_PERSIST_STATE_MISMATCH);
     }
 
-    // At this point we are not supporting the case when we went down
-    // during migration -- if we see target DLT in configDB, we will just
-    // throw away persistent state
-    // TODO(anna) implement support for recovering from 'in the middle of
-    // migration' state.
+    // If we saved target DLT version, we were in the middle of migration
+    // when domain shutdown or OM went down. We are going to restart migration
+    // and re-compute the DLT again, so throw away this DLT
+    // Maybe in the future, we can re-start migration with saved target DLT
+    // but this is an optimization, may do later
     fds_uint64_t nextVersion = configDB->getDltVersionForType("next");
     if (nextVersion > 0 && nextVersion != currentVersion) {
-        // at this moment not handling this case, so return error for now
-        LOGWARN << "We are not yet supporting recovering persistent state "
-                << "when we were in the middle of migration, so will for now "
-                << " ignore persisted DLT and nodes";
-        delete newDlt;
-        newDlt = NULL;
-        return Error(ERR_NOT_IMPLEMENTED);
-        /*
-        DLT* dlt = new DLT(0, 0, 0, false);
-        if (!configDB->getDlt(*dlt, nextVersion)) {
-            LOGCRITICAL << "unable to get (next) dlt version [" << currentVersion << "]";
-            delete dlt;
-        } else {
-            // set the next dlt
-            newDlt = dlt;
+        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+                  << "persisted  target DLT and re-compute it again if discovered "
+                  << "SMs re-register";
+        if (!configDB->setDltType(0, "next")) {
+            LOGWARN << "unable to reset DMT target version in configDB";
         }
-        */
     } else {
         if (0 == nextVersion) {
             LOGDEBUG << "There is only commited DLT in configDB (OK)";
@@ -577,49 +662,4 @@ void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
     this->configDB = configDB;
 }
 
-//
-// Checks if DLT matches the set of given nodes:
-// -- DLT must not contain any uuids that are not in nodes set
-// -- DLT should not have any cells with 0
-// -- nodes in each DLT column must be unique
-//
-Error DataPlacement::checkDltValid(const DLT* dlt,
-                                   const NodeUuidSet& sm_services) {
-    Error err(ERR_OK);
-    fds_uint32_t col_depth = dlt->getDepth();
-    fds_uint32_t num_tokens = dlt->getNumTokens();
-
-    // we should not have more rows than nodes
-    if (col_depth > sm_services.size()) {
-        LOGERROR << "DLT has more rows (" << col_depth
-                 << ") than nodes (" << sm_services.size() << ")";
-        return Error(ERR_INVALID_DLT);
-    }
-
-    // check each column in DLT
-    NodeUuidSet col_set;
-    for (fds_token_id i = 0; i < num_tokens; ++i) {
-        col_set.clear();
-        DltTokenGroupPtr column = dlt->getNodes(i);
-        for (fds_uint32_t j = 0; j < col_depth; ++j) {
-            NodeUuid cur_uuid = column->get(j);
-            if ((cur_uuid.uuid_get_val() == 0) ||
-                (sm_services.count(cur_uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
-                         << cur_uuid.uuid_get_val() << std::dec;
-                return Error(ERR_INVALID_DLT);
-            }
-            col_set.insert(cur_uuid);
-        }
-
-        // make sure that column contains all unique uuids
-        if (col_set.size() < col_depth) {
-            LOGERROR << "Found non-unique uuids in DLT column " << i;
-            return Error(ERR_INVALID_DLT);
-        }
-    }
-
-    return err;
-}
 }  // namespace fds

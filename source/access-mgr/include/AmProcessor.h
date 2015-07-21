@@ -23,7 +23,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
 {
     using shutdown_cb_type = std::function<void(void)>;
   public:
-    explicit AmProcessor(CommonModuleProviderIf *modProvider);
+    AmProcessor(Module* parent, CommonModuleProviderIf *modProvider);
     AmProcessor(AmProcessor const&) = delete;
     AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();
@@ -32,7 +32,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      * Start AmProcessor and register a callback that will
      * indicate a shutdown sequence and all I/O has drained
      */
-    void start(shutdown_cb_type&& cb);
+    void start();
 
     /**
      * Asynchronous shutdown initiation.
@@ -71,13 +71,11 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      */
     Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
+
     /**
-     * Wrapper methods to call omClient's getDMT and getDLT, which does the
-     * actual work of fetching DMT and DLT from OM, and then updating
-     * the actual AM's DLT and DMT information.
+     * True when DLT and DMT have been received
      */
-    Error getDMT();
-    Error getDLT();
+    bool haveTables();
 
     /**
      * Update QoS' rate and throttle

@@ -49,7 +49,7 @@ class DmOIDArrayMmap {
         fds_assert((objIndex / NUM_OBJS_PER_FRAGMENT) == id_);
         fds_assert(valid());
 
-        fds_scoped_spinlock sl(lock_);
+        fds_scoped_lock sl(lock_);
         objId.SetId(reinterpret_cast<const char *>(getOID(objIndex % NUM_OBJS_PER_FRAGMENT)),
                 OBJECTID_DIGESTLEN);
         return ERR_OK;
@@ -59,7 +59,7 @@ class DmOIDArrayMmap {
         fds_assert((objIndex / NUM_OBJS_PER_FRAGMENT) == id_);
         fds_assert(valid());
 
-        fds_scoped_spinlock sl(lock_);
+        fds_scoped_lock sl(lock_);
         memcpy(reinterpret_cast<void *>(getOID(objIndex % NUM_OBJS_PER_FRAGMENT)),
                 objId.GetId(), OBJECTID_DIGESTLEN);
         return ERR_OK;
@@ -69,7 +69,7 @@ class DmOIDArrayMmap {
     fds_uint64_t id_;
     int fd_;
     void * base_;
-    mutable fds_spinlock lock_;
+    mutable fds_mutex lock_;
 
     // methods
     inline const uint8_t * getBaseOffset() const {

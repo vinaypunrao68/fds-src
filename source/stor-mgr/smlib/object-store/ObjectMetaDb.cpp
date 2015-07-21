@@ -7,6 +7,9 @@
 #include <fds_process.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
+#include <sys/statvfs.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
 
 namespace fds {
 
@@ -30,7 +33,7 @@ ObjectMetadataDb::closeMetadataDb() {
 }
 
 Error
-ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
+ObjectMetadataDb::openMetadataDb(SmDiskMap::ptr& diskMap) {
     // open object metadata DB for each token that this SM owns
     // if metadata DB already open, no error
     SmTokenSet smToks = diskMap->getSmTokens();
@@ -38,16 +41,19 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
 }
 
 Error
-ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
+ObjectMetadataDb::openMetadataDb(SmDiskMap::ptr& diskMap,
                                  const SmTokenSet& smToks) {
     Error err(ERR_OK);
-    diskio::DataTier tier = diskio::diskTier;
+    smDiskMap = diskMap;
     fds_uint32_t ssdCount = diskMap->getTotalDisks(diskio::flashTier);
     fds_uint32_t hddCount = diskMap->getTotalDisks(diskio::diskTier);
     if ((ssdCount == 0) && (hddCount == 0)) {
         LOGCRITICAL << "No disks (no SSDs and no HDDs)";
         return ERR_SM_EXCEEDED_DISK_CAPACITY;
     }
+
+    // tier we are using to store metadata
+    metaTier = diskio::diskTier;
 
     // if we have SSDs, use SSDs; however, there is currently no way
     // for SM to tell if discovered SSDs are real or simulated
@@ -58,12 +64,12 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
         // currently, we always have SSDs (simulated if no SSDs), so below check
         // is redundant, but just in case platform changes
         if (ssdCount > 0) {
-            tier = diskio::flashTier;
+            metaTier = diskio::flashTier;
         }
     } else {
         // if we don't have any HDDs, but have SSDs, still use SSDs for meta
         if (hddCount == 0) {
-            tier = diskio::flashTier;
+            metaTier = diskio::flashTier;
         }
     }
 
@@ -76,13 +82,25 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap,
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        std::string diskPath = diskMap->getDiskPath(*cit, tier);
+        std::string diskPath = diskMap->getDiskPath(*cit, metaTier);
         err = openObjectDb(*cit, diskPath, syncW);
         if (!err.ok()) {
             LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
                      << ", disk path " << diskPath << " " << err;
             break;
         }
+    }
+    return err;
+}
+
+Error
+ObjectMetadataDb::deleteMetadataDb(const std::string& diskPath,
+                                   const fds_token_id& smToken) {
+    Error err(ERR_OK);
+    std::string file = ObjectMetadataDb::getObjectMetaFilename(diskPath, smToken);
+    leveldb::Status status = leveldb::DestroyDB(file, leveldb::Options());
+    if (!status.ok()) {
+        LOGNOTIFY << "Could not delete metadataDB for smToken = " << smToken;
     }
     return err;
 }
@@ -105,11 +123,12 @@ ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     return err;
 }
 
+
 Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
-    std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
+    std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, smTokId);
     // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
     SCOPEDWRITE(dbmapLock_);
@@ -227,8 +246,11 @@ ObjectMetadataDb::get(fds_volid_t volId,
     PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_READ, volId);
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
+    fiu_do_on("sm.persist.meta_readfail", err = ERR_NO_BYTES_READ; );
     if (!err.ok()) {
         // Object not found. Return.
+        fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
+        smDiskMap->notifyIOError(smTokId, metaTier, err);
         return NULL;
     }
 
@@ -239,6 +261,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
 Error ObjectMetadataDb::put(fds_volid_t volId,
                             const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
+    Error err(ERR_OK);
     std::shared_ptr<osm::ObjectDB> odb = getObjectDB(objId);
     if (!odb) {
         LOGWARN << "ObjectDB probably not open, is this expected?";
@@ -250,7 +273,12 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     ObjectBuf buf;
     objMeta->serializeTo(buf);
-    return odb->Put(objId, buf);
+    err = odb->Put(objId, buf);
+    if (!err.ok()) {
+        fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
+        smDiskMap->notifyIOError(smTokId, metaTier, err);
+    }
+    return err;
 }
 
 //
@@ -269,4 +297,10 @@ Error ObjectMetadataDb::remove(fds_volid_t volId,
     return odb->Delete(objId);
 }
 
+
+std::string ObjectMetadataDb::getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId) {
+
+    std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
+    return filename;
+}
 }  // namespace fds

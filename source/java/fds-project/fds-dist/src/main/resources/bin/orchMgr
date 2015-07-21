@@ -1,38 +1,68 @@
 #!/bin/bash
 
-args=$*
+##
+# this script is used for testing only, should not be used in production
+# environment
 
-JAVA_OPTS="-Xmx1024M -Xms20M"
+ORIGINAL_ARGS=("${@}")
 
-for i in "$@"
+export fds_root=/fds
+
+declare -a NEW_ARGS
+for i in "${ORIGINAL_ARGS[@]}"
 do
-  key="$1"
-
-  FDS_ROOT=/fds
-  FDS_OM_HOST=localhost
-
   case $i in
-    --fds-root=)
-    FDS_ROOT="${i#*=}"
-    shift # past argument
-    ;;
+    --fds-root=*)
+      fds_root="${i#*=}"
+      # This is passed on manually below, don't pass the original.
+      ;;
+
+    --debug-port=*)
+      DEBUG_PORT="${i#*=}"
+      # This is used to create DEBUG_OPTS, don't pass to OM.
+      ;;
+
     *)
-    # unknown option
-    ;;
+      # Pass this arg on to OM.
+      NEW_ARGS+=("${i}")
+      ;;
   esac
-  shift # past argument or value
 done
 
-export CLASSPATH=$FDS_ROOT/etc/
-export CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
-export CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
+# LD_LIBRARY_PATH dependencies
+export LD_LIBRARY_PATH=../lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
 
-for i in $FDS_ROOT/lib/java/*.jar;
-do
-   export CLASSPATH="$CLASSPATH:$i"
-done 
+export PATH=/usr/local/sbin
+export PATH=${PATH}:/usr/local/bin
+export PATH=${PATH}:/usr/sbin
+export PATH=${PATH}:/usr/bin
+export PATH=${PATH}:/sbin
+export PATH=${PATH}:/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/bin
+export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
+export PATH=${PATH}:./bin
+export PATH=${PATH}:../sbin
 
-echo "FDS_ROOT  = $FDS_ROOT"
-echo "CLASSPATH = $CLASSPATH"
+if [[ ! -z "${DEBUG_PORT}" ]]; then
+    DEBUG_OPTS='-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address='"${DEBUG_PORT}"
+fi
 
-java $JAVA_OPTS -classpath $CLASSPATH com.formationds.om.Main $args
+# JAVA dependencies
+export JAVA_OPTS="-Xmx2048M -Xms20M"
+export JAVA_HOME=/opt/fds-deps/embedded/jre
+
+# JAVA CLASSPATH dependencies
+export CLASSPATH=${CLASSPATH}:../lib/java/\*
+
+# JAVA Main executable dependency
+export MAIN_CLASS=com.formationds.om.Main
+
+"${JAVA_HOME}"/bin/java ${JAVA_OPTS} \
+                        -cp "${CLASSPATH}" \
+                        ${DEBUG_OPTS} \
+                        "${MAIN_CLASS}" \
+                        --foreground \
+                        --fds-root="${fds_root}" \
+                        "${NEW_ARGS[@]}" > ./om.out 2>&1

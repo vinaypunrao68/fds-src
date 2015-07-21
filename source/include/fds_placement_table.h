@@ -43,6 +43,17 @@ namespace fds {
         NodeUuid& operator[] (int index) {
             return p[index];
         }
+        inline fds_bool_t operator==(const TableColumn &rhs) const {
+            if (length != rhs.length) {
+                return false;
+            }
+            for (uint32_t i = 0; i < length; i++) {
+                if (p[i] != rhs.p[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         /**
          * Returns the row # of the column of which the Node resides.
@@ -65,6 +76,53 @@ namespace fds {
                 delete[] p;
             }
         }
+
+        /**
+         * Returns a set of UUIDs that are both in this column
+         * and in 'col'
+         */
+        NodeUuidSet getIntersection(const TableColumn& col) {
+            NodeUuidSet retSet;
+            for (fds_uint32_t j = 0; j < length; ++j) {
+                NodeUuid uuid = p[j];
+                if (col.find(uuid) >= 0) {
+                    retSet.insert(uuid);
+                }
+            }
+            return retSet;
+        }
+
+        /**
+         * Returns a set of uuids up to maxDepth
+         */
+        NodeUuidSet getUuids(const fds_uint32_t maxDepth) {
+            NodeUuidSet retSet;
+            fds_uint32_t depth = (maxDepth > length) ? length : maxDepth;
+            for (fds_uint32_t j = 0; j < depth; ++j) {
+                retSet.insert(p[j]);
+            }
+            return retSet;
+        }
+
+        /**
+         * Returns a set of UUIDs that are new in this column
+         * compared to 'oldColumn' or moved above row # 'numPrimRows'
+         * compared to 'oldColumn'
+         */
+        NodeUuidSet getNewAndNewPrimaryUuids(const TableColumn& oldColumn,
+                                             fds_uint32_t numPrimRows) {
+            NodeUuidSet retSet;
+            for (fds_uint32_t j = 0; j < length; ++j) {
+                NodeUuid uuid = p[j];
+                int index = oldColumn.find(uuid);
+                if ((index < 0) ||   // new UUID in this column
+                    ((j < numPrimRows) && (index >= (int)numPrimRows))) {  // moved up
+                    retSet.insert(uuid);
+                }
+            }
+            return retSet;
+        }
+
         friend std::ostream& operator<< (std::ostream &out,
                                          const TableColumn& column);
 

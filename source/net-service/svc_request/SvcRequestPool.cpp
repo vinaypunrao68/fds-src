@@ -49,7 +49,7 @@ SvcRequestPool::SvcRequestPool(CommonModuleProviderIf *moduleProvider,
     RandNumGenerator rgen(RandNumGenerator::getRandSeed());
     nextAsyncReqId_ = rgen.genNum();
     nextAsyncReqId_ = getNextAsyncReqId_();
-    LOGNOTIFY << "Starting servrice request id at: " << nextAsyncReqId_;
+    LOGNOTIFY << "Starting service request id at: " << nextAsyncReqId_;
 
     finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
             svcRequestTracker_, std::placeholders::_1);
@@ -82,7 +82,8 @@ fpi::AsyncHdr
 SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
                                     const fpi::FDSPMsgTypeId &msgTypeId,
                                     const fpi::SvcUuid &srcUuid,
-                                    const fpi::SvcUuid &dstUuid)
+                                    const fpi::SvcUuid &dstUuid,
+                                    const fds_uint64_t dlt_version)
 {
     fpi::AsyncHdr header;
 
@@ -91,14 +92,20 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
     header.msg_src_uuid = srcUuid;
     header.msg_dst_uuid = dstUuid;
     header.msg_code = 0;
-    // Set the header's dlt_version if we have actually have one. In cases
-    // where there isn't a data placement table we're expecting the receiver
-    // to ignore this field anyways.
-    if (dltMgr) {
+
+    // FIXME(bszmyd): Thu 09 Jul 2015 03:38:23 PM MDT
+    // This ONLY gets used by the SM operations that AM sends, yet it's a
+    // generic field that has always been set, so I'll continue to do so here in
+    // case no one already passed a valid version in
+    if (DLT_VER_INVALID == dlt_version && dltMgr) {
         const DLT* curDlt = dltMgr->getDLT();
         if (curDlt) {
             header.dlt_version = curDlt->getVersion();
         }
+    } else {
+        // When it matters, this is how this actually is being set, see note
+        // above
+        header.dlt_version = dlt_version;
     }
     return header;
 }
@@ -116,10 +123,11 @@ boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
                                     const SvcRequestId& reqId,
                                     const fpi::FDSPMsgTypeId &msgTypeId,
                                     const fpi::SvcUuid &srcUuid,
-                                    const fpi::SvcUuid &dstUuid)
+                                    const fpi::SvcUuid &dstUuid,
+                                    const fds_uint64_t dlt_version)
 {
     boost::shared_ptr<fpi::AsyncHdr> hdr(new fpi::AsyncHdr());
-    *hdr = newSvcRequestHeader(reqId, msgTypeId, srcUuid, dstUuid);
+    *hdr = newSvcRequestHeader(reqId, msgTypeId, srcUuid, dstUuid, dlt_version);
     return hdr;
 }
 
@@ -174,22 +182,22 @@ SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
     return req;
 }
 
-FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(
-    const EpIdProviderPtr epProvider)
+FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(const EpIdProviderPtr epProvider,
+                                                            fds_uint64_t const dlt_version)
 {
     auto reqId = getNextAsyncReqId_();
 
-    FailoverSvcRequestPtr req(new FailoverSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
+    FailoverSvcRequestPtr req(new FailoverSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, dlt_version, epProvider));
     asyncSvcRequestInitCommon_(req);
 
     return req;
 }
 
-QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider)
+QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_ver)
 {
     auto reqId = getNextAsyncReqId_();
 
-    QuorumSvcRequestPtr req(new QuorumSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
+    QuorumSvcRequestPtr req(new QuorumSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, dlt_ver, epProvider));
     asyncSvcRequestInitCommon_(req);
 
     return req;
@@ -197,10 +205,11 @@ QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr ep
 
 MultiPrimarySvcRequestPtr SvcRequestPool::newMultiPrimarySvcRequest(
     const std::vector<fpi::SvcUuid>& primarySvcs,
-    const std::vector<fpi::SvcUuid>& optionalSvcs)
+    const std::vector<fpi::SvcUuid>& optionalSvcs,
+    fds_uint64_t const dlt_version)
 {
     auto reqId = getNextAsyncReqId_();
-    MultiPrimarySvcRequestPtr req(new MultiPrimarySvcRequest(MODULEPROVIDER(), reqId, selfUuid_, primarySvcs, optionalSvcs));
+    MultiPrimarySvcRequestPtr req(new MultiPrimarySvcRequest(MODULEPROVIDER(), reqId, selfUuid_, dlt_version, primarySvcs, optionalSvcs));
     asyncSvcRequestInitCommon_(req);
 
     return req;

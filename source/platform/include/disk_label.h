@@ -7,11 +7,16 @@
 
 #include <vector>
 
+#include "fds_config.hpp"
+#include "fds_process.h"
+
 #include "platform_disk_obj.h"
 #include "pm_disk_inventory.h"
 
 namespace fds
 {
+    extern FdsProcess *g_fdsprocess;
+
     const int    DL_UUID_BYTE_LEN             = 30;
     const int    DL_MAJOR                     = 1;
     const int    DL_MINOR                     = 0;
@@ -131,6 +136,8 @@ namespace fds
             ChainLink             dl_link;
             dlabel_hdr_t         *dl_label;
             dlabel_disk_uuid_t   *dl_disk_uuids;
+            FdsConfigAccessor     m_conf;
+            bool                  m_use_new_superblock;
             PmDiskObj::pointer    dl_owner;
 
             void dsk_label_fixup_header();

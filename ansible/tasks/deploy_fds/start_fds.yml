@@ -10,7 +10,7 @@
       - startup
 
 -   name: start influxdb
-    service: name=influxdb state=started
+    service: name=fds-influxdb state=started
     when: inventory_hostname in om_influxdb_url
     tags:
         - startup
@@ -28,14 +28,14 @@
       - om-eventdb
     register: influxdb_delete_resp
     until: influxdb_delete_resp|success
-    when: fds_om_host is defined and fds_om_host == inventory_hostname
+    when: (fds_om_host is defined and fds_om_host == inventory_hostname) and (clean_fds is defined and clean_fds == "yes")
     ignore_errors: yes # This is until we fix some issues with influxdb setup - it may fail from time to time (anichols)
     tags:
       - clean
       - cleaninfluxdb
 
 -   debug: var=influxdb_delete_resp
-    when: fds_om_host is defined and fds_om_host == inventory_hostname
+    when: (fds_om_host is defined and fds_om_host == inventory_hostname) and (clean_fds is defined and clean_fds == "yes")
     tags:
       - clean
       - cleaninfluxdb
@@ -128,7 +128,6 @@
         - 8443
         - 8899
         - 8911
-        - 9988
         - 9999
     tags:
       - startup

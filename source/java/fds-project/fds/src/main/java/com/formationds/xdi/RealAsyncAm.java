@@ -9,6 +9,7 @@ import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
+import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.server.TNonblockingServer;
@@ -18,6 +19,7 @@ import org.joda.time.Duration;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -25,47 +27,64 @@ public class RealAsyncAm implements AsyncAm {
     private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
     private final AsyncAmResponseListener responseListener;
     private AsyncXdiServiceRequest.Iface oneWayAm;
-    private int port;
+    private String amHost;
+    private int amPort;
+    private int responsePort;
     private AsyncRequestStatistics statistics;
 
-    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port) throws Exception {
-        this(oneWayAm, port, 30, TimeUnit.SECONDS);
+    public RealAsyncAm(String amHost, int amPort, int responseServerPort) throws Exception {
+        this(amHost, amPort, responseServerPort, 30, TimeUnit.SECONDS);
     }
 
-    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
-        this.oneWayAm = oneWayAm;
-        this.port = port;
+    public RealAsyncAm(String amHost, int amPort, int responsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
+        this.amHost = amHost;
+        this.amPort = amPort;
+        this.responsePort = responsePort;
         statistics = new AsyncRequestStatistics();
         responseListener = new AsyncAmResponseListener(timeoutDuration, timeoutDurationUnit);
     }
 
     @Override
     public void start() throws Exception {
-        start(true);
-    }
-
-    public void start(boolean connectedMode) throws Exception {
         try {
-            if (connectedMode) {
-                AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
+            AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
-                TNonblockingServer server = new TNonblockingServer(
-                        new TNonblockingServer.Args(new TNonblockingServerSocket(port))
-                                .processor(processor));
+            TNonblockingServer server = new TNonblockingServer(
+                    new TNonblockingServer.Args(new TNonblockingServerSocket(responsePort))
+                            .processor(processor));
 
-                new Thread(() -> server.serve(), "AM async listener thread").start();
-                LOG.debug("Started async AM listener on port " + port);
-            }
+            new Thread(() -> server.serve(), "AM async listener thread").start();
+            LOG.debug("Started async AM listener on port " + responsePort);
 
             responseListener.start();
 
-            if (connectedMode) {
-                new Retry<Void, Void>((x, i) ->
-                        handshake(port).get(),
-                        120, Duration.standardSeconds(1), "async handshake with bare_am")
-                        .apply(null);
-                LOG.debug("Async AM handshake done");
-            }
+            ThriftClientFactory<AsyncXdiServiceRequest.Iface> factory = new ThriftClientFactory.Builder<>(AsyncXdiServiceRequest.Iface.class)
+                    .withHostPort(amHost, amPort)
+                    .withPoolConfig(100, 0, Integer.MAX_VALUE)
+                    .withClientFactory(bp -> {
+                        AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(bp);
+                        try {
+                            Retry<Void, Void> retry = new Retry<>(
+                                    (x, numTries) -> {
+                                        RequestId requestId = new RequestId(UUID.randomUUID().toString());
+                                        CompletableFuture<Void> cf = responseListener.expect(requestId);
+                                        client.handshakeStart(requestId, responsePort);
+                                        cf.get();
+                                        return null;
+                                    },
+                                    120,
+                                    Duration.standardSeconds(1),
+                                    "async handshake with bare_am"
+                            );
+                            retry.apply(null);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                        return client;
+                    })
+                    .build();
+
+            oneWayAm = factory.getClient();
 
         } catch (Exception e) {
             LOG.error("Error starting async AM", e);
@@ -93,10 +112,10 @@ public class RealAsyncAm implements AsyncAm {
     @Override
     public CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException {
         return scheduleAsync(rid -> {
-	    // TODO (bszmyd)
-	    // Should probably expose this ability to attach with an explicit mode to the connectors
-	    // for now we just default to r/w with cache
-	    VolumeAccessMode mode = new VolumeAccessMode();
+            // TODO (bszmyd)
+            // Should probably expose this ability to attach with an explicit mode to the connectors
+            // for now we just default to r/w with cache
+            VolumeAccessMode mode = new VolumeAccessMode();
             oneWayAm.attachVolume(rid, domainName, volumeName, mode);
         });
     }

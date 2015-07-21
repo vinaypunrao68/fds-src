@@ -26,19 +26,19 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
 
     service.getOverallStatus = function( node ){
 
-        if ( node.am === service.DOWN ||
-            node.om === service.DOWN ||
-            node.sm === service.DOWN ||
-            node.hw === service.DOWN ||
-            node.dm === service.DOWN ){
-            return service.DOWN;
+        if ( node.am === service.FDS_DOWN ||
+            node.om === service.FDS_DOWN ||
+            node.sm === service.FDS_DOWN ||
+            node.hw === service.FDS_DOWN ||
+            node.dm === service.FDS_DOWN ){
+            return service.FDS_DOWN;
         }
 
-        if ( node.am === service.UNKNOWN ||
-            node.om === service.UNKNOWN ||
-            node.sm === service.UNKNOWN ||
-            node.hw === service.UNKNOWN ||
-            node.dm === service.UNKNOWN ){
+        if ( node.am === service.FDS_UNKNOWN ||
+            node.om === service.FDS_UNKNOWN ||
+            node.sm === service.FDS_UNKNOWN ||
+            node.hw === service.FDS_UNKNOWN ||
+            node.dm === service.FDS_UNKNOWN ){
             return service.FDS_NODE_ATTENTION;
         }
 
@@ -77,7 +77,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
             node.serviceMap.DM = [dm];
             node.serviceMap.SM = [sm];
             
-            $http_fds.post( webPrefix + '/nodes/' + node.id, node )
+            $http_fds.post( webPrefix + '/nodes/' + node.uid, node )
                 .then( getNodes );
 //            console.log( '/api/config/services/' + node.uuid + ' BODY: {am: ' + node.am + ', sm:' + node.sm + ', dm: ' + node.dm + '}' );
         });
@@ -86,7 +86,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.removeNode = function( node, callback ){
         
         // right now we stop all services when we deactivate a node
-        $http_fds.delete( webPrefix + '/nodes/' + node.id, node )
+        $http_fds.delete( webPrefix + '/nodes/' + node.uid, node )
             .then( function(){
                 if ( angular.isFunction( callback ) ){
                     callback();
@@ -112,7 +112,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
                     
                     var node = data[i];
                     
-                    if ( node.state === service.DISCOVERED ){
+                    if ( node.state === service.FDS_DISCOVERED ){
                         service.detachedNodes.push( node );
                     }
                     else {

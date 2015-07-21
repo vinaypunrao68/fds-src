@@ -9,8 +9,7 @@
   <parent>
     <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2015.06.19-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
+    <version>2015.07.31-SNAPSHOT</version>
   </parent>
 
   <name>${formationds.external.project.name} Project POM</name>
@@ -19,7 +18,7 @@
 
   <properties>
     <formationds.external.project.name>
-      ${formationds.project.name} external
+      ${formationds.project.name} External
     </formationds.external.project.name>
   </properties>
 

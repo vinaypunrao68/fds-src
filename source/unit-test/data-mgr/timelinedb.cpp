@@ -12,7 +12,7 @@
 #include <thread>
 #include <google/profiler.h>
 
-#include <dm-tvc/TimelineDB.h>
+#include <timeline/timelinedb.h>
 
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
@@ -31,28 +31,28 @@ TEST_F(DmUnitTest, Timelinedb) {
     }
 
     fds_volid_t volId = invalid_vol_id;
-    dataMgr->timeline->removeVolume(volId);
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 10, "hello1"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 20, "hello2"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 30, "hello3"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 40, "hello4"));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addJournalFile(volId, 50, "hello5"));
+    dataMgr->timelineMgr->getDB()->removeVolume(volId);
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addJournalFile(volId, 10, "hello1"));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addJournalFile(volId, 20, "hello2"));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addJournalFile(volId, 30, "hello3"));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addJournalFile(volId, 40, "hello4"));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addJournalFile(volId, 50, "hello5"));
 
-    std::vector<fds::JournalFileInfo> vecJournalFiles;
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->getJournalFiles(volId, 0, 30, vecJournalFiles));
+    std::vector<fds::timeline::JournalFileInfo> vecJournalFiles;
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->getJournalFiles(volId, 0, 30, vecJournalFiles));
     EXPECT_EQ(3, vecJournalFiles.size());
 
     vecJournalFiles.clear();
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->getJournalFiles(volId, 32, 55, vecJournalFiles));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->getJournalFiles(volId, 32, 55, vecJournalFiles));
     EXPECT_EQ(3, vecJournalFiles.size());
 
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(2), 10));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(3), 20));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(4), 30));
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->addSnapshot(volId, fds_volid_t(5), 40));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addSnapshot(volId, fds_volid_t(2), 10));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addSnapshot(volId, fds_volid_t(3), 20));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addSnapshot(volId, fds_volid_t(4), 30));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->addSnapshot(volId, fds_volid_t(5), 40));
 
     fds_volid_t snapshotId;
-    EXPECT_EQ(ERR_OK, dataMgr->timeline->getLatestSnapshotAt(volId, 22, snapshotId));
+    EXPECT_EQ(ERR_OK, dataMgr->timelineMgr->getDB()->getLatestSnapshotAt(volId, 22, snapshotId));
     EXPECT_EQ(fds_volid_t(3), snapshotId);
 }
 

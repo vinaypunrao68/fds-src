@@ -33,7 +33,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     DataMgr& dataManager_;
 
     /* Lock around commit log */
-    fds_spinlock commitLogLock_;
+    fds_mutex commitLogLock_;
 
     /**
      * Log the manages recent and currently active
@@ -81,26 +81,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
 
-    /**
-     * This thread will monitor filesystem for archived files. Whenever catalog journal
-     * files are archived, the thread will wake up and copy the file to timeline directory.
-     * The timeline directory will hold all journal files for all volumes.
-     */
-    boost::shared_ptr<std::thread> logMonitorThread_;
-    std::atomic<bool> stopLogMonitoring_;
-
-    void monitorLogs();
-
-    void getDirChildren(const std::string & parent, std::vector<std::string> & children,
-            fds_bool_t dirs = true);
-
-    // volcat  replay
-    Error dmReplayCatJournalOps(Catalog& destCat,
-                                const std::vector<std::string> &files,
-                                util::TimeStamp fromTime,
-                                util::TimeStamp toTime);
-    Error dmGetCatJournalStartTime(const std::string &logfile, fds_uint64_t *journal_time);
-
   protected:
     void createCommitLog(const VolumeDesc& voldesc);
 
@@ -123,8 +103,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
 
-    void cancelLogMonitoring();
-
     /**
      * Notification about new volume managed by this DM.
      * This could be either completely new volume or volume
@@ -141,8 +119,10 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Attempt to "open" this volume for access
      */
     Error openVolume(fds_volid_t const volId,
+                     fpi::SvcUuid const& client_uuid,
                      fds_int64_t& token,
-                     fpi::VolumeAccessMode const& mode);
+                     fpi::VolumeAccessMode const& mode,
+                     sequence_id_t& sequence_id);
 
     /**
      * Attempt to "close" this volume from a previous open
@@ -153,12 +133,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Create copy of the volume for snapshot/clone
      */
     Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = invalid_vol_id);
-
-    /**
-     *
-     */
-    Error replayTransactions(fds_volid_t srcVolId, fds_volid_t destVolId,
-                             util::TimeStamp fromTime, util::TimeStamp toTime);
 
     /**
      * Increment object reference counts for all objects referred by source
@@ -199,7 +173,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * to volume catalog.
      */
     Error setVolumeMetadata(fds_volid_t volId,
-                            const fpi::FDSP_MetaDataList &metadataList);
+                            const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
 
     /**
      * Starts a new transaction for blob
@@ -268,6 +243,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error commitBlobTx(fds_volid_t volId,
                        const std::string &blobName,
                        BlobTxId::const_ptr txDesc,
+                       sequence_id_t seq_id,
                        const DmTimeVolCatalog::CommitCb &commitCb);
 
     /**
@@ -299,6 +275,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                  blob_version_t blobVersion,
                                  const fpi::FDSP_BlobObjectList &objList,
                                  const fpi::FDSP_MetaDataList &metaList,
+                                 const sequence_id_t seq_id,
                                  const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
 
     /**
@@ -309,21 +286,35 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     fds_bool_t isPendingTx(fds_volid_t volId, fds_uint64_t timeNano);
 
     void commitBlobTxWork(fds_volid_t volid,
-			  const std::string &blobName,
+                          const std::string &blobName,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
+                          sequence_id_t seq_id,
                           const DmTimeVolCatalog::CommitCb &cb);
 
     Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-            CommitLogTx::ptr commit_data);
+            sequence_id_t seq_id, CommitLogTx::ptr commit_data);
 
     void updateFwdBlobWork(fds_volid_t volId,
                            const std::string &blobName,
                            blob_version_t blobVersion,
                            const fpi::FDSP_BlobObjectList &objList,
                            const fpi::FDSP_MetaDataList &metaList,
+                           const sequence_id_t seq_id,
                            const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
     Error getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog);
+
+    /**
+     * insert blob descriptors into catalog during static migration, bypassing the
+     * commit log.
+     * NOTE: do NOT use for any data path operation.
+     */
+ protected:
+    Error migrateDescriptor(fds_volid_t volId,
+                            const std::string& blobName,
+                            const std::string& blobData);
+    friend class DmMigrationExecutor;
+ public:
 
     /**
      * Returns query interface to volume catalog. Provides

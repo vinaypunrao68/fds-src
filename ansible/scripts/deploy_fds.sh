@@ -62,8 +62,8 @@ check_environment() {
     current_user=$(whoami)
 
     if [ ${grep_rc} -eq 0 ] && [ "${current_user}" == "root" ]; then
-        E "ERROR: You appear to be running Ansible as root inside a container. For some reason, this will cause fds-tool and fdsadmin calls to fail when run by Ansible.\n\nPlease run this as a non-root user within your container, or as root from a non-container.\n"
-        exit 1
+        I "You appear to be running Ansible as root inside a container. For some reason, this will cause fds-tool and fdsadmin calls to fail when run by Ansible."
+				I "This may not be a problem any longer so this message is informational & may be removed in the future"
     fi
 }
 

@@ -22,8 +22,8 @@ user_non_fds_libs := \
     pcrecpp \
     sqlite3
 
-user_cpp          := dm-main.cpp
-user_bin_exe      := DataMgr
-DataMgr           := $(user_cpp)
+user_bin_exe      := DataMgr DmChecker
+DataMgr           := dm-main.cpp
+DmChecker         := DmCheckerMain.cpp
 
 include $(topdir)/Makefile.incl

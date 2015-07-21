@@ -227,9 +227,9 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
         auto volId = vol.volUUID.get();
         Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, volId);
         if (!reply.wasModified()) {
-            LOGWARN << "volume [" << vol.volUUID
-                    << "] already exists for domain ["
-                    << vol.localDomainId << "]";
+            LOGDEBUG << "volume [ " << vol.volUUID
+                     << " ] already exists for domain [ "
+                     << vol.localDomainId << " ]";
         }
 
         // add the volume data
@@ -297,7 +297,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
 bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
     TRACKMOD();
     try {
-        LOGNORMAL << "updating volume id " << volumeId << " to state " << state;
+        LOGDEBUG << "updating volume id " << volumeId 
+                 << " to state " << state;
         auto volId = volumeId.get();
         return r.sendCommand("hset vol:%ld state %d", volId, static_cast<int>(state)).isOk();
     } catch(const RedisException& e) {
@@ -1626,7 +1627,13 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         std::string nameLower = lower(snapshot.snapshotName);
 
         if (r.sismember("snapshot:names", nameLower)) {
-            throw ConfigException("another snapshot exists with name:" + snapshot.snapshotName); //NOLINT
+            LOGDEBUG << "The specified snapshot ( " 
+                     << snapshot.snapshotName << " ) "
+                     << "name already exists";
+            return false;
+                
+//            throw ConfigException("another snapshot exists with name:" + 
+//              snapshot.snapshotName); //NOLINT
         }
 
         r.sadd("snapshot:names", nameLower);
@@ -1829,6 +1836,44 @@ bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid,
     }
     
     return bRetCode;
+}
+
+//
+// If service not found in configDB, returns SVC_STATUS_INVALID
+//
+fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
+{
+    fpi::ServiceStatus retStatus = fpi::SVC_STATUS_INVALID;
+
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+
+        LOGDEBUG << "ConfigDB reading service status for service"
+                 << " uuid: " << std::hex << svc_uuid << std::dec;
+
+        Reply reply = r.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+        if ( reply.isValid() )
+        {
+            std::string value = reply.getString();
+            fpi::SvcInfo svcInfo;
+            fds::deserializeFdspMsg( value, svcInfo );
+
+            // got the status!
+            retStatus = svcInfo.svc_status;
+
+            LOGDEBUG << "ConfigDB retrieved service status for service"
+                     << " uuid: " << std::hex << svc_uuid << std::dec
+                     << " status: " << retStatus;
+        }
+    }
+    catch( const RedisException& e )
+    {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return retStatus;
 }
 
 void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 

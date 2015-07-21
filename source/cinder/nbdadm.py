@@ -40,7 +40,7 @@ class nbd_host_error(Exception):
     def __str__(self):
         return repr(self.value)
 
-class nbdlib:
+class nbdlib(object):
 
     def __init__(self, lockfile="/tmp/nbdadm_lock"):
         self.lock_file = lockfile
@@ -160,6 +160,8 @@ class nbdlib:
         else:
             nbd_args = ['nbd-client', '-N', vol_name, host, str(port), dev, '-b', '4096', '-t', '5']
 
+        #print(nbd_args)
+
         nbd_client = subprocess.Popen(nbd_args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         # add timeout?
         (stdout, stderr) = nbd_client.communicate()
@@ -206,12 +208,7 @@ class nbdlib:
         ret_dev = None
 
         with self.__lock(use_lock):
-            devs = list(self.__device_paths())
-            if len(devs) == 0:
-                if not self.__insmod_nbd():
-                    raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
-
-                devs = list(self.__device_paths())
+            devs = self.get_device_paths()
 
             for conn in self.__nbd_connections():
                 (p, c_dev, c_host, c_port, volume) = conn
@@ -236,6 +233,14 @@ class nbdlib:
                             continue
 
         return ret_dev
+
+    def get_device_paths(self):
+        devs = list(self.__device_paths())
+        if len(devs) == 0:
+            if not self.__insmod_nbd():
+                raise nbd_modprobe_error("no nbd devices found and modprobe nbd failed")
+            devs = list(self.__device_paths())
+        return devs
 
     def list_conn(self):
         return [(dev, host, port, vol) for (proc, dev, host, port, vol) in self.__nbd_connections()]
@@ -305,23 +310,23 @@ def main(argv = sys.argv):
                 print 'nothing to detach'
 
     except nbd_user_error as e:
-        sys.stderr.write(e.message() + '\n')
+        sys.stderr.write(e.message + '\n')
         return_val = 1
 
     except nbd_client_error as e:
-        sys.stderr.write(e.message() + '\n')
+        sys.stderr.write(e.message + '\n')
         return_val = 2
 
     except nbd_volume_error as e:
-        sys.stderr.write(e.message() + '\n')
+        sys.stderr.write(e.message + '\n')
         return_val = 2
 
     except nbd_host_error as e:
-        sys.stderr.write(e.message() + '\n')
+        sys.stderr.write(e.message + '\n')
         return_val = 3
 
     except nbd_modprobe_error as e:
-        sys.stderr.write(e.message() + '\n')
+        sys.stderr.write(e.message + '\n')
         return_val = 5
 
     except Exception as e:

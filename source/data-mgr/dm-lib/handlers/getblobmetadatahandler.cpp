@@ -54,8 +54,7 @@ void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoGetBlobMetaData* typedRequest = static_cast<DmIoGetBlobMetaData*>(dmRequest);
 
-    // TODO(Andrew): We're not using the size...we can remove it
-    fds_uint64_t blobSize;
+    fds_uint64_t blobSize {0};
     helper.err = dataManager
                 .timeVolCat_
                ->queryIface()

@@ -6,6 +6,13 @@ package com.formationds.iodriver.logging;
 public interface Logger
 {
     /**
+     * Log a debugging message.
+     * 
+     * @param message The message to log.
+     */
+    void logDebug(String message);
+    
+    /**
      * Log an error.
      * 
      * @param message Detailed error message explaining context.

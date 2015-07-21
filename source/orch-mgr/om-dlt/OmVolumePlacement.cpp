@@ -37,9 +37,10 @@ VolumePlacement::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    // Should we also get DMT width, depth, algo from config?
+    // TODO(Andrew): Should we also get DMT width and algo from config?
     curDmtWidth = 4;
-    curDmtDepth = 4;
+    curDmtDepth = MODULEPROVIDER()->get_fds_config()->
+            get<int>("fds.om.replica_factor");;
 
     std::string algo_type_str("RoundRobinDynamic");
     VolPlacementAlgorithm::AlgorithmTypes type =
@@ -98,7 +99,7 @@ VolumePlacement::setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type)
     fds_verify(placeAlgo != NULL);
 }
 
-void
+Error
 VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
     Error err(ERR_OK);
@@ -117,7 +118,11 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
     }
-    fds_verify(depth > 0);
+
+    if (depth == 0) {
+        // there are no DMs in the domain, nothing to compute
+        return ERR_NOT_FOUND;
+    }
 
     // allocate and compute new DMT
     newDmt = new(std::nothrow) DMT(curDmtWidth, depth, next_version, true);
@@ -125,9 +130,31 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     {  // compute DMT
         fds_mutex::scoped_lock l(placementMutex);
         if (dmtMgr->hasCommittedDMT()) {
-            placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED), newDmt);
+            err = placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED),
+                                       newDmt, getNumOfPrimaryDMs());
+            if (err == ERR_INVALID_ARG) {
+                LOGWARN << "Couldn't update DMT most likely because we tried to "
+                        << " remove all primary DMs from at least one DMT column";
+                // DMT was not updated, because we are not supporting the update
+                // with some combination of removed DMs. Returning an error
+                delete newDmt;  // delete since not adding to dmtMgr
+                return err;
+            }
+            fds_verify(err.ok());
+            // if we ended up computing exactly the same DMT, do not
+            // make it a target, just return an error so that state machine
+            // knows not to proceed with commiting it, etc...
+            DMTPtr commitedDmt = dmtMgr->getDMT(DMT_COMMITTED);
+            if (*commitedDmt == *newDmt) {
+                LOGDEBUG << "Newly computed DMT is the same as committed DMT."
+                         << " Not going to commit";
+                LOGDEBUG << *dmtMgr;
+                LOGDEBUG << "Computed DMT (same as commited)" << *newDmt;
+                delete newDmt;  // delete since not adding to dmtMgr
+                return ERR_NOT_READY;
+            }
         } else {
-            placeAlgo->computeDMT(cmap, newDmt);
+            placeAlgo->computeDMT(cmap, newDmt, getNumOfPrimaryDMs());
         }
     }
 
@@ -147,6 +174,7 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 
     LOGNORMAL << "Version: " << newDmt->getVersion();
     LOGDEBUG << "Computed new DMT: " << *newDmt;
+    return err;
 }
 
 /**
@@ -185,6 +213,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     VolumeContainer::pointer volumes = loc_domain->om_vol_mgr();
     fds_uint32_t vol_count = volumes->rs_container_snapshot(&vol_ary);
     NodeUuidSet rmNodes = cmap->getRemovedServices(fpi::FDSP_DATA_MGR);
+    NodeUuidSet nonFailedDms = cmap->getNonfailedServices(fpi::FDSP_DATA_MGR);
     // List used for sending DMVolumeMigrationGroup
     std::list<fpi::FDSP_VolumeDescType> volDescList;
     /**
@@ -227,22 +256,70 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // Populate volume descriptor
         volinfo->vol_fmt_desc_pkt(&vol_desc);
 
-        // for each DM in target column, find all DMs that
-        // that got added to that column
-        NodeUuidSet new_dms;
-        for (fds_uint32_t j = 0; j < target_col->getLength(); ++j) {
-            NodeUuid uuid = target_col->get(j);
-            if (cmt_col->find(uuid) < 0) {
-                new_dms.insert(uuid);
-            }
+        // for each DM in target column, find all DMs that will need to
+        // sync volume metadata
+        NodeUuidSet new_dms = target_col->getNewAndNewPrimaryUuids(*cmt_col, getNumOfPrimaryDMs());
+        LOGDEBUG << "Found " << new_dms.size() << " DMs that need to get"
+                 << " meta for vol " << volid;
+
+        // get list of candidates to resync from
+        // if number of primary DMs == 0, means can resync from anyone
+        fds_uint32_t rows = (getNumOfPrimaryDMs() > 0) ? getNumOfPrimaryDMs() : cmt_col->getLength();
+        NodeUuidSet srcCandidates = cmt_col->getUuids(rows);
+        // exclude DMs that were removed
+        for (auto dm : rmNodes) {
+            srcCandidates.erase(dm);
         }
 
-        LOGDEBUG << "Found " << new_dms.size() << " DMs that need to get"
-                 << " meta for vol " << std::hex << volid << std::dec;
+        // if all DMs need resync, this means that we moved a secondary to be
+        // a primary (both primaries failed)
+        if (new_dms.size() == target_col->getLength()) {
+            // this should not happen if num primary DMs = 0 (if we did not
+            // care about resyncing secondaries). If that happen, it means
+            // that DMT calculation algorithm managed to put all new DMs into
+            // the same column.
+            fds_verify(getNumOfPrimaryDMs() > 0);  // FIX DMT computation algorithm
+
+            // there must be one DM that is in committed and target column
+            // and in a primary row. Otherwise, all DMs failed in that column
+            NodeUuidSet intersectDMs = target_col->getIntersection(*cmt_col);
+            NodeUuid nosyncDm;
+            for (auto dm: intersectDMs) {
+                int index = target_col->find(dm);
+                if ((index >= 0) && (index < (int)getNumOfPrimaryDMs())) {
+                    if (nosyncDm.uuid_get_val() == 0) {
+                        nosyncDm = dm;
+                    } else {
+                        // if we are here, means the whole column fail
+                        // and we just skip doing anything for that column
+                        nosyncDm.uuid_set_val(0);
+                        break;
+                    }
+                }
+            }
+            if (nosyncDm.uuid_get_val() > 0) {
+                // secondary DM survived, but both primaries didn't
+                // do not sync to this DM
+                new_dms.erase(nosyncDm);
+                // but everyone should sync from this DM
+                srcCandidates.clear();
+                srcCandidates.insert(nosyncDm);
+            } else {
+                LOGWARN << "Looks like the whole column for volume "
+                        << volid << " failed; no DM to sync from";
+                continue;
+            }
+        }
 
         // if no new DMs, then this volume does not need to be
         // rebalanced, start working on next volume
         if (new_dms.size() == 0) continue;
+
+        // there must be at least one DM candidate to be a source
+        // otherwise we need to revisit DMT calculation algorithm
+        LOGDEBUG << "Found " << srcCandidates.size() << " candidates for a source "
+                 << " for volume " << volid;
+        fds_verify(srcCandidates.size() > 0);
 
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
              cit != new_dms.cend();
@@ -272,46 +349,36 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         	 * Look through DM Migration groups to see if any of the source DMs
         	 * contain this volume. If so, add this volume to that list.
         	 * If not, create a new group.
-			 * If a node in the migration group exists that matches a node
-			 * in the cmt_col, that means this this current committed node
-			 * can be a candidate for the dest node to pull from.
-			 * Do a lookup only from the primary DMs.
-			 */
-			using MiGrIter = std::vector<fpi::DMVolumeMigrationGroup>::iterator;
-			NodeUuid uuid;
-			fds_verify(uuid.uuid_get_val() == 0); // 0 means not found yet.
-			bool grp_found = false;
-			for (MiGrIter migrationGrpIter = srcDMMigrateMsg->migrations.begin();
-					migrationGrpIter != srcDMMigrateMsg->migrations.end();
-					migrationGrpIter++) {
-				/**
-				 * Go through this CtrlNotifyDMStartMigrationMsg's migrations
-				 * and see if we can find an existing source to append this volume
-				 * to that source.
-				 */
-				for (fds_uint32_t j = 0; j < getNumOfPrimaryDMs(); j++) {
-					if (j >= cmt_col->getLength()) break;
-					// Go through the commit DMT column to find a primary
-					uuid = cmt_col->get(j);
-					if (rmNodes.count(uuid) > 0) {
-						LOGDEBUG << "Node is being removed: " << uuid.uuid_get_val();
-						// This primary is being removed. Look for another primary.
-						continue;
-					}
-					if ((unsigned)migrationGrpIter->source.svc_uuid ==
-							uuid.uuid_get_val()) {
-						grp_found = true;
-						migrationGrpIter->VolDescriptors.push_back(vol_desc);
-						LOGDEBUG << "DM: " << cit->uuid_get_val() << " will pull from: "
-								<< migrationGrpIter->source.svc_uuid << " for volume ("
-								<< vol_desc.volUUID << ") " << vol_desc.vol_name;
-						break;
-					}
-				}
-				if (grp_found) {
-					break;
-				}
-			}
+                 * If a node in the migration group exists that matches a node
+                 * in the cmt_col, that means this this current committed node
+                 * can be a candidate for the dest node to pull from.
+                 * Do a lookup only from the primary DMs.
+                 */
+                using MiGrIter = std::vector<fpi::DMVolumeMigrationGroup>::iterator;
+                bool grp_found = false;
+                for (MiGrIter migrationGrpIter = srcDMMigrateMsg->migrations.begin();
+                     migrationGrpIter != srcDMMigrateMsg->migrations.end();
+                     migrationGrpIter++) {
+                    /**
+                     * Go through this CtrlNotifyDMStartMigrationMsg's migrations
+                     * and see if we can find an existing source to append this volume
+                     * to that source.
+                     */
+                    for (auto uuid : srcCandidates) {
+                        if ((unsigned)migrationGrpIter->source.svc_uuid ==
+                            uuid.uuid_get_val()) {
+                            grp_found = true;
+                            migrationGrpIter->VolDescriptors.push_back(vol_desc);
+                            LOGDEBUG << "DM: " << cit->uuid_get_val() << " will pull from: "
+                                     << migrationGrpIter->source.svc_uuid << " for volume ("
+                                     << vol_desc.volUUID << ") " << vol_desc.vol_name;
+                            break;
+                        }
+                    }
+                    if (grp_found) {
+                        break;
+                    }
+                }
         	if (!grp_found) {
         		/**
         		 * Currently, in the migration msg, there's no source node that
@@ -319,35 +386,27 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         		 * as the source to pull from, since primary DM(s) will be the
         		 * only ones that are trustworthy.
         		 */
-				for (fds_uint32_t j = 0; j < getNumOfPrimaryDMs(); j++) {
-					if (j >= cmt_col->getLength()) break;
-					// Go through the commit DMT column to find a primary
-					uuid = cmt_col->get(j);
-					if (rmNodes.count(uuid) > 0) {
-						LOGDEBUG << "Node is being removed: " << uuid.uuid_get_val();
-						// This primary is being removed. Look for another primary.
-						continue;
-					}
-					fpi::DMVolumeMigrationGroup newGroup;
-					newGroup.source.svc_uuid = uuid.uuid_get_val();
-					newGroup.VolDescriptors.push_back(vol_desc);
-					srcDMMigrateMsg->migrations.push_back(newGroup);
-					LOGDEBUG << "DM: " << cit->uuid_get_val() << " will pull from: "
-							<< newGroup.source.svc_uuid << " for volume ("
-							<< vol_desc.volUUID << ") " << vol_desc.vol_name;
-					grp_found = true;
-					break;
-				}
+                    for (auto uuid : srcCandidates) {
+                        fpi::DMVolumeMigrationGroup newGroup;
+                        newGroup.source.svc_uuid = uuid.uuid_get_val();
+                        newGroup.VolDescriptors.push_back(vol_desc);
+                        srcDMMigrateMsg->migrations.push_back(newGroup);
+                        LOGDEBUG << "DM: " << cit->uuid_get_val() << " will pull from: "
+                                 << newGroup.source.svc_uuid << " for volume ("
+                                 << vol_desc.volUUID << ") " << vol_desc.vol_name;
+                        grp_found = true;
+                        break;
+                    }
         	}
         	if (!grp_found) {
-        		/**
-        		 * Primaries are all being removed. Unable to rebalance.
-        		 * This is really bad and should be addressed in future error
-        		 * handling cases.
-        		 */
-        		LOGERROR << "Primary DM(s) are being removed in target DMT";
-        		err = ERR_DM_MIGRATION_ABORTED;
-        		return (err);
+                    /**
+                     * Primaries are all being removed. Unable to rebalance.
+                     * This is really bad and should be addressed in future error
+                     * handling cases.
+                     */
+                    LOGERROR << "Primary DM(s) are being removed in target DMT";
+                    err = ERR_DM_MIGRATION_ABORTED;
+                    return (err);
         	}
         } // End for(NodeUuidSet)
     }
@@ -392,15 +451,23 @@ void VolumePlacement::notifyEndOfRebalancing() {
     std::atomic_exchange(&bRebalancing, false);
     LOGNORMAL << "Notified VolumePlacement about end of vol meta rebalance";
 }
+void VolumePlacement::commitDMT() {
+    commitDMT( false );
+}
 
-void
-VolumePlacement::commitDMT() {
+void VolumePlacement::commitDMT( const bool unsetTarget )
+{   
     // commit DMT without removing target
     prevDmtVersion = dmtMgr->getCommittedVersion();
     dmtMgr->commitDMT(false);
     LOGNORMAL << "DMT version: " << dmtMgr->getCommittedVersion()
               << " Previous committed DMT version " << prevDmtVersion;
     LOGDEBUG << *dmtMgr;
+    
+    if ( unsetTarget )
+    {
+        dmtMgr->unsetTarget( false );
+    }
 }
 
 void
@@ -499,7 +566,8 @@ VolumePlacement::validateDmtOnDomainActivate(const NodeUuidSet& dm_services) {
     return err;
 }
 
-Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
+Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
+                                            const NodeUuidSet& deployed_dm_services)
 {
     Error err(ERR_OK);
     // NOTE: Copy paste code from DLT.  May need different handling
@@ -517,10 +585,6 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
     }
 
     fds_uint64_t committedVersion = configDB->getDmtVersionForType("committed");
-    fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
-    // We only support graceful restart.  We shouldn't have any cruft.
-    fds_verify(targetVersion == 0);
-
     if (committedVersion > 0) {
         DMT* dmt = new DMT(0, 0, 0, false);
         if (!configDB->getDmt(*dmt, committedVersion)) {
@@ -533,8 +597,7 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
             // does not contain any zeroes, etc.
             std::set<fds_uint64_t> uniqueNodes;
             dmt->getUniqueNodes(&uniqueNodes);
-            fds_verify(dm_services.size() == uniqueNodes.size())
-            for (auto dm_uuid : dm_services) {
+            for (auto dm_uuid : deployed_dm_services) {
                 fds_verify(uniqueNodes.count(dm_uuid.uuid_get_val()) == 1);
             }
             // we will set as target and distribute this dmt around
@@ -553,6 +616,29 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
                 << dm_services.size() << " nodes";
         fds_verify(!"No persisted dmt");
         return Error(ERR_PERSIST_STATE_MISMATCH);
+    }
+
+
+    // If we saved target DMT version, we were in the middle of migration
+    // when domain shutdown or OM went down. We are going to restart migration
+    // and re-compute the DMT again, so throw away this DMT
+    // Maybe in the future, we can re-start migration with saved target DMT
+    // but this is an optimization, may do later
+    fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
+    if (targetVersion > 0 && targetVersion != committedVersion) {
+        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+                  << "persisted  target DMT and re-compute it again if discovered "
+                  << "SMs re-register";
+        if (!configDB->setDmtType(0, "next")) {
+            LOGWARN << "unable to reset target DMT version to config db ";
+        }
+    } else {
+        if (0 == targetVersion) {
+            LOGDEBUG << "There is only commited DMT in configDB (OK)";
+        } else {
+            LOGDEBUG << "Both current and target DMT are of same version (OK): "
+                     << targetVersion;
+        }
     }
 
     return err;

@@ -10,38 +10,72 @@
     <artifactId>company-pom</artifactId>
     <groupId>com.formationds</groupId>
     <version>1.0.0</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <name>${formationds.project.name} Project POM</name>
   <artifactId>formationds</artifactId>
-  <version>2015.06.19-SNAPSHOT</version>
+  <version>2015.07.31-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <!-- formationds scoped project properties -->
   <properties>
     <formationds.project.name>formationds</formationds.project.name>
 
+    <!-- set a default build type -->
+    <osdep.target>linux-x86_64.debug</osdep.target>
+
+    <thrift.idl.source>../../../fdsp</thrift.idl.source>
+
     <!-- Sprint -->
     <sprint.name>Sprint ${sprint.version}</sprint.name>
-    <sprint.start.date>2015-06-08 00:00:00.1 AM</sprint.start.date>
-    <sprint.version>2015.06.19</sprint.version>
-
-    <formationds.thrift.version>1.0</formationds.thrift.version>
+    <sprint.start.date>2015-07-20 00:00:00.1 AM</sprint.start.date>
+    <sprint.version>2015.07.31</sprint.version>
   </properties>
 
   <modules>
+    <module>formationds-thrift</module>
+    <module>formationds-commons</module>
     <module>formationds-external</module>
+    <module>thrift-client-util</module>
+    <module>jsvc-layer</module>
   </modules>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
         <groupId>com.formationds</groupId>
-        <artifactId>fds-thrift</artifactId>
+        <artifactId>formationds-thrift</artifactId>
         <version>${formationds.thrift.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <profiles>
+    <profile>
+      <id>mac_os</id>
+      <activation>
+        <os>
+          <name>mac os x</name>
+        </os>
+      </activation>
+      <properties>
+        <!-- thrift properties -->
+        <!-- MAKE SURE THE MAC OS VERSION MATCHES OUR BUILT TREE VERSION -->
+        <thrift.binary>/usr/local/bin/thrift-0.9.0</thrift.binary>
+      </properties>
+    </profile>
+    <profile>
+      <id>linux_os</id>
+      <activation>
+        <os>
+          <name>linux</name>
+        </os>
+      </activation>
+      <properties>
+        <!-- thrift properties -->
+        <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary>
+      </properties>
+    </profile>
+  </profiles>
 
 </project>

@@ -2,8 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#ifndef __platformtypes_h__
-#define __platformtypes_h__
+include "pm_types.thrift"
 
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
@@ -21,19 +20,29 @@ namespace java com.formationds.protocol.pm.types
  * javaAMPid:  Pid of the running or most recently running java process that loaded the am.main class
  * dmPid:      Pid of the running or most recently running DataMgr process
  * smPid:      Pid of the running or most recently running StorMgr process
+ * bareAMState:  Tracks the state of the bare_am process, replaces fHasAm
+ * javaAMState:  Tracks the state of the java_am process
+ * dmState:      Tracks the state of the bare_am process, replaces fHasSm
+ * smState:      Tracks the state of the bare_am process, replaces fHasDm
  *
  */
 
-struct NodeInfo {
-  1: required i64 uuid,
-  2: required bool fHasAm,
-  3: required bool fHasDm,
-  4: required bool fHasOm,
-  5: required bool fHasSm,
-  6: i32  bareAMPid = -1,
-  7: i32  javaAMPid = -1,
-  8: i32  dmPid = -1,
-  9: i32  smPid = -1,
-}
+struct NodeInfo 
+{
+  1: required i64 uuid;
+/* fields 2-5 are deprecated */
+  2: required bool fHasAm;
+  3: required bool fHasDm;
+  4: required bool fHasOm;
+  5: required bool fHasSm;
 
-#endif __platformtypes_h__
+  6: i32  bareAMPid = -1;
+  7: i32  javaAMPid = -1;
+  8: i32  dmPid = -1;
+  9: i32  smPid = -1;
+
+ 10: pm_types.pmServiceStateTypeId  bareAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+ 11: pm_types.pmServiceStateTypeId  javaAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+ 12: pm_types.pmServiceStateTypeId  dmState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+ 13: pm_types.pmServiceStateTypeId  smState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
+}

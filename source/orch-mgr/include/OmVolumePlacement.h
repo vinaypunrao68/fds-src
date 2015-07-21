@@ -38,17 +38,26 @@ namespace fds {
         };
         /**
          * Compute DMT from scratch
+         * @param[in] numPrimaryDMs number of primary DMs. If > 0, the algorithm
+         * will try to place failed services to secondary rows; if this is possible.
+         * (numPrimaryDMs == 0 is DMT computation algorithm pre-June 2015)
          */
         virtual void computeDMT(const ClusterMap* curMap,
-                                DMT* newDMT) = 0;
+                                DMT* newDMT,
+                                fds_uint32_t numPrimaryDMs) = 0;
         /**
          * Compute DMT taking into account changes in cluster
          * map when we already have a DMT for previous version of
          * cluster map.
+         * @param[in] numPrimaryDMs number of primary DMs. If > 0, the algorithm
+         * will try to demote all failed services to secondary rows.
+         * Secondary rows: rows numbers: numPrimaryDMs too depth-1).
+         * (numPrimaryDMs == 0 is DMT computation algorithm pre-June 2015)
          */
-        virtual void updateDMT(const ClusterMap* curMap,
-                               const DMTPtr& curDmt,
-                               DMT* newDMT) = 0;
+        virtual Error updateDMT(const ClusterMap* curMap,
+                                const DMTPtr& curDmt,
+                                DMT* newDMT,
+                                fds_uint32_t numPrimaryDMs) = 0;
         virtual ~VolPlacementAlgorithm() {}
     };
 
@@ -63,15 +72,17 @@ namespace fds {
          * Compute DMT from scratch
          */
         virtual void computeDMT(const ClusterMap* curMap,
-                                DMT* newDMT);
+                                DMT* newDMT,
+                                fds_uint32_t numPrimaryDMs);
         /**
          * Compute DMT taking into account changes in cluster
          * map when we already have a DMT for previous version of
          * cluster map.
          */
-        virtual void updateDMT(const ClusterMap* curMap,
-                               const DMTPtr& curDmt,
-                               DMT* newDMT);
+        virtual Error updateDMT(const ClusterMap* curMap,
+                                const DMTPtr& curDmt,
+                                DMT* newDMT,
+                                fds_uint32_t numPrimaryDMs);
     };
 
     /**
@@ -88,17 +99,34 @@ namespace fds {
          * Compute DMT from scratch
          */
         virtual void computeDMT(const ClusterMap* curMap,
-                                DMT* newDMT);
+                                DMT* newDMT,
+                                fds_uint32_t numPrimaryDMs);
         /**
          * Compute DMT taking into account changes in cluster
          * map when we already have a DMT for previous version of
          * cluster map.
+         * @param[in] numPrimaryDMs number of primary DMs. If > 0, the algorithm
+         * will demote all failed services to secondary rows (rows numPrimaryDMs too depth-1).
+         * (numPrimaryDMs == 0 is DMT computation algorithm pre-June 2015)
+         * @return ERR_OK if success
+         *         ERR_INVALID_ARG if at least one column has all primaries failed or removed
          */
-        virtual void updateDMT(const ClusterMap* curMap,
+        virtual Error updateDMT(const ClusterMap* curMap,
                                const DMTPtr& curDmt,
-                               DMT* newDMT);
-    };
+                               DMT* newDMT,
+                               fds_uint32_t numPrimaryDMs);
 
+  private:
+        Error checkUpdateValid(const ClusterMap* curMap,
+                               const DMTPtr& curDmt,
+                               fds_uint32_t numPrimaryDMs,
+                               const NodeUuidSet& rmNodes);
+        void demoteFailedPrimaries(DMT* newDmt,
+                                   fds_uint32_t numPrimaryDMs,
+                                   const NodeUuidSet& nonFailedDms,
+                                   fds_bool_t computeNew);
+    };
+    
     /**
      * Defines the current volume placement
      */
@@ -128,8 +156,12 @@ namespace fds {
          * Recompute DMT based on added/removed DMs in cluster map
          * The new DMT becomes a target DMT, which can be commited
          * via commitDMT()
+         * @return ERR_OK if new DMT was successfully computed and
+         *          target DMT is set to the newly computed DMT
+         *         ERR_NOT_READY if newly computed DMT is the same
+         *          as currently commited DMT
          */
-        void computeDMT(const ClusterMap* cmap);
+        Error computeDMT(const ClusterMap* cmap);
 
         /**
          * Start rebalance volume meta among DM nodes
@@ -143,6 +175,7 @@ namespace fds {
          * TODO(xxx) The commit stores the DMT to the permanent DMT history
          */
         void commitDMT();
+        void commitDMT( const bool unsetTarget );
 
         inline DMTPtr getCommittedDMT() {
             return dmtMgr->getDMT(DMT_COMMITTED);
@@ -197,7 +230,13 @@ namespace fds {
          */
         fds_bool_t hasNonCommitedTarget() const;
 
-        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
+        /**
+         * @param dm_services all known DM services
+         * @param deployed_dm_services all known DM services that are not
+         *        in discovered state
+         */
+        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
+                                   const NodeUuidSet& deployed_dm_services);
 
         /**
          * Validate that commited DMT has all given DMs and no other DMs
@@ -235,7 +274,7 @@ namespace fds {
          * The DMT depth defines the maximum number of
          * replicas that can be specified in the DMT
          */
-        fds_uint64_t curDmtDepth;
+        fds_uint32_t curDmtDepth;
 
         /**
          * The DMT width defines the number of volume ranges and thereby

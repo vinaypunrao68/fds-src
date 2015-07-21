@@ -29,9 +29,6 @@ import samples
 import testsets.testcase as testcase
 import utils
 
-###############################################################################
-# This test ins't completed yet.
-###############################################################################
 class TestAMProcessConsistency(testcase.FDSTestCase):
     
     '''

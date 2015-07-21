@@ -119,17 +119,20 @@ void OrchMgr::proc_pre_startup()
     defaultS3BucketPolicy();
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
-    
+        
     LOGDEBUG << "Orchestration Manager is starting service layer";
     SvcProcess::proc_pre_startup();
 }
 
 void OrchMgr::proc_pre_service()
 {
-    if (enableSnapshotSchedule) {
+    if ( enableSnapshotSchedule ) 
+    {
         snapshotMgr->init();
     }
+    
     fds_bool_t config_db_up = loadFromConfigDB();
+    
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
     local_domain->om_load_state(config_db_up ? getConfigDB() : NULL);
@@ -166,7 +169,6 @@ void OrchMgr::setupSvcInfo_()
     /*
      * TODO(Tinius) handle more than one OM IP address
      */
-    
 }
 
 void OrchMgr::registerSvcProcess()
@@ -224,8 +226,11 @@ void OrchMgr::defaultS3BucketPolicy()
     orchMgr->om_mutex->lock();
     err = orchMgr->policy_mgr->createPolicy(policy_info);
     orchMgr->om_mutex->unlock();
-
-    LOGNORMAL << "Created  default S3 policy ";
+    
+    if ( err.ok() )
+    {
+        LOGDEBUG << "Created  default S3 policy ";
+    }
 }
 
 bool OrchMgr::loadFromConfigDB() {

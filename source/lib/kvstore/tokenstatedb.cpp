@@ -34,7 +34,7 @@ TokenStateDB::~TokenStateDB() {
 
 Error TokenStateDB::addToken(const fds_token_id &tokId)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr != tokenTbl_.end()) {
         fds_assert(!"Token already exists");
@@ -46,7 +46,7 @@ Error TokenStateDB::addToken(const fds_token_id &tokId)
 
 Error TokenStateDB::removeToken(const fds_token_id &tokId)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     tokenTbl_.erase(tokId);
     return ERR_OK;
 }
@@ -54,7 +54,7 @@ Error TokenStateDB::removeToken(const fds_token_id &tokId)
 Error TokenStateDB::setTokenState(const fds_token_id &tokId,
         const TokenStateInfo::State& state)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -68,7 +68,7 @@ Error TokenStateDB::setTokenState(const fds_token_id &tokId,
 Error TokenStateDB::getTokenState(const fds_token_id &tokId,
         TokenStateInfo::State& state)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -81,7 +81,7 @@ Error TokenStateDB::getTokenState(const fds_token_id &tokId,
 Error TokenStateDB::setTokenSyncStartTS(const fds_token_id &tokId,
         const uint64_t &ts)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -94,7 +94,7 @@ Error TokenStateDB::setTokenSyncStartTS(const fds_token_id &tokId,
 Error TokenStateDB::getTokenSyncStartTS(const fds_token_id &tokId,
         uint64_t &ts)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -106,7 +106,7 @@ Error TokenStateDB::getTokenSyncStartTS(const fds_token_id &tokId,
 
 Error TokenStateDB::setTokenHealthyTS(const fds_token_id &tokId, const uint64_t &ts)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -118,7 +118,7 @@ Error TokenStateDB::setTokenHealthyTS(const fds_token_id &tokId, const uint64_t 
 
 Error TokenStateDB::getTokenHealthyTS(const fds_token_id &tokId, uint64_t &ts)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -130,7 +130,7 @@ Error TokenStateDB::getTokenHealthyTS(const fds_token_id &tokId, uint64_t &ts)
 
 Error TokenStateDB::updateHealthyTS(const fds_token_id &tokId, const uint64_t &ts)
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     auto itr = tokenTbl_.find(tokId);
     if (itr == tokenTbl_.end()) {
         fds_assert(!"Token doesn't exist");
@@ -146,7 +146,7 @@ Error TokenStateDB::updateHealthyTS(const fds_token_id &tokId, const uint64_t &t
 void TokenStateDB::
 getTokenStats(std::unordered_map<int, int> &stats)  // NOLINT
 {
-    fds_spinlock::scoped_lock l(lock_);
+    fds_mutex::scoped_lock l(lock_);
     for (auto tInfo : tokenTbl_) {
         auto itr = stats.find(static_cast<int>(tInfo.second.state));
         if (itr == stats.end()) {

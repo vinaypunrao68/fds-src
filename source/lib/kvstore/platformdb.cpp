@@ -7,17 +7,18 @@
 #include <string>
 #include <algorithm>
 #include <fdsp_utils.h>
-namespace fds { 
+namespace fds {
 namespace kvstore {
 
 using redis::Reply;
 using redis::RedisException;
 
-PlatformDB::PlatformDB(const std::string& keyBase,
+PlatformDB::PlatformDB(std::string const &uniqueId,
+                       const std::string& keyBase,
                        const std::string& host,
                        uint port,
                        uint poolsize) : KVStore(host, port, poolsize) {
-    this->keyBase = keyBase;
+    this->keyBase = uniqueId + keyBase;
     std::replace(this->keyBase.begin(), this->keyBase.end(), '/', '.');
     LOGNORMAL << "instantiating platformdb with key base: " << this->keyBase;
 }
@@ -35,6 +36,20 @@ bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
     }
+
+    LOGDEBUG << "Updated nodeInfo record stored in redis with: uuid " << nodeInfo.uuid <<
+                                                              ", am " << nodeInfo.fHasAm <<
+                                                              ", dm " << nodeInfo.fHasDm <<
+                                                              ", sm " << nodeInfo.fHasSm <<
+                                                         ", bam pid " << nodeInfo.bareAMPid <<
+                                                         ", jam pid " << nodeInfo.javaAMPid <<
+                                                          ", dm pid " << nodeInfo.dmPid <<
+                                                          ", sm pid " << nodeInfo.smPid <<
+                                                         ", bam ste " << nodeInfo.bareAMState <<
+                                                         ", jam ste " << nodeInfo.javaAMState <<
+                                                          ", dm ste " << nodeInfo.dmState <<
+                                                          ", sm ste " << nodeInfo.smState;
+
     return true;
 }
 
@@ -78,12 +93,12 @@ bool PlatformDB::getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCap
 }
 
 Reply PlatformDB::getInternal(const std::string &key) {
-   auto computedKey = computeKey(key); 
+   auto computedKey = computeKey(key);
    return r.get(computedKey);
 }
 
 void PlatformDB::setInternal(const std::string &key, const std::string &value) {
-   auto computedKey = computeKey(key); 
+   auto computedKey = computeKey(key);
    r.set(computedKey, value);
 }
 

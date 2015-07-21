@@ -3,33 +3,34 @@
  */
 package com.formationds.om.webkit.rest.v08.platform;
 
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.util.List;
-import java.util.Map;
-
-import javax.servlet.http.HttpServletResponse;
-
-import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.Service.ServiceState;
 import com.formationds.client.v08.model.ServiceType;
+import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.pm.NotifyStopServiceMsg;
+import com.formationds.protocol.pm.NotifyStartServiceMsg;
+import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
 
 public class MutateService implements RequestHandler {
 
@@ -74,7 +75,10 @@ public class MutateService implements RequestHandler {
         
         Boolean myState = convertState( service.getStatus().getServiceState() );
         
-        switch( service.getType() ){
+        // Get the service object so we can access the type
+        Service svcObj = (new GetService()).getService(nodeId, serviceId);
+        
+        switch( svcObj.getType() ){
         	case AM:
         		am = myState;
         		break;
@@ -90,26 +94,40 @@ public class MutateService implements RequestHandler {
         
         logger.debug( "Desired state of services is AM: " + am + " SM: " + sm + " DM: " + dm );
         
-        int status = getConfigApi().ActivateNode( new FDSP_ActivateOneNodeType(
-        		0, 
-        		new FDSP_Uuid( node.getId() ), 
-        		sm, 
-        		dm, 
-        		am ));
+        List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
+        SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+        		                                 (node.getAddress().getHostAddress(),
+        		                                  svcObj);
+        svcInfList.add(svcInfo);
+        
+    	Service pmSvc = (new GetService()).getService(nodeId, nodeId);
+    	SvcInfo pmSvcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+    			                                 (node.getAddress().getHostAddress(),
+                                                  pmSvc);
+    	svcInfList.add(pmSvcInfo);
+    	
+        int status = -1;
+        
+        if ( myState ) {
+        	// State change desired is from NOT_RUNNING to RUNNING
+        	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
+        }
+        else
+        {   // State change desired is from RUNNING to NOT_RUNNING
+        	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
+        }
 
         if ( status != 0 ){
         	
             status = HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE_ERROR,
                                       nodeId );
-            logger.error( "Service state changed failed." );
             
             throw new ApiException( "Service state change failed.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
         else {
             EventManager.notifyEvent( OmEvents.CHANGE_SERVICE_STATE,
                     nodeId );
-            logger.info( "Service state changed successfully." );
         }
         
         List<Service> services = (new ListServices()).getServicesForNode( nodeId );
@@ -122,9 +140,6 @@ public class MutateService implements RequestHandler {
 	
 	/**
 	 * Find the current condition of the AM, SM and DM service
-	 * 
-	 * @param ams
-	 * @return
 	 */
 	private Boolean isServiceOnAlready( ServiceType type, Node node ){
 		

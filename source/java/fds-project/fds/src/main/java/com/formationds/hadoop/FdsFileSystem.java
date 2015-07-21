@@ -78,8 +78,15 @@ public class FdsFileSystem extends FileSystem {
         int amResponsePort = new ServerPortFinder().findPort("HDFS async AM response port", 10000);
         HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 8899);
         XdiClientFactory cf = new XdiClientFactory();
+
         try {
-            asyncAm = new RealAsyncAm(cf.remoteOnewayAm(amConnectionData.getHost(), amConnectionData.getPort()), amResponsePort, 10, TimeUnit.SECONDS);
+            asyncAm = new RealAsyncAm(
+                    amConnectionData.getHost(),
+                    amConnectionData.getPort(),
+                    amResponsePort,
+                    10,
+                    TimeUnit.SECONDS);
+
             asyncAm.start();
         } catch (Exception e) {
             LOG.error("Error starting async AM", e);
@@ -124,7 +131,7 @@ public class FdsFileSystem extends FileSystem {
         }
     }
 
-    static <T> T unwindExceptions(SupplierWithExceptions<T> supplier) throws ApiException, Exception {
+    public static <T> T unwindExceptions(SupplierWithExceptions<T> supplier) throws ApiException, Exception {
         try {
             return supplier.supply();
         } catch (ExecutionException e) {

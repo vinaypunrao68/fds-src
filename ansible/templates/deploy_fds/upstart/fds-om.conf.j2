@@ -1,42 +1,44 @@
-# orchmgr
+{% extends 'fds_upstart_defaults.j2' %}
+{% block content %}
+##
+# Orchestration Manager upstart conf file
 #
-description     "OrchMgr"
-{% if fds_om_host == inventory_hostname %}
+# Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+
+description "Orchestration Manager"
+
 start on runlevel [2345]
 stop on runlevel [!2345]
-env enabled=1
-{% endif %}
+
+env fds_root={{ fds_root }}
+env ENABLED=false
 
 limit nofile 400000 400000
 limit core unlimited unlimited
 
-env FDS_ROOT=/fds
-env LD_LIBRARY_PATH=$FDS_ROOT/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
-env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:$FDS_ROOT/bin:$FDS_ROOT/sbin
+respawn
+respawn limit 10 5
 
 script
-  chdir $FDS_ROOT/bin
+  export fds_root
+  chdir ${fds_root}/bin
 
-  [ "$enabled" = "1" ] || [ "$force_start" = "1" ] || exit 0
+  echo '=====================================================' > ${fds_root}/bin/om.out
+  echo 'UPTIME:\t'`date` >> ${fds_root}/bin/om.out
+  echo 'Loading '${fds_root}/etc/omenv >> ${fds_root}/bin/om.out
+  [ -f ${fds_root}/etc/omenv ] || exit 0
+  . ${fds_root}/etc/omenv
+  echo 'Loaded '${fds_root}/etc/omenv >> ${fds_root}/bin/om.out
+  echo 'ENV   :\t'`env` >> ${fds_root}/bin/om.out
+  echo ${fds_root}'/etc/omenv ENABLED:\t'${ENABLED} >> ${fds_root}/bin/om.out
+  [ -e ${fds_root}/var/this_node_runs_om ] && ENABLED="true" && this_node_runs_om="true"
+  echo ${fds_root}'/var/this_node_runs_om file found:\t'${this_node_runs_om} >> ${fds_root}/bin/om.out
+  [ "${ENABLED}" = "true" ] || [ "${this_node_runs_om}" = "true" ] || exit 0
+  echo '=====================================================' >> ${fds_root}/bin/om.out
+  echo ''
+  [ "${ENABLED}" = "true" ] || exit 0
 
-  JAVA_OPTS="-Xmx1024M -Xms20M"
-  JAVA_HOME=/opt/fds-deps/embedded/jre/
-
-  MAIN_CLASS=com.formationds.om.Main
-
-  CLASSPATH=$FDS_ROOT/etc
-  CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/hadoop
-  CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl
-  CLASSPATH=$CLASSPATH:$FDS_ROOT/etc/ssl/dev
-  for i in $FDS_ROOT/lib/java/*.jar; do
-          CLASSPATH="$CLASSPATH:$i"
-  done
-
-  echo '\n\n\n=====================================================' > $FDS_ROOT/bin/om.out
-  echo 'Service startup:\t'`date` >> $FDS_ROOT/bin/om.out
-  echo 'JAVA_HOME:\t\t'`echo $JAVA_HOME` >> $FDS_ROOT/bin/om.out
-  echo 'Main class:\t\t'`echo $MAIN_CLASS` >> $FDS_ROOT/bin/om.out
-  # echo 'CLASSPATH:\t\t'`echo $CLASSPATH` >> $FDS_ROOT/bin/om.out
-
-  exec $JAVA_HOME/bin/java $JAVA_OPTS -classpath $CLASSPATH $MAIN_CLASS --foreground --fds-root=$FDS_ROOT >> $FDS_ROOT/bin/om.out 2>&1
+  exec ${JAVA_HOME}/bin/java ${JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --foreground --fds-root=${fds_root} >> ${fds_root}/bin/om.out 2>&1
 end script
+
+{% endblock %}

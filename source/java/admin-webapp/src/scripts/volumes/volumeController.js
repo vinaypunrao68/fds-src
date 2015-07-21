@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', '$authorization', '$timeout', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element, $authorization, $timeout ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', '$authorization', '$timeout', '$byte_converter', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element, $authorization, $timeout, $byte_converter ){
     
     $scope.searchText = '';
     $scope.sortPredicate = '';
@@ -141,6 +141,11 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
             return getColor( performanceFirebreak );
         }
         
+    };
+    
+    $scope.getCapacityString = function( usage ){
+        
+        return $byte_converter.convertBytesToString( usage.value );
     };
     
     $scope.$on( 'fds::authentication_logout', function(){

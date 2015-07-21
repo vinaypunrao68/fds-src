@@ -15,3 +15,5 @@ ssl_enabled=true
 ssl_api_hostname=us-east.formationds.com
 ssl_web_hostname=us-eastweb.formationds.com
 fds_system_stats_enabled=True
+fds_dm_enable_timeline=false
+this_is_an_ec2_node=true

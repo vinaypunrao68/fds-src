@@ -27,6 +27,7 @@ user_non_fds_libs +=  \
     ssl \
     gmock \
     leveldb \
-    profiler
+    profiler \
+    pthread
 
 include $(topdir)/Makefile.incl

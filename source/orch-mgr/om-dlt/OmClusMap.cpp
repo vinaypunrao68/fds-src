@@ -69,6 +69,41 @@ ClusterMap::getNumMembers(fpi::FDSP_MgrIdType svc_type) const {
     return 0;
 }
 
+fds_uint32_t
+ClusterMap::getNumNonfailedMembers(fpi::FDSP_MgrIdType svc_type) const {
+    TRACEFUNC;
+    fds_uint32_t count = 0;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            {
+                for (const_sm_iterator it = cbegin_sm();
+                     it != cend_sm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
+                        ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        ++count;
+                    }
+                }
+            }
+            break;
+        case fpi::FDSP_DATA_MGR:
+            {
+                for (const_dm_iterator it = cbegin_dm();
+                     it != cend_dm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
+                        ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        ++count;
+                    }
+                }
+            }
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return count;
+}
+
 fds_uint64_t
 ClusterMap::getTotalStorWeight() const {
     TRACEFUNC;
@@ -207,6 +242,27 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
     }
 }
 
+// reset service from pending added svc map
+// but do not remove from cluster map
+void
+ClusterMap::resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+                                     const NodeUuid& svc_uuid) {
+    TRACEFUNC;
+    fds_mutex::scoped_lock l(mapMutex);
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            fds_verify(addedSMs.count(svc_uuid) != 0)
+            addedSMs.erase(svc_uuid);
+            break;
+        case fpi::FDSP_DATA_MGR:
+            fds_verify(addedDMs.count(svc_uuid) != 0);
+            addedDMs.erase(svc_uuid);
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+}
+
 std::unordered_set<NodeUuid, UuidHash>
 ClusterMap::getAddedServices(fpi::FDSP_MgrIdType svc_type) const {
     TRACEFUNC;
@@ -245,6 +301,102 @@ ClusterMap::getRemovedServices(fpi::FDSP_MgrIdType svc_type) const {
             fds_panic("Unknown MgrIdType %u", svc_type);
     }
     return std::unordered_set<NodeUuid, UuidHash>();
+}
+
+NodeUuidSet
+ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
+    NodeUuidSet retSet;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            {
+                for (const_sm_iterator it = cbegin_sm();
+                     it != cend_sm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
+                        ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+                    }
+                }
+            }
+            break;
+        case fpi::FDSP_DATA_MGR:
+            {
+                for (const_dm_iterator it = cbegin_dm();
+                     it != cend_dm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
+                        ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+                    }
+                }
+            }
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return retSet;
+}
+
+NodeUuidSet
+ClusterMap::getFailedServices(fpi::FDSP_MgrIdType svc_type) const {
+    NodeUuidSet retSet;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            {
+                for (const_sm_iterator it = cbegin_sm();
+                     it != cend_sm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() != fpi::FDS_Node_Up ) &&
+                        ( ((*it).second)->node_state() != fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+                    }
+                }
+            }
+            break;
+        case fpi::FDSP_DATA_MGR:
+            {
+                for (const_dm_iterator it = cbegin_dm();
+                     it != cend_dm();
+                     ++it) {
+                    if (( ((*it).second)->node_state() != fpi::FDS_Node_Up ) &&
+                        ( ((*it).second)->node_state() != fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+                    }
+                }
+            }
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return retSet;
+}
+
+NodeUuidSet
+ClusterMap::getServiceUuids(fpi::FDSP_MgrIdType svc_type) const {
+    NodeUuidSet retSet;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            {
+                for (const_sm_iterator it = cbegin_sm();
+                     it != cend_sm();
+                     ++it) {
+                    retSet.insert(((*it).second)->get_uuid());
+                }
+            }
+            break;
+        case fpi::FDSP_DATA_MGR:
+            {
+                for (const_dm_iterator it = cbegin_dm();
+                     it != cend_dm();
+                     ++it) {
+                    retSet.insert(((*it).second)->get_uuid());
+                }
+            }
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return retSet;
 }
 
 }  // namespace fds

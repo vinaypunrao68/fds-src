@@ -11,7 +11,7 @@
 #include <string>
 #include <thread>
 #include <google/profiler.h>
-
+#include <iostream>
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
 
@@ -51,6 +51,7 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
 
 void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     DMCallback cb;
+    static sequence_id_t seq_id = 0;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
     DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
     commitBlbTx->volume_id = dmTester->TESTVOLID.get();
@@ -60,7 +61,8 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     auto dmBlobTxReq1 = new DmIoCommitBlobTx(dmTester->TESTVOLID,
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
-                                             commitBlbTx->dmt_version);
+                                             commitBlbTx->dmt_version,
+                                             ++seq_id);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
     dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
@@ -90,6 +92,7 @@ static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnc
 
 TEST_F(DmUnitTest, PutBlobOnce) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
+    sequence_id_t seq_id = 0;
 
     if (profile)
         ProfilerStart("/tmp/dm_direct.prof");
@@ -115,7 +118,8 @@ TEST_F(DmUnitTest, PutBlobOnce) {
             auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(dmTester->TESTVOLID,
                                                               putBlobOnce->blob_name,
                                                               putBlobOnce->blob_version,
-                                                              putBlobOnce->dmt_version);
+                                                              putBlobOnce->dmt_version,
+                                                              ++seq_id);
             dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
             dmCommitBlobOnceReq->cb =
                     BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
@@ -200,6 +204,44 @@ TEST_F(DmUnitTest, QueryCatalog) {
         ProfilerStop();
     printStats();
 }
+
+static void testQueryInvalidOffset(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_BLOB_OFFSET_INVALID, cb->e);
+    taskCount.done();
+}
+
+TEST_F(DmUnitTest, QueryInvalidOffset) {
+    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
+
+    if (profile)
+        ProfilerStart("/tmp/dm_direct.prof");
+
+    TIMEDBLOCK("total QueryInvalidOffset") {
+        taskCount.reset(NUM_BLOBS);
+        for (uint i = 0; i < NUM_BLOBS; i++) {
+            boost::shared_ptr<DMCallback> cb(new DMCallback());
+            // Query at the end of the blob
+            auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
+                dmTester->TESTVOLID.get(), dmTester->getBlobName(i), BLOB_SIZE);
+
+            auto dmQryReq = new DmIoQueryCat(qryCat);
+            dmQryReq->cb = BIND_OBJ_CALLBACK(*cb.get(),
+                    DMCallback::handler, asyncHdr);
+            g_fdsprocess->proc_thrpool()->schedule(&testQueryInvalidOffset, cb, dmQryReq);
+        }
+        taskCount.await();
+    }
+
+    if (profile)
+        ProfilerStop();
+    printStats();
+}
+
+
 
 TEST_F(DmUnitTest, SetMeta) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
@@ -325,7 +367,48 @@ TEST_F(DmUnitTest, DeleteBlob) {
     printStats();
 }
 
+/**
+ * Derived handler class for test responses.
+ */
+struct UpdateCatalogOnceTestHandler : fds::dm::UpdateCatalogOnceHandler {
+    explicit UpdateCatalogOnceTestHandler(DataMgr& dataManager) :
+            UpdateCatalogOnceHandler(dataManager) {
+    }
 
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                        Error const& e,
+                        dmCatReq* dmRequest) {
+        taskCount.done();
+    }
+    virtual ~UpdateCatalogOnceTestHandler() = default;
+};
+
+TEST_F(DmUnitTest, Serialization) {
+    // Network-level message structures
+    auto asyncHdr = boost::make_shared<fpi::AsyncHdr>();
+    auto putBlobOnce = boost::make_shared<fpi::UpdateCatalogOnceMsg>();
+    auto handler = boost::make_shared<UpdateCatalogOnceTestHandler>(*dataMgr);
+
+    // Setup the messages with some test data
+    putBlobOnce->blob_name = "Serial Test Blob";
+    putBlobOnce->volume_id = dmTester->TESTVOLID.get();
+    putBlobOnce->dmt_version = 1;
+    fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+    taskCount.reset(NUM_BLOBS);
+    uint64_t txnId;
+    bool oldUturn = dataMgr->testUturnUpdateCat;
+    dataMgr->testUturnUpdateCat = true;
+
+    TIMEDBLOCK("process") {
+        for (uint i = 0; i < NUM_BLOBS; i++) {
+            handler->handleRequest(asyncHdr, putBlobOnce);
+        }
+        taskCount.await();
+    }
+    dataMgr->testUturnUpdateCat = oldUturn;
+    printStats();
+}
 
 int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock

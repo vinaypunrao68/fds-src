@@ -106,7 +106,7 @@ Error DmPersistVolFile::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
 }
 
 Error DmPersistVolFile::getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) {
-    fds_scoped_spinlock sl(metaLock_);
+    fds_scoped_lock sl(metaLock_);
     if (!blobMeta_) {
         blobMeta_.reset(new BlobMetaDesc());
         if (lseek(metaFd_, 0, SEEK_SET) < 0) {
@@ -259,7 +259,7 @@ Error DmPersistVolFile::putBlobMetaDesc(const std::string & blobName,
         const BlobMetaDesc & blobMeta) {
     IS_OP_ALLOWED();
 
-    fds_scoped_spinlock sl(metaLock_);
+    fds_scoped_lock sl(metaLock_);
     *(blobMeta_.get()) = blobMeta;
     if (lseek(metaFd_, 0, SEEK_SET) < 0) {
         LOGERROR << "Failed to write metadata for blob: '" << blobName << "' volume: '"
@@ -390,7 +390,7 @@ Error DmPersistVolFile::deleteBlobMetaDesc(const std::string & blobName) {
 
 Error DmPersistVolFile::getOIDArrayMmap(fds_uint64_t id,
         boost::shared_ptr<DmOIDArrayMmap> & oidArrayMmap, fds_bool_t read /* = true */) {
-    fds_scoped_spinlock sl(cacheLock_);
+    fds_scoped_lock sl(cacheLock_);
     Error rc = mmapCache_->get(id, oidArrayMmap);
     if (rc.ok()) {
         return rc;  // we found mmap in cache
@@ -412,5 +412,9 @@ Error DmPersistVolFile::getOIDArrayMmap(fds_uint64_t id,
     mmapCache_->add(id, oidArrayMmap);
 
     return ERR_OK;
+}
+
+void DmPersistVolFile::forEachObject(std::function<void(const ObjectID&)>) {
+    throw fds::Exception(ERR_NOT_IMPLEMENTED);
 }
 }  // namespace fds

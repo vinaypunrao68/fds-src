@@ -78,6 +78,10 @@ base_predepend: base_rpc base_ragel base_thrift base_json
 devenv:
 	@echo $(local_cpp_flags) > ycm.flags
 
+.PHONY: check-optimizations
+check-optimizations:
+	$(cpp) $(local_cpp_flags) -Q --help=optimizers
+
 # -----------------------------------------------------------------------------
 # The main rule to compile rpcgen/ragel/thrift/json.
 #

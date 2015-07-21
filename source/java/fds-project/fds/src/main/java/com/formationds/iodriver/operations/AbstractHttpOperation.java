@@ -5,7 +5,7 @@ import java.net.URI;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.AbstractHttpEndpoint;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Basic operation that runs on an HTTP endpoint.
@@ -21,7 +21,8 @@ extends Operation<ThisT, EndpointT>
 // @eclipseFormat:on
 {
     @Override
-    public void accept(EndpointT endpoint, WorkflowEventListener listener) throws ExecutionException
+    public void accept(EndpointT endpoint,
+                       AbstractWorkflowEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
@@ -40,7 +41,7 @@ extends Operation<ThisT, EndpointT>
      */
     public abstract void exec(EndpointT endpoint,
                               HttpURLConnection connection,
-                              WorkflowEventListener reporter) throws ExecutionException;
+                              AbstractWorkflowEventListener reporter) throws ExecutionException;
 
     /**
      * Get the relative URI (to the endpoint) that will be requested.

@@ -241,6 +241,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     fwdMsg->volume_id = commitBlobReq->volId.get();
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
+    fwdMsg->sequence_id = commitBlobReq->sequence_id;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
     meta_list->toFdspPayload(fwdMsg->meta_list);
 
@@ -547,7 +548,7 @@ void CatalogSyncMgr::setDmtCloseNow() {
 /**
  * Send message that rsync has finished. From Master DM to new
  * DM. Uses VolSyncStateMsg.
- *  
+ *
  * @param[in] volId volume ID of catalog volume
  * @param[in] forward_complete boolean specifying whether forwarding is
  * complete (true = forwarding complete; false = second rsync

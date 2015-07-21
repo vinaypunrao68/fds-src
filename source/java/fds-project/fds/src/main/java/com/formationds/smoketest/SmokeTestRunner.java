@@ -25,8 +25,8 @@ public class SmokeTestRunner {
         addClass(S3SmokeTest.class);
         addClass(S3SmokeTest.V4Auth.class);
         addClass(HdfsSmokeTest.class);
-        addClass(SyncAmTest.class);
         addClass(AsyncAmTest.class);
+        addClass(NfsTest.class);
     }
 
     void addClass(final Class klass) {
@@ -151,12 +151,18 @@ public class SmokeTestRunner {
         PropertyConfigurator.configure(properties);
     }
 
-    public static void turnLog4jOn() {
+    public static void turnLog4jOn(boolean enableS3Debug) {
         Properties properties = new Properties();
         properties.put("log4j.rootCategory", "DEBUG, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
+
+        if(enableS3Debug) {
+            properties.put("log4j.logger.com.amazonaws", "WARN");
+            properties.put("log4j.logger.com.amazonaws.request", "DEBUG");
+            properties.put("log4j.logger.org.apache.http.wire", "DEBUG");
+        }
         PropertyConfigurator.configure(properties);
     }
 }

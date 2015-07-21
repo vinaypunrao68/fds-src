@@ -1,9 +1,13 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.stream.Stream;
+
 import com.amazonaws.services.s3.AmazonS3Client;
+
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Report workload body ending.
@@ -26,7 +30,7 @@ public class ReportStop extends S3Operation
     // @eclipseFormat:off
     public void exec(S3Endpoint endpoint,
                      AmazonS3Client client,
-                     WorkflowEventListener reporter) throws ExecutionException
+                     AbstractWorkflowEventListener reporter) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -36,6 +40,13 @@ public class ReportStop extends S3Operation
         reporter.reportStop(_bucketName);
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("bucketName", _bucketName)));
+    }
+    
     /**
      * The bucket to report end for.
      */

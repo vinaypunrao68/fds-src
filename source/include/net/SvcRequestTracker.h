@@ -26,7 +26,7 @@ class SvcRequestTracker : HasModuleProvider {
     SvcRequestIfPtr getSvcRequest(const SvcRequestId &id);
 
  protected:
-    fds_spinlock svcReqMaplock_;
+    fds_mutex svcReqMaplock_;
     std::unordered_map<SvcRequestId, SvcRequestIfPtr> svcReqMap_;
 };
 

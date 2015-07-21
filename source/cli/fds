@@ -1,3 +1,3 @@
-export PYTHONPATH=${PYTHONPATH}:`pwd`/src
+export PYTHONPATH=${PYTHONPATH}:`pwd`/fdscli
 
-python src/fds/fdscli.py $@
+python fdscli/__init__.py $@

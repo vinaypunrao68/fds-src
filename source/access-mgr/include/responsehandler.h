@@ -62,16 +62,6 @@ struct ResponseHandler : public Callback {
     concurrency::TaskStatus task;
 };
 
-struct SimpleResponseHandler : ResponseHandler {
-    typedef boost::shared_ptr<SimpleResponseHandler> ptr;
-    std::string name;
-    SimpleResponseHandler();
-    explicit SimpleResponseHandler(const std::string& name);
-
-    virtual void process();
-    virtual ~SimpleResponseHandler();
-};
-
 /**
  * These are the structures that AmDataApi uses to respond with, with
  * the Dispatcher and Processor setting them, and the DataApi using them to
@@ -84,38 +74,10 @@ struct StatBlobCallback {
     boost::shared_ptr<BlobDescriptor> blobDesc;
 };
 
-struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
-    explicit StatBlobResponseHandler(fpi::BlobDescriptor &retVal);
-    typedef boost::shared_ptr<StatBlobResponseHandler> ptr;
-
-    fpi::BlobDescriptor &retBlobDesc;
-
-    virtual void process();
-    virtual ~StatBlobResponseHandler();
-};
-
-struct AttachVolumeResponseHandler : ResponseHandler {
-    AttachVolumeResponseHandler();
-    typedef boost::shared_ptr<AttachVolumeResponseHandler> ptr;
-
-    virtual void process();
-    virtual ~AttachVolumeResponseHandler();
-};
-
 struct StartBlobTxCallback {
     typedef boost::shared_ptr<StartBlobTxCallback> ptr;
     /// The blob trans ID to fill in
     BlobTxId      blobTxId;
-};
-
-struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
-    explicit StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
-    typedef boost::shared_ptr<StartBlobTxResponseHandler> ptr;
-
-    apis::TxDescriptor &retTxDesc;
-
-    virtual void process();
-    virtual ~StartBlobTxResponseHandler();
 };
 
 struct AbortBlobTxCallback {
@@ -124,40 +86,14 @@ struct AbortBlobTxCallback {
     BlobTxId      blobTxId;
 };
 
-struct AbortBlobTxResponseHandler : ResponseHandler, AbortBlobTxCallback {
-    explicit AbortBlobTxResponseHandler(apis::TxDescriptor &retVal);
-    typedef boost::shared_ptr<AbortBlobTxResponseHandler> ptr;
-
-    apis::TxDescriptor &retTxDesc;
-
-    virtual void process();
-    virtual ~AbortBlobTxResponseHandler();
-};
-
 struct UpdateBlobCallback {
     typedef boost::shared_ptr<UpdateBlobCallback> ptr;
-};
-
-struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
-    typedef boost::shared_ptr<UpdateBlobResponseHandler> ptr;
-
-    virtual void process();
-    virtual ~UpdateBlobResponseHandler();
 };
 
 struct GetObjectCallback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
     boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>> return_buffers;
     int return_size {0};
-};
-
-struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
-    GetObjectResponseHandler();
-
-    typedef boost::shared_ptr<GetObjectResponseHandler> ptr;
-
-    virtual void process();
-    virtual ~GetObjectResponseHandler();
 };
 
 struct GetBucketCallback {
@@ -171,36 +107,9 @@ struct GetBucketCallback {
     boost::shared_ptr<std::vector<fpi::BlobDescriptor>> vecBlobs;
 };
 
-struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
-    explicit ListBucketResponseHandler(std::vector<fpi::BlobDescriptor> & vecBlobs);
-    TYPE_SHAREDPTR(ListBucketResponseHandler);
-    std::vector<fpi::BlobDescriptor> & retVecBlobs;
-    virtual void process();
-    virtual ~ListBucketResponseHandler();
-};
-
-struct BucketStatsResponseHandler : ResponseHandler {
-    explicit BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
-
-    apis::VolumeDescriptor& volumeDescriptor;
-    const std::string* timestamp = NULL;
-    int content_count = 0;
-    void *req_context = NULL;
-
-    virtual void process();
-    virtual ~BucketStatsResponseHandler();
-};
-
 struct StatVolumeCallback {
     TYPE_SHAREDPTR(StatVolumeCallback);
     fpi::VolumeStatus volStat;
-};
-
-struct StatVolumeResponseHandler : ResponseHandler, StatVolumeCallback {
-    TYPE_SHAREDPTR(StatVolumeResponseHandler);
-    apis::VolumeStatus& volumeStatus;
-    explicit StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus);
-    virtual void process();
 };
 
 struct SetVolumeMetadataCallback {};

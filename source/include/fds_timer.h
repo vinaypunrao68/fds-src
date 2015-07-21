@@ -162,7 +162,7 @@ private:
     void runTimerThread_();
 
     /* Lock for protecting scheduled variable */
-    fds_spinlock lock_;
+    fds_mutex lock_;
     /* Pending timer objects */
     std::set<FdsTimerTaskPtr, LessFdsTimerTaskPtr> pendingTasks_;
     /* Whether timer thread should abort or not */
@@ -206,7 +206,7 @@ public:
 
 protected:
     /* Lock for protecting scheduled variable */
-    fds_spinlock lock_;
+    fds_mutex lock_;
     /* Whether timer is scheduled or not */
     bool scheduled_;
     /* Timer object */
@@ -291,7 +291,7 @@ private:
             const bool& repeated)
     {
         {
-            fds_spinlock::scoped_lock l(task->lock_);
+            fds_mutex::scoped_lock l(task->lock_);
             if (task->scheduled_ && !repeated) {
                 return false;
             }
@@ -318,7 +318,7 @@ private:
             const std::chrono::duration<Rep, Period>& time)
     {
         {
-            fds_spinlock::scoped_lock l(task->lock_);
+            fds_mutex::scoped_lock l(task->lock_);
             if (!task->scheduled_) {
                 /* task has been cancelled.  Don't invoke the handler */
                 return;

@@ -618,7 +618,8 @@ PlacementDiff::transferL4Token(const NodeUuid& l1_uuid,
 Error
 RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
                                    const DLT *curDlt,
-                                   DLT *newDlt) {
+                                   DLT *newDlt,
+                                   fds_uint32_t      numPrimarySMs) {
     fds_verify(newDlt != NULL);
 
 
@@ -673,7 +674,8 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
 Error
 ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
                                     const DLT *currDlt,
-                                    DLT *newDlt) {
+                                    DLT *newDlt,
+                                    fds_uint32_t numPrimarySMs) {
     Error err(ERR_OK);
     fds_uint32_t total_nodes = currMap->getNumMembers(fpi::FDSP_STOR_MGR);
     fds_verify(newDlt != NULL);
@@ -688,7 +690,7 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
         (newDlt->getWidth() != currDlt->getWidth())) {
         FDS_PLOG(getLog()) << "ConsistHashAlgorithm: compute new DLT for "
                            << total_nodes << " SMs";
-        computeInitialDlt(currMap, newDlt);
+        computeInitialDlt(currMap, newDlt, numPrimarySMs);
         return err;
     }
 
@@ -697,6 +699,15 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
                        << " SM additions and "
                        << (currMap->getRemovedServices(fpi::FDSP_STOR_MGR)).size()
                        << " SM deletions";
+
+    // check if DLT update is valid
+    NodeUuidSet rmNodes = currMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet addNodes = currMap->getAddedServices(fpi::FDSP_STOR_MGR);
+    err = checkUpdateValid(currMap, currDlt, numPrimarySMs, rmNodes);
+    if (!err.ok()) {
+        LOGERROR << "DLT update is not valid " << err;
+        return err;
+    }
 
     // at this point both DLTs have same number of tokens
     fds_uint32_t numTokens = newDlt->getNumTokens();
@@ -710,10 +721,72 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
         }
     }
 
-    handleDltChange(currMap, currDlt, newDlt);
+    // if there are no SM additions/deletions, do not re-shuffle, since
+    // we want resync due to failed services to be minimal
+    if ((rmNodes.size() > 0) || (addNodes.size() > 0)) {
+        // re-compute DLT without taking into account failed SMs
+        handleDltChange(currMap, currDlt, newDlt);
+        LOGDEBUG << "ConsistHash: Finished updating DLT (no failed SM part)";
+    }
 
-    FDS_PLOG_SEV(getLog(), fds_log::debug)
-            << "ConsistHash: Finished updating DLT";
+    if (numPrimarySMs > 0) {
+        // try not to have failed services as primaries
+        NodeUuidSet nonFailedSms = currMap->getNonfailedServices(fpi::FDSP_STOR_MGR);
+        NodeUuidSet allSms = currMap->getServiceUuids(fpi::FDSP_STOR_MGR);
+        fds_uint32_t nonFailedCnt = nonFailedSms.size();
+        if (nonFailedCnt == total_nodes) {
+            LOGDEBUG << "There are no failed SMs, we are done with DLT update";
+        } else if ((nonFailedCnt < numPrimarySMs) ||
+                   (numPrimarySMs >= newDlt->getDepth())) {
+            LOGWARN << "We don't have enough non-failed SMs to place into primaries";
+        } else {
+            // rotate columns to place non-failed SMs into primary rows
+            LOGDEBUG << "Failed SMs count " << nonFailedCnt
+                     << " out of " << total_nodes << " total SMs";
+            newDlt->generateNodeTokenMap();
+            demoteFailedPrimaries(newDlt, numPrimarySMs, nonFailedSms);
+
+            // if several SMs failed, above method may set some cells to 0
+            // fill in these cells with non-failed SMs
+            newDlt->generateNodeTokenMap();
+            fillEmptyCells(numTokens, newDlt, numPrimarySMs, nonFailedSms, allSms);
+        }
+    }
+    LOGDEBUG << "ConsistHash: Finished updating DLT";
+    return err;
+}
+
+Error
+ConsistHashAlgorithm::checkUpdateValid(const ClusterMap *curMap,
+                                       const DLT *curDlt,
+                                       fds_uint32_t numPrimarySMs,
+                                       const NodeUuidSet& rmNodes) {
+    Error err(ERR_OK);
+
+    // Update is invalid if numPrimarySMs > 0, and all primaries are removed
+    if (numPrimarySMs != 0) {
+        fds_uint64_t numTokens = curDlt->getNumTokens();
+        fds_uint32_t primDepth = numPrimarySMs;
+        if (primDepth > curDlt->getDepth()) {
+            primDepth = curDlt->getDepth();
+        }
+        for (fds_token_id i = 0; i < numTokens; i++) {
+            DltTokenGroupPtr col = curDlt->getNodes(i);
+            fds_uint32_t rmCount = 0;
+            for (fds_uint32_t j = 0; j < primDepth; ++j) {
+                NodeUuid uuid = col->get(j);
+                if (rmNodes.count(uuid) > 0) {
+                    ++rmCount;
+                }
+            }
+            if (rmCount >= primDepth) {
+                LOGERROR << "At least one column in DLT has all primaries marked "
+                         << "for removal; invalid DLT update";
+                return ERR_INVALID_ARG;
+            }
+        }
+    }
+
     return err;
 }
 
@@ -880,9 +953,120 @@ ConsistHashAlgorithm::handleDltChange(const ClusterMap *curMap,
     diffPtr->print(nodes);
 }
 
+fds_uint32_t
+ConsistHashAlgorithm::numOfFailedSMsInToken(const DltTokenGroupPtr& col,
+                                            fds_uint32_t tokenId,
+                                            fds_uint32_t checkDepth,
+                                            const NodeUuidSet& nonFailedSms) {
+    fds_uint32_t count = 0;
+    for (fds_uint32_t j = 0; j < checkDepth; ++j) {
+        NodeUuid uuid = col->get(j);
+        if (nonFailedSms.count(uuid) == 0) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+/*
+ * If numPrimarySMs == 0, noop
+ * Bubble up non-failed SMs in each column;
+ *    -- If all primaries fail, secondaries will take their place;
+ *    -- If the whole column failed, do not change this column
+ *    -- If after replacing failed primaries with secondaries, there
+ *    are still failed SMs on primary slots, set these slots to 0
+ *    (the caller method will replace 0s with non-failed SM uuids)
+ */
+void
+ConsistHashAlgorithm::demoteFailedPrimaries(DLT* newDLT,
+                                            fds_uint32_t numPrimarySMs,
+                                            const NodeUuidSet& nonFailedSms) {
+    if (numPrimarySMs == 0) {
+        // this param tells we don't care about 'failed' state of SMs
+        return;
+    }
+    // check every DLT token
+    fds_uint64_t numTokens = newDLT->getNumTokens();
+    fds_uint32_t primDepth = numPrimarySMs;
+    if (primDepth > newDLT->getDepth()) {
+        primDepth = newDLT->getDepth();
+    }
+
+    LOGNORMAL << "Before demote: " << *newDLT;
+    for (fds_token_id i = 0; i < numTokens; i++) {
+        DltTokenGroupPtr col = newDLT->getNodes(i);
+        fds_uint32_t primFailedSmsCount = numOfFailedSMsInToken(col, i,
+                                                                numPrimarySMs, nonFailedSms);
+
+        if (primFailedSmsCount == 0) {
+            // none of primaries failed, no-one to demote
+            LOGNORMAL << "Token " << i << ": no primary failure";
+            continue;  // go to next DLT token
+        } else if (primFailedSmsCount >= numPrimarySMs) {
+            // all primaries failed
+            LOGNORMAL << "Token " << i << ": all primary SMs failed";
+            // if all SMs failed in this column (including secondaries)
+            // nothing to do for that column as well
+            fds_uint32_t failedSmsCount = numOfFailedSMsInToken(col, i,
+                                                                newDLT->getDepth(), nonFailedSms);
+            if (failedSmsCount >= newDLT->getDepth()) {
+                LOGNORMAL << "Token " << i << ": all SMs failed in this column";
+                continue;  // go to the next DLT token
+            }
+        }
+
+        // there is at least one failed primary and at least one non-failed secondary
+        fds_uint32_t secondary_j = primDepth;
+        for (fds_uint32_t j = 0; j < primDepth; ++j) {
+            NodeUuid uuid = col->get(j);
+            if (nonFailedSms.count(uuid) == 0) {
+                // this primary failed
+                NodeUuid nonfailedUuid = col->get(secondary_j);
+                while (nonFailedSms.count(nonfailedUuid) == 0) {
+                    // this secondary also failed, try another one
+                    ++secondary_j;
+                    if (secondary_j >= newDLT->getDepth()) {
+                        // ran out of secondaries...
+                        break;
+                    }
+                    nonfailedUuid = col->get(secondary_j);
+                }
+                if (secondary_j < newDLT->getDepth()) {
+                    // found secondary to replace failed primary
+                    newDLT->setNode(i, secondary_j, uuid);
+                    newDLT->setNode(i, j, nonfailedUuid);
+                    col->set(secondary_j, uuid);
+                    col->set(j, nonfailedUuid);
+                    LOGNORMAL << "Column " << i << ": Exchanging row " << j <<
+                            " and " << secondary_j;
+                    ++secondary_j;
+                }
+                if (secondary_j >= newDLT->getDepth()) {
+                    // ran out of secondaries...
+                    break;  // with next column
+                }
+            }
+        }
+
+        // if we are here, at least one of the primaries is non-failed;
+        // replace all failed primaries with 0s (so they can be filled
+        // later with non-failed SM uuids)
+        for (fds_uint32_t j = 0; j < primDepth; ++j) {
+            NodeUuid uuid = col->get(j);
+            if (nonFailedSms.count(uuid) == 0) {
+                // this primary is in 'failed' state, replace with 0
+                newDLT->setNode(i, j, 0);
+            }
+        }
+    }
+
+    LOGNORMAL << "After demote: " << *newDLT;
+}
+
 void
 ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
-                                        DLT* newDLT)
+                                        DLT* newDLT,
+                                        fds_uint32_t numPrimarySMs)
 {
     NodeUuid cur_uuid;
     fds_uint32_t total_nodes = curMap->getNumMembers(fpi::FDSP_STOR_MGR);
@@ -992,26 +1176,72 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
         tok_idx += l1_toks;
     }
 
+    // if we take into account 'failed' state, do some more re-shuffling
+    NodeUuidSet emptySet;
+    if (numPrimarySMs > 0) {
+        // try not to have failed services as primaries
+        NodeUuidSet nonFailedSms = curMap->getNonfailedServices(fpi::FDSP_STOR_MGR);
+        NodeUuidSet allSms = curMap->getServiceUuids(fpi::FDSP_STOR_MGR);
+        fds_uint32_t nonFailedCnt = nonFailedSms.size();
+        if ((nonFailedCnt < numPrimarySMs) ||
+            (numPrimarySMs >= col_depth)) {
+            // we don't have enough non-failed SMs to place into primaries
+            // just fill in cells with uuids independent whether they failed or not
+            fillEmptyCells(numTokens, newDLT, 0, curMap->getServiceUuids(fpi::FDSP_STOR_MGR),
+                           curMap->getServiceUuids(fpi::FDSP_STOR_MGR));
+            return;
+        }
+
+        // if we are taking into account failed services, rotate columns
+        // to place non-failed services into primary rows
+        newDLT->generateNodeTokenMap();
+        demoteFailedPrimaries(newDLT, numPrimarySMs, nonFailedSms);
+
+        // since we are computing DLT from scratch, find columns that have
+        // all SM uuids that are in 'failed' state, and set the whole column to 0
+        newDLT->generateNodeTokenMap();
+        for (fds_token_id i = 0; i < numTokens; i++) {
+            DltTokenGroupPtr col = newDLT->getNodes(i);
+            fds_uint32_t failedSMsCount = numOfFailedSMsInToken(col, i,
+                                                                col_depth, nonFailedSms);
+            if (failedSMsCount == col_depth) {
+                for (fds_uint32_t j = 0; j < col_depth; ++j) {
+                    newDLT->setNode(i, j, 0);
+                }
+            }
+        }
+        newDLT->generateNodeTokenMap();
+
+        // Fill in empty cells and remaining rows
+        fillEmptyCells(numTokens, newDLT, numPrimarySMs, nonFailedSms, allSms);
+        return;
+    }
+
     // Fill in the remaining rows
-    fillEmptyReplicaCells(total_nodes, numTokens, newDLT);
+    fillEmptyCells(numTokens, newDLT, 0, curMap->getServiceUuids(fpi::FDSP_STOR_MGR),
+                   curMap->getServiceUuids(fpi::FDSP_STOR_MGR));
 }
 
 //
-// The initial compute fully fills in first two rows, but may have
-// some unfilled cells in rows #3 and #4 (indexes 2 and 3). This function
-// fills in those cells by walking the ring, and fills in rows #5, etc
+// In the original DLT computation algorithm (numPrimarySMs == 0), 
+// the initial compute fully fills in first two rows, but may have
+// some unfilled cells in rows #3 and #4 (indexes 2 and 3).
+// If numPrimarySMs > 0 (when we take into account SM state failed/non-failed)
+// we may have unfilled cells in any row
+// This function fills in those cells by walking the ring, and fills in rows #5, etc
 // if we have higher DLT depth than 4.
+// @param replicaCellsOnly true expects that primary is no '0'
 //
 void
-ConsistHashAlgorithm::fillEmptyReplicaCells(fds_uint32_t numNodes,
-                                            fds_uint64_t numTokens,
-                                            DLT *newDLT) {
+ConsistHashAlgorithm::fillEmptyCells(fds_uint64_t numTokens,
+                                     DLT *newDLT,
+                                     fds_uint32_t numPrimarySMs,
+                                     const NodeUuidSet& nonFailedSms,
+                                     const NodeUuidSet& allSms) {
     NodeUuid cur_uuid;
     fds_uint32_t cur_row;
     fds_uint32_t col_depth = newDLT->getDepth();
 
-    // We should not have more columns than nodes
-    fds_verify(col_depth <= numNodes);
     std::unordered_set<NodeUuid, UuidHash> col_set;
     for (fds_token_id i = 0; i < numTokens; ++i) {
         col_set.clear();
@@ -1019,9 +1249,10 @@ ConsistHashAlgorithm::fillEmptyReplicaCells(fds_uint32_t numNodes,
         // or uuids from first row by walking the ring
         DltTokenGroupPtr column = newDLT->getNodes(i);
         cur_uuid = column->get(0);
-        fds_verify(cur_uuid.uuid_get_val() != 0);
-        col_set.insert(cur_uuid);
-        for (fds_uint32_t j = 1; j < col_depth; ++j) {
+        if (numPrimarySMs == 0) {
+            fds_verify(cur_uuid.uuid_get_val() != 0);
+        }
+        for (fds_uint32_t j = 0; j < col_depth; ++j) {
             cur_uuid = column->get(j);
             if (cur_uuid.uuid_get_val() != 0) {
                 col_set.insert(cur_uuid);
@@ -1030,22 +1261,71 @@ ConsistHashAlgorithm::fillEmptyReplicaCells(fds_uint32_t numNodes,
         // update the column in DLT, but only empty cells
         // by walking the ring clockwise finding unique uuids
         fds_token_id ind = (i+1) % numTokens;
-        cur_row = 1;
-        while (col_set.size() < col_depth) {
+        fds_uint32_t walkCount = 0;
+        fds_uint32_t walkDepth = col_depth;
+        if ((numPrimarySMs > 0) && (numPrimarySMs < col_depth)) {
+            // we also want the algorithm to be same as original
+            // if there are no failed SMs
+            if (allSms.size() != nonFailedSms.size()) {
+                // first walk the primaries
+                walkDepth = numPrimarySMs;
+            }
+        }
+        cur_row = 0;
+        while ((cur_row < walkDepth) && (col_set.size() < col_depth)) {
             cur_uuid = column->get(cur_row);
             // first find non-filled cell
             while (cur_uuid.uuid_get_val() != 0) {
                 ++cur_row;
                 cur_uuid = column->get(cur_row);
             }
+            if (cur_row >= walkDepth) {
+                break;
+            }
             // then find unique uuid by walking the ring
             cur_uuid = newDLT->getPrimary(ind);
-            while (col_set.count(cur_uuid) != 0) {
+            while ((col_set.count(cur_uuid) != 0) ||
+                   (cur_uuid.uuid_get_val() == 0) ||
+                   (nonFailedSms.count(cur_uuid) == 0)) {
                 ind = (ind + 1) % numTokens;
                 cur_uuid = newDLT->getPrimary(ind);
+                ++walkCount;
+                fds_verify(walkCount < 2*numTokens);   // never ending loop!
             }
             col_set.insert(cur_uuid);
             newDLT->setNode(i, cur_row, cur_uuid);
+            LOGNORMAL << "Setting col " << i << " row " << cur_row
+                      << " to uuid " << cur_uuid.uuid_get_val()
+                      << ", col_set.size() " << col_set.size();
+            ++cur_row;
+        }
+        if (walkDepth == col_depth) {
+            continue;  // we are done filling in empty slots
+        }
+        // case when numPrimarySMs > 0, fill in secondary empty slots with
+        // uuids of failed or non-failed SMs
+        NodeUuidSet::const_iterator it = allSms.cbegin();
+        while (col_set.size() < col_depth) {
+            fds_verify(cur_row < col_depth);
+            cur_uuid = column->get(cur_row);
+            // first find non-filled cell
+            while (cur_uuid.uuid_get_val() != 0) {
+                ++cur_row;
+                cur_uuid = column->get(cur_row);
+            }
+            LOGNORMAL << "Non-filled cell col " << i << " row "
+                      << cur_row << ", initial assignment " << *it
+                      << " col_set.size() " << col_set.size();
+            cur_uuid = *it;
+            // find unique uuid by walking the ring
+            while (col_set.count(cur_uuid) != 0) {
+                ++it;
+                fds_verify(it != allSms.cend());
+                cur_uuid = *it;
+            }
+            col_set.insert(cur_uuid);
+            newDLT->setNode(i, cur_row, cur_uuid);
+            ++cur_row;
         }
     }
 }

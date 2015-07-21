@@ -291,17 +291,20 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
     }
 }
 
-//get source node for a given dlt token assigned to destination node
-NodeUuid DLT::getSourceNodeForToken(const NodeUuid &nodeUuid,
+/**
+ * Get source node for a given DLT token assigned to the destination node.
+ */
+NodeUuid DLT::getSourceNodeForToken(const NodeUuid &destNodeUuid,
                                     const fds_token_id &tokenId) const {
+    NodeUuid srcNodeUuid(INVALID_RESOURCE_UUID);
+
     DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
-    for (fds_uint8_t idx = 0; idx < tokenNodeGroup->getLength(); idx++) {
-        // idx = 0 is primary node for a given token id.
-        if (nodeUuid != tokenNodeGroup->get(idx)) {
-            return tokenNodeGroup->get(idx);
-        }
+
+    if (destNodeUuid != tokenNodeGroup->get(sm1Idx)) {
+        return tokenNodeGroup->get(sm1Idx);
     }
-    return INVALID_RESOURCE_UUID;
+
+    return srcNodeUuid;
 }
 
 // get source nodes for all the tokens of a given destination node
@@ -363,6 +366,65 @@ NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
     }
 
     return newTokenGroups;
+}
+
+fds_bool_t DLT::operator==(const DLT &rhs) const {
+    // number of rows and columns has to match
+    if ((depth != rhs.depth) || (numTokens != rhs.numTokens)) {
+        return false;
+    }
+
+    // every column should match
+    for (fds_token_id i = 0; i < numTokens; ++i) {
+        DltTokenGroupPtr myCol = getNodes(i);
+        DltTokenGroupPtr col = rhs.getNodes(i);
+        if ((myCol == nullptr) && (col == nullptr)) {
+            continue;  // ok
+        } else if ((myCol == nullptr) || (col == nullptr)) {
+            return false;
+        }
+        if (!(*myCol == *col)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
+    Error err(ERR_OK);
+
+    // we should not have more rows than nodes
+    if (depth > expectedUuidSet.size()) {
+        LOGERROR << "DLT has more rows (" << depth
+                 << ") than nodes (" << expectedUuidSet.size() << ")";
+        return ERR_INVALID_DLT;
+    }
+
+    // check each column in DLT
+    NodeUuidSet colSet;
+    for (fds_token_id i = 0; i < numTokens; ++i) {
+        colSet.clear();
+        DltTokenGroupPtr column = getNodes(i);
+        for (fds_uint32_t j = 0; j < depth; ++j) {
+            NodeUuid uuid = column->get(j);
+            if ((uuid.uuid_get_val() == 0) ||
+                (expectedUuidSet.count(uuid) == 0)) {
+                // unexpected uuid in this DLT cell
+                LOGERROR << "DLT contains unexpected uuid " << std::hex
+                         << uuid.uuid_get_val() << std::dec;
+                return ERR_INVALID_DLT;
+            }
+            colSet.insert(uuid);
+        }
+
+        // make sure that column contains all unique uuids
+        if (colSet.size() < depth) {
+            LOGERROR << "Found non-unique uuids in DLT column " << i;
+            return ERR_INVALID_DLT;
+        }
+    }
+
+    return err;
 }
 
 void DLT::dump() const {

@@ -2,26 +2,38 @@
 {% block content %}
 # Redis configuration file
 
-port 6379
+port {{ redis_port }}
+
+# The working directory.
 dir /fds/var/redis
+
+# The filename where to dump the DB
 dbfilename dump.rdb
+
+daemonize yes
 pidfile /fds/var/redis/run/redis-server.pid
+
 loglevel verbose
 logfile /fds/var/logs/redis/redis-server.log
 
-# debug/verbose/notice/warning
+{# add slave of for none master, i.e. all hosts expect OM hosts #}
+{% if fds_om_host != inventory_hostname and this_node_runs_om != "true" %}
+slaveof {{ fds_om_host }} {{ redis_port }}
+{% endif %}
+
 databases 16
+
+# snapshot
 save 60 1
+
 rdbcompression yes
 
-daemonize yes
-#bind 127.0.0.1
 # Close the connection after a client is idle for N seconds (0 to disable)
 timeout 0
+
 appendonly yes
 appendfilename appendonly.aof
-
-# always/everysec/no
 appendfsync always
+
 no-appendfsync-on-rewrite no
 {% endblock %}

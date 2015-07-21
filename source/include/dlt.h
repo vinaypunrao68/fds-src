@@ -25,6 +25,7 @@
 
 namespace fds {
 #define DLT_VER_INVALID 0UL  /**< Defines 0 as invalid DLT version */
+    const fds_uint8_t sm1Idx = 0;  /* DLT slot identifying SM1. */
 
     typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
@@ -91,13 +92,12 @@ namespace fds {
         typedef std::map<NodeUuid, std::vector<fds_int32_t>> SourceNodeMap;
 
         /**
-         * To resync token data from a node in the replica set,
-         * get source node for a given token. The first choice for the
-         * source node will be the primary node for a given token.
-         * If primary is not available, then the next available node
-         * in the token node group is chosen.
+         * To resync token data from a node in the redundancy group,
+         * get source node for a given token. The only choice for the
+         * source node will be the node in slot 0 (SM1) for a given token.
+         * If primary is not available, then token migration can not take place.
          */
-        NodeUuid getSourceNodeForToken(const NodeUuid &nodeUuid,
+        NodeUuid getSourceNodeForToken(const NodeUuid &destNodeUuid,
                                        const fds_token_id &tokenId) const;
 
         /**
@@ -166,9 +166,28 @@ namespace fds {
 
         uint32_t getEstimatedSize() const;
 
+        /**
+         * Two DLTs are equal if they have the same content in the table
+         * but versions may be different (or same).
+         */
+        fds_bool_t operator==(const DLT &rhs) const;
+
         // print the dlt to the logs
         // will print full dlt if the loglevel is debug
         void dump() const;
+
+        /**
+         * Checks if DLT is valid
+         * Invalid cases:
+         *    -- A column has repeating node uuids (non-unique)
+         *    -- A cell in a DMT has an invalid Service UUID
+         *    -- DLT must not contain any uuids that are not in 'expectedUuidSet'
+         * @param expectedUuidSet a set of UUIDs that are expected to be
+         *        in this DLT; one or more UUIDs may be missing from the DLT,
+         *        but DLT must not contain any UUID that is not in the set
+         * @return ERR_OK or ERR_DLT_INVALID
+         */
+        Error verify(const NodeUuidSet& expectedUuidSet) const;
 
         /*
          * Module members

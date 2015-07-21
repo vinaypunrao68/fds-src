@@ -11,6 +11,7 @@ user_fds_ar_libs := fds-pm-lib fds-disk-lib
 user_non_fds_libs :=           \
                      udev      \
                      rt        \
+                     uuid      \
                      parted
 
 user_cpp         := platform-main.cpp

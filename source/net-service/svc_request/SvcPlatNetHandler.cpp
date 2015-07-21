@@ -134,7 +134,15 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
          asyncReqHandlers_.at(header->msg_type_id) (header, payload);
     } catch(std::out_of_range &e)
     {
-        fds_assert(!"Unregistered fdsp message type");
+        /*
+         * TODO Please justify why in debug mode this is an abort?
+         * 
+         * We don't even provide the message type id so we can troubleshoot it
+         * when we are in debug mode.
+         * 
+         * This make no sense, we log it in production and move on.
+         */
+//        fds_assert(!"Unregistered fdsp message type");
         LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id)
                 << " Ignoring";
     }
@@ -164,17 +172,27 @@ void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::Async
     // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
 
 
-    GLOGDEBUG << logString(*header);
+//    GLOGDEBUG << logString(*header);
 
     fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
 
-    /* Execute on synchronized task exector so that handling for requests
-     * with same id gets serialized
+    /* Execute on synchronized task executor so that handling for requests
+     * with same task id or executor id gets serialized
      */
-     taskExecutor_->schedule(header->msg_src_id,
-                           std::bind(&PlatNetSvcHandler::asyncRespHandler,
-                                     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
-                                     header, payload));
+    auto reqTracker = MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker();
+    auto asyncReq = reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
+    if (asyncReq && asyncReq->taskExecutorIdIsSet()) {
+        taskExecutor_->scheduleOnHashKey(asyncReq->getTaskExecutorId(),
+                                         std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                                   MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                                   header,
+                                                   payload));
+    } else {
+        taskExecutor_->scheduleOnTemplateKey(header->msg_src_id,
+                                             std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                                       MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                                       header, payload));
+    }
 }
 
 

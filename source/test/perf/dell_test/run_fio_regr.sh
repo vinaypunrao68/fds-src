@@ -6,13 +6,12 @@ function volume_setup {
     local max_obj_size=$1
     local node=$2
     local vol=$3
-    pushd /fds/sbin 
-    ./fdsconsole.py accesslevel admin 
-    ./fdsconsole.py volume create $vol --vol-type block --blk-dev-size 10485760 --max-obj-size $max_obj_size
+    pushd  ../../../cli
+    let max_obj_size_kb=$max_obj_size/1024
+    #./fds volume create -name $vol -type block -block_size $max_obj_size_kb -block_size_unit KB -media_policy HDD
+    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -media_policy HDD
     sleep 10
-    ./fdsconsole.py volume modify $vol --minimum 0 --maximum 0 --priority 1 
     popd
-    sleep 10
     nbd_disk=`../../../cinder/nbdadm.py attach $node $vol`
 }
 
@@ -49,7 +48,7 @@ function process_results {
 
 outdir=$1
 nodes=$2
-node=luke
+node=$3
 size="16m"
 worker=8
 workload="randread"

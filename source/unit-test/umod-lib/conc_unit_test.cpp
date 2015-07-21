@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <concurrency/Mutex.h>
+#include <concurrency/SpinLock.h>
 #include <concurrency/RwLock.h>
 #include <concurrency/Thread.h>
 #include <concurrency/Synchronization.h>
@@ -23,6 +24,7 @@ class ConcUnitTest {
   std::list<std::string>  unit_tests;
   fds_mutex        *global_mutex;
   fds_rwlock       *global_rwlock;
+  fds_spinlock     *global_spinlock;
   fds_uint32_t      global_int;
   fds_notification *global_notify;
   fds_uint32_t      global_waiters;
@@ -55,6 +57,23 @@ class ConcUnitTest {
     if (use_mutex) {
       ut->global_mutex->unlock();
     }
+  }
+
+  static void spinlock_thread_loop(ConcUnitTest *ut, int seed, int its) {
+    boost::xtime xt;
+    boost::xtime_get(&xt, boost::TIME_UTC_);
+
+    ut->global_spinlock->lock();
+
+    for (int i = its; i >= 0; i--) {
+      std::cout << "Thread " << seed << " has " << i
+                << " iterations left" << std::endl;
+      xt.sec += 1;
+      boost::thread::sleep(xt);
+    }
+    std::cout << "Thread " << seed << " is exiting" << std::endl;
+
+    ut->global_spinlock->unlock();
   }
 
   static void rw_thread_loop(ConcUnitTest *ut, rw_modes mode, int seed, int its) {
@@ -92,7 +111,7 @@ class ConcUnitTest {
     ut->global_notify->wait_for_notification();
     std::cout << "Thread " << seed << " is awake!" << std::endl;
   }
-  
+
   boost::thread* start_mt_thread(int seed, int its, bool use_mutex) {
     boost::thread *_t;
     _t = new boost::thread(boost::bind(&mt_thread_loop, this, seed, its, use_mutex));
@@ -100,6 +119,13 @@ class ConcUnitTest {
     return _t;
   }
   
+  boost::thread* start_spinlock_thread(int seed, int its) {
+    boost::thread *_t;
+    _t = new boost::thread(boost::bind(&spinlock_thread_loop, this, seed, its));
+
+    return _t;
+  }
+
   boost::thread* start_rw_thread(rw_modes mode, int seed, int its) {
     boost::thread *_t;
     _t = new boost::thread(boost::bind(&rw_thread_loop, this, mode, seed, its));
@@ -191,6 +217,27 @@ class ConcUnitTest {
       threads.push_back(start_mt_thread(i, iterations, true));
     }
     
+    /*
+     * Wait for all of the threads.
+     */
+    for (int i = 0; i < 10; i++) {
+      threads[i]->join();
+    }
+
+    return 0;
+  }
+
+  int spinlock() {
+    std::vector<boost::thread*> threads;
+    int iterations = 5;
+
+    /*
+     * Start threads and save reference.
+     */
+    for (int i = 0; i < 10; i++) {
+      threads.push_back(start_spinlock_thread(i, iterations));
+    }
+
     /*
      * Wait for all of the threads.
      */
@@ -306,6 +353,7 @@ class ConcUnitTest {
   explicit ConcUnitTest() {
     global_mutex   = new fds_mutex("global mutex");
     global_rwlock  = new fds_rwlock();
+    global_spinlock = new fds_spinlock;
     global_int     = 0;
     global_notify  = new fds_notification();
     global_waiters = 0;
@@ -314,6 +362,7 @@ class ConcUnitTest {
     unit_tests.push_back("basic_mutex");
     unit_tests.push_back("multi-thread");
     unit_tests.push_back("mt-mutex");
+    unit_tests.push_back("spinlock");
     unit_tests.push_back("rwlock");
     unit_tests.push_back("notify");
     unit_tests.push_back("threadpool");
@@ -321,6 +370,7 @@ class ConcUnitTest {
 
   ~ConcUnitTest() {
     delete global_mutex;
+    delete global_spinlock;
     delete global_rwlock;
     delete global_notify;
   }
@@ -335,6 +385,8 @@ class ConcUnitTest {
       result = multi_thread();
     } else if (testname == "mt-mutex") {
       result = mt_mutex();
+    } else if (testname == "spinlock") {
+      result = spinlock();
     } else if (testname == "rwlock") {
       result = rwlock();
     } else if (testname == "notify") {

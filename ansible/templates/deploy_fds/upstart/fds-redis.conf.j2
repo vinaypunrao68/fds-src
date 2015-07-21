@@ -1,0 +1,14 @@
+##
+# Formation Data Systems, INC. Redis instance
+#
+# Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+
+description "Formation Data Systems, INC. Redis instance"
+
+start on (starting fds-pm)
+
+respawn
+respawn limit 10 5
+
+pre-start exec /fds/sbin/redis.sh start
+post-stop exec /fds/sbin/redis.sh stop

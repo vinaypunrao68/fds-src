@@ -15,7 +15,7 @@ RandNumGenerator::~RandNumGenerator() {
 
 fds_uint64_t
 RandNumGenerator::genNumSafe() {
-    fds_scoped_spinlock scopeLock(rngLock);
+    fds_scoped_lock scopeLock(rngLock);
     return genNum();
 }
 

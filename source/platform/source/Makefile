@@ -8,6 +8,7 @@ user_incl_dir  :=                                \
 platform_cpp  :=                        \
                  platform_manager.cpp   \
                  svc_handler.cpp        \
+                 valgrind.cpp           \
                  process.cpp
 
 disk_cpp :=                              \

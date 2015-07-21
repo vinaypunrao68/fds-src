@@ -45,7 +45,8 @@ class AmAsyncResponseApi {
                                   handle_type& requestId,
                                   shared_vol_descriptor_type& volDesc,
                                   shared_vol_mode_type& mode) = 0;
-
+    virtual void detachVolumeResp(const error_type &error,
+                                  handle_type& requestId) = 0;
     virtual void startBlobTxResp(const error_type &error,
                                  handle_type& requestId,
                                  shared_tx_ctx_type& txDesc) = 0;

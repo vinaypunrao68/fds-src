@@ -99,6 +99,13 @@ class ClusterMap : public Module {
     fds_uint32_t getNumMembers(fpi::FDSP_MgrIdType svc_type) const;
 
     /**
+     * Returns the current number of UP cluster members of
+     * a given service type
+     * @param svc_type service type: SM or DM
+     */
+    fds_uint32_t getNumNonfailedMembers(fpi::FDSP_MgrIdType svc_type) const;
+
+    /**
      * Returns member info based on the nodes membership
      * index number.
      */
@@ -133,6 +140,14 @@ class ClusterMap : public Module {
     std::unordered_set<NodeUuid, UuidHash>
             getRemovedServices(fpi::FDSP_MgrIdType svc_type) const;
 
+
+    /**
+     * Returns a list of services that are in non-failed state
+     */
+    NodeUuidSet getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const;
+    NodeUuidSet getFailedServices(fpi::FDSP_MgrIdType svc_type) const;
+    NodeUuidSet getServiceUuids(fpi::FDSP_MgrIdType svc_type) const;
+
     void resetPendServices(fpi::FDSP_MgrIdType svc_type);
     /**
      * Adds given uuid to removed nodes set, this node should not
@@ -149,6 +164,13 @@ class ClusterMap : public Module {
      */
     void rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
                                const NodeUuid& svc_uuid);
+
+    /**
+     * Removes service with uuid 'svc_uuid' from pending added services mao
+     * but NOT from cluster map
+     */
+    void resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+                                  const NodeUuid& svc_uuid);
 
     /**
      * Module methods.

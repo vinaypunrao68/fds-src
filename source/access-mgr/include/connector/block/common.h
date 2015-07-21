@@ -16,7 +16,7 @@ class async;
 namespace fds
 {
 
-    enum class NbdError {
+    enum class NbdError : uint8_t {
         connection_closed,
         shutdown_requested,
     };

@@ -26,7 +26,7 @@ extern "C" {
 
 #define COMMITLOG_GET(_volId_, _commitLog_)                             \
     do {                                                                \
-        fds_scoped_spinlock l(commitLogLock_);                          \
+        fds_scoped_lock l(commitLogLock_);                               \
         try {                                                           \
             _commitLog_ = commitLogs_.at(_volId_);                      \
         } catch(const std::out_of_range &oor) {                         \
@@ -34,10 +34,6 @@ extern "C" {
             return ERR_VOL_NOT_FOUND;                                   \
         }                                                               \
     } while (false)
-
-static const fds_uint32_t POLL_WAIT_TIME_MS = 120000;
-static const fds_uint32_t MAX_POLL_EVENTS = 1024;
-static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
 
 namespace fds {
 
@@ -52,15 +48,8 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name,
           dataManager_(dataManager),
           opSynchronizer_(tp),
           config_helper_(g_fdsprocess->get_conf_helper()),
-          tp_(tp),
-          stopLogMonitoring_(false)
-{
+          tp_(tp) {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
-
-    if (dataManager.features.isTimelineEnabled()) {
-        logMonitorThread_.reset(new std::thread(
-                std::bind(&DmTimeVolCatalog::monitorLogs, this)));
-    }
 
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -113,7 +102,7 @@ void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
-    fds_scoped_spinlock l(commitLogLock_);
+    fds_scoped_lock l(commitLogLock_);
     commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
                                                                    voldesc.maxObjSizeInBytes);
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
@@ -128,8 +117,10 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
+                             fpi::SvcUuid const& client_uuid,
                              fds_int64_t& token,
-                             fpi::VolumeAccessMode const& mode) {
+                             fpi::VolumeAccessMode const& mode,
+                             sequence_id_t& sequence_id) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -140,14 +131,16 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
             auto table = new DmVolumeAccessTable(volId);
-            table->getToken(token, mode, vol_tok_lease_time);
+            table->getToken(client_uuid, token, mode, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
             // Table already exists, check if we can attach again or
             // renew the existing token.
-            err = it->second->getToken(token, mode, vol_tok_lease_time);
+            err = it->second->getToken(client_uuid, token, mode, vol_tok_lease_time);
         }
     }
+
+    sequence_id = dataManager_.getVolumeMeta(volId, false)->getSequenceId();
 
     return err;
 }
@@ -228,7 +221,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
 
 #if 0
     // disable the ObjRef count  login for now. will revisit this  once  we have complete
-    // design in place 
+    // design in place
         for (auto it : tokenOidMap) {
             incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
             // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
@@ -279,7 +272,8 @@ DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
 
 Error
 DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
-    if (isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
+    auto vol = volcat->getVolume(volId);
+    if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
     Error err = volcat->markVolumeDeleted(volId);
     if (err.ok()) {
         // TODO(Anna) @Umesh we should mark commit log as
@@ -296,19 +290,27 @@ Error
 DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
     Error err = volcat->deleteEmptyCatalog(volId);
     if (err.ok()) {
-        fds_scoped_spinlock l(commitLogLock_);
-        if (commitLogs_.count(volId) > 0) {
-            // found commit log
-            commitLogs_.erase(volId);
+        {
+            fds_scoped_lock l(commitLogLock_);
+            if (commitLogs_.count(volId) > 0) {
+                // found commit log
+                commitLogs_.erase(volId);
+            }
         }
+
+        auto volDir = dmutil::getVolumeDir(volId);
+        const std::string rmCmd = "rm -rf  " + volDir;
+        int retcode = std::system((const char *)rmCmd.c_str());
+        LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
     }
     return err;
 }
 
 Error
 DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
-                                    const fpi::FDSP_MetaDataList &metadataList) {
-    return volcat->setVolumeMetadata(volId, metadataList);
+                                    const fpi::FDSP_MetaDataList &metadataList,
+                                    const sequence_id_t seq_id) {
+    return volcat->setVolumeMetadata(volId, metadataList, seq_id);
 }
 
 Error
@@ -368,6 +370,7 @@ Error
 DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
                                const std::string &blobName,
                                BlobTxId::const_ptr txDesc,
+                               const sequence_id_t seq_id,
                                const DmTimeVolCatalog::CommitCb &cb) {
     LOGDEBUG << "Will commit transaction " << *txDesc << " for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
@@ -375,9 +378,9 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     COMMITLOG_GET(volId, commitLog);
 
     // serialize on blobId instead of blobName so collision detection is free from races
-    opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
-                             std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, volId, blobName, commitLog, txDesc, cb));
+    opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
+                                      std::bind(&DmTimeVolCatalog::commitBlobTxWork,
+                                       this, volId, blobName, commitLog, txDesc, seq_id, cb));
     return ERR_OK;
 }
 
@@ -387,15 +390,16 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
+                                         const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     LOGDEBUG << "Will apply committed blob update from another DM for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
 
     // we don't go through commit log, but we need to serialized fwd updates
-    opSynchronizer_.schedule(DmPersistVolCat::getBlobIdFromName(blobName),
-                             std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
-                                       this, volId, blobName, blobVersion,
-                                       objList, metaList, fwdCommitCb));
+    opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
+                                      std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
+                                                this, volId, blobName, blobVersion,
+                                       objList, metaList, seq_id, fwdCommitCb));
 
     return ERR_OK;
 }
@@ -405,6 +409,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 				   const std::string &blobName,
                                    DmCommitLog::ptr &commitLog,
                                    BlobTxId::const_ptr txDesc,
+                                   const sequence_id_t seq_id,
                                    const DmTimeVolCatalog::CommitCb &cb) {
     Error e;
     blob_version_t blob_version = blob_version_invalid;
@@ -430,7 +435,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 	    e = Error(ERR_HASH_COLLISION);
 	} else {
-	    e = doCommitBlob(volid, blob_version, commit_data);
+	    e = doCommitBlob(volid, blob_version, seq_id, commit_data);
 	}
     }
     cb(e,
@@ -442,7 +447,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 Error
 DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-                               CommitLogTx::ptr commit_data) {
+                               const sequence_id_t seq_id, CommitLogTx::ptr commit_data) {
     Error e;
     if (commit_data->blobDelete) {
         e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
@@ -450,7 +455,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
     } else {
 #ifdef ACTIVE_TX_IN_WRITE_BATCH
         e = volcat->putBlob(volid, commit_data->name, commit_data->blobSize,
-                            commit_data->metaDataList, commit_data->wb,
+                            commit_data->metaDataList, commit_data->wb, seq_id,
                             0 != (commit_data->blobMode & blob::TRUNCATE));
 #else
         if (commit_data->blobObjList && !commit_data->blobObjList->empty()) {
@@ -458,18 +463,23 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
                 commit_data->blobObjList->setEndOfBlob();
             }
             e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
-                                commit_data->blobObjList, commit_data->txDesc);
+                                commit_data->blobObjList, commit_data->txDesc, seq_id);
         } else {
             e = volcat->putBlobMeta(volid, commit_data->name,
-                                    commit_data->metaDataList, commit_data->txDesc);
+                                    commit_data->metaDataList,
+                                    commit_data->txDesc, seq_id);
         }
-        // Update the blob size in the commit data
+
         if (ERR_OK == e) {
+            // Update the blob size in the commit data
             e = volcat->getBlobMeta(volid,
                                     commit_data->name,
                                     nullptr,
                                     &commit_data->blobSize,
                                     nullptr);
+
+            // if the operation suceeded, update cached copy of sequence_id
+            dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
 #endif
     }
@@ -482,6 +492,7 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
+                                         const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     Error err(ERR_OK);
     // TODO(xxx): use blob mode to tell if that's a deletion
@@ -501,15 +512,20 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
 
             if (metaList.size() > 0) {
                 MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
-                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr());
+                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr(), seq_id);
             } else {
                 err = volcat->putBlob(volid, blobName, MetaDataList::ptr(),
-                                      olist, BlobTxId::ptr());
+                                      olist, BlobTxId::ptr(), seq_id);
             }
         } else {
             fds_verify(metaList.size() > 0);
             MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
-            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr());
+            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr(), seq_id);
+        }
+
+        if (ERR_OK == err) {
+            // if the operation suceeded, update cached copy of sequence_id
+            dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
     }
 
@@ -538,296 +554,10 @@ DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) 
     return rc;
 }
 
-void DmTimeVolCatalog::getDirChildren(const std::string & parent,
-                                      std::vector<std::string> & children, bool dirs /* = true */) {
-    fds_verify(!parent.empty());
-    DIR * dirp = opendir(parent.c_str());
-    if (!dirp) {
-        LOGCRITICAL << "Failed to open directory '" << parent << "', error= '"
-                    << errno << "'";
-        return;
-    }
-
-    struct dirent entry;
-    for (auto * dp = &entry; 0 == readdir_r(dirp, &entry, &dp) && dp; ) {
-        if ((dirs && DT_DIR != entry.d_type) || (!dirs && DT_DIR == entry.d_type)) {
-            continue;
-        } else if (0 != strncmp(entry.d_name, ".", 1) && 0 != strncmp(entry.d_name, "..", 2)) {
-            std::string tmpStr(entry.d_name);
-            children.push_back(tmpStr);
-        }
-    }
-    closedir(dirp);
+Error
+DmTimeVolCatalog::migrateDescriptor(fds_volid_t volId,
+                                    const std::string& blobName,
+                                    const std::string& blobData) {
+    return volcat->migrateDescriptor(volId, blobName, blobData);
 }
-
-void DmTimeVolCatalog::monitorLogs() {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    const std::string dmDir = root->dir_sys_repo_dm();
-    FdsRootDir::fds_mkdir(dmDir.c_str());
-    FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
-
-    // initialize inotify
-    int fd = inotify_init();
-    if (fd < 0) {
-        LOGCRITICAL << "Failed to initialize inotify, error= '" << errno << "'";
-        return;
-    }
-
-    std::set<std::string> watched;
-    int wd = inotify_add_watch(fd, dmDir.c_str(), IN_CREATE);
-    if (wd < 0) {
-        LOGCRITICAL << "Failed to add watch for directory '" << dmDir << "'";
-        return;
-    }
-    watched.insert(dmDir);
-
-    // epoll related calls
-    int efd = epoll_create(sizeof(fd));
-    if (efd < 0) {
-        LOGCRITICAL << "Failed to create epoll file descriptor, error= '" << errno << "'";
-        return;
-    }
-    struct epoll_event ev = {0};
-    ev.events = EPOLLIN | EPOLLET;
-    int ecfg = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
-    if (ecfg < 0) {
-        LOGCRITICAL << "Failed to configure epoll interface!";
-        return;
-    }
-
-    char buffer[BUF_LEN] = {0};
-    fds_bool_t processedEvent = false;
-    fds_bool_t eventReady = false;
-
-    while (!stopLogMonitoring_) {
-        do {
-            processedEvent = false;
-            std::vector<std::string> volDirs;
-            getDirChildren(dmDir, volDirs);
-
-            for (const auto & d : volDirs) {
-                std::string volPath = dmDir + d + "/";
-                std::vector<std::string> catFiles;
-                getDirChildren(volPath, catFiles, false);
-
-                for (const auto & f : catFiles) {
-                    if (0 == f.find(leveldb::DEFAULT_ARCHIVE_PREFIX)) {
-                        LOGDEBUG << "Found leveldb archive file '" << volPath << f << "'";
-                        std::string volTLPath = root->dir_timeline_dm() + d + "/";
-                        FdsRootDir::fds_mkdir(volTLPath.c_str());
-
-                        std::string srcFile = volPath + f;
-                        std::string cpCmd = "cp -f " + srcFile + " " + volTLPath;
-                        LOGDEBUG << "Running command: '" << cpCmd << "'";
-                        fds_int32_t rc = std::system(cpCmd.c_str());
-                        if (!rc) {
-                            fds_verify(0 == unlink(srcFile.c_str()));
-                            processedEvent = true;
-                            fds_volid_t volId (std::atoll(d.c_str()));
-                            TimeStamp startTime = 0;
-                            dmGetCatJournalStartTime(volTLPath + f, &startTime);
-                            dataManager_.timeline->addJournalFile(volId, startTime, volTLPath + f);
-                        } else {
-                            LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
-                                    << rc << "'";
-                        }
-                    }
-                }
-
-                std::set<std::string>::const_iterator iter = watched.find(volPath);
-                if (watched.end() == iter) {
-                    if ((wd = inotify_add_watch(fd, volPath.c_str(), IN_CREATE)) < 0) {
-                        LOGCRITICAL << "Failed to add watch for directory '" << volPath << "'";
-                        continue;
-                    } else {
-                        LOGDEBUG << "Watching directory '" << volPath << "'";
-                        processedEvent = true;
-                        watched.insert(volPath);
-                    }
-                }
-            }
-
-            if (stopLogMonitoring_) {
-                return;
-            }
-        } while (processedEvent);
-
-        // get the list of volumes in the system
-        std::vector<fds_volid_t> vecVolIds;
-        {
-            fds_scoped_spinlock l(commitLogLock_);
-            vecVolIds.reserve(commitLogs_.size());
-            for (const auto& item : commitLogs_) {
-                vecVolIds.push_back(item.first);
-            }
-        }
-        
-        // now check for each volume if the commit log time has been exceeded
-        TimeStamp now = fds::util::getTimeStampMicros();
-        std::vector<JournalFileInfo> vecJournalFiles;
-        TimeStamp retention = 0;
-        int rc;
-        for (const auto& volid : vecVolIds) {
-            vecJournalFiles.clear();
-            const VolumeDesc *volumeDesc = dataManager_.getVolumeDesc(volid);
-            if (!volumeDesc) {
-                LOGWARN << "unable to get voldesc for vol:" << volid;
-                continue;
-            }
-            retention = volumeDesc->contCommitlogRetention * 1000 * 1000;
-            // TODO(prem) : remove this soon
-            bool fRemoveOldLogs = false;
-            if (retention > 0 && fRemoveOldLogs) {
-                dataManager_.timeline->removeOldJournalFiles(volid,
-                                                             now - retention,
-                                                             vecJournalFiles);
-                LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
-                for (const auto& journal : vecJournalFiles) {
-                    rc = unlink(journal.journalFile.c_str());
-                    if (rc) {
-                        LOGERROR << "unable to remove old archive : " << journal.journalFile;
-                    } else {
-                        LOGDEBUG << "journal file removed successfully : " << journal.journalFile;
-                    }
-                }
-            }
-        }        
-
-
-        do {
-            eventReady = false;
-            errno = 0;
-            fds_int32_t fdCount = epoll_wait(efd, &ev, MAX_POLL_EVENTS, POLL_WAIT_TIME_MS);
-            if (fdCount < 0) {
-                if (EINTR != errno) {
-                    LOGCRITICAL << "epoll_wait() failed, error= '" << errno << "'";
-                    LOGCRITICAL << "Stopping commit log monitoring...";
-                    return;
-                }
-            } else if (0 == fdCount) {
-                // timeout, refresh
-                eventReady = true;
-            } else {
-                int len = read(fd, buffer, BUF_LEN);
-                if (len < 0) {
-                    LOGWARN << "Failed to read inotify event, error= '" << errno << "'";
-                    continue;
-                }
-
-                for (char * p = buffer; p < buffer + len; ) {
-                    struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
-                    if (event->mask | IN_ISDIR
-                        || 0 == strncmp(event->name,
-                                        leveldb::DEFAULT_ARCHIVE_PREFIX.c_str(),
-                                        strlen(leveldb::DEFAULT_ARCHIVE_PREFIX.c_str()))) {
-                        eventReady = true;
-                        break;
-                    }
-                    p += sizeof(struct inotify_event) + event->len;
-                }
-            }
-            if (stopLogMonitoring_) {
-                return;
-            }
-        } while (!eventReady);
-    }
-}
-
-Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog& destCat,
-                                              const std::vector<std::string> &files,
-                                              util::TimeStamp fromTime,
-                                              util::TimeStamp toTime) {
-    Error rc(ERR_DM_REPLAY_JOURNAL);
-
-    fds_uint64_t ts = 0;
-    for (const auto &f : files) {
-        for (leveldb::CatJournalIterator iter(f); iter.isValid(); iter.Next()) {
-            leveldb::WriteBatch & wb = iter.GetBatch();
-            ts = getWriteBatchTimestamp(wb);
-            if (!ts) {
-                LOGDEBUG << "Error getting the write batch time stamp";
-                break;
-            }
-            if (ts > toTime) {
-                // we don't care about further records.
-                break;
-            }
-            if (ts >= fromTime && ts <= toTime) {
-                rc = destCat.Update(&wb);
-            }
-        }
-    }
-
-    return rc;
-}
-Error DmTimeVolCatalog::dmGetCatJournalStartTime(const std::string &logfile,
-                                                 fds_uint64_t *journal_time) {
-    Error err(ERR_DM_JOURNAL_TIME);
-
-    *journal_time = 0;
-    for (leveldb::CatJournalIterator iter(logfile); iter.isValid(); ) {
-        *journal_time = getWriteBatchTimestamp(iter.GetBatch());
-        break;
-    }
-
-    return *journal_time ? ERR_OK : err;
-}
-
-Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
-                                           fds_volid_t destVolId,
-                                           util::TimeStamp fromTime,
-                                           util::TimeStamp toTime) {
-    Error err(ERR_INVALID);
-    std::vector<JournalFileInfo> vecJournalInfos;
-    std::vector<std::string> journalFiles;
-    dataManager_.timeline->getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
-
-    journalFiles.reserve(vecJournalInfos.size());
-    for (auto& item : vecJournalInfos) {
-        journalFiles.push_back(std::move(item.journalFile));
-    }
-
-    if (journalFiles.empty()) {
-        LOGDEBUG << "no matching journal files to be replayed from"
-                 << " srcvol:" << srcVolId << " onto vol:" << destVolId;
-        return ERR_OK;
-    } else {
-        LOGNORMAL << "[" << journalFiles.size() << "] journal files will be replayed from"
-                  << " srcvol:" << srcVolId << " onto vol:" << destVolId;
-    }
-
-    // get the correct catalog
-    DmVolumeCatalog::ptr volDirPtr =  boost::dynamic_pointer_cast
-            <DmVolumeCatalog>(volcat);
-
-    if (volDirPtr.get() == NULL) {
-        LOGERROR << "unable to get the vol dir ptr";
-        return ERR_NOT_FOUND;
-    }
-
-    DmPersistVolCat::ptr persistVolDirPtr = volDirPtr->getVolume(destVolId);
-    if (persistVolDirPtr.get() == NULL) {
-        LOGERROR << "unable to get the persist vol dir ptr for vol:" << destVolId;
-        return ERR_NOT_FOUND;
-    }
-
-    DmPersistVolDB::ptr voldDBPtr = boost::dynamic_pointer_cast
-            <DmPersistVolDB>(persistVolDirPtr);
-    Catalog* catalog = voldDBPtr->getCatalog();
-
-    if (NULL == catalog) {
-        LOGERROR << "unable to catalog for vol:" << destVolId;
-        return ERR_NOT_FOUND;
-    }
-
-    return dmReplayCatJournalOps(*catalog, journalFiles, fromTime, toTime);
-}
-
-void DmTimeVolCatalog::cancelLogMonitoring() {
-    if (dataManager_.features.isTimelineEnabled()) {
-        stopLogMonitoring_ = true;
-        logMonitorThread_->join();
-    }
-}
-
 }  // namespace fds

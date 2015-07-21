@@ -310,6 +310,18 @@ class DiskTest (unittest.TestCase):
         d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         self.assertFalse (d.format ())
 
+    @mock.patch ('__builtin__.open', mock.mock_open (read_data="20480"), create=True)
+    def testDiskVerifySystemDiskPartitionSizeGood (self):
+        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        d.verifySystemDiskPartitionSize()
+
+    @mock.patch ('__builtin__.open', mock.mock_open (read_data="44444"), create=True)
+    def testDiskVerifySystemDiskPartitionSizeFail (self):
+        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        with self.assertRaises (SystemExit) as cm:
+            d.verifySystemDiskPartitionSize()
+        self.assertEqual (cm.exception.code, 8)
+
 
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
     @mock.patch ('disk_format.Disk.call_subproc')
@@ -633,7 +645,27 @@ class testDiskManager (unittest.TestCase):
 
     @mock.patch ('disk_format.Disk.format')
     @mock.patch ('disk_format.Disk.partition')
-    def testDiskManagerPartAndFormatDisks (self, mock_partition, mock_format):
+    def testDiskManagerPartAndFormatDisksNoOS (self, mock_partition, mock_format):
+
+        process_mock = mock.Mock ()
+        attrs = {'returncode': 0}
+        process_mock.configure (**attrs)
+
+        mock_partition.return_value = process_mock
+        mock_format.return_value = process_mock
+
+        self.manager.disk_config_file = 'test_data/disk_config.no-os-drives'
+        self.manager.load_disk_config_file()
+
+        self.manager.build_partition_lists()
+        self.manager.partition_and_format_disks()
+
+        assert 4 == mock_partition.call_count
+        assert 4 == mock_format.call_count
+
+    @mock.patch ('disk_format.Disk.format')
+    @mock.patch ('disk_format.Disk.partition')
+    def testDiskManagerPartAndFormatDisksOSPartBadPath (self, mock_partition, mock_format):
 
         process_mock = mock.Mock ()
         attrs = {'returncode': 0}
@@ -646,10 +678,10 @@ class testDiskManager (unittest.TestCase):
         self.manager.load_disk_config_file()
 
         self.manager.build_partition_lists()
-        self.manager.partition_and_format_disks()
 
-        assert 4 == mock_partition.call_count
-        assert 4 == mock_format.call_count
+        with self.assertRaises (SystemExit) as cm:
+           self.manager.partition_and_format_disks()
+        self.assertEqual (cm.exception.code, 8)
 
 
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')

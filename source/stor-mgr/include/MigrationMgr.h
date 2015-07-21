@@ -104,8 +104,14 @@ class MigrationMgr {
 
     /**
      * Handles message from OM to abort migration
+     * Aborts migration if given target DLT version matches version
+     * that this migration manager is doing migration; if version does not
+     * match, the method does not do anything, and returns ERR_INVALID_ARG
+     * @param tgtDltVersion DLT version for which we are aborting migration
+     * @return ERR_OK if success; ERR_INVALID_ARG if targetDltVersion does not
+     * match DLT version for which migration is in progress
      */
-    Error abortMigration();
+    Error abortMigrationFromOM(fds_uint64_t tgtDltVersion);
 
     /**
      * Abort migration for a given SM token. Currently
@@ -113,6 +119,18 @@ class MigrationMgr {
      * migration on the destination side.
      */
     Error abortMigrationForSMToken(fds_token_id &smToken, const Error &err);
+
+    /**
+     * Callback notifying Migration Manager that Executor has acknowledged
+     * abort migration request from the Manager and is ready to be aborted.
+     */
+    void abortMigrationCb(fds_uint64_t& executorId, fds_token_id& smToken);
+
+    /**
+     * Set abort pending for all Migration Executors. This is called in
+     * response to CtrlNotifyAbortMigration message received from OM.
+     */
+    void setAbortPendingForExecutors();
 
     /**
      * Start migration for the next executor or if none found
@@ -225,6 +243,7 @@ class MigrationMgr {
      * Coalesce all migration executor.
      */
     void coalesceExecutors();
+    void coalesceExecutorsNoLock();
 
     /**
      * Coalesce all migration client.
@@ -341,6 +360,15 @@ class MigrationMgr {
     void abortMigration(const Error& error);
 
     /**
+     * Try aborting migration. This method will check if
+     * any smToken migration is in progress. If not, then
+     * abort the migration. Otherwise wait till all migration
+     * executors for smTokens in progress reply back
+     * acknowledging migration abort.
+     */
+    void tryAbortingMigration();
+
+    /**
      * Set a given list of DLT tokens to available
      * for data operations.
      */
@@ -350,8 +378,10 @@ class MigrationMgr {
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
+     * @param checkedExecutorsDone true if executors already checked and they are done
+     *        so only check clients, and if they are also done, move to IDLE state
      */
-    void checkResyncDoneAndCleanup();
+    void checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone);
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
@@ -359,6 +389,7 @@ class MigrationMgr {
     /// does not mean anything if mgr in IDLE state
     fds_uint64_t targetDltVersion;
     fds_uint32_t numBitsPerDltToken;
+    Error abortError;
 
     /**
      * Indexes this vector is a DLT token, and boolean value is true if
@@ -429,10 +460,12 @@ class MigrationMgr {
 
     /// SM token token that is currently in the second round
     fds_token_id smTokenInProgressSecondRound;
-    fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
+    fds_bool_t resyncOnRestart {false};  // true if resyncing tokens without DLT change
 
     /// SM token for which retry token migration is going on.
     fds_token_id retrySmTokenInProgress;
+
+    boost::shared_ptr<FdsTimerTask> retryTokenMigrationTask;
 
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
@@ -448,12 +481,12 @@ class MigrationMgr {
     NodeUuid objStoreMgrUuid;
 
     /**
-     * Vector of requests (static). Equals to the number of tokens. 
+     * Vector of requests (static). Equals to the number of tokens.
      * TODO(matteo): it seems I cannot create this dynamically and destroy it
      * later in ObjectStorMgr::snapshotTokenInternal. I suspect the snapshotRequest is
      * actually reused after it is popped out the QoS queue. Likely need more investigation
      */
-    std::vector<SmIoSnapshotObjectDB> snapshotRequests;
+    std::vector<std::unique_ptr<SmIoSnapshotObjectDB>> snapshotRequests;
 
     /**
      * Timer to detect if there is no activities on the Executors.
@@ -507,6 +540,16 @@ class MigrationMgr {
      * was not ready.
      */
      FdsTimer mTimer;
+
+    /**
+     * Timer for handling abort migration gracefully.
+     */
+    FdsTimer abortTimer;
+
+    /**
+     * Try abortMigration task.
+     */
+    boost::shared_ptr<FdsTimerTask> tryAbortingMigrationTask;
 
     /**
      * Unique ID that will be used to identify what migrations to restart

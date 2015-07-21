@@ -6,6 +6,7 @@
 include "config_types.thrift"
 
 include "common.thrift"
+include "node_svc_api.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -173,6 +174,23 @@ service ConfigurationService {
    * Unlike removeLocalDomainServices, RemoveServices is Node-specific.
    */
   i32 RemoveServices(1:config_types.FDSP_RemoveServicesType rm_node_req),
+
+  /**
+   * Add Service - node specific command
+   */
+  i32 AddService(1:node_svc_api.NotifyAddServiceMsg req),
+  /**
+   * Start Service - node specific command
+   */
+  i32 StartService(1:node_svc_api.NotifyStartServiceMsg req),
+   /**
+   * Stop Service - node specific command
+   */
+  i32 StopService(1:node_svc_api.NotifyStopServiceMsg req),
+   /**
+   * Remove Service - node specific command
+   */
+  i32 RemoveService(1:node_svc_api.NotifyRemoveServiceMsg req),
 
   /**
    * Create a new tenant.

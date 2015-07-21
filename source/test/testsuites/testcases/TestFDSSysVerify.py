@@ -262,6 +262,24 @@ class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
             self.log.error("Unequal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return False
 
+class TestDMChecker(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMChecker,
+                                             "DM Static migration verification")
+    def test_DMChecker(self):
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        nodes = fdscfg.rt_obj.cfg_nodes
+        n1 = nodes[0]
+        status, stdout = n1.nd_agent.exec_wait('bash -c \"(nohup %s/DmChecker) \"' %
+                                                (bin_dir), return_stdin=True)
+
+        if status != 0:
+            self.log.error("DM Static Migration failed") 
+            return False
+        return True
 
 # This class contains the attributes and methods to test
 # whether there occurred successful DM Static migration
@@ -551,7 +569,7 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
 class TestWaitForLog(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None, atleastone=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_WaitForLog,
@@ -562,6 +580,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
         self.passedLogentry = logentry
         self.passedOccurrences = occurrences
         self.passedMaxwait = maxwait
+        self.atleastone = atleastone
 
     def test_WaitForLog(self):
         """
@@ -580,9 +599,14 @@ class TestWaitForLog(TestCase.FDSTestCase):
 
         fds_dir = self.passedNode.nd_conf_dict['fds_root']
 
-        self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
-                       (self.passedNode.nd_conf_dict['node-name'], self.passedService,
-                        self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
+        if self.atleastone is not None:
+            self.log.info("Looking in node %s's %s logs for entry '%s' to occur at least once. Waiting for up to %s seconds." %
+                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                            self.passedLogentry, self.passedMaxwait))
+        else:
+            self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
+                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                            self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
 
         # We'll check for the specified log entry every 10 seconds until we
         # either find what we're looking for or timeout while looking.
@@ -602,18 +626,31 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
+                    if self.atleastone is not None:
+                        # At least once, we're good to go
+                        break
+                        
+                if occurrencesFound > self.passedOccurrences:
+                    # Found too many.
+                    break
 
             if sftp is not None:
                 sftp.close()
 
-            if occurrencesFound == self.passedOccurrences:
-                # Saw what we were looking for.
+            if ((self.atleastone is not None) and (occurrencesFound > 0)):
+                break
+            elif occurrencesFound >= self.passedOccurrences:
+                # Saw what we were looking for or found too many.
                 break
             else:
                 time.sleep(10)
                 self.log.info("Looking ...")
 
-        self.log.info("Log entry found %s times." % occurrencesFound)
+        if ((self.atleastone is not None) and (occurrencesFound > 0)):
+            self.log.info("Log entry found at least once")
+            return True
+        else:
+            self.log.info("Log entry found %s times." % occurrencesFound)
 
         if occurrencesFound != self.passedOccurrences:
             self.log.error("Expected %s occurrences." % self.passedOccurrences)

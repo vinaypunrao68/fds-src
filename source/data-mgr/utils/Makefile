@@ -26,9 +26,9 @@ user_non_fds_libs := \
 user_incl_dir     := $(topdir) ../include
 user_cpp_flags    :=
 user_cpp          :=  $(wildcard *.cpp)
-dmchk             := dmchk.cpp dmchk_driver.cpp
+dmexplorer        := dmexplorer.cpp dmexplorer_driver.cpp
 
 user_bin_exe      := \
-    dmchk
+    dmexplorer
 
 include $(topdir)/Makefile.incl

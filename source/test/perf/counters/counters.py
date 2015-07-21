@@ -16,7 +16,7 @@ from SvcHandle import SvcMap
 class CounterMonitor(object):
     def __init__(self, config):
         self.config  = config
-        self.influxdb = InfluxDb(config["influxdb_config"])
+        self.influxdb = InfluxDb(config["influxdb_config"], False)
         self.svc_map = SvcMap(self.config["ip"], self.config["port"])
         self.stop = threading.Event()
 
@@ -106,10 +106,10 @@ def main():
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "influxdb-ec2",
-        "port" : 80,
-        "user" : "perf",
-        "password" : "perf",
+        "ip" : "matteo-vm",
+        "port" : 8086,
+        "user" : "root",
+        "password" : "root",
         "db" : "counters"
     }
     

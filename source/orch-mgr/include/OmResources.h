@@ -90,6 +90,16 @@ class OM_NodeAgent : public NodeAgent
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
 
+    /**
+     * Call this method when service is successfully deployed in the domain
+     * (SM/DM is in DLT/DMT). Sets service state to active.
+     */
+    virtual void handle_service_deployed();
+    /**
+     * Calls set_not_state() based on state stored in configDB service map
+     */
+    virtual void set_state_from_svcmap();
+
     // this is the new function we shall try on using service layer
     virtual void om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
@@ -106,7 +116,8 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
-    virtual Error om_send_sm_abort_migration(fds_uint64_t dltVersion);
+    virtual Error om_send_sm_abort_migration(fds_uint64_t committedDltVersion,
+                                             fds_uint64_t targetDltVersion);
     virtual Error om_send_dm_abort_migration(fds_uint64_t dmtVersion);
     void om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
                                       EPSvcRequest* req,
@@ -145,6 +156,11 @@ class OM_NodeAgent : public NodeAgent
                           boost::shared_ptr<std::string> payload);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
+    /*
+     * FS-2561 ( Tinius )
+     */
+    virtual Error om_send_stream_de_reg_cmd( fds_int32_t regId );
+    // FS-2561
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
     virtual Error om_send_shutdown();
     void om_send_shutdown_resp(EPSvcRequest* req,
@@ -155,6 +171,13 @@ class OM_NodeAgent : public NodeAgent
   private:
     void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                     const NodeUuid& stream_dest_uuid);
+    /*
+     * FS-2561 ( Tinius )
+     */
+    void om_send_one_stream_de_reg_cmd(
+      const fds_int32_t regId,
+      const NodeUuid& stream_dest_uuid );
+    // FS-2561
 
   protected:
     std::string             ndSessionId;
@@ -210,6 +233,24 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_activate_services(fds_bool_t activate_sm,
                                  fds_bool_t activate_dm,
                                  fds_bool_t activate_am);
+    /**
+     * Send 'add service' message to Platform
+     */
+    Error send_add_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos);
+    /**
+     * Send 'start service' message to Platform
+     */
+    Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos);
+    /**
+     * Send 'stop service' message to Platform
+     */
+    Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
+                            bool stop_sm, bool stop_dm, bool stop_am);
+    /**
+     * Send 'remove service' message to Platform
+     */
+    Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
+                              bool remove_sm, bool remove_dm, bool remove_am);
     /**
      * Send 'deactivate services' message to Platform
      */
@@ -455,6 +496,8 @@ class OM_DmContainer : public OM_AgentContainer
 class OM_AmContainer : public OM_AgentContainer
 {
   public:
+    typedef boost::intrusive_ptr<OM_AmContainer> pointer;
+
     OM_AmContainer();
     virtual ~OM_AmContainer() {}
 
@@ -559,7 +602,8 @@ class OM_NodeContainer : public DomainContainer
                                       fds_bool_t to_dm = true,
                                       fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
-    virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
+    virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version,
+                                                     fds_uint64_t tgt_dlt_version);
     virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
@@ -576,6 +620,11 @@ class OM_NodeContainer : public DomainContainer
                                               fds_bool_t bAll);
     virtual void om_bcast_stream_reg_list(NodeAgent::pointer node);
 
+    /*
+     * FS-2561 ( Tinius )
+     */
+    virtual void om_bcast_stream_de_register_cmd( fds_int32_t regId );
+
     /**
      * conditional broadcast to platform (nodes) to
      * activate SM, DM, and AM services on those nodes, but only
@@ -588,6 +637,21 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
+
+    virtual Error om_add_service(const fpi::SvcUuid& svc_uuid,
+                                 std::vector<fpi::SvcInfo> svcInfos);
+
+    virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
+                                   std::vector<fpi::SvcInfo> svcInfos);
+
+    virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
+                                  std::vector<fpi::SvcInfo> svcInfos,
+                                  bool stop_sm, bool stop_dm, bool stop_am);
+
+    virtual Error om_remove_service(const fpi::SvcUuid& svc_uuid,
+                                    std::vector<fpi::SvcInfo> svcInfos,
+                                    bool remove_sm, bool remove_dm, bool remove_am);
+
     virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
                                                fds_bool_t activate_dm,
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
@@ -835,8 +899,10 @@ class OM_NodeDomainMod : public Module
      * its name produces UUID that already mapped to an existing node
      * name (should ask the user to pick another node name).
      */
-    virtual Error
-    om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+    virtual Error om_reg_node_info( const NodeUuid &uuid, 
+                                    const FdspNodeRegPtr msg );
+    virtual Error om_handle_restart( const NodeUuid&      uuid,
+                                     const FdspNodeRegPtr msg );
 
     void setupNewNode(const NodeUuid&      uuid,
                        const FdspNodeRegPtr msg,
@@ -971,9 +1037,23 @@ class OM_NodeDomainMod : public Module
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
-    bool isKnownPM(fpi::SvcInfo svcInfo);
-    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
-                fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
+    bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
+    bool isDataMgrSvc( fpi::SvcInfo svcInfo );
+    bool isStorageMgrSvc( fpi::SvcInfo svcInfo );
+    bool isKnownPM( fpi::SvcInfo svcInfo );
+    bool isKnownService(fpi::SvcInfo svcInfo);
+    void fromSvcInfoToFDSP_RegisterNodeTypePtr( 
+        fpi::SvcInfo svc, 
+        fpi::FDSP_RegisterNodeTypePtr& reg_node_req );
+    void fromSvcInfoToFDSP_RegisterNodeTypePtr( 
+        boost::shared_ptr<fpi::SvcInfo>& svcInfo,
+        fpi::FDSP_RegisterNodeTypePtr& reg_node_req );
+    bool isAnyNonePlatformSvcActive( std::vector<fpi::SvcInfo>* pmSvcs,
+                                     std::vector<fpi::SvcInfo>* amSvcs,
+                                     std::vector<fpi::SvcInfo>* smSvcs,
+                                     std::vector<fpi::SvcInfo>* dmSvcs );
+    void spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs );
+    
 
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;

@@ -124,7 +124,7 @@ class TestFDSCoroner(unittest.TestCase):
         mock_path.basename.return_value = "capture_dir"
         mock_path.dirname.return_value = "/capture_dir_parent"
         mock_prep_data_dir.return_value = "/tmp/bag_dir"
-        mock_args = ['/bin/tar', '-C', '/capture_dir_parent', '-czf', '/tmp/bag_dir/capture_dir.tar.gz', 'capture_dir']
+        mock_args = ['/bin/tar', '-C', '/capture_dir_parent', '-chzf', '/tmp/bag_dir/capture_dir.tar.gz', 'capture_dir']
         self.bodybag.collect_dir("bag_dir", "/capture_dir_parent/capture_dir")
         mock_call.assert_called_with(mock_args)
 

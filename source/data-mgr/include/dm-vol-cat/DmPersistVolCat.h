@@ -123,20 +123,29 @@ class DmPersistVolCat {
     // gets
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & blobMeta) = 0;
 
-    virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
+    virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta,
+                                  const Catalog::MemSnap snap = NULL) = 0;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
             ObjectID & obj) = 0;
 
-    virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
-            fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) = 0;
+    virtual Error getObject(const std::string & blobName,
+                            fds_uint64_t startOffset,
+                            fds_uint64_t endOffset,
+                            fpi::FDSP_BlobObjectList& objList,
+                            const Catalog::MemSnap snap = NULL) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) = 0;
 
     virtual Error getLatestSequenceId(blob_version_t & max) = 0;
+
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsWithSeqId,
+                                            const Catalog::MemSnap snap) = 0;
+
+    virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
@@ -163,8 +172,12 @@ class DmPersistVolCat {
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
 
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) = 0;
+
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
+
+    virtual void forEachObject(std::function<void(const ObjectID&)>) = 0;
 
     // this is not a strong hash, but collisions are detected before
     // blob creation in DmTimeVolCatalog::commitBlobTxWork

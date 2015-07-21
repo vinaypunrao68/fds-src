@@ -101,6 +101,13 @@
     - name: install latest fds-deps package
       apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
 
+#    - name: install versioned os packages
+#      apt: name={{ item.key }} version={{ item.value.version }} force=yes state=present update_cache=yes cache_valid_time=600
+#      with_dict:
+#        libjemalloc:
+#            version: 3.5.1-2
+#        
+
     - name: install os packages
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
@@ -128,7 +135,7 @@
         - libparted0-dev
         - python2.7
         - python-dev
-        - python-pip
+        - python-setuptools
         - libpcre3-dev
         - libpcre3
         - libssl-dev
@@ -136,6 +143,8 @@
         - libevent-dev
         - libev-dev
         - libfiu-dev
+        - "libjemalloc1=3.5.1-2"
+        - "libjemalloc-dev=3.5.1-2"
         - libtool
         - fiu-utils
         - bison
@@ -151,7 +160,6 @@
         - libboost-filesystem1.55-dev
         - libical-dev
         - libical1
-        - libjemalloc-dev
         - libleveldb-dev
         - google-perftools
         - libgoogle-perftools-dev
@@ -170,6 +178,7 @@
         - python-boto
         - python-thrift
         - libcryptopp-dev
+        - libncurses5-dev
         - lintian
         - libhiredis0.10
         - libhiredis-dev
@@ -180,6 +189,7 @@
         - fio
         - python-coverage-test-runner
         - python-mock
+        - valgrind
 
     - name: create pip config directory at ~/.pip
       file: path="{{ lookup('env','HOME') }}/.pip"
@@ -215,8 +225,8 @@
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.0"
-        - "fdsutil==0.1.3"
+        - "fdscli==0.1.8"
+        - "fdsutil==0.2.3"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

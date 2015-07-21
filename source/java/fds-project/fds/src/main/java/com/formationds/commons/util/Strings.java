@@ -14,7 +14,7 @@ public final class Strings
      */
     public static String javaString(String value)
     {
-        if (value == null) return "null";
+        if (value == null) return "<null>";
 
         return "\"" + value.replace("\\", "\\\\")
                            .replace("\t", "\\t")

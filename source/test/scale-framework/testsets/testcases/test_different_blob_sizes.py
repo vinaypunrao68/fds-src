@@ -15,12 +15,11 @@ import utils
 import testsets.testcase as testcase
 
 class TestDifferentBlobSizes(testcase.FDSTestCase):
-    
     '''
     Test the scenario where for a particular user, there's a bucket for
     that user. This scenario is seen in Jive, so this test simulates
     some of the functionalities the product needs for Jive.
-    
+
     Attributes:
     -----------
     table : dict
@@ -32,13 +31,13 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         super(TestDifferentBlobSizes, self).__init__(parameters=parameters,
                                                    config_file=config_file,
                                                    om_ip_address=om_ip_address)
-        
+
         self.sample_files = []
         self.hash_table = {}
-    
-    @unittest.expectedFailure
+
+    # @unittest.expectedFailure
     def runTest(self):
-        
+
         utils.create_dir(config.DOWNLOAD_DIR)
 
         self.create_random_size_files()
@@ -46,8 +45,9 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
             config.FDS_DEFAULT_ADMIN_USER,
             None,
             self.om_ip_address,
-            config.FDS_S3_PORT,
+            8000,
             self.om_ip_address,
+            secure=False
         )
         s3conn.s3_connect()
         bucket_name = "volume_blob_test_mb"
@@ -82,7 +82,6 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
                 self.test_passed = False
                 break
         self.test_passed = True
-            
 
     def destroy_volume(self, bucket, s3conn):
         if bucket:
@@ -90,7 +89,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
                 bucket.delete_key(key)
             self.log.info("Deleting bucket: %s", bucket.name)
             s3conn.conn.delete_bucket(bucket.name)
-    
+
     def download_files(self, bucket):
         bucket_list = bucket.list()
         for l in bucket_list:
@@ -106,7 +105,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         '''
         Given the list of files to be uploaded, presented in sample_files list,
         upload them to the corresponding volume
-        
+
         Attributes:
         -----------
         bucket : bucket
@@ -114,7 +113,6 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         '''
         # add the data files to the bucket.
         k = Key(bucket)
-        #path = os.path.join(config.TEST_DIR, sample)
         for sample in self.sample_files:
             path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
@@ -122,9 +120,9 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
                 k.set_contents_from_filename(path,
                                              cb=utils.percent_cb,
                                              num_cb=10)
-                self.log.info("Uploaded file %s to bucket %s" % 
+                self.log.info("Uploaded file %s to bucket %s" %
                              (sample, bucket.name))
-    
+
     def create_random_size_files(self):
         # lets produce 1000 files for each volume
         for current in samples.sample_mb_files:

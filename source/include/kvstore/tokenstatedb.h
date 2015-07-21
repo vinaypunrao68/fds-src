@@ -78,7 +78,7 @@ struct TokenStateDB : KVStore {
     virtual ~TokenStateDB();
 
  private:
-    fds_spinlock lock_;
+    fds_mutex lock_;
     std::unordered_map<fds_token_id, TokenStateInfo> tokenTbl_;
 };
 typedef boost::shared_ptr<TokenStateDB> TokenStateDBPtr;

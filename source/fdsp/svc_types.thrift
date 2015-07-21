@@ -55,14 +55,10 @@ enum  FDSPMsgTypeId {
   DeactivateServicesMsgTypeId               = 1021;
   /* Node & Service control messages */
   NotifyEventMsgTypeId                      = 1022;
-  NotifyStartNodeMsgTypeId                  = 1023;
-  NotifyStopNodeMsgTypeId                   = 1024;
-  NotifyAddNodeMsgTypeId                    = 1025;
-  NotifyRemoveNodeMsgTypeId                 = 1026;
-  NotifyStartServiceMsgTypeId               = 1027;
-  NotifyStopServiceMsgTypeId                = 1028;
-  NotifyAddServiceMsgTypeId                 = 1029;
-  NotifyRemoveServiceMsgTypeId              = 1030;
+  NotifyStartServiceMsgTypeId               = 1023;
+  NotifyStopServiceMsgTypeId                = 1024;
+  NotifyAddServiceMsgTypeId                 = 1025;
+  NotifyRemoveServiceMsgTypeId              = 1036;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
@@ -187,9 +183,13 @@ enum  FDSPMsgTypeId {
   ReloadVolumeRspMsgTypeId;
   CtrlNotifyDMStartMigrationMsgTypeId;
   CtrlNotifyDMStartMigrationRspMsgTypeId;
+  CtrlNotifyInitialBlobFilterSetMsgTypeId;
+  CtrlNotifyDeltaBlobDescMsgTypeId;
+  CtrlNotifyDeltaBlobsMsgTypeId;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
+  EventMessageTypeId;
 }
 
 /**
@@ -199,6 +199,11 @@ enum ServiceStatus {
     SVC_STATUS_INVALID      = 0x0000;
     SVC_STATUS_ACTIVE       = 0x0001;
     SVC_STATUS_INACTIVE     = 0x0002;
+/*
+ * We really need some way to determine that a "PM service" is in a
+ * "discovered" state to allow us to add it on first registration
+ */
+    SVC_STATUS_DISCOVERED   = 0x0003;
 }
 
 /* ------------------------------------------------------------

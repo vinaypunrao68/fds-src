@@ -14,6 +14,7 @@
 #include <fds_typedefs.h>
 #include <disk_plat_module.h>
 
+#include "fdsp/node_svc_api_types.h"
 #include "fdsp/pm_service_types.h"
 
 namespace fds
@@ -34,7 +35,7 @@ namespace fds
         const std::string SM_NAME            = "StorMgr";
         const std::string JAVA_PROCESS_NAME  = "java";
 
-        const std::string JAVA_CLASSPATH_OPTIONS      = "/fds/lib/java/*";                  // No spaces in this value
+        const std::string JAVA_CLASSPATH_OPTIONS      = "/lib/java/*";  // No spaces in this value. ${FDS_ROOT} will be prepended.
 
         constexpr uint64_t NANO_SECONDS_IN_1_SECOND   = 1000000000;
         constexpr uint64_t PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS = 500000000;         // 500,000,000 = 1/2 sconds
@@ -76,6 +77,12 @@ namespace fds
                     return m_nodeInfo;
                 }
 
+                void addService (fpi::NotifyAddServiceMsgPtr const &addNodeMsg);
+                void removeService (fpi::NotifyRemoveServiceMsgPtr const &removeServiceMsg);
+
+                void startService (fpi::NotifyStartServiceMsgPtr const &startServiceMsg);
+                void stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg);
+
                 /**
                  * Update the service info properties with disk information,
                  * the node uuid, and fds_root.
@@ -110,11 +117,16 @@ namespace fds
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
 
+                std::string                         m_nodeRedisKeyId;              // A unique id across that the nodes in a cluster, this is differentthen the
+                                                                                   // node UUID used in other places.  This persists across cleans, reboots, etc.
+
+                void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
                 void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);
                 std::string getProcName (int const index);
                 void updateNodeInfoDbPid (int processType, pid_t pid);
+                void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
                 void checkPidsDuringRestart();
                 bool procCheck (std::string procName, pid_t pid);
         };

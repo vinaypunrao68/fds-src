@@ -12,28 +12,27 @@
     <artifactId>fds-project</artifactId>
     <groupId>com.formationds</groupId>
     <version>1.0</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <name>${fds.project.name} JAR</name>
   <artifactId>fds</artifactId>
-  <version>1.0</version>
-
-  <properties>
-    <formationds.ext.model.version>2015.06.19-SNAPSHOT</formationds.ext.model.version>
-  </properties>
-
+  
   <dependencies>
     <!-- project module dependencies -->
     <dependency>
       <groupId>com.formationds</groupId>
-      <artifactId>fds-thrift</artifactId>
-      <version>${project.parent.version}</version>
+      <artifactId>formationds-thrift</artifactId>
+      <version>${formationds.thrift.version}</version>
     </dependency>
     <dependency>
       <groupId>com.formationds</groupId>
       <artifactId>formationds-ext-model</artifactId>
       <version>${formationds.ext.model.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>thrift-client-util</artifactId>
+      <version>${formationds.thrift.client.util.version}</version>
     </dependency>
 
     <!-- third party dependencies -->
@@ -169,6 +168,10 @@
           <groupId>org.mortbay.jetty</groupId>
           <artifactId>jetty-util</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>servlet-api</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -184,6 +187,10 @@
       <artifactId>httpcore-nio</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.apache.servicemix.bundles</groupId>
+      <artifactId>org.apache.servicemix.bundles.snmp4j</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.apache.thrift</groupId>
       <artifactId>libthrift</artifactId>
     </dependency>
@@ -191,6 +198,19 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-ext-jdk15on</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>nfs4j-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>oncrpc4j-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.dcache.common</groupId>
+      <artifactId>dcache-auth</artifactId>
     </dependency>
 
     <dependency>
@@ -224,14 +244,14 @@
       <artifactId>influxdb-java</artifactId>
     </dependency>
 
+    <!--<dependency>-->
+      <!--<groupId>org.reflections</groupId>-->
+      <!--<artifactId>reflections</artifactId>-->
+    <!--</dependency>-->
+
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.servicemix.bundles</groupId>
-      <artifactId>org.apache.servicemix.bundles.snmp4j</artifactId>
     </dependency>
 
     <dependency>

@@ -134,7 +134,18 @@ struct DMVolumeMigrationDiff {
   3: list<DMBlobDescriptorDiff> blob_diff_list;
 }
 
-struct BlobFilterSetEntry {
-  1: i64                        blob_id;
-  2: i64                        sequence_id;
+struct DMMigrationObjListDiff {
+  1: string               blob_name;
+  2: FDSP_BlobObjectList  blob_diff_list;
+}
+
+/**
+ * blob Id and blob  descriptor  pairs send  from Source DM 
+ * to destination DM.  This message is overloaded to migrate
+ * volume descriptor. second filed beeing string , we will have to send
+ * the serialized verion of the descriptors. 
+ */
+struct DMBlobDescListDiff {
+  1: string                     vol_blob_name,
+  2: string                     vol_blob_desc;
 }

@@ -1,2 +1,3 @@
 *.out
 CMakeLists.txt
+*.memcheck

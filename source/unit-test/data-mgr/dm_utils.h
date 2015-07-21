@@ -85,7 +85,7 @@ std::map<std::string, TimePrinter> timeMap;
 #define TIMEDBLOCK(NAME) for (TimePrinter __tp__(NAME); !__tp__.done ; __tp__.done = true)
 #define TIMEDOUTERBLOCK(NAME) for (TimePrinter __otp__(NAME); !__otp__.done ; __otp__.done = true)
 
-static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oids) {
+static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oids, bool force) {
     /*
     for (auto i : oids) {
         std::cout << "Expunged volume: '" << volId << "' object: '"

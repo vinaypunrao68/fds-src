@@ -26,40 +26,6 @@ struct TxDescriptor {
 }
 
 service XdiService { 
-    void attachVolume(1: string domainName, 2:string volumeName)
-        throws (1: common.ApiException e),
-
-    list<common.BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count,
-                                               4:i64 offset, 5:string pattern, 6:common.BlobListOrder orderBy, 7:bool descending)
-        throws (1: common.ApiException e),
-
-    common.BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
-        throws (1: common.ApiException e),
-
-    TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 blobMode)
-        throws (1: common.ApiException e),
-
-    void commitBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc)
-        throws (1: common.ApiException e),
-
-    void abortBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc)
-        throws (1: common.ApiException e),
-
-    binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:ObjectOffset offset)
-        throws (1: common.ApiException e),
-
-    void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:map<string, string> metadata)
-        throws (1: common.ApiException e),
-
-    void updateBlob(1:string domainName,
-                    2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset) throws (1: common.ApiException e),
-
-    void updateBlobOnce(1:string domainName,
-                        2:string volumeName, 3:string blobName, 4:i32 blobMode, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 8:map<string, string> metadata) throws (1: common.ApiException e),
-
-    void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
-        throws (1: common.ApiException e)
-
         VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
         throws (1: common.ApiException e),
 }

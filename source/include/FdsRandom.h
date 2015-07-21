@@ -18,7 +18,7 @@ class RandNumGenerator {
     typedef std::mt19937_64 mte;
 
     mte generator;
-    fds_spinlock rngLock;
+    fds_mutex rngLock;
 
   public:
     explicit RandNumGenerator(fds_uint64_t seed);

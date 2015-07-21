@@ -4,19 +4,10 @@
  */
 package com.formationds.om;
 
-import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
-import com.formationds.apis.SnapshotPolicy;
-import com.formationds.apis.StreamingRegistrationMsg;
-import com.formationds.apis.Tenant;
-import com.formationds.apis.User;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
-import com.formationds.om.events.OmEvents;
-import com.formationds.apis.FDSP_ModifyVolType;
-import com.formationds.apis.FDSP_GetVolInfoReqType;
 import com.formationds.om.events.EventManager;
+import com.formationds.om.events.OmEvents;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
@@ -25,15 +16,10 @@ import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -147,18 +133,23 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         this.configClientFactory = configClientFactory;
 
         map = new ConcurrentHashMap<>();
-        map.compute(KEY, (k, v) -> {
-            try {
-                return new ConfigurationCache(configClientFactory.getClient());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        map.compute( KEY, ( k, v ) -> {
+            try
+            {
+                return new ConfigurationCache(
+                    configClientFactory.getClient( ) );
             }
-        });
+            catch( Exception e )
+            {
+                throw new RuntimeException( e );
+            }
+        } );
     }
 
-    void startStatStreamRegistrationHandler( final String urlHostname, final int urlPortNo) {
-        this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
-        this.statStreamRegistrationHandler.start();
+    void createStatStreamRegistrationHandler( final String urlHostname,
+                                              final int urlPortNo ) {
+        this.statStreamRegistrationHandler =
+            new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
     }
 
     void startConfigurationUpdater() {
@@ -167,10 +158,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     private Iface getConfig() {
         return configClientFactory.getClient();
-    }
-
-    public static String systemFolderName(long tenantId) {
-        return "SYSTEM_VOLUME_" + tenantId;
     }
 
     @Override
@@ -364,6 +351,71 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             throws org.apache.thrift.TException {
         return getConfig().ActivateNode(act_serv_req);
     }
+    
+    /**
+     * Add service to the specified Node.
+     *
+     * @param add_svc_req - NotifyAddServiceMsg: Struct containing list of services 
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().AddService(add_svc_req);
+    }
+    
+    /**
+     * Start service on the specified Node.
+     *
+     * @param start_svc_req - NotifyStartServiceMsg: Struct containing list of services
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().StartService(start_svc_req);
+    }
+    
+    /**
+     * Stop service on the specified Node.
+     *
+     * @param stop_svc_req - NotifyStopServiceMsg: Struct containing list of services
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().StopService(stop_svc_req);
+    }
+    
+    /**
+     * Remove service on the specified Node.
+     *
+     * @param rm_svc_req - NotifyRemoveServiceMsg: Struct containing list of services
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().RemoveService(rm_svc_req);
+    }
+ 
 
     /**
      * List all currently defined Services for the given Local Domain.
@@ -823,6 +875,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
+                    // FIXME: In the very rare circumstance where this is okay, it must be
+                    //        commented. Send review to davec@.
                 }
                 map.compute(KEY, (k, v) -> {
                     try {

@@ -82,8 +82,8 @@ namespace fds
             /**
              * Raw sector read/write to support super block update.  Only done in parent disk.
              */
-            virtual ssize_t dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
-            virtual ssize_t dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
+            virtual ssize_t dsk_read(void *buf, fds_uint32_t sector, int sect_cnt, bool use_new_superblock);
+            virtual ssize_t dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt, bool use_new_superblock);
 
             /**
              * Return the slice device matching with the dev_path (e.g. /dev/sda, /dev/sda1...)

@@ -60,6 +60,10 @@ public:
         if (rate > MAX_RATE) {
             fds_panic("Rate %llu cannot be greater than MAX_RATE %llu.", rate, MAX_RATE);
         }
+        if (rate_ == 0) {
+            // set to 1, since we are dividing by rate_
+            rate_ = 1;
+        }
 
         if (max_burst_us > 0) {
             TokenBucket::burst_ = std::min(
@@ -116,6 +120,9 @@ public:
         updateTokensOnly(nowMicrosec);
 
         TokenBucket::rate_ = rate;
+        if (TokenBucket::rate_ == 0) {
+            TokenBucket::rate_ = 1;   // minimum value that is not 0, since we divide by rate_
+        }
         TokenBucket::burst_ = burst;
     }
 

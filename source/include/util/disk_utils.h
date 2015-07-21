@@ -1,0 +1,28 @@
+/*
+ * Copyright 2015 Formation Data Systems, Inc.
+ */
+
+#ifndef SOURCE_INCLUDE_UTIL_DISK_UTILS_H_
+#define SOURCE_INCLUDE_UTIL_DISK_UTILS_H_
+
+#include "fds_types.h"
+
+namespace fds {
+
+// Disk capacity Thresholds
+#define DISK_CAPACITY_WARNING_THRESHOLD 75.0
+#define DISK_CAPACITY_ALERT_THRESHOLD 85.0
+#define DISK_CAPACITY_ERROR_THRESHOLD 99.0
+
+class DiskCapacityUtils {
+
+public:
+    // Type for storing (used capacity, total capacity) pairs
+    typedef std::pair<fds_uint64_t, fds_uint64_t> capacity_tuple;
+
+    static capacity_tuple getDiskConsumedSize(const std::string&  mount_path);
+};
+
+}  // namespace fds
+
+#endif //SOURCE_INCLUDE_UTIL_DISK_UTILS_H_

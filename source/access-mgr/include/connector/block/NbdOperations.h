@@ -4,11 +4,12 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
 
-#include <vector>
-#include <string>
+#include <deque>
 #include <map>
-#include <utility>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
@@ -57,7 +58,7 @@ struct SectorLockMap {
         return result;
     }
 
-    std::pair<bool, entry_type> pop_and_delete(key_type const& k)
+    std::pair<bool, entry_type> pop(key_type const& k, bool and_delete = false)
     {
         static std::pair<bool, entry_type> const no = {false, entry_type()};
         std::lock_guard<lock_type> g(map_lock);
@@ -68,12 +69,19 @@ struct SectorLockMap {
                 return std::make_pair(true, entry);
             } else {
                 // No more queued requests, return nullptr
-                sector_map.erase(it);
+                if (and_delete) {
+                    sector_map.erase(it);
+                }
             }
         } else {
             fds_assert(false);  // This shouldn't happen, let's know in debug
         }
         return no;
+    }
+
+    std::pair<bool, entry_type> pop_and_delete(key_type const& k)
+    {
+        return pop(k, true);
     }
 
  private:
@@ -84,8 +92,9 @@ struct SectorLockMap {
     map_type sector_map;
 };
 
-class NbdResponseVector {
-  public:
+struct NbdResponseVector {
+    using buffer_type = std::string;
+    using buffer_ptr_type = boost::shared_ptr<buffer_type>;
     enum NbdOperation {
         READ = 0,
         WRITE = 1
@@ -111,7 +120,7 @@ class NbdResponseVector {
     inline fds_uint32_t getLength() const { return length; }
     inline fds_uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
 
-    boost::shared_ptr<std::string> getNextReadBuffer(fds_uint32_t& context) {
+    buffer_ptr_type getNextReadBuffer(fds_uint32_t& context) {
         if (context >= bufVec.size()) {
             return nullptr;
         }
@@ -120,7 +129,7 @@ class NbdResponseVector {
 
     void keepBufferForWrite(fds_uint32_t const seqId,
                             fds_uint64_t const objectOff,
-                            boost::shared_ptr<std::string>& buf) {
+                            buffer_ptr_type& buf) {
         fds_assert(WRITE == operation);
         bufVec.emplace_back(buf);
         offVec.emplace_back(objectOff);
@@ -130,20 +139,20 @@ class NbdResponseVector {
         return offVec[seqId];
     }
 
-    boost::shared_ptr<std::string> getBuffer(fds_uint32_t const seqId) const {
+    buffer_ptr_type getBuffer(fds_uint32_t const seqId) const {
         return bufVec[seqId];
     }
 
     /**
      * \return true if all responses were received or operation error
      */
-    void handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
+    void handleReadResponse(std::vector<buffer_ptr_type>& buffers,
                             fds_uint32_t len);
 
     /**
      * \return true if all responses were received
      */
-    fds_bool_t handleWriteResponse(fds_uint32_t seqId, const Error& err) {
+    fds_bool_t handleWriteResponse(const Error& err) {
         fds_verify(operation == WRITE);
         if (!err.ok()) {
             // Note, we're always setting the most recent
@@ -158,14 +167,17 @@ class NbdResponseVector {
      * Handle read response for read-modify-write
      * \return true if all responses were received or operation error
      */
-    std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
-        handleRMWResponse(boost::shared_ptr<std::string> retBuf,
+    std::pair<Error, buffer_ptr_type>
+        handleRMWResponse(buffer_ptr_type const& retBuf,
                           fds_uint32_t len,
                           fds_uint32_t seqId,
                           const Error& err);
 
-    void setError(const Error& err) { opError = err; }
     fds_int64_t handle;
+
+    // These are the responses we are also in charge of responding to, in order
+    // with ourselves being last.
+    std::unordered_map<fds_uint32_t, std::deque<NbdResponseVector*>> chained_responses;
 
   private:
     NbdOperation operation;
@@ -176,7 +188,7 @@ class NbdResponseVector {
     Error opError;
 
     // to collect read responses or first and last buffer for write op
-    std::vector<boost::shared_ptr<std::string>> bufVec;
+    std::vector<buffer_ptr_type> bufVec;
     // when writing, we need to remember the object offsets for rwm buffers
     std::vector<fds_uint64_t> offVec;
 
@@ -197,6 +209,7 @@ struct NbdOperationsResponseIface {
 
     virtual void readWriteResp(NbdResponseVector* response) = 0;
     virtual void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
+    virtual void terminate() = 0;
 };
 
 struct HandleSeqPair {
@@ -216,7 +229,10 @@ class NbdOperations
     typedef std::unordered_map<fds_int64_t, NbdResponseVector*> response_map_type;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
-    ~NbdOperations();
+    explicit NbdOperations(NbdOperations const& rhs) = delete;
+    NbdOperations& operator=(NbdOperations const& rhs) = delete;
+    ~NbdOperations() = default;
+
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
     void init(req_api_type::shared_string_type vol_name,
               std::shared_ptr<AmProcessor> processor);
@@ -230,6 +246,9 @@ class NbdOperations
                           resp_api_type::shared_vol_descriptor_type& volDesc,
                           resp_api_type::shared_vol_mode_type& mode) override;
 
+    void detachVolumeResp(const resp_api_type::error_type &error,
+                          handle_type& requestId) override;
+
     // The two response types we do support
     void getBlobResp(const resp_api_type::error_type &error,
                      handle_type& requestId,
@@ -241,16 +260,26 @@ class NbdOperations
     void shutdown();
 
   private:
+    void finishResponse(NbdResponseVector* response);
+
+    void drainUpdateChain(fds_uint64_t const offset,
+                          NbdResponseVector::buffer_ptr_type buf,
+                          handle_type* queued_handle_ptr,
+                          Error const error);
+
     fds_uint32_t getObjectCount(fds_uint32_t length,
                                 fds_uint64_t offset);
 
+    void detachVolume();
+
     // api we've built
-    std::unique_ptr<AmAsyncDataApi<handle_type>> amAsyncDataApi;
+    std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
     fds_uint32_t maxObjectSizeInBytes;
 
     // interface to respond to nbd passed down in constructor
-    NbdOperationsResponseIface* nbdResp;
+    std::unique_ptr<NbdOperationsResponseIface> nbdResp;
+    bool shutting_down {false};
 
     // for all reads/writes to AM
     boost::shared_ptr<std::string> blobName;
@@ -260,8 +289,8 @@ class NbdOperations
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
-    response_map_type responses;
     fds_mutex respLock;
+    response_map_type responses;
 
     sector_type sector_map;
 

@@ -1,5 +1,17 @@
 ---
 
+-   name: Setup ssh key
+    hosts: all
+    gather_facts: no
+    sudo: no
+    vars_files:
+        - ../vars_files/credentials/fds-deploy_rsa.yml
+    tags:
+        - pre_deploy
+
+    tasks:
+    -   include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
+
 -   name: Pre-Deploy - check sudo privileges
     hosts: all
     gather_facts: no
@@ -10,8 +22,6 @@
         - check_sudo
 
     tasks:
-    -   include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
-
     -   include: ../tasks/common/check_sudo.yml
         when: ansible_sudo_pass is not defined
 

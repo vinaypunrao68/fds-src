@@ -89,6 +89,12 @@
     <junit.version>4.12</junit.version>
     <mockito.version>1.10.8</mockito.version>
 
+    <!-- formation data systems, inc dependencies -->
+    <formationds.project.version>2015.07.31-SNAPSHOT</formationds.project.version>
+    <formationds.thrift.version>2015.07.31-SNAPSHOT</formationds.thrift.version>
+    <formationds.ext.model.version>2015.07.31-SNAPSHOT</formationds.ext.model.version>
+    <formationds.thrift.client.util.version>2015.07.31-SNAPSHOT</formationds.thrift.client.util.version>
+
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
     <bundle.plugin.version>2.5.0</bundle.plugin.version>
@@ -113,18 +119,18 @@
     <module>fds-project</module>
   </modules>
 
-  <distributionManagement>
-    <repository>
-      <id>release</id>
-      <name>artifacts-releases</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </repository>
-    <snapshotRepository>
-      <id>snapshot</id>
-      <name>artifacts-snapshots</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </snapshotRepository>
-  </distributionManagement>
+  <!--<distributionManagement>-->
+    <!--<repository>-->
+      <!--<id>release</id>-->
+      <!--<name>artifacts-releases</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</repository>-->
+    <!--<snapshotRepository>-->
+      <!--<id>snapshot</id>-->
+      <!--<name>artifacts-snapshots</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</snapshotRepository>-->
+  <!--</distributionManagement>-->
 
   <pluginRepositories>
     <pluginRepository>
@@ -141,17 +147,17 @@
     -->
 
     <!-- Formation Data System, INC. maven repo -->
-    <repository>
-      <id>release</id>
-      <name>artifacts-releases</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </repository>
+    <!--<repository>-->
+      <!--<id>release</id>-->
+      <!--<name>artifacts-releases</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</repository>-->
 
-    <repository>
-      <id>snapshot</id>
-      <name>artifacts-snapshots</name>
-      <url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>
-    </repository>
+    <!--<repository>-->
+      <!--<id>snapshot</id>-->
+      <!--<name>artifacts-snapshots</name>-->
+      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
+    <!--</repository>-->
 
     <repository>
       <id>central</id>
@@ -163,6 +169,13 @@
       <releases>
         <enabled>true</enabled>
       </releases>
+    </repository>
+
+    <repository>
+      <id>dcache-releases</id>
+      <name>dCache.ORG maven repository</name>
+      <url>https://download.dcache.org/nexus/content/repositories/releases</url>
+      <layout>default</layout>
     </repository>
   </repositories>
 
@@ -559,6 +572,7 @@
           <source>${java.source.version}</source>
           <target>${java.target.version}</target>
           <encoding>${project.build.sourceEncoding}</encoding>
+          <useIncrementalCompilation>false</useIncrementalCompilation>
         </configuration>
       </plugin>
 

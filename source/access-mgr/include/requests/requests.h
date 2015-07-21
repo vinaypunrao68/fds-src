@@ -8,7 +8,6 @@
 #include "requests/CommitBlobTxReq.h"
 #include "requests/DeleteBlobReq.h"
 #include "requests/GetBlobReq.h"
-#include "requests/GetObjectReq.h"
 #include "requests/StatVolumeReq.h"
 #include "requests/SetVolumeMetadataReq.h"
 #include "requests/GetVolumeMetadataReq.h"

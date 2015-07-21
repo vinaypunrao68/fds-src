@@ -70,6 +70,11 @@ namespace fds {
         uint32_t virtual write(serialize::Serializer* s) const;
         uint32_t virtual read(serialize::Deserializer* d);
 
+        /**
+         * Two DMTs are equal if they have the same content in the table
+         * but versions may be different (or same).
+         */
+        fds_bool_t operator==(const DMT &rhs) const;
         friend std::ostream& operator<< (std::ostream &out, const DMT& dmt);
 
         /**
@@ -91,6 +96,8 @@ namespace fds {
          * Returns a set of nodes in DMT
          */
         void getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const;
+
+        bool isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const;
 
   private:
         fds_uint64_t version;  /**< DMT version */

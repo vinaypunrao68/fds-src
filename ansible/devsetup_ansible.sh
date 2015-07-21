@@ -33,6 +33,7 @@ case $? in
         ansible_args="--inventory ${script_dir}/inventory/devsetup-inventory.sh --connection local 
                       ${script_dir}/playbooks/devsetup.yml"
 
+        # FIXME: Does this REALLY need to be world-writable?
         [[ -d ~/.ansible ]] && sudo chmod -R a+w ~/.ansible
         sudo ansible-playbook ${ansible_args}
 

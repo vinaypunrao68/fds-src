@@ -1,6 +1,8 @@
 package com.formationds.iodriver.operations;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 
@@ -8,7 +10,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * Set the QoS parameters for the volume backing an S3 bucket.
@@ -41,7 +43,7 @@ public final class SetBucketQos extends S3Operation
     // @eclipseFormat:off
     public void exec(S3Endpoint endpoint,
                      AmazonS3Client client,
-                     WorkflowEventListener listener) throws ExecutionException
+                     AbstractWorkflowEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -50,9 +52,16 @@ public final class SetBucketQos extends S3Operation
 
         OrchestrationManagerEndpoint omEndpoint = endpoint.getOmEndpoint();
 
-        omEndpoint.doVisit(getSetVolumeQosOp(), listener);
+        omEndpoint.getV8().doVisit(getSetVolumeQosOp(), listener);
     }
 
+    @Override
+    public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.concat(super.toStringMembers(),
+                             Stream.of(memberToString("statsSupplier", _statsSupplier)));
+    }
+    
     /**
      * Supplies parameters to set.
      */

@@ -6,20 +6,22 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCXDI_H_
 
 #include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "fdsp/AsyncXdiServiceResponse.h"
-#include "concurrency/RwLock.h"
 
 namespace fds
 {
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>> {
  public:
-    using client_ptr = std::shared_ptr<apis::AsyncXdiServiceResponseClient>;
+    using client_type = apis::AsyncXdiServiceResponseClient;
+    using client_ptr = std::shared_ptr<client_type>;
     using client_map = std::unordered_map<std::string, client_ptr>;
 
  private:
@@ -27,26 +29,50 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     // We use a std rw lock here and vector or client pointers because
     // this lookup only happens once when the handshake is performed
-    static fds_rwlock client_lock;
+    static std::mutex map_lock;
     static client_map clients;
+    static constexpr size_t max_response_retries {1};
+
 
     /// Thrift client to response to XDI
+    std::mutex client_lock;
     client_ptr asyncRespClient;
     std::string serverIp;
     fds_uint32_t serverPort;
 
     void initiateClientConnect();
-    inline void checkClientConnect() {
-        if (!asyncRespClient && serverPort > 0) {
+
+    template<typename ... Args>
+    void xdiClientCall(void (client_type::*func)(Args...), Args&&... args) {
+        using transport_exception = apache::thrift::transport::TTransportException;
+        std::lock_guard<std::mutex> g(client_lock);
+        for (auto i = max_response_retries; i >= 0; --i) {
+        try {
+            if (!asyncRespClient) {
+                initiateClientConnect();
+            }
+            // Invoke the thrift method on our client
+            return ((asyncRespClient.get())->*(func))(std::forward<Args>(args)...);
+        } catch(const transport_exception& e) {
+            // Reset the pointer and re-try (if we have any left)
+            try {
             initiateClientConnect();
+            } catch (const transport_exception& e) {
+                // ugh, Xdi probably died or we've become partitioned
+                // assume we'll never return this response
+                break;
+            }
         }
+        }
+        LOGERROR << "Unable to respond to XDI: "
+                 << "tcp://" << serverIp << ":" << serverPort;
     }
 
     boost::shared_ptr<fpi::ErrorCode> mappedErrorCode(Error const& error) const;
 
   public:
     explicit AmAsyncXdiResponse(std::string const& server_ip);
-    ~AmAsyncXdiResponse();
+    virtual ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
 
     // This only belongs to the Thrift interface, not the AmAsyncData interface
@@ -57,54 +83,62 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
     void attachVolumeResp(const api_type::error_type &error,
                           api_type::handle_type& requestId,
                           api_type::shared_vol_descriptor_type& volDesc,
-                          api_type::shared_vol_mode_type& mode);
+                          api_type::shared_vol_mode_type& mode) override;
+
+    void detachVolumeResp(const api_type::error_type &error,
+                          api_type::handle_type& requestId) override;
 
     void startBlobTxResp(const api_type::error_type &error,
                          api_type::handle_type& requestId,
-                         boost::shared_ptr<apis::TxDescriptor>& txDesc);
+                         boost::shared_ptr<apis::TxDescriptor>& txDesc) override;
+
     void abortBlobTxResp(const api_type::error_type &error,
-                         api_type::handle_type& requestId);
+                         api_type::handle_type& requestId) override;
+
     void commitBlobTxResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId);
+                          api_type::handle_type& requestId) override;
 
     void updateBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId);
+                        api_type::handle_type& requestId) override;
+
     void updateBlobOnceResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId);
+                            api_type::handle_type& requestId) override;
+
     void updateMetadataResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId);
+                            api_type::handle_type& requestId) override;
+
     void deleteBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId);
+                        api_type::handle_type& requestId) override;
 
     void statBlobResp(const api_type::error_type &error,
                       api_type::handle_type& requestId,
-                      api_type::shared_descriptor_type& blobDesc);
+                      api_type::shared_descriptor_type& blobDesc) override;
+
     void volumeStatusResp(const api_type::error_type &error,
                           api_type::handle_type& requestId,
-                          api_type::shared_status_type& volumeStatus);
-    void volumeContentsResp(
-        const api_type::error_type &error,
-        api_type::handle_type& requestId,
-        api_type::shared_descriptor_vec_type& volContents);
+                          api_type::shared_status_type& volumeStatus) override;
 
-    void setVolumeMetadataResp(
-        const api_type::error_type &error,
-        api_type::handle_type& requestId);
+    void volumeContentsResp(const api_type::error_type &error,
+                            api_type::handle_type& requestId,
+                            api_type::shared_descriptor_vec_type& volContents) override;
 
-    void getVolumeMetadataResp(
-        const api_type::error_type &error,
-        api_type::handle_type& requestId,
-        api_type::shared_meta_type& metadata);
+    void setVolumeMetadataResp(const api_type::error_type &error,
+                               api_type::handle_type& requestId) override;
+
+    void getVolumeMetadataResp(const api_type::error_type &error,
+                               api_type::handle_type& requestId,
+                               api_type::shared_meta_type& metadata) override;
 
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
                      const api_type::shared_buffer_array_type& bufs,
-                     api_type::size_type& length);
+                     api_type::size_type& length) override;
+
     void getBlobWithMetaResp(const api_type::error_type &error,
                              api_type::handle_type& requestId,
                              const api_type::shared_buffer_array_type& bufs,
                              api_type::size_type& length,
-                             api_type::shared_descriptor_type& blobDesc);
+                             api_type::shared_descriptor_type& blobDesc) override;
 };
 
 // This structure provides one feature and is to implement the thrift interface

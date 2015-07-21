@@ -9,10 +9,8 @@
 #include "AccessMgr.h"
 #include "AmProcessor.h"
 #include <net/SvcMgr.h>
-#include <AmDataApi.h>
 
 #include "connector/xdi/AmAsyncService.h"
-#include "connector/xdi/fdsn-server.h"
 #include "connector/block/NbdConnector.h"
 
 namespace fds {
@@ -23,7 +21,7 @@ AccessMgr::AccessMgr(const std::string &modName,
           modProvider_(modProvider),
           stop_signal(),
           shutting_down(false),
-          amProcessor(std::make_shared<fds::AmProcessor>(modProvider)),
+          amProcessor(std::make_shared<fds::AmProcessor>(this, modProvider)),
           standalone_mode{false}
 {
 }
@@ -41,40 +39,38 @@ AccessMgr::mod_init(SysParams const *const param) {
 void
 AccessMgr::mod_startup() {
     LOGNOTIFY << "Starting processing layer ";
-    amProcessor->start([this]() mutable { this->stop(); });
+    amProcessor->start();
 }
 
 void
 AccessMgr::mod_shutdown() {
+    std::unique_lock<std::mutex> lk {stop_lock};
+    shutting_down = true;
+    stop_signal.notify_one();
 }
 
 void AccessMgr::mod_enable_service()
 {
-    LOGNOTIFY << "Enabling services ";
-    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
-
     /**
      * Before being able to serve I/O requests, must first pull DMT
      * and DLT information. At this time, we've already done the registration
      * with the OM so anything here is post-registration.
      */
-    getDMT();
-    getDLT();
+    if (!asyncServer && amProcessor->haveTables()) {
+        LOGNOTIFY << "Enabling services ";
+        initilizeConnectors();
+    }
+}
 
-    /**
-     * Initialize the old synchronous Xdi interface
-     */
-    dataApi = boost::make_shared<AmDataApi>(amProcessor);
+void AccessMgr::initilizeConnectors() {
+    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
+
     fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(
         "fds.pm.platform_port");
     if (!standalone_mode) {
         pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
     }
     LOGTRACE << "Platform port " << pmPort;
-
-    // Init the FDSN server to serve XDI data requests
-    fdsnServer = std::unique_ptr<FdsnServer>(new FdsnServer(dataApi, pmPort));
-    fdsnServer->start();
 
     /**
      * Initialize the async server
@@ -85,11 +81,11 @@ void AccessMgr::mod_enable_service()
     /**
      * Initialize the block connector
      */
-    blkConnector.reset(new NbdConnector(weakProcessor));
+    NbdConnector::start(weakProcessor);
 }
 
 void AccessMgr::mod_disable_service() {
-    stop();
+    amProcessor->stop();
 }
 
 void
@@ -101,25 +97,7 @@ AccessMgr::run() {
 
     LOGDEBUG << "Processing layer has shutdown, stop external services.";
     asyncServer->stop();
-    fdsnServer->stop();
-    blkConnector->stop();
-}
-
-void
-AccessMgr::stop() {
-    std::unique_lock<std::mutex> lk {stop_lock};
-    shutting_down = true;
-    stop_signal.notify_one();
-}
-
-void
-AccessMgr::getDMT() {
-	getProcessor()->getDMT();
-}
-
-void
-AccessMgr::getDLT() {
-	getProcessor()->getDLT();
+    NbdConnector::stop();
 }
 
 }  // namespace fds

@@ -98,7 +98,10 @@ public class GetSnapshot
 		}
 		
 		LOG.error( "Could not find snapshot with ID: " + snapshotId );
-		throw new HttpException( HttpServletResponse.SC_BAD_REQUEST, "No snapshot was found with the ID: " + snapshotId );
+		throw new HttpException( HttpServletResponse.SC_BAD_REQUEST,
+		                         request.getUri().toString(),
+		                         request.getMethod(),
+		                         "No snapshot was found with the ID: " + snapshotId );
 	}
 
 }

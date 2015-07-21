@@ -40,6 +40,7 @@ fds: {
 
         }
         am: {
+            serialization = "{{ am_req_serialization }}"
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -74,6 +75,26 @@ fds: {
             port = 2003
             period = 5
         } #}
+
+        /* Options when running under valgrind */
+        valgrind: {
+           app_name = "valgrind"
+           /* All paths relative to fds_root */
+           base_dir = "memcheck/"
+           common_options = "--show-reachable=no,--show-possibly-lost=no,--gen-suppressions=all,--tool=memcheck,--leak-check=yes,--num-callers=30,--xml=yes,-v"
+           process_specific: {
+                bare_am =    "--soname-synonyms=somalloc=*tcmalloc*"
+                StorMgr =    "--soname-synonyms=somalloc=*tcmalloc*"
+	   }
+	   suppressions: {
+                suppressions_option = "--suppressions="
+                suppressions_suffix  = ".supp"
+	   }
+	   output: {
+                results_option = "--xml-file="
+                results_suffix = ".%p.memcheck"
+	   }
+        }
     }
 
     pm: {
@@ -187,6 +208,7 @@ fds: {
         catalog_cache_size =  {{ dm_catalog_cache_size  }}
         catalog_log_max_files = 5
         number_of_primary = 2
+        req_serialization = {{ dm_req_serialization }}
 
         /* process id */
         id      = "dm"
@@ -217,13 +239,25 @@ fds: {
             rsync_password = "passwd"
 
             /* boolean to enable/disable DM migration feature */
-            enable_feature = true
+            enable_feature = {{ dm_enable_migration }}
 
             /* boolean to enable/disable DM resync feature */
-            enable_resync = true
+            enable_resync = {{ dm_enable_resync }}
 
             /* timeout duration in sec */
-            migration_timeout=300
+            migration_timeout= {{ dm_migration_timeout }}
+
+            /* Maximum concurrent migrations */
+            migration_max_concurrency = {{ dm_migration_max_concurrency }}
+
+            /* Maximum number of blobs in delta set */
+            migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
+
+            /* Timeout value (secs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
+            migration_max_delta_blobs_to = {{ dm_migration_max_delta_blobs_to }}
+
+            /* Maximum number of blob desc in delta set */
+            migration_max_delta_blob_desc = {{ dm_migration_max_delta_blob_desc }}
         }
 
         /* Graphite is enabled or not */
@@ -245,7 +279,7 @@ fds: {
         }
 
         /* Timeline feature toggle */
-        enable_timeline = true
+        enable_timeline = {{ dm_enable_timeline }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -305,6 +339,11 @@ fds: {
         data_verify = {{ sm_data_verify }}
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
+
+	/* Toggle for serializing requests for consistency */
+        req_serialization = {{ sm_req_serialization }}
+        /* Number of primary SMs; 0 means pre-consistency implementation */
+        number_of_primary = 2
 
         /* daemonize or not */
         daemonize=true
@@ -370,9 +409,9 @@ fds: {
             /* approx number of times an obj has to be accessed to become cold */
             cold_threshold = 0
             /* enable sleep from SM service registers with OM */
-            enable_sleep_before_svcregister = false
+            enable_sleep_before_migration = false
             /* the duration of sleep(secs) before SM registers itself with OM */
-            sleep_duration_before_svcregister = 150
+            sleep_duration_before_migration = 150
         }
         threadpool: {
             num_threads = 10
@@ -467,7 +506,6 @@ fds: {
         xdi_service_port_offset=1899
         streaming_port_offset=1911
         memory_backend=false
-        fdsn_server_threads=30
         qos_threads=4
 
         /* Frequency (seconds) to notify DM we are using a volume */
@@ -543,6 +581,12 @@ fds: {
             probe_sleep_period = 500
             /* Enable printing of fine-grained QoS stats to var/stats/stats-data dir */
             print_qos_stats = false
+
+            /* Fault injection toggles */
+            fault: {
+                /* Injects unreachable faults into service communication */
+                unreachable = false
+            }
         }
     }
 
@@ -558,6 +602,11 @@ fds: {
             }
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
+        svc_event_threshold: {
+            timeout: {
+                threshold = 10
             }
         }
 
@@ -576,7 +625,7 @@ fds: {
         control_port=8904
         ip_address = "{{ om_ip }}"
         token_factor=8
-        replica_factor=4
+        replica_factor=3
         placement_algo="ConsistHash"
         default_iops_min=0
         default_iops_max=0
@@ -585,7 +634,7 @@ fds: {
         http_port=7777
         https_port=7443
         configdb: {
-            port=6379
+            port={{ redis_port }}
         }
 
         influxdb: {
@@ -606,7 +655,6 @@ fds: {
             targetip = "{{ snmp_targetip }}"
             community = "{{ snmp_community }}"
         }
-        prevent_adding_dm_after_startup = true
     }
 
     checker: {

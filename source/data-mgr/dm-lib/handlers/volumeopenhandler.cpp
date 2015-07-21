@@ -38,7 +38,7 @@ void VolumeOpenHandler::handleRequest(
         return;
     }
 
-    auto dmReq = new DmIoVolumeOpen(message);
+    auto dmReq = new DmIoVolumeOpen(message, asyncHdr->msg_src_uuid);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeOpenHandler::handleResponse, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
@@ -53,8 +53,17 @@ void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
-                                                     request->access_mode);
+    helper.err = dataManager.timeVolCat_->openVolume(request->volId,
+                                                     request->client_uuid_,
+                                                     request->token,
+                                                     request->access_mode,
+                                                     request->sequence_id);
+
+    if (helper.err.ok()) {
+        LOGDEBUG << "on opening vol: " << request->volId
+                 << ", latest sequence was determined to be "
+                 << request->sequence_id;
+    }
 }
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -66,9 +75,10 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     if (dmRequest) {
         DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
         response.token = request->token;
-        delete dmRequest;
+        response.sequence_id = request->sequence_id;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
+    delete dmRequest;
 }
 
 }  // namespace dm

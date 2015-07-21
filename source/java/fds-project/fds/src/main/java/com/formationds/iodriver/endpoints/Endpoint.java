@@ -4,7 +4,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.VisitorWithArg;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
+import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * A generic endpoint.
@@ -15,7 +15,7 @@ import com.formationds.iodriver.reporters.WorkflowEventListener;
 // @eclipseFormat:off
 public abstract class Endpoint<ThisT extends Endpoint<ThisT, OperationT>,
                                OperationT extends Operation<OperationT, ThisT>>
-implements VisitorWithArg<OperationT, ThisT, WorkflowEventListener, ExecutionException>
+implements VisitorWithArg<OperationT, ThisT, AbstractWorkflowEventListener, ExecutionException>
 // @eclipseFormat:on
 {
     /**
@@ -28,7 +28,7 @@ implements VisitorWithArg<OperationT, ThisT, WorkflowEventListener, ExecutionExc
     @Override
     // @eclipseFormat:off
     public abstract void doVisit(OperationT operation,
-                                 WorkflowEventListener listener) throws ExecutionException;
+                                 AbstractWorkflowEventListener listener) throws ExecutionException;
     // @eclipseFormat:on
 
     /**

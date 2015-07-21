@@ -18,6 +18,7 @@ fi
 BINDIR=${DESTDIR}/bin
 SBINDIR=${DESTDIR}/sbin
 ETCDIR=${DESTDIR}/etc
+MEMCHECKDIR=${DESTDIR}/memcheck
 
 JAVADIR=${DESTDIR}/lib/java
 
@@ -58,6 +59,11 @@ done
 [[ -L ${ETCDIR} ]] && unlink ${ETCDIR}
 echo "linking ${ETCDIR}"
 ln -s ${PWD}/config/etc ${ETCDIR}
+
+[[ -e ${MEMCHECKDIR} && ! -L ${MEMCHECKDIR} ]] && mv ${MEMCHECKDIR} ${MEMCHECKDIR}.${DATE_STAMP}
+[[ -L ${MEMCHECKDIR} ]] && unlink ${MEMCHECKDIR}
+echo "linking ${MEMCHECKDIR}"
+ln -s ${PWD}/config/memcheck ${MEMCHECKDIR}
 
 [[ -e ${JAVADIR} && ! -L ${JAVADIR} ]] && mv ${JAVADIR} ${JAVADIR}.${DATE_STAMP}
 [[ -L ${JAVADIR} ]] && unlink ${JAVADIR}

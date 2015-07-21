@@ -43,6 +43,11 @@ class SmIoReq : public FDS_IOType {
     FDSP_GetObjTypePtr getObjReq;
     FDSP_DeleteObjTypePtr delObjReq;
 
+    /// Client service ID used for serialization.
+    /// The Thrift generated constructor automatically
+    /// defaults the value to 0.
+    fpi::SvcUuid clientSvcId;
+
  public:
     /*
      * This constructor is generally used for
@@ -194,6 +199,14 @@ class SmIoReq : public FDS_IOType {
 
     void setTransId(unsigned int trans_id) {
         transId = trans_id;
+    }
+
+    void setClientSvcId(const fpi::SvcUuid& id) {
+        clientSvcId = id;
+    }
+
+    fpi::SvcUuid getClientSvcId() const {
+        return clientSvcId;
     }
 
     virtual std::string log_string() {
@@ -602,6 +615,7 @@ class SmIoAbortMigration: public SmIoReq {
     fpi::CtrlNotifySMAbortMigrationPtr abortMigrationReqMsg;
 
     fds_uint64_t abortMigrationDLTVersion;
+    fds_uint64_t targetDLTVersion;
 
     cbType abortMigrationCb;
 };  // class SmIoAbortMigration

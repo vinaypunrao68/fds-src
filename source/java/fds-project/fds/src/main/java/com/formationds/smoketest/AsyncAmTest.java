@@ -8,11 +8,14 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.util.thrift.ThriftClientFactory;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
+
+import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -24,12 +27,41 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
 
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+    //@Test
+    public void testParallelCreate() throws Exception {
+        IntStream.range(0, 10)
+                .parallel()
+                .map(i -> {
+                    try {
+                        asyncAm.updateBlobOnce(domainName, volumeName, Integer.toString(i),
+                                1, ByteBuffer.allocate(100), 100, new ObjectOffset(1), new HashMap<>()).get();
+                        System.out.println("Created " + i);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return 0;
+                }).sum();
+
+        IntStream.range(0, 10)
+                .parallel()
+                .map(i -> {
+                    try {
+                        System.out.println("Reading " + i);
+                        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, Integer.toString(i)).get();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return 0;
+                }).sum();
+    }
+
     @Test
     public void testVolumeMetadata() throws Exception {
         Map<String, String> metadata = asyncAm.getVolumeMetadata(domainName, volumeName).get();
@@ -116,10 +148,11 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test //done 1
     public void testTransactions() throws Exception {
+    	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
                 .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, tx, bigObject, OBJECT_SIZE, new ObjectOffset(0), false).thenApply(x -> tx))
-                .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, tx, smallObject, smallObjectLength, new ObjectOffset(1), true).thenApply(x -> tx))
-                .thenCompose(tx -> asyncAm.commitBlobTx(domainName, volumeName, blobName, tx))
+                .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, (TxDescriptor) tx, smallObject, smallObjectLength, new ObjectOffset(1), true).thenApply(x -> tx))
+                .thenCompose(tx -> asyncAm.commitBlobTx(domainName, volumeName, blobName, (TxDescriptor) tx))
                 .thenCompose(x -> asyncAm.statBlob(domainName, volumeName, blobName))
                 .thenAccept(bd -> assertEquals(OBJECT_SIZE + smallObjectLength, bd.getByteCount()))
                 .get();
@@ -226,10 +259,9 @@ public class AsyncAmTest extends BaseAmTest {
 
     @BeforeClass
     public static void setUpOnce() throws Exception {
-        int pmPort = 7000;
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm(Fds.getFdsHost(), pmPort+1899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 

@@ -16,14 +16,14 @@ namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om.types
 
 enum HealthState {
-  RUNNING          = 404000;
-  INITIALIZING     = 404001;
-  DEGRADED         = 404002;
-  LIMITED          = 404003;
-  SHUTTING_DOWN    = 404004;
-  ERROR            = 404005;
-  UNREACHABLE      = 404006;
-  UNEXPECTED_EXIT  = 404007;
+  HEALTH_STATE_RUNNING             = 404000;
+  HEALTH_STATE_INITIALIZING        = 404001;
+  HEALTH_STATE_DEGRADED            = 404002;
+  HEALTH_STATE_LIMITED             = 404003;
+  HEALTH_STATE_SHUTTING_DOWN       = 404004;
+  HEALTH_STATE_ERROR               = 404005;
+  HEALTH_STATE_UNREACHABLE         = 404006;
+  HEALTH_STATE_UNEXPECTED_EXIT     = 404007;
 }
 
 /**

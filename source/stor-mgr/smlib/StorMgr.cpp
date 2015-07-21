@@ -21,6 +21,7 @@
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
 #include "PerfTypes.h"
+#include <fdsp/event_api_types.h>
 
 using diskio::DataTier;
 
@@ -48,7 +49,9 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       qosOutNum(10),
       volTbl(nullptr),
       qosCtrl(nullptr),
-      shuttingDown(false)
+      shuttingDown(false),
+      sampleCounter(0),
+      lastCapacityMessageSentAt(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -84,6 +87,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    enableReqSerialization = modProvider_->get_fds_config()->get<bool>(
+        "fds.feature_toggle.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -203,18 +208,17 @@ void ObjectStorMgr::mod_enable_service()
             // get DLT from OM
             Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
-                // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // even if SM is not yet in the DLT (this SM is not part of the domain yet),
+                // we need to tell disk map about DLT width so when migration happens, we
+                // can map objectID to DLT token
+
                 // Store the current DLT to the presistent storage to be used
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
-                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
-                } else {
-                    // if second phase of start up failes, object store will set the state
-                    // during validating token ownership in the superblock
-                    handleDltUpdate();
-                }
+
+                // if second phase of start up failes, object store will set the state
+                // during validating token ownership in the superblock
+                handleDltUpdate();
             }
             // else ok if no DLT yet
         }
@@ -354,6 +358,16 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
 }
 
 Error ObjectStorMgr::handleDltUpdate() {
+
+    if (true == MODULEPROVIDER()->get_fds_config()->\
+                    get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
+        auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
+                            get<int>("fds.sm.testing.sleep_duration_before_migration");
+        LOGNOTIFY << "Sleep for " << sleep_time
+                  << " before sending NotifyDLTUpdate response to OM";
+        sleep(sleep_time);
+    }
+
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
@@ -448,6 +462,115 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
                                                  STAT_SM_CUR_DEDUP_BYTES,
                                                  dedup_bytes);
     }
+
+    // Piggyback on the timer that runs this to check disk capacity
+    if (sampleCounter % 5 == 0) {
+        LOGDEBUG << "Checking disk utilization!";
+        float_t pct_used = objectStore->getUsedCapacityAsPct();
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+
+            objectStore->setUnavailable();
+
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
+
+            lastCapacityMessageSentAt = pct_used;
+        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+            LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                                   "SM is reaching dangerous capacity levels!");
+        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+            LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+
+            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                                 fpi::EVENT_SEVERITY_WARNING,
+                                 fpi::EVENT_STATE_SOFT,
+                                 "sm.capacity.warn",
+                                 std::vector<fpi::MessageArgs>(), "");
+
+            lastCapacityMessageSentAt = pct_used;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
+            }
+        }
+        sampleCounter = 0;
+    }
+    sampleCounter++;
+}
+
+/**
+ * Sends a health check message from this SM to the OM to notify it of service changes
+ *
+ */
+void ObjectStorMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                           fds_errno_t statusCode,
+                                           const std::string& statusInfo) {
+
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    // Send health check thrift message to OM
+    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
+    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
+    healthRepMsg->healthReport.serviceState = serviceState;
+    healthRepMsg->healthReport.statusCode = statusCode;
+    healthRepMsg->healthReport.statusInfo = statusInfo;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
+    request->invoke();
+
+}
+
+
+/**
+ * Send an Event to OM using the events API
+ */
+
+void ObjectStorMgr::sendEventMessageToOM(fpi::EventType eventType,
+                                         fpi::EventCategory eventCategory,
+                                         fpi::EventSeverity eventSeverity,
+                                         fpi::EventState eventState,
+                                         const std::string& messageKey,
+                                         std::vector<fpi::MessageArgs> messageArgs,
+                                         const std::string& messageFormat) {
+
+    fpi::NotifyEventMsgPtr eventMsg(new fpi::NotifyEventMsg());
+
+    eventMsg->event.type = eventType;
+    eventMsg->event.category = eventCategory;
+    eventMsg->event.severity = eventSeverity;
+    eventMsg->event.state = eventState;
+
+    auto now = std::chrono::system_clock::now();
+    fds_uint64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+    eventMsg->event.initialTimestamp = seconds;
+    eventMsg->event.modifiedTimestamp = seconds;
+    eventMsg->event.messageKey = messageKey;
+    eventMsg->event.messageArgs = messageArgs;
+    eventMsg->event.messageFormat = messageFormat;
+    eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
+    request->invoke();
+
 }
 
 /* Initialize an instance specific vector of locks to cover the entire
@@ -987,16 +1110,19 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "Abort Migration request";
+    LOGDEBUG << "Abort Migration request for target DLT " << abortMigrationReq->targetDLTVersion;
 
     // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration();
+    err = objStorMgr->migrationMgr->abortMigrationFromOM(abortMigrationReq->targetDLTVersion);
 
     // revert to DLT version provided in abort message
-    if (abortMigrationReq->abortMigrationDLTVersion > 0) {
+    if (err.ok() && (abortMigrationReq->abortMigrationDLTVersion > 0)) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
         MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+    } else if (err == ERR_INVALID_ARG) {
+        // this is ok
+        err = ERR_OK;
     }
 
     qosCtrl->markIODone(*abortMigrationReq);
@@ -1134,8 +1260,10 @@ ObjectStorMgr::storeCurrentDLT()
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
-
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+
+    // Create the key to use during serialization.
+    SerialKey key(io->getVolId(), io->getClientSvcId());
 
     switch (io->io_type) {
         case FDS_IO_READ:
@@ -1147,33 +1275,61 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_DELETE_OBJECT:
         {
             LOGDEBUG << "Processing a Delete request";
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::deleteObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoDeleteObjectReq *>(io)));
+            } else {
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_GET_OBJECT:
         {
             LOGDEBUG << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoGetObjectReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::getObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoGetObjectReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_PUT_OBJECT:
         {
             LOGDEBUG << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoPutObjectReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::putObjectInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoPutObjectReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            }
             break;
         }
         case FDS_SM_ADD_OBJECT_REF:
         {
             LOGDEBUG << "Processing and add object reference request";
-            threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
-                                 objStorMgr,
-                                 static_cast<SmIoAddObjRefReq *>(io));
+            if (parentSm->enableReqSerialization) {
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&ObjectStorMgr::addObjectRefInternal,
+                                                            objStorMgr,
+                                                            static_cast<SmIoAddObjRefReq *>(io)));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
+                                     objStorMgr,
+                                     static_cast<SmIoAddObjRefReq *>(io));
+            }
             break;
         }
         case FDS_SM_SNAPSHOT_TOKEN:

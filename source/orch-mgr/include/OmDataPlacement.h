@@ -334,34 +334,73 @@ namespace fds {
             RoundRobin  = 0,
             ConsistHash = 1,
         };
+        /**
+         * If 'currDlt' is null, calculates DLT from scratch; otherwise
+         * calculated DLT based on previous DLT 'currDlt' and places newly
+         * calculated DLT into newDlt
+         * @param numPrimarySMs If 0, uses original algorithm which
+         * does not take into account state of SM services (failed/not failed)
+         *        otherwise, number of primary SMs
+         */
         virtual Error computeNewDlt(const ClusterMap *currMap,
                                     const DLT        *currDlt,
-                                    DLT              *newDlt) = 0;
+                                    DLT              *newDlt,
+                                    fds_uint32_t numPrimarySMs) = 0;
         virtual ~PlacementAlgorithm() {}
     };
 
     class RoundRobinAlgorithm : public PlacementAlgorithm {
   public:
+        /**
+         * numPrimarySMs is ignored
+         */
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            DLT              *newDlt);
+                            DLT              *newDlt,
+                            fds_uint32_t numPrimarySMs);
     };
 
     class ConsistHashAlgorithm : public PlacementAlgorithm {
   public:
+        /**
+         * If 'currDlt' is null, calculates DLT from scratch; otherwise
+         * calculated DLT based on previous DLT 'currDlt' and places newly
+         * calculated DLT into newDlt
+         * @param[in] numPrimarySMs If 0, uses original algorithm which
+         * does not take into account state of SM services (failed/not failed)
+         *        otherwise, number of primary SMs
+         * @return ERR_OK on success; ERR_INVALID_ARG if at least one column
+         * in DLT has all primary SMs removed
+         */
         Error computeNewDlt(const ClusterMap *currMap,
                             const DLT        *currDlt,
-                            DLT              *newDlt);
+                            DLT              *newDlt,
+                            fds_uint32_t numPrimarySMs);
 
   private:
         void computeInitialDlt(const ClusterMap *curMap,
-                                DLT *newDLT);
-        void fillEmptyReplicaCells(fds_uint32_t numNodes,
-                                   fds_uint64_t numTokens,
-                                   DLT *newDLT);
+                               DLT *newDLT,
+                               fds_uint32_t numPrimarySMs);
+        /// 'nonFailedSms' must be same as 'allSMs" if numPrimarySMs == 0
+        void fillEmptyCells(fds_uint64_t numTokens,
+                            DLT *newDLT,
+                            fds_uint32_t numPrimarySMs,
+                            const NodeUuidSet& nonFailedSms,
+                            const NodeUuidSet& allSms);
         void handleDltChange(const ClusterMap *curMap,
                              const DLT *curDlt,
                              DLT *newDlt);
+        Error checkUpdateValid(const ClusterMap *curMap,
+                               const DLT *curDlt,
+                               fds_uint32_t numPrimarySMs,
+                               const NodeUuidSet& rmNodes);
+        fds_uint32_t numOfFailedSMsInToken(const DltTokenGroupPtr& col,
+                                           fds_uint32_t tokenId,
+                                           fds_uint32_t checkDepth,
+                                           const NodeUuidSet& nonFailedSms);
+        void demoteFailedPrimaries(DLT* newDLT,
+                                   fds_uint32_t numPrimarySMs,
+                                   const NodeUuidSet& nonFailedSms);
     };
 
     /**
@@ -421,12 +460,21 @@ namespace fds {
         /**
          * Mutex to protect shared state of the placement engine
          */
-        fds_mutex *placementMutex;
+        fds_mutex placementMutex;
 
         /**
          * Config db object
          */
         kvstore::ConfigDB* configDB = NULL;
+
+        /**
+         * Configuration for number of primary SMs
+         * 0 means that we don't care about service state (failed or not)
+         * and not resyncing when promoting secondaries;
+         * 2 means implementation for 2-primary consistency model
+         * Other values for number of primaries also work, but not tested.
+         */
+        fds_uint32_t numOfPrimarySMs;
 
   public:
         DataPlacement();
@@ -471,8 +519,14 @@ namespace fds {
 
         /**
          * Reruns DLT computation.
+         * @return ERR_OK if DLT was successfully recomputed and it is
+         * different from the currently commited DLT;
+         *         ERR_INVALID_ARG if at least one column in DLT has all
+         * primary SMs marked for removal.
+         *         ERR_NOT_READY if newly computed DLT is the same as
+         * commited DLT (no changes in the cluster map that change DLT)
          */
-        void computeDlt();
+        Error computeDlt();
 
         /**
          * Begins token rebalance between nodes in the
@@ -485,6 +539,7 @@ namespace fds {
          * Commits the current DLT as an 'official' copy
          */
         void commitDlt();
+        void commitDlt( const bool unsetTarget );
 
         /**
          * Stores commited DLT to the permanent DLT history
@@ -531,8 +586,12 @@ namespace fds {
          * Will read commited and target DLT from configDB
          * and save commited DLT as non-commited. DLT will be commited
          * later when all nodes in DLT come up, or DLT will be recomputed.
+         * @param sm_service all known SM services
+         * @param deployed_sm_services all known SM services that are
+         * not in 'discovered' state
          */
-        Error loadDltsFromConfigDB(const NodeUuidSet& ms_services);
+        Error loadDltsFromConfigDB(const NodeUuidSet& ms_services,
+                                   const NodeUuidSet& deployed_sm_services);
 
         /**
          * Make sure that current DLT matches given SM services
@@ -546,14 +605,11 @@ namespace fds {
          */
         void setConfigDB(kvstore::ConfigDB* configDB);
 
-  private:  // methods
-        /**
-         * Checks if DLT matches the set of given SMs and does basic
-         * sanity check -- basic correctness independent of placement
-         * algorithm.
-         */
-        Error checkDltValid(const DLT* dlt, const NodeUuidSet& sm_services);
+        inline fds_uint32_t getNumOfPrimarySMs() const {
+            return numOfPrimarySMs;
+        }
 
+  private:  // methods
         /**
         * Response callback for StartMigration messages sent
         * in rebalance method.

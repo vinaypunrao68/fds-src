@@ -64,6 +64,7 @@ struct MetaDataList :
     uint32_t read(serialize::Deserializer* d);
 
     MetaDataList& operator=(const MetaDataList &rhs);
+    bool operator==(const MetaDataList& lhs) const;
 };
 
 /**
@@ -156,7 +157,7 @@ struct BlobObjList :
      * obj size is max obj size, unless this is the last object of the blob.
      * We also expect that each offset is max_obj_size aligned
      *
-     * If we remove any of these assumptions, we will 
+     * If we remove any of these assumptions, we will
      * the last object of the blob; Once that assumption is not true,
      * we need to make some modifications in Volume Catalog to
      * remove these assumptions
@@ -181,11 +182,12 @@ struct BlobObjList :
 };
 
 /**
- * Basic blob metadata 
+ * Basic blob metadata
  */
 struct BasicBlobMeta: serialize::Serializable {
     std::string blob_name;
     blob_version_t version;
+    sequence_id_t sequence_id;
 
     // NOTE(bszmyd): Wed 07 Jan 2015 04:31:44 PM PST
     // This should be interpreted as the size of the blob
@@ -199,7 +201,8 @@ struct BasicBlobMeta: serialize::Serializable {
     uint32_t write(serialize::Serializer* s) const;
     uint32_t read(serialize::Deserializer* d);
 
-    BasicBlobMeta& operator=(const BasicBlobMeta& rhs);
+    bool operator==(const BasicBlobMeta& rhs) const;
+    BasicBlobMeta& operator=(const BasicBlobMeta& rhs) = default;
 };
 
 /**
@@ -224,6 +227,7 @@ struct BlobMetaDesc: serialize::Serializable {
     uint32_t read(serialize::Deserializer* d);
 
     BlobMetaDesc& operator=(const BlobMetaDesc& rhs);
+    bool operator==(const BlobMetaDesc &rhs) const;
 };
 
 /**
@@ -233,6 +237,7 @@ struct VolumeMetaDesc : serialize::Serializable {
     /// Descriptor of the volume that the catalog is backing
     // TODO(Andrew): Add this back when we do restartability work.
     // VolumeDesc volDesc;
+    sequence_id_t sequence_id;
     /// List of user defined volume specific key-value metadata
     MetaDataList  meta_list;
 
@@ -243,13 +248,15 @@ struct VolumeMetaDesc : serialize::Serializable {
      * Constructs invalid VolumeMetaDesc object, must initialize
      * to valid fields after the constructor.
      */
-    explicit VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList);
+    explicit VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList,
+                            const sequence_id_t seq_id);
     virtual ~VolumeMetaDesc();
 
     uint32_t write(serialize::Serializer* s) const;
     uint32_t read(serialize::Deserializer* d);
 
     VolumeMetaDesc& operator=(const VolumeMetaDesc& rhs);
+    bool operator==(const VolumeMetaDesc& rhs) const;
 };
 
 std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& bdesc);
@@ -261,4 +268,3 @@ std::ostream& operator<<(std::ostream& out, const VolumeMetaDesc& volumeMetaDesc
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMBLOBTYPES_H_
-

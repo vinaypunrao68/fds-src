@@ -70,6 +70,12 @@ typedef fds_uint64_t fds_off_t;
 typedef fds_uint32_t fds_token_id;
 
 /**
+ * a sequence id serializes AM <-> DM operations
+ * and versions blobs at a volume level, across delete and recreation
+ */
+typedef fds_uint64_t sequence_id_t;
+
+/**
  * A blob version identifies a unique
  * version instance of a blob.
  */
@@ -256,9 +262,12 @@ typedef enum {
     FDS_DM_STAT_STREAM,
     FDS_DM_SYS_STATS,
     FDS_DM_RELOAD_VOLUME,
-    FDS_OP_INVALID,
     FDS_DM_LIST_BLOBS_BY_PATTERN,
-    FDS_DM_MIGRATION
+    FDS_DM_MIGRATION,
+	FDS_DM_RESYNC_INIT_BLOB,
+    FDS_DM_MIG_DELTA_BLOBDESC,
+    FDS_DM_MIG_DELTA_BLOB,
+    FDS_OP_INVALID
 } fds_io_op_t;
 
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);
@@ -286,8 +295,8 @@ class FDS_IOType {
     fds_uint32_t io_wait_time;  // usecs
     fds_uint32_t io_total_time;  // usecs
     ioModule io_module;  // IO belongs to which module for Qos proc
-    fds_uint64_t enqueue_ts;
-    fds_uint64_t dispatch_ts;
+    fds_uint64_t enqueue_ts {0};
+    fds_uint64_t dispatch_ts {0};
     fds_uint64_t io_done_ts;
 
     // performance data collection related structures

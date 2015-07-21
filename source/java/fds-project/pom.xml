@@ -12,7 +12,6 @@
     <artifactId>company-pom</artifactId>
     <groupId>com.formationds</groupId>
     <version>1.0.0</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <name>${fds.project.name} Project POM</name>
@@ -24,22 +23,20 @@
   <properties>
     <fds.project.name>FDS</fds.project.name>
 
-    <!-- set a default build type -->
-    <osdep.target>linux-x86_64.debug</osdep.target>
-    
-    <thrift.idl.source>../../../fdsp</thrift.idl.source>
-
     <!-- project scope dependencies version -->
+    <dcache.auth.version>0.0.11</dcache.auth.version>
+    <dcache.nfs4j.core.version>0.10.2</dcache.nfs4j.core.version>
+    <dcache.onrpc4j.core.version>2.3.3</dcache.onrpc4j.core.version>
     <io.netty.version>5.0.0.Alpha2</io.netty.version>
     <log4j.version>1.2.17</log4j.version>
     <jetty.version>9.2.9.v20150224</jetty.version>
     <jode.time.version>2.7</jode.time.version>
     <jopt.simple.version>4.8</jopt.simple.version>
+    <reflections.version>0.9.10</reflections.version>
     <stax.api.version>1.0-2</stax.api.version>
   </properties>
 
   <modules>
-    <module>fds-thrift</module>
     <module>fds</module>
     <module>fds-dist</module>
   </modules>
@@ -53,15 +50,15 @@
       </dependency>
 
       <dependency>
-        <groupId>joda-time</groupId>
-        <artifactId>joda-time</artifactId>
-        <version>${jode.time.version}</version>
-      </dependency>
-
-      <dependency>
         <groupId>javax.xml.stream</groupId>
         <artifactId>stax-api</artifactId>
         <version>${stax.api.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>joda-time</groupId>
+        <artifactId>joda-time</artifactId>
+        <version>${jode.time.version}</version>
       </dependency>
 
       <dependency>
@@ -77,13 +74,29 @@
       </dependency>
 
       <dependency>
+        <groupId>org.dcache.common</groupId>
+        <artifactId>dcache-auth</artifactId>
+        <version>${dcache.auth.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dcache</groupId>
+        <artifactId>nfs4j-core</artifactId>
+        <version>${dcache.nfs4j.core.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dcache</groupId>
+        <artifactId>oncrpc4j-core</artifactId>
+        <version>${dcache.onrpc4j.core.version}</version>
+      </dependency>
+
+      <dependency>
         <groupId>org.eclipse.jetty</groupId>
-        <artifactId>jetty-io</artifactId>
+        <artifactId>jetty-http</artifactId>
         <version>${jetty.version}</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
-        <artifactId>jetty-http</artifactId>
+        <artifactId>jetty-io</artifactId>
         <version>${jetty.version}</version>
       </dependency>
       <dependency>
@@ -96,35 +109,13 @@
         <artifactId>jetty-util</artifactId>
         <version>${jetty.version}</version>
       </dependency>
+
+      <dependency>
+      	<groupId>org.reflections</groupId>
+      	<artifactId>reflections</artifactId>
+      	<version>${reflections.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
-  <profiles>
-    <profile>
-      <id>mac_os</id>
-      <activation>
-        <os>
-          <name>mac os x</name>
-        </os>
-      </activation>
-      <properties>
-        <!-- thrift properties -->
-        <!-- MAKE SURE THE MAC OS VERSION MATCHES OUR BUILT TREE VERSION -->
-        <thrift.binary>/usr/local/bin/thrift-0.9.0</thrift.binary>
-      </properties>
-    </profile>
-    <profile>
-      <id>linux_os</id>
-      <activation>
-        <os>
-          <name>linux</name>
-        </os>
-      </activation>
-      <properties>
-        <!-- thrift properties -->
-        <!-- thrift.binary>${basedir}/../../../../Build/linux-x86_64.${build_type}/bin/thrift</thrift.binary -->
-        <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary>
-      </properties>
-    </profile>
-  </profiles>
 </project>

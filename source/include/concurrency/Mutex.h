@@ -83,15 +83,6 @@ class fds_mutex : boost::noncopyable {
  */
 typedef fds_mutex::scoped_lock fds_scoped_lock;
 
-/* 
- * fds_spinlock and fds_mutex is the same for now until we implement
- * a spinlock.  
- * TODO(Rao):  We are using this (fds_spinlock) typedef in places we shouldn't be
- * using.  Once they are evaluated, we need to change them to use Spinlock (see Spinlock.h)
- */
-typedef fds_mutex fds_spinlock;
-typedef fds_spinlock::scoped_lock fds_scoped_spinlock;
-
 struct sync_helper {
     fds_mutex* m;
     bool fSynchronized = true;
