@@ -394,4 +394,22 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 	clientMap.erase(fds_volid_t(uniqueId));
 }
 
+Error
+DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq)
+{
+	fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg =
+			finishVolResyncReq->finishVolResyncMsg;
+    DmMigrationExecutor::shared_ptr executor =
+    		getMigrationExecutor(fds_volid_t(finishVolResyncMsg->volume_id));
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << finishVolResyncMsg->volume_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+    	fds_assert(0);
+    	return ERR_NOT_FOUND;
+    }
+    executor->processLastFwdCommitLog(finishVolResyncMsg);
+
+	return ERR_OK;
+}
 }  // namespace fds

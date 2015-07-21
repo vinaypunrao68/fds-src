@@ -4,6 +4,7 @@ from services.node_service import NodeService
 from utils.converters.platform.node_converter import NodeConverter
 from services.response_writer import ResponseWriter
 from model.platform.service import Service
+from model.platform.service_status import ServiceStatus
 
 import json
 from model.fds_error import FdsError
@@ -137,7 +138,7 @@ class ServicePlugin( AbstractPlugin ):
         s_type = args[AbstractPlugin.service_str]
         name = s_type.upper()
             
-        service = Service( name=name, a_type=name )
+        service = Service( name=name, a_type=name, status=ServiceStatus(state="NOT_RUNNING") )
         
         response = self.get_node_service().add_service( args[AbstractPlugin.node_id_str], service )
         
