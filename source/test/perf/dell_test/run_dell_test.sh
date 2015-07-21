@@ -103,21 +103,22 @@ for bs in $bsizes ; do
                 	#sync
                 	#echo 3 > /proc/sys/vm/drop_caches
                 	for m in $machines ; do
-    			    for i in `seq $nvols` ; do
+    			        for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
                 	    	ssh ${ramap[$m]} "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
-			    	pids[$m:$i]=$!
-                            done
-			done
+			    	        pids[$m:$i]=$!
+                        done
+			        done
                 	for m in $machines ; do
-    			    for i in `seq $nvols` ; do
-			    	echo "Waiting for $m ${pids[$m:$i]}"
-			    	wait ${pids[$m:$i]}
-			    	echo "Processing results for $m ${pids[$m:$i]}"
-                	    	process_results $outfile $worker $workload $bs $d $size $m $i
-			    	pids[$m:$i]=""
-                           done
-                	done
+    			        for i in `seq $nvols` ; do
+			    	        echo "Waiting for $m ${pids[$m:$i]}"
+			    	        wait ${pids[$m:$i]}
+                	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
+			    	        echo "Processing results for $m ${pids[$m:$i]} $outfile"
+                	        	process_results $outfile $worker $workload $bs $d $size $m $i
+			    	        pids[$m:$i]=""
+                        done
+                   done
                 done
             done
         done
