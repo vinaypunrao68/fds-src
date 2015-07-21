@@ -99,7 +99,7 @@ public class ChunkAuthenticationInputStream extends InputStream {
         ByteBuffer current = getCurrentBuffer();
         if(current != null) {
             int length = Math.min(len, current.remaining());
-            current.get(b, 0, length);
+            current.get(b, off, length);
             return length;
         }
 

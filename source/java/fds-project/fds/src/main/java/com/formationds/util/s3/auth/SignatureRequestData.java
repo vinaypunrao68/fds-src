@@ -26,7 +26,7 @@ public class SignatureRequestData {
 
     public SignatureRequestData(String method, String path, Map<String, Collection<String>> queryParameters, Map<String, Collection<String>> headers, List<String> headersToSign) {
         this.method = method;
-        this.path = normalize(path);
+        this.path = uriEncode(normalize(path), false);
         this.queryParameters = queryParameters;
         signedHeaders = getSignedHeaderMap(headers, headersToSign);
 
@@ -36,6 +36,20 @@ public class SignatureRequestData {
         date = getDateForRequest(amzDateHdr, httpDateHdr);
         if (this.date == null)
             throw new IllegalArgumentException("no valid date header was found or is invalid (expecting Date or x-amz-date header)");
+    }
+
+    public SignatureRequestData(HttpContext context) {
+        method = context.getRequestMethod().toUpperCase();
+        path = normalize(context.getRequestURI()).replaceAll("%2(f|F)", "/");  // unencode slash
+        queryParameters = context.getQueryParameters();
+        V4AuthHeader authHeader = new V4AuthHeader(context.getRequestHeader("Authorization"));
+        List<String> signedHeaderList = Arrays.asList(authHeader.getSignedHeaders());
+        signedHeaders = getSignedHeaderMap(context.getRequestHeaderNames().stream().collect(Collectors.toMap(k -> k, k -> context.getRequestHeaderValues(k))), signedHeaderList);
+
+
+        date = getDateForRequest(context.getRequestHeader(AMZ_DATE_HEADER_KEY), context.getRequestHeader(HTTP_DATE_HEADER_KEY));
+        if(date == null)
+            throw new IllegalArgumentException("No valid date header (e.g. Date, x-amz-date) headers found in request");
     }
 
     private DateTime getDateForRequest(String xamzDateHeaderValue, String httpDateHeaderValue) {
@@ -55,7 +69,7 @@ public class SignatureRequestData {
         return date;
     }
 
-    private String normalize(String path) {
+    private String  normalize(String path) {
         String[] pathElements = path.split("/", -1);
         Stack<String> pathElementsOut = new Stack<>();
         for(int i = 0; i < pathElements.length; i++) {
@@ -77,20 +91,6 @@ public class SignatureRequestData {
             pathElementsOut.push("");
 
         return String.join("/", pathElementsOut);
-    }
-
-    public SignatureRequestData(HttpContext context) {
-        method = context.getRequestMethod().toUpperCase();
-        path = normalize(context.getRequestURI());
-        queryParameters = context.getQueryParameters();
-        V4AuthHeader authHeader = new V4AuthHeader(context.getRequestHeader("Authorization"));
-        List<String> signedHeaderList = Arrays.asList(authHeader.getSignedHeaders());
-        signedHeaders = getSignedHeaderMap(context.getRequestHeaderNames().stream().collect(Collectors.toMap(k -> k, k -> context.getRequestHeaderValues(k))), signedHeaderList);
-
-
-        date = getDateForRequest(context.getRequestHeader(AMZ_DATE_HEADER_KEY), context.getRequestHeader(HTTP_DATE_HEADER_KEY));
-        if(date == null)
-            throw new IllegalArgumentException("No valid date header (e.g. Date, x-amz-date) headers found in request");
     }
 
     private <T> T getAny(Collection<T> collection) {

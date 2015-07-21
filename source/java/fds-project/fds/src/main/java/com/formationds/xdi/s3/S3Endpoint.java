@@ -11,24 +11,22 @@ import com.formationds.spike.later.AsyncWebapp;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.SyncRequestHandler;
-import com.formationds.spike.later.pathtemplate.PathTemplate;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
-import io.netty.util.internal.chmv8.ConcurrentHashMapV8;
+import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
-
 import javax.crypto.SecretKey;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.io.ByteArrayInputStream;
+import java.io.FileOutputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 
 public class S3Endpoint {
     private final static org.apache.log4j.Logger LOG = org.apache.log4j.Logger.getLogger(S3Endpoint.class);
@@ -202,6 +200,7 @@ public class S3Endpoint {
             if(token != AuthenticationToken.ANONYMOUS)
                 localContext = s3auth.buildAuthenticatingContext(localContext);
 
+
             cf = function.apply(localContext, token);
         } catch (Exception e) {
             cf.completeExceptionally(e);
@@ -237,6 +236,7 @@ public class S3Endpoint {
                         AuthenticationToken identityClaim = authenticator.getIdentityClaim(localContext);
                         if(identityClaim != AuthenticationToken.ANONYMOUS)
                             localContext = authenticator.buildAuthenticatingContext(localContext);
+
                         AuthenticatedRequestContext.begin(identityClaim);
                         Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
 

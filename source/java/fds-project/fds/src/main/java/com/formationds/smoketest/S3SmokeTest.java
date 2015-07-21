@@ -294,6 +294,14 @@ public class S3SmokeTest {
         }
     }
 
+    @Test
+    public void testEncodedPaths() throws Exception {
+        String b1 = UUID.randomUUID().toString();
+        byte[] bytes = new byte[] { 1, 2, 3, 4 };
+
+        checkIo(bytes, b1 + "/!# @();?;:[]+=&");
+    }
+
     private void checkIo(byte[] bytes, String key) throws IOException {
         userClient.putObject(userBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
         S3Object object = userClient.getObject(userBucket, key);
@@ -310,7 +318,6 @@ public class S3SmokeTest {
     }
 
     private void uploadMultipart(AmazonS3Client client, String bucket, String blobName) throws NoSuchAlgorithmException {
-        SmokeTestRunner.turnLog4jOn(true);
         int partCount = 5;
         InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName));
 
@@ -337,7 +344,6 @@ public class S3SmokeTest {
         assertEquals(result.getETag(), Hex.encodeHexString(digest));
         ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
-        SmokeTestRunner.turnLog4jOff();
     }
 
     @Test
@@ -426,7 +432,6 @@ public class S3SmokeTest {
     }
 
     private void putGetOneObject(int byteCount) throws Exception {
-        SmokeTestRunner.turnLog4jOn(true);
         String key = UUID.randomUUID().toString();
         byte[] buf = new byte[byteCount];
         rng.nextBytes(buf);
@@ -438,7 +443,6 @@ public class S3SmokeTest {
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(buf, bytes);
-        SmokeTestRunner.turnLog4jOff();
     }
 
     @Test

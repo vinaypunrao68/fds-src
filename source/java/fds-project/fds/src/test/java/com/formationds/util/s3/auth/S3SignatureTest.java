@@ -7,12 +7,12 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
-import com.formationds.commons.util.IoStreamUtil;
 import com.formationds.spike.later.AsyncWebapp;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.xdi.s3.S3Failure;
+import org.apache.commons.io.IOUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -68,8 +68,8 @@ public class S3SignatureTest {
             ctx.test(client -> client.completeMultipartUpload(new CompleteMultipartUploadRequest("prap", "flarp", "flarrrn", new ArrayList<PartETag>())));
             ctx.test(client -> client.listParts(new ListPartsRequest("buckey", "smap", "weefis")));
             ctx.test(client -> client.listMultipartUploads(new ListMultipartUploadsRequest("rooper")));
-            //ctx.test(client -> client.uploadPart(new UploadPartRequest().withPartNumber(1).withUploadId("proop").withBucketName("preepys").withKey("meps").withInputStream(new ByteArrayInputStream(bytes))), bytes);
 
+            ctx.test(client -> client.uploadPart(new UploadPartRequest().withInputStream(new ByteArrayInputStream(bytes)).withPartSize(bytes.length).withPartNumber(1).withUploadId("proop").withBucketName("preepys").withKey("meps")), bytes);
 
             // acls
             ctx.test(client -> client.setBucketAcl("wax", CannedAccessControlList.AuthenticatedRead));
@@ -203,10 +203,10 @@ public class S3SignatureTest {
             lastUnhandledException = null;
             AuthenticationNormalizer normalizer = new AuthenticationNormalizer();
             try {
-                lastRecievedRaw = IoStreamUtil.buffer(context.getInputStream());
+                lastRecievedRaw = IOUtils.toByteArray(context.getInputStream());
                 context = context.withInputWrapper(new ByteArrayInputStream(lastRecievedRaw));
                 HttpContext authCtx = normalizer.authenticatingContext(credentials, context);
-                lastReceivedContent = IoStreamUtil.buffer(authCtx.getInputStream());
+                lastReceivedContent = IOUtils.toByteArray(authCtx.getInputStream());
             } catch(SecurityException ex) {
                 lastSecurityException = ex;
             } catch (Exception e) {
