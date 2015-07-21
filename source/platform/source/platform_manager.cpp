@@ -964,7 +964,6 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
 
         void PlatformManager::stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg)
         {
-
             auto serviceList = stopServiceMsg->services;
 
             for (auto const &vectItem : serviceList)
