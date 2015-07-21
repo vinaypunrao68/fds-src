@@ -224,7 +224,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     	return ERR_NOT_FOUND;
     }
     err = executor->processDeltaBlobs(deltaBlobsMsg);
-    if (err == ERR_INVALID_ARG) {
+    if (executor->isVolEmpty()) {
     	/* No blobs for this volume. Invoke callback manually */
     	err = executor->processIncomingDeltaSetCb();
     }

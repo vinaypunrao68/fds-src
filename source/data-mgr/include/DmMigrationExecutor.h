@@ -81,6 +81,11 @@ class DmMigrationExecutor {
     	return autoIncrement;
     }
 
+    inline fds_bool_t isVolEmpty()
+    {
+    	return volIsEmpty;
+    }
+
   private:
     /** Reference to the DataManager
      */
