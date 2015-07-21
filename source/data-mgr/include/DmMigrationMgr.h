@@ -104,6 +104,12 @@ class DmMigrationMgr {
      */
     Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
+    /**
+     * Destination Side DM:
+     * Message from Source to say which msg was the last fowarded commit log.
+     */
+    Error notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq);
+
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 

@@ -237,4 +237,10 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 	// TODO - part of error handling (FS-2619)
 }
 
+Error
+DmMigrationExecutor::processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
+{
+	// TODO: what's the card number for this?
+	return ERR_OK;
+}
 }  // namespace fds
