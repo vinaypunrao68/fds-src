@@ -60,7 +60,7 @@ size=1g
 #bsizes="4096"
 bsizes="4096 131072"
 iodepths="16 32 64"
-workers="4"
+workers="1"
 workloads="randread randwrite read write"
 
 declare -A disks
