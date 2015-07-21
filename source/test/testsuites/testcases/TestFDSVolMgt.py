@@ -58,7 +58,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
             vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
-            newVolume = convertor(volume)
+            newVolume = convertor(volume, fdscfg)
             status = vol_service.create_volume(newVolume)
 
             if isinstance(status, FdsError):

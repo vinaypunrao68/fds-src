@@ -28,7 +28,6 @@ import DomainShutdownSuite
 import TestFDSEnvMgt
 import TestFDSSysMgt
 import TestFDSServiceMgt
-import TestFDSPolMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
 import TestIOCounter
@@ -507,51 +506,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             raise Exception
 
     elif re.match('\[policy.+\]', script) is not None:
-        # What action should be taken against the volume policy? If not stated, assume "create".
-        if "action" in scenario.nd_conf_dict:
-            action = scenario.nd_conf_dict['action']
-        else:
-            action = "create"
-
-        if action == "create":
-            # Set the specified volume policy.
-            found = False
-            for policy in scenario.cfg_sect_vol_pol:
-                if '[' + policy.nd_conf_dict['pol-name'] + ']' == script:
-                    found = True
-                    suite.addTest(TestFDSPolMgt.TestPolicyCreate(policy=policy))
-                    break
-
-            if found:
-                # Give the volume policy some time to propagate if requested.
-                if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay, reason="to allow volume policy create " + script + " to propagate"))
-            else:
-                log.error("Volume policy not found for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-        elif action == "delete":
-            # Set the specified volume policy.
-            found = False
-            for policy in scenario.cfg_sect_vol_pol:
-                if '[' + policy.nd_conf_dict['pol-name'] + ']' == script:
-                    found = True
-                    suite.addTest(TestFDSPolMgt.TestPolicyDelete(policy=policy))
-                    break
-
-            if found:
-                # Give the volume policy delete some time to propagate if requested.
-                if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay, reason="to allow volume policy delete " + script + " to propagate"))
-            else:
-                log.error("Volume policy not found for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-        else:
-            log.error("Unrecognized node action '%s' for scenario %s" %
-                      (action, scenario.nd_conf_dict['scenario-name']))
-            raise Exception
-
+        log.info(" creating and deleting volume policy is deprecated, QOS policy is passed in creating volume not seperately anymore")
     elif re.match('\[volume.+\]', script) is not None:
         # What action should be taken against the volume? If not stated, assume "create".
         if "action" in scenario.nd_conf_dict:
