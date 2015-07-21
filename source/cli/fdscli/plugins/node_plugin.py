@@ -194,9 +194,9 @@ class NodePlugin( AbstractPlugin ):
             for node in d_nodes:
                 
                 #right now we need to make sure each type is added.
-                node.services['AM'] = Service(name="AM", a_type="AM")
-                node.services['DM'] = Service(name="DM", a_type="DM")
-                node.services['SM'] = Service(name="SM", a_type="SM")
+                node.services['AM'] = [Service(name="AM", a_type="AM")]
+                node.services['DM'] = [Service(name="DM", a_type="DM")]
+                node.services['SM'] = [Service(name="SM", a_type="SM")]
                 
                 n_list.append( node )
             #end of for loop
@@ -205,9 +205,9 @@ class NodePlugin( AbstractPlugin ):
                 if node.id == args[AbstractPlugin.node_ids_str]:
                     
                     #right now we need to make sure each type is added.
-                    node.services['AM'] = Service(name="AM", a_type="AM")
-                    node.services['DM'] = Service(name="DM", a_type="DM")
-                    node.services['SM'] = Service(name="SM", a_type="SM")
+                    node.services['AM'] = [Service(name="AM", a_type="AM")]
+                    node.services['DM'] = [Service(name="DM", a_type="DM")]
+                    node.services['SM'] = [Service(name="SM", a_type="SM")]
                     
                     n_list.append( node )
         

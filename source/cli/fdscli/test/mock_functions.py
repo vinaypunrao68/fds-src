@@ -17,6 +17,8 @@ from model.statistics.statistics import Statistics
 from model.statistics.series import Series
 from model.statistics.datapoint import Datapoint
 from model.statistics.calculated import Calculated
+from utils.converters.platform.node_converter import NodeConverter
+import json
 
 '''
 Created on Apr 22, 2015
@@ -289,3 +291,11 @@ def fakeStats( query ):
     stats.calculated_values.append( Calculated(key="total", value=3000 ) )
     
     return stats
+
+def mockPostNode( session, url, data=None, callback=None, callback2=None ):
+    nodes = listNodes()
+    
+    if len(nodes) > 0:
+        return NodeConverter.to_json(nodes[0])
+    
+    return ""

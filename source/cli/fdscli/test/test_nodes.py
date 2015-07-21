@@ -70,6 +70,19 @@ class TestNodes( BaseCliTest ):
         self.cli.run(args)
         
         assert mockAdd.call_count == 1
+    
+    @patch( "services.rest_helper.RESTHelper.post", side_effect=mock_functions.mockPostNode)    
+    @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listDiscoveredNodes)        
+    def test_add_nodes_with_conversion(self, mockList, mockPost):
+        '''
+        Same test as above but it ensures that our data types are convertable
+        '''
+        
+        args = ["node", "add"]
+        self.callMessageFormatter(args)
+        self.cli.run(args)
+        
+        assert mockPost.call_count == 1
         
     @patch( "services.node_service.NodeService.remove_node", side_effect=mock_functions.removeNode)
     @patch( "services.node_service.NodeService.list_nodes", side_effect=mock_functions.listNodes)
