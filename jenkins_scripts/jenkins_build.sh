@@ -1,7 +1,20 @@
 #!/bin/bash -le
 
-echo "$0 is deprecated, please update your workflow to use jenkins_tests_copy_for_build_test_coroner_cleanup.sh"
-exit 67
+echo "###################################################################################"
+echo "###################################################################################"
+echo "###################################################################################"
+echo "###################################################################################"
+echo "# This script is deprecated by jenkins_tests_copy_for_build_test_coroner_cleanup.sh"
+echo "###################################################################################"
+echo "###################################################################################"
+echo "###################################################################################"
+echo "###################################################################################"
+echo ""
+echo "$0 is deprecated, please update your workflow to use jenkins_build_test_coroner_cleanup.sh (pausing 30 seconds)"
+
+curl "http://beacon.formationds.com/?JENKINS_DEPRECATED_SCRIPTS=true&script=${0}&JOB_NAME=${JOB_NAME}&PWD=${PWD}&BUILD_NUMBER=${BUILD_NUMBER}"
+
+sleep 30
 
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
 KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
