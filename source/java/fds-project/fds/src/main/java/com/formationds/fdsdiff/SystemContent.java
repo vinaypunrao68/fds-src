@@ -910,6 +910,22 @@ public final class SystemContent
         _volumeNames.put(volume.getName(), volume);
     }
     
+    @Override
+    public boolean equals(Object other)
+    {
+        if (other == null || other.getClass() != SystemContent.class)
+        {
+            return false;
+        }
+        else
+        {
+            SystemContent typedOther = (SystemContent)other;
+            return _tenants.equals(typedOther._tenants)
+                   && _users.equals(typedOther._users)
+                   && _volumes.equals(typedOther._volumes);
+        }
+    }
+    
     public Set<String> getObjectNames(Volume volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -1015,6 +1031,18 @@ public final class SystemContent
         {
             addTenant(tenant);
         }
+    }
+    
+    @Override
+    public int hashCode()
+    {
+        int retval = 0xABadCab5;
+        
+        retval = retval * 23 ^ _tenants.hashCode();
+        retval = retval * 23 ^ _users.hashCode();
+        retval = retval * 23 ^ _volumes.hashCode();
+        
+        return retval;
     }
     
     public void setUsers(Collection<User> value)

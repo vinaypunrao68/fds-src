@@ -8,5 +8,4 @@ CLASSPATH="${CLASSPATH}":"${JAVA_LIB}"/\*
 
 java -classpath $CLASSPATH \
      -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,quiet=y,address=4050 \
-     com.formationds.fdsdiff.Main "${@}" \
-     || exit 1
+     com.formationds.fdsdiff.Main "${@}"
