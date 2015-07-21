@@ -23,6 +23,7 @@ import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
+import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.svc.types.SvcInfo;
@@ -111,13 +112,13 @@ public class AddService implements RequestHandler {
     	long newSvcId = -1;
         switch( type ){
     	case AM:
-    		newSvcId = nodeId + 3;
+    		newSvcId = nodeId + FDSP_MgrIdType.FDSP_ACCESS_MGR.ordinal();
     		break;
     	case DM:
-    		newSvcId = nodeId + 2;
+    		newSvcId = nodeId + FDSP_MgrIdType.FDSP_DATA_MGR.ordinal();
     		break;
     	case SM: 
-    		newSvcId = nodeId + 1;
+    		newSvcId = nodeId + FDSP_MgrIdType.FDSP_STOR_MGR.ordinal();
     		break;
     	default:
     		break;
