@@ -2,6 +2,8 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
+#include "connector/block/NbdConnection.h"
+
 #include <cerrno>
 #include <string>
 #include <type_traits>
@@ -16,7 +18,7 @@ extern "C" {
 
 #include <ev++.h>
 
-#include "connector/block/NbdConnection.h"
+#include "connector/block/NbdConnector.h"
 #include "fds_process.h"
 #include "fds_volume.h"
 #include "fdsp/config_types_types.h"
@@ -76,9 +78,11 @@ bool get_message_header(int fd, M& message);
 template<typename M>
 bool get_message_payload(int fd, M& message);
 
-NbdConnection::NbdConnection(int clientsd,
+NbdConnection::NbdConnection(NbdConnector* server,
+                             int clientsd,
                              std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
+          nbd_server(server),
           nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
           volume_size{0},
@@ -99,7 +103,7 @@ NbdConnection::NbdConnection(int clientsd,
     standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
-    ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
+    ioWatcher->set<NbdConnection, &NbdConnection::ioEvent>(this);
     ioWatcher->start(clientSocket, ev::READ | ev::WRITE);
 
     asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
@@ -111,15 +115,13 @@ NbdConnection::NbdConnection(int clientsd,
 
 NbdConnection::~NbdConnection() {
     LOGNORMAL << "NBD client disconnected for " << clientSocket;
-    asyncWatcher->stop();
-    ioWatcher->stop();
     shutdown(clientSocket, SHUT_RDWR);
     close(clientSocket);
 }
 
 void
 NbdConnection::terminate() {
-    terminate_ = true;
+    state_ = ConnectionState::STOPPING;
     asyncWatcher->send();
 }
 
@@ -236,6 +238,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
     if (standalone_mode) {
         object_size = 4 * Ki;
         volume_size = 1 * Gi;
+        nbd_state = NbdProtoState::SENDOPTS;
         asyncWatcher->send();
     } else {
         nbdOps->init(volumeName, amProcessor);
@@ -411,22 +414,37 @@ NbdConnection::dispatchOp() {
 
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
-    if (terminate_) {
-        delete this;
-        return;
+    if (processing_) return;
+    if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
+        nbdOps->shutdown();
+        if (ConnectionState::STOPPED == state_) {
+            asyncWatcher->stop();
+            ioWatcher->stop();
+            nbdOps.reset();
+            return;
+        }
     }
+
     // It's ok to keep writing responses if we've been shutdown
-    // but don't start watching for requests if we do
-    ioWatcher->set(ev::WRITE | (nbdOps ? ev::READ : ev::NONE));
-    ioWatcher->feed_event(EV_WRITE);
+    auto writting = (nbd_state == NbdProtoState::SENDOPTS ||
+                     current_response ||
+                     !readyResponses.empty()) ? ev::WRITE : ev::NONE;
+
+    ioWatcher->set(writting | ev::READ);
+    ioWatcher->start();
 }
 
 void
-NbdConnection::callback(ev::io &watcher, int revents) {
-    if (EV_ERROR & revents) {
+NbdConnection::ioEvent(ev::io &watcher, int revents) {
+    if (processing_ || (EV_ERROR & revents)) {
         LOGERROR << "Got invalid libev event";
         return;
     }
+
+    ioWatcher->stop();
+    processing_ = true;
+    // Unblocks the next thread to listen on the ev loop
+    nbd_server->process();
 
     try {
     if (revents & EV_READ) {
@@ -436,9 +454,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                     { nbd_state = NbdProtoState::AWAITOPTS; }
                 break;
             case NbdProtoState::AWAITOPTS:
-                if (option_request(watcher)) {
-                    nbd_state = NbdProtoState::SENDOPTS;
-                }
+                option_request(watcher);
                 break;
             case NbdProtoState::DOREQS:
                 // Read all the requests off the socket
@@ -459,47 +475,34 @@ NbdConnection::callback(ev::io &watcher, int revents) {
             case NbdProtoState::PREINIT:
                 if (handshake_start(watcher)) {
                     nbd_state = NbdProtoState::POSTINIT;
-                    // Wait for read event from client
-                    ioWatcher->set(ev::READ);
                 }
                 break;
             case NbdProtoState::SENDOPTS:
                 if (option_reply(watcher)) {
                     nbd_state = NbdProtoState::DOREQS;
                     LOGDEBUG << "Done with NBD handshake";
-                    // Wait for read events from client
-                    ioWatcher->set(ev::READ);
                 }
                 break;
             case NbdProtoState::DOREQS:
                 // Write everything we can
                 while (io_reply(watcher))
                     { continue; }
-
-                // If the queue is empty, stop writing. Reading at this
-                // point is determined by whether we have an Operations
-                // instance to queue to.
-                if ((!current_response) && readyResponses.empty())
-                    { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
                 fds_panic("Unknown NBD connection state %d", nbd_state);
         }
     }
     } catch(NbdError const& e) {
-        // If we had an error, stop the event loop too
+        state_ = ConnectionState::STOPPING;
         if (e == NbdError::connection_closed) {
-            ioWatcher->stop();
-        }
-
-        if (nbdOps) {
-            // Tell NbdOperations to delete us once it's handled all outstanding
-            // requests. Going to ignore the incoming requests now.
-            ioWatcher->set(ev::WRITE);
-            nbdOps->shutdown();
-            nbdOps.reset();
+            // If we had an error, stop the event loop too
+            state_ = ConnectionState::STOPPED;
         }
     }
+    // Unblocks the ev loop to handle events again on this connection
+    processing_ = false;
+    asyncWatcher->send();
+    nbd_server->follow();
 }
 
 void
@@ -524,6 +527,7 @@ NbdConnection::attachResp(Error const& error, boost::shared_ptr<VolumeDesc> cons
         object_size = volDesc->maxObjSizeInBytes;
         volume_size = __builtin_bswap64(volDesc->capacity * Mi);
     }
+    nbd_state = NbdProtoState::SENDOPTS;
     asyncWatcher->send();
 }
 

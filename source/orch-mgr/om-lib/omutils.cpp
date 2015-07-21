@@ -105,6 +105,9 @@ namespace fds
         return retNodeState;
     }
 
+    // Usage: For functions related to add/remove/start/stop services
+    // that require manipulation of passed in svcInfo vector depending
+    //  on the current state of the system
     void
     updateSvcInfoList
         (
@@ -120,44 +123,46 @@ namespace fds
                  << " amFlag: " << amFlag
                  << " size of vector: " << svcInfos.size();
 
-        int32_t index = 0;
-        int32_t smIdx = 0;
-        int32_t dmIdx = 0;
-        int32_t amIdx = 0;
-        bool smFound = false;
-        bool dmFound = false;
-        bool amFound = false;
+        std::vector<fpi::SvcInfo>::iterator iter;
 
-        // Check whether the service is present and the associated flag
-        // is set.(Flag is set if associated service needs to be removed).
-        // If so, save index so we can erase the service from the vector
-        for (fpi::SvcInfo svcInfo : svcInfos) {
-
-            if (svcInfo.svc_type == fpi::FDSP_STOR_MGR  && smFlag) {
-                    smIdx = index;
-                    smFound = true;
-            } else if (svcInfo.svc_type == fpi::FDSP_DATA_MGR && dmFlag) {
-                    dmIdx = index;
-                    dmFound = true;
-            }else if (svcInfo.svc_type == fpi::FDSP_ACCESS_MGR && amFlag) {
-                    amIdx = index;
-                    amFound = true;
-            }
-            ++index;
+        iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
+        if ((iter != svcInfos.end()) && smFlag)
+        {
+            LOGDEBUG << "Erasing SM svcInfo from list";
+            svcInfos.erase(iter);
         }
 
-        // Erase svcInfo only if flag is set and service has been found in the vector
-        if (smFlag && smFound)
+
+        iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR );
+
+        if ((iter != svcInfos.end()) && dmFlag)
         {
-            svcInfos.erase(svcInfos.begin() + smIdx);
+            LOGDEBUG << "Erasing DM svcInfo from list";
+            svcInfos.erase(iter);
         }
-        if (dmFlag && dmFound)
+
+
+        iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
+        if ((iter != svcInfos.end()) && amFlag)
         {
-            svcInfos.erase(svcInfos.begin() + dmIdx);
+            LOGDEBUG << "Erasing AM svcInfo from list";
+            svcInfos.erase(iter);
         }
-        if (amFlag && amFound)
-        {
-            svcInfos.erase(svcInfos.begin() + amIdx);
-        }
+    }
+
+    std::vector<fpi::SvcInfo>::iterator isServicePresent
+        (
+        std::vector<fpi::SvcInfo>& svcInfos,
+        FDS_ProtocolInterface::FDSP_MgrIdType svcType
+        )
+    {
+        std::vector<fpi::SvcInfo>::iterator iter;
+        iter = std::find_if(svcInfos.begin(), svcInfos.end(),
+                            [svcType](fpi::SvcInfo info)->bool
+                            {
+                            return info.svc_type == svcType;
+                            });
+        return iter;
+
     }
 }  // namespace fds
