@@ -110,6 +110,11 @@ class DmMigrationExecutor {
     fds_bool_t autoIncrement;
 
     /**
+     * If this volume is empty.
+     */
+    fds_bool_t volIsEmpty;
+
+    /**
      * Used for generating a random TransactionID.
      */
     RandNumGenerator randNumGen;

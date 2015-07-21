@@ -212,6 +212,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
 // process the deltaObject request
 Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
+	Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
     DmMigrationExecutor::shared_ptr executor =
     		getMigrationExecutor(fds_volid_t(deltaBlobsMsg->volume_id));
@@ -222,9 +223,13 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     	fds_assert(0);
     	return ERR_NOT_FOUND;
     }
-    executor->processDeltaBlobs(deltaBlobsMsg);
+    err = executor->processDeltaBlobs(deltaBlobsMsg);
+    if (err == ERR_INVALID_ARG) {
+    	/* No blobs for this volume. Invoke callback manually */
+    	err = executor->processIncomingDeltaSetCb();
+    }
 
-    return ERR_OK;
+    return err;
 }
 
 Error

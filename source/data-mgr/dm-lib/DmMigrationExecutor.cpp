@@ -24,6 +24,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
       volDesc(_volDesc),
 	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback),
+	  volIsEmpty(false),
 	  randNumGen(RandNumGenerator::getRandSeed()),
 	  timerInterval(fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
 			  get<int>("fds.dm.migration.migration_max_delta_blobs_to"))),
@@ -87,11 +88,11 @@ DmMigrationExecutor::startMigration()
     } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
+        if (migrDoneCb) {
+        	migrDoneCb(volDesc.volUUID, err);
+        }
     }
 
-	if (migrDoneCb) {
-		migrDoneCb(volDesc.volUUID, err);
-	}
     return err;
 }
 
@@ -156,6 +157,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 	if (msg->blob_obj_list.size() == 0) {
 		LOGERROR << "Volume Blob object list size is 0 for volume: "
 				<< msg->volume_id;
+		volIsEmpty = true;
 		return ERR_INVALID_ARG;
 	}
 
@@ -216,19 +218,26 @@ Error
 DmMigrationExecutor::processIncomingDeltaSetCb()
 {
 	fds_bool_t allCbCalled = false;
-	deltaBlobSetCbHelper.mtx.lock();
-	fds_verify(deltaBlobSetCbHelper.expectedCount > deltaBlobSetCbHelper.actualCbCounted);
-	++deltaBlobSetCbHelper.actualCbCounted;
-	allCbCalled = ((deltaBlobSetCbHelper.actualCbCounted == deltaBlobSetCbHelper.expectedCount) &&
-			deltaBlobSetCbHelper.expectedCountFinalized);
-	deltaBlobSetCbHelper.mtx.unlock();
+	Error err(ERR_OK);
+	if (!volIsEmpty) {
+		deltaBlobSetCbHelper.mtx.lock();
+		fds_verify(deltaBlobSetCbHelper.expectedCount > deltaBlobSetCbHelper.actualCbCounted);
+		++deltaBlobSetCbHelper.actualCbCounted;
+		allCbCalled = ((deltaBlobSetCbHelper.actualCbCounted == deltaBlobSetCbHelper.expectedCount) &&
+				deltaBlobSetCbHelper.expectedCountFinalized);
+		deltaBlobSetCbHelper.mtx.unlock();
+	}
 
 	if (allCbCalled) {
 		// TODO: Call the hook to start applying Blob Descriptors
 		LOGMIGRATE << "All Blobs applied for volume " << volumeUuid;
 	}
 
-	return ERR_OK;
+	// TODO: move this to the end of blob descriptor application
+	if (migrDoneCb) {
+		migrDoneCb(volDesc.volUUID, err);
+	}
+	return err;
 }
 
 void
@@ -240,7 +249,8 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 Error
 DmMigrationExecutor::processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
 {
-	// TODO: what's the card number for this?
-	return ERR_OK;
+       // TODO: what's the card number for this?
+       return ERR_OK;
 }
+
 }  // namespace fds
