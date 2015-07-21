@@ -192,9 +192,62 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(dmCatReq* dmRequest) {
     dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
 }
 
+void DmMigrationDeltaBlobHandler::volumeCatalogCb(Error const& e, blob_version_t blob_version,
+                                          	  	  BlobObjList::const_ptr const& blob_obj_list,
+												  MetaDataList::const_ptr const& meta_list,
+												  fds_uint64_t const blobSize,
+												  DmIoCommitBlobTx* commitBlobReq) {
+    if (!e.ok()) {
+        LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        delete commitBlobReq;
+        return;
+    }
+
+    LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
+             << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
+             << " current DMT version " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+
+    dataManager.dmMigrationMgr->applyDeltaObjCommitCb(commitBlobReq->volId, e);
+
+    delete commitBlobReq;
+}
+
 void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                         Error const& e, dmCatReq* dmRequest) {
+	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
+	delete dmRequest;
+}
+
+DmMigrationFinishVolResyncHandler::DmMigrationFinishVolResyncHandler(DataMgr& dataManager)
+	: Handler(dataManager)
+{
+    REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyFinishVolResyncMsg, handleRequest);
+}
+
+void DmMigrationFinishVolResyncHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message) {
+    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+
+    auto dmReq = new DmIoMigrationFinishVolResync(message);
+
+    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    fds_verify(dmReq->io_type == FDS_DM_MIG_FINISH_VOL_RESYNC);
+
+    addToQueue(dmReq);
+}
+
+void DmMigrationFinishVolResyncHandler::handleQueueItem(dmCatReq* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    DmIoMigrationFinishVolResync* typedRequest = static_cast<DmIoMigrationFinishVolResync*>(dmRequest);
+
+    // dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+}
+
+void DmMigrationFinishVolResyncHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message,
+                        Error const& e, dmCatReq* dmRequest) {
+	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
 	delete dmRequest;
 }
 }  // namespace dm

@@ -69,6 +69,11 @@ const char* fds_errstrs[] = {
     "Archive get failed",
     "Volume access denied",
     "Token not ready",
+    "DM invalid regex",
+    "Not one of the primaries",
+    "Not the first primary",
+    "Service ran out of disk capacity",
+    "Service is at dangerous used disk capacity level",
     // Good up to here. 01/28/2015
     "SM object metadata not found",
     "error during network communication"

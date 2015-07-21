@@ -87,13 +87,28 @@ class DmMigrationMgr {
      */
     Error startMigrationClient(dmCatReq* dmRequest);
 
-    // Handle deltaObject  in Migration executor
+    /**
+     * Destination Side DM:
+     * Handle deltaObject in Migration executor.
+     */
     Error applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobsReq);
+
+    /**
+     * Destination side DM:
+     * Callback for committing the transaction after applying a specific blob msg
+     */
+    Error applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e);
 
     /**
      * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
      */
     Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+
+    /**
+     * Destination Side DM:
+     * Message from Source to say which msg was the last fowarded commit log.
+     */
+    Error notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;

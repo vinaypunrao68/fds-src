@@ -321,6 +321,9 @@ struct DmMigrationBlobFilterHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+/**
+ * Handlers for the Blob and Blob Descriptor transfers
+ */
 struct DmMigrationDeltaBlobDescHandler : Handler {
 	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
 	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
@@ -338,6 +341,24 @@ struct DmMigrationDeltaBlobHandler : Handler {
     void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                           boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                           Error const& e, dmCatReq* dmRequest);
+    void volumeCatalogCb(Error const& e, blob_version_t blob_version,
+                         BlobObjList::const_ptr const& blob_obj_list,
+                         MetaDataList::const_ptr const& meta_list,
+                         fds_uint64_t const blobSize,
+                         DmIoCommitBlobTx* commitBlobReq);
+};
+
+/**
+ * Handler for msg from source DM to dest DM indicating the last forwarded commit log
+ */
+struct DmMigrationFinishVolResyncHandler : Handler {
+	explicit DmMigrationFinishVolResyncHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
 };
 
 }  // namespace dm
