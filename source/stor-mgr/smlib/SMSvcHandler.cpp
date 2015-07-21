@@ -478,7 +478,8 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         return;
     }
 
-    err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
+    // err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
+    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, getReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoGetObjectReq to StorMgr.  Error: "
                  << err;
