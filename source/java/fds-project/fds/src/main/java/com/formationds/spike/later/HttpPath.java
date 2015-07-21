@@ -93,11 +93,6 @@ public class HttpPath {
 
     private static final MatchResult failedMatch = new MatchResult(false, null);
 
-    public HttpPath withPredicate(Predicate<HttpContext> predicate) {
-        predicates.add(predicate);
-        return this;
-    }
-
     public static class MatchResult {
         private boolean isMatch;
         private Map<String, String> pathParameters;
