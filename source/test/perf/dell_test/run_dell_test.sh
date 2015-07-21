@@ -65,19 +65,32 @@ workloads="randread randwrite read write"
 
 declare -A disks
 
+######### Remapping ##########
+declare -A mremap
+echo $machines
+marray=($(echo ${machines}))
+n_machines=${#marray[@]}
+let i=$n_machines-1
+for m in $machines ; do
+    mremap[$m]=${marray[$i]}
+    let i=$i-1
+done
+
+##############################
+
 for m in $machines ; do
     for i in `seq $nvols` ; do
     	volume_setup volume_block_$m\_$i
 
     	# disks[$m]=`../../../cinder/nbdadm.py attach $m  volume_block_$m`
-    	disks[$m:$i]=`ssh $m "cd /fds/sbin && ./nbdadm.py attach $m  volume_block_$m\_$i"`
+    	disks[$m:$i]=`ssh ${remap[$m]} "cd /fds/sbin && ./nbdadm.py attach ${remap[$m]}  volume_block_$m\_$i"`
 
     	echo "nbd disk: ${disks[$m:$i]}"
     	if [ "${disks[$m:$i]}" = "" ]; then
     	    echo "Volume setup failed"
     	    exit 1;
     	fi
-    	ssh $m "fio --name=write --rw=write --filename=${disks[$m:$i]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size"
+    	ssh ${ramap[$m]} "fio --name=write --rw=write --filename=${disks[$m:$i]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size"
     done
 done
 
@@ -92,7 +105,7 @@ for bs in $bsizes ; do
                 	for m in $machines ; do
     			    for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
-                	    	ssh $m "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
+                	    	ssh ${ramap[$m]} "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
 			    	pids[$m:$i]=$!
                             done
 			done
