@@ -12,6 +12,7 @@ import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.fdsdiff.SystemContent.VolumeWrapper;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
@@ -19,7 +20,7 @@ import com.google.gson.reflect.TypeToken;
 
 public final class ListVolumes extends AbstractOmV8Operation
 {
-    public ListVolumes(Consumer<Collection<Volume>> setter)
+    public ListVolumes(Consumer<Collection<VolumeWrapper>> setter)
     {
         if (setter == null) throw new NullArgumentException("setter");
         
@@ -68,7 +69,7 @@ public final class ListVolumes extends AbstractOmV8Operation
         _VOLUME_LIST_TYPE = new TypeToken<ArrayList<Volume>>() {}.getType();
     }
     
-    private final Consumer<Collection<Volume>> _setter;
+    private final Consumer<Collection<VolumeWrapper>> _setter;
     
     private static final Type _VOLUME_LIST_TYPE;
 }

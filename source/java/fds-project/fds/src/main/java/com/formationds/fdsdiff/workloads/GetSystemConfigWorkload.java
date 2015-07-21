@@ -8,9 +8,9 @@ import java.util.stream.Stream;
 
 import com.formationds.client.v08.model.Tenant;
 import com.formationds.client.v08.model.User;
-import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.fdsdiff.SystemContent;
+import com.formationds.fdsdiff.SystemContent.VolumeWrapper;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.operations.GetTenants;
 import com.formationds.iodriver.operations.GetUsers;
@@ -44,7 +44,7 @@ public final class GetSystemConfigWorkload extends Workload
 	protected List<Stream<Operation>> createOperations()
 	{
 		Consumer<Collection<Tenant>> readTenants = _contentContainer::setTenants;
-		Consumer<Collection<Volume>> readVolumes = _contentContainer::setVolumes;
+		Consumer<Collection<VolumeWrapper>> readVolumes = _contentContainer::setVolumes;
 		Consumer<Collection<User>> readUsers = _contentContainer::setUsers;
 		
 		return Collections.singletonList(Stream.of(new GetTenants(readTenants),

@@ -14,12 +14,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.formationds.client.ical.Numbers;
+import com.formationds.client.ical.NumbersValidator;
 import com.formationds.client.ical.RecurrenceRule;
+import com.formationds.client.ical.WeekDays;
+import com.formationds.client.ical.WeekDaysValidator;
 import com.formationds.client.v08.model.DataProtectionPolicy;
 import com.formationds.client.v08.model.MediaPolicy;
 import com.formationds.client.v08.model.QosPolicy;
@@ -462,8 +467,9 @@ public final class SystemContent
                                           newQosPolicy,
                                           newCreated,
                                           newTags);
-            context.addVolume(newVolume);
-            newObjects.forEach(context.getVolumeObjectAdder(newVolume));
+            VolumeWrapper newVolumeWrapper = new VolumeWrapper(newVolume);
+            context.addVolume(newVolumeWrapper);
+            newObjects.forEach(context.getVolumeObjectAdder(newVolumeWrapper));
         }
         
         private static void readVolumes(JsonReader in, SystemContent context) throws IOException
@@ -753,12 +759,13 @@ public final class SystemContent
         }
         
         private static void writeVolume(JsonWriter out,
-                                        Entry<Volume, Set<ObjectManifest>> value) throws IOException
+                                        Entry<VolumeWrapper,
+                                              Set<ObjectManifest>> value) throws IOException
         {
             if (out == null) throw new NullArgumentException("out");
             if (value == null) throw new NullArgumentException("value");
 
-            Volume volume = value.getKey();
+            Volume volume = value.getKey().getVolume();
             Set<ObjectManifest> objects = value.getValue();
             
             out.beginObject();
@@ -865,17 +872,745 @@ public final class SystemContent
         }
 
         private static void writeVolumes(JsonWriter out,
-                                         Map<Volume, Set<ObjectManifest>> value) throws IOException
+                                         Map<VolumeWrapper,
+                                             Set<ObjectManifest>> value) throws IOException
         {
             if (out == null) throw new NullArgumentException("out");
             if (value == null) throw new NullArgumentException("value");
 
             out.beginArray();
-            for (Entry<Volume, Set<ObjectManifest>> entry : value.entrySet())
+            for (Entry<VolumeWrapper, Set<ObjectManifest>> entry : value.entrySet())
             {
                 writeVolume(out, entry);
             }
             out.endArray();
+        }
+    }
+    
+    public final static class VolumeWrapper
+    {
+        public VolumeWrapper(Volume volume)
+        {
+            if (volume == null) throw new NullArgumentException("volume");
+            
+            _volume = volume;
+        }
+        
+        @Override
+        public boolean equals(Object other)
+        {
+            if (other == null || other.getClass() != getClass())
+            {
+                return false;
+            }
+            else
+            {
+                VolumeWrapper typedOther = (VolumeWrapper)other;
+                Volume otherVolume = typedOther._volume;
+                
+                return _equals(_volume.getAccessPolicy(), otherVolume.getAccessPolicy())
+                       && Objects.equals(_volume.getApplication(), otherVolume.getApplication())
+                       && Objects.equals(_volume.getCreated(), otherVolume.getCreated())
+                       && _equals(_volume.getDataProtectionPolicy(),
+                                  otherVolume.getDataProtectionPolicy())
+                       && Objects.equals(_volume.getId(), otherVolume.getId())
+                       && Objects.equals(_volume.getMediaPolicy(), otherVolume.getMediaPolicy())
+                       && Objects.equals(_volume.getName(), otherVolume.getName())
+                       && _equals(_volume.getQosPolicy(), otherVolume.getQosPolicy())
+                       && _equals(_volume.getSettings(), otherVolume.getSettings())
+                       && _equals(_volume.getStatus(), otherVolume.getStatus())
+                       && Objects.equals(_volume.getTags(), otherVolume.getTags())
+                       && _equals(_volume.getTenant(), otherVolume.getTenant());
+            }
+        }
+        
+        public Volume getVolume()
+        {
+            return _volume;
+        }
+        
+        @Override
+        public int hashCode()
+        {
+            int hashCode = 0xABadCab5;
+            
+            hashCode = hashCode * 23 ^ _hashCode(_volume.getAccessPolicy());
+            hashCode = hashCode * 23 ^ Objects.hashCode(_volume.getApplication());
+            hashCode = hashCode * 23 ^ Objects.hashCode(_volume.getCreated());
+            hashCode = hashCode * 23 ^ _hashCode(_volume.getDataProtectionPolicy());
+            hashCode = hashCode * 23 ^ Objects.hashCode(_volume.getId());
+            hashCode = hashCode * 23 ^ Objects.hashCode(_volume.getMediaPolicy());
+            hashCode = hashCode * 23 ^ Objects.hashCode(_volume.getName());
+            hashCode = hashCode * 23 ^ _hashCode(_volume.getQosPolicy());
+            hashCode = hashCode * 23 ^ _hashCode(_volume.getSettings());
+            hashCode = hashCode * 23 ^ _hashCode(_volume.getStatus());
+            hashCode = hashCode * 23 ^ Objects.hashCode(_volume.getTags());
+            hashCode = hashCode * 23 ^ _hashCode(_volume.getTenant());
+            
+            return hashCode;
+        }
+        
+        private final Volume _volume;
+        
+        private static boolean _equals(DataProtectionPolicy a, DataProtectionPolicy b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != DataProtectionPolicy.class
+                     || b.getClass() != DataProtectionPolicy.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getCommitLogRetention(), b.getCommitLogRetention())
+                       && Objects.equals(a.getPresetId(), b.getPresetId())
+                       && _equals(a.getSnapshotPolicies(), b.getSnapshotPolicies());
+            }
+        }
+        
+        private static boolean _equals(List<SnapshotPolicy> a, List<SnapshotPolicy> b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null || b == null || a.size() != b.size())
+            {
+                return false;
+            }
+            else
+            {
+                for (int i = 0; i != a.size(); i++)
+                {
+                    if (!_equals(a.get(i), b.get(i)))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        
+        private static boolean _equals(Numbers<Integer> a, Numbers<Integer> b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != Numbers.class
+                     || b.getClass() != Numbers.class)
+            {
+                return false;
+            }
+            else
+            {
+                return a.equals(b)
+                       && _equals(a.validator(), b.validator());
+            }
+        }
+        
+        private static boolean _equals(NumbersValidator<Integer> a, NumbersValidator<Integer> b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != NumbersValidator.class
+                     || b.getClass() != NumbersValidator.class)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        
+        private static boolean _equals(QosPolicy a, QosPolicy b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != QosPolicy.class
+                     || b.getClass() != QosPolicy.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getIopsMax(), b.getIopsMax())
+                       && Objects.equals(a.getIopsMin(), b.getIopsMin())
+                       && Objects.equals(a.getPresetID(), b.getPresetID())
+                       && Objects.equals(a.getPriority(), b.getPriority());
+            }
+        }
+        
+        private static boolean _equals(RecurrenceRule a, RecurrenceRule b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != RecurrenceRule.class
+                     || b.getClass() != RecurrenceRule.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getCount(), b.getCount())
+                       && _equals((WeekDays<?>)a.getDays(), (WeekDays<?>)b.getDays())
+                       && Objects.equals(a.getFrequency(), b.getFrequency())
+                       && _equals(a.getHours(), b.getHours())
+                       && Objects.equals(a.getInterval(), b.getInterval())
+                       && _equals(a.getMinutes(), b.getMinutes())
+                       && _equals(a.getMonthDays(), b.getMonthDays())
+                       && _equals(a.getMonths(), b.getMonths())
+                       && _equals(a.getPosition(), b.getPosition())
+                       && _equals(a.getSeconds(), b.getSeconds())
+                       && _equals(a.getWeekNo(), b.getWeekNo())
+                       && Objects.equals(a.getUntil(), b.getUntil())
+                       && Objects.equals(a.getWeekStartDay(), b.getWeekStartDay())
+                       && _equals(a.getYearDays(), b.getYearDays());
+            }
+        }
+        
+        private static boolean _equals(Size a, Size b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != Size.class
+                     || b.getClass() != Size.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getUnit(), b.getUnit())
+                       && Objects.equals(a.getValue(), b.getValue());
+            }
+        }
+        
+        private static boolean _equals(SnapshotPolicy a, SnapshotPolicy b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != SnapshotPolicy.class
+                     || b.getClass() != SnapshotPolicy.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getId(), b.getId())
+                       && Objects.equals(a.getName(), b.getName())
+                       && _equals(a.getRecurrenceRule(), b.getRecurrenceRule())
+                       && Objects.equals(a.getRetentionTime(), b.getRetentionTime())
+                       && Objects.equals(a.getType(), b.getType());
+            }
+        }
+        
+        private static boolean _equals(Tenant a, Tenant b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != Tenant.class
+                     || b.getClass() != Tenant.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getId(), b.getId())
+                       && Objects.equals(a.getName(), b.getName());
+            }
+        }
+        
+        private static boolean _equals(VolumeAccessPolicy a, VolumeAccessPolicy b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != VolumeAccessPolicy.class
+                     || b.getClass() != VolumeAccessPolicy.class)
+            {
+                return false;
+            }
+            else
+            {
+                return a.isExclusiveRead() == b.isExclusiveRead()
+                       && a.isExclusiveWrite() == b.isExclusiveWrite();
+            }
+        }
+        
+        private static boolean _equals(VolumeSettings a, VolumeSettings b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != b.getClass())
+            {
+                return false;
+            }
+            else
+            {
+                if (a.getClass() == VolumeSettingsBlock.class)
+                {
+                    return _equals((VolumeSettingsBlock)a, (VolumeSettingsBlock)b);
+                }
+                else if (a.getClass() == VolumeSettingsObject.class)
+                {
+                    return _equals((VolumeSettingsObject)a, (VolumeSettingsObject)b);
+                }
+                else if (a.getClass() == VolumeSettingsSystem.class)
+                {
+                    return Objects.equals(a.getVolumeType(), b.getVolumeType());
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+        
+        private static boolean _equals(VolumeSettingsBlock a, VolumeSettingsBlock b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != VolumeSettingsBlock.class
+                     || b.getClass() != VolumeSettingsBlock.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getVolumeType(), b.getVolumeType())
+                       && _equals(a.getBlockSize(), b.getBlockSize())
+                       && _equals(a.getCapacity(), b.getCapacity());
+            }
+        }
+        
+        private static boolean _equals(VolumeSettingsObject a, VolumeSettingsObject b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != VolumeSettingsObject.class
+                     || b.getClass() != VolumeSettingsObject.class)
+            {
+                return false;
+            }
+            else
+            {
+                return Objects.equals(a.getVolumeType(), b.getVolumeType())
+                       && _equals(a.getMaxObjectSize(), b.getMaxObjectSize());
+            }
+        }
+        
+        private static boolean _equals(VolumeStatus a, VolumeStatus b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != VolumeStatus.class
+                     || b.getClass() != VolumeStatus.class)
+            {
+                return false;
+            }
+            else
+            {
+                return _equals(a.getCurrentUsage(), b.getCurrentUsage())
+                       && Objects.equals(a.getLastCapacityFirebreak(), b.getLastCapacityFirebreak())
+                       && Objects.equals(a.getLastPerformanceFirebreak(),
+                                         b.getLastPerformanceFirebreak())
+                       && Objects.equals(a.getState(), b.getState())
+                       && Objects.equals(a.getTimestamp(), b.getTimestamp());
+            }
+        }
+        
+        private static boolean _equals(WeekDays<?> a, WeekDays<?> b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != WeekDays.class
+                     || b.getClass() != WeekDays.class)
+            {
+                return false;
+            }
+            else
+            {
+                return a.equals(b)
+                       && _equals(a.validator(), b.validator());
+            }
+        }
+        
+        private static boolean _equals(WeekDaysValidator<?> a, WeekDaysValidator<?> b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            else if (a == null
+                     || b == null
+                     || a.getClass() != WeekDaysValidator.class
+                     || b.getClass() != WeekDaysValidator.class)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        
+        private static int _hashCode(DataProtectionPolicy value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getCommitLogRetention());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getPresetId());
+                hashCode = hashCode * 23 ^ _hashCode(value.getSnapshotPolicies());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(List<SnapshotPolicy> value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                for (SnapshotPolicy element : value)
+                {
+                    hashCode = hashCode * 23 ^ _hashCode(element);
+                }
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(Numbers<Integer> value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value);
+                hashCode = hashCode * 23 ^ _hashCode(value.validator());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(NumbersValidator<Integer> value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getClass());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(QosPolicy value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getIopsMax());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getIopsMin());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getPresetID());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getPriority());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(RecurrenceRule value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getCount());
+                hashCode = hashCode * 23 ^ _hashCode((WeekDays<?>)value.getDays());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getFrequency());
+                hashCode = hashCode * 23 ^ _hashCode(value.getHours());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getInterval());
+                hashCode = hashCode * 23 ^ _hashCode(value.getMinutes());
+                hashCode = hashCode * 23 ^ _hashCode(value.getMonthDays());
+                hashCode = hashCode * 23 ^ _hashCode(value.getMonths());
+                hashCode = hashCode * 23 ^ _hashCode(value.getPosition());
+                hashCode = hashCode * 23 ^ _hashCode(value.getSeconds());
+                hashCode = hashCode * 23 ^ _hashCode(value.getWeekNo());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getUntil());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getWeekStartDay());
+                hashCode = hashCode * 23 ^ _hashCode(value.getYearDays());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(Size value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getUnit());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getValue());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(SnapshotPolicy value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getId());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getName());
+                hashCode = hashCode * 23 ^ _hashCode(value.getRecurrenceRule());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getRetentionTime());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getType());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(Tenant value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getId());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getName());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(VolumeAccessPolicy value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.isExclusiveRead());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.isExclusiveWrite());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(VolumeSettings value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                if (value.getClass() == VolumeSettingsBlock.class)
+                {
+                    return _hashCode((VolumeSettingsBlock)value);
+                }
+                else if (value.getClass() == VolumeSettingsObject.class)
+                {
+                    return _hashCode((VolumeSettingsObject)value);
+                }
+                else
+                {
+                    int hashCode = 0xABadCab5;
+                    
+                    hashCode = hashCode * 23 ^ Objects.hashCode(value.getVolumeType());
+                    
+                    return hashCode;
+                }
+            }
+        }
+        
+        private static int _hashCode(VolumeSettingsBlock value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getVolumeType());
+                hashCode = hashCode * 23 ^ _hashCode(value.getBlockSize());
+                hashCode = hashCode * 23 ^ _hashCode(value.getCapacity());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(VolumeSettingsObject value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getVolumeType());
+                hashCode = hashCode * 23 ^ _hashCode(value.getMaxObjectSize());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(VolumeStatus value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ _hashCode(value.getCurrentUsage());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getLastCapacityFirebreak());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getLastPerformanceFirebreak());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getState());
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getTimestamp());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(WeekDays<?> value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value);
+                hashCode = hashCode * 23 ^ _hashCode(value.validator());
+                
+                return hashCode;
+            }
+        }
+        
+        private static int _hashCode(WeekDaysValidator<?> value)
+        {
+            if (value == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int hashCode = 0xABadCab5;
+                
+                hashCode = hashCode * 23 ^ Objects.hashCode(value.getClass());
+                
+                return hashCode;
+            }
         }
     }
     
@@ -902,12 +1637,12 @@ public final class SystemContent
         _users.add(user);
     }
     
-    public void addVolume(Volume volume)
+    public void addVolume(VolumeWrapper volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
         
         _volumes.put(volume, new HashSet<>());
-        _volumeNames.put(volume.getName(), volume);
+        _volumeNames.put(volume.getVolume().getName(), volume);
     }
     
     @Override
@@ -926,7 +1661,7 @@ public final class SystemContent
         }
     }
     
-    public Set<String> getObjectNames(Volume volume)
+    public Set<String> getObjectNames(VolumeWrapper volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
         
@@ -944,11 +1679,11 @@ public final class SystemContent
         return getObjectNames(getVolume(volumeName));
     }
     
-    public Volume getVolume(String volumeName)
+    public VolumeWrapper getVolume(String volumeName)
     {
         if (volumeName == null) throw new NullArgumentException("volumeName");
         
-        Volume volume = _volumeNames.get(volumeName);
+        VolumeWrapper volume = _volumeNames.get(volumeName);
         if (volume == null)
         {
             throw new IllegalArgumentException(
@@ -958,7 +1693,7 @@ public final class SystemContent
         return volume;
     }
     
-    public Set<ObjectManifest> getVolumeContent(Volume volume)
+    public Set<ObjectManifest> getVolumeContent(VolumeWrapper volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
         
@@ -966,13 +1701,13 @@ public final class SystemContent
         if (volumeContent == null)
         {
             throw new IllegalArgumentException(
-                    "volume " + javaString(volume.getName()) + " does not exist.");
+                    "volume " + javaString(volume.getVolume().getName()) + " does not exist.");
         }
         
         return volumeContent;
     }
     
-    public Consumer<String> getVolumeObjectNameAdder(Volume volume)
+    public Consumer<String> getVolumeObjectNameAdder(VolumeWrapper volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
         
@@ -990,7 +1725,7 @@ public final class SystemContent
         return getVolumeObjectNameAdder(getVolume(volumeName));
     }
     
-    public Consumer<ObjectManifest> getVolumeObjectAdder(Volume volume)
+    public Consumer<ObjectManifest> getVolumeObjectAdder(VolumeWrapper volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
         
@@ -1013,11 +1748,11 @@ public final class SystemContent
     {
         if (volumeName == null) throw new NullArgumentException("volumeName");
         
-        Volume volume = getVolume(volumeName);
+        VolumeWrapper volume = getVolume(volumeName);
         return getVolumeObjectAdder(volume);
     }
     
-    public Set<Volume> getVolumes()
+    public Set<VolumeWrapper> getVolumes()
     {
         return Collections.unmodifiableSet(_volumes.keySet());
     }
@@ -1056,12 +1791,12 @@ public final class SystemContent
         }
     }
     
-    public void setVolumes(Collection<Volume> value)
+    public void setVolumes(Collection<VolumeWrapper> value)
     {
         if (value == null) throw new NullArgumentException("value");
         
         _volumes.clear();
-        for (Volume volume : value)
+        for (VolumeWrapper volume : value)
         {
             addVolume(volume);
         }
@@ -1073,7 +1808,7 @@ public final class SystemContent
 
     private final Set<User> _users;
 
-    private final Map<String, Volume> _volumeNames;
+    private final Map<String, VolumeWrapper> _volumeNames;
 
-    private final Map<Volume, Set<ObjectManifest>> _volumes;
+    private final Map<VolumeWrapper, Set<ObjectManifest>> _volumes;
 }

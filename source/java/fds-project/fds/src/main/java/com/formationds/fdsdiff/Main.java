@@ -15,9 +15,9 @@ import java.util.function.Supplier;
 
 import org.apache.commons.cli.ParseException;
 
-import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.fdsdiff.SystemContent.VolumeWrapper;
 import com.formationds.fdsdiff.workloads.GetObjectsDetailsWorkload;
 import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
 import com.formationds.fdsdiff.workloads.GetVolumeObjectsWorkload;
@@ -307,12 +307,12 @@ public final class Main
         getSystemConfig.runOn(endpoint, listener);
         
         // Now gather individual volume contents.
-        for (Volume volume : content.getVolumes())
+        for (VolumeWrapper volumeWrapper : content.getVolumes())
         {
-            String volumeName = volume.getName();
+            String volumeName = volumeWrapper.getVolume().getName();
             
             // First just get object names.
-            Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volume);
+            Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volumeWrapper);
             GetVolumeObjectsWorkload getVolumeObjects =
                     new GetVolumeObjectsWorkload(volumeName, objectNameSetter, true);
             getVolumeObjects.runOn(endpoint, listener);
@@ -322,9 +322,9 @@ public final class Main
             {
                 GetObjectsDetailsWorkload getObjectsDetails =
                         new GetObjectsDetailsWorkload(volumeName,
-                                                      content.getObjectNames(volume),
+                                                      content.getObjectNames(volumeWrapper),
                                                       _getBuilderSupplier(format),
-                                                      content.getVolumeObjectAdder(volume),
+                                                      content.getVolumeObjectAdder(volumeWrapper),
                                                       true);
                 getObjectsDetails.runOn(endpoint, listener);
             }
