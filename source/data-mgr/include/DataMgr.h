@@ -153,59 +153,23 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     } dmRunModes;
     dmRunModes    runMode;
 
+
+#define DEF_FEATURE(name, defvalue)                             \
+    private: bool f##name = defvalue;                           \
+  public: inline bool is##name##Enabled() const {               \
+      return f##name;                                           \
+  }                                                             \
+  public: inline void set##name##Enabled(bool const val) {      \
+      f##name = val;                                            \
+  }
+
     class Features {
-      private:
-        bool fQosEnabled = true;
-        bool fCatSyncEnabled = true;
-        bool fTestMode = false;
-        bool fTimelineEnabled = true;
-        bool fVolumeTokensEnabled { false };
-        bool fSerializeReqsEnabled { true };
-
-      public:
-        inline bool isQosEnabled() const {
-            return fQosEnabled;
-        }
-        inline void setQosEnabled(bool const val) {
-            fQosEnabled = val;
-        }
-
-        inline bool isCatSyncEnabled() const {
-            return fCatSyncEnabled;
-        }
-        inline void setCatSyncEnabled(bool const val) {
-            fCatSyncEnabled = val;
-        }
-
-        inline bool isTestMode() const {
-            return fTestMode;
-        }
-        inline void setTestMode(bool const val) {
-            fTestMode = val;
-        }
-
-        inline bool isTimelineEnabled() const {
-            return fTimelineEnabled;
-        }
-        inline void setTimelineEnabled(bool const val) {
-            fTimelineEnabled = val;
-        }
-
-        inline bool isVolumeTokensEnabled() const {
-            return fVolumeTokensEnabled;
-        }
-
-        inline void setVolumeTokensEnabled(bool const val) {
-            fVolumeTokensEnabled = val;
-        }
-
-        inline bool isSerializeReqsEnabled() const {
-            return fSerializeReqsEnabled;
-        }
-
-        inline void setSerializeReqsEnabled(bool const val) {
-            fSerializeReqsEnabled = val;
-        }
+        DEF_FEATURE(Qos          , true);
+        DEF_FEATURE(CatSync      , true);
+        DEF_FEATURE(Timeline     , true);
+        DEF_FEATURE(VolumeTokens , false);
+        DEF_FEATURE(SerializeReqs, true);
+        DEF_FEATURE(TestMode     , false);
     } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
