@@ -109,7 +109,5 @@
 {#
    Java fds-feature.conf deployment configurations
 #}
-{% set fds_feature_web_tool_kit = fds_web_tool_kit_feature if fds_web_tool_kit_feature is defined else 'true' %}
-{% set fds_snmp_feature = fds_snmp_feature if fds_snmp_feature is defined else 'true' %}
-{% set fds_rest_08_feature = fds_rest_08_feature if fds_rest_08_feature is defined else 'true' %}
+{% set fds_rest_07_feature = fds_rest_07_feature if fds_rest_07_feature is defined else 'true' %}
 {% block content %}{% endblock %}

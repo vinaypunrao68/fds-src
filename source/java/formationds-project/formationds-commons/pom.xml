@@ -47,6 +47,7 @@
 
   <modules>
     <module>formationds-commons-util</module>
+    <module>formationds-commons-togglz</module>
   </modules>
 
 </project>
