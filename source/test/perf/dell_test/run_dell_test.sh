@@ -49,7 +49,7 @@ node=$2
 machines=$3
 nvols=$4
 
-size=50g
+size=1g
 
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
@@ -58,8 +58,8 @@ size=50g
 # workloads="randread read randwrite write"
 
 #bsizes="4096"
-bsizes="4096 8192 65536"
-iodepths="32 64 128"
+bsizes="4096 131072"
+iodepths="16 32 64"
 workers="4"
 workloads="randread randwrite read write"
 
