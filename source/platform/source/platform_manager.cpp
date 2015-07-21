@@ -964,11 +964,13 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
 
         void PlatformManager::stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg)
         {
+
             auto serviceList = stopServiceMsg->services;
 
             for (auto const &vectItem : serviceList)
             {
-LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
+                LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
+
                 switch (vectItem.svc_type)
                 {
                     case fpi::FDSP_ACCESS_MGR:
@@ -985,7 +987,6 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         stopProcess (JAVA_AM);
                         updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_RUNNING);
                         stopProcess (BARE_AM);
@@ -1007,7 +1008,6 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         stopProcess (DATA_MANAGER);
                         updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
 
@@ -1027,7 +1027,6 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         stopProcess (STORAGE_MANAGER);
                         updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
 
