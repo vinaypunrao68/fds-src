@@ -27,6 +27,9 @@ namespace fds
     
     void updateSvcInfoList(std::vector<fpi::SvcInfo>& svcInfos,
                            bool smFlag, bool dmFlag, bool amFlag);
+    std::vector<fpi::SvcInfo>::iterator isServicePresent(
+                                          std::vector<fpi::SvcInfo>& svcInfos,
+                                          FDS_ProtocolInterface::FDSP_MgrIdType type);
 
 }  // namespace fds
 

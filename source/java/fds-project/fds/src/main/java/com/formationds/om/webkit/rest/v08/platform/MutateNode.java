@@ -50,7 +50,7 @@ public class MutateNode implements RequestHandler {
 		
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         Node node = ObjectModelHelper.toObject( reader, Node.class );
-      
+        
         Boolean stopNodeServices = false;
         
         switch( node.getState() ){
@@ -96,7 +96,7 @@ public class MutateNode implements RequestHandler {
         
         if ( stopNodeServices )
         {
-        	logger.debug("Request to shutdown node, stopping all services");
+        	logger.debug("Request to shutdown node, uuid:" + nodeUuid);
         	// Note: This action will *not* change the state of the node to "down"
         	// It will however shutdown any existing am/dm/sm services on the node
         	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
@@ -114,7 +114,7 @@ public class MutateNode implements RequestHandler {
         }
         else
         {
-        	logger.debug("Request to start node, starting all services");
+        	logger.debug("Request to start node, uuid:" + nodeUuid);
         	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
         	
         	if( status != 0 )

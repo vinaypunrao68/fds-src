@@ -610,10 +610,16 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
             return err;
         }
     } else {
-        // we got > 0 nodes from configDB but there is no DMT
+        // ok if there are no deployed DMs
+        if (deployed_dm_services.size() == 0) {
+            LOGNOTIFY << "There is no persisted DMT and no deployed DMs -- OK";
+            return ERR_OK;
+        }
+        // we got > 0 deployed DMs from configDB but there is no DMT
         // going to throw away persistent state, because there is a mismatch
         LOGWARN << "No current DMT even though we persisted "
-                << dm_services.size() << " nodes";
+                << dm_services.size() << " DMs, "
+                << deployed_dm_services.size() << " deployed DMs";
         fds_verify(!"No persisted dmt");
         return Error(ERR_PERSIST_STATE_MISMATCH);
     }

@@ -18,6 +18,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceStats = { series: [[]] };
     $scope.performanceBreakdownStats = { series: [[]] };
     $scope.performanceItems = [];
+    $scope.capacityItems = [];
     $scope.capacityStats = { series: [[]] };
     $scope.capacityLimit = 100000;
     
@@ -69,7 +70,11 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.capacityStats = data;
         
         var calculatedValues = data.calculated;
-        var secondsToFull, totalCapacity, capacityUsed, percentUsed, dedupRatio;
+        var secondsToFull = 0;
+        var totalCapacity = 0; 
+        var capacityUsed = 0;
+        var percentUsed = 0;
+        var dedupRatio = 0;
         
         for ( var i = 0; i < calculatedValues.length; i++ ){
             var values = calculatedValues[i];
