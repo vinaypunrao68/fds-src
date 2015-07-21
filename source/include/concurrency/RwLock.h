@@ -13,13 +13,17 @@ namespace fds {
      * mutex and provides provisions for
      * conditional writers.
      */
-    class SharedMutex : boost::noncopyable {
+    class SharedMutex {
   private:
         boost::shared_mutex _m;
 
   public:
-        SharedMutex() {}
-        ~SharedMutex() {}
+        SharedMutex() = default;
+        virtual ~SharedMutex() = default;
+        SharedMutex(SharedMutex const& rhs) = delete;
+        SharedMutex& operator=(SharedMutex const& rhs) = delete;
+        SharedMutex(SharedMutex&& rhs) = default;
+        SharedMutex& operator=(SharedMutex&& rhs) = default;
 
   protected:
         /*
@@ -111,8 +115,8 @@ namespace fds {
      */
     class fds_rwlock : public SharedMutex {
   public:
-        fds_rwlock() {}
-        ~fds_rwlock() {}
+        fds_rwlock() = default;
+        ~fds_rwlock() override = default;
 
         void write_lock() {
             SharedMutex::lock();
