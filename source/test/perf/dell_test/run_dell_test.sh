@@ -87,14 +87,15 @@ for m in $machines ; do
 
     	# disks[$m]=`../../../cinder/nbdadm.py attach $m  volume_block_$m`
 	echo "$m ->  ${mremap[$m]} $i"
-    	disks[$m:$i]=`ssh ${mremap[$m]} "cd /fds/sbin && ./nbdadm.py attach ${mremap[$m]}  volume_block_$m\_$i"`
+    	disks[$m:$i]=`ssh $m "cd /fds/sbin && ./nbdadm.py attach ${mremap[$m]}  volume_block_$m\_$i"`
 
-    	echo "nbd disk: ${disks[$m:$i]}"
+    	echo "nbd disk for $m:$i connecting to  ${mremap[$m]}: ${disks[$m:$i]}"
     	if [ "${disks[$m:$i]}" = "" ]; then
     	    echo "Volume setup failed"
     	    exit 1;
     	fi
-    	ssh ${mremap[$m]} "fio --name=write --rw=write --filename=${disks[$m:$i]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size"
+	echo "writing from $m to ${disks[$m:$i]}"
+    	ssh $m "fio --name=write --rw=write --filename=${disks[$m:$i]} --bs=512k --numjobs=4 --iodepth=64 --ioengine=libaio --direct=1 --size=$size"
     done
 done
 
@@ -109,7 +110,8 @@ for bs in $bsizes ; do
                 	for m in $machines ; do
     			    for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
-                	    	ssh ${ramap[$m]} "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
+				echo "reading from $m disk: ${disks[$m:$i]}"
+                	    	ssh $m "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
 			    	pids[$m:$i]=$!
                             done
 			done
