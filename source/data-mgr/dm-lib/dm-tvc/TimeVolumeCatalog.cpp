@@ -419,30 +419,40 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     if (e.ok()) {
         BlobMetaDesc desc;
 
-	e = volcat->getBlobMetaDesc(volid, blobName, desc);
+        e = volcat->getBlobMetaDesc(volid, blobName, desc);
 
-	// If error code is not OK, no blob to collide with. If given blob's name doesn't
-	// doesn't match the existing blob metadata, there is a UUID collision. The
-	// resolution is to try again with a different blob name (e.g. append a character)
+        // If error code is not OK, no blob to collide with. If given blob's name doesn't
+        // doesn't match the existing blob metadata, there is a UUID collision. The
+        // resolution is to try again with a different blob name (e.g. append a character)
 
-	// Collision check is done here to piggyback on the synchronization. The
-	// goal is to avoid 2 new, colliding blobs from both passing this check
-	// due to a data race.
-	if (e.ok() && desc.desc.blob_name != blobName){
-	    LOGERROR << "Blob Id collision for new blob " << blobName << " on volume "
-		     << std::hex << volid << std::dec << " with existing blob "
-		     << desc.desc.blob_name;
+        // Collision check is done here to piggyback on the synchronization. The
+        // goal is to avoid 2 new, colliding blobs from both passing this check
+        // due to a data race.
+        if (e.ok() && desc.desc.blob_name != blobName){
+            LOGERROR << "Blob Id collision for new blob " << blobName << " on volume "
+                 << std::hex << volid << std::dec << " with existing blob "
+                 << desc.desc.blob_name;
 
-	    e = Error(ERR_HASH_COLLISION);
-	} else {
-	    e = doCommitBlob(volid, blob_version, seq_id, commit_data);
-	}
+            e = Error(ERR_HASH_COLLISION);
+        } else {
+            e = doCommitBlob(volid, blob_version, seq_id, commit_data);
+        }
     }
-    cb(e,
-       blob_version,
-       commit_data->blobObjList,
-       commit_data->metaDataList,
-       commit_data->blobSize);
+    
+    if (commit_data != nullptr) {
+        cb(e,
+           blob_version,
+           commit_data->blobObjList,
+           commit_data->metaDataList,
+           commit_data->blobSize);
+    } else {
+        fds_verify(!e.OK());
+        cb(e,
+           blob_version,
+           nullptr,
+           nullptr,
+           0);
+    }
 }
 
 Error

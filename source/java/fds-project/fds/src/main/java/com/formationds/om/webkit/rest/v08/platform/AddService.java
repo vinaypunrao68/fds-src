@@ -17,14 +17,18 @@ import org.slf4j.LoggerFactory;
 
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
+import com.formationds.client.v08.model.Service.ServiceStatus;
 import com.formationds.client.v08.model.ServiceType;
 import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
+import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -53,6 +57,10 @@ public class AddService implements RequestHandler {
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         
         Service service = ObjectModelHelper.toObject( reader, Service.class );
+        if( service == null ) {
+	  		throw new ApiException( "No valid service object provided to add to node. "
+                                    + nodeId, ErrorCode.MISSING_RESOURCE );
+  		}
         
         Node node = (new GetNode()).getNode(nodeId);
           	
@@ -77,24 +85,17 @@ public class AddService implements RequestHandler {
             EventManager.notifyEvent( OmEvents.ADD_SERVICE_ERROR, 0 );
         }
         else
-        {   
-            // Now that we have added the services, go start them
-            status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
-       
-            if( status != 0 )
-            {
-                status= HttpServletResponse.SC_BAD_REQUEST;
-                EventManager.notifyEvent( OmEvents.START_SERVICE_ERROR, 0 );
-            }
-            else
-            {
-                EventManager.notifyEvent( OmEvents.START_SERVICE, 0 );
-            }
+        {
+        	EventManager.notifyEvent( OmEvents.ADD_SERVICE, 0 );
+        }  
+        
+        long serviceId = retrieveSvcId(service.getType(), nodeId);
+        if(serviceId == -1) {
+        	throw new ApiException( "Valid service id could not be retrieved for type:"
+                                     + service.getType(), ErrorCode.MISSING_RESOURCE );
         }
         
-        List<Service> svcList = node.getServices().get(service.getType());
-        Service newService = svcList.get(0);
-
+        Service newService = (new GetService()).getService(nodeId, serviceId);
         String jsonString = ObjectModelHelper.toJSON( newService );
         return new TextResource( jsonString );
 	}
@@ -105,6 +106,24 @@ public class AddService implements RequestHandler {
         }
     	
         return configApi;
+    }
+    
+    private long retrieveSvcId(ServiceType type, long nodeId){
+    	long newSvcId = -1;
+        switch( type ){
+    	case AM:
+    		newSvcId = nodeId + FDSP_MgrIdType.FDSP_ACCESS_MGR.ordinal();
+    		break;
+    	case DM:
+    		newSvcId = nodeId + FDSP_MgrIdType.FDSP_DATA_MGR.ordinal();
+    		break;
+    	case SM: 
+    		newSvcId = nodeId + FDSP_MgrIdType.FDSP_STOR_MGR.ordinal();
+    		break;
+    	default:
+    		break;
+    }
+        return newSvcId;
     }
 
 }

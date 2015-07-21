@@ -7,12 +7,24 @@
 #include <memory>
 
 #include "connector/block/common.h"
+#include "concurrency/LeaderFollower.h"
 
 namespace fds {
 
 struct AmProcessor;
 
-class NbdConnector {
+struct NbdConnector
+    : public LeaderFollower
+{
+    ~NbdConnector() = default;
+
+    static void start(std::weak_ptr<AmProcessor> processor);
+    static void stop();
+ protected:
+
+    void lead() override;
+
+ private:
     uint32_t nbdPort;
     int32_t nbdSocket {-1};
     bool cfg_no_delay {true};
@@ -26,20 +38,16 @@ class NbdConnector {
     void configureSocket(int fd) const;
     void initialize();
     void reset();
-    void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);
 
-    explicit NbdConnector(std::weak_ptr<AmProcessor> processor);
+    NbdConnector(std::weak_ptr<AmProcessor> processor,
+                 size_t const followers);
     NbdConnector(NbdConnector const& rhs) = delete;
     NbdConnector& operator=(NbdConnector const& rhs) = delete;
 
     static std::unique_ptr<NbdConnector> instance_;
 
   public:
-    ~NbdConnector() = default;
-
-    static void start(std::weak_ptr<AmProcessor> processor);
-    static void stop();
 };
 
 }  // namespace fds
