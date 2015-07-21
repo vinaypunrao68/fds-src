@@ -49,7 +49,7 @@ node=$2
 machines=$3
 nvols=$4
 
-size=1g
+size=50g
 
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
