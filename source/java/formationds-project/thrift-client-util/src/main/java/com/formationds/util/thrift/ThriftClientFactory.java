@@ -6,7 +6,8 @@ package com.formationds.util.thrift;
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.transport.TTransportException;
@@ -25,7 +26,7 @@ import java.util.function.Function;
  */
 public class ThriftClientFactory<IF> {
 
-    protected static final Logger LOG = Logger.getLogger(ThriftClientFactory.class);
+    protected static final Logger LOG = LogManager.getLogger(ThriftClientFactory.class);
 
     public static final int DEFAULT_MAX_POOL_SIZE             = 1000;
     public static final int DEFAULT_MIN_IDLE                  = 0;

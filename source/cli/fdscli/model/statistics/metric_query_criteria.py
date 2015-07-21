@@ -10,10 +10,9 @@ class MetricQueryCriteria(QueryCriteria):
     @author: nate
     '''
     
-    def __init__(self, date_range=DateRange(), contexts=[], metrics=[]):
-        QueryCriteria.__init__(self, date_range, contexts)
-        
-        self.metrics = metrics
+    def __init__(self, date_range=DateRange()):
+        QueryCriteria.__init__(self, date_range)
+        self.metrics = []
         
     @property
     def metrics(self):

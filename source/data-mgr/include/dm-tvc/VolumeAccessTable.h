@@ -24,6 +24,18 @@ namespace fds
 struct FdsTimer;
 struct FdsTimerTask;
 
+struct DmVolumeAccessEntry {
+    /** Defines access type permitted to volume */
+    fpi::VolumeAccessMode               access_mode;
+
+    /** Service that "owns" this token */
+    fpi::SvcUuid                        client_uuid;
+
+    /** Timer that wakes up expiration task */
+    boost::shared_ptr<FdsTimerTask>     timer_task;
+
+};
+
 /**
  * Structure used by the TvC to prevent multi-access to a volume.
  */
@@ -36,7 +48,8 @@ struct DmVolumeAccessTable {
     /**
      * Request an access token for the given policy
      */
-    Error getToken(fds_int64_t& token,
+    Error getToken(fpi::SvcUuid const& client_uuid,
+                   fds_int64_t& token,
                    fpi::VolumeAccessMode const& mode,
                    std::chrono::duration<fds_uint32_t> const lease_time);
 
@@ -46,8 +59,7 @@ struct DmVolumeAccessTable {
     void removeToken(fds_int64_t const token);
 
   private:
-    using map_value_type = std::pair<fpi::VolumeAccessMode, boost::shared_ptr<FdsTimerTask>>;
-    std::unordered_map<fds_int64_t, map_value_type> access_map;
+    std::unordered_map<fds_int64_t, DmVolumeAccessEntry> access_map;
     std::mt19937_64 random_generator;
 
     bool cached { false };

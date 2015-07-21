@@ -52,7 +52,7 @@ SvcRequestTimer::SvcRequestTimer(CommonModuleProviderIf* provider,
 {
     header_.reset(new fpi::AsyncHdr());
     *header_ = MODULEPROVIDER()->getSvcMgr()->\
-               getSvcRequestMgr()->newSvcRequestHeader(id, msgTypeId, peerEpId, myEpId);
+               getSvcRequestMgr()->newSvcRequestHeader(id, msgTypeId, peerEpId, myEpId, DLT_VER_INVALID);
     header_->msg_code = ERR_SVC_REQUEST_TIMEOUT;
 }
 
@@ -218,7 +218,7 @@ void SvcRequestIf::invoke()
 void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
     auto header = MODULEPROVIDER()->getSvcMgr()->\
-    getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_, myEpId_, peerEpId);
+    getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_, myEpId_, peerEpId, dlt_version_);
     header->msg_type_id = msgTypeId_;
 
     DBG(GLOGDEBUG << fds::logString(*header));
@@ -427,7 +427,7 @@ fpi::SvcUuid EPSvcRequest::getPeerEpId() const
 * @brief
 */
 MultiEpSvcRequest::MultiEpSvcRequest()
-    : MultiEpSvcRequest(nullptr, 0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+    : SvcRequestIf(nullptr, 0, fpi::SvcUuid())
 {
 }
 
@@ -441,12 +441,14 @@ MultiEpSvcRequest::MultiEpSvcRequest()
 MultiEpSvcRequest::MultiEpSvcRequest(CommonModuleProviderIf* provider,
                                      const SvcRequestId& id,
                                      const fpi::SvcUuid &myEpId,
+                                     fds_uint64_t const dlt_version,
                                      const std::vector<fpi::SvcUuid>& peerEpIds)
     : SvcRequestIf(provider, id, myEpId)
 {
     for (const auto &uuid : peerEpIds) {
-        addEndpoint(uuid);
+        addEndpoint(uuid, dlt_version);
     }
+    dlt_version_ = dlt_version;
 }
 
 /**
@@ -455,10 +457,13 @@ MultiEpSvcRequest::MultiEpSvcRequest(CommonModuleProviderIf* provider,
  * the request is in progress
  * @param uuid
  */
-void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
+void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId,
+                                    fds_uint64_t const dlt_version)
 {
     epReqs_.push_back(EPSvcRequestPtr(
             new EPSvcRequest(MODULEPROVIDER(), id_, myEpId_, peerEpId)));
+    // Tag this against a specific DLT
+    epReqs_.back()->dlt_version_ = dlt_version;
 }
 
 /**
@@ -467,10 +472,11 @@ void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
  * the request is in progress
  * @param peerEpIds
  */
-void MultiEpSvcRequest::addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds)
+void MultiEpSvcRequest::addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds,
+                                     fds_uint64_t const dlt_version)
 {
     for (const auto &uuid : peerEpIds) {
-        addEndpoint(uuid);
+        addEndpoint(uuid, dlt_version);
     }
 }
 
@@ -506,7 +512,7 @@ EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(const fpi::SvcUuid &peerEpId)
  *
  */
 FailoverSvcRequest::FailoverSvcRequest()
-: FailoverSvcRequest(nullptr, 0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+: FailoverSvcRequest(nullptr, 0, fpi::SvcUuid(), DLT_VER_INVALID, std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -521,8 +527,9 @@ FailoverSvcRequest::FailoverSvcRequest()
 FailoverSvcRequest::FailoverSvcRequest(CommonModuleProviderIf* provider,
                                        const SvcRequestId& id,
                                        const fpi::SvcUuid &myEpId,
+                                       fds_uint64_t const dlt_version,
                                        const std::vector<fpi::SvcUuid>& peerEpIds)
-    : MultiEpSvcRequest(provider, id, myEpId, peerEpIds),
+    : MultiEpSvcRequest(provider, id, myEpId, dlt_version, peerEpIds),
       curEpIdx_(0)
 {
 }
@@ -540,8 +547,9 @@ FailoverSvcRequest::FailoverSvcRequest(CommonModuleProviderIf* provider,
 FailoverSvcRequest::FailoverSvcRequest(CommonModuleProviderIf* provider,
                                        const SvcRequestId& id,
                                        const fpi::SvcUuid &myEpId,
+                                       fds_uint64_t const dlt_version,
                                        const EpIdProviderPtr epProvider)
-    : FailoverSvcRequest(provider, id, myEpId, epProvider->getEps())
+    : FailoverSvcRequest(provider, id, myEpId, dlt_version, epProvider->getEps())
 {
 }
 
@@ -757,7 +765,7 @@ void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
 * @brief
 */
 QuorumSvcRequest::QuorumSvcRequest()
-    : QuorumSvcRequest(nullptr, 0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+    : QuorumSvcRequest(nullptr, 0, fpi::SvcUuid(), DLT_VER_INVALID, std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -771,8 +779,9 @@ QuorumSvcRequest::QuorumSvcRequest()
 QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf *provider,
                                    const SvcRequestId& id,
                                    const fpi::SvcUuid &myEpId,
+                                   fds_uint64_t const dlt_ver,
                                    const std::vector<fpi::SvcUuid>& peerEpIds)
-    : MultiEpSvcRequest(provider, id, myEpId, peerEpIds)
+    : MultiEpSvcRequest(provider, id, myEpId, dlt_ver, peerEpIds)
 {
     successAckd_ = 0;
     errorAckd_ = 0;
@@ -792,8 +801,9 @@ QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf *provider,
 QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf* provider,
                                    const SvcRequestId& id,
                                    const fpi::SvcUuid &myEpId,
+                                   fds_uint64_t const dlt_ver,
                                    const EpIdProviderPtr epProvider)
-: QuorumSvcRequest(provider, id, myEpId, epProvider->getEps())
+: QuorumSvcRequest(provider, id, myEpId, dlt_ver, epProvider->getEps())
 {
 }
 /**
@@ -925,14 +935,15 @@ void QuorumSvcRequest::onResponseCb(QuorumSvcRequestRespCb cb)
 MultiPrimarySvcRequest::MultiPrimarySvcRequest(CommonModuleProviderIf* provider,
                                                const SvcRequestId& id,
                                                const fpi::SvcUuid &myEpId,
+                                               fds_uint64_t const dlt_version,
                                                const std::vector<fpi::SvcUuid>& primarySvcs,
                                                const std::vector<fpi::SvcUuid>& optionalSvcs)
-: MultiEpSvcRequest(provider, id, myEpId, {}) 
+: MultiEpSvcRequest(provider, id, myEpId, dlt_version, {})
 {
     primaryAckdCnt_ = 0;
     totalAckdCnt_ = 0;
-    addEndpoints(primarySvcs);
-    addEndpoints(optionalSvcs);
+    addEndpoints(primarySvcs, dlt_version);
+    addEndpoints(optionalSvcs, dlt_version);
     primariesCnt_ = primarySvcs.size();
 }
 
@@ -946,7 +957,7 @@ std::string MultiPrimarySvcRequest::logString()
 {
     std::stringstream oss;
     logSvcReqCommon_(oss, "MultiPrimarySvcRequest");
-    oss << " primaries cnt: " << primariesCnt_;
+    oss << " primaries cnt: " << unsigned(primariesCnt_);
     return oss.str();
 }
 

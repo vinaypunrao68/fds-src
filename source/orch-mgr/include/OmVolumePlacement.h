@@ -230,7 +230,13 @@ namespace fds {
          */
         fds_bool_t hasNonCommitedTarget() const;
 
-        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
+        /**
+         * @param dm_services all known DM services
+         * @param deployed_dm_services all known DM services that are not
+         *        in discovered state
+         */
+        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
+                                   const NodeUuidSet& deployed_dm_services);
 
         /**
          * Validate that commited DMT has all given DMs and no other DMs
@@ -268,7 +274,7 @@ namespace fds {
          * The DMT depth defines the maximum number of
          * replicas that can be specified in the DMT
          */
-        fds_uint64_t curDmtDepth;
+        fds_uint32_t curDmtDepth;
 
         /**
          * The DMT width defines the number of volume ranges and thereby

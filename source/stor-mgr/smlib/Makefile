@@ -28,7 +28,6 @@ user_cpp          :=                   \
     MigrationMgr.cpp                   \
     MigrationExecutor.cpp              \
     MigrationClient.cpp                \
-    MigrationUtility.cpp               \
     MigrationTools.cpp				   \
 	SMCheck.cpp                        \
 	SMCheckCtrl.cpp

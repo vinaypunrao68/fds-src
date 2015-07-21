@@ -128,8 +128,8 @@ struct UpdateSvcMapMsg {
    ------------------------------------------------------------*/
 
 service PlatNetSvc {
-    oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
-    oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
+    oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: binary payload);
+    oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: binary payload);
     /**
      * @brief Returns service map
      *

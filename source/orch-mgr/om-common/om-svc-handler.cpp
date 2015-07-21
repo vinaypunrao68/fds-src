@@ -36,6 +36,8 @@ create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_
     size_t window = get_config(svc_event_prefix + event + ".window", d_w);
     size_t threshold = get_config(svc_event_prefix + event + ".threshold", d_t);
 
+    LOGNORMAL << "Setting event " << event << " handling threshold to " << threshold;
+
     return std::unique_ptr<TrackerBase<NodeUuid>>
         (new TrackerMap<Cb, NodeUuid, T>(std::forward<Cb>(cb), window, threshold));
 }
@@ -87,12 +89,12 @@ void OmSvcHandler::init_svc_event_handlers() {
                 * No need to spam the log with the log errors, when the
                 * real issue
                 */
-               LOGERROR << std::hex << svc << " saw too many " << std::dec << error
+               LOGERROR << std::hex << svc << " " << agent->node_get_svc_type()
+                        << " saw too many " << std::dec << error
                         << " events [" << events << "]";
 
                agent->set_node_state(fpi::FDS_Node_Down);
-               domain->om_service_down(error, svc, agent->om_agent_type());
-
+               domain->om_service_down(error, svc, agent->node_get_svc_type());
            } else {
 
                LOGERROR << "unknown service: " << svc;
@@ -102,10 +104,10 @@ void OmSvcHandler::init_svc_event_handlers() {
        Error               error;
     };
 
-    // Timeout handler (2 within 15 minutes will trigger)
+    // Timeout handler (1 within 15 minutes will trigger)
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
                                  create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
-                                                                      "timeout", 15, 2));
+                                                                      "timeout", 15, 1));
 
     // DiskWrite handler (1 within 24 hours will trigger)
     event_tracker.register_event(ERR_DISK_WRITE_FAILED,
@@ -255,57 +257,103 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-    						boost::shared_ptr<fpi::NotifyHealthReport> &msg)
+                                        boost::shared_ptr<fpi::NotifyHealthReport> &msg)
 {
-	LOGNORMAL << "Received Health Report from PM: "
-			<< msg->healthReport.serviceInfo.svc_id.svc_name
-			<< " state: " << msg->healthReport.serviceState
-			<< " status: " << msg->healthReport.statusCode << std::endl;
+    LOGNORMAL << "Received Health Report: "
+              << msg->healthReport.serviceInfo.svc_id.svc_name
+              << " state: " << msg->healthReport.serviceState
+              << " status: " << msg->healthReport.statusCode;
 
-	ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
-	fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
-	fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
+    ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+    fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
+    fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
 
-	switch (msg->healthReport.serviceState) {
-		case fpi::RUNNING:
-		case fpi::INITIALIZING:
-		case fpi::DEGRADED:
-		case fpi::LIMITED:
-		case fpi::SHUTTING_DOWN:
-		case fpi::ERROR:
-		case fpi::UNREACHABLE:
-			LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
-					<< " state: " << msg->healthReport.serviceState << " not implemented yet.";
-			break;
-		case fpi::UNEXPECTED_EXIT:
-			switch (service_type) {
-				case fpi::FDSP_ACCESS_MGR:
-					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
-					// no break
-				case fpi::FDSP_DATA_MGR:
-					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
-					// no break
-				case fpi::FDSP_STOR_MGR: {
-					comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
-					heatlhReportUnexpectedExit(comp_type, msg);
-					break;
-				}
-				default:
-					// Panic on unhandled service
-					fds_panic("Unhandled process: %s with service type %d",
-							msg->healthReport.serviceInfo.svc_id.svc_name.c_str(),
-							service_type);
-					break;
-			}
-			break;
-		default:
-			// Panic on unhandled service states.
-			fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
-			break;
-	}
+    switch (msg->healthReport.serviceState) {
+        case fpi::HEALTH_STATE_RUNNING:
+            healthReportRunning( msg );
+            break;
+        case fpi::HEALTH_STATE_INITIALIZING:
+        case fpi::HEALTH_STATE_DEGRADED:
+        case fpi::HEALTH_STATE_LIMITED:
+        case fpi::HEALTH_STATE_SHUTTING_DOWN:
+            LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
+                    << " state: " << msg->healthReport.serviceState << " not implemented yet.";
+            break;
+        case fpi::HEALTH_STATE_ERROR:
+            healthReportError(service_type, msg);
+            break;
+        case fpi::HEALTH_STATE_UNREACHABLE:
+            LOGNORMAL << "Handling unreachable event for service " << msg->healthReport.serviceInfo.name
+                      << " in state " << msg->healthReport.serviceState;
+            // Track this error event as a timeout. We're assuming a timeout is
+            // indistingusable from a service being unreachable.
+            event_tracker.feed_event(ERR_SVC_REQUEST_TIMEOUT, service_UUID);
+            break;
+        case fpi::HEALTH_STATE_UNEXPECTED_EXIT:
+            // Generally dispatched by PM when it sees a service's process abort unexpectedly
+            switch (service_type) {
+                case fpi::FDSP_ACCESS_MGR:
+                    comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+                    // no break
+                case fpi::FDSP_DATA_MGR:
+                    comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+                    // no break
+                case fpi::FDSP_STOR_MGR: {
+                    comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+                    healthReportUnexpectedExit(comp_type, msg);
+                    break;
+                }
+                default:
+                    LOGERROR << "Unhandled process: "
+                             << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
+                             << " with service type "
+                             << service_type;
+                    break;
+            }
+            break;
+        default:
+            // Panic on unhandled service states.
+            fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
+            break;
+    }
 }
 
-void OmSvcHandler::heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
+void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg )
+{
+   LOGDEBUG << "Service Running health report";
+
+   ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+   fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
+   fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
+
+   switch (service_type)
+   {
+     case fpi::FDSP_ACCESS_MGR:
+       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+       // no break
+     case fpi::FDSP_DATA_MGR:
+       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+       // no break
+     case fpi::FDSP_STOR_MGR:
+       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+       break;
+     default:
+       LOGDEBUG << "unimplemented health report running service: "
+     	          << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
+     	          << " with service type "
+     		        << service_type;
+       break;
+   }
+
+   /*
+    * It is expected that if a service restarts, it will re-register with the
+    * OM. Which should update all the appropriate service dependencies.
+    *
+    * So I don't believe that is anything to do here.
+    */
+}
+
+void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 		boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
 	/**
 	 * When a PM pings this OM with the state of an individual service
@@ -338,18 +386,60 @@ void OmSvcHandler::heatlhReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 			break;
 		 }
 	 }
-	 fds_verify(pm_found);
-	 OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
-			om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
-	 /**
-	  * PM doesn't want to hear about the actual deactivate service but
-	  * OM side needs to deactiate it. So just call the response
-	  * which will do the OM side cleanup.
-	  */
-	 Error 			dummyErr (ERR_OK);
-	 om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
-			comp_type == fpi::FDSP_DATA_MGR,
-			comp_type == fpi::FDSP_ACCESS_MGR,
-			nullptr, dummyErr, nullptr);
+
+   if ( pm_found )
+   {
+     OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
+        om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
+     /**
+      * PM doesn't want to hear about the actual deactivate service but
+      * OM side needs to deactivate it. So just call the response
+      * which will do the OM side cleanup.
+      */
+     Error dummyErr (ERR_OK);
+     om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
+        comp_type == fpi::FDSP_DATA_MGR,
+        comp_type == fpi::FDSP_ACCESS_MGR,
+        nullptr, dummyErr, nullptr);
+	 }
 }
+
+void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
+                                     boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
+    Error reportError(msg->healthReport.statusCode);
+
+    // we only handle specific erorrs from SM and DM for now
+    if ((svc_type == fpi::FDSP_STOR_MGR) ||
+        (svc_type == fpi::FDSP_DATA_MGR)) {
+        if ((reportError == ERR_SERVICE_CAPACITY_FULL) ||
+            // service is unavailable -- most likely failed to initialize
+            (reportError == ERR_NODE_NOT_ACTIVE)) {
+            // when a service reports these errors, it sets itself inactive
+            // so OM should also set service state to failed and update
+            // DLT/DMT accordingly
+            auto domain = OM_NodeDomainMod::om_local_domain();
+            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+            OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
+            if (agent) {
+                LOGDEBUG << "Will set service to failed state: "
+                         << msg->healthReport.serviceInfo.name
+                         << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+                agent->set_node_state(fpi::FDS_Node_Down);
+                domain->om_service_down(reportError, uuid, agent->node_get_svc_type());
+            } else {
+                LOGDEBUG << "Got error health report from service "
+                         << msg->healthReport.serviceInfo.svc_id.svc_name
+                         << ":0x" << std::hex << uuid.uuid_get_val() << std::dec
+                         << " that OM does not know about; ignoring";
+            }
+            return;
+        }
+    }
+
+    // if we are here, we don't handle the error and/or service yet
+    LOGWARN << "Handling ERROR report for service " << msg->healthReport.serviceInfo.name
+            << " state: " << msg->healthReport.serviceState
+            << " error: " << msg->healthReport.statusCode << " not implemented yet.";
+}
+
 }  //  namespace fds

@@ -479,7 +479,7 @@ struct CtrlNotifyDMStartMigrationMsg {
    */
   1: list<dm_types.DMVolumeMigrationGroup> migrations;
 
-  /* Verson of DMT associated with the migration */
+  /* Version of DMT associated with the migration */
   2: i64                     DMT_version;
 }
 
@@ -487,29 +487,27 @@ struct CtrlNotifyDMStartMigrationMsg {
  * ACK to the OM from DM of receiving a migration msg.
  */
 struct CtrlNotifyDMStartMigrationRspMsg {
-  /* An empty reply from the Destination DM to the OM when the
-   * migration is complete.
-   * Any error code is stuffed in the async header.
-   */
+  /* Version of DMT associated with the migration. */
+  1: i64                     DMT_version;
 }
 
 /**
  * delta blob  set from the source DM to  destination DM.
  */
-struct CtrlNotifyDeltaBlobs {
+struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volume_id;
   /* message sequence  id  for tracking the messages 
    * between source DM and destination DM
    */
   2: i64                     msg_seq_id;
-  3: bool                    last_msg_seq_id;
+  3: bool                    last_msg_seq_id = false;
   /* list of <offset, oid> in give volume 
    */
   4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 
-struct CtrlNotifyDeltaBlobDescRsp {
+struct CtrlNotifyDeltaBlobDescRspMsg {
   /* An empty reply from the Destination DM to the source DM after 
    * all the blobs applied to the destination DM. This is a empty message
    */
@@ -518,13 +516,13 @@ struct CtrlNotifyDeltaBlobDescRsp {
 /**
  * delta blob  set from the source DM to  destination DM.
  */
-struct CtrlNotifyDeltaBlobDesc {
+struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
   /* message sequence  id  for tracking the messages 
    * between source DM and destination DM
    */
   3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id;
+  4: bool                    last_msg_seq_id = false;
   /* list of <blob, blob descriptor> in give volume 
    * empty blob descriptor  for delete operation
    */
@@ -619,8 +617,8 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
   1: i64                volumeId;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
-      map<blob ID, sequence number> */
-  2: map<i64, i64>      blobFilterMap;
+      map<blob Name, sequence number> */
+  2: map<string, i64>      blobFilterMap;
 }
 struct ResyncInitialBlobFilterSetRspMsg {
 }

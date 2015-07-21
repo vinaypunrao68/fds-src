@@ -615,6 +615,7 @@ class SmIoAbortMigration: public SmIoReq {
     fpi::CtrlNotifySMAbortMigrationPtr abortMigrationReqMsg;
 
     fds_uint64_t abortMigrationDLTVersion;
+    fds_uint64_t targetDLTVersion;
 
     cbType abortMigrationCb;
 };  // class SmIoAbortMigration

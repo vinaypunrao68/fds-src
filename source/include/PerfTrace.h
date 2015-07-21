@@ -64,11 +64,11 @@ class PerfTracer : public boost::noncopyable {
 public:
 
     // Increment NumericCounter by 1
-    static void incr(const PerfEventType & type, fds_volid_t volid, std::string name = "");
+    static void incr(const PerfEventType & type, fds_volid_t volid, std::string const& name = "");
 
     // Increment counter value by val and (for LatencyCounter, count by cnt)
     static void incr(const PerfEventType & type, fds_volid_t volid, uint64_t val,
-            uint64_t cnt = 0, std::string name = "");
+            uint64_t cnt = 0, std::string const& name = "");
 
     // Decrement NumericCounter by 1
     static void decr(const PerfEventType & type, fds_volid_t volid, std::string name = "");
@@ -159,7 +159,7 @@ private:
 
     void updateCounter(PerfContext & ctx, const PerfEventType & type, 
                 const uint64_t & val, const uint64_t cnt,  const fds_volid_t volid, 
-                const std::string name);
+                const std::string& name);
 
     // update & insert (if counter is not present)
     void upsert(const PerfEventType & type, fds_volid_t volid, uint64_t val, 

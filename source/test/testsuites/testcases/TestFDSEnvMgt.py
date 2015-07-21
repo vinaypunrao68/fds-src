@@ -14,6 +14,7 @@ import time
 import tempfile
 import TestFDSSysMgt
 from fdslib.TestUtils import findNodeFromInv
+import subprocess
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -109,6 +110,30 @@ class TestFDSInstall(TestCase.FDSTestCase):
         else:
             self.log.warn("FDS installation directory, %s, exists on node %s." %
                           (fds_dir, node.nd_conf_dict['node-name']))
+
+        # Populate product memcheck directory if necessary.
+        # It should be necessary since we did not do a package install.
+        dest_config_dir = fds_dir + "/memcheck"
+        # Check to see if the etc directory is already there.
+        if not os.path.exists(dest_config_dir):
+            # Not there, try to create it.
+            self.log.info("FDS memcheck directory, %s, nonexistent on node %s. Attempting to create." %
+                          (dest_config_dir, node.nd_conf_dict['node-name']))
+            status = node.nd_agent.exec_wait('mkdir -p ' + dest_config_dir)
+            if status != 0:
+                self.log.error("FDS memcheck directory creation on node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+        else:
+            self.log.warn("FDS memcheck directory, %s, exists on node %s." %
+                          (dest_config_dir, node.nd_conf_dict['node-name']))
+        # Load the memcheck suppressions from the devevelopment environment.
+        src_config_dir = node.nd_agent.get_memcheck_dir()
+        status = node.nd_agent.exec_wait('cp -rf ' + src_config_dir + ' ' + fds_dir)
+        if status != 0:
+            self.log.error("FDS memcheck directory population on node %s returned status %d." %
+                           (node.nd_conf_dict['node-name'], status))
+            return False
 
         # Populate product configuration directory if necessary.
         # It should be necessary since we did not do a package install.
@@ -287,7 +312,20 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        # If we have core files, return a failure and don't remove anything.
+        cur_dir = os.getcwd()
+        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
+        os.chdir(cur_dir)
+
+        # Note: core_hunter is looking for core files and returns a "success" code
+        # when it finds at least one.
+        if rc == 0:
+            self.log.error("Core files detected.")
+            return False
+        else:
+            self.log.info("No cores found.")
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
@@ -304,7 +342,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
                 self.log.info("FDS installation directory, %s, exists on node %s. Attempting to delete." %
                               (fds_dir, n.nd_conf_dict['node-name']))
 
-                status = n.nd_agent.exec_wait('rm -rf %s ' % fds_dir)
+                status = n.nd_agent.exec_wait('rm -rf \"%s\"' % fds_dir)
 
                 if status != 0:
                     self.log.error("FDS installation directory deletion on node %s returned status %d." %
@@ -393,6 +431,20 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        # If we have core files, return a failure and don't remove anything.
+        cur_dir = os.getcwd()
+        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
+        os.chdir(cur_dir)
+
+        # Note: core_hunter is looking for core files and returns a "success" code
+        # when it finds at least one.
+        if rc == 0:
+            self.log.error("Core files detected.")
+            return False
+        else:
+            self.log.info("No cores found.")
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
@@ -902,14 +954,16 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
 
         return True
 
+
 class TestModifyPlatformConf(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, **kwargs):
+    def __init__(self, parameters=None, node=None, applyAll=None, **kwargs):
         '''
         Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
         :param parameters: Params filled in by .ini file
         :current*: String in platform.conf to repalce e.g. authentication=true
         :replace*: String to replace current_string with. e.g. authentication=false
         :node: FDS node
+        :applyAll: Change the platform.conf file that affects all new and uninstantiated nodes
         '''
 
         super(self.__class__, self).__init__(parameters,
@@ -928,11 +982,16 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
                     raise Exception(err)
                 self.replace.append((value, replace_value))
         self.passedNode = node
+        self.applyAll = applyAll
 
+  
     def test_TestModifyPlatformConf(self):
-
         def doit(node):
-            plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+            if self.applyAll is not None:
+                plat_file = os.path.join(node.nd_conf_dict['fds_root'], '..', 'etc', 'platform.conf')
+            else:
+                plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+
             errcode = 0
             for mods in self.replace:
                 errcode += node.nd_agent.exec_wait(

@@ -29,10 +29,6 @@ class Service(BaseModel):
     @status.setter
     def status(self, status):
         
-        if not isinstance(status, ServiceStatus):
-            raise TypeError()
-            return
-        
         self.__status = status
       
     @property  

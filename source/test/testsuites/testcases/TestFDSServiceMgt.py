@@ -32,7 +32,7 @@ def getSvcPIDforNode(svc, node, javaClass=None):
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'getSvcPIDforNode')
 
-    cmd = "pgrep %s" % svc
+    cmd = "pgrep -f '(valgrind)?.*%s'" % svc
 
     status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
 
@@ -46,9 +46,6 @@ def getSvcPIDforNode(svc, node, javaClass=None):
             if len(stdout2) > 0:
                 # We've got the details of the process. Let's see if it is supporting
                 # the node of interest.
-                #cmd3 = "grep %s" % node.nd_conf_dict['node-name']
-                #status, stdout3 = node.nd_agent.exec_wait(cmd3, return_stdin=True, cmd_input=stdout2)
-
                 if node.nd_agent.env_install:
                     # For java processes, we have also to look for the initial class of execution.
                     if (svc == "java") and (javaClass is not None):
@@ -66,16 +63,12 @@ def getSvcPIDforNode(svc, node, javaClass=None):
                         return pid
                 else:
                     # For java processes, we have also to look for the initial class of execution.
-                    #if (len(stdout3) > 0) and (svc == "java") and (javaClass is not None):
                     if (stdout2.count(node.nd_conf_dict['node-name']) > 0) and (svc == "java") and (javaClass is not None):
-                        #cmd3_1 = "grep %s" % javaClass
-                        #status, stdout3 = node.nd_agent.exec_wait(cmd3_1, return_stdin=True, cmd_input=stdout3)
                         stdout2 = stdout2 if stdout2.count(javaClass) > 0 else ''
                     elif (svc == "java") and (javaClass is None):
                         log.error("When searching for a java process also include the java class name.")
                         raise Exception
 
-                    #if len(stdout3) > 0:
                     if stdout2.count(node.nd_conf_dict['node-name']) > 0:
                         # Found it!
                         return pid
@@ -95,7 +88,7 @@ def pidWaitParent(pid, child_count, node):
     count = 0
     found = False
     status = 0
-    cmd = "pgrep -c -P %s" % pid
+    cmd = "pgrep -c -P -f '(valgrind)?.*%s'" % pid
     while (count < maxcount) and not found:
         time.sleep(1)
 
@@ -190,47 +183,36 @@ def modWait(mod, node, forShutdown = False):
 
     return True
 
-def generic_kill(node, service):
+def generic_kill(parameters, node, service):
     '''
     Generic method to kill a specified service running on a specified node.
+    :param parameters: The caller's test fixture parameters.
     :param node: The node (object) to kill the service on
     :param service: The service to kill
     :return: An integer status code returned by the kill command
     '''
 
-    svc_map = {
-        'sm': 'StorMgr',
-        'dm': 'DataMgr',
-        'om': 'java', 
-        'pm': 'platformd',
-        'am': 'java'
-    }
-
-    java_classes = {
-        'om': 'com.formationds.om.Main',
-        'am': 'com.formationds.am.Main'
-    }
-
-    java_class = None
-    if service == 'om' or service == 'am':
-        java_class = java_classes[service]
-
+    status = -1
     log = logging.getLogger('TestFDSServiceMgt' + '.' + 'generic_kill')
 
-    if service not in svc_map.keys():
+    if service == "sm":
+        killSM = TestSMKill(parameters=parameters, node=node)
+        if killSM.test_SMKill(): status = 0
+    elif service == "dm":
+        killDM = TestDMKill(parameters=parameters, node=node)
+        if killDM.test_DMKill(): status = 0
+    elif service == "am":
+        killAM = TestAMKill(parameters=parameters, node=node)
+        if killAM.test_AMKill(): status = 0
+    elif service == "om":
+        killOM = TestOMKill(parameters=parameters, node=node)
+        if killOM.test_OMKill(): status = 0
+    elif service == "pm":
+        killPM = TestPMKill(parameters=parameters, node=node)
+        if killPM.test_PMKill(): status = 0
+    else:
         log.error("Could not find service {} in service map. "
                   "Not sure what to kill, so aborting by returning -1!".format(service))
-        return -1
-
-    pid = getSvcPIDforNode(svc_map[service], node, java_class)
-
-    if pid != -1:
-        cmd = "kill -9 {}".format(pid)
-        status = node.nd_agent.exec_wait(cmd)
-
-    else:
-        status = 0
-        log.warning("{} not running on {}.".format(service, node.nd_conf_dict['node-name']))
 
     return status
 
@@ -321,12 +303,11 @@ class TestRndSvcKill(TestCase.FDSTestCase):
         else:
             self.parameters['svc_killed'] = [(selected_node, selected_svc)]
 
-        print "SELF.PARAMS.SVC_KILLED = {}".format(self.parameters.get('svc_killed', []))
-
         # Try the kill
         # sleep first for the random wait aspect
+        self.log.info("Sleeping {} seconds before kill.".format(selected_time))
         time.sleep(selected_time)
-        status = generic_kill(selected_node, selected_svc)
+        status = generic_kill(self.parameters, selected_node, selected_svc)
 
         if status != 0:
             self.log.error("{} kill on {} returned status {}.".format(selected_svc,
@@ -432,7 +413,7 @@ class TestDMWait(TestCase.FDSTestCase):
 
             # Make sure it wasn't the target of a random kill
             if (n, "dm") in self.parameters.get('svc_killed', []):
-                self.log.warning("DM service for node {} previous"
+                self.log.warning("DM service for node {} previous "
                                  "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
                 if self.passedNode is not None:
                     break
@@ -631,7 +612,7 @@ class TestDMKill(TestCase.FDSTestCase):
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('DataMgr', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -727,7 +708,7 @@ class TestSMWait(TestCase.FDSTestCase):
 
             # Make sure it wasn't the target of a random kill
             if (n, "sm") in self.parameters.get('svc_killed', []):
-                self.log.warning("SM service for node {} previous"
+                self.log.warning("SM service for node {} previous "
                                  "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
                 if self.passedNode is not None:
                     break
@@ -1093,7 +1074,7 @@ class TestPMWait(TestCase.FDSTestCase):
 
             # Make sure it wasn't the target of a random kill
             if (n, "pm") in self.parameters.get('svc_killed', []):
-                self.log.warning("PM service for node {} previously"
+                self.log.warning("PM service for node {} previously "
                                  "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
                 if self.passedNode is not None:
                     break
@@ -1307,7 +1288,7 @@ class TestPMForOMWait(TestCase.FDSTestCase):
 
             # Make sure it wasn't the target of a random kill
             if (om_node, "pm") in self.parameters.get('svc_killed', []):
-                self.log.warning("PM service for node {} previous"
+                self.log.warning("PM service for node {} previous "
                                  "killed by random svc kill test. PASSING test.".format(om_node.nd_conf_dict['node-name']))
                 return True
 
@@ -1494,7 +1475,7 @@ class TestOMWait(TestCase.FDSTestCase):
 
             # Make sure it wasn't the target of a random kill
             if (om_node, "om") in self.parameters.get('svc_killed', []):
-                self.log.warning("OM service for node {} previous"
+                self.log.warning("OM service for node {} previous "
                                  "killed by random svc kill test. PASSING test!".format(om_node.nd_conf_dict['node-name']))
                 return True
 
@@ -1546,7 +1527,7 @@ class TestOMKill(TestCase.FDSTestCase):
         if om_node is not None:
             self.log.info("Kill OM on %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('pkill -9 -f com.formationds.om.Main')
+            status = om_node.nd_agent.exec_wait('pkill -KILL -f com.formationds.om.Main')
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
@@ -1556,7 +1537,7 @@ class TestOMKill(TestCase.FDSTestCase):
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
 
-            status = om_node.nd_agent.exec_wait("pkill -9 orchMgr")
+            status = om_node.nd_agent.exec_wait("pkill -KILL orchMgr")
 
             if (status != 1) and (status != 0):
                 self.log.error("OM (orchMgr) kill on %s returned status %d." %
@@ -1839,7 +1820,7 @@ class TestAMWait(TestCase.FDSTestCase):
 
             # Make sure it wasn't the target of a random kill
             if (n, "am") in self.parameters.get('svc_killed', []):
-                self.log.warning("AM service for node {} previously"
+                self.log.warning("AM service for node {} previously "
                                  "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
                 if self.passedNode is not None:
                     break
@@ -1907,22 +1888,9 @@ class TestAMKill(TestCase.FDSTestCase):
             self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
 
             # Get the PID of the processes in question and ... kill them!
-            pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
-            if pid != -1:
-                cmd = "kill -9 %s" % pid
-                status = n.nd_agent.exec_wait(cmd)
-
-                if status != 0:
-                    self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
-            else:
-                status = 0
-                self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
-
             pid = getSvcPIDforNode('bare_am', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -1933,9 +1901,22 @@ class TestAMKill(TestCase.FDSTestCase):
                 status = 0
                 self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
+            pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
+            if pid != -1:
+                cmd = "kill -KILL %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
+
+                if status != 0:
+                    self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
+            else:
+                status = 0
+                self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
+
             pid = getSvcPIDforNode('AMAgent', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -KILL %s" % pid
                 status = n.nd_agent.exec_wait(cmd)
 
                 if (status != 1) and (status != 0):

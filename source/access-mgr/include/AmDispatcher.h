@@ -13,6 +13,7 @@ namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
+struct DLT;
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
@@ -206,14 +207,16 @@ struct AmDispatcher : HasModuleProvider
 
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
-                                            boost::shared_ptr<Msg> const& payload,
-                                            MultiPrimarySvcRequestRespCb mpCb,
-                                            uint32_t timeout=0) const;
+                                                        fds_uint64_t const dmt_ver,
+                                                        boost::shared_ptr<Msg> const& payload,
+                                                        MultiPrimarySvcRequestRespCb mpCb,
+                                                        uint32_t timeout=0) const;
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(ObjectID const& objId,
-                                            boost::shared_ptr<Msg> const& payload,
-                                            MultiPrimarySvcRequestRespCb mpCb,
-                                            uint32_t timeout=0) const;
+                                                        DLT const* dlt,
+                                                        boost::shared_ptr<Msg> const& payload,
+                                                        MultiPrimarySvcRequestRespCb mpCb,
+                                                        uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
                                                 boost::shared_ptr<Msg> const& payload,
@@ -221,6 +224,7 @@ struct AmDispatcher : HasModuleProvider
                                                 uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(ObjectID const& objId,
+                                                DLT const* dlt,
                                                 boost::shared_ptr<Msg> const& payload,
                                                 FailoverSvcRequestRespCb cb,
                                                 uint32_t timeout=0) const;

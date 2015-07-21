@@ -74,43 +74,34 @@ public class NodeUtils
      */
     public static void log( final SvcInfo svc )
     {
-        if( svc.getPropsSize() == 0 )
-        {
-            logger.trace( "Svc handle svc_uuid: {}" +
-                          " ip: {}" +
-                          " port: {}" +
-                          " incarnation: {}" +
-                          " status: {}",
-                          NodeUtils.mapToSvcUuidAndName( svc.getSvc_id( )
+        final String string =
+            String.format( "Svc handle svc_uuid: %s" +
+                           " ip: %s" +
+                           " port: %d" +
+                           " incarnation: %d" +
+                           " status: %s( %d )",
+                           NodeUtils.mapToSvcUuidAndName( svc.getSvc_id( )
                                                             .svc_uuid ),
-                          svc.getIp( ),
-                          svc.getSvc_port( ),
-                          svc.getIncarnationNo( ),
-                          svc.getSvc_status( )
-                             .name( ) );
-        }
-        else
+                           svc.getIp( ),
+                           svc.getSvc_port( ),
+                           svc.getIncarnationNo( ),
+                           svc.getSvc_status( )
+                              .name( ),
+                           svc.getSvc_status()
+                              .getValue() );
+
+        String props = "";
+        if( svc.getPropsSize() != 0 )
         {
-            String props = "";
+
             for( final String prop : svc.getProps().keySet() )
             {
                 props += ( prop + " : " + svc.getProps().get( prop ) + "\n" );
             }
-
-            logger.trace( "Svc handle svc_uuid: {}" +
-                          " ip: {}" +
-                          " port: {}" +
-                          " incarnation: {}" +
-                          " status: {}\n {}",
-                          NodeUtils.mapToSvcUuidAndName( svc.getSvc_id( )
-                                                            .svc_uuid ),
-                          svc.getIp( ),
-                          svc.getSvc_port( ),
-                          svc.getIncarnationNo( ),
-                          svc.getSvc_status( )
-                             .name( ),
-                          props );
         }
 
+
+        logger.trace( string + ( props.length() > 0 ? "\n" + props : "" ) );
+//        System.out.println( string + ( props.length() > 0 ? "\n" + props : "" ) );
     }
 }

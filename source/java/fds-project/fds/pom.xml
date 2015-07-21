@@ -16,8 +16,7 @@
 
   <name>${fds.project.name} JAR</name>
   <artifactId>fds</artifactId>
-  <version>1.0</version>
-
+  
   <dependencies>
     <!-- project module dependencies -->
     <dependency>
@@ -29,6 +28,11 @@
       <groupId>com.formationds</groupId>
       <artifactId>formationds-ext-model</artifactId>
       <version>${formationds.ext.model.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>thrift-client-util</artifactId>
+      <version>${formationds.thrift.client.util.version}</version>
     </dependency>
 
     <!-- third party dependencies -->
@@ -183,6 +187,10 @@
       <artifactId>httpcore-nio</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.apache.servicemix.bundles</groupId>
+      <artifactId>org.apache.servicemix.bundles.snmp4j</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.apache.thrift</groupId>
       <artifactId>libthrift</artifactId>
     </dependency>
@@ -190,6 +198,19 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-ext-jdk15on</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>nfs4j-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>oncrpc4j-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.dcache.common</groupId>
+      <artifactId>dcache-auth</artifactId>
     </dependency>
 
     <dependency>
@@ -223,14 +244,14 @@
       <artifactId>influxdb-java</artifactId>
     </dependency>
 
+    <!--<dependency>-->
+      <!--<groupId>org.reflections</groupId>-->
+      <!--<artifactId>reflections</artifactId>-->
+    <!--</dependency>-->
+
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.servicemix.bundles</groupId>
-      <artifactId>org.apache.servicemix.bundles.snmp4j</artifactId>
     </dependency>
 
     <dependency>
@@ -248,11 +269,6 @@
       <artifactId>jedis</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>org.dcache</groupId>
-      <artifactId>nfs4j-core</artifactId>
-    </dependency>
-
     <!-- test dependencies -->
     <dependency>
       <groupId>junit</groupId>
@@ -262,11 +278,6 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
-    </dependency>
-    
-    <dependency>
-    	<groupId>org.reflections</groupId>
-    	<artifactId>reflections</artifactId>
     </dependency>
   </dependencies>
 

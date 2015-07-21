@@ -5,8 +5,8 @@ Created on Apr 3, 2015
 '''
 import requests
 import json
-import response_writer
 from model.fds_error import FdsError
+from tabulate import tabulate
 
 class RESTHelper():
     
@@ -17,7 +17,14 @@ class RESTHelper():
         return { "FDS-Auth" : session.get_token() }   
         
     def defaultSuccess(self, response):
-        response_writer.ResponseWriter.writeTabularData( response )
+    
+        print "\n"
+        
+        if ( len(response) == 0 ):
+            return
+        else:
+            print tabulate( response, "keys" )
+            print "\n"
     
     def defaultErrorHandler(self, error):
         

@@ -144,6 +144,11 @@ class FdsEnv(object):
             return self.env_fdsRoot + 'etc'
         return self.env_fdsSrc + 'config/etc'
 
+    def get_memcheck_dir(self):
+        if self.env_install:
+            return self.env_fdsRoot + 'memcheck'
+        return self.env_fdsSrc + 'config/memcheck'
+
     def get_fds_root(self):
         return self.env_fdsRoot
 

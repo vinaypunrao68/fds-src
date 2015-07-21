@@ -3,12 +3,12 @@
  */
 #include <string>
 #include <set>
+#include <SmTypes.h>
 #include <object-store/SmTokenPlacement.h>
 
 namespace fds {
 
 const fds_uint8_t ObjLocationTablePoison = 0xff;
-const fds_uint16_t fds_diskid_invalid = 0xffff;
 const fds_uint16_t fds_hdd_row = 0;
 const fds_uint16_t fds_ssd_row = 1;
 
@@ -52,13 +52,13 @@ ObjectLocationTable::getDiskId(fds_token_id smToken,
 
 fds_bool_t
 ObjectLocationTable::isDiskIdValid(fds_uint16_t diskId) {
-    return (diskId != fds_diskid_invalid);
+    return (diskId != SM_INVALID_DISK_ID);
 }
 
 SmTokenSet
 ObjectLocationTable::getSmTokens(fds_uint16_t diskId) const {
     SmTokenSet tokens;
-    fds_verify(diskId != fds_diskid_invalid);
+    fds_verify(diskId != SM_INVALID_DISK_ID);
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; ++i) {
         for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
             if (table[i][tokId] == diskId) {
@@ -133,7 +133,7 @@ ObjectLocationTable::getDiskSet(diskio::DataTier tier)
     }
 
     for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-        if (fds_diskid_invalid != table[rowOffset][tok]) {
+        if (SM_INVALID_DISK_ID != table[rowOffset][tok]) {
             diskSet.insert(table[rowOffset][tok]);
         }
     }

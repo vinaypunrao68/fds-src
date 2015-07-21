@@ -34,14 +34,14 @@ ObjectPersistData::~ObjectPersistData() {
 }
 
 Error
-ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                                        fds_bool_t pristineState) {
     SmTokenSet smToks = diskMap->getSmTokens();
     return openObjectDataFiles(diskMap, smToks, pristineState);
 }
 
 Error
-ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                                        const SmTokenSet& smToks,
                                        fds_bool_t pristineState) {
     Error err(ERR_OK);
@@ -187,6 +187,7 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost)
 Error
 ObjectPersistData::writeObjectData(const ObjectID& objId,
                                    diskio::DiskRequest* req) {
+    Error err(ERR_OK);
     diskio::PersisDataIO *iop = nullptr;
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = getWriteFileId(req->getTier(), smTokId);
@@ -204,12 +205,17 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
         return ERR_NOT_FOUND;
     }
 
-    return iop->disk_write(req);
+    err = iop->disk_write(req);
+    if (!err.ok()) {
+        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+    }
+    return err;
 }
 
 Error
 ObjectPersistData::readObjectData(const ObjectID& objId,
                                   diskio::DiskRequest* req) {
+    Error err(ERR_OK);
     obj_phy_loc_t *loc = req->req_get_phy_loc();
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = loc->obj_file_id;
@@ -221,7 +227,11 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     }
 
     fds_verify(iop);
-    return iop->disk_read(req);
+    err = iop->disk_read(req);
+    if (!err.ok()) {
+        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+    }
+    return err;
 }
 
 void
@@ -366,6 +376,51 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
         return ERR_OUT_OF_MEMORY;
     }
     tokFileTbl[fkey] = fdesc;
+    return err;
+}
+
+Error
+ObjectPersistData::deleteObjectDataFile(const std::string& diskPath,
+                                        const fds_token_id& smTokenId,
+                                        const fds_uint16_t& diskId) {
+    Error err(ERR_OK);
+    std::string filename = diskPath + "/tokenFile_"
+                           + std::to_string(smTokenId) + "_"
+                           + std::to_string(SM_INIT_FILE_ID);
+    typedef std::unique_ptr<diskio::FilePersisDataIO> Fptr;
+    Fptr fdesc = Fptr(new(std::nothrow) diskio::FilePersisDataIO(filename.c_str(),
+                                                                 SM_INIT_FILE_ID,
+                                                                 diskId));
+    if (fdesc) {
+        err = fdesc->delete_file();
+        if (!err.ok()) {
+            LOGWARN << "Failed to delete file, tier " << diskio::diskTier
+                    << " smToken " << smTokenId << " fileId" << SM_INIT_FILE_ID
+                    << ", but ok, ignoring " << err;
+        }
+    } else {
+        return ERR_OUT_OF_MEMORY;
+    }
+
+    // Now delete the shadow file(if exists).
+    fds_uint16_t shadowFileId = getShadowFileId(SM_INIT_FILE_ID);
+    std::string shadowFilename = diskPath + "/tokenFile_"
+                                 + std::to_string(smTokenId) + "_"
+                                 + std::to_string(shadowFileId);
+    Fptr sfdesc = Fptr(new(std::nothrow) diskio::FilePersisDataIO(shadowFilename.c_str(),
+                                                                  shadowFileId,
+                                                                  diskId));
+    if (sfdesc) {
+        err = sfdesc->delete_file();
+        if (!err.ok()) {
+            LOGWARN << "Failed to delete shadow file, tier " << diskio::diskTier
+                    << " smToken " << smTokenId << " fileId" << shadowFileId
+                    << ", but ok, ignoring " << err;
+        }
+    } else {
+        return ERR_OUT_OF_MEMORY;
+    }
+
     return err;
 }
 

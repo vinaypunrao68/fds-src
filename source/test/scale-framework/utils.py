@@ -54,10 +54,11 @@ def create_s3_connection(om_ip, am_ip, auth=None):
     '''
     s3conn = s3.S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
-            auth,
+            None,
             om_ip,
-            config.FDS_S3_PORT,
-            am_ip
+            8000,
+            am_ip,
+            secure=False
     )
     s3conn.s3_connect()
     return s3conn

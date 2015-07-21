@@ -44,7 +44,7 @@ void createLatencyCounter(fds::PerfContext & ctx) {
 template <typename T>
 void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent,
                     const fds::PerfEventType & type, const fds::fds_volid_t volid,
-                    std::string name) {
+                    std::string const& name) {
     fds_assert(ctx);
     fds_assert(0 == ctx->data.get());
     GLOGTRACE << "Creating performance counter for type='" << ctx->type
@@ -211,31 +211,27 @@ void PerfTracer::reconfig() {
 
 void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
-        const std::string name) {
-    if (!isEnabled()) return;
+        const std::string& name) {
     GLOGTRACE << "Updating performance counter for type='" << ctx.type
               << "' val='" << val << "' count='" << cnt << "' name='"
               << ctx.name << "'";
     FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
     // update counter
     if (cnt) {
-        std::call_once(*ctx.once, initializeCounter<LatencyCounter>,
+        std::call_once(ctx.once, initializeCounter<LatencyCounter>,
                        &ctx, counterParent, type, volid, name);
-        LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());  //NOLINT
-        fds_assert(plc || !"Counter type mismatch between tracepoints!");
+        LatencyCounter * plc = static_cast<LatencyCounter *>(ctx.data.get());  //NOLINT
         plc->update(val, cnt);
     } else {
-        std::call_once(*ctx.once, initializeCounter<NumericCounter>,
+        std::call_once(ctx.once, initializeCounter<NumericCounter>,
                        &ctx, counterParent, type, volid, name);
-        NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get()); //NOLINT
-        fds_assert(pnc || !"Counter type mismatch between tracepoints!");
+        NumericCounter * pnc = static_cast<NumericCounter *>(ctx.data.get()); //NOLINT
         pnc->incr(val);
     }
 }
 
 void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, uint64_t cnt, const std::string & name) {
-    if (!isEnabled()) return;
     PerfContext * ctx = 0;
 
     FDSGUARD(ptrace_mutex_named_);
@@ -266,7 +262,6 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
 
 void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, const std::string & name) {
-    if (!isEnabled()) return;
     FDSGUARD(ptrace_mutex_named_);
 
     PerfContextMap::iterator pos = namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid].find(name);
@@ -276,23 +271,20 @@ void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
     }
     PerfContext * ctx = pos->second;
     // update counter
-    NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx->data.get()); //NOLINT
-    fds_assert(pnc || !"Counter type mismatch between tracepoints!");
+    NumericCounter * pnc = static_cast<NumericCounter *>(ctx->data.get()); //NOLINT
     pnc->decr(val);
 }
 
-void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
-    if (!isEnabled()) return;
+void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, std::string const& name /* = "" */) {
     PerfTracer::incr(type, volid, 1, 0, name);
 }
 
 void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
-    if (!isEnabled()) return;
     PerfTracer::decr(type, volid, 1, name);
 }
 
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
-        uint64_t val, uint64_t cnt /* = 0 */, std::string name /* = "" */) {
+        uint64_t val, uint64_t cnt /* = 0 */, std::string const& name /* = "" */) {
     if (!isEnabled()) return;
     fds_assert(fds_enum::get_index<PerfEventType>(type) < fds_enum::get_size<PerfEventType>());
 
@@ -334,8 +326,7 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
         FDSGUARD(instance().ptrace_mutex_aggregate_);
         PerfContext & ctx = instance().aggregateCounters_[
                         fds_enum::get_index<PerfEventType>(type)][volid];
-        NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get()); //NOLINT
-        fds_assert(pnc || !"Counter type mismatch between tracepoints!");
+        NumericCounter * pnc = static_cast<NumericCounter *>(ctx.data.get()); //NOLINT
         pnc->decr(val);
     }
     if (!name.empty() && instance().useNameFilter_) {
@@ -413,7 +404,7 @@ void PerfTracer::tracePointEnd(PerfContext & ctx) {
     // Avoid creating a counter if counter has not been properly initialized. Print warning instead
     if (ctx.type != PerfEventType::TRACE) {
         createLatencyCounter(ctx);
-        LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get()); //NOLINT
+        LatencyCounter * plc = static_cast<LatencyCounter *>(ctx.data.get()); //NOLINT
         incr(ctx.type, ctx.volid, plc->total_latency(), plc->count(), ctx.name);
     } else {
         GLOGDEBUG << "Counter wothout a name or type -  name: "

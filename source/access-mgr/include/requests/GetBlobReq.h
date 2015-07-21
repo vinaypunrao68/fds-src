@@ -38,9 +38,13 @@ struct GetBlobReq: public AmRequest {
     }
 
     void notifyResponse(const Error &e) {
-        std::lock_guard<std::mutex> g(resp_lock);
-        op_err = e.ok() ? op_err : e;
-        if (0 == --resp_acks) {
+        size_t acks_left = 0;
+        {
+            std::lock_guard<std::mutex> g(resp_lock);
+            op_err = e.ok() ? op_err : e;
+            acks_left = --resp_acks;
+        }
+        if (0 == acks_left) {
             // Call back to processing layer
             proc_cb(op_err);
         }

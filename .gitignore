@@ -40,12 +40,13 @@ cscope.*
 gmock-1.7.0/gmock_test
 linux-*
 node_modules
+target/
 source/.idea
 source/am-engine
 source/am-engine/misc/am-urls.cpp
 source/am-engine/misc/build.linux-x86_64
 source/cit/*.xml
-source/cit/PyUnit.log*
+source/cit/*.log*
 source/cit/classes
 source/cit/surefire-reports
 source/config/sys-repo/
@@ -58,8 +59,6 @@ source/include/fdsp/*
 source/include/net-proxies/iomsg.h
 source/include/xdi/*.cpp
 source/include/xdi/*.h
-source/java/fds-project/*/target
-source/java/formationds-project/*/target
 source/java/${build.dir}/
 source/java/${project.build.dir}
 source/java/.idea
@@ -70,8 +69,6 @@ source/java/admin-webapp/npm-debug.log
 source/java/gen-java
 source/java/null
 source/java/out/.DS_Store
-source/java/target
-source/java/target
 source/net-proxies/*_clnt.c
 source/net-proxies/*_serv.c
 source/net-proxies/*_server.c
@@ -80,7 +77,6 @@ source/net-proxies/*_xdr.c
 source/npm-debug.log
 source/orch_mgr/java/gen-java/*
 source/orch_mgr/java/gmon.out
-source/orch_mgr/java/target/*
 source/sm*log
 source/stor_hvisor/*.mod.*
 source/stor_hvisor/.tmp_versions/*
@@ -108,7 +104,6 @@ source/unit-test/svc-layer/TestAMSvc_server.skeleton.cpp
 source/unit-test/svc-layer/TestSMSvc.cpp
 source/unit-test/svc-layer/TestSMSvc.h
 source/unit-test/svc-layer/TestSMSvc_server.skeleton.cpp
-source/unit-test/svc-layer/java_client/target/
 source/unit-test/svc-layer/svc_constants.cpp
 source/unit-test/svc-layer/svc_constants.h
 source/unit-test/svc-layer/svc_types.cpp
@@ -134,4 +129,3 @@ ExtendedFstabTest.unit.1*
 ExtendedFstabTest.unit.altered.1*
 .coverage
 CMakeLists.txt
-/source/java/formationds-project/formationds-thrift/target/

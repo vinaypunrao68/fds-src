@@ -202,7 +202,10 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
     synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolCat::ptr>::iterator iter =
                 volMap_.find(volId);
-        if (volMap_.end() != iter && (!checkDeleted || iter->second->isMarkedDeleted())) {
+        if (volMap_.end() != iter && (!checkDeleted ||
+                                      iter->second->isMarkedDeleted() ||
+                                      iter->second->isSnapshot()
+                                      )) {
             volMap_.erase(iter);
         }
     }
@@ -403,6 +406,23 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
     return rc;
 }
 
+Error DmVolumeCatalog::getBlobAndMetaFromSnapshot(fds_volid_t volId,
+                                                  const std::string& blobName,
+                                                  BlobMetaDesc &meta,
+                                                  fpi::FDSP_BlobObjectList& obj_list,
+                                                  const Catalog::MemSnap snap) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    Error rc = vol->getBlobMetaDesc(blobName, meta, snap);
+
+    fds_uint64_t reverse_engineer_last_offset = (std::numeric_limits<fds_uint32_t>::max()-1)* vol->getObjSize();
+
+    rc = vol->getObject(blobName, 0, reverse_engineer_last_offset, obj_list, snap);
+
+    return rc;
+}
+
 Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bDescrList) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
@@ -543,7 +563,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
             }
             newBlobSize += cit->second.size;
         } else if (cit->first == newLastOffset) {
-            fds_verify(oldIter->second.oid != NullObjectID);
+            // fds_verify(oldIter->second.oid != NullObjectID);
             fds_verify(newBlobSize >= vol->getObjSize());
             newBlobSize -= vol->getObjSize();
             newBlobSize += cit->second.size;
@@ -616,7 +636,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     return expungeCb_(volId, expungeList, false);
 }
 
-// XXX: (JLL) commenting out this function doesn't seem to break anything
+// NOTE: used by the Batch ifdef, not currently called by compiled code
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
         CatWriteBatch & wb, const sequence_id_t seq_id, bool truncate /* = true */) {
@@ -738,7 +758,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
             expungeList.push_back(obj);
         }
     }
-
+    bool fIsSnapshot = vol->isSnapshot();
     rc = vol->deleteObject(blobName, 0, endOffset);
     if (rc.ok()) {
         rc = vol->deleteBlobMetaDesc(blobName);
@@ -758,7 +778,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
         // actually expunge objects that were dereferenced by the blob
         // TODO(xxx): later that should become part of GC and done in background
         fds_verify(expungeCb_);
-        return expungeCb_(volId, expungeList, false);
+        return expungeCb_(volId, expungeList, fIsSnapshot);
     }
 
     return rc;
@@ -767,6 +787,100 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
 Error DmVolumeCatalog::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->syncCatalog(dmUuid);
+}
+
+Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
+                                         const std::string& blobName,
+                                         const std::string& blobData){
+    GET_VOL_N_CHECK_DELETED(volId);
+    Error err;
+    bool fTruncate = true;
+
+    /* This is actually the volume descriptor, but we did fancy hacks
+       (empty blob name) to avoid a special case message for it */
+    if (blobName.size() == 0) {
+        fpi::FDSP_MetaDataList metadataList;
+        VolumeMetaDesc newDesc(metadataList, 0);
+        err = newDesc.loadSerialized(blobData);
+
+        if (err.ok()) {
+            err = vol->putVolumeMetaDesc(newDesc);
+
+            if (!err.ok()) {
+                LOGERROR << "Failed to insert migrated Volume Descriptor into catalog for volume: "
+                         << volId << " error: " << err;
+            }
+        }else{
+            LOGERROR << "Failed to deserialize migrated Volume Descriptor for volume: "
+                     << volId << " error: " << err;
+        }
+
+        return err;
+    }
+
+    // This is actually a delete (empty blob data)
+    if (blobData.size() == 0) {
+        // version is ignored, so set to zero
+        err = deleteBlob(volId, blobName, 0);
+
+        if (!err.ok()) {
+            LOGERROR << "During migration, failed to delete blob: " << blobName
+                     << " from catalog for volume: " << volId << " error: "
+                     << err;
+        }
+
+        return err;
+    }
+
+    // This is really a blob descriptor update. we may need to trunctate the offsets.
+    BlobMetaDesc oldBlob;
+    err = vol->getBlobMetaDesc(blobName, oldBlob);
+
+    if (ERR_CAT_ENTRY_NOT_FOUND == err) {
+        fTruncate = false;
+    }else if (!err.ok()) {
+        LOGERROR << "During migration, failed to read existing blob: " << blobName
+                 << " from catalog for volume: " << volId << " error: "
+                 << err;
+        return err;
+    }
+
+    BlobMetaDesc newBlob;
+    err = newBlob.loadSerialized(blobData);
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to deserialize migrated blob: " << blobName
+                 << " from catalog for volume: " << volId << " error: " << err;
+        return err;
+    }
+
+    if (fTruncate) {
+        const fds_uint64_t oldLastOffset = DmVolumeCatalog::getLastOffset(oldBlob.desc.blob_size,
+                                                                          vol->getObjSize());
+
+        const fds_uint64_t newLastOffset = DmVolumeCatalog::getLastOffset(newBlob.desc.blob_size,
+                                                                          vol->getObjSize());
+
+        if (newLastOffset < oldLastOffset) {
+            err = vol->deleteObject(blobName, newLastOffset, oldLastOffset);
+
+            if (!err.ok()) {
+                LOGERROR << "During migration, failed to truncate blob: "
+                         << blobName << " from catalog for volume: " << volId
+                         << " error: " << err;
+                return err;
+            }
+        }
+    }
+
+    err = vol->putBlobMetaDesc(blobName, newBlob);
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to insert migrated blob: " << blobName
+                 << " into catalog for volume: " << volId << " error: " << err;
+    }
+
+    return err;
 }
 
 DmPersistVolCat::ptr DmVolumeCatalog::getVolume(fds_volid_t volId) {
@@ -779,25 +893,20 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
     return vol->getLatestSequenceId(seq_id);
 }
 
-Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId) {
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+                                                 Catalog::MemSnap snap) {
     GET_VOL_N_CHECK_DELETED(volId);
-    return vol->getAllBlobsWithSequenceId(blobsSeqId);
+    return vol->getAllBlobsWithSequenceId(blobsSeqId, snap);
 }
 
-Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
 	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->getInMemorySnapshot(opts);
+	return vol->getInMemorySnapshot(snap);
 }
 
-Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::catalog_roptions_t &opts) {
+Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
 	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->freeInMemorySnapshot(opts);
-}
-
-Error DmVolumeCatalog::getAllBlobsWithSequenceIdSnap(fds_volid_t volId, std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) {
-    GET_VOL_N_CHECK_DELETED(volId);
-    return vol->getAllBlobsWithSequenceIdSnap(blobsSeqId, opts);
+	return vol->freeInMemorySnapshot(snap);
 }
 
 Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {

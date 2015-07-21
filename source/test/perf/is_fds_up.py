@@ -4,12 +4,12 @@ from optparse import OptionParser
 import perf_framework_utils as utils
 
 agents={
+    "pm" : "platformd",
+    "om" : "com\.formationds\.om", 
     "am" : "bare_am", 
     "xdi" : "com\.formationds\.am", 
-    "om" : "com\.formationds\.om", 
     "sm" : "StorMgr", 
     "dm" : "DataMgr", 
-    "pm" : "platformd"
 }
 
 def get_pid_table(nodes):
@@ -66,6 +66,8 @@ def kill_agent(agent, n = "localhost"):
 
 def kill_all(nodes = ["localhost"]):
     for n in nodes:
+        while is_agent_up("pm", n):
+            kill_agent("pm", n)
         for a in agents:
             while is_agent_up(a, n):
                 kill_agent(a, n)

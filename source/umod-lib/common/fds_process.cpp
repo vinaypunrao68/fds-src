@@ -387,6 +387,7 @@ FdsProcess::atExitHandler()
     for (size_t i = 0; i < symSize; ++i) {
         symbolString += symStrings[i];
     }
+    free(symStrings);
 
     syslog(LOG_NOTICE, "FDS_PROC Exiting...%s", symbolString.c_str());
 }

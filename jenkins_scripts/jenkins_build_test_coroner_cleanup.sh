@@ -14,17 +14,10 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
 DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices"   ## This should be deleted when fs-2473 fs-2478 are resolved
 
-function message
-{
-    echo "================================================================================"
-    echo "$*"
-    echo "================================================================================"
-}
-
 function performance_report
 {
-    unit=$1
-    seconds=$2
+    unit=${1}
+    seconds=${2}
 
     if [[ ${seconds} -lt 60 ]]
     then
@@ -79,8 +72,7 @@ function auto_locate
 
 function capture_process_list
 {
-    funcname="$1"
-    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${funcname}.txt
+    ps axww > source/cit/ps-out-`date +%Y%m%d%M%S`.${1}.txt
 }
 
 function startup
@@ -92,7 +84,7 @@ function startup
 
 function configure_symlinks
 {
-    message "IIIII RUNNING /fds symlink configuration" 
+    message "IIIII RUNNING /fds symlink configuration"
     do_pushd source
     ./dev_make_install.sh
     do_popd
@@ -205,10 +197,9 @@ function cache_report
    ccache -s
 }
 
-function core_hunter
+function check_for_cores
 {
-    message  "POKING around for core files"
-    find /corefiles -type f -name "*.core" |grep -e ".*" > /dev/null
+    core_hunter
     return_code=$?
 
     if [[ ${return_code} -eq 0 ]]
@@ -248,7 +239,7 @@ function python_unittest_discovery
             message "EEEEE Python unit test problem(s) detected running in ${directory}"
             run_coroner 1
         fi
-        do_popd 
+        do_popd
     done
 }
 
@@ -288,22 +279,22 @@ function run_cpp_unit_tests
 
 function check_xunit_failures
 {
-    message "Checking xunit output for failure"
+    message "Checking xunit output for failure, system test:  ${1}"
     grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
-    if [[ $? -eq 0 ]] ; then
-        message "EEEEE Xunit Failures detected running System Test ${scenario}"
-        run_coroner 1
-    fi
+    [[ $? -eq 0 ]] && system_test_error ${scenario}
 }
 
 function check_xunit_errors
 {
-    message "Checking xunit output for errors"
+    message "Checking xunit output for errors, system test:  ${1}"
     grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
-    if [[ $? -eq 0 ]] ; then
-        message "EEEEE Xunit Errors detected running System Test ${scenario}"
-        run_coroner 1
-    fi
+    [[ $? -eq 0 ]] && system_test_error ${scenario}
+}
+
+function system_test_error
+{
+    message "EEEEE System Test problem(s) detected running ${1}"
+    run_coroner 1
 }
 
 function system_test_scenario_wrapper
@@ -313,25 +304,18 @@ function system_test_scenario_wrapper
     do_pushd source/test/testsuites
 
     message "IIIII RUNNING System Test Scenario:  ${scenario}"
-    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose
-    echo "***** Scenario complete:  ${scenario} complete - exit with: ${?}"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose || system_test_error ${scenario}
+    echo "***** Scenario complete:  ${scenario} passed"
 
     do_popd
 
-    capture_process_list ${FUNCNAME}.${scenario}
+    capture_process_list SysTest.${scenario}
 
     check_xunit_errors ${scenario}
     check_xunit_failures ${scenario}
 
-    if [[ $? -ne 0 ]]
-    then
-        message "EEEEE System Test problem(s) detected running ${scenario}"
-        run_coroner 1
-    fi
-
-    core_hunter
+    check_for_cores
 }
-
 
 function run_system_test_scenarios
 {
@@ -354,9 +338,10 @@ function system_test_force_failure
     run_coroner 1
 }
 
-
 function run_node_cleanup
 {
+    cd ${WORKSPACE}
+
     message "IIIII RUNNING post build node cleanup"
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
@@ -369,9 +354,8 @@ function run_node_cleanup
 
     capture_process_list ${FUNCNAME}
 
-    exit $1
+    exit ${1}
 }
-
 
 function run_coroner
 {
@@ -392,7 +376,17 @@ function run_coroner
 
     do_pushd ${TEST_WORKSPACE}
 
-    source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin build_release_bin:source/Build/linux-x86_64.release/bin fds-node1:/fds/node1 fds-node2:/fds/node2 fds-node3:/fds/node3 fds-node4:/fds/node4
+    source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
+                                                                  build_release_bin:source/Build/linux-x86_64.release/bin    \
+                                                                  fds-node1:/fds/node1                                       \
+                                                                  fds-node2:/fds/node2                                       \
+                                                                  fds-node3:/fds/node3                                       \
+                                                                  fds-node4:/fds/node4                                       \
+                                                                  fds-node5:/fds/node5                                       \
+                                                                  fds-node6:/fds/node6                                       \
+                                                                  fds-node7:/fds/node7                                       \
+                                                                  fds-node8:/fds/node8                                       \
+                                                                  fds-node9:/fds/node9
 
     for file in /tmp/fdscoroner*.tar.gz
     do
@@ -410,12 +404,28 @@ function run_coroner
 
     performance_report RUN_CORONER $(( ${end_time} - ${start_time} ))
 
-    run_node_cleanup $1
+    run_node_cleanup ${1}
 }
 
 error_trap_enabled
 
 auto_locate
+
+# Now we are sure to find our "includes".
+. ./jenkins_scripts/message.sh
+. ./jenkins_scripts/core_hunter.sh
+
+error_trap_disabled
+
+# Check for special actions
+if [[ "${1}" == "jenkins_build_aborted" ]]
+then
+    message "EEEEE Jenkins Build Aborted"
+    run_coroner 1
+fi
+
+error_trap_enabled
+
 startup
 clean_up_environment
 configure_cache

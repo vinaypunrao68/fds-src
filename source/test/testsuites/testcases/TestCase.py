@@ -197,7 +197,7 @@ class FDSTestCase(unittest.TestCase):
 
         test_passed = True
         printHeader=True
-        if self.__class__.__name__ == "TestLogMarker":
+        if (self.__class__.__name__ == "TestLogMarker") or (self.__class__.__name__ == "TestWait"):
             printHeader = False
 
         if pyUnitTCFailure and not self.passTestCaseAlwaysExecute:
@@ -255,7 +255,7 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitTCFailure
 
         printFooter=True
-        if self.__class__.__name__ == "TestLogMarker":
+        if (self.__class__.__name__ == "TestLogMarker") or (self.__class__.__name__ == "TestWait"):
             printFooter = False
 
         if test_passed:

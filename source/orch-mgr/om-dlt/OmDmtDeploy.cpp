@@ -570,6 +570,8 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         // this is ok -- no changes in the domain to recompute a DMT
         LOGDEBUG << "Not continuing DMT commit cycle since no changes in "
                  << " in the domain that cause DMT re-computation";
+    } else if (err == ERR_NOT_FOUND) {
+        LOGDEBUG << "No DMs joined yet";
     } else if (!err.ok()) {
         LOGERROR << "Unexpected error from computeDMT " << err
                  << " Not commiting new DMT and ignoring error "
@@ -934,11 +936,19 @@ void
 DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     OM_Module* om = OM_Module::om_singleton();
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
     // persist commited DMT
     vp->persistCommitedTargetDmt();
+
+    // set all added DMs to ACTIVE state
+    NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+    for (auto uuid : addDms) {
+        OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(uuid);
+        dm_agent->handle_service_deployed();
+    }
 
     // since we accounted for added/removed nodes in DMT, reset pending nodes in
     // cluster map

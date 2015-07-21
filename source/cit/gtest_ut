@@ -1,7 +1,7 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
 Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
 Build/linux-x86_64.debug/tests/dm_direct --fds-root=./config/
-Build/linux-x86_64.debug/tests/dm_sequence_ids
+Build/linux-x86_64.debug/tests/dm_sequence_ids --fds-root=./config/
 Build/linux-x86_64.debug/tests/sm_tokenplace_gtest
 Build/linux-x86_64.debug/tests/sm_superblock_gtest
 Build/linux-x86_64.debug/tests/sm_tokcompactor_gtest --fds-root=./config/

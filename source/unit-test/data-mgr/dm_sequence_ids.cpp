@@ -294,11 +294,11 @@ TEST_F(SeqIdTest, BlobDiffIdentical){
 
     putBlobOnce();
 
-    auto update_list = std::vector<fds_uint64_t>();
-    auto delete_list = std::vector<fds_uint64_t>();
+    auto update_list = std::vector<std::string>();
+    auto delete_list = std::vector<std::string>();
 
-    auto dest = std::map<long int, long int>();
-    auto source = std::map<long int, long int>();
+    auto dest = std::map<std::string, long int>();
+    auto source = std::map<std::string, long int>();
 
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
@@ -327,11 +327,11 @@ TEST_F(SeqIdTest, BlobDiffUpdate){
     auto volId2 =  dmTester->TESTVOLID;
     putBlobOnce();
 
-    auto update_list = std::vector<fds_uint64_t>();
-    auto delete_list = std::vector<fds_uint64_t>();
+    auto update_list = std::vector<std::string>();
+    auto delete_list = std::vector<std::string>();
 
-    auto dest = std::map<long int, long int>();
-    auto source = std::map<long int, long int>();
+    auto dest = std::map<std::string, long int>();
+    auto source = std::map<std::string, long int>();
 
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
@@ -360,11 +360,11 @@ TEST_F(SeqIdTest, BlobDiffDelete){
     auto volId2 =  dmTester->TESTVOLID;
     putBlobOnce();
 
-    auto update_list = std::vector<fds_uint64_t>();
-    auto delete_list = std::vector<fds_uint64_t>();
+    auto update_list = std::vector<std::string>();
+    auto delete_list = std::vector<std::string>();
 
-    auto dest = std::map<long int, long int>();
-    auto source = std::map<long int, long int>();
+    auto dest = std::map<std::string, long int>();
+    auto source = std::map<std::string, long int>();
 
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
@@ -394,11 +394,11 @@ TEST_F(SeqIdTest, BlobDiffOverwrite){
     putBlobOnce();
     putBlobOnce();
 
-    auto update_list = std::vector<fds_uint64_t>();
-    auto delete_list = std::vector<fds_uint64_t>();
+    auto update_list = std::vector<std::string>();
+    auto delete_list = std::vector<std::string>();
 
-    auto dest = std::map<int64_t, int64_t>();
-    auto source = std::map<int64_t, int64_t>();
+    auto dest = std::map<std::string, int64_t>();
+    auto source = std::map<std::string, int64_t>();
 
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
     dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);

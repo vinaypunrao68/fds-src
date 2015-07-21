@@ -5,8 +5,8 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
+from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
-from utils.configuration_manager import ConfigurationManager
 
 class FDSShell( cmd.Cmd ):
     '''
@@ -30,7 +30,7 @@ class FDSShell( cmd.Cmd ):
         
         cmd.Cmd.__init__(self, *args)
         
-        val = ConfigurationManager().get_value(ConfigurationManager.TOGGLES, ConfigurationManager.CMD_HISTORY)
+        val = FdsCliConfigurationManager().get_value(FdsCliConfigurationManager.TOGGLES, FdsCliConfigurationManager.CMD_HISTORY)
         
         if val == "true" or val is True or val == "True" or val == None:
             setupHistoryFile()

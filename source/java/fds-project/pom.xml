@@ -24,6 +24,9 @@
     <fds.project.name>FDS</fds.project.name>
 
     <!-- project scope dependencies version -->
+    <dcache.auth.version>0.0.11</dcache.auth.version>
+    <dcache.nfs4j.core.version>0.10.2</dcache.nfs4j.core.version>
+    <dcache.onrpc4j.core.version>2.3.3</dcache.onrpc4j.core.version>
     <io.netty.version>5.0.0.Alpha2</io.netty.version>
     <log4j.version>1.2.17</log4j.version>
     <jetty.version>9.2.9.v20150224</jetty.version>
@@ -68,6 +71,22 @@
         <groupId>net.sf.jopt-simple</groupId>
         <artifactId>jopt-simple</artifactId>
         <version>${jopt.simple.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.dcache.common</groupId>
+        <artifactId>dcache-auth</artifactId>
+        <version>${dcache.auth.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dcache</groupId>
+        <artifactId>nfs4j-core</artifactId>
+        <version>${dcache.nfs4j.core.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dcache</groupId>
+        <artifactId>oncrpc4j-core</artifactId>
+        <version>${dcache.onrpc4j.core.version}</version>
       </dependency>
 
       <dependency>

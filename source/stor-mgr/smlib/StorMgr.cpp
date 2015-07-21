@@ -21,6 +21,7 @@
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
 #include "PerfTypes.h"
+#include <fdsp/event_api_types.h>
 
 using diskio::DataTier;
 
@@ -207,18 +208,17 @@ void ObjectStorMgr::mod_enable_service()
             // get DLT from OM
             Error err = MODULEPROVIDER()->getSvcMgr()->getDLT();
             if (err.ok()) {
-                // got a DLT, ignore it if SM is not in it
-                const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                // even if SM is not yet in the DLT (this SM is not part of the domain yet),
+                // we need to tell disk map about DLT width so when migration happens, we
+                // can map objectID to DLT token
+
                 // Store the current DLT to the presistent storage to be used
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
-                if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-                    LOGDEBUG << "First DLT received does not contain this SM, ignoring...";
-                } else {
-                    // if second phase of start up failes, object store will set the state
-                    // during validating token ownership in the superblock
-                    handleDltUpdate();
-                }
+
+                // if second phase of start up failes, object store will set the state
+                // during validating token ownership in the superblock
+                handleDltUpdate();
             }
             // else ok if no DLT yet
         }
@@ -472,24 +472,36 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+
+            objectStore->setUnavailable();
+
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
+
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
             lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            sendHealthCheckMsgToOM(fpi::LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
-
-
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                                   "SM is reaching dangerous capacity levels!");
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+
+            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                                 fpi::EVENT_SEVERITY_WARNING,
+                                 fpi::EVENT_STATE_SOFT,
+                                 "sm.capacity.warn",
+                                 std::vector<fpi::MessageArgs>(), "");
+
             lastCapacityMessageSentAt = pct_used;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
             if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
@@ -524,6 +536,42 @@ void ObjectStorMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
 
 }
 
+
+/**
+ * Send an Event to OM using the events API
+ */
+
+void ObjectStorMgr::sendEventMessageToOM(fpi::EventType eventType,
+                                         fpi::EventCategory eventCategory,
+                                         fpi::EventSeverity eventSeverity,
+                                         fpi::EventState eventState,
+                                         const std::string& messageKey,
+                                         std::vector<fpi::MessageArgs> messageArgs,
+                                         const std::string& messageFormat) {
+
+    fpi::NotifyEventMsgPtr eventMsg(new fpi::NotifyEventMsg());
+
+    eventMsg->event.type = eventType;
+    eventMsg->event.category = eventCategory;
+    eventMsg->event.severity = eventSeverity;
+    eventMsg->event.state = eventState;
+
+    auto now = std::chrono::system_clock::now();
+    fds_uint64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+    eventMsg->event.initialTimestamp = seconds;
+    eventMsg->event.modifiedTimestamp = seconds;
+    eventMsg->event.messageKey = messageKey;
+    eventMsg->event.messageArgs = messageArgs;
+    eventMsg->event.messageFormat = messageFormat;
+    eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
+    request->invoke();
+
+}
 
 /* Initialize an instance specific vector of locks to cover the entire
  * range of potential sm tokens.
@@ -1062,16 +1110,19 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     SmIoAbortMigration *abortMigrationReq = static_cast<SmIoAbortMigration *>(ioReq);
     fds_verify(abortMigrationReq != NULL);
 
-    LOGDEBUG << "Abort Migration request";
+    LOGDEBUG << "Abort Migration request for target DLT " << abortMigrationReq->targetDLTVersion;
 
     // tell migration mgr to abort migration
-    err = objStorMgr->migrationMgr->abortMigration();
+    err = objStorMgr->migrationMgr->abortMigrationFromOM(abortMigrationReq->targetDLTVersion);
 
     // revert to DLT version provided in abort message
-    if (abortMigrationReq->abortMigrationDLTVersion > 0) {
+    if (err.ok() && (abortMigrationReq->abortMigrationDLTVersion > 0)) {
         // will ignore error from setCurrent -- if this SM does not know
         // about DLT with given version, then it did not have a DLT previously..
         MODULEPROVIDER()->getSvcMgr()->getDltManager()->setCurrent(abortMigrationReq->abortMigrationDLTVersion);
+    } else if (err == ERR_INVALID_ARG) {
+        // this is ok
+        err = ERR_OK;
     }
 
     qosCtrl->markIODone(*abortMigrationReq);

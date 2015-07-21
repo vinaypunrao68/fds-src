@@ -56,6 +56,8 @@ class AbstractPlugin( object ):
     tenant_id_str = "tenant_id"
     block_size_str= "block_size"
     block_size_unit_str = "block_size_unit"
+    max_obj_size_str = "max_object_size"
+    max_obj_size_unit_str = "max_object_size_unit"
     metrics_str = "metrics"
     start_str = "start"
     end_str = "end"

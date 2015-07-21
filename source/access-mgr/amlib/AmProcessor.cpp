@@ -42,17 +42,20 @@ class AmProcessor_impl
     using shutdown_cb_type = std::function<void(void)>;
 
   public:
-    explicit AmProcessor_impl(CommonModuleProviderIf *modProvider) : amDispatcher(new AmDispatcher(modProvider)),
-                         txMgr(new AmTxManager()),
-                         volTable(nullptr),
-                         prepareForShutdownCb(nullptr)
+    AmProcessor_impl(Module* parent, CommonModuleProviderIf *modProvider)
+        : amDispatcher(new AmDispatcher(modProvider)),
+          txMgr(new AmTxManager()),
+          volTable(nullptr),
+          parent_mod(parent),
+          have_tables(std::make_pair(false, false)),
+          prepareForShutdownCb(nullptr)
     { }
 
     AmProcessor_impl(AmProcessor_impl const&) = delete;
     AmProcessor_impl& operator=(AmProcessor_impl const&) = delete;
     ~AmProcessor_impl() = default;
 
-    void start(shutdown_cb_type&& cb);
+    void start();
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
         { prepareForShutdownCb = cb; }
@@ -77,20 +80,14 @@ class AmProcessor_impl
     Error updateQoS(long int const* rate, float const* throttle)
         { return volTable->updateQoS(rate, throttle); }
 
-    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
-        { return amDispatcher->updateDlt(dlt_type, dlt_data, cb); }
+    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
 
-    Error updateDmt(bool dmt_type, std::string& dmt_data)
-        { return amDispatcher->updateDmt(dmt_type, dmt_data); }
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
 
-    Error getDMT()
-    { return amDispatcher->getDMT(); }
-
-    Error getDLT()
-    { return amDispatcher->getDLT(); }
+    bool haveTables();
 
     bool isShuttingDown() const
-    { return shut_down; }
+    { SCOPEDREAD(shut_down_lock); return shut_down; }
 
   private:
     /// Unique ptr to the dispatcher layer
@@ -107,8 +104,12 @@ class AmProcessor_impl
 
     FdsTimer token_timer;
 
-    shutdown_cb_type shutdown_cb;
+    Module* parent_mod {nullptr};
+
+    std::pair<bool, bool> have_tables;
+
     bool shut_down { false };
+    mutable fds_rwlock shut_down_lock;
 
     shutdown_cb_type prepareForShutdownCb;
 
@@ -224,33 +225,38 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     static fpi::VolumeAccessMode const default_access_mode;
 
     Error err;
-    if (shut_down) {
-        err = ERR_SHUTTING_DOWN;
-    } else {
-        amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-        err = volTable->enqueueRequest(amReq);
+    {
+        SCOPEDREAD(shut_down_lock);
+        if (shut_down) {
+            err = ERR_SHUTTING_DOWN;
+        } else {
+            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            err = volTable->enqueueRequest(amReq);
+            // Volume Table now knows there's an outstanding request ok to
+            // unlock the shutdown lock
+        }
+    }
 
-        /** Queue and dispatch an attachment if we didn't find a volume */
-        if (ERR_VOL_NOT_FOUND == err) {
-            // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
-            // This code is here to support the fact that not all the connectors
-            // send an AttachVolume currently. For now ensure one is enqueued in
-            // the wait list by queuing a no-op attach request ourselves, this
-            // will cause the attach to use the default mode.
-            if (FDS_ATTACH_VOL != amReq->io_type) {
-                auto attachReq = new AttachVolumeReq(invalid_vol_id,
-                                                     amReq->volume_name,
-                                                     default_access_mode,
-                                                     nullptr);
-                amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-                volTable->enqueueRequest(attachReq);
-            }
-            err = amDispatcher->attachVolume(amReq->volume_name);
-            if (ERR_NOT_READY == err) {
-                // We don't have domain tables yet...just reject.
-                volTable->removeVolume(amReq->volume_name, invalid_vol_id);
-                return err;
-            }
+    /** Queue and dispatch an attachment if we didn't find a volume */
+    if (ERR_VOL_NOT_FOUND == err) {
+        // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
+        // This code is here to support the fact that not all the connectors
+        // send an AttachVolume currently. For now ensure one is enqueued in
+        // the wait list by queuing a no-op attach request ourselves, this
+        // will cause the attach to use the default mode.
+        if (FDS_ATTACH_VOL != amReq->io_type) {
+            auto attachReq = new AttachVolumeReq(invalid_vol_id,
+                                                 amReq->volume_name,
+                                                 default_access_mode,
+                                                 nullptr);
+            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            volTable->enqueueRequest(attachReq);
+        }
+        err = amDispatcher->attachVolume(amReq->volume_name);
+        if (ERR_NOT_READY == err) {
+            // We don't have domain tables yet...just reject.
+            volTable->removeVolume(amReq->volume_name, invalid_vol_id);
+            return err;
         }
     }
 
@@ -264,14 +270,6 @@ void
 AmProcessor_impl::processBlobReq(AmRequest *amReq) {
     fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
     fds_assert(amReq->isCompleted() == true);
-
-    /*
-     * Drain the queue if we are shutting down.
-     */
-    if (shut_down) {
-        respond_and_delete(amReq, ERR_SHUTTING_DOWN);
-        return;
-    }
 
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
@@ -343,7 +341,7 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
 }
 
 void
-AmProcessor_impl::start(shutdown_cb_type&& cb)
+AmProcessor_impl::start()
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
@@ -362,7 +360,6 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
             std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
     }
 
-    shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
     amDispatcher->start();
@@ -399,13 +396,21 @@ void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
 }
 
 bool AmProcessor_impl::stop() {
-    shut_down = true;
+    SCOPEDWRITE(shut_down_lock);
+
+    if (!shut_down) {
+        LOGNOTIFY << "AmProcessor received a stop request.";
+        shut_down = true;
+        // Stop all timers, we're not going to attach anymore
+        token_timer.destroy();
+    }
+
     if (volTable->drained()) {
         // Close all attached volumes before finishing shutdown
         for (auto const& vol : volTable->getVolumes()) {
           removeVolume(*vol->voldesc);
         }
-        shutdown_cb();
+        parent_mod->mod_shutdown();
         return true;
     }
     return false;
@@ -469,10 +474,8 @@ AmProcessor_impl::renewToken(const fds_volid_t vol_id) {
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
     auto amReq = new AttachVolumeReq(vol_id, "", vol->access_token->getMode(), nullptr);
-    amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
     amReq->token = vol->getToken();
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::attachVolumeCb, amReq);
-    amDispatcher->dispatchOpenVolume(amReq);
+    enqueueRequest(amReq);
 }
 
 Error
@@ -503,6 +506,39 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     txMgr->removeVolume(volDesc);
 
     return err;
+}
+
+Error
+AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb) {
+    // If we successfully update the dlt, have the parent do it's init check
+    auto e = amDispatcher->updateDlt(dlt_type, dlt_data, cb);
+    if (e.ok() && !have_tables.first) {
+        have_tables.first = true;
+        parent_mod->mod_enable_service();
+    }
+    return e;
+}
+
+Error
+AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data) {
+    // If we successfully update the dmt, have the parent do it's init check
+    auto e = amDispatcher->updateDmt(dmt_type, dmt_data);
+    if (e.ok() && !have_tables.second) {
+        have_tables.second = true;
+        parent_mod->mod_enable_service();
+    }
+    return e;
+}
+
+bool
+AmProcessor_impl::haveTables() {
+    if (!have_tables.first) {
+        have_tables.first = amDispatcher->getDLT().ok();
+    }
+    if (!have_tables.second) {
+        have_tables.second = amDispatcher->getDMT().ok();
+    }
+    return have_tables.first && have_tables.second;
 }
 
 void
@@ -585,11 +621,13 @@ void
 AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     Error err {error};
+
+    SCOPEDREAD(shut_down_lock);
     auto vol = getVolume(amReq);
     if (!vol) return;
 
     auto& vol_desc = *vol->voldesc;
-    if (err.ok()) {
+    if (!shut_down && err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
                   << ", received access token: 0x" << std::hex << volReq->token
                   << ", sequence id: 0x" << volReq->vol_sequence << std::dec;
@@ -655,6 +693,12 @@ AmProcessor_impl::detachVolume(AmRequest *amReq) {
 
 void
 AmProcessor_impl::abortBlobTx(AmRequest *amReq) {
+    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
 }
@@ -724,6 +768,11 @@ AmProcessor_impl::deleteBlob(AmRequest *amReq) {
                 << " txn:" << blobReq->tx_desc;
 
     // Update the tx manager with the delete op
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
@@ -766,6 +815,12 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
         blobReq->vol_sequence = vol->getNextSequenceId();
         amDispatcher->dispatchUpdateCatalogOnce(amReq);
     } else {
+        // Verify we have a dmt version (and transaction) for this update
+        auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        if (!err.ok()) {
+            respond_and_delete(amReq, err);
+            return;
+        }
         amDispatcher->dispatchUpdateCatalog(amReq);
     }
 
@@ -980,7 +1035,12 @@ AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
 
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
-    fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
+    // Assert that we have a tx and dmt_version for the message
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
 
     amDispatcher->dispatchSetBlobMetadata(amReq);
@@ -1062,6 +1122,13 @@ AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
       return;
     }
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+
+    auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        respond_and_delete(amReq, err);
+        return;
+    }
+
     blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
@@ -1087,15 +1154,15 @@ AmProcessor_impl::commitBlobTxCb(AmRequest *amReq, const Error &error) {
 /**
  * Pimpl forwarding methods. Should just call the underlying implementaion
  */
-AmProcessor::AmProcessor(CommonModuleProviderIf *modProvider)
+AmProcessor::AmProcessor(Module* parent, CommonModuleProviderIf *modProvider)
         : enable_shared_from_this<AmProcessor>(),
-          _impl(new AmProcessor_impl(modProvider))
+          _impl(new AmProcessor_impl(parent, modProvider))
 { }
 
 AmProcessor::~AmProcessor() = default;
 
-void AmProcessor::start(shutdown_cb_type&& cb)
-{ return _impl->start(std::move(cb)); }
+void AmProcessor::start()
+{ return _impl->start(); }
 
 void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
 {
@@ -1112,6 +1179,9 @@ bool AmProcessor::stop()
 
 Error AmProcessor::enqueueRequest(AmRequest* amReq)
 { return _impl->enqueueRequest(amReq); }
+
+bool AmProcessor::haveTables()
+{ return _impl->haveTables(); }
 
 bool AmProcessor::isShuttingDown() const
 { return _impl->isShuttingDown(); }
@@ -1133,11 +1203,5 @@ Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
 
 Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
 { return _impl->updateQoS(rate, throttle); }
-
-Error AmProcessor::getDMT()
-{ return _impl->getDMT(); }
-
-Error AmProcessor::getDLT()
-{ return _impl->getDLT(); }
 
 }  // namespace fds

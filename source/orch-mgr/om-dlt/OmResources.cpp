@@ -555,9 +555,13 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         NodeList addNodes, rmNodes;
         smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
         cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
-        // since updateMap keeps those nodes as pending, we tell cluster map that
-        // they are not pending, since these nodes are already in the DLT
-        cm->resetPendServices(fpi::FDSP_STOR_MGR);
+        // we may get services registered that are not in the DLT, so only
+        // reset pending services in the map which we actually waited for
+        for (auto sm_uuid: src.sm_services) {
+            // since updateMap keeps those nodes as pending, we tell cluster map that
+            // they are not pending, since these nodes are already in the DLT
+            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, sm_uuid);
+        }
 
         // move nodes that are already in DMT from pending list
         // to cluster map (but make them not pending in cluster map
@@ -568,9 +572,13 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         rmNodes.clear();
         dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.dm_up);
         cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
-        // since updateMap keeps those nodes as pending, we tell cluster map that
-        // they are not pending, since these nodes are already in the DMT
-        cm->resetPendServices(fpi::FDSP_DATA_MGR);
+        // we may get services registered that are not in the DMT, so only
+        // reset pending services in the map which we actually waited for
+        for (auto dm_uuid: src.dm_services) {
+            // since updateMap keeps those nodes as pending, we tell cluster map that
+            // they are not pending, since these nodes are already in the DMT
+            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, dm_uuid);
+        }
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_NodeUp :: " << e.what();
@@ -1291,8 +1299,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
     // don't need to wait for the platforms/DMs/AMs to come up
     // since we cannot admit any volumes anyway. So, we will go
     // directly to domain up state if no SMs were running...
-    NodeUuidSet sm_services;
-    NodeUuidSet dm_services;
+    NodeUuidSet sm_services, deployed_sm_services;
+    NodeUuidSet dm_services, deployed_dm_services;
     if (configDB) {
         NodeUuidSet nodes;  // actual nodes (platform)
         configDB->getNodeIds(nodes);
@@ -1328,22 +1336,51 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             } else {
                 LOGNORMAL << "No persisted Service Map found.";
             }
+
+            // build the list of sm and dm services that we found that
+            // are not in 'discovered' state
+            for ( const auto svc : svcinfos ) {
+                if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
+                    NodeUuid svcUuid;
+                    if ( isStorageMgrSvc( svc ) ) {
+                        // SM in not 'discovered' state
+                        svcUuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid,
+                                              fpi::FDSP_STOR_MGR);
+                        if (sm_services.count(svcUuid)) {
+                            deployed_sm_services.insert(svcUuid);
+                            LOGDEBUG << "SM service "
+                                     << std::hex << svcUuid.uuid_get_val() << std::dec
+                                     << " was deployed";
+                        }
+                    } else if ( isDataMgrSvc( svc ) ) {
+                        // DM in not 'discovered' state
+                        svcUuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid,
+                                              fpi::FDSP_DATA_MGR);
+                        if (dm_services.count(svcUuid)) {
+                            deployed_dm_services.insert(svcUuid);
+                            LOGDEBUG << "DM service "
+                                     << std::hex << svcUuid.uuid_get_val() << std::dec
+                                     << " was deployed";
+                        }
+                    }
+                }
+            }
         }
 	
         // load DLT (and save as not committed) from config DB and
         // check if DLT matches the set of persisted nodes
-        err = dp->loadDltsFromConfigDB(sm_services);
+        err = dp->loadDltsFromConfigDB(sm_services, deployed_sm_services);
         if (!err.ok()) {
-            LOGERROR << "Persistent state mismatch, error " << err.GetErrstr()
+            LOGERROR << "Persistent state mismatch: " << err
                      << std::endl << "OM will stay DOWN! Kill OM, cleanup "
                      << "persistent state and restart cluster again";
             return err;
         }
 
         // Load DMT
-        err = vp->loadDmtsFromConfigDB(dm_services);
+        err = vp->loadDmtsFromConfigDB(dm_services, deployed_dm_services);
         if (!err.ok()) {
-            LOGERROR << "Persistent state mismatch, error " << err.GetErrstr()
+            LOGERROR << "Persistent state mismatch: " << err
                      << std::endl << "OM will stay DOWN! Kill OM, cleanup "
                      << "persistent state and restart cluster again";
             return err;
@@ -1386,10 +1423,10 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
         else
         { 
-            LOGNOTIFY << "Will wait for " << sm_services.size()
-                      << " SMs and " << dm_services.size()
+            LOGNOTIFY << "Will wait for " << deployed_sm_services.size()
+                      << " SMs and " << deployed_dm_services.size()
                       << " DMs to come up within next few minutes";
-            local_domain_event( WaitNdsEvt( sm_services, dm_services ) );
+            local_domain_event( WaitNdsEvt( deployed_sm_services, deployed_dm_services ) );
         }
     } 
     else
@@ -1650,6 +1687,20 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     
                     svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
                 }
+            } else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) {
+                if ( !isKnownService( *svcInfo ) ) {
+                    LOGDEBUG << "SM or DM service ("
+                             << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec
+                             << ") is a new service; set state = DISCOVERED";
+                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                } else {
+                    // currently service always reports it's active; but if OM knows that
+                    // it is in discovered state, then we should leave it in discovered state
+                    fpi::ServiceStatus status = configDB->getStateSvcMap( svcInfo->svc_id.svc_uuid.svc_uuid );
+                    if (status == fpi::SVC_STATUS_DISCOVERED) {
+                        svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                    }
+                }
             }
             /*
              * FS-1587 Tinius
@@ -1759,7 +1810,11 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         OM_SmContainer::pointer smNodes = local->om_sm_nodes();
                         smNodes->om_splice_nodes_pend( &addNodes, &rmNodes );
                         cm->updateMap( fpi::FDSP_STOR_MGR, addNodes, rmNodes );
-                        cm->resetPendServices( fpi::FDSP_STOR_MGR );
+                        // we want to remove service from pending services
+                        // only if it is not in discovered state
+                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
+                            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
+                        }
                     }
                     else if ( svc.svc_type == fpi::FDSP_DATA_MGR )
                     {
@@ -1769,7 +1824,11 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
                         dmNodes->om_splice_nodes_pend( &addNodes, &rmNodes );
                         cm->updateMap( fpi::FDSP_DATA_MGR, addNodes, rmNodes );
-                        cm->resetPendServices( fpi::FDSP_DATA_MGR );
+                        // we want to remove service from pending services
+                        // only if it is not in discovered state
+                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
+                            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                        }
                     }
                 }
                 break;
@@ -1899,6 +1958,30 @@ bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
     return bRetCode;
 }
 
+bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
+{
+    bool bRetCode = false;
+
+    int64_t serviceUUID = svcInfo.svc_id.svc_uuid.svc_uuid;
+    std::vector<fpi::SvcInfo> configDBSvcs;
+
+    configDB->getSvcMap( configDBSvcs );
+    if ( configDBSvcs.size() > 0 )
+    {
+        for ( auto dbSvc : configDBSvcs )
+        {
+            int64_t knownUUID = dbSvc.svc_id.svc_uuid.svc_uuid;
+            if ( knownUUID == serviceUUID )
+            {
+                bRetCode = true;
+                break;
+            }
+        }
+    }
+
+    return bRetCode;
+}
+
 void OM_NodeDomainMod::fromSvcInfoToFDSP_RegisterNodeTypePtr( 
     fpi::SvcInfo svc, 
     fpi::FDSP_RegisterNodeTypePtr& reg_node_req )
@@ -2008,6 +2091,18 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
     if ( error == ERR_DUPLICATE || error.ok() ) 
     {
         nodeAgent->set_node_state( fpi::FDS_Node_Up );
+        // ANNA -- I don't want to mess with platform service state, so
+        // calling this method for SM and DM only. The register service method
+        // set correct discovered/active state for these services based on
+        // whether this is known service or restarting service. We are
+        // going to set node state based on service state in svc map
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            OM_SmAgent::pointer smAgent = om_sm_agent(nodeAgent->get_uuid());
+            smAgent->set_state_from_svcmap();
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            OM_DmAgent::pointer dmAgent = om_dm_agent(nodeAgent->get_uuid());
+            dmAgent->set_state_from_svcmap();
+        }
         
         if ( msg->node_type == fpi::FDSP_STOR_MGR )
         {
@@ -2131,6 +2226,18 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     // tell parent PM Agent about its new service
     newNode->set_node_state(fpi::FDS_Node_Up);
+    // ANNA -- I don't want to mess with platform service state, so
+    // calling this method for SM and DM only. The register service method
+    // set correct discovered/active state for these services based on
+    // whether this is known service or restarting service. We are
+    // going to set node state based on service state in svc map
+    if (msg->node_type == fpi::FDSP_STOR_MGR) {
+        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
+        smAgent->set_state_from_svcmap();
+    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
+        dmAgent->set_state_from_svcmap();
+    }
 
     if ((msg->node_uuid).uuid != 0) {
         err = pmNodes->handle_register_service((msg->node_uuid).uuid,
@@ -2239,6 +2346,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 {
     TRACEFUNC;
     Error err(ERR_OK);
+
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
     // and unregister service resources
@@ -2400,16 +2508,12 @@ void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
-    TRACEFUNC;
-    OM_Module *om = OM_Module::om_singleton();
-    // notify DLT state machine if this is SM
     if (svcType == fpi::FDSP_STOR_MGR) {
-        OM_DLTMod *dltMod = om->om_dlt_mod();
-        dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
+        // this is SM -- notify DLT state machine
+        om_dlt_update_cluster();
     } else if (svcType == fpi::FDSP_DATA_MGR) {
         // this is DM -- notify DMT state machine
-        OM_DMTMod *dmtMod = om->om_dmt_mod();
-        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+        om_dmt_update_cluster();
     }
 }
 

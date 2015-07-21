@@ -640,7 +640,7 @@ LOGDEBUG << "received an add service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                        updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
 
                     } break;
 
@@ -713,7 +713,7 @@ LOGDEBUG << "received a remove service for type:  " << vectItem.svc_type;
                             }
                         }
 
-                        updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_PRESENT);
+                        updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_PRESENT);
 
                     } break;
 
@@ -818,6 +818,8 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                     } break;
                 }
             }
+
+            m_startQueueCondition.notify_one();
         }
 
         void PlatformManager::stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg)
@@ -861,7 +863,7 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                             else            // SERVICE_NOT_RUNNING
                             {
-                                LOGDEBUG << "No operation performed, received a start service request for the DM service, but it is already stopped.";
+                                LOGDEBUG << "No operation performed, received a stop service request for the DM service, but it is already stopped.";
                             }
                         }
 
@@ -881,7 +883,7 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
                             }
                             else            // SERVICE_NOT_RUNNING
                             {
-                                LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already stopped.";
+                                LOGDEBUG << "No operation performed, received a stop service request for the SM service, but it is already stopped.";
                             }
                         }
 
@@ -1147,7 +1149,7 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
             message->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
             message->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
             message->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
-            message->healthReport.serviceState = fpi::HealthState::UNEXPECTED_EXIT;
+            message->healthReport.serviceState = fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             message->healthReport.statusInfo = textualContent.str();
 

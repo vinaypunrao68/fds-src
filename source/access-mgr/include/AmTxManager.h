@@ -21,6 +21,7 @@ struct AmTxDescriptor;
 struct AmVolume;
 struct AmVolumeAccessToken;
 struct GetBlobReq;
+struct GetObjectReq;
 
 /**
  * Manages outstanding AM transactions. The transaction manager tracks which
@@ -166,6 +167,18 @@ struct AmTxManager {
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
     processor_cb_type processor_enqueue;
+
+    typedef std::unique_ptr<std::deque<GetObjectReq*>> queue_type;  // NOLINT
+    std::unordered_map<ObjectID, queue_type, ObjectHash> obj_get_queue;
+    std::mutex obj_get_lock;
+
+    /**
+     * Internal get object request handler
+     */
+    void getObject(GetBlobReq* blobReq,
+                   ObjectID::ptr const& obj_id,
+                   boost::shared_ptr<std::string>& buf);
+    void getObjectCb(ObjectID const obj_id, Error const& error);
 };
 
 }  // namespace fds

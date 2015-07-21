@@ -44,6 +44,54 @@ OM_NodeAgent::node_calc_stor_weight()
     return 0;
 }
 
+void
+OM_NodeAgent::set_state_from_svcmap()
+{
+    // setting service state from config DB
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if (!configDB) {
+        LOGNOTIFY << "configDB not initialized, not able to get service state for "
+                  << get_node_name() << ":0x" << std::hex << rs_get_uuid().uuid_get_val() << std::dec;
+        return;
+    }
+    fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap( rs_get_uuid().uuid_get_val() );
+    if (serviceStatus == fpi::SVC_STATUS_INVALID) {
+        // most likely not in config DB, not change service state just in case
+        LOGNOTIFY << "Service either missing in configDB or state is invalid for "
+                  << get_node_name() << ":0x" << std::hex << rs_get_uuid().uuid_get_val() << std::dec;
+        return;
+    }
+    set_node_state(fromServiceStatus(serviceStatus));
+    LOGDEBUG << "Service " << get_node_name() << ":0x"
+             << std::hex << rs_get_uuid().uuid_get_val() << std::dec
+             << " moved to node state " << node_state() << " (service state "
+             << serviceStatus << ")";
+
+}
+
+void
+OM_NodeAgent::handle_service_deployed()
+{
+    LOGDEBUG << "Setting " << get_node_name() << " service ( uuid = " << std::hex
+             << rs_get_uuid().uuid_get_val() << std::dec << " ) state to ACTIVE";
+
+    // update this agent's state
+    if (node_state() == fpi::FDS_Node_Up) {
+        LOGNORMAL << "Service state already UP, not expected but OK ( uuid = "
+                  << std::hex << rs_get_uuid().uuid_get_val() << std::dec << " )";
+    } else if (node_state() == fpi::FDS_Node_Down) {
+        LOGNOTIFY << "Service is down, not changing its state to ACTIVE ( uuid = "
+                  << std::hex << rs_get_uuid().uuid_get_val() << std::dec << " )";
+        return;
+    }
+    set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    change_service_state( configDB,
+                          rs_get_uuid().uuid_get_val(),
+                          fpi::SVC_STATUS_ACTIVE );
+}
+
 // om_send_myinfo
 // --------------
 // Send a node event taken from the new node agent to a peer agent.
@@ -91,24 +139,24 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
                       boost::shared_ptr<std::string> payload) {
     TRACEFUNC;
     if (vol == NULL || vol->rs_get_uuid() == 0) {
-        
+
         /*
          * TODO Tinius 02/11/2015
-         * 
+         *
          * FS-936 -- AM and OM continuously log errors with
          * "invalid bucket SYSTEM_VOLUME_0"
-         * 
+         *
          * Not sure if this is expected behavior? Once re-written we will
          * handle this correctly. But for now remove the logging noise
-         * 
+         *
          * LOGWARN << "response received for invalid volume . ignored.";
          */
 
         return;
     }
-    
+
     LOGDEBUG << "received vol cmd response " << vol->vol_get_name();
-    
+
     OM_NodeContainer * local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
     volumes->om_vol_cmd_resp(vol, cmd_type, error, rs_get_uuid());
@@ -192,11 +240,11 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     if (!vol) {
         vol = VolumeInfo::pointer(new VolumeInfo(0));  // create dummy to avoid issues
     }
-    EPSvcRequestRespCb cb = std::bind( &OM_NodeAgent::om_send_vol_cmd_resp, 
-                                       this, 
-                                       vol, 
+    EPSvcRequestRespCb cb = std::bind( &OM_NodeAgent::om_send_vol_cmd_resp,
+                                       this,
+                                       vol,
                                        cmd_type,
-                                       std::placeholders::_1, 
+                                       std::placeholders::_1,
                                        std::placeholders::_2,
                                        std::placeholders::_3 );
     req->onResponseCb(cb);
@@ -206,16 +254,16 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                  << " to node " << get_node_name() << std::hex
                  << ", uuid " << get_uuid().uuid_get_val() << std::dec;
     } else {
-        
+
         /*
          * TODO Tinius 02/11/2015
-         * 
-         * FS-936 -- AM and OM continously log errors with 
+         *
+         * FS-936 -- AM and OM continously log errors with
          * "invalid bucket SYSTEM_VOLUME_0"
-         *   
+         *
          * Not sure if this is expected behavior? Once re-written we will
          * handle this correctly. But for now remove the logging noise
-         * 
+         *
          * LOGNORMAL << log << ", no vol to node " << get_node_name();
          */
     }
@@ -224,24 +272,26 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
 
 
 Error
-OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
+OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t committedDltVersion,
+                                         fds_uint64_t targetDltVersion) {
     TRACEFUNC;
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
-    msg->DLT_version = dltVersion;
+    msg->DLT_version = committedDltVersion;
+    msg->DLT_target_version = targetDltVersion;
 
     // send request
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_sm_migration_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(5000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
-    LOGNORMAL << "OM: Send abort migration (DLT version " << dltVersion
-              << ") to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+    LOGNORMAL << "OM: Send abort migration (committed DLT version " << committedDltVersion
+              << ", target DLT version" << targetDltVersion << ") to " << get_node_name()
+              << " uuid 0x" << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
     return err;
 }
@@ -255,7 +305,7 @@ OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr
     TRACEFUNC;
     LOGNOTIFY << "OM received response for SM Abort Migration from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
-              << " with version " << msg->DLT_version
+              << " with committed DLT version " << msg->DLT_version
               << " " << error;
 
     // notify DLT state machine
@@ -365,7 +415,7 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTClose), msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_close_resp, this, msg,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(5000);
+    om_req->setTimeoutMs(10000);
     om_req->invoke();
 
     LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
@@ -537,6 +587,27 @@ OM_NodeAgent::om_send_stream_reg_cmd(fds_int32_t regId,
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_stream_de_reg_cmd( fds_int32_t regId )
+{
+  Error error(ERR_OK);
+
+  // get UUID of any AM
+  OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+  OM_AmContainer::pointer amNodes = local->om_am_nodes();
+  NodeAgent::pointer agent = amNodes->agent_info(0);
+  if ( !agent )
+  {
+      LOGERROR << "There are no AMs, cannot broadcast stream de-registration "
+               << " to DMs, will do when at least one AM joins";
+      return ERR_NOT_READY;
+  }
+
+  om_send_one_stream_de_reg_cmd( regId, agent->get_uuid() );
+
+  return error;
+}
+
 void
 OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                          const NodeUuid& stream_dest_uuid) {
@@ -567,6 +638,24 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& r
 
     auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
     asyncStreamRegReq->setPayload(FDSP_MSG_TYPEID(fpi::StatStreamRegistrationMsg), reg_msg);
+    // HACK
+    asyncStreamRegReq->setTimeoutMs(0);
+    asyncStreamRegReq->invoke();
+}
+
+void
+OM_NodeAgent::om_send_one_stream_de_reg_cmd(
+  const fds_int32_t regId,
+  const NodeUuid& stream_dest_uuid ) {
+    fpi::StatStreamDeregistrationMsgPtr reg_msg(new fpi::StatStreamDeregistrationMsg());
+    reg_msg->id = regId;
+
+    LOGDEBUG << "Will send StatStreamDeregistrationMsg with id " << regId
+             << " to DM " << std::hex << rs_uuid.uuid_get_val() << ", AM uuid is "
+             << std::hex << stream_dest_uuid.uuid_get_val() << std::dec;
+
+    auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
+    asyncStreamRegReq->setPayload(FDSP_MSG_TYPEID(fpi::StatStreamDeregistrationMsg), reg_msg);
     // HACK
     asyncStreamRegReq->setTimeoutMs(0);
     asyncStreamRegReq->invoke();
@@ -892,9 +981,9 @@ void
 OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
     LOGDEBUG << "Will deactivate service " << svc_type;
-    
+
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    
+
     // we are just deactivating the service during this run, so no
     // need to update configDB
 
@@ -905,62 +994,62 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
     fds_mutex::scoped_lock l(dbNodeInfoLock);
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
-            if ( activeSmAgent ) 
+            if ( activeSmAgent )
             {
-                LOGDEBUG << "Will deactivate SM service " 
+                LOGDEBUG << "Will deactivate SM service "
                          << std::hex
-                         << ( activeSmAgent->get_uuid() ).uuid_get_val() 
+                         << ( activeSmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
-                
-                change_service_state( configDB, 
+
+                change_service_state( configDB,
                                       ( activeSmAgent->get_uuid() ).uuid_get_val(),
                                       fpi::SVC_STATUS_INACTIVE );
-                
+
                 activeSmAgent = nullptr;
-            } 
-            else 
+            }
+            else
             {
-                LOGDEBUG << "SM service already not active on platform " 
+                LOGDEBUG << "SM service already not active on platform "
                          << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
-            if ( activeDmAgent ) 
+            if ( activeDmAgent )
             {
-                LOGDEBUG << "Will deactivate DM service " 
+                LOGDEBUG << "Will deactivate DM service "
                          << std::hex
-                         << ( activeDmAgent->get_uuid() ).uuid_get_val() 
+                         << ( activeDmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
-                
-                change_service_state( configDB, 
+
+                change_service_state( configDB,
                                       ( activeDmAgent->get_uuid() ).uuid_get_val(),
                                       fpi::SVC_STATUS_INACTIVE );
-                
+
                 activeDmAgent = nullptr;
             }
             else
             {
-                LOGDEBUG << "DM service already not active on platform " 
+                LOGDEBUG << "DM service already not active on platform "
                          << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
         case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
-            if ( activeAmAgent ) 
+            if ( activeAmAgent )
             {
-                LOGDEBUG << "Will deactivate AM service " 
+                LOGDEBUG << "Will deactivate AM service "
                          << std::hex
-                         << ( activeAmAgent->get_uuid() ).uuid_get_val() 
+                         << ( activeAmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
-                
-                change_service_state( configDB, 
+
+                change_service_state( configDB,
                                       ( activeAmAgent->get_uuid() ).uuid_get_val(),
                                       fpi::SVC_STATUS_INACTIVE );
-                  
+
                 activeAmAgent = nullptr;
             }
             else
             {
-                LOGDEBUG << "AM service already not active on platform " 
+                LOGDEBUG << "AM service already not active on platform "
                          << std::hex << get_uuid().uuid_get_val() << std::dec;
             }
             break;
@@ -1038,23 +1127,23 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             {
                 case fpi::FDS_Node_Discovered:
                 case fpi::FDS_Node_Up:
-                    fds::change_service_state( configDB, 
+                    fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_ACTIVE );
                     break;
-                case fpi::FDS_Start_Migration: 
-                    fds::change_service_state( configDB, 
-                                               get_uuid().uuid_get_val(), 
+                case fpi::FDS_Start_Migration:
+                    fds::change_service_state( configDB,
+                                               get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_INVALID );
                     break;
-                case fpi::FDS_Node_Down:    
+                case fpi::FDS_Node_Down:
                 case fpi::FDS_Node_Rmvd:
-                    fds::change_service_state( configDB, 
+                    fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_INACTIVE );
-                    break;    
+                    break;
             }
-            
+
             LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec
                 << " in configDB";
@@ -1093,6 +1182,366 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::ActivateServicesMsg), activateMsg);
     req->invoke();
+
+    return err;
+}
+
+/**
+ * Name: send_add_service
+ * For provided list of services, send request to platform to add
+ * them to the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_PmAgent::send_add_service
+    (
+    const fpi::SvcUuid svc_uuid,
+    std::vector<fpi::SvcInfo> svcInfos
+    )
+{
+    TRACEFUNC;
+    Error err(ERR_OK);
+
+    // We only do addService from 'discovered' state or 'node up' state
+    if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
+        (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
+        LOGERROR << "Invalid state";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    LOGNORMAL << "Add service for node" << get_node_name()
+              << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
+
+    set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+    if (!configDB->nodeExists(get_uuid())) {
+        // For now store only if the node was not known to DB
+        configDB->addNode(*getNodeInfo());
+        switch ( node_state() )
+        {
+            case fpi::FDS_Node_Discovered:
+            case fpi::FDS_Node_Up:
+                fds::change_service_state( configDB,
+                                           get_uuid().uuid_get_val(),
+                                           fpi::SVC_STATUS_ACTIVE );
+                break;
+            case fpi::FDS_Start_Migration:
+                fds::change_service_state( configDB,
+                                           get_uuid().uuid_get_val(),
+                                           fpi::SVC_STATUS_INVALID );
+                break;
+            case fpi::FDS_Node_Down:
+            case fpi::FDS_Node_Rmvd:
+                fds::change_service_state( configDB,
+                                           get_uuid().uuid_get_val(),
+                                           fpi::SVC_STATUS_INACTIVE );
+                break;
+        }
+
+            LOGNOTIFY << "Adding node " << get_node_name() << ":"
+                << std::hex << get_uuid().uuid_get_val() << std::dec
+                << " to configDB";
+    }
+
+
+    fpi::NotifyAddServiceMsgPtr addServiceMsg =
+                            boost::make_shared<fpi::NotifyAddServiceMsg>();
+    std::vector<fpi::SvcInfo>& svcInfoVector = addServiceMsg->services;
+    svcInfoVector = svcInfos;
+
+    auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
+    req->invoke();
+
+    return err;
+}
+
+/**
+ * Name: send_start_service
+ * For provided list of services, send request to platform to start
+ * them to on node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_PmAgent::send_start_service
+    (
+    const fpi::SvcUuid svc_uuid,
+    std::vector<fpi::SvcInfo> svcInfos
+    )
+{
+    TRACEFUNC;
+    Error err(ERR_OK);
+
+    // Check if the requested services are already running
+    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
+        bool smRunning = false;
+        bool dmRunning = false;
+        bool amRunning = false;
+
+        if (service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: SM service already running, "
+                      << "not going to restart...";
+            smRunning = true;
+        }
+        if (service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: DM service already running, "
+                      << "not going to restart...";
+            dmRunning = true;
+        }
+        if (service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: AM service already running. Allowing another "
+                      << "AM instance...";
+            // enable this if we want to prevent multiple instances of AM
+            //amRunning = true;
+        }
+
+        // Perform updates to list only if necessary
+        if (smRunning || dmRunning || amRunning) {
+            fds::updateSvcInfoList(svcInfos, smRunning, dmRunning, amRunning);
+        }
+    }
+    else
+    {
+        LOGDEBUG << "Attempting to start services on a node that is not up";
+    }
+
+    if (svcInfos.size() == 0) {
+        LOGDEBUG << "Request to start services when there are none to start";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    LOGNORMAL << "Start service for node" << get_node_name()
+              << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
+
+    fpi::NotifyStartServiceMsgPtr startServiceMsg =
+                              boost::make_shared<fpi::NotifyStartServiceMsg>();
+    std::vector<fpi::SvcInfo>& svcInfoVector = startServiceMsg->services;
+
+    svcInfoVector = svcInfos;
+
+    auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStartServiceMsg), startServiceMsg);
+    req->invoke();
+
+    return err;
+}
+
+/**
+ * Name: send_stop_service
+ * For provided list of services, send request to platform to stop
+ * them on the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_PmAgent::send_stop_service
+    (
+    std::vector<fpi::SvcInfo> svcInfos,
+    bool stop_sm,
+    bool stop_dm,
+    bool stop_am
+    )
+{
+    TRACEFUNC;
+    Error err(ERR_OK);
+
+    // Checks to make sure we do not attempt to stop a service that does
+    // not exist
+    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up)
+    {
+        bool smNotPresent = false;
+        bool dmNotPresent = false;
+        bool amNotPresent = false;
+
+        if (! service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: SM service does not exist";
+            smNotPresent = true;
+        }
+        if (! service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: DM service does not exist";
+            dmNotPresent = true;
+        }
+        if (! service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
+            LOGNOTIFY << "OM_PmAgent: AM service does not exist";
+            amNotPresent = true;
+        }
+        // Perform updates only if necessary
+        if (smNotPresent || dmNotPresent || amNotPresent) {
+            fds::updateSvcInfoList(svcInfos, smNotPresent, dmNotPresent, amNotPresent);
+        }
+    }
+    else
+    {
+        LOGDEBUG << "Attempting to stop services on a node that is not up";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    if (svcInfos.size() == 0) {
+        LOGDEBUG << "Request to stop services when there are none to stop";
+        return Error(ERR_INVALID_ARG);
+    }
+
+
+    LOGNORMAL << "Stop services for node" << get_node_name()
+              << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+              << " stop sm ? " << stop_sm
+              << " stop dm ? " << stop_dm
+              << " stop am ? " << stop_am
+              << " size of svcInfoList: " << svcInfos.size();
+
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+    // Set SM service state to inactive
+    if ( stop_sm && activeSmAgent ) {
+        LOGDEBUG << "Will stop SM service "
+                 << std::hex
+                 << ( activeSmAgent->get_uuid() ).uuid_get_val()
+                 << std::dec;
+
+        change_service_state( configDB,
+                              ( activeSmAgent->get_uuid() ).uuid_get_val(),
+                              fpi::SVC_STATUS_INACTIVE );
+
+        activeSmAgent = nullptr;
+    }
+
+    // Set DM service state to inactive
+    if ( stop_dm && activeDmAgent ) {
+
+        LOGDEBUG << "Will stop DM service "
+                 << std::hex
+                 << ( activeDmAgent->get_uuid() ).uuid_get_val()
+                 << std::dec;
+
+        change_service_state( configDB,
+                              ( activeDmAgent->get_uuid() ).uuid_get_val(),
+                              fpi::SVC_STATUS_INACTIVE );
+
+        activeDmAgent = nullptr;
+    }
+
+    // Set AM service state to inactive
+    if ( stop_am && activeAmAgent ) {
+        LOGDEBUG << "Will stop AM service "
+                 << std::hex
+                 << ( activeAmAgent->get_uuid() ).uuid_get_val()
+                 << std::dec;
+
+        change_service_state( configDB,
+                              ( activeAmAgent->get_uuid() ).uuid_get_val(),
+                              fpi::SVC_STATUS_INACTIVE );
+
+        activeAmAgent = nullptr;
+    }
+
+    fpi::NotifyStopServiceMsgPtr stopServiceMsg =
+                             boost::make_shared<fpi::NotifyStopServiceMsg>();
+    std::vector<fpi::SvcInfo>& svcInfoVector = stopServiceMsg->services;
+
+    svcInfoVector = svcInfos;
+
+    auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStopServiceMsg), stopServiceMsg);
+    req->invoke();
+
+    return err;
+}
+
+/**
+ * Name: send_remove_service
+ * For provided list of services, send request to platform to remove
+ * them from the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_PmAgent::send_remove_service
+    (
+    const NodeUuid& node_uuid,
+    std::vector<fpi::SvcInfo> svcInfos,
+    bool remove_sm,
+    bool remove_dm,
+    bool remove_am
+    )
+{
+    TRACEFUNC;
+    Error err(ERR_OK);
+
+    kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
+    NodeServices services;
+
+    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up)
+    {
+        if (!configDB->getNodeServices(node_uuid, services)) {
+            LOGDEBUG << "Request to remove services when there are none";
+            return Error(ERR_INVALID_ARG);
+        }
+    }
+    else
+    {
+        LOGDEBUG << "Attempting to remove services on a node that is not up";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    LOGNORMAL << "Remove services for node " << get_node_name()
+                    << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+                    << " remove sm ? " << remove_sm
+                    << " remove dm ? " << remove_dm
+                    << " remove am ? " << remove_am;
+
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+    err = domain->om_del_services(node_uuid,
+                                  get_node_name(),
+                                  remove_sm,
+                                  remove_dm,
+                                  remove_am);
+
+    if (!err.ok()) {
+        LOGERROR << "RemoveService: Failed to remove services for node "
+                        << get_node_name() << ", uuid "
+                        << std::hex << node_uuid
+                        << std::dec << ", result: " << err.GetErrstr();
+    }
+
+    fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
+    std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
+
+    svcInfoVector = svcInfos;
+
+    auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyRemoveServiceMsg), removeServiceMsg);
+    req->invoke();
+
+    // Assuming that if we plan to remove all 3 services,
+    // then the root action is "remove node": now that
+    // all handling on PM side is done, set the state of PM to inactive
+    if (remove_sm && remove_dm && remove_am)
+    {
+        if (configDB->nodeExists(get_uuid())) {
+
+            // Removing node so do:
+            // 1. Set node to "down" state
+            // 2. Remove node from the configDB
+            // 3. Set platform service state to inactive
+
+            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+            configDB->removeNode(get_uuid());
+            fds::change_service_state( configDB,
+                                       get_uuid().uuid_get_val(),
+                                       fpi::SVC_STATUS_INACTIVE );
+
+
+            LOGNOTIFY << "Removed node: " << get_node_name() << ":"
+                << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";
+        }
+    }
 
     return err;
 }
@@ -1815,7 +2264,137 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
                                          activate_dm,
                                          activate_am);
 }
+/**
+ * Name: om_add_service
+ * Add specified services to the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_NodeContainer::om_add_service
+    (
+    const fpi::SvcUuid& svc_uuid,
+    std::vector<fpi::SvcInfo> svcInfos)
+{
+    TRACEFUNC;
 
+    if (svcInfos.size() == 0) {
+        LOGDEBUG << "No services have been added since none have been provided";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "Add service: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_add_service(svc_uuid, svcInfos);
+}
+
+/**
+ * Name: om_start_service
+ * Start specified services on the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_NodeContainer::om_start_service
+    (
+    const fpi::SvcUuid& svc_uuid,
+    std::vector<fpi::SvcInfo> svcInfos)
+{
+    TRACEFUNC;
+
+    if (svcInfos.size() == 0) {
+        LOGDEBUG << "No services have been started since none have been provided";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    NodeUuid node_uuid(svc_uuid);
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "Start service: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_start_service(svc_uuid, svcInfos);
+}
+
+/**
+ * Name: om_stop_service
+ * Stop specified services on the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_NodeContainer::om_stop_service
+    (
+    const fpi::SvcUuid& svc_uuid,
+    std::vector<fpi::SvcInfo> svcInfos,
+    bool stop_sm,
+    bool stop_dm,
+    bool stop_am)
+{
+    TRACEFUNC;
+
+    if (svcInfos.size() == 0) {
+        LOGDEBUG << "No services have been stopped since none have been provided";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "Stop service: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_stop_service(svcInfos, stop_sm, stop_dm, stop_am);
+}
+
+/**
+ * Name: om_remove_service
+ * Remove specified services from the node
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_NodeContainer::om_remove_service
+    (
+    const fpi::SvcUuid& svc_uuid,
+    std::vector<fpi::SvcInfo> svcInfos,
+    bool remove_sm,
+    bool remove_dm,
+    bool remove_am)
+{
+    TRACEFUNC;
+
+    if (svcInfos.size() == 0) {
+        LOGDEBUG << "No services have been removed since none have been provided";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    Error err(ERR_OK);
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "Remove service: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_remove_service(node_uuid, svcInfos, remove_sm, remove_dm, remove_am);
+}
 /**
  * Remove all defined Services on the specified Node.
  */
@@ -2062,10 +2641,9 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
         NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(*it);
         if ((cur != NULL) &&
             (dc_dm_nodes->rs_get_resource(cur->get_uuid()))) {
+
             fpi::FDSP_NotifyVolFlag flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
-            if (addedDms.count(cur->get_uuid()) > 0) {
-                flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
-            }
+
             err = om_send_vol_command(fpi::CtrlNotifyVolAddTypeId,
                                       flag, vol, cur);
             if (err.ok()) {
@@ -2348,9 +2926,12 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 // --------------------------
 //
 static Error
-om_send_sm_migration_abort(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
+om_send_sm_migration_abort(fds_uint64_t cur_dlt_version,
+                           fds_uint64_t tgt_dlt_version,
+                           NodeAgent::pointer agent)
 {
-    return OM_SmAgent::agt_cast_ptr(agent)->om_send_sm_abort_migration(cur_dlt_version);
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_sm_abort_migration(cur_dlt_version,
+                                                                       tgt_dlt_version);
 }
 
 // om_bcast_sm_migration_abort
@@ -2359,11 +2940,13 @@ om_send_sm_migration_abort(fds_uint64_t cur_dlt_version, NodeAgent::pointer agen
 // we are waiting for that many responses)
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version)
+OM_NodeContainer::om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version,
+                                              fds_uint64_t tgt_dlt_version)
 {
     fds_uint32_t count = 0;
-    count = dc_sm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dlt_version,
-                                                         om_send_sm_migration_abort);
+    count = dc_sm_nodes->agent_ret_foreach<fds_uint64_t,fds_uint64_t>(cur_dlt_version,
+                                                                      tgt_dlt_version,
+                                                                      om_send_sm_migration_abort);
     LOGDEBUG << "Sent SM Migration Abort to " << count << " nodes successfully";
     return count;
 }
@@ -2412,11 +2995,15 @@ OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCm
         cmd, om_send_scavenger_cmd);
 }
 
-
 static void
 om_send_stream_reg_cmd(fds_int32_t regId, fds_bool_t bAll,
                        NodeAgent::pointer agent) {
     OM_DmAgent::agt_cast_ptr(agent)->om_send_stream_reg_cmd(regId, bAll);
+}
+
+static void
+om_send_stream_de_reg_cmd(fds_int32_t regId, NodeAgent::pointer agent) {
+    OM_DmAgent::agt_cast_ptr(agent)->om_send_stream_de_reg_cmd( regId );
 }
 
 void
@@ -2424,6 +3011,12 @@ OM_NodeContainer::om_bcast_stream_register_cmd(fds_int32_t regId,
                                                fds_bool_t bAll)
 {
     dc_dm_nodes->agent_foreach<fds_int32_t, fds_bool_t>(regId, bAll, om_send_stream_reg_cmd);
+}
+
+void
+OM_NodeContainer::om_bcast_stream_de_register_cmd( fds_int32_t regId )
+{
+    dc_dm_nodes->agent_foreach<fds_int32_t>(regId, om_send_stream_de_reg_cmd);
 }
 
 static Error
@@ -2446,7 +3039,7 @@ OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
     } else if (svc_type == fpi::FDSP_STOR_MGR) {
         // send shutdown to SM nodes
         count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-        LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully"; 
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
     } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
         // send shutdown to AM nodes
         count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
@@ -2463,7 +3056,7 @@ void OM_NodeContainer::om_bcast_svcmap()
 
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
     boost::shared_ptr<std::string>buf;
-    fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>(); 
+    fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>();
 
     /* Construct svcmap message */
     svcMgr->getSvcMap(updateMsg->updates);

@@ -14,7 +14,7 @@
 
   <name>${formationds.project.name} Project POM</name>
   <artifactId>formationds</artifactId>
-  <version>2015.07.17-SNAPSHOT</version>
+  <version>2015.07.31-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <!-- formationds scoped project properties -->
@@ -28,21 +28,23 @@
 
     <!-- Sprint -->
     <sprint.name>Sprint ${sprint.version}</sprint.name>
-    <sprint.start.date>2015-07-06 00:00:00.1 AM</sprint.start.date>
-    <sprint.version>2015.07.17</sprint.version>
+    <sprint.start.date>2015-07-20 00:00:00.1 AM</sprint.start.date>
+    <sprint.version>2015.07.31</sprint.version>
   </properties>
 
   <modules>
     <module>formationds-thrift</module>
     <module>formationds-commons</module>
     <module>formationds-external</module>
+    <module>thrift-client-util</module>
+    <module>jsvc-layer</module>
   </modules>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
         <groupId>com.formationds</groupId>
-        <artifactId>fds-thrift</artifactId>
+        <artifactId>formationds-thrift</artifactId>
         <version>${formationds.thrift.version}</version>
       </dependency>
     </dependencies>

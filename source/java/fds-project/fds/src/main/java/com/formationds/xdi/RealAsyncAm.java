@@ -1,7 +1,6 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
-import com.formationds.commons.Fds;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.VolumeAccessMode;
@@ -67,7 +66,10 @@ public class RealAsyncAm implements AsyncAm {
                         try {
                             Retry<Void, Void> retry = new Retry<>(
                                     (x, numTries) -> {
-                                        client.handshakeStart(new RequestId(UUID.randomUUID().toString()), responsePort);
+                                        RequestId requestId = new RequestId(UUID.randomUUID().toString());
+                                        CompletableFuture<Void> cf = responseListener.expect(requestId);
+                                        client.handshakeStart(requestId, responsePort);
+                                        cf.get();
                                         return null;
                                     },
                                     120,

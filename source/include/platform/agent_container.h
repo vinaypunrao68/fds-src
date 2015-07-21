@@ -109,6 +109,29 @@ namespace fds
                 return count;
             }
 
+            template <typename T1, typename T2>
+            fds_uint32_t agent_ret_foreach(T1 a1, T2 a2,
+                                           Error (*fn)(T1, T2, NodeAgent::pointer elm))
+            {
+                fds_uint32_t    count = 0;
+                for (fds_uint32_t i = 0; i < rs_cur_idx; i++)
+                {
+                    Error                 err(ERR_OK);
+                    NodeAgent::pointer    cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
+
+                    if (rs_array[i] != NULL)
+                    {
+                        err =    (*fn)(a1, a2, cur);
+
+                        if (err.ok())
+                        {
+                            ++count;
+                        }
+                    }
+                }
+                return count;
+            }
+
             template <typename T1, typename T2, typename T3>
             fds_uint32_t agent_ret_foreach(T1 a1, T2 a2, T3 a3,
                                            Error (*fn)(T1, T2, T3, NodeAgent::pointer elm))

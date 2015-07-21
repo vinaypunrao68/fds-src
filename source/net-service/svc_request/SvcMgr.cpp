@@ -21,6 +21,8 @@
 #include <net/SvcMgr.h>
 #include <dlt.h>
 #include <fds_dmt.h>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -120,9 +122,6 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
-
-    // TODO(Rao): Get this from config
-    notifyOMOnSvcDown = false;
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -465,11 +464,27 @@ DmtColumnPtr SvcMgr::getDMTNodesForVolume(fds_volid_t vol_id,
     return dmtMgr_->getVersionNodeGroup(vol_id, dmt_version);  // thread-safe, do not hold lock
 }
 
-Error SvcMgr::getDLT() {
+Error SvcMgr::getDLT(int maxAttempts) {
+    ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
 	Error err(ERR_OK);
-	::FDS_ProtocolInterface::CtrlNotifyDLTUpdate fdsp_dlt;
-	getDLTData(fdsp_dlt);
+    int triedCnt = 0;
+    while (true) {
+        try {
+            getDLTData(fdsp_dlt);
+            break;
+        } catch (Exception &e) {
+            LOGWARN << "Failed to get dlt: " << e.what() << ".  Attempt# " << triedCnt;
+        } catch (...) {
+            LOGWARN << "Failed to get dlt.  Attempt# " << triedCnt;
+        }
+        /* Caught an exception...try again if needed */
+        triedCnt++;
+        if (triedCnt == maxAttempts) {
+            return ERR_NOT_FOUND;
+        }
+    }
 
+    /* Got the DLT */
 	if (fdsp_dlt.dlt_version == DLT_VER_INVALID) {
 		err = ERR_NOT_FOUND;
 	} else {
@@ -478,10 +493,25 @@ Error SvcMgr::getDLT() {
 	return err;
 }
 
-Error SvcMgr::getDMT() {
+Error SvcMgr::getDMT(int maxAttempts) {
+    ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
 	Error err(ERR_OK);
-	::FDS_ProtocolInterface::CtrlNotifyDMTUpdate fdsp_dmt;
-	getDMTData(fdsp_dmt);
+    int triedCnt = 0;
+    while (true) {
+        try {
+            getDMTData(fdsp_dmt);
+            break;
+        } catch (Exception &e) {
+            LOGWARN << "Failed to get dmt: " << e.what() << ".  Attempt# " << triedCnt;
+        } catch (...) {
+            LOGWARN << "Failed to get dmt.  Attempt# " << triedCnt;
+        }
+        /* Caught an exception...try again if needed */
+        triedCnt++;
+        if (triedCnt == maxAttempts) {
+            return ERR_NOT_FOUND;
+        }
+    }
 
 	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
 		err = ERR_NOT_FOUND;
@@ -553,11 +583,21 @@ void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)
 {
     auto svcDownMsg = boost::make_shared<fpi::NotifyHealthReport>();
     svcDownMsg->healthReport.serviceInfo = info;
-    svcDownMsg->healthReport.serviceState = fpi::UNREACHABLE; 
+    svcDownMsg->healthReport.serviceState = fpi::HEALTH_STATE_UNREACHABLE;
 
     auto asyncReq = getSvcRequestMgr()->newEPSvcRequest(getOmSvcUuid());
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::NotifyHealthReport), svcDownMsg);
     asyncReq->invoke();
+}
+
+void SvcMgr::setUnreachableInjection(float frequency) {
+    // Enable unreachable faults that occur infrequently. Since SvcLayer doesn't
+    // know the request type, basic startup communication would fail if this
+    // was triggered every time.
+    // This enables the probability to be low enough to have the system run
+    // for a bit before eventually hitting it.
+    fiu_enable_random("svc.fault.unreachable", 1, NULL, 0, frequency);
+    LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
 }
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
@@ -636,6 +676,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
                                                                SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
+            fiu_do_on("svc.fault.unreachable",
+                      LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
             svcClient_->asyncReqt(*header, *payload);
         } else {
             svcClient_->asyncResp(*header, *payload);
@@ -645,7 +687,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
         markSvcDown_();
     } catch (...) {
-        GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
+        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header;
         markSvcDown_();
     }
     return false;
@@ -699,8 +741,8 @@ void SvcHandle::markSvcDown_()
     GLOGDEBUG << logString();
 
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
-    if (svcMgr->notifyOMOnSvcDown &&
-        svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
+    // Don't report OM to itself.
+    if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
         svcMgr->notifyOMSvcIsDown(svcInfo_);
     }
 }

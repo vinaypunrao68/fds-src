@@ -1,7 +1,7 @@
 import os
 from ConfigParser import SafeConfigParser
 
-class ConfigurationManager(object):
+class FdsCliConfigurationManager(object):
     '''
     Created on Jun 25, 2015
 
@@ -21,6 +21,7 @@ class ConfigurationManager(object):
     PASSWORD = "password"
     PORT = "port"
     USERNAME = "username"
+    PROTOCOL = "protocol"
 
     def __new__(cls, *args, **kwargs):
         '''
@@ -28,7 +29,7 @@ class ConfigurationManager(object):
         '''
         
         if not cls.__instance:
-            cls.__instance = super(ConfigurationManager, cls).__new__(cls, *args, **kwargs)
+            cls.__instance = super(FdsCliConfigurationManager, cls).__new__(cls, *args, **kwargs)
         
         return cls.__instance
     

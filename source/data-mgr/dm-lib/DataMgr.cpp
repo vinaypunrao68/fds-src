@@ -13,6 +13,12 @@
 #include <dmhandler.h>
 #include <util/stringutils.h>
 #include <util/path.h>
+#include <include/util/disk_utils.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
+#include <fdsp/event_api_types.h>
+
+
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -35,6 +41,82 @@ namespace fds {
 const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
 const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
 const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
+
+float_t DataMgr::getUsedCapacityAsPct() {
+
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("dm.get_used_capacity_error", \
+            fiu_disable("dm.get_used_capacity_warn"); \
+            fiu_disable("dm.get_used_capacity_alert"); \
+            LOGDEBUG << "Err inection: returning max used disk capacity as " \
+                     << DISK_CAPACITY_ERROR_THRESHOLD; \
+            return DISK_CAPACITY_ERROR_THRESHOLD; );
+
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_alert", \
+              fiu_disable("dm.get_used_capacity_warn"); \
+              fiu_disable("dm.get_used_capacity_error"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_warn", \
+              fiu_disable("dm.get_used_capacity_error"); \
+              fiu_disable("dm.get_used_capacity_alert"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+                       << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
+    // Get fds root dir
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    // Get sys-repo dir
+    DiskCapacityUtils::capacity_tuple cap = DiskCapacityUtils::getDiskConsumedSize(root->dir_sys_repo_stats());
+
+    // Calculate pct
+    float_t result = ((1. * cap.first) / cap.second) * 100;
+    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
+
+    return result;
+}
+
+/**
+ * Send an Event to OM using the events API
+ */
+
+void DataMgr::sendEventMessageToOM(fpi::EventType eventType,
+                                   fpi::EventCategory eventCategory,
+                                   fpi::EventSeverity eventSeverity,
+                                   fpi::EventState eventState,
+                                   const std::string& messageKey,
+                                   std::vector<fpi::MessageArgs> messageArgs,
+                                   const std::string& messageFormat) {
+
+    fpi::NotifyEventMsgPtr eventMsg(new fpi::NotifyEventMsg());
+
+    eventMsg->event.type = eventType;
+    eventMsg->event.category = eventCategory;
+    eventMsg->event.severity = eventSeverity;
+    eventMsg->event.state = eventState;
+
+    auto now = std::chrono::system_clock::now();
+    fds_uint64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+    eventMsg->event.initialTimestamp = seconds;
+    eventMsg->event.modifiedTimestamp = seconds;
+    eventMsg->event.messageKey = messageKey;
+    eventMsg->event.messageArgs = messageArgs;
+    eventMsg->event.messageFormat = messageFormat;
+    eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
+    request->invoke();
+
+}
+
 
 /**
  * Receiver DM processing of volume sync state.
@@ -163,6 +245,54 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                                                  STAT_DM_CUR_TOTAL_OBJECTS,
                                                  total_objects);
     }
+
+    /*
+     * Piggyback on this method to determine if we're nearing disk capacity
+     */
+    if (sampleCounter % 5 == 0) {
+        LOGDEBUG << "Checking disk utilization!";
+        float_t pct_used = getUsedCapacityAsPct();
+
+        // We want to log which disk is too full here
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send message to OM
+
+
+        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+            LOGWARN << "ATTENTION: DM is utilizing " << pct_used << " of available storage space!";
+            lastCapacityMessageSentAt = pct_used;
+
+            // Send message to OM
+
+        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+            LOGNORMAL << "DM is utilizing " << pct_used << " of available storage space!";
+
+            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                                 fpi::EVENT_SEVERITY_WARNING,
+                                 fpi::EVENT_STATE_SOFT,
+                                 "dm.capacity.warn",
+                                 std::vector<fpi::MessageArgs>(), "");
+
+            lastCapacityMessageSentAt = pct_used;
+        } else {
+            // If the used pct drops below alert levels reset so we resend the message when
+            // we re-hit this condition
+            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = 0;
+
+                // Send message to OM resetting us to OK state
+            }
+        }
+        sampleCounter = 0;
+    }
+    sampleCounter++;
+
 }
 
 void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
@@ -275,6 +405,41 @@ std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
     return stream.str();
 }
 
+void DataMgr::deleteUnownedVolumes() {
+    LOGNORMAL << "DELETING unowned volumes";
+
+    std::vector<fds_volid_t> volIds;
+    std::vector<fds_volid_t> deleteList;
+    auto mySvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+
+    /* Filter out unowned volumes */
+    dmutil::getVolumeIds(MODULEPROVIDER()->proc_fdsroot(), volIds);
+    for (const auto &volId : volIds) {
+        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+        if (nodes->find(NodeUuid(mySvcUuid)) == -1) {
+            /* Volume is not owned..add for delete*/
+            deleteList.push_back(volId);
+        }
+    }
+
+    /* Delete unowned volumes one at a time */
+    for (const auto &volId : deleteList) {
+        LOGNORMAL << "DELETING volume: " << volId;
+        /* Flow for deleting the volume is to mark it for delete first
+         * followed by acutally deleting it
+         */
+        Error err = process_rm_vol(volId, true);        // Mark for delete
+        if (err == ERR_OK) {
+            err = process_rm_vol(volId, false);         // Do the actual delete
+        }
+        // TODO(xxx): Remove snapshots once the api is available
+        if (err != ERR_OK) {
+            LOGWARN << "Ecountered error: " << err << " while deleting volume: " << volId;
+        }
+    }
+
+}
+
 //
 // handle finish forward for volume 'volid'
 //
@@ -352,8 +517,7 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
 
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc, true);
-
+    err = _add_vol_locked(vol_name, vol_uuid, desc);
 
     return err;
 }
@@ -381,8 +545,7 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
  */
 Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                fds_volid_t vol_uuid,
-                               VolumeDesc *vdesc,
-                               fds_bool_t vol_will_sync) {
+                               VolumeDesc *vdesc) {
     Error err(ERR_OK);
     bool fActivated = false;
     // create vol catalogs, etc first
@@ -441,7 +604,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
-    if (err.ok() && !vol_will_sync && !fActivated) {
+    if (err.ok() && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
@@ -497,7 +660,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
 
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue " << std::hex
-             << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
+             << vol_uuid << std::dec << ", created catalogs";
 
     vol_map_mtx->lock();
     if (needReg) {
@@ -508,40 +671,6 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         delete volmeta;
         vol_map_mtx->unlock();
         return err;
-    }
-
-    // if we will sync vol meta, block processing IO requests from this volume's
-    // qos queue and create a shadow queue for receiving volume meta from another DM
-    if (vol_will_sync) {
-        // we will use the priority of the volume, but no min iops (otherwise we will
-        // need to implement temp deregister of vol queue, so we have enough total iops
-        // to admit iops of shadow queue)
-        FDS_VolumeQueue* shadowVolQueue =
-                new(std::nothrow) FDS_VolumeQueue(4096, 10000, 0, vdesc->relativePrio);
-        if (shadowVolQueue) {
-            fds_volid_t shadow_volid = catSyncRecv->shadowVolUuid(vol_uuid);
-            // block volume's qos queue
-            volmeta->dmVolQueue->stopDequeue();
-            // register shadow queue
-            err = qosCtrl->registerVolume(shadow_volid, shadowVolQueue);
-            if (err.ok()) {
-                LOGERROR << "Registered shadow volume queue for volume 0x"
-                         << std::hex << vol_uuid << " shadow id " << shadow_volid << std::dec;
-                // pass ownership of shadow volume queue to volume meta receiver
-                catSyncRecv->startRecvVolmeta(vol_uuid, shadowVolQueue);
-            } else {
-                LOGERROR << "Failed to register shadow volume queue for volume 0x"
-                         << std::hex << vol_uuid << " shadow id " << shadow_volid
-                         << std::dec << " " << err;
-                // cleanup, we will revert volume registration and creation
-                delete shadowVolQueue;
-                shadowVolQueue = NULL;
-            }
-        } else {
-            LOGERROR << "Failed to allocate shadow volume queue for volume "
-                     << std::hex << vol_uuid << std::dec;
-            err = ERR_OUT_OF_MEMORY;
-        }
     }
 
     if (err.ok()) {
@@ -565,6 +694,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
+        return  err;
     }
 
     if (vdesc->isSnapshot()) {
@@ -578,7 +708,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // should do the calculation if the primary fails over to us. but if we set it
     // here, before failover, we could have a seq_id ahead of the primary.
     // is this a problem?
-    if (fPrimary) {
+    if (fPrimary && fActivated) {
         sequence_id_t seq_id;
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
@@ -616,8 +746,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid,
-                                VolumeDesc *desc,
-                                fds_bool_t vol_will_sync) {
+                                VolumeDesc *desc) {
     Error err(ERR_OK);
 
     vol_map_mtx->lock();
@@ -630,7 +759,7 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     }
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc, vol_will_sync);
+    err = _add_vol_locked(vol_name, vol_uuid, desc);
     return err;
 }
 
@@ -691,27 +820,31 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     // we we are here, check_only == false
     err = timeVolCat_->deleteEmptyVolume(vol_uuid);
     if (err.ok()) {
-        VolumeMeta* vol_meta = NULL;
-        qosCtrl->deregisterVolume(vol_uuid);
-        vol_map_mtx->lock();
-        if (vol_meta_map.count(vol_uuid) > 0) {
-            vol_meta = vol_meta_map[vol_uuid];
-            vol_meta_map.erase(vol_uuid);
-        }
-        vol_map_mtx->unlock();
-        if (vol_meta) {
-            vol_meta->dmVolQueue.reset();
-            delete vol_meta;
-        }
-        statStreamAggr_->detachVolume(vol_uuid);
-        LOGNORMAL << "Removed vol meta for vol uuid "
-                  << std::hex << vol_uuid << std::dec;
+        detachVolume(vol_uuid);
     } else {
         LOGERROR << "Failed to remove volume " << std::hex
                  << vol_uuid << std::dec << " " << err;
     }
 
     return err;
+}
+
+void DataMgr::detachVolume(fds_volid_t vol_uuid) {
+    VolumeMeta* vol_meta = NULL;
+    qosCtrl->deregisterVolume(vol_uuid);
+    vol_map_mtx->lock();
+    if (vol_meta_map.count(vol_uuid) > 0) {
+        vol_meta = vol_meta_map[vol_uuid];
+        vol_meta_map.erase(vol_uuid);
+    }
+    vol_map_mtx->unlock();
+    if (vol_meta) {
+        vol_meta->dmVolQueue.reset();
+        delete vol_meta;
+    }
+    statStreamAggr_->detachVolume(vol_uuid);
+    LOGNORMAL << "Detached vol meta for vol uuid "
+        << std::hex << vol_uuid << std::dec;
 }
 
 Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
@@ -842,6 +975,9 @@ int DataMgr::mod_init(SysParams const *const param)
     scheduleRate = 10000;
     shuttingDown = false;
 
+    lastCapacityMessageSentAt = 0;
+    sampleCounter = 0;
+
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
@@ -928,12 +1064,14 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
+    handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
+    handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
 }
 
 DataMgr::~DataMgr()
 {
     // shutdown all data manager modules
-    LOGDEBUG << "Received shutdown message DM ... shutdown mnodules..";
+    LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 }
 
@@ -1025,6 +1163,7 @@ void DataMgr::mod_enable_service() {
 
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
+        MODULEPROVIDER()->getSvcMgr()->getDLT();
     }
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
@@ -1356,6 +1495,17 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
                                  root->dir_sys_repo_dm().c_str(), volId, volId);
     }
+}
+
+void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) {
+    std::vector<std::string> vecNames;
+
+    util::getSubDirectories(root->dir_sys_repo_dm(), vecNames);
+
+    for (const auto& name : vecNames) {
+        vecVolumes.push_back(fds_volid_t(std::atoll(name.c_str())));
+    }
+    std::sort(vecVolumes.begin(), vecVolumes.end());
 }
 
 std::string getTimelineDBPath() {

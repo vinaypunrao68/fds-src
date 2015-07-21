@@ -5,12 +5,14 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
-from FDSShell import FDSShell
-from services.fds_auth import FdsAuth
 
 sys.path.append( os.path.dirname( os.path.abspath( __file__ ) ) )
 
 def main():
+    
+    from services.fds_auth import FdsAuth
+    from FDSShell import FDSShell
+    
     cmdargs=sys.argv[1:]
 
     auth = FdsAuth()

@@ -17,6 +17,8 @@ import java.security.NoSuchAlgorithmException;
  */
 public class ObjectUtils
 {
+    private static final String ALGORITHM = "MD5";
+
     /**
      * @param object the {@link Serializable} {@link Object} to checksum
      *
@@ -25,7 +27,7 @@ public class ObjectUtils
      * @throws IOException
      * @throws NoSuchAlgorithmException
      */
-    public static String checksum(Serializable object)
+    public static String checksum( final Serializable object )
         throws IOException, NoSuchAlgorithmException
     {
         try( ByteArrayOutputStream baos = new ByteArrayOutputStream( );
@@ -33,7 +35,7 @@ public class ObjectUtils
         {
             oos.writeObject( object );
             return DatatypeConverter.printHexBinary(
-                MessageDigest.getInstance( "MD5" )
+                MessageDigest.getInstance( ALGORITHM )
                              .digest( baos.toByteArray( ) ) );
         }
     }

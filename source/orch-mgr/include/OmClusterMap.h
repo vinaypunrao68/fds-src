@@ -145,6 +145,7 @@ class ClusterMap : public Module {
      * Returns a list of services that are in non-failed state
      */
     NodeUuidSet getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const;
+    NodeUuidSet getFailedServices(fpi::FDSP_MgrIdType svc_type) const;
     NodeUuidSet getServiceUuids(fpi::FDSP_MgrIdType svc_type) const;
 
     void resetPendServices(fpi::FDSP_MgrIdType svc_type);
@@ -163,6 +164,13 @@ class ClusterMap : public Module {
      */
     void rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
                                const NodeUuid& svc_uuid);
+
+    /**
+     * Removes service with uuid 'svc_uuid' from pending added services mao
+     * but NOT from cluster map
+     */
+    void resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+                                  const NodeUuid& svc_uuid);
 
     /**
      * Module methods.

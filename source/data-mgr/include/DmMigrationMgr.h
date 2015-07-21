@@ -18,15 +18,10 @@ class DmIoReqHandler;
 
 class DmMigrationMgr {
 
-	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::unique_ptr>;
+	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
-    using DmMgrClientThrPtr = boost::shared_ptr<boost::thread>;
-    using DmMigrClientThMap = std::unordered_map<fds_volid_t, DmMgrClientThrPtr>;
     // Callbacks for migration handlers
-	using OmStartMigrationCBType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyDMStartMigrationMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
-	using DmStartMigClientCbType = std::function<void (fpi::AsyncHdrPtr&,
-			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr&, const Error&e, dmCatReq *dmRequest)>;
+	using OmStartMigrationCBType = std::function<void (const Error& e)>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -76,7 +71,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigration(dmCatReq* dmRequest);
+    Error startMigrationExecutor(dmCatReq* dmRequest);
 
     /**
      * Source side DM:
@@ -92,20 +87,34 @@ class DmMigrationMgr {
      */
     Error startMigrationClient(dmCatReq* dmRequest);
 
+    /**
+     * Destination Side DM:
+     * Handle deltaObject in Migration executor.
+     */
+    Error applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobsReq);
+
+    /**
+     * Destination side DM:
+     * Callback for committing the transaction after applying a specific blob msg
+     */
+    Error applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e);
+
+    /**
+     * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
+     */
+    Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
-    fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg;
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg;
-    fpi::AsyncHdrPtr asyncPtr;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
     std::atomic<fds_bool_t> cleanUpInProgress;
-    dmCatReq* dmReqPtr = nullptr;
+
     DataMgr& dataManager;
 
     /** check if the feature is enabled or not.
@@ -113,9 +122,19 @@ class DmMigrationMgr {
     bool enableMigrationFeature;
 
     /**
-     * check if resync feature is enabled.
+     * check if resync on restart feature is enabled.
      */
     bool enableResyncFeature;
+
+    /**
+     * maximum number of blobs per delta set sent from source DM.
+     */
+    uint64_t maxNumBlobs;
+
+    /**
+     * maximum number of blob desc per delta set sent from source DM.
+     */
+    uint64_t maxNumBlobDesc;
 
     /**
      * Throttles the number of max concurrent migrations
@@ -139,6 +158,12 @@ class DmMigrationMgr {
 
     /**
      * Destination side DM:
+     * Gets an ptr to the migration executor. Used as part of handler.
+     */
+    DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
+
+    /**
+     * Destination side DM:
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
      */
@@ -154,7 +179,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
-    void ackMigrationComplete(const Error &status);
+    void waitThenAckMigrationComplete(const Error &status);
 
 	/*
      * Destination side DM:
@@ -189,47 +214,9 @@ class DmMigrationMgr {
 
     /**
      * Source side DM:
-     * Wrapper around calling DmStartMigClientCb
-     */
-    void ackInitialBlobFilter(const Error &status);
-
-    /**
-     * Source side DM:
-     * Callback for Source DM to ack back to the dest DM.
-     */
-    DmStartMigClientCbType DmStartMigClientCb;
-
-    /**
-     * Source side DM:
      * Callback for migrationClient.
      */
     void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
-
-    /**
-     * Source side DM:
-     * It's called a client but really a server, since it's receiving requests
-     * from Destination DMs. So we create a thread to handle the migration tasks
-     * while freeing up the manager for more requests.
-     */
-    void migrationClientAsyncTask(fds_volid_t uniqueId);
-
-    /**
-     * Source side DM:
-     * Map to keep track of the ongoing clients threads
-     */
-    DmMigrClientThMap clientThreadsMap;
-    fds_rwlock migrClientThrMapLock;
-
-    /**
-     * Source side DM:
-     * Takes a snapshot of the current volume a client is specific for, and generate
-     * the DeltaBlobDxSet, which will be used later to diff against the destination
-     * DM's InitialBlobDxSet. (Dx == Descriptor)
-     */
-    Error snapAndGenerateDBDxSet(fds_volid_t uniqueId,
-									Catalog::catalog_roptions_t &opts,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr &filterSet);
-
 };  // DmMigrationMgr
 
 }  // namespace fds

@@ -83,7 +83,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & volDesc) override;
 
     virtual Error getBlobMetaDesc(const std::string & blobName,
-            BlobMetaDesc & blobMeta) override;
+                                  BlobMetaDesc & blobMeta,
+                                  Catalog::MemSnap m = NULL) override;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) override;
 
@@ -91,19 +92,19 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
             ObjectID & obj) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
-            fds_uint64_t endOffset, fpi::FDSP_BlobObjectList& objList) override;
+                            fds_uint64_t endOffset,
+                            fpi::FDSP_BlobObjectList& objList,
+                            const Catalog::MemSnap snap = NULL) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset, BlobObjList & objList) override;
 
     virtual Error getLatestSequenceId(blob_version_t & max) override;
 
-    virtual Error getAllBlobsWithSequenceId(std::map<int64_t, int64_t>& blobsSeqId) override;
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap) override;
 
-    virtual Error getAllBlobsWithSequenceIdSnap(std::map<int64_t, int64_t>& blobsSeqId,
-														Catalog::catalog_roptions_t &opts) override;
-
-    virtual Error getInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
+    virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
@@ -131,7 +132,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
     virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 
-    virtual Error freeInMemorySnapshot(Catalog::catalog_roptions_t &opts) override;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) override;
 
     Catalog* getCatalog() {
         return catalog_.get();
@@ -139,14 +140,6 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
   private:
     // methods
-    std::unique_ptr<Catalog::catalog_iterator_t> getSnapshotIter(Catalog::catalog_roptions_t& opts) {
-        catalog_->GetSnapshot(opts);
-        return catalog_->NewIterator(opts);
-    }
-
-    std::unique_ptr<Catalog::catalog_iterator_t> getExistingSnapshotIter(Catalog::catalog_roptions_t& opts) {
-    	return catalog_->NewIterator(opts);
-    }
 
     // vars
 

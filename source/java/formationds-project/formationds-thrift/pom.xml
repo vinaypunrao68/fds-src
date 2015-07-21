@@ -9,12 +9,11 @@
   <parent>
     <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2015.07.17-SNAPSHOT</version>
+    <version>2015.07.31-SNAPSHOT</version>
   </parent>
 
   <name>${formationds.project.name} Thrift</name>
   <artifactId>formationds-thrift</artifactId>
-  <version>2015.07.17-SNAPSHOT</version>
 
   <dependencies>
         <dependency>

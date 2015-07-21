@@ -84,15 +84,16 @@
     <thrift.version>0.9.0</thrift.version>
     <togglz.version>2.1.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
-    <nfs4j.core.version>0.10.2</nfs4j.core.version>
 
     <!-- unit test -->
     <junit.version>4.12</junit.version>
     <mockito.version>1.10.8</mockito.version>
 
     <!-- formation data systems, inc dependencies -->
-    <formationds.thrift.version>2015.07.17-SNAPSHOT</formationds.thrift.version>
-    <formationds.ext.model.version>2015.07.17-SNAPSHOT</formationds.ext.model.version>
+    <formationds.project.version>2015.07.31-SNAPSHOT</formationds.project.version>
+    <formationds.thrift.version>2015.07.31-SNAPSHOT</formationds.thrift.version>
+    <formationds.ext.model.version>2015.07.31-SNAPSHOT</formationds.ext.model.version>
+    <formationds.thrift.client.util.version>2015.07.31-SNAPSHOT</formationds.thrift.client.util.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -392,12 +393,6 @@
         <groupId>org.uncommons.maths</groupId>
         <artifactId>uncommons-maths</artifactId>
         <version>${uncommons.maths.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.dcache</groupId>
-        <artifactId>nfs4j-core</artifactId>
-        <version>${nfs4j.core.version}</version>
       </dependency>
 
       <dependency>

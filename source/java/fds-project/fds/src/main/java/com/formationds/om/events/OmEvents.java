@@ -43,12 +43,12 @@ public enum OmEvents implements EventDescriptor {
     /** Nodes Stuff **/
 	ADD_NODE(
 			EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR, 
-			"Adding node {0}", "nodeUuid"), 
+			"Added node {0} successfully", "nodeUuid"), 
 	ADD_NODE_ERROR(
 			EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
 			"Adding node uuid {0} failed.", "nodeUuid"),
 	REMOVE_NODE(
-			EventCategory.SYSTEM, "Removing node {0}:{1}", "nodeName",
+			EventCategory.SYSTEM, "Removed node {0}:{1} successfully", "nodeName",
 			"nodeUuid"), 
 	REMOVE_NODE_ERROR(EventType.SYSTEM_EVENT,
 			EventCategory.SYSTEM, EventSeverity.ERROR,
@@ -64,9 +64,21 @@ public enum OmEvents implements EventDescriptor {
     CHANGE_SERVICE_STATE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
     	    "The attempt to change the service state for service: {0} failed.", "serviceId" ),
     REMOVE_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
-    		"Service {0}:{1} was removed from the system.", "serviceId"),
+    		"Service {0} was removed from the system.", "serviceId"),
     REMOVE_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
-    		"Removal of service {0}:{1} failed.", "serviceId");
+    		"Removal of service {0} failed.", "serviceId"),
+    ADD_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0} was added to the system.", "serviceId"),
+    ADD_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Adding of service {0} failed.", "serviceId"),
+    STOP_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0} was stopped in the system.", "serviceId"),
+    STOP_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Stopping of service {0} failed.", "serviceId"),
+    START_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
+    		"Service {0} was started in the system.", "serviceId"),
+    START_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
+    		"Starting of service {0} failed.", "serviceId");
 
     private final EventType     type;
     private final EventCategory category;

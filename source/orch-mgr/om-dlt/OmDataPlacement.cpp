@@ -117,7 +117,7 @@ DataPlacement::computeDlt() {
                      true);
     err = placeAlgo->computeNewDlt(curClusterMap,
                                    commitedDlt,
-                                   newDlt, 0);
+                                   newDlt, getNumOfPrimarySMs());
 
     // Compute DLT's reverse node to token map
     if (err.ok()) {
@@ -181,6 +181,7 @@ DataPlacement::beginRebalance() {
     // find all SMs that will either get a new responsibility for a DLT token
     // or need resync because an SM became a primary
     NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
     // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
     std::unordered_map<fds_uint64_t, fpi::CtrlNotifySMStartMigrationPtr> startMigrMsgs;
     for (fds_token_id tokId = 0; tokId < newDlt->getNumTokens(); ++tokId) {
@@ -199,6 +200,10 @@ DataPlacement::beginRebalance() {
 
         // exclude SMs that were removed
         for (auto sm : rmSMs) {
+            srcCandidates.erase(sm);
+        }
+        // exclude SMs that failed
+        for (auto sm : failedSMs) {
             srcCandidates.erase(sm);
         }
 
@@ -531,16 +536,17 @@ DataPlacement::mod_init(SysParams const *const param) {
                 << "config file, will use Consistent Hashing algorith";
     }
 
-    LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
-              << ", dlt depth " << curDltDepth
-              << ", algorithm " << algo_type_str;
-
     setAlgorithm(type);
 
     curClusterMap = OM_Module::om_singleton()->om_clusmap_mod();
 
     numOfPrimarySMs = MODULEPROVIDER()->get_fds_config()->
             get<int>("fds.sm.number_of_primary");
+
+    LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
+              << ", dlt depth " << curDltDepth
+              << ", algorithm " << algo_type_str
+              <<", number of primary SMs" << numOfPrimarySMs;
 
     return 0;
 }
@@ -580,7 +586,8 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     return err;
 }
 
-Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
+Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
+                                          const NodeUuidSet& deployed_sm_services) {
     Error err(ERR_OK);
 
     // this function should be called only during init..
@@ -603,9 +610,9 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
             err = Error(ERR_PERSIST_STATE_MISMATCH);
         } else {
             // check if DLT is valid with respect to nodes
-            // i.e. only contains node uuis that are in nodes' set
-            // does not contain any zeroes, etc.
-            err = dlt->verify(sm_services);
+            // i.e. only contains node uuis that are in deployed_sm_services
+            // set and does not contain any zeroes, etc.
+            err = dlt->verify(deployed_sm_services);
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
                 // we will set newDLT because we don't know yet if
@@ -626,30 +633,19 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services) {
         return Error(ERR_PERSIST_STATE_MISMATCH);
     }
 
-    // At this point we are not supporting the case when we went down
-    // during migration -- if we see target DLT in configDB, we will just
-    // throw away persistent state
-    // TODO(anna) implement support for recovering from 'in the middle of
-    // migration' state.
+    // If we saved target DLT version, we were in the middle of migration
+    // when domain shutdown or OM went down. We are going to restart migration
+    // and re-compute the DLT again, so throw away this DLT
+    // Maybe in the future, we can re-start migration with saved target DLT
+    // but this is an optimization, may do later
     fds_uint64_t nextVersion = configDB->getDltVersionForType("next");
     if (nextVersion > 0 && nextVersion != currentVersion) {
-        // at this moment not handling this case, so return error for now
-        LOGWARN << "We are not yet supporting recovering persistent state "
-                << "when we were in the middle of migration, so will for now "
-                << " ignore persisted DLT and nodes";
-        delete newDlt;
-        newDlt = NULL;
-        return Error(ERR_NOT_IMPLEMENTED);
-        /*
-        DLT* dlt = new DLT(0, 0, 0, false);
-        if (!configDB->getDlt(*dlt, nextVersion)) {
-            LOGCRITICAL << "unable to get (next) dlt version [" << currentVersion << "]";
-            delete dlt;
-        } else {
-            // set the next dlt
-            newDlt = dlt;
+        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+                  << "persisted  target DLT and re-compute it again if discovered "
+                  << "SMs re-register";
+        if (!configDB->setDltType(0, "next")) {
+            LOGWARN << "unable to reset DMT target version in configDB";
         }
-        */
     } else {
         if (0 == nextVersion) {
             LOGDEBUG << "There is only commited DLT in configDB (OK)";

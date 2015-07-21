@@ -11,7 +11,7 @@
   <parent>
     <artifactId>formationds-commons</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2015.07.17-SNAPSHOT</version>
+    <version>2015.07.31-SNAPSHOT</version>
   </parent>
 
   <name>${formationds.commons.util.name}</name>
@@ -32,10 +32,6 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-core</artifactId>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>

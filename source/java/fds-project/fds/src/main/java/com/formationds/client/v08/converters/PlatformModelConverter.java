@@ -8,6 +8,9 @@ import com.formationds.client.v08.model.ServiceType;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.SvcID;
+import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.SvcInfo;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -185,6 +188,63 @@ public class PlatformModelConverter
     //TODO:  The IP addresses
 
     return nodeInfo;
+  }
+
+  public static com.formationds.protocol.svc.types.ServiceStatus convertToInternalServiceStatus
+  (
+  ServiceState externalServiceState
+  )
+  {
+	// Conversion of model.Service.ServiceStatus to svc.types.ServiceStatus
+	com.formationds.protocol.svc.types.ServiceStatus internalStatus;
+	
+	switch(externalServiceState){
+	case DEGRADED:
+	case LIMITED:
+	case NOT_RUNNING:
+	case ERROR:
+	case UNEXPECTED_EXIT:
+		internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+		break;
+	case UNREACHABLE:
+		internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
+        break;
+	default: //Running,Initializing,Shutting Down
+        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
+        break;
+	}
+
+	return internalStatus;
+  }
+
+  public static SvcInfo convertServiceToSvcInfoType( final String nodeIp, Service service)
+  {
+    final Long newId = -1L;
+    if( service.getId( ) == null )
+    {
+      service.setId( newId );
+    }
+
+    SvcUuid svcUid = new SvcUuid( service.getId( ) );
+    SvcID sId = new SvcID( svcUid, service.getType( )
+                                            .name( ) );
+	
+	Optional<FDSP_MgrIdType> optType
+	  	    = convertToInternalServiceType(service.getType());
+	
+	ServiceState externalServiceState = service.getStatus().getServiceState();
+
+	com.formationds.protocol.svc.types.ServiceStatus internalStatus
+	                         = convertToInternalServiceStatus(externalServiceState);
+
+	SvcInfo svcInfo = new SvcInfo( sId,
+                                   service.getPort( ),
+                                   optType.get( ),
+                                   internalStatus,
+                                   "auto-name", nodeIp, 0, "name",
+                                   new HashMap<>());
+	
+	  return svcInfo;	  
   }
 
   public static Optional<ServiceType> convertToExternalServiceType( FDSP_MgrIdType type )

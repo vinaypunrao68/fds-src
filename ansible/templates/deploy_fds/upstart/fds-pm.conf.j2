@@ -13,6 +13,9 @@ env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 
 env FDS_ROOT=/fds
 
+respawn
+respawn limit 10 5
+
 script
 chdir $FDS_ROOT/bin
 exec platformd --fds-root=$FDS_ROOT --foreground > $FDS_ROOT/bin/pm.out 2>&1

@@ -262,10 +262,12 @@ typedef enum {
     FDS_DM_STAT_STREAM,
     FDS_DM_SYS_STATS,
     FDS_DM_RELOAD_VOLUME,
-    FDS_OP_INVALID,
     FDS_DM_LIST_BLOBS_BY_PATTERN,
     FDS_DM_MIGRATION,
-	FDS_DM_RESYNC_INIT_BLOB
+	FDS_DM_RESYNC_INIT_BLOB,
+    FDS_DM_MIG_DELTA_BLOBDESC,
+    FDS_DM_MIG_DELTA_BLOB,
+    FDS_OP_INVALID
 } fds_io_op_t;
 
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);

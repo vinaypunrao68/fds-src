@@ -133,18 +133,23 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         this.configClientFactory = configClientFactory;
 
         map = new ConcurrentHashMap<>();
-        map.compute(KEY, (k, v) -> {
-            try {
-                return new ConfigurationCache(configClientFactory.getClient());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        map.compute( KEY, ( k, v ) -> {
+            try
+            {
+                return new ConfigurationCache(
+                    configClientFactory.getClient( ) );
             }
-        });
+            catch( Exception e )
+            {
+                throw new RuntimeException( e );
+            }
+        } );
     }
 
-    void startStatStreamRegistrationHandler( final String urlHostname, final int urlPortNo) {
-        this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
-        this.statStreamRegistrationHandler.start();
+    void createStatStreamRegistrationHandler( final String urlHostname,
+                                              final int urlPortNo ) {
+        this.statStreamRegistrationHandler =
+            new StatStreamRegistrationHandler( this, urlHostname, urlPortNo);
     }
 
     void startConfigurationUpdater() {
@@ -346,6 +351,71 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             throws org.apache.thrift.TException {
         return getConfig().ActivateNode(act_serv_req);
     }
+    
+    /**
+     * Add service to the specified Node.
+     *
+     * @param add_svc_req - NotifyAddServiceMsg: Struct containing list of services 
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().AddService(add_svc_req);
+    }
+    
+    /**
+     * Start service on the specified Node.
+     *
+     * @param start_svc_req - NotifyStartServiceMsg: Struct containing list of services
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().StartService(start_svc_req);
+    }
+    
+    /**
+     * Stop service on the specified Node.
+     *
+     * @param stop_svc_req - NotifyStopServiceMsg: Struct containing list of services
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().StopService(stop_svc_req);
+    }
+    
+    /**
+     * Remove service on the specified Node.
+     *
+     * @param rm_svc_req - NotifyRemoveServiceMsg: Struct containing list of services
+     * associated with node
+     *
+     * @return int 0 is successful. Not 0 otherwise.
+     *
+     * @throws TException
+     */
+    @Override
+    public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
+            throws org.apache.thrift.TException {
+    	return getConfig().RemoveService(rm_svc_req);
+    }
+ 
 
     /**
      * List all currently defined Services for the given Local Domain.

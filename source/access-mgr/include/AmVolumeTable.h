@@ -32,6 +32,8 @@ struct AmVolumeTable : public HasLogger {
 
     /// Use logger that passed in to the constructor
     AmVolumeTable(size_t const qos_threads, fds_log *parent_log);
+    AmVolumeTable(AmVolumeTable const& rhs) = delete;
+    AmVolumeTable& operator=(AmVolumeTable const& rhs) = delete;
     ~AmVolumeTable();
     
     /// Registers the callback we make to the transaction layer

@@ -7,7 +7,10 @@
 #include <string>
 #include <set>
 #include <map>
+#include <boost/filesystem.hpp>
 
+#include <sys/mount.h>
+#include <functional>
 #include <concurrency/RwLock.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
@@ -17,8 +20,13 @@ namespace fds {
 
 typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
+typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
 
 typedef uint32_t fds_checksum32_t;
+
+typedef std::function<void (const diskio::DataTier&,
+                            const std::set<std::pair<fds_token_id, fds_uint16_t>>&
+                            )> DiskChangeFnObj;
 
 /*
  * Some constants for SM superblock.
@@ -249,7 +257,7 @@ static_assert((sizeof(struct SmSuperblock) % SM_SUPERBLOCK_SECTOR_SIZE) == 0,
  */
 class SmSuperblockMgr {
   public:
-    SmSuperblockMgr();
+    explicit SmSuperblockMgr(DiskChangeFnObj diskChangeFunc=DiskChangeFnObj());
     ~SmSuperblockMgr();
 
     typedef std::unique_ptr<SmSuperblockMgr> unique_ptr;
@@ -269,13 +277,15 @@ class SmSuperblockMgr {
      * came from clean state and successfully persistent the superblock
      * Otherwise returns an error.
      */
-    Error loadSuperblock(const DiskIdSet& hddIds,
-                         const DiskIdSet& ssdIds,
-                         const DiskLocMap & latestDiskMap);
+    Error loadSuperblock(DiskIdSet& hddIds,
+                         DiskIdSet& ssdIds,
+                         const DiskLocMap & latestDiskMap,
+                         const DiskLocMap & latestDiskDevMap = DiskLocMap());
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
-    /* Reconcile superblocks, is there is inconsistency.
+    /**
+     * Reconcile superblocks, if there is inconsistency.
      */
     Error reconcileSuperblock();
 
@@ -342,21 +352,50 @@ class SmSuperblockMgr {
     getSuperblockPath(const std::string& dir_path);
 
     bool
-    checkPristineState();
+    checkPristineState(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
+
+    Error changeTokenCompactionState(fds_token_id smToken,
+                                     diskio::DataTier tier,
+                                     fds_bool_t inProg,
+                                     fds_uint16_t newFileId);
 
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
     void
-    checkDiskTopology(const DiskIdSet& newHDDs, const DiskIdSet& newSSDs);
+    checkDiskTopology(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
+
+    void
+    checkDisksAlive(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
+
+    bool
+    devFlushTest(const std::string& superblockPath);
+
+    bool
+    isDiskUnreachable(const fds_uint16_t& diskId,
+                      const std::string& mountPnt);
 
     DiskIdSet
     diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
+
+    SmTokenSet getTokensOfThisSM(fds_uint16_t diskId);
 
     /**
      * Set the latest committed DLT version.
      */
     Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
+
+    std::string getTempMount();
+
+    void deleteMount(std::string& path);
+
+    void checkForHandledErrors(Error& err);
+
+    void setDiskHealthMap();
+
+    void markDiskBad(const fds_uint16_t& diskId);
+
+    bool isDiskHealthy(const fds_uint16_t& diskId);
 
   private:
     /// Master superblock. The master copy will persist
@@ -372,9 +411,13 @@ class SmSuperblockMgr {
 
     /// set of disks.
     DiskLocMap diskMap;
-
+    DiskLocMap diskDevMap;
+    DiskHealthMap diskHealthMap;
+    
     /// Name of the superblock file.
     const std::string superblockName = "SmSuperblock";
+
+    fds::DiskChangeFnObj diskChangeFn;
 };
 
 std::ostream& operator<< (std::ostream &out,

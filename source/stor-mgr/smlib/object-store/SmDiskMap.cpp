@@ -3,6 +3,8 @@
  */
 #include <string>
 #include <fds_process.h>
+#include <fiu-local.h>
+#include <fiu-control.h>
 #include <net/SvcMgr.h>
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
@@ -15,10 +17,22 @@
 
 namespace fds {
 
-SmDiskMap::SmDiskMap(const std::string& modName)
+template <typename T, typename Cb>
+static std::unique_ptr<TrackerBase<fds_uint16_t>>
+create_tracker(Cb&& cb, std::string event, fds_uint32_t win = 0, fds_uint32_t th = 0) {
+    static std::string const prefix("fds.sm.disk_event_threshold.");
+
+    size_t window = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".window", win);
+    size_t threshold = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".threshold", th);
+
+    return std::unique_ptr<TrackerBase<fds_uint16_t>>
+            (new TrackerMap<Cb, fds_uint16_t, T>(std::forward<Cb>(cb), window, threshold));
+}
+
+SmDiskMap::SmDiskMap(const std::string& modName, DiskChangeFnObj diskChangeFn)
         : Module(modName.c_str()),
           bitsPerToken_(0),
-          superblock(new SmSuperblockMgr()),
+          superblock(new SmSuperblockMgr(std::move(diskChangeFn))),
           ssdIdxMap(nullptr),
           test_mode(false) {
     for (int i = 0; i < 60; ++i) {
@@ -58,14 +72,18 @@ int SmDiskMap::mod_init(SysParams const *const param) {
         ++arrIdx;
     }
 
+    // initialize disk error handlers
+    initDiskErrorHandlers();
+
     return 0;
 }
 
 Error
 SmDiskMap::loadPersistentState() {
+
     // Load superblock, tell superblock about disk map
     // it will handle changes in diskmap (vs. its persisted state)
-    Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map);
+    Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, diskDevMap);
     if (err.ok()) {
         LOGDEBUG << "Loaded superblock " << *superblock;
     } else {
@@ -74,42 +92,24 @@ SmDiskMap::loadPersistentState() {
     return err;
 }
 
-SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
+DiskCapacityUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
-
-    // Cause method to return capacity
-    fiu_do_on("sm.diskmap.cause_used_capacity_alert", \
-              fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
-                       << ", 100). This should cause an alert."; \
-              SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_ALERT_THRESHOLD + 1, 100);
-              return retVals; );
-
-    fiu_do_on("sm.diskmap.cause_used_capacity_warn", \
-              fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
-                       << ", 100). This should cause a warning."; \
-              SmDiskMap::capacity_tuple retVals (DISK_CAPACITY_WARNING_THRESHOLD + 1, 100);
-              return retVals; );
-
-    struct statvfs statbuf;
-    memset(&statbuf, 0, sizeof(statbuf));
 
     bool ssdMetadata = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta");
 
     // Get the total size info for the disk regardless of type
     std::string diskPath = getDiskPath(disk_id);
-    if (statvfs(diskPath.c_str(), &statbuf) < 0) {
-        LOGERROR << "Could not read disk " << diskPath;
-    }
-    fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
-    fds_uint64_t consumedSize = 0;
+
+    DiskCapacityUtils::capacity_tuple out = DiskCapacityUtils::getDiskConsumedSize(diskPath);
 
     // If we got an SSD disk id and have HDDs we still need to check metadata size
     if ((ssd_ids.find(disk_id) != ssd_ids.end()) && (hdd_ids.size() != 0)) {
         // Only calculate this value if we've got ssd metadata turned on
         if (ssdMetadata) {
             LOGDEBUG << "SM using SSD for metadata, checking metadata size...";
+
+            // Accumulator
+            fds_uint64_t acc = 0;
 
             SmTokenSet smToks = getSmTokens();
             // Find the LevelDBs
@@ -118,17 +118,15 @@ SmDiskMap::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
                  ++cit) {
                 // Calculate a consumedSize based on the size of the level DBs
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
-                if (statvfs(filename.c_str(), &statbuf) < 0) {
-                    LOGERROR << "Could not read metadata filename" << filename;
-                }
-                consumedSize += (statbuf.f_blocks * statbuf.f_bsize);
+                DiskCapacityUtils::capacity_tuple tmp = DiskCapacityUtils::getDiskConsumedSize(filename);
+
+                acc += tmp.first;
             }
+            return DiskCapacityUtils::capacity_tuple(acc, out.second);
         }
-    } else {
-        consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
     }
 
-    return std::pair<fds_uint64_t, fds_uint64_t>(consumedSize, totalSize);
+    return out;
 }
 
 
@@ -210,6 +208,7 @@ void SmDiskMap::getDiskMap() {
         }
         fds_verify(disk_map.count(idx) == 0);
         disk_map[idx] = path;
+        diskDevMap[idx] = dev;
     }
     if (disk_map.size() == 0) {
         LOGCRITICAL << "Can't find any devices!";
@@ -247,6 +246,13 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
 
     // get DLT tokens that belong to this SM
     const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
+
+    if (dlt_toks.empty()) {
+        LOGDEBUG << "First DLT received does not contain this SM, not updating"
+                 << " token ownership in superblock";
+        fds_verify(firstDlt);
+        return ERR_SM_NOERR_NOT_IN_DLT;
+    }
 
     // here we handle only gaining of ownership of DLT tokens
     // we will handle losing of DLT tokens on DLT close
@@ -314,6 +320,48 @@ SmTokenSet SmDiskMap::handleDltClose(const DLT* dlt, NodeUuid& mySvcUuid)
 
     // return SM tokens that were just invalidated
     return rmToks;
+}
+
+void
+SmDiskMap::notifyIOError(fds_token_id smTokId,
+                         diskio::DataTier tier,
+                         const Error& error) {
+    // we care about certain types of errors
+    if ((error == ERR_DISK_WRITE_FAILED) ||
+        (error == ERR_DISK_READ_FAILED) ||
+        (error == ERR_NO_BYTES_READ)) {
+        fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
+        if (tier == diskio::diskTier) {
+            hdd_tracker.feed_event(ERR_DISK_WRITE_FAILED, diskId);
+        } else if (tier == diskio::flashTier) {
+            ssd_tracker.feed_event(ERR_DISK_WRITE_FAILED, diskId);
+        }
+    }
+}
+
+void
+SmDiskMap::initDiskErrorHandlers() {
+    // callback for disk failure notification
+    struct cb {
+        void operator()(fds_uint16_t diskId,
+                        size_t events) const {
+            LOGERROR << "Disk " << diskId << " on tier " << tier
+                     << " saw too many errors; declaring disk failed";
+            // TODO(Anna) handle disk failure
+        }
+        diskio::DataTier tier;
+    };
+
+    // Write/read HDD error handler (3 within 5 minutes will trigger)
+    // we will record both read and write errors as write errors
+    hdd_tracker.register_event(ERR_DISK_WRITE_FAILED,
+                               create_tracker<std::chrono::minutes>(cb{diskio::diskTier},
+                                                                    "hdd_fail", 5, 3));
+    // Write/Read SSD error handler (3 within 5 minutes will trigger)
+    // we will record both read and write errors as write errors
+    ssd_tracker.register_event(ERR_DISK_WRITE_FAILED,
+                               create_tracker<std::chrono::minutes>(cb{diskio::flashTier},
+                                                                    "ssd_fail", 5, 3));
 }
 
 fds_uint64_t
@@ -420,4 +468,8 @@ SmDiskMap::getTotalDisks(diskio::DataTier tier) const {
     return 0;
 }
 
+bool
+SmDiskMap::isAllDisksSSD() const {
+    return ((ssd_ids.size() > 0) && (hdd_ids.size() == 0));
+}
 }  // namespace fds
