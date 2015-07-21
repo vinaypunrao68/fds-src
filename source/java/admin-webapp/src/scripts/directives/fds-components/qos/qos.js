@@ -94,6 +94,39 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
 
                 $scope.qos = newVal;
             });
+            
+            
+            $scope.$watch( 'qos.iopsMax', function(newVal, oldVal){
+                
+                if ( newVal !== 0 && newVal < $scope.qos.iopsMin && $scope.qos.iopsMin !== 0 ){
+                    
+                    var index = $scope.guaranteeChoices.length-2;
+                    
+                    while( index >= 0 && $scope.guaranteeChoices[index] > newVal ){
+                        index--;
+                    }
+                    
+                    $scope.qos.iopsMin = $scope.guaranteeChoices[index];
+                    
+                    refreshSliders();
+                }
+            });
+            
+            $scope.$watch( 'qos.iopsMin', function( newVal, oldVal ){
+                
+                if ( newVal !== 0 && newVal > $scope.qos.iopsMax && $scope.qos.iopsMax !== 0 ){
+                    // go down the list until one is less
+                    var index = 0;
+
+                    while( index < $scope.limitChoices.length && $scope.limitChoices[index] < newVal ){
+                        index++;
+                    }
+
+                    $scope.qos.iopsMax = $scope.limitChoices[index];
+
+                    refreshSliders();
+                }
+            });
          
             init();
         }
