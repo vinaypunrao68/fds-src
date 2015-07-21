@@ -173,12 +173,12 @@ if __name__ == '__main__':
     cmdargs=sys.argv[1:]
 
     auth = FdsAuth()
-    token = auth.login()
+#     token = auth.login()
     
     #login failures will return empty tokens
-    if ( token is None ):
-        print 'Authentication failed.'
-        sys.exit( 1 )
+#     if ( token is None ):
+#         print 'Authentication failed.'
+#         sys.exit( 1 )
     
     shell = FDSShell(auth, cmdargs)
 
