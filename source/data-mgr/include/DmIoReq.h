@@ -52,103 +52,103 @@ extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 extern std::string logString(const fpi::CtrlNotifyFinishVolResyncMsg &msg);
 // ======
 
-    /*
-     * TODO: Make more generic name than catalog request
-     */
-    class dmCatReq : public FDS_IOType {
-      public:
-        fds_volid_t  volId;
-        std::string blob_name;
-        blob_version_t blob_version;
-        std::string session_uuid;
-        BlobTxId::const_ptr blobTxId;
-        std::function<void(const Error &e, dmCatReq *dmRequest)> cb = NULL;
-        std::function<void(dmCatReq * req)> proc = NULL;
-
-        dmCatReq(fds_volid_t  _volId,
-                 const std::string &_blobName,
-                 std::string  _session_uuid,
-                 blob_version_t _blob_version,
-                 fds_io_op_t  _ioType)
-                : volId(_volId), blob_name(_blobName), session_uuid(_session_uuid) {
-            io_req_id = 0;
-            io_type = _ioType;
-            io_vol_id = _volId;
-            blob_version = _blob_version;
-            // perf-trace related data
-        }
-
-        dmCatReq() {
-            io_req_id = 0;
-        }
-
-        fds_volid_t getVolId() const {
-            return volId;
-        }
-
-        virtual ~dmCatReq() = default;
-
-        void setBlobVersion(blob_version_t version) {
-            blob_version = version;
-        }
-        void setBlobTxId(BlobTxId::const_ptr id) {
-            blobTxId = id;
-        }
-
-        BlobTxId::const_ptr getBlobTxId() const {
-            return blobTxId;
-        }
-
-        // Why is this not a ostream operator?
-        virtual std::string log_string() const {
-            std::stringstream ret;
-            ret << "dmCatReq for vol " << std::hex << volId
-                << std::dec << " io_type " << io_type;
-            return ret.str();
-        }
-    };
-
-    /**
-     * Handler that process dmCatReq
-     */
-    class DmIoReqHandler {
+/**
+ * TODO: Make more generic name than catalog request
+ */
+class dmCatReq : public FDS_IOType {
   public:
-        virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) = 0;
-    };
+    fds_volid_t  volId;
+    std::string blob_name;
+    blob_version_t blob_version;
+    std::string session_uuid;
+    BlobTxId::const_ptr blobTxId;
+    std::function<void(const Error &e, dmCatReq *dmRequest)> cb = NULL;
+    std::function<void(dmCatReq * req)> proc = NULL;
 
-    /**
-     * Request to make a snapshot of a volume db
-     */
-    class DmIoSnapVolCat: public dmCatReq {
+    dmCatReq(fds_volid_t  _volId,
+             const std::string &_blobName,
+             std::string  _session_uuid,
+             blob_version_t _blob_version,
+             fds_io_op_t  _ioType)
+            : volId(_volId), blob_name(_blobName), session_uuid(_session_uuid) {
+        io_req_id = 0;
+        io_type = _ioType;
+        io_vol_id = _volId;
+        blob_version = _blob_version;
+        // perf-trace related data
+    }
+
+    dmCatReq() {
+        io_req_id = 0;
+    }
+
+    fds_volid_t getVolId() const {
+        return volId;
+    }
+
+    virtual ~dmCatReq() = default;
+
+    void setBlobVersion(blob_version_t version) {
+        blob_version = version;
+    }
+    void setBlobTxId(BlobTxId::const_ptr id) {
+        blobTxId = id;
+    }
+
+    BlobTxId::const_ptr getBlobTxId() const {
+        return blobTxId;
+    }
+
+    // Why is this not a ostream operator?
+    virtual std::string log_string() const {
+        std::stringstream ret;
+        ret << "dmCatReq for vol " << std::hex << volId
+            << std::dec << " io_type " << io_type;
+        return ret.str();
+    }
+};
+
+/**
+ * Handler that process dmCatReq
+ */
+class DmIoReqHandler {
   public:
-        // TODO(xxx) what other params do we need?
-      typedef std::function<void (fds_volid_t volid,
-                                  const Error& error)> CbType;
+    virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) = 0;
+};
+
+/**
+ * Request to make a snapshot of a volume db
+ */
+class DmIoSnapVolCat : public dmCatReq {
+  public:
+    // TODO(xxx) what other params do we need?
+    typedef std::function<void (fds_volid_t volid,
+                                const Error& error)> CbType;
 
   public:
-        DmIoSnapVolCat() {
-        }
+    DmIoSnapVolCat() {
+    }
 
-        // Why is this not a ostream operator?
-        virtual std::string log_string() const override {
-            std::stringstream ret;
-            ret << "dmIoSnapVolCat for vol "
-                << std::hex << volId << std::dec << " first rsync? "
-                << (io_type == FDS_DM_SNAP_VOLCAT);
-            return ret.str();
-        }
+    // Why is this not a ostream operator?
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "dmIoSnapVolCat for vol "
+            << std::hex << volId << std::dec << " first rsync? "
+            << (io_type == FDS_DM_SNAP_VOLCAT);
+        return ret.str();
+    }
 
-        // volume is part of base class: use getVolId()
-        /* response callback */
-        CbType dmio_snap_vcat_cb;
-        NodeUuid node_uuid;
-    };
+    // volume is part of base class: use getVolId()
+    /* response callback */
+    CbType dmio_snap_vcat_cb;
+    NodeUuid node_uuid;
+};
 
 /**
  * Request that marks close DMT for a volume
  * Will send PushMeta done msg to destination DM
  */
-class DmIoPushMetaDone: public dmCatReq {
+class DmIoPushMetaDone : public dmCatReq {
   public:
     explicit DmIoPushMetaDone(fds_volid_t _volId)
             : dmCatReq(_volId, "", "", blob_version_invalid,
@@ -169,7 +169,7 @@ class DmIoPushMetaDone: public dmCatReq {
 /**
  * Request that marks push meta done on receiving side
  */
-class DmIoMetaRecvd: public dmCatReq {
+class DmIoMetaRecvd : public dmCatReq {
   public:
     explicit DmIoMetaRecvd(fds_volid_t _volId)
             : dmCatReq(_volId, "", "", blob_version_invalid,
@@ -181,12 +181,10 @@ class DmIoMetaRecvd: public dmCatReq {
     // volume is part of base class: use getVolId()
 };
 
-
-
 /**
  * Request to Commit Blob Tx
  */
-class DmIoCommitBlobTx: public dmCatReq {
+class DmIoCommitBlobTx : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
     fpi::CommitBlobTxRspMsg rspMsg;
@@ -247,7 +245,7 @@ class DmIoCommitBlobOnce : public  DmIoCommitBlobTx {
 /**
  * Request to Abort Blob Tx
  */
-class DmIoAbortBlobTx: public dmCatReq {
+class DmIoAbortBlobTx : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoAbortBlobTx *blobTx)> CbType;
 
@@ -284,7 +282,7 @@ class DmIoAbortBlobTx: public dmCatReq {
 /**
  * Request to Start Blob Tx
  */
-class DmIoStartBlobTx: public dmCatReq {
+class DmIoStartBlobTx : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoStartBlobTx *blobTx)> CbType;
 
@@ -332,7 +330,7 @@ class DmIoStartBlobTx: public dmCatReq {
 /**
  * Request to query catalog
  */
-class DmIoQueryCat: public dmCatReq {
+class DmIoQueryCat : public dmCatReq {
  public:
     typedef std::function<void (const Error &e, DmIoQueryCat *req)> CbType;
     boost::shared_ptr<fpi::QueryCatalogMsg> queryMsg;
@@ -369,8 +367,6 @@ class DmIoQueryCat: public dmCatReq {
     CbType dmio_querycat_resp_cb;
 };
 
-
-
 /**
  * New request to update catalog
  */
@@ -396,11 +392,10 @@ class DmIoFwdCat : public dmCatReq {
     CbType dmio_fwdcat_resp_cb;
 };
 
-
 /**
  * Request to update catalog
  */
-class DmIoUpdateCat: public dmCatReq {
+class DmIoUpdateCat : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoUpdateCat *req)> CbType;
 
@@ -485,7 +480,7 @@ class DmIoUpdateCatOnce : public dmCatReq {
 /**
  * Request to set blob metadata
  */
-class DmIoSetBlobMetaData: public dmCatReq {
+class DmIoSetBlobMetaData : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoSetBlobMetaData *req)> CbType;
 
@@ -523,7 +518,7 @@ class DmIoSetBlobMetaData: public dmCatReq {
 /**
  * Request to delete catalog
  */
-class DmIoDeleteCat: public dmCatReq {
+class DmIoDeleteCat : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoDeleteCat *req)> CbType;
   public:
@@ -545,7 +540,7 @@ class DmIoDeleteCat: public dmCatReq {
 };
 
 
-class DmIoGetBlobMetaData: public dmCatReq {
+class DmIoGetBlobMetaData : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoGetBlobMetaData *req)> CbType;
 
