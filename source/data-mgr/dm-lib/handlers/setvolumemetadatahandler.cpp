@@ -43,7 +43,7 @@ void SetVolumeMetadataHandler::handleRequest(
     addToQueue(dmReq);
 }
 
-void SetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
+void SetVolumeMetadataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoSetVolumeMetaData* typedRequest = static_cast<DmIoSetVolumeMetaData*>(dmRequest);
 
@@ -53,7 +53,7 @@ void SetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void SetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message,
-                                       Error const& e, dmCatReq* dmRequest) {
+                                       Error const& e, DmRequest* dmRequest) {
     LOGTRACE << "Finished set metadata for volume " << message->volumeId;
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
