@@ -8,7 +8,6 @@ import com.formationds.nfs.AmVfs;
 import com.formationds.nfs.ExportResolver;
 import com.formationds.nfs.NfsPath;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -20,6 +19,7 @@ import org.dcache.nfs.vfs.Stat;
 import org.dcache.nfs.vfs.VirtualFileSystem;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.security.auth.Subject;
@@ -34,8 +34,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
+@Ignore
 public class NfsTest extends BaseAmTest {
-
     private static AmVfs amVfs;
     private static ExportResolver resolver;
 
@@ -113,7 +113,6 @@ public class NfsTest extends BaseAmTest {
 
     @BeforeClass
     public static void setUpOnce() throws Exception {
-        new Configuration("NfsTest", new String[]{"--console"});
         XdiClientFactory xdiCf = new XdiClientFactory();
         config = new XdiConfigurationApi(xdiCf.remoteOmService(Fds.getFdsHost(), 9090));
         int responsePort = new ServerPortFinder().findPort("Async AM response", 10000);

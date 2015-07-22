@@ -24,6 +24,7 @@ import org.dcache.nfs.vfs.*;
 import javax.security.auth.Subject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -226,8 +227,13 @@ public class AmVfs implements VirtualFileSystem {
     }
 
     @Override
-    public Inode symlink(Inode inode, String s, String s1, Subject subject, int i) throws IOException {
-        throw new RuntimeException("Not implemented");
+    public Inode symlink(Inode targetDirectory, String symlinkName, String targetName, Subject subject, int mode) throws IOException {
+        NfsEntry parent = tryLoad(targetDirectory);
+        Inode inode = createInode(Stat.Type.SYMLINK, subject, mode, new NfsPath(new NfsPath(targetDirectory), symlinkName));
+        byte[] bytes = targetName.getBytes(Charset.forName("UTF-8"));
+        write(inode, bytes, 0, bytes.length, StabilityLevel.FILE_SYNC);
+        incrementGeneration(parent);
+        return inode;
     }
 
     @Override
