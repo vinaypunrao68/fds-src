@@ -195,59 +195,43 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
     /**
      * It is possible to get en empty message and last_sequence_id == true.
      */
-	if ((0 == msg->blob_obj_list.size()) && msg->last_msg_seq_id) {
+	if (0 == msg->blob_obj_list.size()) {
 		LOGMIGRATE << "For volume=" << std::hex << volumeUuid << std::dec
-                   << " received empty object list with last_mst_seq_id=" << msg->last_msg_seq_id;
-        blobDescListMutex.lock();
+                   << " received empty object list with"
+                   << ", msg_seq_id=" << msg->msg_seq_id
+                   << " last_mst_seq_id=" << msg->last_msg_seq_id;
+    } else {
         /**
-         * Record the sequence number after the blob descriptor is applied.
+         * For each blob in the blob_obj_list, apply blob offset.
          */
-        deltaBlobsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
+        for (auto & blobObj : msg->blob_obj_list) {
+            BlobObjList blobList(blobObj.blob_diff_list);
 
-        /**
-         * If all the sequence numbers are present for the blobs, then send apply the queued
-         * blob descriptors in this thread context.
-         * It's possible that all desciptors have already been received.
-         */
-        if (deltaBlobsSeqNum.isSeqNumComplete()) {
-            err = applyQueuedBlobDescs();
-            fds_verify(ERR_OK == err);
+            LOGMIGRATE << "put object on volume="
+                         << std::hex << volumeUuid << std::dec
+                         << ", blob_name=" << blobObj.blob_name
+                         << ", num_blobs=" << blobList.size();
+
+            /**
+             * TODO(Sean):
+             * This should really be directly called, since it's not query iface.
+             * Will clean it up later.
+             */
+            err = dataMgr.timeVolCat_->queryIface()->putObject(fds_volid_t(volumeUuid),
+                                                               blobObj.blob_name,
+                                                               blobList);
+            if (!err.ok()) {
+                LOGERROR << "putObject failed on volume="
+                         << std::hex << volumeUuid << std::dec
+                         << ", blob_name=" << blobObj.blob_name;
+                return err;
+            }
+
         }
-        blobDescListMutex.unlock();
-
-		return err;
-	}
-
-
-    /**
-     * For each blob in the blob_obj_list, apply blob offset.
-     */
-    for (auto & blobObj : msg->blob_obj_list) {
-        BlobObjList blobList(blobObj.blob_diff_list);
-
-        LOGMIGRATE << "put object on volume="
-                     << std::hex << volumeUuid << std::dec
-                     << ", blob_name=" << blobObj.blob_name
-                     << ", num_blobs=" << blobList.size();
-
-        /**
-         * TODO(Sean):
-         * This should really be directly called, since it's not query iface.
-         * Will clean it up later.
-         */
-        err = dataMgr.timeVolCat_->queryIface()->putObject(fds_volid_t(volumeUuid),
-                                                           blobObj.blob_name,
-                                                           blobList);
-        if (!err.ok()) {
-            LOGERROR << "putObject failed on volume="
-                     << std::hex << volumeUuid << std::dec
-                     << ", blob_name=" << blobObj.blob_name;
-            return err;
-        }
-
     }
 
     blobDescListMutex.lock();
+
     /**
      * Set the sequence number appropriately.
      */
