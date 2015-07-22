@@ -479,8 +479,8 @@ public class ExternalModelConverter {
 			Size blockSize = blockSettings.getBlockSize();
 			
 			if ( blockSize != null &&
-					blockSize.getValue( SizeUnit.B ).longValue() > Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
-					blockSize.getValue( SizeUnit.B ).longValue() < Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue()){
+					blockSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
+					blockSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue()){
 				internalSettings.setMaxObjectSizeInBytes( blockSize.getValue( SizeUnit.B )
 						.intValue() );
 			}
@@ -498,8 +498,8 @@ public class ExternalModelConverter {
 			Size maxObjSize = objectSettings.getMaxObjectSize();
 			
 			if ( maxObjSize != null && 
-					maxObjSize.getValue( SizeUnit.B ).longValue() > Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
-					maxObjSize.getValue( SizeUnit.B ).longValue() < Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue() ){
+					maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
+					maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue() ){
 				internalSettings.setMaxObjectSizeInBytes( maxObjSize.getValue( SizeUnit.B ).intValue() );
 			}
 			else {
