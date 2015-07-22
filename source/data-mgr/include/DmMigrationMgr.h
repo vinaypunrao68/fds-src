@@ -71,7 +71,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigrationExecutor(dmCatReq* dmRequest);
+    Error startMigrationExecutor(DmRequest* dmRequest);
 
     /**
      * Source side DM:
@@ -85,7 +85,7 @@ class DmMigrationMgr {
      * TODO(Neil) - once we support 2 node additions, then we'll need to keep track of
      * multiple callback pointers, etc. For now, not doing it.
      */
-    Error startMigrationClient(dmCatReq* dmRequest);
+    Error startMigrationClient(DmRequest* dmRequest);
 
     /**
      * Destination Side DM:

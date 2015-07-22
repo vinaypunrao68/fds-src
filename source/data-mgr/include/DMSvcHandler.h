@@ -8,7 +8,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
-// b/c dmCatReq is subclass in DataMgr and can't be forward declared
+// b/c DmRequest is subclass in DataMgr and can't be forward declared
 #include <DataMgr.h>
 
 namespace FDS_ProtocolInterface {

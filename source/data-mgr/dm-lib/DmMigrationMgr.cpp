@@ -87,7 +87,7 @@ DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 }
 
 Error
-DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 {
 	Error err(ERR_OK);
 
@@ -262,7 +262,7 @@ DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
 
 // See note in header file for design decisions
 Error
-DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 {
 	Error err(ERR_OK);
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);

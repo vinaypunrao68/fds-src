@@ -46,7 +46,7 @@ void VolumeOpenHandler::handleRequest(
     addToQueue(dmReq);
 }
 
-void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
+void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
 
@@ -68,7 +68,7 @@ void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::OpenVolumeMsg>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     auto response = fpi::OpenVolumeRspMsg();
