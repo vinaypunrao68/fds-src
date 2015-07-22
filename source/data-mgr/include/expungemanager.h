@@ -48,6 +48,15 @@ struct ExpungeManager {
   private:
     DataMgr* dm;
     SHPTR<ExpungeDB> expungeDB;
+    static const std::hash<fds_volid_t> volIdHash;
+    static const ObjectHash objHash;
+    struct VolObjHashType {
+        size_t operator()(const fds_volid_t volId, const ObjectID &objId) const {
+            return volIdHash(volId) + objHash(objId);
+        }
+    } VolObjHash;
+    
+    std::unique_ptr<SynchronizedTaskExecutor<size_t>> serialExecutor;
 };
 
 }  // namespace fds
