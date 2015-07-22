@@ -2,8 +2,8 @@
 	"test_sets" : {
 		"test_basic_op" : [
 			{
-				"name" : "TestVolumeBound",
-				"file" : "test_volume_bound.py",
+				"name" : "TestMultipartUpload",
+				"file" : "test_multipart_upload.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
