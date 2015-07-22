@@ -13,12 +13,12 @@ class extendedFstabTest (unittest.TestCase):
 
     def testFstabInit (self):
         fstab = disk_format.extendedFstab()
-        fstab.dump_fstab()
         self.assertFalse (fstab.altered)
 
     def testFstabAdd (self):
         fstab = disk_format.extendedFstab()
         fstab.read ('test_data/ExtendedFstabTest.unit')
+        fstab.dump_fstab()
         fstab.add_mount_point ('# This is a comment')
         self.assertTrue (fstab.altered)
 
