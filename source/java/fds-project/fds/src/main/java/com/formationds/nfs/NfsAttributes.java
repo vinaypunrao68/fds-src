@@ -20,9 +20,10 @@ public class NfsAttributes {
     public static final String NFS_SIZE = "NFS_SIZE";
     public static final String NFS_GENERATION = "NFS_GENERATION";
     public static final String NFS_NLINK = "NFS_NLINK";
+    public static final String NFS_DEV = "NFS_DEV";
     private Map<String, String> metadata;
 
-    public NfsAttributes(Stat.Type type, Subject subject, int mode, long fileId) {
+    public NfsAttributes(Stat.Type type, Subject subject, int mode, long fileId, long devId) {
         metadata = new HashMap<>();
         metadata.put(NFS_TYPE, type.name());
         int uid = (int) Subjects.getUid(subject);
@@ -39,6 +40,17 @@ public class NfsAttributes {
         metadata.put(NFS_SIZE, Long.toString(0));
         metadata.put(NFS_GENERATION, Long.toString(0));
         metadata.put(NFS_NLINK, Long.toString(1));
+        metadata.put(NFS_DEV, Long.toString(devId));
+    }
+
+    public NfsAttributes clone(long newFileId) {
+        Map<String, String> cloned = new HashMap<>(metadata);
+        cloned.put(NFS_FILE_ID, Long.toString(newFileId));
+        return new NfsAttributes(cloned);
+    }
+
+    private NfsAttributes(Map<String, String> map) {
+        this.metadata = map;
     }
 
     public NfsAttributes(BlobDescriptor blobDescriptor) {
@@ -49,9 +61,11 @@ public class NfsAttributes {
         return metadata;
     }
 
-    public void incrementGeneration() {
+    public NfsAttributes withIncrementedGeneration() {
+        Map<String, String> metadata = new HashMap<>(this.metadata);
         long generation = Long.parseLong(metadata.get(NFS_GENERATION));
         metadata.put(NFS_GENERATION, Long.toString(generation + 1l));
+        return new NfsAttributes(metadata);
     }
 
     public Stat asStat() {
@@ -68,6 +82,7 @@ public class NfsAttributes {
         stat.setATime(Long.parseLong(metadata.get(NFS_ATIME)));
         stat.setCTime(Long.parseLong(metadata.get(NFS_CTIME)));
         stat.setMTime(Long.parseLong(metadata.get(NFS_MTIME)));
+        stat.setDev(Integer.parseInt(metadata.get(NFS_DEV)));
         return stat;
     }
 
@@ -76,18 +91,29 @@ public class NfsAttributes {
     }
 
     public NfsAttributes withUpdatedMtime() {
-        metadata.put(NFS_MTIME, Long.toString(System.currentTimeMillis()));
-        return this;
+        return clone(NFS_MTIME, System.currentTimeMillis());
     }
 
     public NfsAttributes withUpdatedAtime() {
-        metadata.put(NFS_ATIME, Long.toString(System.currentTimeMillis()));
-        return this;
+        return clone(NFS_ATIME, System.currentTimeMillis());
+    }
+
+    public NfsAttributes withUpdatedCtime() {
+        return clone(NFS_CTIME, System.currentTimeMillis());
     }
 
     public NfsAttributes withUpdatedSize(long newSize) {
-        metadata.put(NFS_SIZE, Long.toString(newSize));
-        return this;
+        return clone(NFS_SIZE, newSize);
+    }
+
+    private NfsAttributes clone(String fieldName, long newValue) {
+        Map<String, String> metadata = new HashMap<>(this.metadata);
+        metadata.put(fieldName, Long.toString(newValue));
+        return new NfsAttributes(metadata);
+    }
+
+    public NfsAttributes withFileId(long fileId) {
+        return clone(NFS_FILE_ID, fileId);
     }
 
     public long getSize() {
@@ -121,6 +147,10 @@ public class NfsAttributes {
 
         if (stat.isDefined(Stat.StatAttribute.MTIME)) {
             metadata.put(NFS_MTIME, Long.toString(stat.getMTime()));
+        }
+
+        if (stat.isDefined(Stat.StatAttribute.DEV)) {
+            metadata.put(NFS_DEV, Long.toString(stat.getDev()));
         }
 
         return this;
