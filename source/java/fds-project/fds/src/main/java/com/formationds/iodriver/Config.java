@@ -408,6 +408,8 @@ public final class Config extends AbstractConfig
     {
     	if (options == null) throw new NullArgumentException("options");
     	
+    	super.addOptions(options);
+    	
         options.addOption("d",
                           "debug",
                           true,
