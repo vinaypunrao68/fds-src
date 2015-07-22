@@ -309,12 +309,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * commit log.
      * NOTE: do NOT use for any data path operation.
      */
- protected:
+    //protected:
+    /* XXX: public only for unit tests because I can't get
+       gtest friend classing to work */
     Error migrateDescriptor(fds_volid_t volId,
                             const std::string& blobName,
                             const std::string& blobData);
-    friend class DmMigrationExecutor;
- public:
+    /*friend class DmMigrationExecutor;
+    // for gtest
+    friend class SeqIdTest_MigrateVolDesc_Test;
+    friend class SeqIdTest_MigrateBlobDelete_Test;
+    friend class SeqIdTest_MigrateBlobPutNew_Test;
+    public:*/
 
     /**
      * Returns query interface to volume catalog. Provides
