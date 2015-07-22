@@ -13,6 +13,7 @@ class extendedFstabTest (unittest.TestCase):
 
     def testFstabInit (self):
         fstab = disk_format.extendedFstab()
+        fstab.dump_fstab()
         self.assertFalse (fstab.altered)
 
     def testFstabAdd (self):
