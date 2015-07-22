@@ -7,6 +7,7 @@ from services.response_writer import ResponseWriter
 from utils.converters.admin.user_converter import UserConverter
 from model.admin.tenant import Tenant
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class TenantPlugin( AbstractPlugin):
     '''
@@ -36,7 +37,7 @@ class TenantPlugin( AbstractPlugin):
         @see: AbstractPlugin
         '''
         
-        if session.is_allowed( "TENANT_MGMT" ) is False:
+        if not session.is_allowed( FdsAuth.TENANT_MGMT ):
             return
         
         self.__parser = parentParser.add_parser( "tenant", help="Manage tenants of the system" )

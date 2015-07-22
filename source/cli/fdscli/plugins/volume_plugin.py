@@ -14,6 +14,7 @@ from model.volume.settings.block_settings import BlockSettings
 from model.common.size import Size
 from model.volume.settings.object_settings import ObjectSettings
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -35,7 +36,7 @@ class VolumePlugin( AbstractPlugin):
         @see: AbstractPlugin
         '''         
         
-        if not self.session.is_allowed( "VOL_MGMT" ):
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
             return
         
         self.__volume_service = volume_service.VolumeService( session )

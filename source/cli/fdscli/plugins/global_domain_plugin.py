@@ -9,6 +9,7 @@ REST calls
 
 @author: nate
 '''
+from services.fds_auth import FdsAuth
 class GlobalDomainPlugin( abstract_plugin.AbstractPlugin):
     
     def __init__(self, session):
@@ -18,6 +19,9 @@ class GlobalDomainPlugin( abstract_plugin.AbstractPlugin):
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        if not self.session.is_allowed( FdsAuth.SYS_MGMT ):
+            return
         
         self.__parser = parentParser.add_parser( "global_domain", help="Interact with the global domain" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")

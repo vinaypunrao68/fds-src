@@ -7,6 +7,7 @@ import json
 from services.response_writer import ResponseWriter
 from model.admin.user import User
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class UserPlugin(AbstractPlugin):    
     '''
@@ -37,6 +38,9 @@ class UserPlugin(AbstractPlugin):
         '''
         @see: AbstractPlugin
         '''
+        
+        if not self.session.is_allowed( FdsAuth.USER_MGMT ):
+            return
         
         __who_parser = parentParser.add_parser( "whoami", help="Retrieve your user information." )
         self.add_format_arg( __who_parser )

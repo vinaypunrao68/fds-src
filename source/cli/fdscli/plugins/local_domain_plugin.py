@@ -5,6 +5,7 @@ from utils.converters.platform.domain_converter import DomainConverter
 
 import json
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 '''
 Created on Apr 13, 2015
@@ -25,6 +26,9 @@ class LocalDomainPlugin( AbstractPlugin):
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        if not self.session.is_allowed( FdsAuth.SYS_MGMT ):
+            return
         
         self.__parser = parentParser.add_parser( "local_domain", help="Manage and interact with local domains" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available" )

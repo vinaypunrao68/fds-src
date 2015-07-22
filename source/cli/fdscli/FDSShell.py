@@ -93,6 +93,14 @@ class FDSShell( cmd.Cmd ):
         '''        
         
         try:
+            
+            if not self.__session.is_authenticated():
+                try:
+                    self.__session.login()
+                    self.loadmodules()
+                except Exception:
+                    pass
+            
             argList = shlex.split( line )
             pArgs = self.parser.parse_args( argList )
             pArgs.func( vars( pArgs ) )

@@ -10,7 +10,7 @@ from model.statistics.statistics import Statistics
 from utils.converters.statistics.statistics_converter import StatisticsConverter
 import json
 from model.statistics.firebreak_query_criteria import FirebreakQueryCriteria
-from __builtin__ import True
+from services.fds_auth import FdsAuth
 
 class StatisticsPlugin( AbstractPlugin):
     '''
@@ -28,6 +28,9 @@ class StatisticsPlugin( AbstractPlugin):
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
+            return
         
         self.__stats_service = StatsService( session )
         self.__vol_service = VolumeService( session )

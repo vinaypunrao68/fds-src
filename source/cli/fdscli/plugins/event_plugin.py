@@ -8,6 +8,7 @@ to enact the correct calls to retrieve the events
 
 @author: nate
 '''
+from services.fds_auth import FdsAuth
 class EventPlugin( abstract_plugin.AbstractPlugin):
     
     def __init__(self, session):
@@ -17,6 +18,9 @@ class EventPlugin( abstract_plugin.AbstractPlugin):
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
+            return
         
         self.__parser = parentParser.add_parser( "event", help="Gather system events" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
