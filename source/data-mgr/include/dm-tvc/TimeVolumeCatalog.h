@@ -35,6 +35,28 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /* Lock around commit log */
     fds_mutex commitLogLock_;
 
+    enum TimeVolumeCatalogState {
+        /**
+         * Time Volume Catalog is in initializing state before
+         * it validates its persistent layer (mount points) -- e.g.
+         * whether disk exists, there is enough capacity, etc.
+         */
+        TVC_INIT           = 0,
+        /**
+         * Ready to service IO requests
+         */
+        TVC_READY          = 1,
+        /**
+         * Something bad happened, e.g. mount point unreachable,
+         * no disk space left, so TVC is currently un-usable
+         */
+        TVC_UNAVAILABLE    = 2,
+        TVC_STATE_MAX
+    };
+
+    /// Currentl state of TVC
+    std::atomic<TimeVolumeCatalogState> currentState;
+
     /**
      * Log the manages recent and currently active
      * blob transactions
@@ -102,6 +124,12 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
+
+    /**
+     * Sets TVC to unavailable state -- all write IO
+     * will be rejected
+     */
+    void setUnavailable();
 
     /**
      * Notification about new volume managed by this DM.

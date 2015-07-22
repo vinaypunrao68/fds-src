@@ -10,6 +10,7 @@
 
 #include <leveldb/comparator.h>
 
+#include <concurrency/RwLock.h>
 #include <lib/Catalog.h>
 
 #include <dm-vol-cat/DmPersistVolCat.h>
@@ -142,6 +143,12 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     // methods
 
     // vars
+
+    /**
+     * This lock can be used to READ lock all updates and WRITE lock a
+     * snapshot to ensure all IO has drained before the snapshot is taken
+     */
+    fds_rwlock drain_lock;
 
     // Catalog that stores volume's objects
     std::unique_ptr<Catalog> catalog_;
