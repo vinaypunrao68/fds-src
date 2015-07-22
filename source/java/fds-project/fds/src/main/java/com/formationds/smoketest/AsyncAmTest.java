@@ -32,12 +32,6 @@ import static org.junit.Assert.*;
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
     @Test
-    public void testUpdateBlobOnceNoTruncate() throws Exception {
-        Map<String, String> medatata = new HashMap<>();
-        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, smallObject, smallObjectLength, new ObjectOffset(0), medatata).get();
-    }
-
-    @Test
     @Ignore
     public void testParallelCreate() throws Exception {
         IntStream.range(0, 10)
@@ -62,6 +56,26 @@ public class AsyncAmTest extends BaseAmTest {
                     }
                     return 0;
                 }).sum();
+    }
+
+    @Test
+    public void testOutOfOrderWrites() throws Exception {
+        Random random = new Random();
+        byte[] halfObject = new byte[OBJECT_SIZE / 2];
+        byte[] fullObject = new byte[OBJECT_SIZE];
+        random.nextBytes(halfObject);
+        random.nextBytes(fullObject);
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, ByteBuffer.wrap(halfObject), OBJECT_SIZE / 2, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, ByteBuffer.wrap(halfObject), OBJECT_SIZE / 2, new ObjectOffset(1), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.wrap(fullObject), OBJECT_SIZE, new ObjectOffset(1), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.wrap(fullObject), OBJECT_SIZE, new ObjectOffset(0), new HashMap<>()).get();
+        for (int i = 0; i < 100; i++) {
+            ByteBuffer byteBuffer = asyncAm.getBlob(domainName, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(0)).get();
+            assertEquals(OBJECT_SIZE, byteBuffer.remaining());
+            byte[] readBuf = new byte[OBJECT_SIZE];
+            byteBuffer.get(readBuf);
+            assertArrayEquals(fullObject, readBuf);
+        }
     }
 
     @Test
