@@ -65,6 +65,14 @@ public class NfsPath {
         return path.toString();
     }
 
+    public long deviceId(ExportResolver resolver) {
+        if (isRoot()) {
+            return Short.MAX_VALUE;
+        } else {
+            return resolver.exportId(volume) + 1 + Short.MAX_VALUE;
+        }
+    }
+
     public Inode asInode(Stat.Type type, ExportResolver resolver) {
         StringBuilder sb = new StringBuilder("/");
         int exportId = 0;

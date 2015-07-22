@@ -68,9 +68,22 @@ class DmMigrationExecutor {
      */
     Error processIncomingDeltaSetCb();
 
+    /**
+     * Step ?:
+     * As part of ActiveMigration, this is the method called when the source DM wants to notify
+     * the destination DM of the last forwarded commit log. From this point on, we start draining
+     * the ordered map and switch over to regular QoS queue.
+     */
+    Error processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg);
+
     inline fds_bool_t shouldAutoExecuteNext()
     {
     	return autoIncrement;
+    }
+
+    inline fds_bool_t isVolEmpty()
+    {
+    	return volIsEmpty;
     }
 
   private:
@@ -100,6 +113,11 @@ class DmMigrationExecutor {
      * Means that the callback above should now call the next executor
      */
     fds_bool_t autoIncrement;
+
+    /**
+     * If this volume is empty.
+     */
+    fds_bool_t volIsEmpty;
 
     /**
      * Used for generating a random TransactionID.

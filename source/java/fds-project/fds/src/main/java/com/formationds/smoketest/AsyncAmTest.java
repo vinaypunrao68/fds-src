@@ -8,14 +8,11 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.util.thrift.ThriftClientFactory;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
-
-import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -34,7 +31,8 @@ import static org.junit.Assert.*;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
-    //@Test
+    @Test
+    @Ignore
     public void testParallelCreate() throws Exception {
         IntStream.range(0, 10)
                 .parallel()
@@ -42,7 +40,6 @@ public class AsyncAmTest extends BaseAmTest {
                     try {
                         asyncAm.updateBlobOnce(domainName, volumeName, Integer.toString(i),
                                 1, ByteBuffer.allocate(100), 100, new ObjectOffset(1), new HashMap<>()).get();
-                        System.out.println("Created " + i);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -53,13 +50,32 @@ public class AsyncAmTest extends BaseAmTest {
                 .parallel()
                 .map(i -> {
                     try {
-                        System.out.println("Reading " + i);
                         BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, Integer.toString(i)).get();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                     return 0;
                 }).sum();
+    }
+
+    @Test
+    public void testOutOfOrderWrites() throws Exception {
+        Random random = new Random();
+        byte[] halfObject = new byte[OBJECT_SIZE / 2];
+        byte[] fullObject = new byte[OBJECT_SIZE];
+        random.nextBytes(halfObject);
+        random.nextBytes(fullObject);
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, ByteBuffer.wrap(halfObject), OBJECT_SIZE / 2, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, ByteBuffer.wrap(halfObject), OBJECT_SIZE / 2, new ObjectOffset(1), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.wrap(fullObject), OBJECT_SIZE, new ObjectOffset(1), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.wrap(fullObject), OBJECT_SIZE, new ObjectOffset(0), new HashMap<>()).get();
+        for (int i = 0; i < 100; i++) {
+            ByteBuffer byteBuffer = asyncAm.getBlob(domainName, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(0)).get();
+            assertEquals(OBJECT_SIZE, byteBuffer.remaining());
+            byte[] readBuf = new byte[OBJECT_SIZE];
+            byteBuffer.get(readBuf);
+            assertArrayEquals(fullObject, readBuf);
+        }
     }
 
     @Test
