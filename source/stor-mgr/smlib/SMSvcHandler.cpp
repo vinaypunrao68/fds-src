@@ -735,7 +735,12 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         return;
     }
 
-    err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
+    // DM sending the Ack to OM  for delete request can not  be timed correctly. we observed that 
+    // SM volume  queues are deleted  as part of the volume delete before expunge is complete. 
+    // hence moved the delete queue to system queue. we will hav to  revisit this
+
+    // err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
+    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, delReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoDeleteObjectReq to StorMgr.  Error: "
                  << err;

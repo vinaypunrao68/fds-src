@@ -82,11 +82,11 @@ DmMigrationExecutor::startMigration()
     } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
+        if (migrDoneCb) {
+        	migrDoneCb(volDesc.volUUID, err);
+        }
     }
 
-	if (migrDoneCb) {
-		migrDoneCb(volDesc.volUUID, err);
-	}
     return err;
 }
 
@@ -275,7 +275,6 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 Error
 DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
 {
-
     Error err(ERR_OK);
 
     for (auto & desc : msg->blob_desc_list) {
@@ -349,7 +348,8 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 Error
 DmMigrationExecutor::processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
 {
-	// TODO: what's the card number for this?
-	return ERR_OK;
+       // TODO: what's the card number for this?
+       return ERR_OK;
 }
+
 }  // namespace fds
