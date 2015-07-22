@@ -46,6 +46,7 @@ namespace redis {
         bool wasModified() const;
         std::string getString() const;
         long long getLong() const; // NOLINT
+        void checkValid() const;
         void checkError() const;
         bool isNil() const;
         std::string getStatus();
