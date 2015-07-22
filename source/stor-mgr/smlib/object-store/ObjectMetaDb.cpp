@@ -13,8 +13,9 @@
 
 namespace fds {
 
-ObjectMetadataDb::ObjectMetadataDb()
-        : bitsPerToken_(0) {
+ObjectMetadataDb::ObjectMetadataDb(UpdateMediaTrackerFnObj fn)
+        : bitsPerToken_(0),
+          mediaTrackerFn(fn) {
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
@@ -250,7 +251,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
     if (!err.ok()) {
         // Object not found. Return.
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        smDiskMap->notifyIOError(smTokId, metaTier, err);
+        mediaTrackerFn(smTokId, metaTier, err);
         return NULL;
     }
 
@@ -276,7 +277,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     err = odb->Put(objId, buf);
     if (!err.ok()) {
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        smDiskMap->notifyIOError(smTokId, metaTier, err);
+        mediaTrackerFn(smTokId, metaTier, err);
     }
     return err;
 }

@@ -11,11 +11,13 @@
 #include <concurrency/HashedLocks.hpp>
 #include <object-store/SmDiskMap.h>
 #include <TierEngine.h>
+#include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 #include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
+#include <util/EventTracker.h>
 
 namespace fds {
 
@@ -85,6 +87,14 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef ScopedHashedLock<ObjectID,
                              HashedLocks<ObjectID, ObjectHash>> ScopedSynchronizer;
 
+    // to track disk errors: disk id -> error
+    typedef EventTracker<fds_uint16_t, Error,
+                         std::hash<fds_uint16_t>,
+                         ErrorHash> ObjectStoreMediaTracker;
+    ObjectStoreMediaTracker objStoreDiskMediaTracker;
+    ObjectStoreMediaTracker objStoreFlashMediaTracker;
+
+    void initObjectStoreMediaErrorHandlers();
 
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
@@ -263,6 +273,14 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
     void handleDiskChanges(const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
+
+    /**
+     * Update the HDD and SSD disk trackers with any errors seen during
+     * gets and puts.
+     */
+    void updateMediaTrackers(fds_token_id smTokId,
+                             diskio::DataTier tier,
+                             const Error& error);
 
     /**
      * Check if object store is ready to serve IO/become source for SM token

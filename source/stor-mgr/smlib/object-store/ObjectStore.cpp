@@ -20,6 +20,18 @@
 
 namespace fds {
 
+template <typename T, typename Cb>
+static std::unique_ptr<TrackerBase<fds_uint16_t>>
+create_tracker(Cb&& cb, std::string event, fds_uint32_t win = 0, fds_uint32_t th = 0) {
+    static std::string const prefix("fds.sm.disk_event_threshold.");
+
+    size_t window = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".window", win);
+    size_t threshold = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".threshold", th);
+
+    return std::unique_ptr<TrackerBase<fds_uint16_t>>
+            (new TrackerMap<Cb, fds_uint16_t, T>(std::forward<Cb>(cb), window, threshold));
+}
+
 extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
 
 ObjectStore::ObjectStore(const std::string &modName,
@@ -33,9 +45,19 @@ ObjectStore::ObjectStore(const std::string &modName,
                                           this,
                                           std::placeholders::_1,
                                           std::placeholders::_2))),
-          dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
-          metaStore(new ObjectMetadataStore(
-              "SM Object Metadata Storage Module")),
+          dataStore(new ObjectDataStore("SM Object Data Storage",
+                                        data_store,
+                                        std::bind(&ObjectStore::updateMediaTrackers,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2,
+                                                  std::placeholders::_3))),
+          metaStore(new ObjectMetadataStore("SM Object Metadata Storage Module",
+                                            std::bind(&ObjectStore::updateMediaTrackers,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3))),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
                                     diskMap, data_store)),
@@ -133,6 +155,32 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     }
 
     return max;
+}
+
+
+void
+ObjectStore::initObjectStoreMediaErrorHandlers() {
+    // callback for disk failure notification
+    struct cb {
+        void operator()(fds_uint16_t diskId,
+                        size_t events) const {
+            LOGERROR << "Disk " << diskId << " on tier " << tier
+                     << " saw too many errors; declaring disk failed";
+            // TODO(Anna) handle disk failure
+        }
+        diskio::DataTier tier;
+    };
+
+    // Write/read HDD error handler (3 within 5 minutes will trigger)
+    // we will record both read and write errors as write errors
+    objStoreDiskMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
+                               create_tracker<std::chrono::minutes>(cb{diskio::diskTier},
+                                                                    "hdd_fail", 5, 3));
+    // Write/Read SSD error handler (3 within 5 minutes will trigger)
+    // we will record both read and write errors as write errors
+    objStoreFlashMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
+                               create_tracker<std::chrono::minutes>(cb{diskio::flashTier},
+                                                                    "ssd_fail", 5, 3));
 }
 
 /**
@@ -1351,6 +1399,24 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
 fds_uint32_t
 ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
+}
+
+void
+ObjectStore::updateMediaTrackers(fds_token_id smTokId,
+                                 diskio::DataTier tier,
+                                 const Error& error) {
+    if ((error == ERR_DISK_WRITE_FAILED) ||
+        (error == ERR_DISK_READ_FAILED) ||
+        (error == ERR_NO_BYTES_READ)) {
+        DiskId diskId = diskMap->getDiskId(smTokId, tier);
+        if (tier == diskio::diskTier) {
+            objStoreDiskMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
+                                                diskId);
+        } else if (tier == diskio::flashTier) {
+            objStoreFlashMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
+                                                 diskId);
+        }
+    }
 }
 
 /**

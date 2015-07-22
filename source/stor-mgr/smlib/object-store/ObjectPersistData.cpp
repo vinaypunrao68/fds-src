@@ -10,9 +10,11 @@
 namespace fds {
 
 ObjectPersistData::ObjectPersistData(const std::string &modName,
-                                     SmIoReqHandler *data_store)
+                                     SmIoReqHandler *data_store,
+                                     UpdateMediaTrackerFnObj fn)
         : Module(modName.c_str()),
           shuttingDown(false),
+          mediaTrackerFn(fn),
           scavenger(new ScavControl("SM Disk Scavenger", data_store, this)) {
 }
 
@@ -207,7 +209,7 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
 
     err = iop->disk_write(req);
     if (!err.ok()) {
-        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+        mediaTrackerFn(smTokId, req->getTier(), err);
     }
     return err;
 }
@@ -229,7 +231,7 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     fds_verify(iop);
     err = iop->disk_read(req);
     if (!err.ok()) {
-        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+        mediaTrackerFn(smTokId, req->getTier(), err);
     }
     return err;
 }
