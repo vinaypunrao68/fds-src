@@ -132,7 +132,8 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
          ++vmg) {
 
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
-				vdt != vmg->VolDescriptors.end(); ++vdt) {
+			 vdt != vmg->VolDescriptors.end();
+             ++vdt) {
 			/**
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
@@ -348,6 +349,10 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 	 */
 	DmMigrationExecMap::iterator mapIter = executorMap.find(volId);
 	fds_verify(mapIter != executorMap.end());
+
+    LOGMIGRATE << "Migration Executor complete for volume="
+               << std::hex << volId << std::dec
+               << " with error=" << result;
 
 	/**
 	 * TODO(Neil): error handling

@@ -205,6 +205,10 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
          * For each blob in the blob_obj_list, apply blob offset.
          */
         for (auto & blobObj : msg->blob_obj_list) {
+            /**
+             * TODO(Sean):
+             * This can potentially be big, so might have move off stack and allocate.
+             */
             BlobObjList blobList(blobObj.blob_diff_list);
 
             LOGMIGRATE << "put object on volume="
@@ -284,13 +288,14 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
 
     /**
      * If the blob descriptor seq number is complete, then notify the mgr that
-     * the static migration is complete for thix MigrationExecutor.
+     * the static migration is complete for this MigrationExecutor.
      */
     if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
-        /**
-         * TODO(Sean):
-         * Need to call static migration callback to the MigrationMgr.
-         */
+        LOGMIGRATE << "All Blob descriptors applied to volume="
+                   << std::hex << volumeUuid << std::dec;
+        if (migrDoneCb) {
+            migrDoneCb(volDesc.volUUID, err);
+        }
     }
 
     return err;
