@@ -3,13 +3,6 @@
  */
 package com.formationds.om.webkit.rest.v08.volumes;
 
-import java.io.InputStreamReader;
-import java.util.Map;
-
-import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.security.AuthenticationToken;
@@ -17,6 +10,12 @@ import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import org.eclipse.jetty.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.InputStreamReader;
+import java.util.Map;
 
 public class MutateVolume implements RequestHandler{
 
@@ -43,6 +42,9 @@ public class MutateVolume implements RequestHandler{
 		
 		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
 		Volume volume = ObjectModelHelper.toObject( reader, Volume.class );
+
+        ( new CreateVolume( getAuthorizer(), getToken() ) ).validateQOSSettings( volume );
+
 		volume.setId( volumeId );
 		
 		logger.trace( ObjectModelHelper.toJSON( volume ) );

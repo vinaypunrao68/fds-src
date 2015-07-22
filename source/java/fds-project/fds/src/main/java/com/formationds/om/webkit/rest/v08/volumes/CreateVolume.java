@@ -67,12 +67,8 @@ public class CreateVolume implements RequestHandler {
 			logger.error( "Unable to convet the body to a valid Volume object.", e );
 			throw new ApiException( "Invalid input parameters", ErrorCode.BAD_REQUEST );
 		}
-        
-        if( !validateQOSSettings( newVolume ) ) {
-            final String message = "QOS value out-of-range ( assured <= throttled )";
-            logger.error( message );
-            throw new ApiException( message, ErrorCode.BAD_REQUEST );
-        }
+
+        validateQOSSettings( newVolume );
         
 		VolumeDescriptor internalVolume = ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
 		
@@ -179,15 +175,32 @@ public class CreateVolume implements RequestHandler {
 			createEndpoint.createSnapshotPolicy( externalVolume.getId(), policy );			
 		}
 	}
-	
-    private boolean validateQOSSettings( final Volume volume )
-    {
-        logger.trace( "IOPS -- MIN: {} MAX: {}",
-                      volume.getQosPolicy().getIopsMin(),
-                      volume.getQosPolicy().getIopsMax() );
 
-        return ( volume.getQosPolicy().getIopsMin() <=
-                 volume.getQosPolicy().getIopsMax() );
+    /**
+     * @param volume the {@link Volume} representing the external model object
+     *
+     * @throws ApiException if the QOS settings are not valid
+     */
+    public void validateQOSSettings( final Volume volume )
+        throws ApiException
+    {
+        logger.trace( "Validate QOS -- MIN: {} MAX: {}",
+                      volume.getQosPolicy( )
+                            .getIopsMin( ),
+                      volume.getQosPolicy( )
+                            .getIopsMax( ) );
+
+        if( !( ( volume.getQosPolicy( )
+                       .getIopsMax( ) == 0 ) ||
+               ( volume.getQosPolicy( )
+                       .getIopsMin( ) <=
+                 volume.getQosPolicy( )
+                       .getIopsMax( ) ) ) )
+        {
+            final String message = "QOS value out-of-range ( assured <= throttled )";
+            logger.error( message );
+            throw new ApiException( message, ErrorCode.BAD_REQUEST );
+        }
     }
     
 	private Authorizer getAuthorizer(){
