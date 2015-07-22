@@ -60,14 +60,20 @@ public class CreateVolume implements RequestHandler {
 			final Reader bodyReader = new InputStreamReader( request.getInputStream() );
 			
 			newVolume = ObjectModelHelper.toObject( bodyReader, Volume.class );
-			
+			            
 			logger.trace( ObjectModelHelper.toJSON( newVolume ) );
 		}
 		catch( Exception e ){
 			logger.error( "Unable to convet the body to a valid Volume object.", e );
 			throw new ApiException( "Invalid input parameters", ErrorCode.BAD_REQUEST );
 		}
-		
+        
+        if( !validateQOSSettings( newVolume ) ) {
+            final String message = "QOS value out-of-range ( assured <= throttled )";
+            logger.error( message );
+            throw new ApiException( message, ErrorCode.BAD_REQUEST );
+        }
+        
 		VolumeDescriptor internalVolume = ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
 		
 		final String domainName = "";
@@ -174,6 +180,16 @@ public class CreateVolume implements RequestHandler {
 		}
 	}
 	
+    private boolean validateQOSSettings( final Volume volume )
+    {
+        logger.trace( "IOPS -- MIN: {} MAX: {}",
+                      volume.getQosPolicy().getIopsMin(),
+                      volume.getQosPolicy().getIopsMax() );
+
+        return ( volume.getQosPolicy().getIopsMin() <=
+                 volume.getQosPolicy().getIopsMax() );
+    }
+    
 	private Authorizer getAuthorizer(){
 		return this.authorizer;
 	}
