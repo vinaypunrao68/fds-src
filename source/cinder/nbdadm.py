@@ -60,7 +60,7 @@ class nbdlib(object):
             if dev.startswith('nbd') and dev[3:].isdigit():
                 yield "/dev/" + dev
 
-    def __insmod_nbd():
+    def __insmod_nbd(self):
         return os.system("modprobe nbd -q") == 0
 
     def __consume_arg(self, args, arg, hasValue = False):
