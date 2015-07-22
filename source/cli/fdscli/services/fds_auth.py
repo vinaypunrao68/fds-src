@@ -115,40 +115,31 @@ class FdsAuth():
         uses the connection parameters to try and login into the FDS system
         '''
     
-        try:
-            payload = { "login" : self.get_username(), "password" : self.get_password() }
-            
-            #get rid of the password immediately after its used
-            self.__password = None
+        payload = { "login" : self.get_username(), "password" : self.get_password() }
+        
+        #get rid of the password immediately after its used
+        self.__password = None
 
-            urllib3.disable_warnings()
-            url = "{}://{}:{}/fds/config/v08/token".format( self.get_protocol(), self.get_hostname(), self.get_port())
-            response = requests.post( url, params=payload, verify=False )
-            
-            #error occurred so get back to the starting line
-            if "message" in response or (hasattr(response, "ok") and response.ok is False):
-                self.refresh()
-                raise FdsAuthError()
-            
-            print "Connected to: " + self.get_hostname() + "\n\n"
-            
-            response = response.json()
-            
-            if ( "userId" in response ):
-                self.__user_id = response["userId"]
+        urllib3.disable_warnings()
+        url = "{}://{}:{}/fds/config/v08/token".format( self.get_protocol(), self.get_hostname(), self.get_port())
+        response = requests.post( url, params=payload, verify=False )
         
-            if ( "token" in response ):
-                self.__token = response['token']
-                
-            if ( "features" in response ):
-                self.__features = response["features"]
-                
-            return self.__token
+        #error occurred so get back to the starting line
+        if "message" in response or (hasattr(response, "ok") and response.ok is False):
+            self.refresh()
+            raise FdsAuthError()
         
-        except FdsAuthError as e:
-            '''
-            something
-            '''
-#             print str(e.error_code) + ":" + e.message
-        except Exception:
-            print "Unknown error occurred."
+        print "Connected to: " + self.get_hostname() + "\n\n"
+        
+        response = response.json()
+        
+        if ( "userId" in response ):
+            self.__user_id = response["userId"]
+    
+        if ( "token" in response ):
+            self.__token = response['token']
+            
+        if ( "features" in response ):
+            self.__features = response["features"]
+            
+        return self.__token

@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 import pkgutil
 from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
+from services.fds_auth_error import FdsAuthError
 
 class FDSShell( cmd.Cmd ):
     '''
@@ -99,7 +100,11 @@ class FDSShell( cmd.Cmd ):
                 try:
                     self.__session.login()
                     self.loadmodules()
+                except FdsAuthError as f:
+                    print str(f.error_code) + ":" + f.message
+                    pass
                 except Exception:
+                    print "Unkown error occurred."
                     pass
             
             argList = shlex.split( line )
