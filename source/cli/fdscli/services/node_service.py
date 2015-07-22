@@ -69,7 +69,9 @@ class NodeService( AbstractService ):
         if isinstance(response, FdsError):
             return response
         
-        return response
+        node = NodeConverter.build_node_from_json( response )
+        
+        return node
     
     def stop_node(self, node_id):
         '''
@@ -84,7 +86,9 @@ class NodeService( AbstractService ):
         if isinstance(response, FdsError):
             return response
         
-        return response        
+        node = NodeConverter.build_node_from_json( response )
+        
+        return node       
     
     def remove_node(self, node_id):
         '''
@@ -130,7 +134,9 @@ class NodeService( AbstractService ):
         if isinstance(response, FdsError):
             return response
         
-        return response        
+        service = ServiceConverter.build_service_from_json(response)
+        
+        return service        
     
     def stop_service(self, node_id, service_id):
         '''
@@ -145,7 +151,9 @@ class NodeService( AbstractService ):
         if isinstance(response, FdsError):
             return response
         
-        return response        
+        service = ServiceConverter.build_service_from_json(response)
+        
+        return service        
     
     def remove_service(self, node_id, service_id):
         '''
@@ -172,7 +180,9 @@ class NodeService( AbstractService ):
         if isinstance(response, FdsError):
             return response
         
-        return response        
+        service = ServiceConverter.build_service_from_json(response)
+        
+        return service        
     
     def get_service(self, node_id, service_id):
         '''
