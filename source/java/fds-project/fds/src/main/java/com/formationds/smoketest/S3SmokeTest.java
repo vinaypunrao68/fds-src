@@ -433,6 +433,9 @@ public class S3SmokeTest {
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(buf, bytes);
+
+        S3Object result = userClient.getObject(userBucket, key);
+        Assert.assertEquals(result.getObjectMetadata().getContentLength(), byteCount);
     }
 
     @Test
