@@ -259,6 +259,9 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
+            // set time volume catalog to unavailable -- no available storage space
+            timeVolCat_->setUnavailable();
+
             // Send message to OM
 
 
