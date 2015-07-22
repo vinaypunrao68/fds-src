@@ -377,7 +377,7 @@ DmMigrationClient::processBlobFilterSet()
     // process blob diff
     err = processBlobDiff();
     // free the in-memory snapshot diff after completion.
-    dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
+    fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
     if (ERR_OK != err) {
        LOGERROR << "Failed to process blob diff on volume=" << volId
                  << " with error=" << err;
