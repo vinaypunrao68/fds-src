@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.codepoetics.protonpack.StreamUtils;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
@@ -63,7 +64,7 @@ public final class S3RateLimitTestWorkload extends Workload
     @Override
     public Class<?> getEndpointType()
     {
-        return S3Endpoint.class;
+        return FdsEndpoint.class;
     }
 
     @Override
