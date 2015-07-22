@@ -73,6 +73,14 @@ class FdsAuth():
         return self.__port
     
     def get_token(self):
+        
+        if self.__token is None:
+            self.login()
+            
+        if self.__token is None:
+            print 'Authentication failed.'
+            raise SystemError('Authentication Failed.')
+        
         return self.__token
     
     def get_user_id(self):

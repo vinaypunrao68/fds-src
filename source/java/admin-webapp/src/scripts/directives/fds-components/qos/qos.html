@@ -9,11 +9,11 @@
         </div>
         <div>
             <div class="title-case" translate>volumes.qos.l_iops_guarantee</div>
-            <slider class="volume-iops-slider" values="guaranteeChoices" ng-model="qos.sla" min-label="{{'volumes.qos.l_number_of_iops' | translate }}" label-function="guaranteeSliderLabel"></slider>
+            <slider class="volume-iops-slider" values="guaranteeChoices" ng-model="qos.iopsMin" min-label="{{'volumes.qos.l_number_of_iops' | translate }}" label-function="guaranteeSliderLabel"></slider>
         </div>
         <div>
             <div class="title-case" translate>volumes.qos.l_iops_limit</div>
-            <slider class="volume-limit-slider" values="limitChoices" ng-model="qos.limit" min-label="{{ 'volumes.qos.l_max_iops' | translate }}" label-function="limitSliderLabel"></slider>
+            <slider class="volume-limit-slider" values="limitChoices" ng-model="qos.iopsMax" min-label="{{ 'volumes.qos.l_max_iops' | translate }}" label-function="limitSliderLabel"></slider>
         </div>
     </div>
 </div>

@@ -3,9 +3,8 @@
  */
 package com.formationds.om;
 
-import com.formationds.apis.XdiService;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.apis.XdiService;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -178,23 +177,15 @@ public class Main {
         configCache.createStatStreamRegistrationHandler( grabFirstOmIpAddress,
                                                          httpPort );
 
-        if( FdsFeatureToggles.WEB_KIT.isActive() ) {
-
-        	logger.info( "Original Web toolkit enabled" );
+        logger.info( "Starting Web toolkit" );
     		
-        	WebKitImpl originalImpl = new WebKitImpl( authenticator,
-                        authorizer,
-                        webDir,
-                        httpPort,
-                        httpsPort,
-                        secretKey );
-        	originalImpl.start();
-
-        } else {
-
-            logger.info( "Web toolkit disabled" );
-
-        }
+        WebKitImpl originalImpl = new WebKitImpl( authenticator,
+                    authorizer,
+                    webDir,
+                    httpPort,
+                    httpsPort,
+                    secretKey );
+        originalImpl.start();
     }
 }
 
