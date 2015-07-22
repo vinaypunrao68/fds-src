@@ -39,9 +39,7 @@ class FDSShell( cmd.Cmd ):
         self.__session = session
         
         self.prompt ='fds> '
-        self.parser = ArgumentParser( add_help=True)
-        
-        self.subParsers = self.parser.add_subparsers( help="Command suite description" )
+
         self.loadmodules()
         
 
@@ -66,6 +64,9 @@ class FDSShell( cmd.Cmd ):
         and will load all the modules it find there, adding their parsing arguments
         to the argparse setup
         '''
+        self.parser = ArgumentParser( add_help=True)
+        
+        self.subParsers = self.parser.add_subparsers( help="Command suite description" )
 
         mydir = os.path.dirname( os.path.abspath( __file__ ) )
         modules = pkgutil.iter_modules([os.path.join( mydir, "plugins" )] )
@@ -80,7 +81,7 @@ class FDSShell( cmd.Cmd ):
 
             clazzName = self.formatClassName( mod_name )
             clazz = getattr( loadedModule, clazzName )
-            clazz = clazz(self.__session)
+            clazz = clazz()
             self.plugins.append( clazz )
             
             clazz.build_parser( self.subParsers, self.__session )

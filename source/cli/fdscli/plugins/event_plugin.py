@@ -11,15 +11,17 @@ to enact the correct calls to retrieve the events
 from services.fds_auth import FdsAuth
 class EventPlugin( abstract_plugin.AbstractPlugin):
     
-    def __init__(self, session):
-        abstract_plugin.AbstractPlugin.__init__(self, session)
+    def __init__(self):
+        abstract_plugin.AbstractPlugin.__init__(self)
         
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
         
-        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
+        self.session = session
+        
+        if not session.is_allowed( FdsAuth.VOL_MGMT ):
             return
         
         self.__parser = parentParser.add_parser( "event", help="Gather system events" )

@@ -145,5 +145,10 @@ class FdsAuth():
                 
             return self.__token
         
+        except FdsAuthError as e:
+            '''
+            something
+            '''
+#             print str(e.error_code) + ":" + e.message
         except Exception:
-            raise FdsAuthError()
+            print "Unknown error occurred."

@@ -19,9 +19,8 @@ class UserPlugin(AbstractPlugin):
     @author: nate
     '''    
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)   
-        self.__user_service = UsersService( self.session ) 
+    def __init__(self):
+        AbstractPlugin.__init__(self)
         
     def detect_shortcut(self, args):
         '''
@@ -39,8 +38,12 @@ class UserPlugin(AbstractPlugin):
         @see: AbstractPlugin
         '''
         
+        self.session = session
+        
         if not self.session.is_allowed( FdsAuth.USER_MGMT ):
             return
+        
+        self.__user_service = UsersService( self.session )         
         
         __who_parser = parentParser.add_parser( "whoami", help="Retrieve your user information." )
         self.add_format_arg( __who_parser )
@@ -116,6 +119,9 @@ class UserPlugin(AbstractPlugin):
         List the users of the system
         '''
         users = self.get_user_service().list_users()
+        
+        if isinstance(users, FdsError):
+            return
         
         if len(users) == 0:
             print "\nNo users found in the system."
