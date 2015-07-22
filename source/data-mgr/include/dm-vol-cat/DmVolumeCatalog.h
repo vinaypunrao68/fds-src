@@ -299,6 +299,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>);
 
+    Error putObject(fds_volid_t volId, const std::string & blobName, const BlobObjList & objs);
+
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,

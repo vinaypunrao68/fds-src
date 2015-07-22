@@ -27,6 +27,10 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 
     maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
                 get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
+
+    deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+			  get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
+
 }
 
 
@@ -68,7 +72,8 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 														        std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
 														                  this,
                                                                           std::placeholders::_1,
-														                  std::placeholders::_2))));
+														                  std::placeholders::_2),
+                                                                deltaBlobTimeout)));
 	}
 	return err;
 }
@@ -225,18 +230,6 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     executor->processDeltaBlobs(deltaBlobsMsg);
 
     return ERR_OK;
-}
-
-Error
-DmMigrationMgr::applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e) {
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
-    if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << volId;
-    	fds_verify(0); // this is an race cond error that needs to be fixed in dev env.
-    	return ERR_NOT_FOUND;
-    }
-    executor->processIncomingDeltaSetCb();
-	return ERR_OK;
 }
 
 
