@@ -18,6 +18,7 @@ import java.util.stream.IntStream;
 
 import javax.servlet.http.HttpServletResponse;
 
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.amazonaws.services.s3.model.*;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
@@ -27,6 +28,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.json.JSONObject;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -42,7 +45,6 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
 import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
-import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
 
 /**
@@ -292,6 +294,14 @@ public class S3SmokeTest {
         }
     }
 
+    @Test
+    public void testEncodedPaths() throws Exception {
+        String b1 = UUID.randomUUID().toString();
+        byte[] bytes = new byte[] { 1, 2, 3, 4 };
+
+        checkIo(bytes, b1 + "/!# @();?;:[]+=&");
+    }
+
     private void checkIo(byte[] bytes, String key) throws IOException {
         userClient.putObject(userBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
         S3Object object = userClient.getObject(userBucket, key);
@@ -428,7 +438,7 @@ public class S3SmokeTest {
         userClient.putObject(userBucket, key, new ByteArrayInputStream(buf), new ObjectMetadata());
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet("https://" + host + ":8443/" + userBucket + "/" + key);
-        String hash = S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials(userName, userToken));
+        String hash = S3SignatureGeneratorV2.hash(httpGet, new BasicAWSCredentials(userName, userToken));
         httpGet.addHeader("Authorization", hash);
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
@@ -745,5 +755,22 @@ public class S3SmokeTest {
             String error = e.toString();
             assertTrue(error.contains("Status Code: 403"));
         }
+    }
+
+    public static class V4Auth extends S3SmokeTest {
+        public V4Auth() throws Exception {
+            super();
+        }
+
+        @Before
+        public void enableV4Auth() {
+            System.setProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY, "true");
+        }
+
+        @After
+        public void disableV4Auth() {
+            System.clearProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY);
+        }
+
     }
 }

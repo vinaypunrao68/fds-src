@@ -1,4 +1,4 @@
-package com.formationds.util.s3;
+package com.formationds.util.s3.auth;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -16,13 +16,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class S3SignatureGenerator {
+public class S3SignatureGeneratorV2 {
     private static final String[] SUB_RESOURCES = new String[] { "acl", "delete", "lifecycle", "location", "logging",
                                                                 "notification", "partNumber", "policy", "requestPayment",
                                                                 "torrent", "uploadId", "uploads", "versionId",
                                                                 "versioning", "versions", "website" };
 
     public static final String AUTHORIZATION_HEADER = "Authorization";
+
 
     public static String hash(HttpContext context, AWSCredentials credentials) {
         return hash(context.getRequestMethod(), context.getRequestURI(), getNormalizedHeaders(context), context.getQueryParameters(), credentials);
@@ -43,10 +44,6 @@ public class S3SignatureGenerator {
             List<String> headerValue = new ArrayList<>();
             Collection<String> headerValuesEnum = context.getRequestHeaderValues(headerKey);
             for (String value : headerValuesEnum) {
-                if(headerKey.equals("Content-Type")) {
-                    // horrid hack because jetty actually messes with the content type header
-                    value = value.toLowerCase();
-                }
                 headerValue.add(value);
             }
             headers.put(headerKey, headerValue);
