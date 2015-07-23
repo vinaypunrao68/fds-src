@@ -592,6 +592,7 @@ void
 SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                    DiskIdSet& newSSDs)
 {
+    Error err(ERR_OK);
     DiskIdSet persistentHDDs, persistentSSDs;
     DiskIdSet addedHDDs, removedHDDs;
     DiskIdSet addedSSDs, removedSSDs;
@@ -650,7 +651,12 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                                   addedHDDs,
                                                   removedHDDs,
                                                   diskio::diskTier,
-                                                  &(superblockMaster.olt));
+                                                  &(superblockMaster.olt),
+                                                  err);
+        if (!err.ok()) {
+            LOGCRITICAL << "Redistribution of data failed with error " << err;
+            return;
+        }
     }
 
     if ((removedSSDs.size() > 0) ||
@@ -678,10 +684,14 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                                   addedSSDs,
                                                   removedSSDs,
                                                   diskio::flashTier,
-                                                  &(superblockMaster.olt));
+                                                  &(superblockMaster.olt),
+                                                  err);
+        if (!err.ok()) {
+            LOGCRITICAL << "Redistribution of data failed with error " << err;
+            return;
+        }
     }
 
-    Error err(ERR_OK);
     /* Token mapping is recomputed.  Now sync out to disk. */
     if (recomputed) {
         err = syncSuperblock();

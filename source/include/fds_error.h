@@ -148,6 +148,7 @@ typedef enum {
     ERR_SM_NOT_READY_AS_MIGR_SRC,
     ERR_SM_CAPACITY_FULL,
     ERR_SM_CAPACITY_DANGEROUS,
+    ERR_SM_NO_DISK,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
