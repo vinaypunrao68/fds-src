@@ -860,6 +860,11 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_DELETE_OBJECT:
+            // TODO(Anna) since we are now enqueueing to system queue, make sure to preserve
+            // original volumeId, so that we can delete volume association
+            // so re-setting volume ID in ioReq is wrong, but need to properly fix
+            // other places before not-resetting volumeID (otherwise, system queue
+            // ID is passed to deleteObject and the object does not get deleted)
             // Volume association resolution is handled in object store layer
             // for deleteObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));

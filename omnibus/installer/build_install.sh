@@ -2,6 +2,7 @@
 # Run some pre-build steps
 
 download=false
+upload=false
 
 function usage() {
   cat << EOF
