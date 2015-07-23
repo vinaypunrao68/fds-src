@@ -105,20 +105,29 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        // already in "in progress" state, but ok if for the same target DLT (if this SM
+        // if in "in progress" state, ok if for the same target DLT (if this SM
         // got request to be a source of the migration, before it started processing
         // startMigration request
+        // if in 'aborted' state, return error, since migration manager is in unknown
+        // state trying to abort the previous migration
         fds_uint32_t migrDltVersion = migrationMsg->DLT_version;
+        Error retError(ERR_OK);
         LOGMIGRATE << "startMigration called in non-idle state " << migrState
                    << " for DLT version " << migrDltVersion
                    << ", DLT version of on-going migration " << targetDltVersion;
-        if (migrDltVersion != targetDltVersion) {
+        if (migrState == MIGR_ABORTED) {
+            LOGWARN << "startMigration called while previous migration aborting";
+            retError = ERR_SM_TOK_MIGRATION_INPROGRESS;
+        } else if (migrDltVersion != targetDltVersion) {
             LOGERROR << "startMigration called while migration for a different target DLT "
                      << targetDltVersion << " is still in progress!";
+            retError = ERR_SM_TOK_MIGRATION_INPROGRESS;
+        }
+        if (!retError.ok()) {
             if (cb) {
-                cb(ERR_SM_TOK_MIGRATION_INPROGRESS);
+                cb(retError);
             }
-            return ERR_SM_TOK_MIGRATION_INPROGRESS;
+            return retError;
         }
     }
     resyncOnRestart = onePhaseMigration;

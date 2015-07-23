@@ -47,7 +47,7 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     addToQueue(dmReq);
 }
 
-void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
+void QueryCatalogHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoQueryCat* typedRequest = static_cast<DmIoQueryCat*>(dmRequest);
 
@@ -69,7 +69,7 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void QueryCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::QueryCatalogMsg>& message,
-                                         Error const& e, dmCatReq* dmRequest) {
+                                         Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 

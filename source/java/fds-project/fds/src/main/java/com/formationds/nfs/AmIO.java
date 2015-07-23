@@ -7,6 +7,7 @@ import com.formationds.xdi.AsyncAm;
 import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
@@ -22,7 +23,8 @@ public class AmIO implements Chunker.ChunkIo {
     @Override
     public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
         try {
-            return unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
+            ByteBuffer byteBuffer = unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
+            return byteBuffer;
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 throw new FileNotFoundException();
@@ -33,21 +35,33 @@ public class AmIO implements Chunker.ChunkIo {
     }
 
     @Override
-    public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception {
-        String message = entry.path().toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() + ", byteBuffer=" + byteBuffer.remaining() + "bytes";
-        LOG.debug("AmIO.write(): " + message);
+    public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob) throws Exception {
+        LOG.debug("AmIO.write(): " + entry.path().toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() +
+                ", byteBuffer=" + byteBuffer.remaining() + "bytes, isEndOfBlob=" + isEndOfBlob);
+
+        // This would cause DM to crash
+        if (!isEndOfBlob && byteBuffer.remaining() != objectSize) {
+            String message = "All objects except the last one should be exactly MAX_OBJECT_SIZE long";
+            LOG.debug(message);
+            throw new IOException(message);
+        }
+
         try {
-            unwindExceptions(() ->
-                    asyncAm.updateBlobOnce(AmVfs.DOMAIN,
-                            entry.path().getVolume(),
-                            entry.path().blobName(),
-                            1,
-                            byteBuffer,
-                            byteBuffer.remaining(),
-                            objectOffset,
-                            entry.attributes().asMetadata()).get());
+            long then = System.currentTimeMillis();
+            int length = byteBuffer.remaining();
+            unwindExceptions(() -> asyncAm.updateBlobOnce(AmVfs.DOMAIN,
+                    entry.path().getVolume(),
+                    entry.path().blobName(),
+                    isEndOfBlob ? 1 : 0,
+                    byteBuffer,
+                    length,
+                    objectOffset,
+                    entry.attributes().asMetadata()).get());
+            long elapsed = System.currentTimeMillis() - then;
+
+            LOG.debug("AM wrote " + length + " bytes in " + elapsed + " ms");
         } catch (Exception e) {
-            LOG.error("AmIO.write() - updateBlobOnce() " + message, e);
+            LOG.error("AmIO.write() - updateBlobOnce() failed", e);
             throw e;
         }
     }

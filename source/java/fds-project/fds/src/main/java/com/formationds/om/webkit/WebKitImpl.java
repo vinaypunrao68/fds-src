@@ -7,7 +7,6 @@ package com.formationds.om.webkit;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.webkit.rest.LandingPage;
-import com.formationds.om.webkit.rest.v07.ApiDefinition;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.HttpConfiguration;
@@ -68,21 +67,33 @@ public class WebKitImpl {
         webApp = new WebApp( webDir );
         webApp.route( HttpMethod.GET, "", ( ) -> new LandingPage( webDir ) );
 
-        logger.info( "Initializing REST API v07..." );
-        AbstractApiDefinition rest07 =
-          new ApiDefinition( this.authenticator,
-                             this.authorizer,
-                             this.secretKey, webApp );
-        rest07.configure();
-        logger.info( "Completed initializing REST API v07." );
+
         
-        if ( FdsFeatureToggles.REST_08.isActive() ){
-        	
-        	logger.info( "Initializing REST API v08..." );
-        	AbstractApiDefinition rest08 = new com.formationds.om.webkit.rest.v08.ApiDefinition( this.authenticator, this.authorizer, this.secretKey, webApp );
-        	rest08.configure();
-            logger.info( "Completed initializing REST API v08." );
+        if ( FdsFeatureToggles.REST_07.isActive() ){
+
+            logger.info( "Initializing REST API v07..." );
+            AbstractApiDefinition rest07 =
+                new com.formationds.om.webkit.rest.v07.ApiDefinition(
+                    this.authenticator,
+                    this.authorizer,
+                    this.secretKey,
+                    webApp );
+
+            rest07.configure();
+            logger.info( "Completed initializing REST API v07." );
+
         }
+
+        logger.info( "Initializing REST API v08..." );
+        AbstractApiDefinition rest08 =
+            new com.formationds.om.webkit.rest.v08.ApiDefinition(
+                this.authenticator,
+                this.authorizer,
+                this.secretKey,
+                webApp );
+
+        rest08.configure();
+        logger.info( "Completed initializing REST API v08." );
         
         logger.info( "Starting web app");
         webApp.start(

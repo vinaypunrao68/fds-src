@@ -12,6 +12,37 @@ import static org.junit.Assert.assertEquals;
 
 public class ChunkerTest {
     @Test
+    public void testMove() throws Exception {
+        MemoryIo io = new MemoryIo();
+        Chunker chunker = new Chunker(io);
+        NfsEntry source = new NfsEntry(new NfsPath("foo", "/hello/source"), null);
+        NfsEntry destination = new NfsEntry(new NfsPath("foo", "/hello/destination"), null);
+        int objectSize = 10;
+        int blobSize = 55;
+        byte[] buf = randomBytes(blobSize);
+        chunker.write(source, objectSize, buf, 0, buf.length, blobSize);
+        chunker.move(source, destination, objectSize, blobSize);
+        byte[] readBuf = new byte[blobSize];
+        chunker.read(destination.path(), objectSize, readBuf, 0, blobSize);
+        assertArrayEquals(buf, readBuf);
+    }
+
+    @Test
+    public void testExtend() throws Exception {
+        MemoryIo io = new MemoryIo();
+        Chunker chunker = new Chunker(io);
+        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
+        int objectSize = 131072;
+        int fileLength = objectSize + 1;
+        chunker.write(nfsEntry, objectSize, new byte[42], 0, 42, 42);
+        byte[] writeBuf = randomBytes(fileLength);
+        chunker.write(nfsEntry, objectSize, writeBuf, 0, fileLength, fileLength);
+        byte[] buf = new byte[fileLength];
+        chunker.read(nfsEntry.path(), objectSize, buf, 0, fileLength);
+        assertArrayEquals(writeBuf, buf);
+    }
+
+    @Test
     public void testWriteChunksInArbitraryOrder() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
@@ -20,8 +51,7 @@ public class ChunkerTest {
         int blockSize = 4096;
         int blockCount = 2;
         int length = blockSize * blockCount; // About 400M
-        byte[] bytes = new byte[length];
-        new Random().nextBytes(bytes);
+        byte[] bytes = randomBytes(length);
         List<Integer> chunks = new ArrayList<>(blockCount);
         for (int i = 0; i < blockCount; i++) {
             chunks.add(blockCount - i - 1);
@@ -32,7 +62,7 @@ public class ChunkerTest {
                     byte[] chunk = new byte[blockSize];
                     System.arraycopy(bytes, i * blockSize, chunk, 0, blockSize);
                     try {
-                        chunker.write(nfsEntry, objectSize, chunk, i * blockSize, blockSize);
+                        chunker.write(nfsEntry, objectSize, chunk, i * blockSize, blockSize, length);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -50,11 +80,11 @@ public class ChunkerTest {
         NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
         int objectSize = 131072;
         int objectCount = 11;
-        byte[] bytes = new byte[objectSize * objectCount];
-        new Random().nextBytes(bytes);
-        chunker.write(nfsEntry, objectSize, bytes, 0, objectSize * objectCount);
-        byte[] buf = new byte[objectSize * objectCount];
-        chunker.read(nfsEntry.path(), objectSize, buf, 0, objectSize * objectCount);
+        int length = objectSize * objectCount;
+        byte[] bytes = randomBytes(length);
+        chunker.write(nfsEntry, objectSize, bytes, 0, length, length);
+        byte[] buf = new byte[length];
+        chunker.read(nfsEntry.path(), objectSize, buf, 0, length);
         assertArrayEquals(bytes, buf);
     }
 
@@ -62,14 +92,14 @@ public class ChunkerTest {
     public void testWrite() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
-        byte[] bytes = new byte[6];
-        new Random().nextBytes(bytes);
-        chunker.write(nfsEntry, 4, bytes, 2, 6);
-        assertEquals(0, io.byteAt(4, 0));
-        assertEquals(0, io.byteAt(4, 1));
+        NfsPath path = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(path, null);
+        byte[] bytes = randomBytes(6);
+        chunker.write(nfsEntry, 4, bytes, 2, 6, 8);
+        assertEquals(0, io.byteAt(path, 4, 0));
+        assertEquals(0, io.byteAt(path, 4, 1));
         for (int i = 0; i < 6; i++) {
-            assertEquals(bytes[i], io.byteAt(4, i + 2));
+            assertEquals(bytes[i], io.byteAt(path, 4, i + 2));
         }
     }
 
@@ -77,12 +107,12 @@ public class ChunkerTest {
     public void testWriteMisalignedBoundaries() throws Exception {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
-        NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
-        byte[] bytes = new byte[8];
-        new Random().nextBytes(bytes);
-        chunker.write(nfsEntry, 4, bytes, 2, 8);
+        NfsPath path = new NfsPath("foo", "/hello/world");
+        NfsEntry nfsEntry = new NfsEntry(path, null);
+        byte[] bytes = randomBytes(8);
+        chunker.write(nfsEntry, 4, bytes, 2, 8, 10);
         for (int i = 0; i < 6; i++) {
-            assertEquals(bytes[i], io.byteAt(4, i + 2));
+            assertEquals(bytes[i], io.byteAt(path, 4, i + 2));
         }
     }
 
@@ -91,12 +121,11 @@ public class ChunkerTest {
         MemoryIo io = new MemoryIo();
         Chunker chunker = new Chunker(io);
         NfsEntry nfsEntry = new NfsEntry(new NfsPath("foo", "/hello/world"), null);
-        byte[] bytes = new byte[8];
-        new Random().nextBytes(bytes);
-        chunker.write(nfsEntry, 4, bytes, 2, 10);
+        byte[] bytes = randomBytes(8);
+        chunker.write(nfsEntry, 4, bytes, 2, 10, 12);
         byte[] readBuf = new byte[12];
         int read = chunker.read(nfsEntry.path(), 4, readBuf, 0, 10);
-        assertEquals(10, read);
+        assertEquals(12, read);
         assertEquals(0, readBuf[0]);
         assertEquals(0, readBuf[1]);
         for (int i = 0; i < 8; i++) {
@@ -118,36 +147,58 @@ public class ChunkerTest {
         }
     }
 
+    private byte[] randomBytes(int length) {
+        byte[] bytes = new byte[length];
+        RNG.nextBytes(bytes);
+        return bytes;
+    }
+
+    private static Random RNG = new Random();
+
     static class MemoryIo implements Chunker.ChunkIo {
-        private Map<Long, byte[]> objects;
+        private Map<String, Map<Long, byte[]>> blobs;
 
         public MemoryIo() {
-            objects = new HashMap<>();
+            blobs = new HashMap<>();
         }
 
-        public byte byteAt(int objectSize, long offset) {
+        public byte byteAt(NfsPath path, int objectSize, long offset) {
             long objectId = Math.floorDiv(offset, objectSize);
             int objectOffset = (int) (offset % objectSize);
-            return objects.get(objectId)[objectOffset];
+            return blobs.get(path.blobName()).get(objectId)[objectOffset];
         }
 
         @Override
         public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
-            if (!objects.containsKey(objectOffset.getValue())) {
+            if (!blobs.containsKey(path.blobName())) {
+                throw new FileNotFoundException();
+            }
+
+            if (!blobs.get(path.blobName()).containsKey(objectOffset.getValue())) {
                 throw new FileNotFoundException(path + ", objectOffset=" + objectOffset.getValue());
             }
 
-            return ByteBuffer.wrap(objects.get(objectOffset.getValue()));
+            return ByteBuffer.wrap(blobs.get(path.blobName()).get(objectOffset.getValue()));
         }
 
         @Override
-        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) {
+        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob) {
             if (byteBuffer.remaining() == 0) {
-                throw new RuntimeException("WTF");
+                throw new RuntimeException("Empty object!");
             }
+
+            if (!isEndOfBlob && byteBuffer.remaining() != objectSize) {
+                throw new RuntimeException("All objects except the last one should be exactly MAX_OBJECT_SIZE long");
+            }
+
             byte[] bytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(bytes);
-            objects.put(objectOffset.getValue(), bytes);
+            blobs.compute(entry.path().blobName(), (k, v) -> {
+                if (v == null) {
+                    v = new HashMap<>();
+                }
+                return v;
+            }).put(objectOffset.getValue(), bytes);
         }
     }
 }

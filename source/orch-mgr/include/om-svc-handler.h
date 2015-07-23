@@ -92,6 +92,8 @@ namespace fds {
       void healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg );
+      void healthReportError(fpi::FDSP_MgrIdType &svc_type,
+                             boost::shared_ptr<fpi::NotifyHealthReport> &msg);
 
       kvstore::ConfigDB* configDB = NULL;
   };

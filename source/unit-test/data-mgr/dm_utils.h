@@ -105,7 +105,7 @@ static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oid
 struct DMCallback {
     boost::shared_ptr<fpi::AsyncHdr> asyncHdr;
     Error e;
-    fds::dmCatReq *req;
+    fds::DmRequest *req;
     fds::concurrency::TaskStatus taskStatus;
 
     void reset() {
@@ -121,7 +121,7 @@ struct DMCallback {
         }
     }
 
-    void handler(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, const fds::Error &e, fds::dmCatReq *req) { //NOLINT
+    void handler(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, const fds::Error &e, fds::DmRequest *req) { //NOLINT
         this->asyncHdr = asyncHdr;
         this->e = e;
         this->req = req;

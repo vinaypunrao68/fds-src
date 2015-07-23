@@ -50,7 +50,7 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
     addToQueue(dmReq);
 }
 
-void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
+void GetBlobMetaDataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoGetBlobMetaData* typedRequest = static_cast<DmIoGetBlobMetaData*>(dmRequest);
 
@@ -70,10 +70,10 @@ void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
     typedRequest->message->byteCount = blobSize;
 }
 
-// TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
+// TODO(Rao): Refactor DmRequest to contain BlobNode information? Check with Andrew.
 void GetBlobMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                             boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
-                                            Error const& e, dmCatReq* dmRequest) {
+                                            Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 

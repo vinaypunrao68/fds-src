@@ -175,15 +175,16 @@ AmCache::putObject(fds_volid_t const volId,
 
 Error
 AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize) {
-    LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
-             << txDesc->volId << std::dec << " blob " << txDesc->blobName;
-
     // If the transaction is a delete, we want to remove the cache entry
     if (txDesc->opType == FDS_DELETE_BLOB) {
+        LOGTRACE << "Cache remove tx descriptor for volume "
+                 << txDesc->volId << " blob " << txDesc->blobName;
         // Remove from blob caches
         removeBlob(txDesc->volId, txDesc->blobName);
     } else {
         fds_verify(txDesc->opType == FDS_PUT_BLOB);
+        LOGTRACE << "Cache insert tx descriptor for volume "
+                 << txDesc->volId << " blob " << txDesc->blobName;
 
         for (auto& offset_pair : txDesc->stagedBlobOffsets) {
             putOffset(txDesc->volId,
