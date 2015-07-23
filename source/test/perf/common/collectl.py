@@ -13,7 +13,7 @@ class SystemMonitor(object):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
         self.stop = threading.Event()
-        self.ps = subprocess.Popen(('collectl', '-P', '-m'), stdout=subprocess.PIPE)
+        self.ps = subprocess.Popen(('collectl', '-P', '-m', '-i:' + str(self.config["period"])), stdout=subprocess.PIPE)
         self.hostname = socket.gethostname()
 
     def run(self):
@@ -41,19 +41,30 @@ class SystemMonitor(object):
 
 def main():
     parser = OptionParser()
-    parser.add_option("-p", "--period", dest = "period", type = "float", default = 1.0,
-                      help = "Period -> NOt implemented yet")
+    parser.add_option("-p", "--period", dest = "period", type = "int", default = 1,
+                      help = "Collection period [seconds] - default is 1s")
+    parser.add_option("", "--influxdb-host", dest = "influxdb_host", default = "han.formationds.com",
+                      help = "Influxdb host")
+    parser.add_option("", "--influxdb-port", dest = "influxdb_port", default = 8086, type = "int",
+                      help = "Influxdb port")
+    parser.add_option("", "--influxdb-db", dest = "influx_db", default = "system_stats",
+                      help = "Influxdb db")
+    parser.add_option("", "--influxdb-user", dest = "influx_user", default = "root",
+                      help = "Influxdb user")
+    parser.add_option("", "--influxdb-password", dest = "influx_password", default = "root",
+                      help = "Influxdb password")
+
 
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "matteo-vm",
-        "port" : 8086,
-        "user" : "root",
-        "password" : "root",
-        "db" : "system_stats"
+        "ip" : options.influxdb_host,
+        "port" :  options.influxdb_host,
+        "user" :  options.influxdb_host,
+        "password" :  options.influxdb_host,
+        "db" :  options.influxdb_host
     }
-    
+ 
     config = {
         "influxdb_config" : influx_db_config,
         "period" : options.period,
