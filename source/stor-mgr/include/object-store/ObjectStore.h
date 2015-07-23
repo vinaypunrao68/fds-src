@@ -275,6 +275,11 @@ class ObjectStore : public Module, public boost::noncopyable {
                            const TokenDiskIdPairSet& tokenDiskPairs);
 
     /**
+     * Handle detection of online disk failure.
+     */
+    Error handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier);
+
+    /**
      * Update the HDD and SSD disk trackers with any errors seen during
      * gets and puts.
      */

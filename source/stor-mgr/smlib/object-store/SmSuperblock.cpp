@@ -344,6 +344,12 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
     return err;
 }
 
+void
+SmSuperblockMgr::recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds) {
+    SCOPEDWRITE(sbLock);
+    checkDiskTopology(hddIds, ssdIds);
+}
+
 Error
 SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
                                            fds_uint64_t dltVersion) {

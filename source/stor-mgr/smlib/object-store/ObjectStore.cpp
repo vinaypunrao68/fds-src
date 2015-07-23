@@ -161,26 +161,77 @@ float_t ObjectStore::getUsedCapacityAsPct() {
 void
 ObjectStore::initObjectStoreMediaErrorHandlers() {
     // callback for disk failure notification
+    LOGDEBUG << "Initializing Object store media error handlers";
+    typedef std::function <void(DiskId& diskId, const diskio::DataTier& tier)> OnlineDiskFailureFnObj;
     struct cb {
+        diskio::DataTier tier;
+        OnlineDiskFailureFnObj fnObj;
         void operator()(fds_uint16_t diskId,
                         size_t events) const {
             LOGERROR << "Disk " << diskId << " on tier " << tier
                      << " saw too many errors; declaring disk failed";
-            // TODO(Anna) handle disk failure
+            /**
+             * This callback will be called when the timer expires and
+             * the number of events fed is greater than some threshhold.
+             * In online disk failure case, it will be called when a
+             * certain number of read/write failures for a disk is seen.
+             *
+             * Here in the callback, first thing to do is to mark disk as bad
+             * That means
+             * 1) Deleting disk from diskMap that SM holds.
+             *  1.a) Deleting from smDiskMap.
+             *  1.b) Deleting relevant disk info from SmSuperblockMgr and superblocks
+             *       in general.
+             * 2) Marking disk as unhealthy.
+             * 3) Do a disk check. Either call checkDiskTopology or partially call
+             *    stuff which is relevant from that method.
+             *  3.a) That means removing disk from hdd_ids/ssd_ids.
+             *  3.b) Letting checkDiskTopology check for missing disks
+             *  3.c) Deleting corresponding token files/leveldbs of the failed disk.
+             *  3.d) Recomputing the location of missing tokens.
+             * 4) Check if there is any existing SM migration going on.
+             *  4.a) If yes, then there has to be some mechanism which could trigger
+             *       migration after the current one finishes.
+             *  4.b) If no, then startResync process. (Hopefully by the time we reach
+             *       here, all missing stuff is cleaned up in token files or leveldbs
+             *       and migration mechanism will take care of it automatically.
+             * 5) Open new metadata or datafiles, which were recreated on a different
+             *    disk.
+             */
+             fnObj(diskId, tier);
         }
-        diskio::DataTier tier;
+        explicit cb(diskio::DataTier dataTier, OnlineDiskFailureFnObj fn=OnlineDiskFailureFnObj()):
+                                                                tier(dataTier), fnObj(std::move(fn)) {}
     };
 
     // Write/read HDD error handler (3 within 5 minutes will trigger)
     // we will record both read and write errors as write errors
     objStoreDiskMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
-                               create_tracker<std::chrono::minutes>(cb{diskio::diskTier},
-                                                                    "hdd_fail", 5, 3));
+                               create_tracker<std::chrono::minutes>(cb(diskio::diskTier,
+                                                                    std::bind(&::fds::ObjectStore::handleOnlineDiskFailures, this,
+                                                                                 std::placeholders::_1,
+                                                                                 std::placeholders::_2)
+                                                                       ), "hdd_fail", 5, 3));
     // Write/Read SSD error handler (3 within 5 minutes will trigger)
     // we will record both read and write errors as write errors
     objStoreFlashMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
-                               create_tracker<std::chrono::minutes>(cb{diskio::flashTier},
-                                                                    "ssd_fail", 5, 3));
+                               create_tracker<std::chrono::minutes>(cb(diskio::flashTier,
+                                                                    std::bind(&::fds::ObjectStore::handleOnlineDiskFailures, this,
+                                                                                 std::placeholders::_1,
+                                                                                 std::placeholders::_2)
+                                                                    ), "ssd_fail", 5, 3));
+}
+
+Error
+ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
+    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    diskMap->removeDiskAndRecompute(diskId, tier);
+    SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
+    Error err = openStore(lostTokens);
+    if (!err.ok()) {
+        LOGDEBUG << "Error opening metadata and data stores." << err;
+    }
+    return err;
 }
 
 /**
@@ -422,12 +473,14 @@ ObjectStore::putObject(fds_volid_t volId,
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
-        fds_verify(err == ERR_NOT_FOUND);
-        err = ERR_OK;
-        updatedMeta.reset(new ObjMetaData());
-        updatedMeta->initialize(objId, objData->size());
+        if (err == ERR_NOT_FOUND) {
+            err = ERR_OK;
+            updatedMeta.reset(new ObjMetaData());
+            updatedMeta->initialize(objId, objData->size());
+        } else {
+            return err;
+        }
     }
-
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
 
     // If the TokenMigration reconcile is still required, then treat the object as not valid.
@@ -556,7 +609,7 @@ ObjectStore::getObject(fds_volid_t volId,
     if (!err.ok()) {
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
-        return NULL;
+        return nullptr;
     }
 
 
@@ -565,7 +618,7 @@ ObjectStore::getObject(fds_volid_t volId,
         LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
                     << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
-        return NULL;
+        return nullptr;
     }
 
     // Check if the object is reconciled properly.
@@ -573,7 +626,7 @@ ObjectStore::getObject(fds_volid_t volId,
         LOGNOTIFY << "Requires Reconciliation: " << objMeta->logString()
                   << " err=" << ERR_NOT_FOUND;
         err = ERR_NOT_FOUND;
-        return NULL;
+        return nullptr;
     }
 
     /*
@@ -584,7 +637,7 @@ ObjectStore::getObject(fds_volid_t volId,
         err = ERR_NOT_FOUND;
         LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
                 << " to object " << objId << " returning " << err;
-        return NULL;
+        return nullptr;
     }
     */
 
@@ -1482,6 +1535,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     mod_intern = objStoreDepMods;
     Module::mod_init(p);
 
+    initObjectStoreMediaErrorHandlers();
     // Conditionally enable write faults at the given rate
     float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
     if (write_failure_rate != 0.0f) {

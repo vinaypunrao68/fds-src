@@ -147,9 +147,12 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * When SmDiskMap sees too many IO errors from the same disk, it declares disk
      * failed and migrates SM tokens from that disk to other disks
      */
-    void notifyIOError(fds_token_id smTokId,
-                       diskio::DataTier tier,
-                       const Error& error);
+
+
+    /**
+     * Remove the disk and distribute the tokens over other 'live' disks.
+     */
+    void removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier);
 
     /**
      * Module methods

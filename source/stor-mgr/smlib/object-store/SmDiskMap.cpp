@@ -63,6 +63,31 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     return 0;
 }
 
+void
+SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) {
+    /**
+     * TODO(Gurpreet) Make access to maps concurrency-safe.
+     */
+    disk_map.erase(diskId);
+    diskDevMap.erase(diskId);
+    switch (tier) {
+        case diskio::diskTier:
+            hdd_ids.erase(diskId);
+            break;
+        case diskio::flashTier:
+            ssd_ids.erase(diskId);
+            break;
+        default:
+            LOGDEBUG << "Invalid tier information";
+            break;
+    }
+
+    superblock->recomputeTokensForLostDisk(hdd_ids, ssd_ids);
+    /**
+     * TODO(Gurpreet): Handle capacity changes due to the failed disk.
+     */
+}
+
 Error
 SmDiskMap::loadPersistentState() {
 
