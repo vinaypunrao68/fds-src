@@ -60,7 +60,7 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     addToQueue(dmReq);
 }
 
-void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
+void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
@@ -176,7 +176,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
 void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
-                                         Error const& e, dmCatReq* dmRequest) {
+                                         Error const& e, DmRequest* dmRequest) {
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
 

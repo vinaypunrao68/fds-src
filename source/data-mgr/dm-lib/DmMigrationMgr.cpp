@@ -87,7 +87,7 @@ DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 }
 
 Error
-DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 {
 	Error err(ERR_OK);
 
@@ -212,6 +212,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
 // process the deltaObject request
 Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
+	Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
     DmMigrationExecutor::shared_ptr executor =
     		getMigrationExecutor(fds_volid_t(deltaBlobsMsg->volume_id));
@@ -222,9 +223,13 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     	fds_assert(0);
     	return ERR_NOT_FOUND;
     }
-    executor->processDeltaBlobs(deltaBlobsMsg);
+    err = executor->processDeltaBlobs(deltaBlobsMsg);
+    if (executor->isVolEmpty()) {
+    	/* No blobs for this volume. Invoke callback manually */
+    	err = executor->processIncomingDeltaSetCb();
+    }
 
-    return ERR_OK;
+    return err;
 }
 
 Error
@@ -257,7 +262,7 @@ DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
 
 // See note in header file for design decisions
 Error
-DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 {
 	Error err(ERR_OK);
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);

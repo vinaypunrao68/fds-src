@@ -5,13 +5,17 @@
 package com.formationds.commons;
 
 import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.FDSP_NodeState;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.SvcID;
 import com.formationds.protocol.SvcUuid;
 import com.formationds.protocol.svc.types.ServiceStatus;
 import com.formationds.protocol.svc.types.SvcInfo;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -124,7 +128,7 @@ public abstract class TestBase
         svc.setSvc_auto_name( auto_name );
         svc.setName( auto_name );
         svc.setIp( ipAddress );
-        svc.setIncarnationNo( incarnation( ).intValue() );
+        svc.setIncarnationNo( incarnation( ).intValue( ) );
 
         return svc;
     }
@@ -132,5 +136,274 @@ public abstract class TestBase
     private Long incarnation()
     {
         return Instant.now( ).getEpochSecond( );
+    }
+
+    private String name( final FDSP_MgrIdType type )
+    {
+        switch( type )
+        {
+            case FDSP_PLATFORM:
+                return "pm";
+            case FDSP_STOR_MGR:
+                return "sm";
+            case FDSP_DATA_MGR:
+                return "dm";
+            case FDSP_ACCESS_MGR:
+                return "am";
+            case FDSP_ORCH_MGR:
+                return "om";
+            default:
+                return "unknown";
+        }
+    }
+
+    private FDSP_Node_Info_Type other( final FDSP_Node_Info_Type pm,
+                                              final FDSP_MgrIdType type )
+    {
+        final FDSP_Node_Info_Type other = pm.deepCopy();
+
+        other.setService_uuid( pm.getService_uuid() + ( type.getValue() + 1024 ) );
+        other.setData_port( pm.getData_port( ) + type.getValue( ) );
+        other.setNode_type( type );
+        other.setNode_name( name( type ) );
+
+        return other;
+    }
+
+    final static FDSP_MgrIdType type = FDSP_MgrIdType.FDSP_PLATFORM;
+    final static FDSP_NodeState state = FDSP_NodeState.FDS_Node_Up;
+    final static long base_uuid = 4096;
+
+    protected List<FDSP_Node_Info_Type> nodes( )
+    {
+        final FDSP_Node_Info_Type pm1 =
+            new FDSP_Node_Info_Type( 1,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7000,
+                                     0,
+                                     base_uuid,
+                                     base_uuid,
+                                     "/fds",
+                                     0 );
+        final FDSP_Node_Info_Type om =
+            new FDSP_Node_Info_Type( 1,
+                                     state,
+                                     FDSP_MgrIdType.FDSP_ORCH_MGR,
+                                     name( FDSP_MgrIdType.FDSP_ORCH_MGR ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7000 + FDSP_MgrIdType.FDSP_ORCH_MGR.getValue(),
+                                     0,
+                                     1024,
+                                     1024 + FDSP_MgrIdType.FDSP_ORCH_MGR.getValue(),
+                                     "/fds",
+                                     0 );
+
+        final FDSP_Node_Info_Type pm2 =
+            new FDSP_Node_Info_Type( 2,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706533L,
+                                     0,
+                                     7000,
+                                     0,
+                                     base_uuid * 2,
+                                     base_uuid * 2,
+                                     "/fds",
+                                     0 );
+
+        final FDSP_Node_Info_Type pm3 =
+            new FDSP_Node_Info_Type( 3,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706633L,
+                                     0,
+                                     7000,
+                                     0,
+                                     base_uuid * 3,
+                                     base_uuid * 3,
+                                     "/fds/node3",
+                                     0 );
+
+        final FDSP_Node_Info_Type pm4 =
+            new FDSP_Node_Info_Type( 4,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706733L,
+                                     0,
+                                     7000,
+                                     0,
+                                     base_uuid * 4,
+                                     base_uuid * 4,
+                                     "/fds",
+                                     0 );
+
+        return Arrays.asList( pm1,
+                              om,
+                              other( pm1, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm1, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm1, FDSP_MgrIdType.FDSP_STOR_MGR ),
+                              pm2,
+                              other( pm2, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm2, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm2, FDSP_MgrIdType.FDSP_STOR_MGR ),
+                              pm3,
+                              other( pm3, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm3, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm3, FDSP_MgrIdType.FDSP_STOR_MGR ),
+                              pm4,
+                              other( pm4, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm4, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm4, FDSP_MgrIdType.FDSP_STOR_MGR ) );
+    }
+
+    protected List<FDSP_Node_Info_Type> nodeVitualized( )
+    {
+        final FDSP_Node_Info_Type pm1 =
+            new FDSP_Node_Info_Type( 1,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7000,
+                                     0,
+                                     1,
+                                     1,
+                                     "/fds/node1",
+                                     0 );
+
+        final FDSP_Node_Info_Type om =
+            new FDSP_Node_Info_Type( 1,
+                                     state,
+                                     FDSP_MgrIdType.FDSP_ORCH_MGR,
+                                     name( FDSP_MgrIdType.FDSP_ORCH_MGR ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7000 + FDSP_MgrIdType.FDSP_ORCH_MGR.getValue(),
+                                     0,
+                                     1024,
+                                     1024 + FDSP_MgrIdType.FDSP_ORCH_MGR.getValue(),
+                                     "/fds/node1",
+                                     0 );
+
+        final FDSP_Node_Info_Type pm2 =
+            new FDSP_Node_Info_Type( 2,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7100,
+                                     0,
+                                     2,
+                                     2,
+                                     "/fds/node2",
+                                     0 );
+
+        final FDSP_Node_Info_Type pm3 =
+            new FDSP_Node_Info_Type( 3,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7200,
+                                     0,
+                                     3,
+                                     3,
+                                     "/fds/node3",
+                                     0 );
+
+        final FDSP_Node_Info_Type pm4 =
+            new FDSP_Node_Info_Type( 4,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7200,
+                                     0,
+                                     4,
+                                     4,
+                                     "/fds/node4",
+                                     0 );
+
+        return Arrays.asList( pm1,
+                              om,
+                              other( pm1, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm1, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm1, FDSP_MgrIdType.FDSP_STOR_MGR ),
+                              pm2,
+                              other( pm2, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm2, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm2, FDSP_MgrIdType.FDSP_STOR_MGR ),
+                              pm3,
+                              other( pm3, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm3, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm3, FDSP_MgrIdType.FDSP_STOR_MGR ),
+                              pm4,
+                              other( pm4, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm4, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm4, FDSP_MgrIdType.FDSP_STOR_MGR ) );
+
+    }
+
+    protected List<FDSP_Node_Info_Type> nodeSingle( )
+    {
+        final FDSP_Node_Info_Type pm1 =
+            new FDSP_Node_Info_Type( 1,
+                                     state,
+                                     type,
+                                     name( type ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7000,
+                                     0,
+                                     1,
+                                     1,
+                                     "/fds/node1",
+                                     0 );
+
+        final FDSP_Node_Info_Type om =
+            new FDSP_Node_Info_Type( 1,
+                                     state,
+                                     FDSP_MgrIdType.FDSP_ORCH_MGR,
+                                     name( FDSP_MgrIdType.FDSP_ORCH_MGR ),
+                                     0L,
+                                     2130706433L,
+                                     0,
+                                     7000 +
+                                     FDSP_MgrIdType.FDSP_ORCH_MGR.getValue( ),
+                                     0,
+                                     1024,
+                                     1024 +
+                                     FDSP_MgrIdType.FDSP_ORCH_MGR.getValue( ),
+                                     "/fds/node1",
+                                     0 );
+
+        return Arrays.asList( pm1,
+                              om,
+                              other( pm1, FDSP_MgrIdType.FDSP_DATA_MGR ),
+                              other( pm1, FDSP_MgrIdType.FDSP_ACCESS_MGR ),
+                              other( pm1, FDSP_MgrIdType.FDSP_STOR_MGR ) );
     }
 }

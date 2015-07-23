@@ -76,15 +76,17 @@ class extendedFstab (fstab.Fstab):
     def remove_mount_point_by_uuid (self, uuid):
         lines_to_keep = []
         removed = False
-        ''' Go through the existing fstab file and make a copy removing the directed entry.  Then replace the fstab with the new version (if necessary).  active fstab file remains in memory and is not stored on disk unless saved later. '''
-        for line in self.lines:
-            if not removed and uuid in line.get_raw():
-                removed = True
-            else:
-                lines_to_keep.append (line)
-        if removed:
-            self.lines = lines_to_keep
-            self.altered = True
+
+        if len (uuid) > 0:
+            ''' Go through the existing fstab file and make a copy removing the directed entry.  Then replace the fstab with the new version (if necessary).  active fstab file remains in memory and is not stored on disk unless saved later. '''
+            for line in self.lines:
+                if not removed and uuid in line.get_raw():
+                    removed = True
+                else:
+                    lines_to_keep.append (line)
+            if removed:
+                self.lines = lines_to_keep
+                self.altered = True
 
 
     def add_mount_point (self, line):
@@ -98,6 +100,12 @@ class extendedFstab (fstab.Fstab):
             return True
         return False
 
+    # A debugging tool, keeping around so I don't have to use it anymore
+    def dump_fstab (self):
+        print "++++++++++++++++++++++++++++++++++++++++ Current in Memory fstab"
+        for line in self.lines:
+            print line.get_raw()
+        print "++++++++++++++++++++++++++++++++++++++++"
 
 class Base (object):
     ''' General utility functions, used as a base class to other classes '''
@@ -486,7 +494,6 @@ class DiskUtils (Base, BaseDisk):
                 call_list = self.UMOUNT_COMMAND_1 + mount.split()
                 self.call_subproc (call_list)
             fstab.remove_mount_point_by_uuid (self.get_uuid (part))
-
 
     def find_disk_type (self, disk_list, part):
         ''' Given a disk list and a partition (e.g., /dev/sdc2), return the disk type for the base disk '''

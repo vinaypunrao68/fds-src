@@ -102,7 +102,7 @@ namespace fds {
 
         /**
          * Forward catalog update to DM
-         * TODO(xxx) add parameters (dmCatReq?)
+         * TODO(xxx) add parameters (DmRequest?)
          * CatalogSync must be responsible for volume 'volid'
          * CatalogSync must be in CSSTATE_FORWARDING state
          * @return ERR_OK on success; or networks error

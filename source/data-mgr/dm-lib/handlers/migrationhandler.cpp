@@ -46,7 +46,7 @@ void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 
 }
 
-void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationHandler::handleQueueItem(DmRequest* dmRequest) {
     // Queue helper should mark IO done.
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
@@ -57,7 +57,7 @@ void DmMigrationHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void DmMigrationHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message,
-                                         Error const& e, dmCatReq* dmRequest)
+                                         Error const& e, DmRequest* dmRequest)
 {
     // Don't need to send the response to this message.  We will a message
     // back to OM when the migration is complete, but not as part of
@@ -111,7 +111,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
 
 }
 
-void DmMigrationBlobFilterHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationBlobFilterHandler::handleQueueItem(DmRequest* dmRequest) {
     // Queue helper should mark IO done.
     QueueHelper helper(dataManager, dmRequest);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
@@ -121,7 +121,7 @@ void DmMigrationBlobFilterHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
-			Error const& e, dmCatReq* dmRequest) {
+			Error const& e, DmRequest* dmRequest) {
 
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
@@ -151,7 +151,7 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
     addToQueue(dmReq);
 }
 
-void DmMigrationDeltaBlobDescHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
@@ -181,7 +181,7 @@ void DmMigrationDeltaBlobHandler::handleRequest(
 
 }
 
-void DmMigrationDeltaBlobHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationDeltaBlobs* typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
 
@@ -214,7 +214,7 @@ void DmMigrationDeltaBlobHandler::volumeCatalogCb(Error const& e, blob_version_t
 
 void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
-                        Error const& e, dmCatReq* dmRequest) {
+                        Error const& e, DmRequest* dmRequest) {
 	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
 	delete dmRequest;
 }
@@ -237,7 +237,7 @@ void DmMigrationFinishVolResyncHandler::handleRequest(boost::shared_ptr<fpi::Asy
     addToQueue(dmReq);
 }
 
-void DmMigrationFinishVolResyncHandler::handleQueueItem(dmCatReq* dmRequest) {
+void DmMigrationFinishVolResyncHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationFinishVolResync* typedRequest = static_cast<DmIoMigrationFinishVolResync*>(dmRequest);
 
@@ -246,7 +246,7 @@ void DmMigrationFinishVolResyncHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void DmMigrationFinishVolResyncHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message,
-                        Error const& e, dmCatReq* dmRequest) {
+                        Error const& e, DmRequest* dmRequest) {
 	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
 	delete dmRequest;
 }

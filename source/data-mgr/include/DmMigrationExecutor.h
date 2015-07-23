@@ -81,6 +81,11 @@ class DmMigrationExecutor {
     	return autoIncrement;
     }
 
+    inline fds_bool_t isVolEmpty()
+    {
+    	return volIsEmpty;
+    }
+
   private:
     /** Reference to the DataManager
      */
@@ -108,6 +113,11 @@ class DmMigrationExecutor {
      * Means that the callback above should now call the next executor
      */
     fds_bool_t autoIncrement;
+
+    /**
+     * If this volume is empty.
+     */
+    fds_bool_t volIsEmpty;
 
     /**
      * Used for generating a random TransactionID.
