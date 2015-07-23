@@ -38,6 +38,7 @@ public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
 
     public static void main(String[] args) {
+        System.setProperty("org.eclipse.jetty.http.HttpParser.STRICT", "true"); // disable jetty header modification
         try {
             new Main().start(args);
         } catch (Throwable throwable) {

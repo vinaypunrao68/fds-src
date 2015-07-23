@@ -4,13 +4,14 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_TVC_COMMITLOG_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_COMMITLOG_H_
 
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include <fds_module.h>
 #include <fds_error.h>
 #include <util/timeutils.h>
-#include <concurrency/Mutex.h>
 #include <ObjectLogger.h>
 #include <lib/Catalog.h>
 #include <blob/BlobTypes.h>
@@ -103,15 +104,26 @@ class DmCommitLog : public Module {
     // check if any transaction is pending from before the given time
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
+    /// Block until the commit log is clear
+    std::unique_lock<std::mutex> getDrainedCommitLock()
+    {
+        // Wait for the tx map to be empty, then return a held lock that will
+        // release when it goes out of scope
+        std::unique_lock<std::mutex> guard(lockTxMap_);
+        drainTxWait.wait(guard,[this] () -> bool { return this->txMap_.empty(); });
+        return std::move(guard);
+    }
+
     // get active transactions
     fds_uint32_t getActiveTx() {
-        FDSGUARD(lockTxMap_);
+        std::lock_guard<std::mutex> guard(lockTxMap_);
         return txMap_.size();
     }
 
   private:
     TxMap txMap_;    // in-memory state
-    fds_mutex lockTxMap_;
+    std::mutex lockTxMap_;
+    std::condition_variable drainTxWait;
 
     fds_volid_t volId_;
     fds_uint32_t objSize_;
