@@ -411,27 +411,6 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     return ERR_OK;
 }
 
-Error
-DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
-                                         const std::string &blobName,
-                                         blob_version_t blobVersion,
-                                         const fpi::FDSP_BlobObjectList &objList,
-                                         const fpi::FDSP_MetaDataList &metaList,
-                                         const sequence_id_t seq_id,
-                                         const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
-    TVC_CHECK_AVAILABILITY();
-    LOGDEBUG << "Will apply committed blob update from another DM for volume "
-             << std::hex << volId << std::dec << " blob " << blobName;
-
-    // we don't go through commit log, but we need to serialized fwd updates
-    opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
-                                      std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
-                                                this, volId, blobName, blobVersion,
-                                       objList, metaList, seq_id, fwdCommitCb));
-
-    return ERR_OK;
-}
-
 void
 DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 				   const std::string &blobName,
@@ -525,13 +504,14 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
     return e;
 }
 
-void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
+Error DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volid,
                                          const std::string &blobName,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
-                                         const sequence_id_t seq_id,
-                                         const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
+                                         const sequence_id_t seq_id) {
+    TVC_CHECK_AVAILABILITY();
+
     Error err(ERR_OK);
     // TODO(xxx): use blob mode to tell if that's a deletion
     if (blobVersion == blob_version_deleted) {
@@ -566,8 +546,7 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
             dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
         }
     }
-
-    fwdCommitCb(err);
+    return err;
 }
 
 Error
