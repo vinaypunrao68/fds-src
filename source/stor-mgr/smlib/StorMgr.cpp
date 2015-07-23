@@ -821,6 +821,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     ObjectID objectId;
+    ioReq->setVolId(volId);
 
     switch (ioReq->io_type) {
         case FDS_SM_COMPACT_OBJECTS:
@@ -832,13 +833,11 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_MIGRATION_ABORT:
         case FDS_SM_NOTIFY_DLT_CLOSE:
         {
-            ioReq->setVolId(volId);
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         }
         case FDS_SM_GET_OBJECT:
             {
-            ioReq->setVolId(volId);
             StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
 
             // It's possible that the volume information on this SM may not have
@@ -855,16 +854,17 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_PUT_OBJECT:
             // Volume association resolution is handled in object store layer
             // for putObject.
-            ioReq->setVolId(volId);
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_ADD_OBJECT_REF:
-            ioReq->setVolId(volId);
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_DELETE_OBJECT:
-            // since we are now enqueueing to system queue, make sure to preserve
+            // TODO(Anna) since we are now enqueueing to system queue, make sure to preserve
             // original volumeId, so that we can delete volume association
+            // so re-setting volume ID in ioReq is wrong, but need to properly fix
+            // other places before not-resetting volumeID (otherwise, system queue
+            // ID is passed to deleteObject and the object does not get deleted)
             // Volume association resolution is handled in object store layer
             // for deleteObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
