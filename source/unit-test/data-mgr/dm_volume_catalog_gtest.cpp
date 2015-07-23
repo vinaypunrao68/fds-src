@@ -234,7 +234,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
                 continue;
             }
 
-            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_DELETE_BLOB, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_DELETE_BLOB_REQ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testDeleteBlob,
                     this, vdesc->volUUID, it.name, version);
         }
