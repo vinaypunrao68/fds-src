@@ -54,60 +54,69 @@ bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
 }
 
 bool PlatformDB::getNodeInfo(fpi::NodeInfo& nodeInfo) {
+    bool bRetCode = true;
+    
     try {
         Reply reply = getInternal("node.info");
-        if (reply.isNil()) return false;
-        std::string value = reply.getString();
-        fds::deserializeFdspMsg(value, nodeInfo);
+        if (reply.isNil()) {
+            bRetCode = false;
+        } else {
+            std::string value = reply.getString();
+            fds::deserializeFdspMsg(value, nodeInfo);
+        }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        return false;
+        bRetCode = false;
     }
-    return true;
+    
+    return bRetCode;
 }
 
 bool PlatformDB::setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapability) {
+    bool bRetCode = true;
+    
     try {
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(diskCapability, serialized);
-        setInternal("node.disk.capability", *serialized);
+        bRetCode = setInternal("node.disk.capability", *serialized);
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        return false;
+        bRetCode = false;
     }
-    return true;
+    
+    return bRetCode;
 }
 
 bool PlatformDB::getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCapability) {
+    bool bRetCode = true;
+    
     try {
         Reply reply = getInternal("node.disk.capability");
-        if (reply.isNil()) return false;
-        std::string value = reply.getString();
-        fds::deserializeFdspMsg(value, diskCapability);
+        if (reply.isNil()) {
+            bRetCode = false;
+        } else {
+                  
+            std::string value = reply.getString();
+            fds::deserializeFdspMsg(value, diskCapability);
+        }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        return false;
+        bRetCode = false;
     }
-    return true;
-
+    
+    return bRetCode;
 }
 
 Reply PlatformDB::getInternal(const std::string &key) {
-   auto computedKey = computeKey(key);
-   return r.get(computedKey);
+   return kv_store.get(computeKey(key));
 }
 
-void PlatformDB::setInternal(const std::string &key, const std::string &value) {
-   auto computedKey = computeKey(key);
-   r.set(computedKey, value);
+bool PlatformDB::setInternal(const std::string &key, const std::string &value) {
+   return kv_store.set(computeKey(key), value);
 }
 
-std::string PlatformDB::computeKey(const std::string &k)
-{
-    if (keyBase.size() == 0) {
-        return k;
-    }
-    return keyBase + k;
+std::string PlatformDB::computeKey(const std::string &k) {
+    return keyBase.size() == 0 ? k : keyBase + k;
 }
 
 }  // namespace kvstore
