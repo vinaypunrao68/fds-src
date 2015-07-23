@@ -43,8 +43,6 @@ public class MutateVolume implements RequestHandler{
 		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
 		Volume volume = ObjectModelHelper.toObject( reader, Volume.class );
 
-        ( new CreateVolume( getAuthorizer(), getToken() ) ).validateQOSSettings( volume );
-
 		volume.setId( volumeId );
 		
 		logger.trace( ObjectModelHelper.toJSON( volume ) );
