@@ -38,7 +38,8 @@ public class NodeUtilsTest
     {
         Assert.assertTrue(
             NodeUtils.getNodeUUID( new ResourceUUID( PM_UUID_STR ).uuid( ) )
-                     .getSvc_uuid( ) == new ResourceUUID( PM_UUID_STR ).longValue( ) );
+                     .getSvc_uuid( ) == new ResourceUUID(
+                PM_UUID_STR ).longValue( ) );
     }
 
     @Test
@@ -114,9 +115,46 @@ public class NodeUtilsTest
     }
 
     @Test
-    public void testLog()
+    public void testIsSingleNode( ) throws Exception
     {
-        svcmap.get( )
-              .forEach( NodeUtils::log );
+        Assert.assertFalse( NodeUtils.isSingleNode( nodes( ) ) );
+        Assert.assertTrue( NodeUtils.isSingleNode( nodeSingle( ) ) );
+        Assert.assertFalse( NodeUtils.isSingleNode( nodeVitualized( ) ) );
     }
+
+    @Test
+    public void testIsMultiNode( ) throws Exception
+    {
+        Assert.assertTrue( NodeUtils.isMultiNode( nodes( ) ) );
+        Assert.assertFalse( NodeUtils.isMultiNode( nodeSingle( ) ) );
+        Assert.assertTrue( NodeUtils.isMultiNode( nodeVitualized( ) ) );
+    }
+
+    @Test
+    public void testIsVirtualNode( ) throws Exception
+    {
+        Assert.assertFalse( NodeUtils.isVirtualNode( nodes( ) ) );
+        Assert.assertTrue( NodeUtils.isVirtualNode( nodeSingle( ) ) );
+        Assert.assertTrue( NodeUtils.isVirtualNode( nodeVitualized( ) ) );
+    }
+
+    @Test
+    public void testGroupNodes_Multi_Node( ) throws Exception
+    {
+        Assert.assertTrue( NodeUtils.groupNodes( nodes( ) )
+                                    .size( ) == 4 );
+    }
+
+    @Test
+    public void testGroupNodes_Single_Node( ) throws Exception
+    {
+        Assert.assertTrue( NodeUtils.groupNodes( nodeSingle() ).size() == 1 );
+    }
+
+    @Test
+    public void testGroupNodes_Virtualized_Node( ) throws Exception
+    {
+        Assert.assertTrue( NodeUtils.groupNodes( nodeVitualized( ) ).size() == 4 );
+    }
+
 }

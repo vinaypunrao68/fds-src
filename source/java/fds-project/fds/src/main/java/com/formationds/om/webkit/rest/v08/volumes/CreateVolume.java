@@ -64,16 +64,10 @@ public class CreateVolume implements RequestHandler {
 			logger.trace( ObjectModelHelper.toJSON( newVolume ) );
 		}
 		catch( Exception e ){
-			logger.error( "Unable to convet the body to a valid Volume object.", e );
+			logger.error( "Unable to convert the body to a valid Volume object.", e );
 			throw new ApiException( "Invalid input parameters", ErrorCode.BAD_REQUEST );
 		}
-        
-        if( !validateQOSSettings( newVolume ) ) {
-            final String message = "QOS value out-of-range ( assured <= throttled )";
-            logger.error( message );
-            throw new ApiException( message, ErrorCode.BAD_REQUEST );
-        }
-        
+
 		VolumeDescriptor internalVolume = ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
 		
 		final String domainName = "";
@@ -145,9 +139,12 @@ public class CreateVolume implements RequestHandler {
 	 * @throws ApiException
 	 * @throws TException
 	 */
-	public void setQosForVolume( Volume externalVolume ) throws ApiException, TException{
-		
-	    if( externalVolume.getId() != null && externalVolume.getId() > 0 ) {
+	public void setQosForVolume( Volume externalVolume )
+        throws ApiException, TException {
+
+        validateQOSSettings( externalVolume );
+
+        if( externalVolume.getId() != null && externalVolume.getId() > 0 ) {
 
 	    	try {
 				Thread.sleep( 200 );
@@ -179,15 +176,35 @@ public class CreateVolume implements RequestHandler {
 			createEndpoint.createSnapshotPolicy( externalVolume.getId(), policy );			
 		}
 	}
-	
-    private boolean validateQOSSettings( final Volume volume )
-    {
-        logger.trace( "IOPS -- MIN: {} MAX: {}",
-                      volume.getQosPolicy().getIopsMin(),
-                      volume.getQosPolicy().getIopsMax() );
 
-        return ( volume.getQosPolicy().getIopsMin() <=
-                 volume.getQosPolicy().getIopsMax() );
+    /**
+     * @param volume the {@link Volume} representing the external model object
+     *
+     * @throws ApiException if the QOS settings are not valid
+     */
+    public void validateQOSSettings( final Volume volume ) throws ApiException {
+
+        logger.trace( "Validate QOS -- MIN(assured): {} MAX(throttled): {}",
+                      volume.getQosPolicy( )
+                            .getIopsMin( ),
+                      volume.getQosPolicy( )
+                            .getIopsMax( ) );
+
+        if( !( ( volume.getQosPolicy( )
+                       .getIopsMax( ) == 0 ) ||
+               ( volume.getQosPolicy( )
+                       .getIopsMin( ) <=
+                 volume.getQosPolicy( )
+                       .getIopsMax( ) ) ) ) {
+
+            final String message =
+                "QOS value out-of-range ( assured <= throttled ). If this " +
+                "was a create volume/bucket call the volume was created. " +
+                "Fix the out-of-range issue and edit the volume.";
+
+            logger.error( message );
+            throw new ApiException( message, ErrorCode.BAD_REQUEST );
+        }
     }
     
 	private Authorizer getAuthorizer(){

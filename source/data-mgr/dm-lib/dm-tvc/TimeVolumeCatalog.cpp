@@ -336,6 +336,15 @@ DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
 }
 
 Error
+DmTimeVolCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(volId, commitLog);
+    auto unique_lock = commitLog->getDrainedCommitLock();
+    return volcat->getVolumeSnapshot(volId, snap);
+}
+
+
+Error
 DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
                               const std::string &blobName,
                               const fds_int32_t blobMode,

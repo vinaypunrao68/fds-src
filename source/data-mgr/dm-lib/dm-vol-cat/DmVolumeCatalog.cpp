@@ -899,6 +899,14 @@ Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std
     return vol->getAllBlobsWithSequenceId(blobsSeqId, snap);
 }
 
+Error DmVolumeCatalog::putObject(fds_volid_t volId,
+                                 const std::string & blobName,
+                                 const BlobObjList & objs)
+{
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->putObject(blobName, objs);
+}
+
 Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
 	GET_VOL_N_CHECK_DELETED(volId);
 	return vol->getInMemorySnapshot(snap);

@@ -8,6 +8,7 @@ import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.util.DigestUtil;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
@@ -109,15 +110,11 @@ public class AsyncStreamer {
     }
 
     public CompletableFuture<PutResult> putBlobFromSupplier(String domain, String volume, String blob, Map<String, String> metadata, Function<ByteBuffer, CompletableFuture<Void>> reader) {
-        try {
-            AsyncMessageDigest asmd = new AsyncMessageDigest(MessageDigest.getInstance("MD5"));
-            return statVolume(domain, volume)
-                    .thenCompose(volumeDescriptor -> firstPut(new PutParameters(domain, volume, blob, reader, volumeDescriptor.getPolicy().getMaxObjectSizeInBytes(), asmd, metadata), 0))
-                    .thenCompose(_completion -> asmd.get())
-                    .thenApply(digestBytes -> new PutResult(digestBytes));
-        } catch (NoSuchAlgorithmException ex) {
-            return CompletableFutureUtility.exceptionFuture(ex);
-        }
+        AsyncMessageDigest asmd = new AsyncMessageDigest(DigestUtil.newMd5());
+        return statVolume(domain, volume)
+                .thenCompose(volumeDescriptor -> firstPut(new PutParameters(domain, volume, blob, reader, volumeDescriptor.getPolicy().getMaxObjectSizeInBytes(), asmd, metadata), 0))
+                .thenCompose(_completion -> asmd.get())
+                .thenApply(digestBytes -> new PutResult(digestBytes));
     }
 
     private ByteBuffer condenseBuffer(ByteBuffer buffer) {
