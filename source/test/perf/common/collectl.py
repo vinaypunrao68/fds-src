@@ -13,7 +13,7 @@ class SystemMonitor(object):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
         self.stop = threading.Event()
-        self.ps = subprocess.Popen(('collectl', '-P', '-m', '-i:' + str(self.config["period"])), stdout=subprocess.PIPE)
+        self.ps = subprocess.Popen(('collectl', '-P', '-m', '-s+m', '-i' + str(self.config["period"])), stdout=subprocess.PIPE)
         self.hostname = socket.gethostname()
 
     def run(self):
