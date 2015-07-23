@@ -124,6 +124,7 @@ for bs in $bsizes ; do
                 	        	process_results $outfile $worker $workload $bs $d $size $m $i
 			    	        pids[$m:$i]=""
                         done
+			sleep 10
                    done
                 done
             done
