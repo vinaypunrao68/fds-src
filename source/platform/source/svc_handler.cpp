@@ -6,6 +6,7 @@
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 #include <platform/platform_manager.h>
+#include <fdsp/health_monitoring_api_types.h>
 
 namespace fds
 {
@@ -24,6 +25,7 @@ namespace fds
             REGISTER_FDSP_MSG_HANDLER (fpi::NotifyRemoveServiceMsg, removeService);
             REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStartServiceMsg, startService);
             REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStopServiceMsg, stopService);
+            REGISTER_FDSP_MSG_HANDLER (fpi::HeartbeatMessage, heartbeatCheck);
         }
 
 /* to be deprecated START */
@@ -63,6 +65,13 @@ namespace fds
             platform->stopService (stopServiceMessage);
             sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
+
+        void SvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::HeartbeatMessage> &heartbeatMessage)
+        {
+            platform->heartbeatCheck(heartbeatMessage);
+            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
 
     }  // namespace pm
 }  // namespace fds

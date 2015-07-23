@@ -1127,10 +1127,18 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             {
                 case fpi::FDS_Node_Discovered:
                 case fpi::FDS_Node_Up:
+                {
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_ACTIVE );
+                    auto curTime = std::chrono::system_clock::now().time_since_epoch();
+                    double current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+                    //fpi::SvcUuid svcUuid;
+                    //svcUuid.svc_uuid = get_uuid().uuid_get_val();
+                    //Will this tosvcuuid be a valid value at all?
+                    OrchMgr::om_monitor()->updateKnownPMsMap(rs_get_uuid().toSvcUuid(), current );
                     break;
+                }
                 case fpi::FDS_Start_Migration:
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
@@ -1225,10 +1233,16 @@ OM_PmAgent::send_add_service
         {
             case fpi::FDS_Node_Discovered:
             case fpi::FDS_Node_Up:
+            {
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
                                            fpi::SVC_STATUS_ACTIVE );
+                auto curTime = std::chrono::system_clock::now().time_since_epoch();
+                double current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                OrchMgr::om_monitor()->updateKnownPMsMap(svc_uuid, current );
                 break;
+            }
             case fpi::FDS_Start_Migration:
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
@@ -1546,6 +1560,24 @@ OM_PmAgent::send_remove_service
     return err;
 }
 
+/*
+ * THIS IS ON THE OM-TO-PM direction
+ * This function is potentially invoked by the health monitor task
+*/
+Error
+OM_PmAgent::send_heartbeat_check(fpi::SvcUuid svcuuid)
+{
+    fpi::HeartbeatMessagePtr heartbeatMsg =
+                             boost::make_shared<fpi::HeartbeatMessage>();
+    heartbeatMsg->svcUuid.uuid = svcuuid.svc_uuid;
+
+    auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::HeartbeatMessage), heartbeatMsg);
+    req->invoke();
+
+    return ERR_OK;
+}
+
 /**
  * Execute "remove services" message for the specified services.
  *
@@ -1669,7 +1701,6 @@ OM_PmAgent::send_deactivate_services_resp(fds_bool_t deactivate_sm,
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DeactAckEvt(error));
 }
-
 
 // ---------------------------------------------------------------------------------
 // Common OM Service Container
@@ -2394,6 +2425,38 @@ OM_NodeContainer::om_remove_service
     }
 
     return agent->send_remove_service(node_uuid, svcInfos, remove_sm, remove_dm, remove_am);
+}
+
+/**
+ * Name: om_heartbeat_check
+ * Periodic check to verify that well known PM
+ * is still active
+ *
+ * Returns: ERR_OK if successful
+ */
+Error
+OM_NodeContainer::om_heartbeat_check
+    (
+    const fpi::SvcUuid& svc_uuid
+    )
+{
+    TRACEFUNC;
+
+    if (svc_uuid.svc_uuid == 0) {
+        LOGDEBUG << "Invalid service ID";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "Heartbeat check: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_heartbeat_check(svc_uuid);
 }
 /**
  * Remove all defined Services on the specified Node.

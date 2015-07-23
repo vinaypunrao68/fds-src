@@ -1686,6 +1686,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                              << " ) is a new node.";
                     
                     svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                    // Here will have to add this PM to the new "map".
+                    // What defines well known though? Is it well known only after
+                    // it has been added ? --> any node that is not removed or discovered
                 }
             } else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) {
                 if ( !isKnownService( *svcInfo ) ) {

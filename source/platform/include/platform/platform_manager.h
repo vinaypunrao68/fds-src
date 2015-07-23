@@ -82,7 +82,7 @@ namespace fds
 
                 void startService (fpi::NotifyStartServiceMsgPtr const &startServiceMsg);
                 void stopService (fpi::NotifyStopServiceMsgPtr const &stopServiceMsg);
-
+                void heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg);
                 /**
                  * Update the service info properties with disk information,
                  * the node uuid, and fds_root.

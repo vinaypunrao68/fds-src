@@ -19,6 +19,7 @@
 #include <concurrency/Mutex.h>
 #include <omutils.h>
 #include <OmVolume.h>
+#include "OMMonitorWellKnownPMs.h"
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
@@ -71,6 +72,7 @@ class OrchMgr: public SvcProcess {
     boost::shared_ptr<std::thread> cfgserver_thread;
 
 
+
     fds_mutex *om_mutex;
     std::string node_id_to_name[MAX_OM_NODES];
 
@@ -85,6 +87,7 @@ class OrchMgr: public SvcProcess {
     /* policy manager */
     VolPolicyMgr           *policy_mgr;
     kvstore::ConfigDB      *configDB;
+    OMMonitorWellKnownPMs  *omMonitor;
 
   protected:
     virtual void setupSvcInfo_() override;
@@ -114,6 +117,7 @@ class OrchMgr: public SvcProcess {
 
     static VolPolicyMgr      *om_policy_mgr();
     static const std::string &om_stor_prefix();
+    static OMMonitorWellKnownPMs*    om_monitor();
 
     DeleteScheduler deleteScheduler;
 

@@ -56,6 +56,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
+    REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -254,6 +255,20 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // tell DLT state machine about abort (error state)
     dltMod->dlt_deploy_event(DltErrorFoundEvt(NodeUuid(hdr->msg_src_uuid),
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
+}
+/*
+ * This has to be the handler for message from PM - TO - OM
+ * */
+void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                                    boost::shared_ptr<fpi::HeartbeatMessage>& msg)
+{
+    // go through your message, get the uuid and timestamp
+    // update local map with associated PM uuid and timestamp it said it was alive
+
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid = msg->svcUuid.uuid;
+    OrchMgr::om_monitor()->updateKnownPMsMap(svcUuid, msg->timestamp);
+
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,

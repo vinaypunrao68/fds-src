@@ -13,14 +13,15 @@
 #include <fds_typedefs.h>
 #include <fds_error.h>
 #include <OmVolume.h>
-
-#include "platform/agent_container.h"
-#include "platform/domain_container.h"
-
-#include "fdsp/sm_types_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
+
+#include "platform/agent_container.h"
+#include "platform/domain_container.h"
+#include "OMMonitorWellKnownPMs.h"
+#include "fdsp/sm_types_types.h"
+
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -252,6 +253,10 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
                               bool remove_sm, bool remove_dm, bool remove_am);
     /**
+     * Send 'heartbeat check' message to Platform
+     */
+    Error send_heartbeat_check(const fpi::SvcUuid svc_uuid);
+    /**
      * Send 'deactivate services' message to Platform
      */
     Error send_deactivate_services(fds_bool_t deactivate_sm,
@@ -279,7 +284,6 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_remove_services(fds_bool_t activate_sm,
                                fds_bool_t activate_dm,
                                fds_bool_t activate_am);
-
     /**
      * @return uuid of service that was unregistered
      */
@@ -651,6 +655,8 @@ class OM_NodeContainer : public DomainContainer
     virtual Error om_remove_service(const fpi::SvcUuid& svc_uuid,
                                     std::vector<fpi::SvcInfo> svcInfos,
                                     bool remove_sm, bool remove_dm, bool remove_am);
+
+    virtual Error om_heartbeat_check(const fpi::SvcUuid& svc_uuid);
 
     virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
                                                fds_bool_t activate_dm,

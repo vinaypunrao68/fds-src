@@ -1042,6 +1042,24 @@ LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
             }
         }
 
+        void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
+        {
+            // number of seconds since the epoch
+            auto curTime = std::chrono::system_clock::now().time_since_epoch();
+                    //std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+            // push back this timestamp into the map
+
+            double current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+            heartbeatMsg->timestamp = current;
+            //make sure to validate the svcID passed to the function
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            request->setPayload (FDSP_MSG_TYPEID (fpi::HeartbeatMessage), heartbeatMsg);
+            request->invoke();
+        }
+
+
         void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
         {
             determineDiskCapability();
