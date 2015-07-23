@@ -28,29 +28,32 @@ PlatformDB::~PlatformDB() {
 }
 
 bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
+    bool bRetCode = true;
     try {
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(nodeInfo, serialized);
-        setInternal("node.info", *serialized);
+        bRetCode = setInternal("node.info", *serialized);
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        return false;
+        bRetCode = false;
     }
 
-    LOGDEBUG << "Updated nodeInfo record stored in redis with: uuid " << nodeInfo.uuid <<
-                                                              ", am " << nodeInfo.fHasAm <<
-                                                              ", dm " << nodeInfo.fHasDm <<
-                                                              ", sm " << nodeInfo.fHasSm <<
-                                                         ", bam pid " << nodeInfo.bareAMPid <<
-                                                         ", jam pid " << nodeInfo.javaAMPid <<
-                                                          ", dm pid " << nodeInfo.dmPid <<
-                                                          ", sm pid " << nodeInfo.smPid <<
-                                                         ", bam ste " << nodeInfo.bareAMState <<
-                                                         ", jam ste " << nodeInfo.javaAMState <<
-                                                          ", dm ste " << nodeInfo.dmState <<
-                                                          ", sm ste " << nodeInfo.smState;
+    if( bRetCode ) {
+      LOGDEBUG << "Updated nodeInfo record stored in redis with: uuid " << nodeInfo.uuid <<
+                                                                ", am " << nodeInfo.fHasAm <<
+                                                                ", dm " << nodeInfo.fHasDm <<
+                                                                ", sm " << nodeInfo.fHasSm <<
+                                                           ", bam pid " << nodeInfo.bareAMPid <<
+                                                           ", jam pid " << nodeInfo.javaAMPid <<
+                                                            ", dm pid " << nodeInfo.dmPid <<
+                                                            ", sm pid " << nodeInfo.smPid <<
+                                                           ", bam ste " << nodeInfo.bareAMState <<
+                                                           ", jam ste " << nodeInfo.javaAMState <<
+                                                            ", dm ste " << nodeInfo.dmState <<
+                                                            ", sm ste " << nodeInfo.smState;
+    }
 
-    return true;
+    return bReturn;
 }
 
 bool PlatformDB::getNodeInfo(fpi::NodeInfo& nodeInfo) {
