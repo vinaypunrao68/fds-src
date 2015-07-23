@@ -182,10 +182,9 @@ public class CreateVolume implements RequestHandler {
      *
      * @throws ApiException if the QOS settings are not valid
      */
-    public void validateQOSSettings( final Volume volume )
-        throws ApiException
-    {
-        logger.trace( "Validate QOS -- MIN: {} MAX: {}",
+    public void validateQOSSettings( final Volume volume ) throws ApiException {
+
+        logger.trace( "Validate QOS -- MIN(assured): {} MAX(throttled): {}",
                       volume.getQosPolicy( )
                             .getIopsMin( ),
                       volume.getQosPolicy( )
@@ -196,8 +195,8 @@ public class CreateVolume implements RequestHandler {
                ( volume.getQosPolicy( )
                        .getIopsMin( ) <=
                  volume.getQosPolicy( )
-                       .getIopsMax( ) ) ) )
-        {
+                       .getIopsMax( ) ) ) ) {
+
             final String message =
                 "QOS value out-of-range ( assured <= throttled ). If this " +
                 "was a create volume/bucket call the volume was created. " +
