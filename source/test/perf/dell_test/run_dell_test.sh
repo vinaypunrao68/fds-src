@@ -59,8 +59,8 @@ size=50g
 
 #bsizes="4096"
 bsizes="4096 131072"
-iodepths="16 32 64"
-workers="1"
+iodepths="16 64 128"
+workers="1 4"
 workloads="randread randwrite read write"
 
 declare -A disks
