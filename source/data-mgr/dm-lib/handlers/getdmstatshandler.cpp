@@ -48,7 +48,7 @@ void DmSysStatsHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     addToQueue(dmRequest);
 }
 
-void DmSysStatsHandler::handleQueueItem(dmCatReq *dmRequest) {
+void DmSysStatsHandler::handleQueueItem(DmRequest *dmRequest) {
     QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoGetSysStats *request = static_cast<DmIoGetSysStats*>(dmRequest);
 
@@ -66,7 +66,7 @@ void DmSysStatsHandler::handleQueueItem(dmCatReq *dmRequest) {
 
 void DmSysStatsHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::GetDmStatsMsg>& message,
-                                       const Error &e, dmCatReq *dmRequest) {
+                                       const Error &e, DmRequest *dmRequest) {
     LOGDEBUG << " volid: " << dmRequest->volId
              << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());

@@ -369,10 +369,7 @@ Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
         CatWriteBatch batch;
         TIMESTAMP_OP(batch);
         batch.Put(keyRec, value);
-        {
-            SCOPEDREAD(drain_lock);
-            rc = catalog_->Update(&batch);
-        }
+        rc = catalog_->Update(&batch);
         if (!rc.ok()) {
             LOGERROR << "Failed to update metadata descriptor for volume: "
                      << volDesc;
@@ -398,10 +395,7 @@ Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,
         CatWriteBatch batch;
         TIMESTAMP_OP(batch);
         batch.Put(keyRec, value);
-        {
-            SCOPEDREAD(drain_lock);
-            rc = catalog_->Update(&batch);
-        }
+        rc = catalog_->Update(&batch);
         if (!rc.ok()) {
             LOGERROR << "Failed to update metadata for blob: '" << blobName << "' volume: '"
                     << std::hex << volId_ << std::dec << "'";
@@ -425,7 +419,6 @@ Error DmPersistVolDB::putObject(const std::string & blobName, fds_uint64_t offse
     TIMESTAMP_OP(batch);
     batch.Put(keyRec, valRec);
     {
-        SCOPEDREAD(drain_lock);
         return catalog_->Update(&batch);
     }
 }
@@ -452,10 +445,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList 
         batch.Put(keyRec, valRec);
     }
 
-    {
-        SCOPEDREAD(drain_lock);
-        rc = catalog_->Update(&batch);
-    }
+    rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
                 << volId_ << std::dec << "'";
@@ -501,10 +491,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
     }
 
     batch.Put(keyRec, value);
-    {
-        SCOPEDREAD(drain_lock);
-        rc = catalog_->Update(&batch);
-    }
+    rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
                 << volId_ << std::dec << "'";
@@ -531,10 +518,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
     }
 
     wb.Put(keyRec, value);
-    {
-        SCOPEDREAD(drain_lock);
-        rc = catalog_->Update(&wb);
-    }
+    rc = catalog_->Update(&wb);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
                 << volId_ << std::dec << "'";
@@ -553,11 +537,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
     CatWriteBatch batch;
     TIMESTAMP_OP(batch);
     batch.Delete(keyRec);
-    Error rc;
-    {
-        SCOPEDREAD(drain_lock);
-        rc = catalog_->Update(&batch);
-    }
+    Error rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to delete object at offset '" << std::hex << offset << std::dec
                 << "' of a blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
@@ -580,11 +560,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
         batch.Delete(keyRec);
     }
 
-    Error rc;
-    {
-        SCOPEDREAD(drain_lock);
-        rc = catalog_->Update(&batch);
-    }
+    Error rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
                 << std::hex << volId_ << std::dec << "'";
@@ -604,23 +580,16 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     CatWriteBatch batch;
     TIMESTAMP_OP(batch);
     batch.Delete(keyRec);
-    {
-        SCOPEDREAD(drain_lock);
-        return catalog_->Update(&batch);
-    }
+    return catalog_->Update(&batch);
 }
 
 Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap &snap) {
-    // Write lock the catalog until we are done with the snapshot and diff
-    // calculations, see `freeInMemorySnapshot`
-    drain_lock.write_lock();
     catalog_->GetSnapshot(snap);
     return ERR_OK;
 }
 
 Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap snap)  {
     catalog_->ReleaseSnapshot(snap);
-    drain_lock.write_unlock();
     return ERR_OK;
 }
 

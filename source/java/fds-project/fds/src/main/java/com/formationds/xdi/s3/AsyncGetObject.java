@@ -31,6 +31,7 @@ public class AsyncGetObject implements BiFunction<HttpContext, AuthenticationTok
                 String contentType = md.getOrDefault("Content-Type", S3Endpoint.S3_DEFAULT_CONTENT_TYPE);
                 ctx.setResponseContentType(contentType);
                 ctx.setResponseStatus(HttpStatus.OK_200);
+                ctx.addResponseHeader("Content-Length", Long.toString(blobInfo.getBlobDescriptor().byteCount));
                 if (md.containsKey("etag"))
                     ctx.addResponseHeader("etag", AsyncPutObject.formatEtag(md.get("etag")));
                 S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));

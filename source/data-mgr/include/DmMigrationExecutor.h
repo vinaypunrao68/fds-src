@@ -5,7 +5,6 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 
-#include <FdsRandom.h>
 #include <MigrationUtility.h>
 #include <fds_timer.h>
 
@@ -27,7 +26,8 @@ class DmMigrationExecutor {
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
 								 const fds_bool_t& _autoIncrement,
-								 DmMigrationExecutorDoneCb _callback);
+								 DmMigrationExecutorDoneCb _callback,
+                                 uint32_t _timeout);
     ~DmMigrationExecutor();
 
     typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
@@ -69,21 +69,26 @@ class DmMigrationExecutor {
     Error processIncomingDeltaSetCb();
 
     /**
-     * Step ?:
+     * last step from source DM to destination DM:
      * As part of ActiveMigration, this is the method called when the source DM wants to notify
      * the destination DM of the last forwarded commit log. From this point on, we start draining
      * the ordered map and switch over to regular QoS queue.
      */
     Error processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg);
 
+    /**
+     * Apply queue blob descriptor.
+     */
+    Error applyQueuedBlobDescs();
+
+    /**
+     * Apply blob descriptor
+     */
+    Error applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg);
+
     inline fds_bool_t shouldAutoExecuteNext()
     {
     	return autoIncrement;
-    }
-
-    inline fds_bool_t isVolEmpty()
-    {
-    	return volIsEmpty;
     }
 
   private:
@@ -115,16 +120,6 @@ class DmMigrationExecutor {
     fds_bool_t autoIncrement;
 
     /**
-     * If this volume is empty.
-     */
-    fds_bool_t volIsEmpty;
-
-    /**
-     * Used for generating a random TransactionID.
-     */
-    RandNumGenerator randNumGen;
-
-    /**
      * Timeout between each Blobs/BlobsDesc messages.
      */
     uint32_t 	timerInterval;
@@ -137,16 +132,10 @@ class DmMigrationExecutor {
      * Since we know that the Cb only gets called after a commitTx has been issued,
      * we can take adv and use this as a cheating way of just doing counting, and
      * to know when all the Cbs have finished before moving on to BlobsDescs.
+     *
+     * NOTE: Should be called holding the blobDescListMutex.
      */
-    MigrationSeqNum deltaBlobSetHelper;
-    struct seqNumHelper {
-    	fds_mutex 		mtx;
-    	fds_uint64_t 	expectedCount;
-    	fds_bool_t		expectedCountFinalized;
-    	fds_uint64_t	actualCbCounted;
-    };
-
-    seqNumHelper deltaBlobSetCbHelper;
+    MigrationSeqNum deltaBlobsSeqNum;
 
     /*
      * Maintain messages from the source DM, so we don't lost it.
@@ -154,9 +143,20 @@ class DmMigrationExecutor {
      * sequence number to ensure that all delta messages are handled
      * and local IO through qos is complete.
      */
-    MigrationDoubleSeqNum seqNumDeltaBlobDescs;
+    MigrationSeqNum deltaBlobDescsSeqNum;
 
     void sequenceTimeoutHandler();
+
+    /**
+     * Mutex for blob offset list and blob descriptor list coordination
+     */
+    std::mutex blobDescListMutex;
+
+    /**
+     * List of blob descriptors that have been queued waiting for
+     * blob offsets to be written out to disk.
+     */
+    std::vector<fpi::CtrlNotifyDeltaBlobDescMsgPtr> blobDescList;
 
 };  // DmMigrationExecutor
 

@@ -205,6 +205,20 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                             const sequence_id_t seq_id);
 
     /**
+     * Takes a snapshot and returns a pointer to the snapshot for
+     * further diff, operations.
+     * This is used for migrations, etc.
+     * Caller MUST free the snapshot once done with it using freeInMemorySnapshot below.
+     */
+    Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap);
+
+    /**
+     * Given a volume snapshot within opts, delete the snapshot.
+     */
+    Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap)
+    { return volcat->freeVolumeSnapshot(volId, snap); }
+
+    /**
      * Starts a new transaction for blob
      * @param[in] volId volume ID
      * @param[in] blobName Name of blob

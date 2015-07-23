@@ -29,8 +29,7 @@ package com.formationds.util;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.formationds.commons.util.ExceptionHelper;
-import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import org.apache.commons.cli.*;
 import org.apache.http.ConnectionReuseStrategy;
 import org.apache.http.HttpHost;
@@ -56,10 +55,7 @@ import org.apache.http.protocol.*;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InterruptedIOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
@@ -442,7 +438,7 @@ public class TrafficGen {
     private static HttpRequest sign(HttpRequest request) {
         if (username != null) {
             AWSCredentials creds = new BasicAWSCredentials(username, token);
-            String signature = S3SignatureGenerator.hash(request, creds);
+            String signature = S3SignatureGeneratorV2.hash(request, creds);
             request.addHeader("Authorization", signature);
         }
 

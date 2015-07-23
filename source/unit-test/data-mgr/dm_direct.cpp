@@ -378,7 +378,7 @@ struct UpdateCatalogOnceTestHandler : fds::dm::UpdateCatalogOnceHandler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                         Error const& e,
-                        dmCatReq* dmRequest) {
+                        DmRequest* dmRequest) {
         taskCount.done();
     }
     virtual ~UpdateCatalogOnceTestHandler() = default;
