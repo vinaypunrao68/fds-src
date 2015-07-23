@@ -41,8 +41,6 @@ void VolumeOpenHandler::handleRequest(
     auto dmReq = new DmIoVolumeOpen(message, asyncHdr->msg_src_uuid);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeOpenHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 

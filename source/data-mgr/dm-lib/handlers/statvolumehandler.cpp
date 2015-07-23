@@ -45,8 +45,6 @@ void StatVolumeHandler::handleRequest(
     auto dmReq = new DmIoStatVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(StatVolumeHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 

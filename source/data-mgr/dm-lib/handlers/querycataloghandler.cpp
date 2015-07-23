@@ -42,8 +42,6 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     auto dmReq = new DmIoQueryCat(message);
     dmReq->cb = BIND_MSG_CALLBACK(QueryCatalogHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 

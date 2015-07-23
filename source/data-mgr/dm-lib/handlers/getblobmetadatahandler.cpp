@@ -45,8 +45,6 @@ void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
                                          message);
     dmReq->cb = BIND_MSG_CALLBACK(GetBlobMetaDataHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
