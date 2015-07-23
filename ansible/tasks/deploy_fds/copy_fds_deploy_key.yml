@@ -1,6 +1,10 @@
 ---
 -   debug: msg="Setting up private key"
 
+-   name: ensure ssh dir exists
+    local_action: file path="~/.ssh/"
+      state=directory
+
 -   name: copy the bits
     local_action: shell echo "{{ fds_deploy_private_key }}" > ~/.ssh/fds-deploy_rsa
 

@@ -163,6 +163,13 @@ class VolumeCatalogQueryIface {
                                             Catalog::MemSnap m = NULL) = 0;
 
     virtual Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>) = 0;
+
+    /**
+     * Put objects offset
+     */
+    virtual Error putObject(fds_volid_t volId,
+                            const std::string & blobName,
+                            const BlobObjList & objs) = 0;
 };
 
 }  // namespace fds

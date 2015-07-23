@@ -95,6 +95,34 @@ SmDiskMap::loadPersistentState() {
 DiskCapacityUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
 
+    // Cause method to return capacity
+    fiu_do_on("sm.diskmap.cause_used_capacity_error", \
+              fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
+              fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
+              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ERROR_THRESHOLD
+                       << ", 100). This should cause an alert."; \
+              DiskCapacityUtils::capacity_tuple retVals(DISK_CAPACITY_ERROR_THRESHOLD, 100); \
+              return retVals; \
+    );
+
+    fiu_do_on("sm.diskmap.cause_used_capacity_alert", \
+              fiu_disable("sm.diskmap.cause_used_capacity_error"); \
+              fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
+              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
+                       << ", 100). This should cause an alert."; \
+              DiskCapacityUtils::capacity_tuple retVals(DISK_CAPACITY_ALERT_THRESHOLD + 1, 100); \
+              return retVals; \
+    );
+
+    fiu_do_on("sm.diskmap.cause_used_capacity_warn", \
+              fiu_disable("sm.diskmap.cause_used_capacity_error"); \
+              fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
+              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
+                       << ", 100). This should cause a warning."; \
+              DiskCapacityUtils::capacity_tuple retVals(DISK_CAPACITY_WARNING_THRESHOLD + 1, 100); \
+              return retVals; \
+    );
+
     bool ssdMetadata = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta");
 
     // Get the total size info for the disk regardless of type
@@ -118,10 +146,11 @@ DiskCapacityUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t di
                  ++cit) {
                 // Calculate a consumedSize based on the size of the level DBs
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
-                DiskCapacityUtils::capacity_tuple tmp = DiskCapacityUtils::getDiskConsumedSize(filename);
+                DiskCapacityUtils::capacity_tuple tmp = DiskCapacityUtils::getDiskConsumedSize(filename, true);
 
                 acc += tmp.first;
             }
+            LOGDEBUG << "Returning " << acc << "/" << out.second << " after calculating SSD metadata size.";
             return DiskCapacityUtils::capacity_tuple(acc, out.second);
         }
     }

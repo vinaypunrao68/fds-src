@@ -35,6 +35,28 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /* Lock around commit log */
     fds_mutex commitLogLock_;
 
+    enum TimeVolumeCatalogState {
+        /**
+         * Time Volume Catalog is in initializing state before
+         * it validates its persistent layer (mount points) -- e.g.
+         * whether disk exists, there is enough capacity, etc.
+         */
+        TVC_INIT           = 0,
+        /**
+         * Ready to service IO requests
+         */
+        TVC_READY          = 1,
+        /**
+         * Something bad happened, e.g. mount point unreachable,
+         * no disk space left, so TVC is currently un-usable
+         */
+        TVC_UNAVAILABLE    = 2,
+        TVC_STATE_MAX
+    };
+
+    /// Currentl state of TVC
+    std::atomic<TimeVolumeCatalogState> currentState;
+
     /**
      * Log the manages recent and currently active
      * blob transactions
@@ -102,6 +124,12 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
+
+    /**
+     * Sets TVC to unavailable state -- all write IO
+     * will be rejected
+     */
+    void setUnavailable();
 
     /**
      * Notification about new volume managed by this DM.
@@ -175,6 +203,20 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error setVolumeMetadata(fds_volid_t volId,
                             const fpi::FDSP_MetaDataList &metadataList,
                             const sequence_id_t seq_id);
+
+    /**
+     * Takes a snapshot and returns a pointer to the snapshot for
+     * further diff, operations.
+     * This is used for migrations, etc.
+     * Caller MUST free the snapshot once done with it using freeInMemorySnapshot below.
+     */
+    Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap);
+
+    /**
+     * Given a volume snapshot within opts, delete the snapshot.
+     */
+    Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap)
+    { return volcat->freeVolumeSnapshot(volId, snap); }
 
     /**
      * Starts a new transaction for blob

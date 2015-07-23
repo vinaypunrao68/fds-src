@@ -367,7 +367,7 @@ DmMigrationClient::processBlobFilterSet()
 	LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
     // Get snapshot for the volume.
-	err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
+	err = dataMgr.timeVolCat_->getVolumeSnapshot(volId, snap_);
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
@@ -376,16 +376,10 @@ DmMigrationClient::processBlobFilterSet()
 
     // process blob diff
     err = processBlobDiff();
+    // free the in-memory snapshot diff after completion.
+    fds_verify(dataMgr.timeVolCat_->freeVolumeSnapshot(volId, snap_).ok());
     if (ERR_OK != err) {
        LOGERROR << "Failed to process blob diff on volume=" << volId
-                 << " with error=" << err;
-        return err;
-    }
-
-    // free the in-memory snapshot diff after completion.
-    err = dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
-    if (ERR_OK != err) {
-       LOGERROR << "Failed to free snapshot on volume=" << volId
                  << " with error=" << err;
         return err;
     }
