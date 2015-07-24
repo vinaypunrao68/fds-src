@@ -4,6 +4,8 @@
 
 #include <net/SvcMgr.h>
 #include <vector>
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <object-store/SmDiskMap.h>
 #include <StorMgr.h>
 #include <MigrationMgr.h>
@@ -620,7 +622,8 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
-    fiu_do_on("sm.exit.before.client.erase", exit(1));
+    fiu_do_on("sm.exit.before.client.erase", LOGNOTIFY << "sm.exit.before.client.erase fault point enabled"; \
+              exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
