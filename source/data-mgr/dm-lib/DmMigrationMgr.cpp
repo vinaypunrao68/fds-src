@@ -91,6 +91,18 @@ DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 	}
 }
 
+DmMigrationClient::shared_ptr
+DmMigrationMgr::getMigrationClient(fds_volid_t uniqueId)
+{
+   SCOPEDREAD(migrExecutorLock);
+   auto search = clientMap.find(uniqueId);
+   if (search == clientMap.end()) {
+       return nullptr;
+   } else {
+       return search->second;
+   }
+}
+
 Error
 DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 {
@@ -410,5 +422,33 @@ DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolRes
     executor->processLastFwdCommitLog(finishVolResyncMsg);
 
 	return ERR_OK;
+}
+
+fds_bool_t
+DmMigrationMgr::shouldForwardIO(fds_volid_t volId)
+{
+   auto dmClient = getMigrationClient(volId);
+   if (dmClient == nullptr) {
+       // Not in the status of migration
+       return false;
+   }
+
+   return (dmClient->shouldForwardIO());
+}
+
+
+Error
+DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
+                                    DmIoCommitBlobTx *commitBlobReq,
+                                    blob_version_t blob_version,
+                                    const BlobObjList::const_ptr& blob_obj_list,
+                                    const MetaDataList::const_ptr& meta_list)
+{
+   auto dmClient = getMigrationClient(volId);
+   fds_verify((dmClient != nullptr) && dmClient->shouldForwardIO());
+
+   // dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+
+   return ERR_OK;
 }
 }  // namespace fds

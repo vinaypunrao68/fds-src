@@ -125,24 +125,18 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // do forwarding if needed and commit was successful
     if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
         fds_bool_t is_forwarding = false;
+        fds_volid_t volId(commitBlobReq->volId);
 
-        // check if we need to forward this commit to receiving
-        // DM if we are in progress of migrating volume catalog
-        dataManager.vol_map_mtx->lock();
-        auto vol_meta = dataManager.vol_meta_map.find(commitBlobReq->volId);
-        fds_verify(dataManager.vol_meta_map.end() != vol_meta);
-        is_forwarding = (*vol_meta).second->isForwarding();
-        dataManager.vol_map_mtx->unlock();
-
-        if (is_forwarding) {
+        if (dataManager.dmMigrationMgr->shouldForwardIO(volId)) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
                            << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
-                helper.err = dataManager.catSyncMgr->forwardCatalogUpdate(commitBlobReq,
-                                                                          blob_version,
-                                                                          blob_obj_list,
-                                                                          meta_list);
+                helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
+                															  commitBlobReq,
+																			  blob_version,
+																			  blob_obj_list,
+																			  meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
@@ -154,22 +148,6 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         } else {
             // DMT mismatch must not happen if volume is in 'not forwarding' state
             fds_verify(commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion());
-        }
-    }
-
-    // check if we can finish forwarding if volume still forwards cat commits
-    if (dataManager.features.isCatSyncEnabled() && dataManager.catSyncMgr->isSyncInProgress()) {
-        fds_bool_t is_finish_forward = false;
-        dataManager.vol_map_mtx->lock();
-        auto vol_meta = dataManager.vol_meta_map.find(commitBlobReq->volId);
-        fds_verify(dataManager.vol_meta_map.end() != vol_meta);
-        is_finish_forward =(*vol_meta).second->isForwardFinishing();
-        dataManager.vol_map_mtx->unlock();
-        if (is_finish_forward) {
-            if (!dataManager.timeVolCat_->isPendingTx(commitBlobReq->volId,
-                                                      dataManager.catSyncMgr->dmtCloseTs())) {
-                dataManager.finishForwarding(commitBlobReq->volId);
-            }
         }
     }
 }
