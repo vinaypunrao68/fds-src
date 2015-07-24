@@ -49,8 +49,13 @@ node=$2
 machines=$3
 nvols=$4
 am_machines=$5
-
 size=50g
+
+echo "outdir: $outdir"
+echo "node: $node"
+echo "machines: $machines"
+echo "am_machines: $am_machines"
+echo "size: $size"
 
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
@@ -63,6 +68,11 @@ bsizes="4096 131072"
 iodepths="16 64 128"
 workers="1 4"
 workloads="randread randwrite read write"
+
+echo "bsizes: $bsizes"
+echo "iodepths: $iodepths"
+echo "workers: $workers"
+echo "workloads: $workloads"
 
 declare -A disks
 
@@ -77,9 +87,10 @@ for m in $machines ; do
     let i=$i-1
 done
 
+echo "marray:"
 for i in $marray; do echo $i; done
+echo "machine - remap:"
 for m in $machines; do echo $m ${mremap[$m]}; done
-echo "AMs: $am_machines"
 ##############################
 
 for m in $am_machines ; do
