@@ -1129,9 +1129,9 @@ SMSvcHandler::NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                SmIoNotifyDLTClose *DLTCloseReq)
 
 {
-    LOGDEBUG << "NotifyDLTCloseCB called with DLTversion="
-             << DLTCloseReq->closeDLTVersion
-             << " with error " << err;
+    LOGNOTIFY << "NotifyDLTCloseCB called with DLTversion="
+              << DLTCloseReq->closeDLTVersion
+              << " with error " << err;
 
     // send response
     asyncHdr->msg_code = err.GetErrno();
