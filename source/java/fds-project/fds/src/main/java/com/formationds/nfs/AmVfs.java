@@ -98,7 +98,7 @@ public class AmVfs implements VirtualFileSystem {
             throw new NotDirException();
         }
 
-        StringBuilder filter = new StringBuilder();
+        StringBuilder filter = new StringBuilder("^");
         filter.append(parentEntry.path().blobName());
 
         if (!parentEntry.path().blobName().endsWith("/")) {
