@@ -1141,6 +1141,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
     LOGMIGRATE << "Will cleanup executors and migr clients";
     // Wait for all pending IOs to complete on Executors.
     coalesceExecutors();
+    LOGMIGRATE << "Done coalescing executors";
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
@@ -1152,6 +1153,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
         coalesceClients();
         migrClients.clear();
     }
+    LOGMIGRATE << "Done coalescing clients";
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
     return err;

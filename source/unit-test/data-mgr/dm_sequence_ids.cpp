@@ -413,6 +413,299 @@ TEST_F(SeqIdTest, BlobDiffOverwrite){
     printStats();
 }
 
+TEST_F(SeqIdTest, MigrateVolDesc){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+    sequence_id_t tmp_seq_id;
+    auto volId =  dmTester->TESTVOLID;
+    putVolMeta();
+    putBlobOnce();
+
+
+    // confirm volume descriptor contains the expected metadata
+    fpi::FDSP_MetaDataList metadataList;
+    Error err = dataMgr->timeVolCat_->queryIface()->getVolumeMetadata(volId, metadataList);
+    EXPECT_EQ(true, err.ok());
+
+    bool foundSomething = false;
+
+    for (auto it : metadataList) {
+        if (it.key == "Volume Name") {
+            EXPECT_EQ(dmTester->volumes.back()->name, it.value);
+            foundSomething = true;
+        }
+    }
+
+    EXPECT_EQ(true, foundSomething);
+
+
+    // use the interface under test to update the volume descriptor
+    VolumeMetaDesc volDesc(metadataList, ++_global_seq_id);
+
+    std::string blobName{""}, data;
+
+    err = volDesc.getSerialized(data);
+    EXPECT_EQ(true, err.ok());
+
+    err = dataMgr->timeVolCat_->migrateDescriptor(volId, blobName, data);
+    EXPECT_EQ(true, err.ok());
+
+    // confirm seqeunce id changed
+    err = dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS+2, tmp_seq_id);
+
+    // get the new metadata list
+    fpi::FDSP_MetaDataList metadataList2;
+    err = dataMgr->timeVolCat_->queryIface()->getVolumeMetadata(volId, metadataList2);
+    EXPECT_EQ(true, err.ok());
+
+    // confirm old metadata list and new metadata list match
+    EXPECT_EQ(metadataList, metadataList2);
+
+    // create mutated metadata list
+    fpi::FDSP_MetaDataList metadataList3{metadataList};
+
+    fpi::FDSP_MetaDataPair metadataPair;
+    metadataPair.key = "avocado";
+    metadataPair.value = "delicious";
+    metadataList3.push_back(metadataPair);
+
+    foundSomething = false;
+
+    // ensure mutated ist contains old metadata
+    for (auto it : metadataList3) {
+        if (it.key == "Volume Name") {
+            EXPECT_EQ(dmTester->volumes.back()->name, it.value);
+            foundSomething = true;
+        }
+    }
+
+    EXPECT_EQ(true, foundSomething);
+
+    foundSomething = false;
+
+    // ensure mutated list contains mutated data
+    for (auto it : metadataList3) {
+        if (it.key == "avocado") {
+            EXPECT_EQ("delicious", it.value);
+            foundSomething = true;
+        }
+    }
+
+    EXPECT_EQ(true, foundSomething);
+
+
+    // write a new volume descriptor with the mutated metadata list
+    VolumeMetaDesc volDesc2{metadataList3, ++_global_seq_id};
+
+    std::string data2;
+    err = volDesc2.getSerialized(data2);
+    EXPECT_EQ(true, err.ok());
+
+    err = dataMgr->timeVolCat_->migrateDescriptor(volId, blobName, data2);
+    EXPECT_EQ(true, err.ok());
+
+    // read the descriptor and confirm both old and new metadata are there
+    err = dataMgr->timeVolCat_->queryIface()->getVolumeMetadata(volId, metadataList2);
+    EXPECT_EQ(true, err.ok());
+
+    foundSomething = false;
+
+    for (auto it : metadataList2) {
+        if (it.key == "Volume Name") {
+            EXPECT_EQ(dmTester->volumes.back()->name, it.value);
+            foundSomething = true;
+        }
+    }
+
+    EXPECT_EQ(true, foundSomething);
+
+    foundSomething = false;
+
+    for (auto it : metadataList2) {
+        if (it.key == "avocado") {
+            EXPECT_EQ("delicious", it.value);
+            foundSomething = true;
+        }
+    }
+
+    EXPECT_EQ(true, foundSomething);
+}
+
+TEST_F(SeqIdTest, MigrateBlobDelete){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    // confirm the sequence id of the volume is as expected
+    sequence_id_t tmp_seq_id;
+    Error err = dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS, tmp_seq_id);
+
+    std::string data{""};
+
+    // delete the blob with the largest sequence id and use get seq id to confirm sequence id has dropped
+    err = dataMgr->timeVolCat_->migrateDescriptor(volId, dmTester->getBlobName(NUM_BLOBS-1),
+                                                  data);
+    EXPECT_EQ(true, err.ok());
+
+    err = dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS-1, tmp_seq_id);
+}
+
+TEST_F(SeqIdTest, MigrateBlobPutNew){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    // confirm we wrote the blob descriptors
+    sequence_id_t tmp_seq_id;
+    Error err = dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS, tmp_seq_id);
+
+
+    // fake up a new blob and write it
+    BlobMetaDesc blobDesc;
+    blobDesc.desc.blob_name = dmTester->getBlobName(NUM_BLOBS);
+    blobDesc.desc.version = 1;
+    blobDesc.desc.sequence_id = ++_global_seq_id;
+    blobDesc.desc.blob_size = 0;
+
+    std::string blobString;
+    err= blobDesc.getSerialized(blobString);
+    EXPECT_EQ(true, err.ok());
+
+    err = dataMgr->timeVolCat_->migrateDescriptor(volId, blobDesc.desc.blob_name,
+                                                        blobString);
+    EXPECT_EQ(true, err.ok());
+
+    // check that the new blob's sequence id is returned
+    err= dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS+1, tmp_seq_id);
+}
+
+TEST_F(SeqIdTest, MigrateBlobPutGrow){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 4 * 1024 * 1024;   // 4 MB
+    NUM_BLOBS = 1024;
+
+    auto volId =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    // confirm sequence id
+    sequence_id_t tmp_seq_id;
+    Error err = dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS, tmp_seq_id);
+
+    // make a new blob descriptor for the last blob and write it
+    BlobMetaDesc blobDesc;
+    std::string blobName = dmTester->getBlobName(NUM_BLOBS-1);
+
+    blobDesc.desc.blob_name = blobName;
+    blobDesc.desc.version = 2;
+    blobDesc.desc.sequence_id = ++_global_seq_id;
+    blobDesc.desc.blob_size = BLOB_SIZE*2;
+
+    std::string blobString;
+    err= blobDesc.getSerialized(blobString);
+    EXPECT_EQ(true, err.ok());
+
+    err = dataMgr->timeVolCat_->migrateDescriptor(volId, blobName,
+                                                        blobString);
+    EXPECT_EQ(true, err.ok());
+
+    // confirm updated blob's sequence id is returned
+    err= dataMgr->timeVolCat_->queryIface()->getVolumeSequenceId(volId, tmp_seq_id);
+    EXPECT_EQ(true, err.ok());
+    EXPECT_EQ(NUM_BLOBS+1, tmp_seq_id);
+
+    // confirm blob size increased
+    BlobMetaDesc blobDesc2;
+    fpi::FDSP_BlobObjectList objList;
+
+    err = dataMgr->timeVolCat_->queryIface()->
+        getBlobAndMetaFromSnapshot(volId, blobName, blobDesc2, objList, NULL);
+     EXPECT_EQ(true, err.ok());
+
+    EXPECT_EQ(BLOB_SIZE*2, blobDesc2.desc.blob_size);
+}
+
+TEST_F(SeqIdTest, MigrateBlobPutTruncate){
+    MAX_OBJECT_SIZE = 2 * 1024 * 1024;    // 2MB
+    BLOB_SIZE = 16 * 1024 * 1024;   // 16 MB
+    NUM_BLOBS = 1024;
+
+    auto volId1 =  dmTester->TESTVOLID;
+
+    putBlobOnce();
+
+    // read the final blob
+    std::string blobName = dmTester->getBlobName(NUM_BLOBS-1);
+    BlobMetaDesc blobDesc;
+    fpi::FDSP_BlobObjectList objList;
+
+    Error err = dataMgr->timeVolCat_->queryIface()->
+        getBlobAndMetaFromSnapshot(volId1, blobName, blobDesc, objList, NULL);
+    EXPECT_EQ(true, err.ok());
+
+    EXPECT_EQ(BLOB_SIZE, blobDesc.desc.blob_size);
+
+    // trim the size of the blob and write it
+    blobDesc.desc.blob_name = blobName;
+    blobDesc.desc.version = 2;
+    blobDesc.desc.sequence_id = ++_global_seq_id;
+    blobDesc.desc.blob_size = blobDesc.desc.blob_size/2;
+
+    std::string blobString;
+    err= blobDesc.getSerialized(blobString);
+    EXPECT_EQ(true, err.ok());
+
+    err = dataMgr->timeVolCat_->migrateDescriptor(volId1, blobName,
+                                                  blobString);
+    EXPECT_EQ(true, err.ok());
+
+    // confirm the blob offsets were truncated
+    BlobMetaDesc blobDesc2;
+    fpi::FDSP_BlobObjectList objList2;
+
+    err = dataMgr->timeVolCat_->queryIface()->
+        getBlobAndMetaFromSnapshot(volId1, blobName, blobDesc2, objList2, NULL);
+    EXPECT_EQ(true, err.ok());
+
+    // ensure descriptor is identical to the one we wrote
+    EXPECT_EQ(blobDesc, blobDesc2);
+
+    // ensure size field and object list count are both halved
+    EXPECT_EQ(blobDesc.desc.blob_size, blobDesc2.desc.blob_size);
+    EXPECT_EQ(objList.size()/2, objList2.size());
+
+    // manually truncate the original object list so we can compare to the new one
+    objList.erase(objList.begin() + (objList.size()/2), objList.end());
+
+    // ensure object list is identical to the first half of the old list
+    for(auto it = objList.cbegin(), it2 = objList2.cbegin(); it == objList.cend(); ++it, ++it2){
+        EXPECT_EQ(it->offset, it2->offset);
+        EXPECT_EQ(it->data_obj_id.digest, it2->data_obj_id.digest);
+        EXPECT_EQ(it->size, it2->size);
+    }
+}
+
 int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock
     // (and Google Test) before running the tests.
@@ -432,6 +725,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // give each test two volumes
     NUM_VOLUMES = ::testing::UnitTest::GetInstance()->total_test_count()*2;
 
     dmTester = new fds::DMTester(argc, argv);
