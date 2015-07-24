@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <map>
+#include <mutex>
 #include <list>
 #include <set>
 
@@ -212,6 +213,7 @@ namespace fds {
         DistributionList distList;
 
         /** Cached reverse map from node to its token ids */
+        mutable std::once_flag mapInitialized;
         mutable boost::shared_ptr<NodeTokenMap> mapNodeTokens;
         friend class DLTManager;
         friend class DLTDiff;

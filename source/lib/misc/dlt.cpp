@@ -558,7 +558,9 @@ uint32_t DLT::write(serialize::Serializer*  s) const {
     b += s->writeI32(depth);
     b += s->writeI32(numTokens);
 
-    if (mapNodeTokens->empty()) generateNodeTokenMap();
+
+    std::call_once(mapInitialized,
+                   [this] { if (this->mapNodeTokens->empty()) this->generateNodeTokenMap(); });
 
     typedef std::map<fds_uint64_t, uint32_t> UniqueUUIDMap;
     std::vector<fds_uint64_t> uuidList;

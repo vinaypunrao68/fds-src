@@ -7,6 +7,7 @@ import requests
 import json
 from model.fds_error import FdsError
 from tabulate import tabulate
+from services.fds_auth_error import FdsAuthError
 
 class RESTHelper():
     
@@ -17,12 +18,7 @@ class RESTHelper():
     
     def buildHeader(self, session):
         
-        t = None
-        
-        try:
-            t = session.get_token()
-        except:
-            return None
+        t = session.get_token()
         
         return { "FDS-Auth" : t }   
         
@@ -61,11 +57,10 @@ class RESTHelper():
             
     def post(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        header = self.buildHeader(session)
-        
-        if header is None:
-            message = self.AUTH_FAILED
-            return FdsError( error=message, message=message)
+        try:
+            header = self.buildHeader(session)
+        except FdsAuthError as fae:
+            return FdsError( error=fae.error_code, message=fae.message)
         
         response = requests.post( url, data=data, headers=header, verify=False )
         
@@ -78,11 +73,10 @@ class RESTHelper():
     
     def put(self, session, url, data=None, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        header = self.buildHeader(session)
-        
-        if header is None:
-            message = self.AUTH_FAILED
-            return FdsError( error=message, message=message)
+        try:
+            header = self.buildHeader(session)
+        except FdsAuthError as fae:
+            return FdsError( error=fae.error_code, message=fae.message)
                 
         response = requests.put( url, data=data, headers=header, verify=False )
         
@@ -95,11 +89,10 @@ class RESTHelper():
     
     def get(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        header = self.buildHeader(session)
-        
-        if header is None:
-            message = self.AUTH_FAILED
-            return FdsError( error=message, message=message)        
+        try:
+            header = self.buildHeader(session)
+        except FdsAuthError as fae:
+            return FdsError( error=fae.error_code, message=fae.message)      
         
         response = requests.get( url, params=params, headers=header, verify=False )
         
@@ -112,11 +105,10 @@ class RESTHelper():
     
     def delete(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        header = self.buildHeader(session)
-        
-        if header is None:
-            message = self.AUTH_FAILED
-            return FdsError( error=message, message=message)        
+        try:
+            header = self.buildHeader(session)
+        except FdsAuthError as fae:
+            return FdsError( error=fae.error_code, message=fae.message)     
         
         response = requests.delete( url, params=params, headers=header, verify=False)
         

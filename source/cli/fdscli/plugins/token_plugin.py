@@ -11,13 +11,15 @@ token management
 '''
 class TokenPlugin( abstract_plugin.AbstractPlugin):
     
-    def __init__(self, session):
-        abstract_plugin.AbstractPlugin.__init__(self, session)    
+    def __init__(self):
+        abstract_plugin.AbstractPlugin.__init__(self)    
     
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
         
         self.__parser = parentParser.add_parser( "token", help="Interact with the authentication/authorization system" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
