@@ -8,7 +8,7 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
         scope: { qos: '=ngModel', saveOnly: '@' },
         controller: function( $scope, $filter, $volume_api ){
             
-            $scope.custom = { priority: 5, limit: 0, sla: 0, name: $filter( 'translate' )( 'common.l_custom' ) };
+            $scope.custom = { priority: 5, iopsMin: 0, iopsMax: 0, name: $filter( 'translate' )( 'common.l_custom' ) };
             
             $scope.qos = {};
             $scope.editing = false;           
@@ -16,6 +16,10 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
             $scope.limitChoices = [100,200,300,500,1000,2000,3000,5000,7500, 10000,0];
             $scope.guaranteeChoices = [0,100,200,300,500,1000,2000,3000,5000, 7500, 10000];
 
+            var refreshSliders = function(){
+                $scope.$broadcast( 'fds::fui-slider-refresh' );
+            };
+            
             var rationalizeWithPresets = function(){
                 
                 if ( !angular.isDefined( $scope.qos ) || !angular.isDefined( $scope.qos.iopsMin ) ){
@@ -38,7 +42,10 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                 }
                 
                 if ( $scope.qosPreset === undefined ){
-                    $scope.qosPreset = $scope.presets[ $scope.presets.length - 1 ];
+                    $scope.qosPreset = $scope.custom;
+                    $scope.qosPreset.iopsMin = $scope.qos.iopsMin;
+                    $scope.qosPreset.iopsMax = $scope.qos.iopsMax;
+                    $scope.qosPreset.priority = $scope.qos.priority;
                 }
             };
             
@@ -51,6 +58,9 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                     
                     rationalizeWithPresets();
                 });
+                
+                
+                refreshSliders();
             };
             
             $scope.limitSliderLabel = function( value ){
@@ -70,11 +80,9 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                 
                 return value;
             };
+            
 
-            $scope.$on( 'fds::page_shown', function(){
-                
-                $scope.$broadcast( 'fds::fui-slider-refresh' );
-            });
+            $scope.$on( 'fds::page_shown', refreshSliders);
             
             $scope.$on( 'fds::qos-reinit', init );
             
@@ -85,6 +93,39 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                 }
 
                 $scope.qos = newVal;
+            });
+            
+            
+            $scope.$watch( 'qos.iopsMax', function(newVal, oldVal){
+                
+                if ( newVal !== 0 && newVal < $scope.qos.iopsMin && $scope.qos.iopsMin !== 0 ){
+                    
+                    var index = $scope.guaranteeChoices.length-2;
+                    
+                    while( index >= 0 && $scope.guaranteeChoices[index] > newVal ){
+                        index--;
+                    }
+                    
+                    $scope.qos.iopsMin = $scope.guaranteeChoices[index];
+                    
+                    refreshSliders();
+                }
+            });
+            
+            $scope.$watch( 'qos.iopsMin', function( newVal, oldVal ){
+                
+                if ( newVal !== 0 && newVal > $scope.qos.iopsMax && $scope.qos.iopsMax !== 0 ){
+                    // go down the list until one is less
+                    var index = 0;
+
+                    while( index < $scope.limitChoices.length && $scope.limitChoices[index] < newVal ){
+                        index++;
+                    }
+
+                    $scope.qos.iopsMax = $scope.limitChoices[index];
+
+                    refreshSliders();
+                }
             });
          
             init();

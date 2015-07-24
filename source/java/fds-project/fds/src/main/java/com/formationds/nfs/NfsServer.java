@@ -8,7 +8,6 @@ import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
-import org.dcache.nfs.v3.NfsServerV3;
 import org.dcache.nfs.v4.DeviceManager;
 import org.dcache.nfs.v4.MDSOperationFactory;
 import org.dcache.nfs.v4.NFSServerV41;
@@ -62,7 +61,7 @@ public class NfsServer {
                 exportFile);
 
         // create NFS v3 and mountd servers
-        NfsServerV3 nfs3 = new NfsServerV3(exportFile, vfs);
+        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs);
         MountServer mountd = new MountServer(exportFile, vfs);
 
         // register NFS servers at portmap service

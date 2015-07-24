@@ -6,6 +6,7 @@ from utils.converters.platform.node_converter import NodeConverter
 import json
 from model.platform.service import Service
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class NodePlugin( AbstractPlugin ):
     '''
@@ -14,14 +15,20 @@ class NodePlugin( AbstractPlugin ):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)
-        self.__node_service = NodeService( self.session )
+    def __init__(self):
+        AbstractPlugin.__init__(self)
         
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.sessopn = session
+        
+        if not session.is_allowed( FdsAuth.SYS_MGMT ):
+            return
+        
+        self.__node_service = NodeService( self.session )
         
         self.__parser = parentParser.add_parser( "node", help="Interact with node commands" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")

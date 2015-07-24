@@ -96,6 +96,16 @@ def listSnapshots( volumeName ):
     snaps.append( snapshot )
     return snaps
 
+def listServices(nodeId):
+
+    services = []
+    services.append( Service(a_type="AM",name="AM") )
+    services.append( Service(a_type="DM",name="DM") )
+    services.append( Service(a_type="PM",name="PM") )
+    services.append( Service(a_type="SM",name="SM") )
+    
+    return services  
+
 def listNodes():
     node = Node()
     node.name = "FakeNode"

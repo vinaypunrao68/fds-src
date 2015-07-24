@@ -3,6 +3,9 @@
  */
 #include <set>
 #include <sys/statvfs.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <include/util/disk_utils.h>
@@ -10,36 +13,10 @@
 
 namespace fds {
 DiskCapacityUtils::capacity_tuple
-DiskCapacityUtils::getDiskConsumedSize(const std::string &mount_path) {
+DiskCapacityUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
 
-    // Cause method to return capacity
-    fiu_do_on("diskUtils.cause_used_capacity_error", \
-              fiu_disable("diskUtils.cause_used_capacity_alert"); \
-              fiu_disable("diskUtils.cause_used_capacity_warn"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ERROR_THRESHOLD
-              << ", 100). This should cause an alert."; \
-              DiskCapacityUtils::capacity_tuple retVals(DISK_CAPACITY_ERROR_THRESHOLD, 100); \
-              return retVals; \
-    );
-
-    fiu_do_on("diskUtils.cause_used_capacity_alert", \
-              fiu_disable("diskUtils.cause_used_capacity_error"); \
-              fiu_disable("diskUtils.cause_used_capacity_warn"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
-              << ", 100). This should cause an alert."; \
-              DiskCapacityUtils::capacity_tuple retVals(DISK_CAPACITY_ALERT_THRESHOLD + 1, 100); \
-              return retVals; \
-    );
-
-    fiu_do_on("diskUtils.cause_used_capacity_warn", \
-              fiu_disable("diskUtils.cause_used_capacity_error"); \
-              fiu_disable("diskUtils.cause_used_capacity_alert"); \
-              LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
-              << ", 100). This should cause a warning."; \
-              DiskCapacityUtils::capacity_tuple retVals(DISK_CAPACITY_WARNING_THRESHOLD + 1, 100); \
-              return retVals; \
-    );
-
+    // Stat won't give us an accurate total size, so we always want to statvfs to get the totalSize
+    // However, if use_stat == true then we need to use stat to get the consumed size
     struct statvfs statbuf;
     memset(&statbuf, 0, sizeof(statbuf));
 
@@ -49,6 +26,18 @@ DiskCapacityUtils::getDiskConsumedSize(const std::string &mount_path) {
     }
     fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
     fds_uint64_t consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
+
+
+    if (use_stat) {
+        struct stat statbuf;
+        memset(&statbuf, 0, sizeof(statbuf));
+
+        if (stat(mount_path.c_str(), &statbuf) < 0) {
+            LOGERROR << "Could not stat file " << mount_path;
+        }
+        consumedSize = statbuf.st_size;
+        LOGDEBUG << "use_stat was TRUE found " << consumedSize << " as consumed size.";
+    }
 
     return DiskCapacityUtils::capacity_tuple(consumedSize, totalSize);
 }

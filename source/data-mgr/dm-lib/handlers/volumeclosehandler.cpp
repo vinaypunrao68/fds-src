@@ -46,7 +46,7 @@ void VolumeCloseHandler::handleRequest(
     addToQueue(dmReq);
 }
 
-void VolumeCloseHandler::handleQueueItem(dmCatReq* dmRequest) {
+void VolumeCloseHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeClose * request = static_cast<DmIoVolumeClose *>(dmRequest);
 
@@ -58,7 +58,7 @@ void VolumeCloseHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void VolumeCloseHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::CloseVolumeMsg>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CloseVolumeRspMsg),
