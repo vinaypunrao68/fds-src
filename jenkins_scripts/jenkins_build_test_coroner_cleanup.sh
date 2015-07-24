@@ -407,6 +407,11 @@ function run_coroner
     run_node_cleanup ${1}
 }
 
+if [[ "${1}" == "smoke_test_only" ]]
+then
+    SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr"
+fi
+
 error_trap_enabled
 
 auto_locate
@@ -437,10 +442,15 @@ error_trap_disabled
 build_fds
 cache_report
 
-configure_console_access      # Must be complted after the build
 
-run_python_unit_tests
-run_cpp_unit_tests
-run_system_test_scenarios
+if [[ "${1}" != "compile_only" ]]
+then
+
+    configure_console_access      # Must be complted after the build
+
+    run_python_unit_tests
+    run_cpp_unit_tests
+    run_system_test_scenarios
+fi
 
 run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0

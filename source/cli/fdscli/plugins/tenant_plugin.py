@@ -7,6 +7,7 @@ from services.response_writer import ResponseWriter
 from utils.converters.admin.user_converter import UserConverter
 from model.admin.tenant import Tenant
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class TenantPlugin( AbstractPlugin):
     '''
@@ -18,9 +19,8 @@ class TenantPlugin( AbstractPlugin):
     @author: nate
     '''    
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)  
-        self.__tenant_service = TenantService(self.session)  
+    def __init__(self):
+        AbstractPlugin.__init__(self)  
     
     def detect_shortcut(self, args):
         '''
@@ -36,8 +36,12 @@ class TenantPlugin( AbstractPlugin):
         @see: AbstractPlugin
         '''
         
-        if session.is_allowed( "TENANT_MGMT" ) is False:
+        self.session = session
+        
+        if not session.is_allowed( FdsAuth.TENANT_MGMT ):
             return
+        
+        self.__tenant_service = TenantService(self.session)          
         
         self.__parser = parentParser.add_parser( "tenant", help="Manage tenants of the system" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")

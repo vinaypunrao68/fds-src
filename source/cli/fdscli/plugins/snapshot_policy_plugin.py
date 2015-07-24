@@ -9,6 +9,7 @@ from services.snapshot_policy_service import SnapshotPolicyService
 from services.response_writer import ResponseWriter
 from plugins.abstract_plugin import AbstractPlugin
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 
 class SnapshotPolicyPlugin( AbstractPlugin):
@@ -23,14 +24,21 @@ class SnapshotPolicyPlugin( AbstractPlugin):
     '''    
     
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session) 
-        self.__sp_service = SnapshotPolicyService( session )   
+    def __init__(self):
+        AbstractPlugin.__init__(self)  
     
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
+       
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
+            return
+        
+        self.__sp_service = SnapshotPolicyService( self.session )  
+ 
         
         self.__parser = parentParser.add_parser( "snapshot_policy", help="Create, edit, delete and manipulate snapshot policies" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")

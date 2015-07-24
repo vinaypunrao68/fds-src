@@ -94,12 +94,6 @@ class DmMigrationMgr {
     Error applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobsReq);
 
     /**
-     * Destination side DM:
-     * Callback for committing the transaction after applying a specific blob msg
-     */
-    Error applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e);
-
-    /**
      * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
      */
     Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
@@ -141,6 +135,11 @@ class DmMigrationMgr {
      * maximum number of blob desc per delta set sent from source DM.
      */
     uint64_t maxNumBlobDesc;
+
+    /**
+     * timeout for delta blob set
+     */
+    uint32_t deltaBlobTimeout;
 
     /**
      * Throttles the number of max concurrent migrations
