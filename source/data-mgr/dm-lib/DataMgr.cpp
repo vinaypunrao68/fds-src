@@ -711,7 +711,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // should do the calculation if the primary fails over to us. but if we set it
     // here, before failover, we could have a seq_id ahead of the primary.
     // is this a problem?
-    if (fPrimary && fActivated) {
+    if (fActivated) {
         sequence_id_t seq_id;
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
