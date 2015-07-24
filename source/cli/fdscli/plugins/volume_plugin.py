@@ -14,6 +14,7 @@ from model.volume.settings.block_settings import BlockSettings
 from model.common.size import Size
 from model.volume.settings.object_settings import ObjectSettings
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -27,18 +28,20 @@ class VolumePlugin( AbstractPlugin):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)
+    def __init__(self):
+        AbstractPlugin.__init__(self)
     
     def build_parser(self, parentParser, session):
         '''
         @see: AbstractPlugin
         '''         
         
-        if not self.session.is_allowed( "VOL_MGMT" ):
+        self.session = session
+        
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
             return
         
-        self.__volume_service = volume_service.VolumeService( session )
+        self.__volume_service = volume_service.VolumeService( self.session )
         
         self.__parser = parentParser.add_parser( "volume", help="All volume management operations" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
