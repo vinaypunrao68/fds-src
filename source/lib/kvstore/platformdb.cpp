@@ -38,7 +38,7 @@ bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
         bRetCode = false;
     }
 
-    if( bRetCode ) {
+    if ( bRetCode ) {
       LOGDEBUG << "Updated nodeInfo record stored in redis with: uuid " << nodeInfo.uuid <<
                                                                 ", am " << nodeInfo.fHasAm <<
                                                                 ", dm " << nodeInfo.fHasDm <<
