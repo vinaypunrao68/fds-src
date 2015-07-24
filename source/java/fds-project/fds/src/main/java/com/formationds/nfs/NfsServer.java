@@ -47,6 +47,7 @@ public class NfsServer {
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
                 .withMinPort(2400)
                 .withMaxPort(2500)
+//                .withPort(2049)
                 .withTCP()
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
