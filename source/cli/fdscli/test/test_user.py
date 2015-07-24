@@ -1,6 +1,7 @@
 from base_cli_test import BaseCliTest
 import mock_functions
 from mock import patch
+from services.fds_auth import FdsAuth
 
 
 class TestUsers( BaseCliTest):
@@ -15,6 +16,9 @@ class TestUsers( BaseCliTest):
         '''
         Test that list users is called correctly
         '''
+        
+        self.auth.add_feature( FdsAuth.USER_MGMT )
+        
         args = ["user", "list"]
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -28,6 +32,7 @@ class TestUsers( BaseCliTest):
         '''
         Test that the creation service is called correctly
         '''
+        self.auth.add_feature( FdsAuth.USER_MGMT )
         
         args = ["user", "create"]
         self.callMessageFormatter(args)
@@ -55,9 +60,18 @@ class TestUsers( BaseCliTest):
         test that the change password function is called correctly
         '''
         
-        self.auth.remove_feature( "USER_MGMT" )
+        self.auth.remove_feature( FdsAuth.USER_MGMT )
         
         args = ["user", "change_password"]
+        self.callMessageFormatter(args)
+        self.cli.run(args)
+        
+        assert mockPass.call_count == 0
+        assert mockChange.call_count == 0
+        
+        self.auth.add_feature( FdsAuth.USER_MGMT )
+        
+        args = ["user", "change_password", "-user_id=3"]
         self.callMessageFormatter(args)
         self.cli.run(args)
         
@@ -65,26 +79,16 @@ class TestUsers( BaseCliTest):
         assert mockChange.call_count == 1
         
         user_id = mockChange.call_args[0][0]
-        assert user_id == 1
-        
-        self.auth.add_feature("USER_MGMT")
-        
-        args = ["user", "change_password", "-user_id=3"]
-        self.callMessageFormatter(args)
-        self.cli.run(args)
-        
-        assert mockPass.call_count == 2
-        assert mockChange.call_count == 2
-        
-        user_id = mockChange.call_args[0][0]
         assert user_id == "3"
+        
         
     @patch( "services.users_service.UsersService.reissue_user_token", side_effect=mock_functions.reissueToken)
     def test_reissue_token(self, mockReissue):
         '''
         Test that we request the token reissue correctly
         '''
-        
+        self.auth.add_feature( FdsAuth.USER_MGMT )
+                
         #no user ID
         args = ["user", "reissue_token"]
         self.callMessageFormatter(args)

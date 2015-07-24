@@ -23,6 +23,7 @@ public class SmokeTestRunner {
 
     public SmokeTestRunner() {
         addClass(S3SmokeTest.class);
+        addClass(S3SmokeTest.V4Auth.class);
         addClass(HdfsSmokeTest.class);
         addClass(AsyncAmTest.class);
         addClass(NfsTest.class);

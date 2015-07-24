@@ -27,6 +27,10 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 
     maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
                 get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
+
+    deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+			  get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
+
 }
 
 
@@ -68,7 +72,8 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 														        std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
 														                  this,
                                                                           std::placeholders::_1,
-														                  std::placeholders::_2))));
+														                  std::placeholders::_2),
+                                                                deltaBlobTimeout)));
 	}
 	return err;
 }
@@ -127,7 +132,8 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
          ++vmg) {
 
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
-				vdt != vmg->VolDescriptors.end(); ++vdt) {
+			 vdt != vmg->VolDescriptors.end();
+             ++vdt) {
 			/**
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
@@ -224,24 +230,8 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     	return ERR_NOT_FOUND;
     }
     err = executor->processDeltaBlobs(deltaBlobsMsg);
-    if (executor->isVolEmpty()) {
-    	/* No blobs for this volume. Invoke callback manually */
-    	err = executor->processIncomingDeltaSetCb();
-    }
 
     return err;
-}
-
-Error
-DmMigrationMgr::applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e) {
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
-    if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << volId;
-    	fds_verify(0); // this is an race cond error that needs to be fixed in dev env.
-    	return ERR_NOT_FOUND;
-    }
-    executor->processIncomingDeltaSetCb();
-	return ERR_OK;
 }
 
 
@@ -359,6 +349,10 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 	 */
 	DmMigrationExecMap::iterator mapIter = executorMap.find(volId);
 	fds_verify(mapIter != executorMap.end());
+
+    LOGMIGRATE << "Migration Executor complete for volume="
+               << std::hex << volId << std::dec
+               << " with error=" << result;
 
 	/**
 	 * TODO(Neil): error handling

@@ -192,26 +192,6 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
 }
 
-void DmMigrationDeltaBlobHandler::volumeCatalogCb(Error const& e, blob_version_t blob_version,
-                                          	  	  BlobObjList::const_ptr const& blob_obj_list,
-												  MetaDataList::const_ptr const& meta_list,
-												  fds_uint64_t const blobSize,
-												  DmIoCommitBlobTx* commitBlobReq) {
-    if (!e.ok()) {
-        LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
-        delete commitBlobReq;
-        return;
-    }
-
-    LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
-             << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
-             << " current DMT version " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
-
-    dataManager.dmMigrationMgr->applyDeltaObjCommitCb(commitBlobReq->volId, e);
-
-    delete commitBlobReq;
-}
-
 void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                         Error const& e, DmRequest* dmRequest) {

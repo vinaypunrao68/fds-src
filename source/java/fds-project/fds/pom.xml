@@ -39,6 +39,11 @@
         <artifactId>thrift-client-util</artifactId>
       <version>${formationds.thrift.client.util.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.formationds</groupId>
+      <artifactId>formationds-commons-util</artifactId>
+      <version>${formationds.commons.util.version}</version>
+    </dependency>
 
     <!-- third party dependencies -->
     <dependency>

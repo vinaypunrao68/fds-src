@@ -38,7 +38,7 @@ public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationTok
             InputStream inputStream = ctx.getInputStream();
             if(ctx.getRequestHeader("Content-Length") != null) {
                 long length = Long.parseLong(ctx.getRequestHeader("Content-Length"));
-                inputStream = new ContentLengthInputStream(inputStream, length);
+                //inputStream = new ContentLengthInputStream(inputStream, length);
             }
             final InputStream fInputStream = inputStream;
 

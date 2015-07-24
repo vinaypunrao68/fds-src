@@ -204,6 +204,20 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                             const sequence_id_t seq_id);
 
     /**
+     * Takes a snapshot and returns a pointer to the snapshot for
+     * further diff, operations.
+     * This is used for migrations, etc.
+     * Caller MUST free the snapshot once done with it using freeInMemorySnapshot below.
+     */
+    Error getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap);
+
+    /**
+     * Given a volume snapshot within opts, delete the snapshot.
+     */
+    Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap)
+    { return volcat->freeVolumeSnapshot(volId, snap); }
+
+    /**
      * Starts a new transaction for blob
      * @param[in] volId volume ID
      * @param[in] blobName Name of blob
@@ -328,12 +342,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * commit log.
      * NOTE: do NOT use for any data path operation.
      */
- protected:
+    //protected:
+    /* XXX: public only for unit tests because I can't get
+       gtest friend classing to work */
     Error migrateDescriptor(fds_volid_t volId,
                             const std::string& blobName,
                             const std::string& blobData);
-    friend class DmMigrationExecutor;
- public:
+    /*friend class DmMigrationExecutor;
+    // for gtest
+    friend class SeqIdTest_MigrateVolDesc_Test;
+    friend class SeqIdTest_MigrateBlobDelete_Test;
+    friend class SeqIdTest_MigrateBlobPutNew_Test;
+    public:*/
 
     /**
      * Returns query interface to volume catalog. Provides
