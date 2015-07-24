@@ -50,7 +50,7 @@ ObjectMetadataDb::openMetadataDb(SmDiskMap::ptr& diskMap,
     fds_uint32_t hddCount = diskMap->getTotalDisks(diskio::diskTier);
     if ((ssdCount == 0) && (hddCount == 0)) {
         LOGCRITICAL << "No disks (no SSDs and no HDDs)";
-        return ERR_SM_EXCEEDED_DISK_CAPACITY;
+        return ERR_SM_NO_DISK;
     }
 
     // tier we are using to store metadata
@@ -84,6 +84,12 @@ ObjectMetadataDb::openMetadataDb(SmDiskMap::ptr& diskMap,
          cit != smToks.cend();
          ++cit) {
         std::string diskPath = diskMap->getDiskPath(*cit, metaTier);
+        if (diskPath.empty()) {
+            err = ERR_NOT_FOUND;
+            LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
+                     << ". Disk not found" << " " << err;
+            break;
+        }
         err = openObjectDb(*cit, diskPath, syncW);
         if (!err.ok()) {
             LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
@@ -251,7 +257,9 @@ ObjectMetadataDb::get(fds_volid_t volId,
     if (!err.ok()) {
         // Object not found. Return.
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        mediaTrackerFn(smTokId, metaTier, err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, metaTier, err);
+        }
         return NULL;
     }
 
@@ -277,7 +285,9 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     err = odb->Put(objId, buf);
     if (!err.ok()) {
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        mediaTrackerFn(smTokId, metaTier, err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, metaTier, err);
+        }
     }
     return err;
 }

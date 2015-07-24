@@ -314,7 +314,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjDeltaSet(SmIoReq* ioReq);
      void abortMigration(SmIoReq* ioReq);
      void notifyDLTClose(SmIoReq* ioReq);
-
+     void startResyncRequest();
      Error handleDltUpdate();
 
      void storeCurrentDLT();

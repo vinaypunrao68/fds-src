@@ -109,7 +109,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
-                                                          volTbl));
+                                                          volTbl,
+                                                          std::bind(&ObjectStorMgr::startResyncRequest, this)));
 
     static Module *smDepMods[] = {
         objectStore.get(),
@@ -118,6 +119,15 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     mod_intern = smDepMods;
     Module::mod_init(param);
     return 0;
+}
+
+void ObjectStorMgr::startResyncRequest() {
+    if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
+        const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+        objStorMgr->migrationMgr->startResync(curDlt,
+                                              getUuid(),
+                                              curDlt->getNumBitsForToken());
+    }
 }
 
 void ObjectStorMgr::mod_startup()

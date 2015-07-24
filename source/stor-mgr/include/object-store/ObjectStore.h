@@ -21,6 +21,8 @@
 
 namespace fds {
 
+typedef std::function <void(void)> StartResyncFnObj;
+
 /**
  * The ObjectStore manages persistent storage of Formation Objects, which
  * are content addressable key-value pairs. The ObjectStore provides
@@ -77,6 +79,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     // TODO(xxx) we should be able to get this from platform
     StorMgrVolumeTable *volumeTbl;
 
+    /// Resync request to Object store manager to start migration.
+    StartResyncFnObj requestResyncFn;
+
     /// config params
     fds_bool_t conf_verify_data;
 
@@ -105,7 +110,8 @@ class ObjectStore : public Module, public boost::noncopyable {
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
-                StorMgrVolumeTable* volTbl);
+                StorMgrVolumeTable* volTbl,
+                StartResyncFnObj fnObj=StartResyncFnObj());
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;

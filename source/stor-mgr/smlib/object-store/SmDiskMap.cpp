@@ -383,13 +383,17 @@ std::string
 SmDiskMap::getDiskPath(fds_token_id smTokId,
                        diskio::DataTier tier) const {
     fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
-    fds_verify(disk_map.count(diskId) > 0);
+    if (disk_map.count(diskId) == 0) {
+        return std::string();
+    }
     return disk_map.at(diskId);
 }
 
 std::string
 SmDiskMap::getDiskPath(fds_uint16_t diskId) const {
-    fds_verify(disk_map.count(diskId) > 0);
+    if (disk_map.count(diskId) == 0) {
+        return std::string();
+    }
     return disk_map.at(diskId);
 }
 

@@ -36,9 +36,11 @@ extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataProp
 
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
-                         StorMgrVolumeTable* volTbl)
+                         StorMgrVolumeTable* volTbl,
+                         StartResyncFnObj fn)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
+          requestResyncFn(fn),
           conf_verify_data(true),
           diskMap(new SmDiskMap("SM Disk Map Module",
                                 std::bind(&ObjectStore::handleDiskChanges,
@@ -211,7 +213,8 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
                                                                     std::bind(&::fds::ObjectStore::handleOnlineDiskFailures, this,
                                                                                  std::placeholders::_1,
                                                                                  std::placeholders::_2)
-                                                                       ), "hdd_fail", 5, 3));
+                                                                       ), "hdd_fail", 5, 2));
+                                                                     //  ), "hdd_fail", 5, 3));
     // Write/Read SSD error handler (3 within 5 minutes will trigger)
     // we will record both read and write errors as write errors
     objStoreFlashMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
@@ -219,17 +222,37 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
                                                                     std::bind(&::fds::ObjectStore::handleOnlineDiskFailures, this,
                                                                                  std::placeholders::_1,
                                                                                  std::placeholders::_2)
-                                                                    ), "ssd_fail", 5, 3));
+                                                                    ), "ssd_fail", 5, 2));
+                                                                   // ), "ssd_fail", 5, 3));
 }
 
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
-    diskMap->removeDiskAndRecompute(diskId, tier);
+    if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
+        if ((diskMap->getTotalDisks(diskio::diskTier) > 1) &&
+            (diskMap->getTotalDisks(diskio::flashTier) > 1)) {
+            diskMap->removeDiskAndRecompute(diskId, tier);
+        } else {
+            LOGCRITICAL << "Disk Failure. Node is out of disks!";
+            return ERR_SM_NO_DISK;
+        }
+    } else {
+        if (diskMap->getTotalDisks() > 1) {
+            diskMap->removeDiskAndRecompute(diskId, tier);
+        } else {
+            LOGCRITICAL << "Disk Failure. Node is out of disks!";
+            return ERR_SM_NO_DISK;
+        }
+    }
     SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
     Error err = openStore(lostTokens);
     if (!err.ok()) {
         LOGDEBUG << "Error opening metadata and data stores." << err;
+    }
+
+    if (requestResyncFn) {
+        requestResyncFn();
     }
     return err;
 }
@@ -441,10 +464,9 @@ ObjectStore::putObject(fds_volid_t volId,
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
                     = dataStore->getObjectData(volId, objId, objMeta, err);
-            // if we get an error, there are inconsistencies between
-            // data and metadata; assert for now
-            fds_verify(err.ok());
-
+            if (!err.ok()) {
+                return err;
+            }
             // check if data is the same
             if (*existObjData != *objData) {
                 fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
@@ -674,6 +696,7 @@ ObjectStore::getObject(fds_volid_t volId,
 
     return objData;
 }
+
 boost::shared_ptr<const std::string>
 ObjectStore::getObjectData(fds_volid_t volId,
                        const ObjectID &objId,
@@ -1462,6 +1485,8 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
         (error == ERR_DISK_READ_FAILED) ||
         (error == ERR_NO_BYTES_READ)) {
         DiskId diskId = diskMap->getDiskId(smTokId, tier);
+        LOGDEBUG << "Feeding IO failed event for disk " << diskId
+                 << " due to error " << error;
         if (tier == diskio::diskTier) {
             objStoreDiskMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
                                                 diskId);
