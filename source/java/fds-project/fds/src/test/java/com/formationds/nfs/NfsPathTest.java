@@ -14,7 +14,7 @@ public class NfsPathTest {
     public void testFromInode() throws Exception {
         NfsPath nfsPath = new NfsPath(new Inode(new FileHandle(0, 0, 0, "/foo/bar/".getBytes())));
         assertEquals("foo", nfsPath.getVolume());
-        assertEquals("/bar", nfsPath.blobName());
+        assertEquals("//bar", nfsPath.blobName());
         assertFalse(nfsPath.isRoot());
     }
 
@@ -22,7 +22,7 @@ public class NfsPathTest {
     public void testVolumeOnly() throws Exception {
         NfsPath nfsPath = new NfsPath(new Inode(new FileHandle(0, 0, 0, "/foo".getBytes())));
         assertEquals("foo", nfsPath.getVolume());
-        assertEquals("/", nfsPath.blobName());
+        assertEquals("//", nfsPath.blobName());
         assertFalse(nfsPath.isRoot());
     }
 
@@ -30,7 +30,7 @@ public class NfsPathTest {
     public void testFromParent() throws Exception {
         NfsPath parent = new NfsPath(new Inode(new FileHandle(0, 0, 0, "/panda/foo".getBytes())));
         NfsPath child = new NfsPath(parent, "bar");
-        assertEquals("/foo/bar", child.blobName());
+        assertEquals("//foo/bar", child.blobName());
         assertEquals("bar", child.fileName());
     }
 
@@ -51,11 +51,11 @@ public class NfsPathTest {
     public void testRootInode() throws Exception {
         NfsPath root = new NfsPath(new Inode(new FileHandle(0, 0, Stat.S_IFDIR, new byte[0])));
         assertNull(root.getVolume());
-        assertEquals("/", root.blobName());
+        assertEquals("//", root.blobName());
         assertTrue(root.isRoot());
         NfsPath child = new NfsPath(root, "foo");
         assertEquals("foo", child.getVolume());
-        assertEquals("/", child.blobName());
+        assertEquals("//", child.blobName());
     }
 
     @Test

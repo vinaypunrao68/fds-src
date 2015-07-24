@@ -8,6 +8,7 @@ from model.platform.service_status import ServiceStatus
 
 import json
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 
 class ServicePlugin( AbstractPlugin ):
@@ -17,14 +18,20 @@ class ServicePlugin( AbstractPlugin ):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)
-        self.__node_service = NodeService( self.session )
+    def __init__(self):
+        AbstractPlugin.__init__(self)
         
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
+        
+        if not session.is_allowed( FdsAuth.SYS_MGMT ):
+            return
+        
+        self.__node_service = NodeService( self.session )        
         
         self.__parser = parentParser.add_parser( "service", help="Interact with service commands" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
