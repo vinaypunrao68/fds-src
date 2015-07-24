@@ -15,11 +15,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+// TODO: refactor this into an interface
 public class HttpContext {
     private Request request;
     private Response response;
     private Map<String, String> routeParameters;
     private final Map<String, Collection<String>> queryParameters;
+    private InputStream inputOverride;
 
     public HttpContext(Request request, Response response) {
         this(request, response, new HashMap<>());
@@ -35,8 +37,19 @@ public class HttpContext {
                 .collect(Collectors.toMap(k -> k, k -> (Collection) mm.getValues(k)));
     }
 
+
+    public HttpContext withInputWrapper(InputStream inputStream) {
+        HttpContext newCtx = new HttpContext(request, response, routeParameters);
+        if(inputStream != null)
+            newCtx.inputOverride = inputStream;
+        return newCtx;
+    }
+
     public HttpContext withRouteParameters(Map<String, String> routeParameters) {
-        return new HttpContext(request, response, routeParameters);
+        if(inputOverride == null)
+            return new HttpContext(request, response, routeParameters);
+        else
+            return new HttpContext(request, response, routeParameters).withInputWrapper(inputOverride);
     }
 
     public Map<String, String> getRouteParameters() {
@@ -109,7 +122,10 @@ public class HttpContext {
 
     public InputStream getInputStream() {
         try {
-            return request.getInputStream();
+            if(inputOverride == null)
+                return request.getInputStream();
+            else
+                return inputOverride;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

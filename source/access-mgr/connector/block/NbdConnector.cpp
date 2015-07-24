@@ -27,8 +27,15 @@ std::unique_ptr<NbdConnector> NbdConnector::instance_ {nullptr};
 void NbdConnector::start(std::weak_ptr<AmProcessor> processor) {
     static std::once_flag init;
     // Initialize the singleton
-    std::call_once(init, [instance = &instance_, processor] () mutable
-                   { instance_.reset(new NbdConnector(processor)); });
+    std::call_once(init, [processor] () mutable
+    {
+        FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.nbd.");
+        auto threads = conf.get<uint32_t>("threads", 1);
+        instance_.reset(new NbdConnector(processor, threads - 1));
+        // Start the main server thread
+        auto t = std::thread(&NbdConnector::follow, instance_.get());
+        t.detach();
+    });
 }
 
 void NbdConnector::stop() {
@@ -37,9 +44,12 @@ void NbdConnector::stop() {
     }
 }
 
-NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor)
-        : nbdPort(10809),
+NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor,
+                           size_t const followers)
+        : LeaderFollower(followers, false),
+          nbdPort(10809),
           amProcessor(processor) {
+    LOGDEBUG << "Initialized server with: " << followers << " followers.";
     initialize();
 }
 
@@ -71,16 +81,12 @@ void NbdConnector::initialize() {
 
     // Setup event loop
     if (!evIoWatcher) {
+        LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
         evIoWatcher->set<NbdConnector, &NbdConnector::nbdAcceptCb>(this);
-        evIoWatcher->start(nbdSocket, ev::READ);
-        // Run event loop in a detached thread
-        auto t = std::thread(&NbdConnector::runNbdLoop, this);
-        t.detach();
-    } else {
-        evIoWatcher->set(nbdSocket, ev::READ);
-        evIoWatcher->start(nbdSocket, ev::READ);
     }
+    evIoWatcher->set(nbdSocket, ev::READ);
+    evIoWatcher->start(nbdSocket, ev::READ);
 }
 
 void NbdConnector::reset() {
@@ -167,7 +173,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
 
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            NbdConnection *client = new NbdConnection(clientsd, processor);
+            NbdConnection *client = new NbdConnection(this, clientsd, processor);
             LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {
@@ -222,8 +228,7 @@ NbdConnector::createNbdSocket() {
 }
 
 void
-NbdConnector::runNbdLoop() {
-    LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
+NbdConnector::lead() {
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGPIPE);
@@ -233,7 +238,6 @@ NbdConnector::runNbdLoop() {
 
     ev::default_loop loop;
     loop.run(0);
-    LOGNORMAL << "Stopping NBD loop...";
 }
 
 }  // namespace fds

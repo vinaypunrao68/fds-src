@@ -158,17 +158,10 @@ void OrchMgr::setupSvcInfo_()
 {
     /*
      * without this we see the following error during startup
-     * '/fds/bin/liborchmgr.so: /fds/bin/liborchmgr.so: undefined symbol: _ZTVN3fds7OrchMgrE'
+     * '/fds/bin/liborchmgr.so: /fds/bin/liborchmgr.so: undefined symbol: 
+     * _ZTVN3fds7OrchMgrE'
      */
     SvcProcess::setupSvcInfo_();
-    
-    /*
-     * need to populate the om node UUID with the platform UUID
-     */
-     
-    /*
-     * TODO(Tinius) handle more than one OM IP address
-     */
 }
 
 void OrchMgr::registerSvcProcess()

@@ -169,7 +169,11 @@ void ExpungeManager::threadTask(fds_volid_t volId, ObjectID objId, bool fFromSna
         }
     } else {
         uint32_t count = expungeDB->getExpungeCount(volId, objId);
-        if (!fFromSnapshot) count++; // old count + current request;
+        if (!fFromSnapshot) { // old count + current request;
+            count++;
+            // store the count just in case
+            expungeDB->increment(volId, objId);
+        }
         LOGDEBUG << "will send [" << count << "] delete requests for "
                  << "vol:" << volId << " obj:" << objId;
 

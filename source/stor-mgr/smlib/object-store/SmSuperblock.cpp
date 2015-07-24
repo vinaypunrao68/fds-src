@@ -11,6 +11,9 @@
 #include <dlt.h>
 #include <object-store/SmTokenPlacement.h>
 #include <object-store/SmSuperblock.h>
+extern "C" {
+#include <fcntl.h>
+}
 
 namespace fds {
 
@@ -542,37 +545,23 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 }
 
 bool
-SmSuperblockMgr::devFlushTest(const std::string& path) {
-    std::ofstream fileStr(path.c_str());
-    if (fileStr.good()) {
-        try {
-            std::string tempStream = "testString";
-            fileStr << tempStream;
-            fileStr.flush();
-            fileStr.close();
-        } catch (const std::ios_base::failure& e) {
-            LOGNOTIFY << "Disk is not accessible. Exception: ios_base ";
-            fileStr.close();
-            std::remove(path.c_str());
-            return true;
-        } catch (...) {
-            LOGNOTIFY << "Disk is not accessible ";
-            fileStr.close();
-            std::remove(path.c_str());
-            return true;
-        }
-        fileStr.close();
-        std::remove(path.c_str());
-        return false;
-    } else {
+SmSuperblockMgr::diskFileTest(const std::string& path) {
+
+    int fd = open(path.c_str(), O_RDWR | O_CREAT | O_SYNC, S_IRUSR | S_IWUSR);
+    if (fd == -1 || fsync(fd) ||close(fd)) {
+        LOGDEBUG << "File test for disk = " << path << " failed with errno = " << errno;
         return true;
+    } else {
+        return false;
     }
 }
 
 bool
 SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
                                    const std::string& mountPnt) {
-    bool retVal = devFlushTest(diskMap[diskId] + "/.tempFlush");
+    std::string path = diskMap[diskId] + "/.tempFlush";
+    bool retVal = diskFileTest(path);
+    std::remove(path.c_str());
     if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
         if (errno == ENODEV) {
             LOGNOTIFY << "Disk " << diskId << " is not accessible ";
@@ -804,14 +793,10 @@ SmSuperblockMgr::checkPristineState(DiskIdSet& HDDs,
 
         /* Check if the file exists.
          */
-        std::ifstream diskStr(superblockPath.c_str());
-        if (!isDiskUnreachable(cit->first, tempMountDir) && diskStr.good()) {
-            diskStr.close();
-        } else {
-            /* The superblock file doesn't exist in this directory.
-             */
+        int fd = open(superblockPath.c_str(), O_RDWR | O_SYNC, S_IRUSR | S_IWUSR);
+        if (fd == -1 || fsync(fd) || close(fd)) {
+            LOGDEBUG << "Superblock file " << superblockPath << " is not accessible";
             ++noSuperblockCnt;
-            diskStr.close();
         }
     }
     deleteMount(tempMountDir);

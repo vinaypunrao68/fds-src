@@ -418,7 +418,9 @@ Error DmPersistVolDB::putObject(const std::string & blobName, fds_uint64_t offse
     CatWriteBatch batch;
     TIMESTAMP_OP(batch);
     batch.Put(keyRec, valRec);
-    return catalog_->Update(&batch);
+    {
+        return catalog_->Update(&batch);
+    }
 }
 
 Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList & objs) {

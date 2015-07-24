@@ -16,6 +16,7 @@
 #include "fds_types.h"
 #include "ObjectId.h"
 #include "util/Log.h"
+#include "util/always_call.h"
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
 #include "hash/md5.h"
@@ -279,27 +280,14 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
-     struct always_call {
-         using C = std::function<void()>;
-         always_call() = delete;
-         explicit always_call(C const& call) :
-             c(call)
-         {}
-         always_call(always_call const& rhs) = default;
-         always_call& operator=(always_call const& rhs) = default;
-         ~always_call()
-         { c(); }
-         C c;
-     };
-
-     always_call
+     nullary_always
      getTokenLock(ObjectID const& id, bool exclusive = false)
      {
          fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
          return getTokenLock(SmDiskMap::smTokenId(id, b_p_t), exclusive);
      }
 
-     always_call
+     nullary_always
      getTokenLock(fds_token_id const& id, bool exclusive = false);
 
      void getObjectInternal(SmIoGetObjectReq *getReq);

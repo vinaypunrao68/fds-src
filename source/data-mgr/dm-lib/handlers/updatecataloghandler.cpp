@@ -48,7 +48,7 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
     addToQueue(request);
 }
 
-void UpdateCatalogHandler::handleQueueItem(dmCatReq * dmRequest) {
+void UpdateCatalogHandler::handleQueueItem(DmRequest * dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoUpdateCat * request = static_cast<DmIoUpdateCat *>(dmRequest);
 
@@ -62,7 +62,7 @@ void UpdateCatalogHandler::handleQueueItem(dmCatReq * dmRequest) {
 
 void UpdateCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::UpdateCatalogMsg> & message, const Error &e,
-        dmCatReq *dmRequest) {
+        DmRequest *dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg),

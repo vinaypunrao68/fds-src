@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <artifactId>formationds-commons</artifactId>
+    <groupId>com.formationds</groupId>
+    <version>2015.07.31-SNAPSHOT</version>
+  </parent>
+
+  <name>${formationds.commons.togglz.name}</name>
+  <artifactId>formationds-commons-togglz</artifactId>
+
+  <properties>
+    <formationds.commons.togglz.name>
+      ${formationds.commons.project.name} Togglz
+    </formationds.commons.togglz.name>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.togglz</groupId>
+      <artifactId>togglz-core</artifactId>
+    </dependency>
+  </dependencies>
+
+</project>

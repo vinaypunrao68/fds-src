@@ -10,6 +10,7 @@
 
 #include <leveldb/comparator.h>
 
+#include <concurrency/RwLock.h>
 #include <lib/Catalog.h>
 
 #include <dm-vol-cat/DmPersistVolCat.h>

@@ -31,7 +31,7 @@ void StatStreamHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     addToQueue(dmReq);
 }
 
-void StatStreamHandler::handleQueueItem(dmCatReq* dmRequest) {
+void StatStreamHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoStatStream* typedRequest = static_cast<DmIoStatStream*>(dmRequest);
 
@@ -40,7 +40,7 @@ void StatStreamHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void StatStreamHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::StatStreamMsg>& message,
-                                       Error const& e, dmCatReq* dmRequest) {
+                                       Error const& e, DmRequest* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << *static_cast<DmIoStatStream*>(dmRequest));
 
     asyncHdr->msg_code = e.GetErrno();

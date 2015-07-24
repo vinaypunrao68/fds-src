@@ -14,15 +14,16 @@ class PresetPlugin(AbstractPlugin):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)   
-        
-        self.__volume_service = VolumeService(session) 
+    def __init__(self):
+        AbstractPlugin.__init__(self)    
         
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
+        self.__volume_service = VolumeService(self.session)
         
         self.__parser = parentParser.add_parser( "presets", help="Manage and interact with the various types of presets available to the system." )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available" )

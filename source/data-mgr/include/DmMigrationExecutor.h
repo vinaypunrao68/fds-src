@@ -5,8 +5,8 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONEXECUTOR_H_
 
-
 #include <MigrationUtility.h>
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -20,18 +20,20 @@ class DataMgr;
 typedef std::function<void (fds_volid_t volumeId,
                             const Error& error)> DmMigrationExecutorDoneCb;
 
-
 class DmMigrationExecutor {
   public:
     explicit DmMigrationExecutor(DataMgr& _dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
 								 const fds_bool_t& _autoIncrement,
-								 DmMigrationExecutorDoneCb _callback);
+								 DmMigrationExecutorDoneCb _callback,
+                                 uint32_t _timeout);
     ~DmMigrationExecutor();
 
     typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
     typedef std::shared_ptr<DmMigrationExecutor> shared_ptr;
+    using blobObjListIter = std::vector<fpi::DMMigrationObjListDiff>::const_iterator;
+
 
     /**
      * Executes the specified executor and runs the callback once done.
@@ -55,6 +57,34 @@ class DmMigrationExecutor {
      * Process the incoming delta blob descriptors set coming from the source DM.
      */
     Error processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+
+    /**
+     * Step 3:
+     * As each list of blobs are applied to the levelDB, the commit is done asynchronously
+     * and this is the callback from having the blobs committed. The callback will keep
+     * track of whether or not the blobs have all been applied, and then synchronize with
+     * the blobs descriptor application process and call the method to commit the blobs desc
+     * if that's the case.
+     */
+    Error processIncomingDeltaSetCb();
+
+    /**
+     * last step from source DM to destination DM:
+     * As part of ActiveMigration, this is the method called when the source DM wants to notify
+     * the destination DM of the last forwarded commit log. From this point on, we start draining
+     * the ordered map and switch over to regular QoS queue.
+     */
+    Error processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg);
+
+    /**
+     * Apply queue blob descriptor.
+     */
+    Error applyQueuedBlobDescs();
+
+    /**
+     * Apply blob descriptor
+     */
+    Error applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg);
 
     inline fds_bool_t shouldAutoExecuteNext()
     {
@@ -90,13 +120,43 @@ class DmMigrationExecutor {
     fds_bool_t autoIncrement;
 
     /**
+     * Timeout between each Blobs/BlobsDesc messages.
+     */
+    uint32_t 	timerInterval;
+    FdsTimerPtr seqTimer;
+
+    /**
+     * Used for Handling seq numbers for processing Blobs.
+     * Because we're taking advantage of commit's callback instead of executor's
+     * own QoS callback, we can't use a MigrationDoubleSeqNum as easily.
+     * Since we know that the Cb only gets called after a commitTx has been issued,
+     * we can take adv and use this as a cheating way of just doing counting, and
+     * to know when all the Cbs have finished before moving on to BlobsDescs.
+     *
+     * NOTE: Should be called holding the blobDescListMutex.
+     */
+    MigrationSeqNum deltaBlobsSeqNum;
+
+    /*
      * Maintain messages from the source DM, so we don't lost it.
      * Each async message from the DM is unique.  We use double
      * sequence number to ensure that all delta messages are handled
      * and local IO through qos is complete.
      */
-    MigrationDoubleSeqNum seqNumDeltaBlobDescs;
-    MigrationDoubleSeqNum seqNumDeltaBlobs;
+    MigrationSeqNum deltaBlobDescsSeqNum;
+
+    void sequenceTimeoutHandler();
+
+    /**
+     * Mutex for blob offset list and blob descriptor list coordination
+     */
+    std::mutex blobDescListMutex;
+
+    /**
+     * List of blob descriptors that have been queued waiting for
+     * blob offsets to be written out to disk.
+     */
+    std::vector<fpi::CtrlNotifyDeltaBlobDescMsgPtr> blobDescList;
 
 };  // DmMigrationExecutor
 

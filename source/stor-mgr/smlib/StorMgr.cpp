@@ -484,7 +484,8 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
 
             objectStore->setUnavailable();
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SM_CAPACITY_FULL, "SM capacity is FULL! ");
+
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
 
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
@@ -492,9 +493,8 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SM_CAPACITY_DANGEROUS, "SM is reaching dangerous capacity levels!");
-
-
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                                   "SM is reaching dangerous capacity levels!");
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
@@ -590,27 +590,26 @@ void ObjectStorMgr::sendEventMessageToOM(fpi::EventType eventType,
  * a structure that will automatically call the correct unlock when
  * it goes out of scope.
  */
-ObjectStorMgr::always_call
+nullary_always
 ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
     using lock_array_type = std::vector<fds_rwlock*>;
     static lock_array_type token_locks;
     static std::once_flag f;
 
-    fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
-
     // Once, resize the vector appropriately on the bits in the token
     std::call_once(f,
-                   [](fds_uint32_t size) {
-                       token_locks.resize(0x01<<size);
+                   [this] {
+                       fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
+                       token_locks.resize(0x01<<b_p_t);
                        token_locks.shrink_to_fit();
                        for (auto& p : token_locks)
-                       { p = new fds_rwlock(); }
-                   },
-                   b_p_t);
+                           { p = new fds_rwlock(); }
+                   });
+
 
     auto lock = token_locks[id];
     exclusive ? lock->write_lock() : lock->read_lock();
-    return always_call([lock, exclusive] { exclusive ? lock->write_unlock() : lock->read_unlock(); });
+    return nullary_always([lock, exclusive] { exclusive ? lock->write_unlock() : lock->read_unlock(); });
 }
 
 
@@ -871,6 +870,11 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_DELETE_OBJECT:
+            // TODO(Anna) since we are now enqueueing to system queue, make sure to preserve
+            // original volumeId, so that we can delete volume association
+            // so re-setting volume ID in ioReq is wrong, but need to properly fix
+            // other places before not-resetting volumeID (otherwise, system queue
+            // ID is passed to deleteObject and the object does not get deleted)
             // Volume association resolution is handled in object store layer
             // for deleteObject.
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));

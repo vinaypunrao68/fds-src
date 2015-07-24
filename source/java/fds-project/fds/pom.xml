@@ -21,18 +21,28 @@
     <!-- project module dependencies -->
     <dependency>
       <groupId>com.formationds</groupId>
+      <artifactId>formationds-ext-model</artifactId>
+      <version>${formationds.ext.model.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.formationds</groupId>
       <artifactId>formationds-thrift</artifactId>
       <version>${formationds.thrift.version}</version>
     </dependency>
     <dependency>
       <groupId>com.formationds</groupId>
-      <artifactId>formationds-ext-model</artifactId>
-      <version>${formationds.ext.model.version}</version>
+      <artifactId>formationds-commons-togglz</artifactId>
+      <version>${formationds.commons.togglz.version}</version>
     </dependency>
     <dependency>
         <groupId>com.formationds</groupId>
         <artifactId>thrift-client-util</artifactId>
       <version>${formationds.thrift.client.util.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.formationds</groupId>
+      <artifactId>formationds-commons-util</artifactId>
+      <version>${formationds.commons.util.version}</version>
     </dependency>
 
     <!-- third party dependencies -->

@@ -38,7 +38,7 @@ void VolumeOpenHandler::handleRequest(
         return;
     }
 
-    auto dmReq = new DmIoVolumeOpen(message);
+    auto dmReq = new DmIoVolumeOpen(message, asyncHdr->msg_src_uuid);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeOpenHandler::handleResponse, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
@@ -46,14 +46,16 @@ void VolumeOpenHandler::handleRequest(
     addToQueue(dmReq);
 }
 
-void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
+void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
 
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
-    helper.err = dataManager.timeVolCat_->openVolume(request->volId, request->token,
+    helper.err = dataManager.timeVolCat_->openVolume(request->volId,
+                                                     request->client_uuid_,
+                                                     request->token,
                                                      request->access_mode,
                                                      request->sequence_id);
 
@@ -66,7 +68,7 @@ void VolumeOpenHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::OpenVolumeMsg>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     auto response = fpi::OpenVolumeRspMsg();

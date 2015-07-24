@@ -31,6 +31,7 @@ public class AsyncWebapp extends HttpServlet {
     private com.formationds.web.toolkit.HttpConfiguration httpConfiguration;
     private HttpsConfiguration httpsConfiguration;
     private RoutingMap<Function<HttpContext, CompletableFuture<Void>>> routingMap;
+    private Server server;
 
 
     public AsyncWebapp(com.formationds.web.toolkit.HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
@@ -43,9 +44,19 @@ public class AsyncWebapp extends HttpServlet {
         routingMap.put(httpPath, handler);
     }
 
+    public void stop() {
+        try {
+            server.stop();
+            server.join();
+            server = null;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void start() {
         ThreadPool tp = new ExecutorThreadPool(new ForkJoinPool(250));
-        Server server = new Server(tp);
+        server = new Server(tp);
 
         ServerConnector connector = new ServerConnector(server);
         connector.setPort(httpConfiguration.getPort());
@@ -115,7 +126,7 @@ public class AsyncWebapp extends HttpServlet {
             response.addHeader("Server", "Formation");
             CompletableFuture<Void> cf = handler.apply(context.withRouteParameters(matchResult.getRouteParameters()));
             cf.exceptionally(ex -> handleError(ex, context));
-            cf.thenAccept(x -> asyncContext.complete());
+            cf.whenComplete((_x, _z) -> asyncContext.complete());
             return;
         }
 
@@ -146,4 +157,5 @@ public class AsyncWebapp extends HttpServlet {
     protected void doHead(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         service(req, resp);
     }
+
 }
