@@ -53,7 +53,7 @@ bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
                                                             ", sm ste " << nodeInfo.smState;
     }
 
-    return bReturn;
+    return bRetCode;
 }
 
 bool PlatformDB::getNodeInfo(fpi::NodeInfo& nodeInfo) {
