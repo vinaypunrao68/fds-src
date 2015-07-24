@@ -54,7 +54,7 @@ void SetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
     addToQueue(dmReq);
 }
 
-void SetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
+void SetBlobMetaDataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoSetBlobMetaData* typedRequest = static_cast<DmIoSetBlobMetaData*>(dmRequest);
 
@@ -65,7 +65,7 @@ void SetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void SetBlobMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                             boost::shared_ptr<fpi::SetBlobMetaDataMsg>& message,
-                                            Error const& e, dmCatReq* dmRequest) {
+                                            Error const& e, DmRequest* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = e.GetErrno();
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::SetBlobMetaDataRspMsgTypeId, fpi::SetBlobMetaDataRspMsg());

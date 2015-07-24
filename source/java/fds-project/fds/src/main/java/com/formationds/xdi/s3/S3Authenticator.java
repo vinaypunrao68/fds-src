@@ -7,64 +7,59 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
-import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.util.s3.auth.AuthenticationNormalizer;
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.formationds.xdi.security.XdiAuthorizer;
 
 import javax.crypto.SecretKey;
-import java.text.MessageFormat;
+import javax.security.auth.login.LoginException;
+import java.util.Optional;
 
 public class S3Authenticator {
     private XdiAuthorizer authorizer;
     private SecretKey secretKey;
+    private AuthenticationNormalizer normalizer;
 
     public S3Authenticator(XdiAuthorizer authorizer, SecretKey secretKey) {
         this.authorizer = authorizer;
         this.secretKey = secretKey;
+        this.normalizer = new AuthenticationNormalizer();
     }
 
-    public AuthenticationToken authenticate(HttpContext context) throws SecurityException {
-        if (authorizer.allowAll()) {
+    public AuthenticationToken getIdentityClaim(HttpContext context) throws SecurityException {
+        if (authorizer.allowAll())
             return AuthenticationToken.ANONYMOUS;
-        }
 
-        String candidateHeader = context.getRequestHeader("Authorization");
+        if(normalizer.authenticationMode(context) == AuthenticationNormalizer.AuthenticationMode.Unknown)
+            throw new SecurityException("unknown authentication scheme");
 
-        if (candidateHeader == null) {
+        Optional<String> principalName = normalizer.getPrincipalName(context);
+        if(!principalName.isPresent())
             return AuthenticationToken.ANONYMOUS;
-        }
 
-        AuthenticationComponents authenticationComponents = resolveFdsCredentials(candidateHeader);
-        AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName, authenticationComponents.fdsToken.signature(secretKey));
-
-        String requestHash = S3SignatureGenerator.hash(context, basicAWSCredentials);
-
-        if (candidateHeader.equals(requestHash)) {
-            return authenticationComponents.fdsToken;
-        } else {
-            throw new SecurityException();
-        }
+        return getAuthenticationToken(principalName.get());
     }
 
-    private AuthenticationComponents resolveFdsCredentials(String header) {
-        String pattern = "AWS {0}:{1}";
+    private AuthenticationToken getAuthenticationToken(String principalName) {
         try {
-            Object[] parsed = new MessageFormat(pattern).parse(header);
-            String principal = (String) parsed[0];
-            AuthenticationToken fdsToken = authorizer.currentToken(principal);
-            return new AuthenticationComponents(principal, fdsToken);
-        } catch (Exception e) {
+            return authorizer.currentToken(principalName);
+        } catch (LoginException e) {
             throw new SecurityException("invalid credentials");
         }
     }
 
-    private class AuthenticationComponents {
-        String principalName;
-        AuthenticationToken fdsToken;
+    public HttpContext buildAuthenticatingContext(HttpContext context) {
+        if (authorizer.allowAll())
+            return context;
 
-        AuthenticationComponents(String principalName, AuthenticationToken fdsToken) {
-            this.principalName = principalName;
-            this.fdsToken = fdsToken;
-        }
+        Optional<String> principalName = normalizer.getPrincipalName(context);
+        if(!principalName.isPresent())
+            throw new SecurityException("no principal name found on context (or authentication scheme unknown), cannot build authenticating context");
+
+        String principal = principalName.get();
+        AuthenticationToken authenticationToken = getAuthenticationToken(principal);
+        AWSCredentials basicAWSCredentials = new BasicAWSCredentials(principal, authenticationToken.signature(secretKey));
+        return normalizer.authenticatingContext(basicAWSCredentials, context);
     }
 }
 

@@ -89,7 +89,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     /**
      * DmIoReqHandler method implementation
      */
-    virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
+    virtual Error enqueueMsg(fds_volid_t volId, DmRequest* ioReq) override;
 
     /**
      * If this DM, given the volume, is the TOP listed DM of the DMT column.
@@ -265,7 +265,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         Error processIO(FDS_IOType* _io) {
             Error err(ERR_OK);
 
-            dmCatReq *io = static_cast<dmCatReq*>(_io);
+            DmRequest *io = static_cast<DmRequest*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
 
             PerfTracer::tracePointEnd(io->opQoSWaitCtx);
@@ -471,16 +471,16 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
-    void updateCatalog(dmCatReq *io);
+    void updateCatalog(DmRequest *io);
     /* End of new refactored DM message handlers */
 
     void flushIO();
     void scheduleDeleteCatObjSvc(void * _io);
-    void setBlobMetaDataBackend(const dmCatReq *request);
-    void snapVolCat(dmCatReq *io);
-    void handleDMTClose(dmCatReq *io);
-    void handleForwardComplete(dmCatReq *io);
-    void handleStatStream(dmCatReq *io);
+    void setBlobMetaDataBackend(const DmRequest *request);
+    void snapVolCat(DmRequest *io);
+    void handleDMTClose(DmRequest *io);
+    void handleForwardComplete(DmRequest *io);
+    void handleStatStream(DmRequest *io);
 
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 

@@ -20,7 +20,7 @@ public:
     // Type for storing (used capacity, total capacity) pairs
     typedef std::pair<fds_uint64_t, fds_uint64_t> capacity_tuple;
 
-    static capacity_tuple getDiskConsumedSize(const std::string&  mount_path);
+    static capacity_tuple getDiskConsumedSize(const std::string&  mount_path, bool use_stat = false);
 };
 
 }  // namespace fds
