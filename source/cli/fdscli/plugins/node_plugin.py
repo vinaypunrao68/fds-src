@@ -23,7 +23,7 @@ class NodePlugin( AbstractPlugin ):
     '''
     def build_parser(self, parentParser, session): 
         
-        self.sessopn = session
+        self.session = session
         
         if not session.is_allowed( FdsAuth.SYS_MGMT ):
             return
