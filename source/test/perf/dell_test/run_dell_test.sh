@@ -48,6 +48,7 @@ outdir=$1
 node=$2
 machines=$3
 nvols=$4
+am_machines=$5
 
 size=50g
 
@@ -78,10 +79,10 @@ done
 
 for i in $marray; do echo $i; done
 for m in $machines; do echo $m ${mremap[$m]}; done
-
+echo "AMs: $am_machines"
 ##############################
 
-for m in $machines ; do
+for m in $am_machines ; do
     for i in `seq $nvols` ; do
     	volume_setup volume_block_$m\_$i
 
@@ -107,7 +108,7 @@ for bs in $bsizes ; do
                 for d in $iodepths ; do
                 	#sync
                 	#echo 3 > /proc/sys/vm/drop_caches
-                	for m in $machines ; do
+                	for m in $am_machines ; do
     			        for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 				            echo "reading from $m disk: ${disks[$m:$i]}"
@@ -115,7 +116,7 @@ for bs in $bsizes ; do
 			    	        pids[$m:$i]=$!
                         done
 			        done
-                	for m in $machines ; do
+                	for m in $am_machines ; do
     			        for i in `seq $nvols` ; do
 			    	        echo "Waiting for $m ${pids[$m:$i]}"
 			    	        wait ${pids[$m:$i]}
@@ -130,7 +131,7 @@ for bs in $bsizes ; do
             done
         done
 done
-for m in $machines ; do
+for m in $am_machines ; do
     for i in `seq $nvols` ; do
         volume_detach volume_block_$m\_$i
     done
