@@ -84,7 +84,8 @@ SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) 
 
     superblock->recomputeTokensForLostDisk(hdd_ids, ssd_ids);
     /**
-     * TODO(Gurpreet): Handle capacity changes due to the failed disk.
+     * TODO(Gurpreet): Handle capacity related changes(if required)
+     * due to the failed disk.
      */
 }
 

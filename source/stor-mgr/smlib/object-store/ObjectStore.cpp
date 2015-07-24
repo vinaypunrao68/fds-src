@@ -174,32 +174,9 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
                      << " saw too many errors; declaring disk failed";
             /**
              * This callback will be called when the timer expires and
-             * the number of events fed is greater than some threshhold.
-             * In online disk failure case, it will be called when a
-             * certain number of read/write failures for a disk is seen.
-             *
-             * Here in the callback, first thing to do is to mark disk as bad
-             * That means
-             * 1) Deleting disk from diskMap that SM holds.
-             *  1.a) Deleting from smDiskMap.
-             *  1.b) Deleting relevant disk info from SmSuperblockMgr and superblocks
-             *       in general.
-             * 2) Marking disk as unhealthy.
-             * 3) Do a disk check. Either call checkDiskTopology or partially call
-             *    stuff which is relevant from that method.
-             *  3.a) That means removing disk from hdd_ids/ssd_ids.
-             *  3.b) Letting checkDiskTopology check for missing disks
-             *  3.c) Deleting corresponding token files/leveldbs of the failed disk.
-             *  3.d) Recomputing the location of missing tokens.
-             * 4) Check if there is any existing SM migration going on.
-             *  4.a) If yes, then there has to be some mechanism which could trigger
-             *       migration after the current one finishes.
-             *  4.b) If no, then startResync process. (Hopefully by the time we reach
-             *       here, all missing stuff is cleaned up in token files or leveldbs
-             *       and migration mechanism will take care of it automatically.
-             * 5) Open new metadata or datafiles, which were recreated on a different
-             *    disk.
+             * the number of events fed is greater than a given threshhold.
              */
+
              fnObj(diskId, tier);
         }
         explicit cb(diskio::DataTier dataTier, OnlineDiskFailureFnObj fn=OnlineDiskFailureFnObj()):
@@ -208,24 +185,42 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
 
     // Write/read HDD error handler (3 within 5 minutes will trigger)
     // we will record both read and write errors as write errors
-    objStoreDiskMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
+    objStoreDiskMediaTracker.register_event(
+                               ERR_DISK_WRITE_FAILED,
                                create_tracker<std::chrono::minutes>(cb(diskio::diskTier,
-                                                                    std::bind(&::fds::ObjectStore::handleOnlineDiskFailures, this,
+                                                                       std::bind(&::fds::ObjectStore::handleOnlineDiskFailures,
+                                                                                 this,
                                                                                  std::placeholders::_1,
-                                                                                 std::placeholders::_2)
-                                                                       ), "hdd_fail", 5, 2));
-                                                                     //  ), "hdd_fail", 5, 3));
+                                                                                 std::placeholders::_2)),
+                                                                    "hdd_fail", 5, 3));
     // Write/Read SSD error handler (3 within 5 minutes will trigger)
     // we will record both read and write errors as write errors
-    objStoreFlashMediaTracker.register_event(ERR_DISK_WRITE_FAILED,
+    objStoreFlashMediaTracker.register_event(
+                               ERR_DISK_WRITE_FAILED,
                                create_tracker<std::chrono::minutes>(cb(diskio::flashTier,
-                                                                    std::bind(&::fds::ObjectStore::handleOnlineDiskFailures, this,
+                                                                       std::bind(&::fds::ObjectStore::handleOnlineDiskFailures,
+                                                                                 this,
                                                                                  std::placeholders::_1,
-                                                                                 std::placeholders::_2)
-                                                                    ), "ssd_fail", 5, 2));
-                                                                   // ), "ssd_fail", 5, 3));
+                                                                                 std::placeholders::_2)),
+                                                                    "ssd_fail", 5, 3));
 }
 
+/**
+ * This method is called when a certain number of disk read/write
+ * failures are oberserved with-in a given time period. When this
+ * happens, the disk is marked a bad and preparations are done to
+ * recreate all the data on the failed disk from other replicas in
+ * the domain.
+ *
+ * - First, a check is done for the minimum number of disks present
+ *   in the node.
+ * - Then the disk is removed from all disk book keeping data structs.
+ * - After that recomputation and reassignment of smTokens are done
+ *   in order to assign the smTokens residing on the failed disk to
+ *   online disks.
+ * - Once all is done, a request to resync data is posted to Object
+ *   Store Manager.
+ */
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
