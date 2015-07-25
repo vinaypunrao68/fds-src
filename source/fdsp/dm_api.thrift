@@ -14,6 +14,13 @@ namespace java com.formationds.protocol.dm
    Operations on Volumes
    ------------------------------------------------------------*/
 
+enum PatternSemantics {
+    PCRE,
+    DOS,
+    UNIX,
+    LITERAL
+}
+
 /**
  * Lists specific contents of a volume. A specific offset into
  * the current list of blobs in the volumes and number of blobs
@@ -21,7 +28,9 @@ namespace java com.formationds.protocol.dm
  * Note that each call is indendant, so the order and contents
  * may change between calls.
  * A pattern filter may be specified that returns only blobs whose
- * name matches the string pattern.
+ * name matches the string pattern. Pattern is a partial-match
+ * (if you want to match the full name, you must include ^ and $)
+ * case-sensitive UTF-8 PCRE.
  */
 struct GetBucketMsg {
   1: required i64              volume_id;
@@ -30,7 +39,10 @@ struct GetBucketMsg {
   4: string                    pattern = "";
   5: common.BlobListOrder      orderBy = 0;
   6: bool                      descending = false;
+  7: PatternSemantics          patternSemantics = PatternSemantics.PCRE;
+  
 }
+
 /**
  * Returns a list of blob descriptors matching the query. The
  * list may be ordered depending on the query.
