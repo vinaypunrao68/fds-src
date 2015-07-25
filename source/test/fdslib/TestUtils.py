@@ -23,33 +23,25 @@ from fdscli.model.volume.volume import Volume
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 
-def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes=100*1024*1024, rollover_count=5):
+def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
-    #logging.basicConfig(level=log_level,
-    #            format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
-    #            datefmt='%Y-%m-%d %H:%M:%S')
-    log = logging.getLogger("")
+    log = logging.getLogger()
     log.setLevel(log_level)
     logging.addLevelName(100, "REPORT")
+
+    log_fmt = logging.Formatter("%(asctime)s %(name)-24s %(levelname)-8s %(message)s",
+                                "%Y-%m-%d %H:%M:%S")
+
+    screen_handler = logging.StreamHandler()
+    screen_handler.setLevel(logging.ERROR)
+    screen_handler.setFormatter(log_fmt)
+    log.addHandler(screen_handler)
 
     # Set up the log file and log file rotation
     if not os.path.isdir(dir):
         os.makedirs(dir)
 
     log_file = os.path.join(dir, log_name)
-    print("Logfile: %s"
-              %log_file)
-    if num_threads > 1:
-        log_fmt = logging.Formatter("%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s",
-                                    "%Y-%m-%d %H:%M:%S")
-    else:
-        log_fmt = logging.Formatter("%(asctime)s %(name)-24s %(levelname)-8s %(message)s",
-                                    "%Y-%m-%d %H:%M:%S")
-
-    screen_handler = logging.StreamHandler()
-    screen_handler.setLevel(logging.ERROR)
-    screen_handler.setFormatter(log_fmt)
-    log.addHandler(screen_handler)
 
     if not os.access(dir, os.W_OK):
        log.warning("There is no write access to the specified log "
@@ -72,6 +64,8 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
                       log_file)
             logging.getLogger("").removeHandler(log_handle)
             sys.exit(1)
+
+    log.info("Logfile: %s" % log_file)
 
     return log
 
