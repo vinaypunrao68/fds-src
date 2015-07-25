@@ -41,8 +41,6 @@ void VolumeCloseHandler::handleRequest(
     auto dmReq = new DmIoVolumeClose(message);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeCloseHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 

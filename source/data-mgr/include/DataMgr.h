@@ -268,8 +268,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
             DmRequest *io = static_cast<DmRequest*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
 
+            // Stop the queue latency timer.
             PerfTracer::tracePointEnd(io->opQoSWaitCtx);
-            PerfTracer::tracePointBegin(io->opLatencyCtx);
 
             // Get the key and vol type to use during serialization
             // TODO(Andrew): Adding the sender's SvcUuid to the key

@@ -210,7 +210,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         taskCount.reset(taskCount.getNumTasks() + blobCount);
         fds_uint64_t e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
-            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_VOL_CAT_READ, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_QUERY_REQ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testGetBlob,
                     this, vdesc->volUUID, it.name);
         }
@@ -234,7 +234,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
                 continue;
             }
 
-            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_TX_OP, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_DELETE_BLOB_REQ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testDeleteBlob,
                     this, vdesc->volUUID, it.name, version);
         }
