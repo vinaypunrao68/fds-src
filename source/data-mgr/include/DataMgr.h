@@ -29,6 +29,9 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
+#include <fdsp/event_types_types.h>
+#include "fdsp/health_monitoring_types_types.h"
+#include "fds_types.h"
 #include <fdsp/FDSP_types.h>
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
@@ -51,7 +54,7 @@
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
 #include <expungemanager.h>
-#include <fdsp/event_types_types.h>
+
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -421,18 +424,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     void sampleDMStats(fds_uint64_t timestamp);
 
     /**
-     * Send event message to OM
-     */
-    void sendEventMessageToOM(fpi::EventType eventType,
-                              fpi::EventCategory eventCategory,
-                              fpi::EventSeverity eventSeverity,
-                              fpi::EventState eventState,
-                              const std::string& messageKey,
-                              std::vector<fpi::MessageArgs> messageArgs,
-                              const std::string& messageFormat);
-
-
-    /**
      * A callback from stats collector with stats for a given volume
      * to add to the aggregator
      */
@@ -565,6 +556,24 @@ private:
     // Variables to track how frequently we call the diskCapacity checks
     fds_uint8_t sampleCounter;
     float_t lastCapacityMessageSentAt;
+
+    /**
+     * Send event message to OM
+     */
+    void sendEventMessageToOM(fpi::EventType eventType,
+                              fpi::EventCategory eventCategory,
+                              fpi::EventSeverity eventSeverity,
+                              fpi::EventState eventState,
+                              const std::string& messageKey,
+                              std::vector<fpi::MessageArgs> messageArgs,
+                              const std::string& messageFormat);
+
+    // Send health check message
+    void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                fds_errno_t statusCode,
+                                const std::string& statusInfo);
+
+
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
