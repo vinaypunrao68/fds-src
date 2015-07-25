@@ -47,7 +47,7 @@ public final class RateLimitValidator implements Validator
                                + params.getIopsThrottle() + "): " + perf.getOps() + " / "
                                + durationInSeconds + " = " + iops + "(" + deviation * 100.0 + "%).");
 
-            if (Math.abs(deviation) > 0.005)
+            if (Math.abs(deviation) > 0.05)
             {
                 failed = true;
             }
