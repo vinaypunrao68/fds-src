@@ -17,7 +17,7 @@ namespace dm {
 SetBlobMetaDataHandler::SetBlobMetaDataHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::SetBlobMetaDataMsg, handleRequest);
     }
 }
