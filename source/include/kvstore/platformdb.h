@@ -26,7 +26,7 @@ struct PlatformDB : KVStore {
 
  protected:
     redis::Reply getInternal(const std::string &key);
-    void setInternal(const std::string &key, const std::string &value);
+    bool setInternal(const std::string &key, const std::string &value);
     std::string computeKey(const std::string &k);
 
     std::string keyBase;
