@@ -71,7 +71,7 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     dm_perf_ctx.type = PerfEventType::AM_GET_DM;
     sm_perf_ctx.type = PerfEventType::AM_GET_SM;
 
-    e2e_req_perf_ctx.type = PerfEventType::AM_GET_OBJ_REQ;
+    e2e_req_perf_ctx.type = PerfEventType::AM_GET_BLOB_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 

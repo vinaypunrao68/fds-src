@@ -170,7 +170,7 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
 // qos queue. Some updates may still be forwarded, but they are ok to
 // go in parallel with updates from AM
 //
-void DataMgr::handleForwardComplete(dmCatReq *io) {
+void DataMgr::handleForwardComplete(DmRequest *io) {
     LOGNORMAL << "Will open up QoS queue for volume " << std::hex
               << io->volId << std::dec;
     if (features.isCatSyncEnabled()) {
@@ -258,6 +258,9 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!";
             lastCapacityMessageSentAt = pct_used;
+
+            // set time volume catalog to unavailable -- no available storage space
+            timeVolCat_->setUnavailable();
 
             // Send message to OM
 
@@ -473,7 +476,7 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
  * this method to pass queue id as first param not volid
  */
 Error DataMgr::enqueueMsg(fds_volid_t volId,
-                          dmCatReq* ioReq) {
+                          DmRequest* ioReq) {
     Error err(ERR_OK);
 
     switch (ioReq->io_type) {
@@ -920,7 +923,7 @@ Error DataMgr::notifyDMTClose() {
 // Handle DMT close for the volume in io req -- sends
 // push meta done to destination DM
 //
-void DataMgr::handleDMTClose(dmCatReq *io) {
+void DataMgr::handleDMTClose(DmRequest *io) {
     DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
     LOGMIGRATE << "Processed all commits that arrived before DMT close "
                << "will now notify dst DM to open up volume queues: vol "
@@ -1066,6 +1069,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
+    handlers[FDS_DM_MIG_FINISH_VOL_RESYNC] = new dm::DmMigrationFinishVolResyncHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1339,7 +1343,7 @@ DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
  * CatalogSync.
  */
 void
-DataMgr::snapVolCat(dmCatReq *io) {
+DataMgr::snapVolCat(DmRequest *io) {
     Error err(ERR_OK);
     fds_verify(io != NULL);
 

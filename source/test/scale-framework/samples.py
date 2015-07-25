@@ -13,7 +13,6 @@ sample_mb_files = (
    "test_sample_500M",
    "test_sample_150M",
    "test_sample_200M",
-   "test_sample_100M",
    "test_sample_80M",
 )
 

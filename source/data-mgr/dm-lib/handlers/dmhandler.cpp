@@ -7,7 +7,7 @@
 
 namespace fds { namespace dm {
 
-RequestHelper::RequestHelper(DataMgr& dataManager, dmCatReq *dmRequest)
+RequestHelper::RequestHelper(DataMgr& dataManager, DmRequest *dmRequest)
     : dmRequest(dmRequest),
       _dataManager(dataManager)
 {}
@@ -22,7 +22,7 @@ RequestHelper::~RequestHelper() {
     }
 }
 
-QueueHelper::QueueHelper(DataMgr& dataManager, dmCatReq *dmRequest)
+QueueHelper::QueueHelper(DataMgr& dataManager, DmRequest *dmRequest)
         : dmRequest(dmRequest),
           ioIsMarkedAsDone(false),
           cancelled(false),
@@ -63,10 +63,10 @@ Handler::Handler(DataMgr& dataManager)
     : dataManager(dataManager)
 {}
 
-void Handler::handleQueueItem(dmCatReq *dmRequest) {
+void Handler::handleQueueItem(DmRequest *dmRequest) {
 }
 
-void Handler::addToQueue(dmCatReq *dmRequest) {
+void Handler::addToQueue(DmRequest *dmRequest) {
     if (!dataManager.features.isQosEnabled()) {
         LOGWARN << "qos disabled .. not queuing";
         return;

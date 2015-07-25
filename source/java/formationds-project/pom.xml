@@ -9,7 +9,7 @@
   <parent>
     <artifactId>company-pom</artifactId>
     <groupId>com.formationds</groupId>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
   </parent>
 
   <name>${formationds.project.name} Project POM</name>
@@ -40,15 +40,15 @@
     <module>jsvc-layer</module>
   </modules>
 
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.formationds</groupId>
-        <artifactId>formationds-thrift</artifactId>
-        <version>${formationds.thrift.version}</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+  <!--<dependencyManagement>-->
+    <!--<dependencies>-->
+      <!--<dependency>-->
+        <!--<groupId>com.formationds</groupId>-->
+        <!--<artifactId>formationds-thrift</artifactId>-->
+        <!--<version>${formationds.thrift.version}</version>-->
+      <!--</dependency>-->
+    <!--</dependencies>-->
+  <!--</dependencyManagement>-->
 
   <profiles>
     <profile>

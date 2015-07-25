@@ -71,7 +71,7 @@ class DmMigrationMgr {
      * Returns ERR_OK if the migrations specified in the migrationMsg has been
      * able to be dispatched for the executors.
      */
-    Error startMigrationExecutor(dmCatReq* dmRequest);
+    Error startMigrationExecutor(DmRequest* dmRequest);
 
     /**
      * Source side DM:
@@ -85,7 +85,7 @@ class DmMigrationMgr {
      * TODO(Neil) - once we support 2 node additions, then we'll need to keep track of
      * multiple callback pointers, etc. For now, not doing it.
      */
-    Error startMigrationClient(dmCatReq* dmRequest);
+    Error startMigrationClient(DmRequest* dmRequest);
 
     /**
      * Destination Side DM:
@@ -94,15 +94,15 @@ class DmMigrationMgr {
     Error applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobsReq);
 
     /**
-     * Destination side DM:
-     * Callback for committing the transaction after applying a specific blob msg
-     */
-    Error applyDeltaObjCommitCb(const fds_volid_t &volId, const Error &e);
-
-    /**
      * Routes the DmIoMigrationDeltaBlobDesc request to the right executor
      */
     Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
+
+    /**
+     * Destination Side DM:
+     * Message from Source to say which msg was the last fowarded commit log.
+     */
+    Error notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -135,6 +135,11 @@ class DmMigrationMgr {
      * maximum number of blob desc per delta set sent from source DM.
      */
     uint64_t maxNumBlobDesc;
+
+    /**
+     * timeout for delta blob set
+     */
+    uint32_t deltaBlobTimeout;
 
     /**
      * Throttles the number of max concurrent migrations

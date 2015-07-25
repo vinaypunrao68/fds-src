@@ -63,7 +63,7 @@ void UpdateCatalogOnceHandler::handleRequest(
     addToQueue(dmUpdCatReq);
 }
 
-void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
+void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
     DmIoUpdateCatOnce* typedRequest = static_cast<DmIoUpdateCatOnce*>(dmRequest);
 
@@ -137,7 +137,7 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
 }
 
 void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
-        boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, Error const& e, dmCatReq* dmRequest) {
+        boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, Error const& e, DmRequest* dmRequest) {
     DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
@@ -146,7 +146,7 @@ void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
 
 void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr));
 

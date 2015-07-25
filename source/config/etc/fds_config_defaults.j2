@@ -61,6 +61,8 @@
 {% set sm_tiering_hybrid_batchsz = fds_sm_tiering_hybrid_batchsz if fds_sm_tiering_hybrid_batchsz is defined else '1024' %}
 {% set sm_tiering_hybrid_frequency = fds_sm_tiering_hybrid_frequency if fds_sm_tiering_hybrid_frequency is defined else '604800' %}
 {% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
+{% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
+{% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
 {% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'true' %}
 {#
    fds.am. specific entries
@@ -109,7 +111,5 @@
 {#
    Java fds-feature.conf deployment configurations
 #}
-{% set fds_feature_web_tool_kit = fds_web_tool_kit_feature if fds_web_tool_kit_feature is defined else 'true' %}
-{% set fds_snmp_feature = fds_snmp_feature if fds_snmp_feature is defined else 'true' %}
-{% set fds_rest_08_feature = fds_rest_08_feature if fds_rest_08_feature is defined else 'true' %}
+{% set fds_rest_07_feature = fds_rest_07_feature if fds_rest_07_feature is defined else 'true' %}
 {% block content %}{% endblock %}
