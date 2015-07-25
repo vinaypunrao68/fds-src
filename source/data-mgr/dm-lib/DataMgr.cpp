@@ -17,6 +17,8 @@
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
+#include <fdsp/svc_types_types.h>
+
 
 
 namespace {
@@ -263,7 +265,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             timeVolCat_->setUnavailable();
 
             // Send message to OM
-
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
 
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
@@ -271,6 +273,8 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             lastCapacityMessageSentAt = pct_used;
 
             // Send message to OM
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
+                                   ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
@@ -290,11 +294,36 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                 lastCapacityMessageSentAt = 0;
 
                 // Send message to OM resetting us to OK state
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                       "DM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
     }
     sampleCounter++;
+
+}
+
+void DataMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                     fds_errno_t statusCode,
+                                     const std::string& statusInfo) {
+
+    fpi::SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    // Send health check thrift message to OM
+    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
+    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
+    healthRepMsg->healthReport.serviceState = serviceState;
+    healthRepMsg->healthReport.statusCode = statusCode;
+    healthRepMsg->healthReport.statusInfo = statusInfo;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
+    request->invoke();
 
 }
 
@@ -1100,7 +1129,7 @@ void DataMgr::mod_startup()
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
-        features.setTestMode(true);
+        features.setTestModeEnabled(true);
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
@@ -1179,7 +1208,7 @@ void DataMgr::mod_enable_service() {
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
-    if (!features.isTestMode()) {
+    if (!features.isTestModeEnabled()) {
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 }

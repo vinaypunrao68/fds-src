@@ -102,7 +102,7 @@ public class CreateVolume implements RequestHandler {
 		
 		// setting the QOS for the volume
 		try {
-			setQosForVolume( newVolume );
+			setQosForVolume( newVolume, true );
 		}
         catch( TException thriftException ){
 			logger.error( "CREATE::FAILED::" + thriftException.getMessage(), thriftException );
@@ -140,6 +140,13 @@ public class CreateVolume implements RequestHandler {
 	 * @throws TException
 	 */
 	public void setQosForVolume( Volume externalVolume )
+        throws ApiException, TException
+    {
+        setQosForVolume( externalVolume, false );
+    }
+
+    public void setQosForVolume( Volume externalVolume,
+                                 final boolean isCreate )
         throws ApiException, TException {
 
         validateQOSSettings( externalVolume );
@@ -149,8 +156,8 @@ public class CreateVolume implements RequestHandler {
 	    	try {
 				Thread.sleep( 200 );
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.warn( "Failed to wait for volume to become propagated.",
+                             e );
 			}
           
 	    	FDSP_VolumeDescType volumeDescType = ExternalModelConverter.convertToInternalVolumeDescType( externalVolume );
@@ -158,7 +165,10 @@ public class CreateVolume implements RequestHandler {
 	    	getConfigApi().ModifyVol( new FDSP_ModifyVolType( externalVolume.getName(), externalVolume.getId(), volumeDescType ) );    
 	    }
 	    else {
-	    	throw new ApiException( "Could not verify volume to set QOS parameters.", ErrorCode.SERVICE_NOT_READY );
+            String message = "Could not verify volume to set QOS parameters.";
+
+
+	    	throw new ApiException( message, ErrorCode.SERVICE_NOT_READY );
 	    }
 	}
 	
@@ -177,30 +187,61 @@ public class CreateVolume implements RequestHandler {
 		}
 	}
 
+    private static final String CREATED_MSG =
+        " Volume was created successfully, just no QOS policy was set." +
+        " QOS policy can be added, to the volume, by editing the volume" +
+        " ( %d:%s ).";
+
     /**
      * @param volume the {@link Volume} representing the external model object
      *
      * @throws ApiException if the QOS settings are not valid
      */
     public void validateQOSSettings( final Volume volume ) throws ApiException {
+        validateQOSSettings( volume, false );
+    }
 
-        logger.trace( "Validate QOS -- MIN(assured): {} MAX(throttled): {}",
-                      volume.getQosPolicy( )
-                            .getIopsMin( ),
-                      volume.getQosPolicy( )
-                            .getIopsMax( ) );
+    public void validateQOSSettings( final Volume volume,
+                                     final boolean isCreate ) throws ApiException {
+
+        if( volume == null ) {
+            throw new ApiException( "The specified volume is null",
+                                    ErrorCode.BAD_REQUEST );
+        }
+
+        if( volume.getQosPolicy() == null ) {
+
+            String message = "The specified volume QOS policy is null.";
+            if( isCreate ) {
+                message += String.format( CREATED_MSG, volume.getId(), volume.getName() );
+            }
+
+            throw new ApiException( message,
+                                    ErrorCode.BAD_REQUEST );
+        }
+
+        logger.trace(
+            "Validate QOS ( {}:{} ) -- MIN(assured): {} MAX(throttled): {}",
+            volume.getId( ),
+            volume.getName( ),
+            volume.getQosPolicy( )
+                  .getIopsMin( ),
+            volume.getQosPolicy( )
+                  .getIopsMax( ) );
 
         if( !( ( volume.getQosPolicy( )
                        .getIopsMax( ) == 0 ) ||
                ( volume.getQosPolicy( )
                        .getIopsMin( ) <=
                  volume.getQosPolicy( )
-                       .getIopsMax( ) ) ) ) {
+                       .getIopsMax( ) ) ) )
+        {
+            String message =
+                "QOS value out-of-range ( assured must be less than or equal to throttled ).";
 
-            final String message =
-                "QOS value out-of-range ( assured <= throttled ). If this " +
-                "was a create volume/bucket call the volume was created. " +
-                "Fix the out-of-range issue and edit the volume.";
+            if( isCreate ) {
+                message += String.format( CREATED_MSG, volume.getId(), volume.getName() );
+            }
 
             logger.error( message );
             throw new ApiException( message, ErrorCode.BAD_REQUEST );

@@ -17,7 +17,7 @@ namespace dm {
 VolumeOpenHandler::VolumeOpenHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::OpenVolumeMsg, handleRequest);
     }
 }
@@ -40,8 +40,6 @@ void VolumeOpenHandler::handleRequest(
 
     auto dmReq = new DmIoVolumeOpen(message, asyncHdr->msg_src_uuid);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeOpenHandler::handleResponse, asyncHdr, message);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     addToQueue(dmReq);
 }

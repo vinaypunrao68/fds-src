@@ -19,6 +19,7 @@
 #include <blob/BlobTypes.h>
 #include <fdsp/dm_api_types.h>
 #include <fdsp/fds_stream_types.h>
+#include <PerfTrace.h>
 
 #define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
 #define FdsDmSysTaskPrio    5
@@ -72,7 +73,16 @@ class DmRequest : public FDS_IOType {
         io_type = _ioType;
         io_vol_id = _volId;
         blob_version = _blob_version;
-        // perf-trace related data
+
+        // Set QoS wait latency counter
+        opQoSWaitCtx.reset_volid(io_vol_id);
+        opQoSWaitCtx.type = PerfEventType::DM_QOS_REQ_WAIT;
+
+        // Set end-to-end latency counter.
+        // The specific latency request type will be set by
+        // the derived type.
+        opReqLatencyCtx.reset_volid(volId);
+        PerfTracer::tracePointBegin(opReqLatencyCtx);
     }
 
     DmRequest() {
@@ -83,7 +93,13 @@ class DmRequest : public FDS_IOType {
         return volId;
     }
 
-    virtual ~DmRequest() = default;
+    virtual ~DmRequest() {
+        // End the end-to-end request latency timer
+        // now that the request is being destroyed.
+        // This assumes that the request is destroyed
+        // only when and right when the request is completed.
+        PerfTracer::tracePointEnd(opReqLatencyCtx);
+    }
 
     void setBlobVersion(blob_version_t version) {
         blob_version = version;
@@ -198,15 +214,7 @@ class DmIoCommitBlobTx : public DmRequest {
 
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
-
         opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
-        opReqLatencyCtx.reset_volid(_volId);
-
-        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_WRITE;
-        opLatencyCtx.reset_volid(_volId);
-
-        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(_volId);
     }
     virtual ~DmIoCommitBlobTx() {
     }
@@ -253,15 +261,7 @@ class DmIoAbortBlobTx : public DmRequest {
             : DmRequest(_volId, _blobName, "", _blob_version, FDS_ABORT_BLOB_TX) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
-        opReqLatencyCtx.reset_volid(_volId);
-
-        opLatencyCtx.type = PerfEventType::DM_TX_OP;
-        opLatencyCtx.reset_volid(_volId);
-
-        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(_volId);
+        opReqLatencyCtx.type = PerfEventType::DM_TX_ABORT_REQ;
     }
 
     virtual std::string log_string() const override {
@@ -293,15 +293,7 @@ class DmIoStartBlobTx : public DmRequest {
             dmt_version(_dmt_ver) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
-        opReqLatencyCtx.reset_volid(_volId);
-
-        opLatencyCtx.type = PerfEventType::DM_TX_OP;
-        opLatencyCtx.reset_volid(_volId);
-
-        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(_volId);
+        opReqLatencyCtx.type = PerfEventType::DM_TX_START_REQ;
     }
 
     virtual std::string log_string() const override {
@@ -340,17 +332,10 @@ class DmIoQueryCat : public DmRequest {
                        qMsg->blob_version,
                        FDS_CAT_QRY),
               queryMsg(qMsg) {
-        // perf-trace related data
+        // Set the error event type
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
-
+        // Set the end-to-end latency counter type
         opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
-        opReqLatencyCtx.reset_volid(io_vol_id);
-
-        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
-        opLatencyCtx.reset_volid(io_vol_id);
-
-        opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(io_vol_id);
     }
 
     virtual std::string log_string() const override {
@@ -403,15 +388,7 @@ class DmIoUpdateCat : public DmRequest {
             obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
-        opReqLatencyCtx.reset_volid(io_vol_id);
-
-        opLatencyCtx.type = PerfEventType::DM_TX_OP;
-        opLatencyCtx.reset_volid(io_vol_id);
-
-        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(io_vol_id);
+        opReqLatencyCtx.type = PerfEventType::DM_TX_UPDATE_REQ;
     }
 
     virtual std::string log_string() const override {
@@ -447,15 +424,7 @@ class DmIoUpdateCatOnce : public DmRequest {
               updcatMsg(_updcatMsg) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
-        opReqLatencyCtx.reset_volid(volId);
-
-        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_WRITE;
-        opLatencyCtx.reset_volid(volId);
-
-        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(volId);
+        opReqLatencyCtx.type = PerfEventType::DM_UPDATE_ONCE_REQ;
     }
 
     std::string log_string() const override {
@@ -488,15 +457,7 @@ class DmIoSetBlobMetaData : public DmRequest {
             md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
-        opReqLatencyCtx.reset_volid(io_vol_id);
-
-        opLatencyCtx.type = PerfEventType::DM_TX_OP;
-        opLatencyCtx.reset_volid(io_vol_id);
-
-        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(io_vol_id);
+        opReqLatencyCtx.type = PerfEventType::DM_TX_SET_BLOB_META_REQ;
     }
 
     virtual std::string log_string() const override {
@@ -536,7 +497,6 @@ class DmIoDeleteCat : public DmRequest {
     CbType dmio_deletecat_resp_cb;
 };
 
-
 class DmIoGetBlobMetaData : public DmRequest {
   public:
     typedef std::function<void (const Error &e, DmIoGetBlobMetaData *req)> CbType;
@@ -550,15 +510,7 @@ class DmIoGetBlobMetaData : public DmRequest {
                      "", _blob_version, FDS_GET_BLOB_METADATA) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
-        opReqLatencyCtx.reset_volid(_volId);
-
-        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
-        opLatencyCtx.reset_volid(_volId);
-
-        opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(_volId);
+        opReqLatencyCtx.type = PerfEventType::DM_GET_BLOB_META_REQ;
     }
 
     ~DmIoGetBlobMetaData() {
@@ -582,15 +534,7 @@ struct DmIoStatVolume : DmRequest {
             : DmRequest(fds_volid_t(message->volume_id), "", "", 0, FDS_STAT_VOLUME), msg(message) {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
-
-        opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
-        opReqLatencyCtx.reset_volid(io_vol_id);
-
-        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
-        opLatencyCtx.reset_volid(io_vol_id);
-
-        opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
-        opQoSWaitCtx.reset_volid(io_vol_id);
+        opReqLatencyCtx.type = PerfEventType::DM_STAT_VOL_REQ;
     }
 
     boost::shared_ptr<fpi::StatVolumeMsg> msg;
@@ -603,6 +547,8 @@ struct DmIoSetVolumeMetaData : DmRequest {
 
     explicit DmIoSetVolumeMetaData(boost::shared_ptr<fpi::SetVolumeMetadataMsg> message)
             : DmRequest(fds_volid_t(message->volumeId), "", "", 0, FDS_SET_VOLUME_METADATA), msg(message) {
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_SET_VOL_META_REQ;
     }
 
     boost::shared_ptr<fpi::SetVolumeMetadataMsg> msg;
@@ -615,6 +561,8 @@ struct DmIoGetVolumeMetadata : DmRequest {
 
     explicit DmIoGetVolumeMetadata(fds_volid_t volId, boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> message)
             : DmRequest(volId, "", "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_GET_VOL_META_REQ;
     }
 
     boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> msg;
@@ -635,6 +583,8 @@ struct DmIoVolumeOpen : DmRequest {
               client_uuid_(client_uuid),
               token(message->token),
               access_mode(message->mode) {
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_OPEN_VOL_REQ;
     }
 
     fds_int64_t token;
@@ -653,8 +603,9 @@ struct DmIoVolumeClose : DmRequest {
     explicit DmIoVolumeClose(boost::shared_ptr<fpi::CloseVolumeMsg> message)
             : DmRequest(fds_volid_t(message->volume_id), "", "", 0, FDS_CLOSE_VOLUME),
               msg(message),
-              token(message->token)
-    {
+              token(message->token) {
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_CLOSE_VOL_REQ;
     }
 
     fds_int64_t token;
@@ -693,7 +644,10 @@ struct DmIoGetBucket : DmRequest {
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
             : message(message),
               response(new fpi::GetBucketRspMsg()),
-              DmRequest(fds_volid_t(message->volume_id), "", "", 0, FDS_LIST_BLOB) {}
+              DmRequest(fds_volid_t(message->volume_id), "", "", 0, FDS_LIST_BLOB) {
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_GET_VOL_CONTENTS_REQ;
+    }
 };
 
 struct DmIoDeleteBlob: DmRequest {
@@ -704,6 +658,8 @@ struct DmIoDeleteBlob: DmRequest {
                                           "",
                                           message->blob_version,
                                           FDS_DELETE_BLOB) {
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_DELETE_BLOB_REQ;
     }
 };
 
