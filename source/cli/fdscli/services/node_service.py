@@ -46,7 +46,7 @@ class NodeService( AbstractService ):
         node_state is a node state object defines which services will be started
         '''
         
-        url = "{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/1" )
+        url = "{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id )
         data = NodeConverter.to_json( node )
         node = self.rest_helper.post( self.session, url, data )
         
