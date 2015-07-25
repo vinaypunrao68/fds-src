@@ -65,7 +65,7 @@ public class AmVfs implements VirtualFileSystem {
         if (load(childPath).isPresent()) {
             throw new ExistException();
         }
-        incrementGeneration(parentEntry);
+        incrementGenerationAndTimestamps(parentEntry);
         return createInode(type, subject, mode, childPath);
     }
 
@@ -93,15 +93,15 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public List<DirectoryEntry> list(Inode inode) throws IOException {
-        NfsEntry nfsEntry = tryLoad(inode);
-        if (!nfsEntry.isDirectory()) {
+        NfsEntry parentEntry = tryLoad(inode);
+        if (!parentEntry.isDirectory()) {
             throw new NotDirException();
         }
 
-        StringBuilder filter = new StringBuilder();
-        filter.append(nfsEntry.path().blobName());
+        StringBuilder filter = new StringBuilder("^");
+        filter.append(parentEntry.path().blobName());
 
-        if (!nfsEntry.path().blobName().endsWith("/")) {
+        if (!parentEntry.path().blobName().endsWith("/")) {
             filter.append("/");
         }
         filter.append("[^/]+$");
@@ -109,7 +109,7 @@ public class AmVfs implements VirtualFileSystem {
         try {
             List<BlobDescriptor> blobDescriptors = unwindExceptions(() ->
                     asyncAm.volumeContents(DOMAIN,
-                            nfsEntry.path().getVolume(),
+                            parentEntry.path().getVolume(),
                             Integer.MAX_VALUE,
                             0,
                             filter.toString(),
@@ -119,7 +119,7 @@ public class AmVfs implements VirtualFileSystem {
             List<DirectoryEntry> list = blobDescriptors
                     .stream()
                     .map(bd -> {
-                        NfsPath childPath = new NfsPath(nfsEntry.path(), bd.getName());
+                        NfsPath childPath = new NfsPath(parentEntry.path().getVolume(), bd);
                         NfsAttributes childAttributes = new NfsAttributes(bd);
                         return new DirectoryEntry(
                                 childPath.fileName(),
@@ -127,6 +127,7 @@ public class AmVfs implements VirtualFileSystem {
                                 childAttributes.asStat());
                     })
                     .collect(Collectors.toList());
+            list.add(new DirectoryEntry(".", inode, parentEntry.attributes().asStat()));
             return list;
         } catch (Exception e) {
             throw new IOException(e);
@@ -141,7 +142,7 @@ public class AmVfs implements VirtualFileSystem {
             throw new ExistException();
         }
 
-        incrementGeneration(tryLoad(parentInode));
+        incrementGenerationAndTimestamps(tryLoad(parentInode));
         return createInode(Stat.Type.DIRECTORY, subject, mode, path);
     }
 
@@ -219,7 +220,7 @@ public class AmVfs implements VirtualFileSystem {
         }
 
         try {
-            incrementGeneration(tryLoad(parent));
+            incrementGenerationAndTimestamps(tryLoad(parent));
             unwindExceptions(() -> asyncAm.deleteBlob(DOMAIN, path.getVolume(), path.blobName()).get());
         } catch (Exception e) {
             logError("deleteBlob()", path, e);
@@ -232,7 +233,7 @@ public class AmVfs implements VirtualFileSystem {
         Inode inode = createInode(Stat.Type.SYMLINK, subject, mode, new NfsPath(new NfsPath(targetDirectory), symlinkName));
         byte[] bytes = targetName.getBytes(Charset.forName("UTF-8"));
         write(inode, bytes, 0, bytes.length, StabilityLevel.FILE_SYNC);
-        incrementGeneration(parent);
+        incrementGenerationAndTimestamps(parent);
         return inode;
     }
 
@@ -317,7 +318,7 @@ public class AmVfs implements VirtualFileSystem {
             return Optional.of(new NfsAttributes(blobDescriptor));
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
-                if (path.blobName().equals("/")) {
+                if (path.blobName().equals(new NfsPath(path.getVolume(), "/").blobName())) {
                     createExportRoot(path.getVolume());
                     return load(path);
                 }
@@ -332,8 +333,12 @@ public class AmVfs implements VirtualFileSystem {
         }
     }
 
-    private void incrementGeneration(NfsEntry nfsEntry) throws IOException {
-        updateMetadata(nfsEntry.path(), nfsEntry.attributes().withIncrementedGeneration());
+    private void incrementGenerationAndTimestamps(NfsEntry nfsEntry) throws IOException {
+        updateMetadata(nfsEntry.path(), nfsEntry.attributes()
+                        .withIncrementedGeneration()
+                        .withUpdatedAtime()
+                        .withUpdatedMtime()
+        );
     }
 
     public Inode createInode(Stat.Type type, Subject subject, int mode, NfsPath path) throws IOException {

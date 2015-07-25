@@ -227,38 +227,39 @@ class TestVolumeDelete(TestCase.FDSTestCase):
 
         self.passedVolume = volume
 
+
     def test_VolumeDelete(self):
         """
         Test Case:
-        Attempt to attach a volume.
+        Attempt to delete a volume.
         """
-
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-
-        # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        log_dir = fdscfg.rt_env.get_log_dir()
 
-        volumes = fdscfg.rt_get_obj('cfg_volumes')
+        vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+        volumes = vol_service.list_volumes()
         for volume in volumes:
-            # If we were passed a volume, attach that one and exit.
-            if self.passedVolume is not None:
-                volume = self.passedVolume
-            volume_id = volume.nd_conf_dict['id']
-
-            self.log.info("Delete volume %s on OM node %s." %
-                          (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
-
-            vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
-            status = vol_service.delete_volume(volume_id)
-
-            if isinstance(status, FdsError):
-                self.log.error("Delete volume %s on %s returned status as %s." %
-                               (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
-                return False
-            elif self.passedVolume is not None:
+        # We arent comapring with ID because volume id is not the same as give in cfg vol definition, new REST API assigns new vol_id
+            if self.passedVolume.nd_conf_dict['vol-name'] == volume.name:
+                volume_id = volume.id
                 break
+            else:
+                continue
+
+        if volume_id is None:
+            self.log.error("Could not find volume %s"%(self.passedVolume.nd_conf_dict['vol-name']))
+            return False
+
+        self.log.info("Delete volume %s on OM node %s." %
+                          (volume.name, om_node.nd_conf_dict['node-name']))
+        vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+        status = vol_service.delete_volume(volume_id)
+
+        if isinstance(status, FdsError):
+            self.log.error("Delete volume %s on %s returned status as %s." %
+                               (volume.name, om_node.nd_conf_dict['node-name'], status))
+            return False
 
         return True
 

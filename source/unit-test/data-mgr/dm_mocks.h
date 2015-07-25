@@ -87,7 +87,7 @@ struct DMTester :  SvcProcess {
         dataMgr->standalone = true;
         dataMgr->vol_map_mtx = new fds_mutex("Volume map mutex");
         dataMgr->features.setQosEnabled(false);
-        dataMgr->features.setTestMode(true);
+        dataMgr->features.setTestModeEnabled(true);
         dataMgr->features.setCatSyncEnabled(false);
         dataMgr->features.setTimelineEnabled(false);
 

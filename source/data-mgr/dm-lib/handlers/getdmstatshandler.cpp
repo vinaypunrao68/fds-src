@@ -16,7 +16,7 @@ namespace dm {
 DmSysStatsHandler::DmSysStatsHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetDmStatsMsg, handleRequest);
     }
 }
