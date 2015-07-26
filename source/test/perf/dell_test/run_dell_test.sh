@@ -64,8 +64,8 @@ echo "size: $size"
 # workloads="randread read randwrite write"
 
 #bsizes="4096"
-bsizes="4096 131072"
-iodepths="16 64 128"
+bsizes="4096 131072 524288"
+iodepths="16 64"
 workers="1 4"
 workloads="randread randwrite read write"
 
@@ -87,10 +87,8 @@ for m in $machines ; do
     let i=$i-1
 done
 
-echo "marray:"
-for i in $marray; do echo $i; done
 echo "machine - remap:"
-for m in $machines; do echo $m ${mremap[$m]}; done
+for m in $machines; do echo "$m -> ${mremap[$m]}"; done
 ##############################
 
 for m in $am_machines ; do
