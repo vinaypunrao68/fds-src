@@ -83,12 +83,18 @@ class Disk:
         self.dsk_boot_dev  = False
         self.dsk_mounted   = False
 
-        for rec in df_output:
-            ma = re.match(self.dsk_path, rec)
-            if ma:
-                dbg_print('Root Device Found: ' + ma.group(0))
+        # Check if we have software raid
+        if os.path.isdir('/dev/md'):
+            if '/dev/sda' == self.dsk_path or '/dev/sdb' == self.dsk_path:
+                dbg_print('Root Device Found (with sw raid): ' + self.dsk_path)
                 self.dsk_boot_dev = True
-                break
+        else:
+            for rec in df_output:
+                ma = re.match(self.dsk_path, rec)
+                if ma:
+                    dbg_print('Root Device Found: ' + ma.group(0))
+                    self.dsk_boot_dev = True
+                    break
 
         # parse disk information
         # self.__parse_with_hdparm(path, fake)
@@ -398,7 +404,6 @@ class Disk:
             if node.get('id') == 'cdrom':
                 continue
             node_logicalname = node.find('logicalname')
-            print "node_logicalname = ", node_logicalname
             assert node_logicalname != None
 
             if node_logicalname.text != path:
