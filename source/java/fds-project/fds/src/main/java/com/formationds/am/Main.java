@@ -101,8 +101,8 @@ public class Main {
         XdiClientFactory clientFactory = new XdiClientFactory();
 
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
-        boolean useFakeAm = platformConfig.defaultBoolean(
-            "fds.am.memory_backend", false );
+        boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", 
+                                                           false );
         String omHost = platformConfig.defaultString( "fds.am.om_ip",
                                                       "localhost" );
         Integer omHttpPort = platformConfig.defaultInt( "fds.om.http_port",
