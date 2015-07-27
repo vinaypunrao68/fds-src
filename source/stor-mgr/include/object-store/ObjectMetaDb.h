@@ -13,6 +13,7 @@
 #include <concurrency/RwLock.h>
 #include <ObjMeta.h>
 #include <odb.h>
+#include <object-store/ObjectStoreCommon.h>
 #include <object-store/SmDiskMap.h>
 
 namespace fds {
@@ -27,7 +28,7 @@ namespace fds {
  */
 class ObjectMetadataDb {
   public:
-    ObjectMetadataDb();
+    explicit ObjectMetadataDb(UpdateMediaTrackerFnObj fn=UpdateMediaTrackerFnObj());
     ~ObjectMetadataDb();
 
     typedef std::unique_ptr<ObjectMetadataDb> unique_ptr;
@@ -146,6 +147,7 @@ class ObjectMetadataDb {
                         fds_bool_t destroy);
 
   private:  // data
+    UpdateMediaTrackerFnObj mediaTrackerFn;
     SmDiskMap::ptr smDiskMap;
     diskio::DataTier metaTier;  /// tier used for metadata
 
