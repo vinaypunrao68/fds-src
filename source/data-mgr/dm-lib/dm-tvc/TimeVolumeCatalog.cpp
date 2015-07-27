@@ -348,13 +348,14 @@ Error
 DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
                               const std::string &blobName,
                               const fds_int32_t blobMode,
-                              BlobTxId::const_ptr txDesc) {
+                              BlobTxId::const_ptr txDesc,
+                              fds_uint64_t dmtVersion) {
     TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Starting transaction " << *txDesc << " for blob " << blobName <<
             " volume " << std::hex << volId << std::dec << " blob mode " << blobMode;
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->startTx(txDesc, blobName, blobMode);
+    return commitLog->startTx(txDesc, blobName, blobMode, dmtVersion);
 }
 
 Error
@@ -475,7 +476,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
             e = doCommitBlob(volid, blob_version, seq_id, commit_data);
         }
     }
-    
+
     if (commit_data != nullptr) {
         cb(e,
            blob_version,
