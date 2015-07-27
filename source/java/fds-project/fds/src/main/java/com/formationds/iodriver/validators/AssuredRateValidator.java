@@ -51,7 +51,7 @@ public class AssuredRateValidator implements Validator
             
             // We must be within at least 3% of our assured rate to call it success. If we're more
             // than 50% over, we're probably not hitting QoS limits hard enough.
-            if (deviation < -0.03 || deviation > 0.50)
+            if (deviation < -0.05 || deviation > 0.50)
             {
                 failed = true;
             }

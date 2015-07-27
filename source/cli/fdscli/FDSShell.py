@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 import pkgutil
 from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
+from services.fds_auth_error import FdsAuthError
 
 class FDSShell( cmd.Cmd ):
     '''
@@ -32,16 +33,14 @@ class FDSShell( cmd.Cmd ):
         
         val = FdsCliConfigurationManager().get_value(FdsCliConfigurationManager.TOGGLES, FdsCliConfigurationManager.CMD_HISTORY)
         
-        if val == "true" or val is True or val == "True" or val == None:
+        if val == "true" or val is True or val == "True":
             setupHistoryFile()
 
         self.plugins = []
         self.__session = session
         
         self.prompt ='fds> '
-        self.parser = ArgumentParser( add_help=True)
-        
-        self.subParsers = self.parser.add_subparsers( help="Command suite description" )
+
         self.loadmodules()
         
 
@@ -66,6 +65,9 @@ class FDSShell( cmd.Cmd ):
         and will load all the modules it find there, adding their parsing arguments
         to the argparse setup
         '''
+        self.parser = ArgumentParser( add_help=True)
+        
+        self.subParsers = self.parser.add_subparsers( help="Command suite description" )
 
         mydir = os.path.dirname( os.path.abspath( __file__ ) )
         modules = pkgutil.iter_modules([os.path.join( mydir, "plugins" )] )
@@ -80,7 +82,7 @@ class FDSShell( cmd.Cmd ):
 
             clazzName = self.formatClassName( mod_name )
             clazz = getattr( loadedModule, clazzName )
-            clazz = clazz(self.__session)
+            clazz = clazz()
             self.plugins.append( clazz )
             
             clazz.build_parser( self.subParsers, self.__session )
@@ -93,6 +95,18 @@ class FDSShell( cmd.Cmd ):
         '''        
         
         try:
+            
+            if not self.__session.is_authenticated():
+                try:
+                    self.__session.login()
+                    self.loadmodules()
+                except FdsAuthError as f:
+                    print str(f.error_code) + ":" + f.message
+                    pass
+                except Exception:
+                    print "Unkown error occurred."
+                    pass
+            
             argList = shlex.split( line )
             pArgs = self.parser.parse_args( argList )
             pArgs.func( vars( pArgs ) )

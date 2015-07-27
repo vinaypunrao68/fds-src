@@ -22,7 +22,7 @@ namespace dm {
 CommitBlobTxHandler::CommitBlobTxHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CommitBlobTxMsg, handleRequest);
     }
 }
@@ -54,8 +54,6 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
      */
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     addToQueue(dmReq);
 }

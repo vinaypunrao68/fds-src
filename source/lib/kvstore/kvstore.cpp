@@ -10,7 +10,7 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 KVStore::KVStore(const std::string& host,
                    uint port,
-                   uint poolsize) : r(host, port, poolsize) {
+                   uint poolsize) : kv_store(host, port, poolsize) {
     LOGNORMAL << "instantiating kvstore";
 }
 
@@ -19,16 +19,15 @@ KVStore::~KVStore() {
 }
 
 bool KVStore::isConnected() {
-    return r.isConnected();
+    return kv_store.isConnected();
 }
 
 bool KVStore::set(const std::string& key, const std::string& value) {
-    return r.set(key, value);
+    return kv_store.set(key, value);
 }
 
 std::string KVStore::get(const std::string& key) {
-    Reply reply = r.get(key);
-    return reply.getString();
+    return kv_store.get(key).getString();
 }
 
 }  // namespace kvstore

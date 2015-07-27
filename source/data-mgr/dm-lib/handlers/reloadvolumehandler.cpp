@@ -17,7 +17,7 @@ namespace dm {
 ReloadVolumeHandler::ReloadVolumeHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::ReloadVolumeMsg, handleRequest);
     }
 }
@@ -41,7 +41,6 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     auto dmReq = new DmIoReloadVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(ReloadVolumeHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
     addToQueue(dmReq);
 }
 

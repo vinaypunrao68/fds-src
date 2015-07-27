@@ -8,9 +8,10 @@
 
 namespace fds {
 
-ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
+ObjectMetadataStore::ObjectMetadataStore(const std::string& modName,
+                                         UpdateMediaTrackerFnObj fn)
         : Module(modName.c_str()),
-          metaDb_(new ObjectMetadataDb()),
+          metaDb_(new ObjectMetadataDb(std::move(fn))),
           metaCache(new ObjectMetaCache("SM Object Metadata Cache")) {
 }
 

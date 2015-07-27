@@ -4,7 +4,6 @@ from utils.converters.health.system_health_converter import SystemHealthConverte
 from services.response_writer import ResponseWriter
 import json
 from model.health.health_state import HealthState
-from model.fds_error import FdsError
 from model.health.system_health import SystemHealth
 
 class SystemHealthPlugin( AbstractPlugin):
@@ -17,15 +16,17 @@ class SystemHealthPlugin( AbstractPlugin):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)    
+    def __init__(self):
+        AbstractPlugin.__init__(self)    
     
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
         
-        self.__stat_service = StatsService(session)
+        self.session = session
+        
+        self.__stat_service = StatsService(self.session)
         
         self.__parser = parentParser.add_parser( "system_health", help="Query the system health" )
         
