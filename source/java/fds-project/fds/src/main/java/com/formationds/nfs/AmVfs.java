@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
+import com.formationds.hadoop.FdsInputStream;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -9,6 +10,7 @@ import com.formationds.protocol.ErrorCode;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Sets;
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.dcache.auth.GidPrincipal;
@@ -88,7 +90,8 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public Inode link(Inode inode, Inode inode1, String s, Subject subject) throws IOException {
-        throw new RuntimeException("Not implemented");
+        // Not implemented
+        throw new org.dcache.nfs.status.NoFileHandleException();
     }
 
     @Override
@@ -210,7 +213,15 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public String readlink(Inode inode) throws IOException {
-        throw new RuntimeException("Not implemented");
+        NfsEntry nfsEntry = tryLoad(inode);
+        NfsPath path = nfsEntry.path();
+        try {
+            int objectSize = objectSize(path);
+            return IOUtils.toString(new FdsInputStream(asyncAm, AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize));
+        } catch (TException e) {
+            LOG.error("Error loading object size", e);
+            throw new IOException(e);
+        }
     }
 
     @Override
