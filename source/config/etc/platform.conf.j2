@@ -118,6 +118,9 @@ fds: {
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
+        
+        redis_host = "{{ om_ip }}"
+        redis_port = {{ redis_port }}
 
         /* Don't spawn any service daemon */
         auto_start_services = true

@@ -70,7 +70,7 @@ Error DmPersistVolDB::activate() {
     }
 
     bool fAlreadyExists = util::dirExists(catName);
-    if (clone_ || snapshot_) {
+    if (snapshot_) {
         if (!fAlreadyExists) {
             LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
             return ERR_OK;
