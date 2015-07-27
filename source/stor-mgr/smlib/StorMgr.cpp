@@ -499,8 +499,14 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
-            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+
+            if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
+            } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
+            } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
+                lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
                 sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK, "SM utilization no longer at dangerous levels.");
             }
         }
