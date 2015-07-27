@@ -13,7 +13,7 @@ ExpungeDB::ExpungeDB() : db(dmutil::getExpungeDBPath()){
 uint32_t ExpungeDB::increment(fds_volid_t volId, const ObjectID &objId) {
     uint32_t value = getExpungeCount(volId, objId);
     value++;
-    db.Update(getKey(volId, objId), util::strformat("%d", value));
+    db.Update(getKey(volId, objId), std::to_string(value));
     return value;
 }
 
@@ -25,7 +25,7 @@ uint32_t ExpungeDB::decrement(fds_volid_t volId, const ObjectID &objId) {
     }
     value--;
     if (value == 0) discard(volId, objId);
-    else db.Update(getKey(volId, objId), util::strformat("%d", value));
+    else db.Update(getKey(volId, objId), std::to_string(value));
     return value;
 }
 
@@ -33,7 +33,7 @@ uint32_t ExpungeDB::getExpungeCount(fds_volid_t volId, const ObjectID &objId) {
     std::string value;
     Error err = db.Query(getKey(volId, objId), &value);
     if (err.ok()) {
-        return *((uint32_t*)value.data());
+        return ((uint32_t)std::stoi(value));
     }
     return 0;
 }
