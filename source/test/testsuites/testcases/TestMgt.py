@@ -30,8 +30,84 @@ import TestFDSSysMgt
 import TestFDSServiceMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
-import TestIOCounter
-import SmChk
+
+try:
+    # Removed in Python 3
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
+
+
+
+class StreamToLogger(object):
+   """
+   Fake file-like stream object that redirects writes to a logger instance.
+   """
+   def __init__(self, logger, log_level=logging.INFO):
+      self.logger = logger
+      self.log_level = log_level
+      self.linebuf = ''
+
+   def write(self, buf):
+      for line in buf.rstrip().splitlines():
+         self.logger.log(self.log_level, line.rstrip())
+
+class _RunnerDelegateIO(object):
+    """
+    This class defines an object that logs whatever is written to
+    a stream or file.
+    """
+
+    def __init__(self, delegate, fds_logger, log_level=logging.INFO):
+        self.delegate = delegate
+        self.stream_to_logger = StreamToLogger(fds_logger, log_level)
+
+    def write(self, text):
+        #if hasattr(self.delegate, "write"):
+        self.delegate.write(text)
+        #else:
+        #    self.delegate.info(text)
+
+        self.stream_to_logger.write(text)
+
+class _DelegateIO(object):
+    """
+    This class defines an object that captures whatever is written to
+    a stream or file.
+    """
+
+    def __init__(self, delegate, fds_logger, log_level=logging.INFO):
+        self._captured = StringIO()
+        self.delegate = delegate
+        self.stream_to_logger = StreamToLogger(fds_logger, log_level)
+
+    def write(self, text):
+        self._captured.write(text)
+        self.delegate.write(text)
+        self.stream_to_logger.write(text)
+
+    def __getattr__(self, attr):
+        return getattr(self._captured, attr)
+
+class FDSTestRunner(xmlrunner.XMLTestRunner):
+    """
+    A test runner class for FDS so that stdout and stderr are captured in our test logs.
+    """
+    def __init__(self, output='.', outsuffix=None, stream=sys.stderr,
+                 descriptions=True, verbosity=1, elapsed_times=True, fds_logger=logging.getLogger()):
+        xmlrunner.XMLTestRunner.__init__(self, output, outsuffix,
+                                         _RunnerDelegateIO(stream, fds_logger, log_level=logging.INFO),
+                                         descriptions, verbosity, elapsed_times)
+        self.fds_logger = fds_logger
+
+    def _patch_standard_output(self):
+        """
+        Replaces stdout and stderr streams with string-based streams
+        in order to capture the tests' output.
+        """
+        sys.stdout = _DelegateIO(sys.stdout, self.fds_logger, log_level=logging.INFO)
+        sys.stderr = _DelegateIO(sys.stderr, self.fds_logger, log_level=logging.ERROR)
+
 
 def str_to_obj(astr):
     """
@@ -617,7 +693,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
 
         if ('atleastone' not in scenario.nd_conf_dict):
-            log.error("%s not found for any occurrence" %(scenario.nd_conf_dict['logentry']))
+            #log.error("%s not found for any occurrence" %(scenario.nd_conf_dict['logentry']))
             atleastone = None
         else:
             atleastone = 1
@@ -838,16 +914,26 @@ class TestForkScenario(TestCase.FDSTestCase):
 
         if self.childPID == 0:
             self.log.info("Child process executing scenario %s." % self.passedScenario.nd_conf_dict['scenario-name'])
-            for h in list(logging.getLogger().handlers):
+
+            # Restore stdout and stderr streams.
+            #
+            # Normally, our test runner would do this for us at the conclusion of a test case. But here
+            # it does not know that we're starting a new set of test cases.
+            sys.stdout = sys.stdout.delegate
+            sys.stderr = sys.stderr.delegate
+
+            for h in logging.getLogger().handlers:
                 logging.getLogger().removeHandler(h)
-            self.log = TestUtils._setup_logging(__name__,
-                                                "PyUnit_{}.log".format(self.passedScenario.nd_conf_dict['scenario-name']),
-                                                self.parameters["log_dir"], self.parameters["log_level"],
-                                                self.parameters["threads"])
+
+            self.log = TestUtils._setup_logging("PyUnit_{}.log".format(self.passedScenario.nd_conf_dict['scenario-name']),
+                                                self.parameters["log_dir"], self.parameters["log_level"])
+
             self.log.info("Child process executing scenario %s." % self.passedScenario.nd_conf_dict['scenario-name'])
         elif self.childPID > 0:
             self.log.info("Forked child %d to execute scenario %s." % (self.childPID,
                                                                        self.passedScenario.nd_conf_dict['scenario-name']))
+
+            self.log.info("Logfile: %s" % "PyUnit_{}.log".format(self.passedScenario.nd_conf_dict['scenario-name']))
             # Store the child PID for later reference.
             child_pid_dict = self.parameters["child_pid"]
             child_pid_dict[self.passedScenario.nd_conf_dict['scenario-name']] = self.childPID
@@ -902,7 +988,7 @@ class TestForkScenario(TestCase.FDSTestCase):
                        self.passedScenario.nd_conf_dict['scenario-name'])
 
         # Now run the test suite.
-        runner = xmlrunner.XMLTestRunner(output=self.passedLogDir)
+        runner = FDSTestRunner(output=self.passedLogDir, fds_logger=logging.getLogger())
         testResult = runner.run(test_suite)
 
         return testResult.wasSuccessful()
