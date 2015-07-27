@@ -427,13 +427,13 @@ DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolRes
 fds_bool_t
 DmMigrationMgr::shouldForwardIO(fds_volid_t volId)
 {
-   auto dmClient = getMigrationClient(volId);
-   if (dmClient == nullptr) {
-       // Not in the status of migration
-       return false;
-   }
+    auto dmClient = getMigrationClient(volId);
+    if (dmClient == nullptr) {
+        // Not in the status of migration
+        return false;
+    }
 
-   return (dmClient->shouldForwardIO());
+    return (dmClient->shouldForwardIO());
 }
 
 
@@ -447,7 +447,7 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
    auto dmClient = getMigrationClient(volId);
    fds_verify((dmClient != nullptr) && dmClient->shouldForwardIO());
 
-   // dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+   dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
 
    return ERR_OK;
 }
