@@ -165,6 +165,8 @@ public class AmVfs implements VirtualFileSystem {
                 .withFileId(idAllocator.nextId(source.getVolume()));
 
         NfsEntry destinationEntry = new NfsEntry(destination, destinationAttributes);
+        incrementGenerationAndTimestamps(tryLoad(sourceParent));
+        incrementGenerationAndTimestamps(tryLoad(destinationParent));
         try {
             chunker.move(sourceEntry, destinationEntry, objectSize(destination), sourceEntry.attributes().getSize());
             unwindExceptions(() -> asyncAm.deleteBlob(DOMAIN, source.getVolume(), source.blobName()).get());
@@ -178,7 +180,8 @@ public class AmVfs implements VirtualFileSystem {
     @Override
     public Inode parentOf(Inode inode) throws IOException {
         LOG.debug("parentOf() inode=" + inode);
-        return null;
+        NfsEntry nfsEntry = tryLoad(inode);
+        return tryLoad(nfsEntry.path().getParent()).inode(resolver);
     }
 
     @Override
@@ -248,9 +251,12 @@ public class AmVfs implements VirtualFileSystem {
             nfsEntry = nfsEntry
                     .withUpdatedAtime()
                     .withUpdatedMtime()
+                    .withUpdatedCtime()
                     .withUpdatedSize(byteCount);
             int objectSize = objectSize(path);
             chunker.write(nfsEntry, objectSize, data, offset, count, byteCount);
+            NfsEntry parentEntry = tryLoad(nfsEntry.path().getParent());
+            updateMetadata(parentEntry.path(), parentEntry.attributes());
             return new WriteResult(stabilityLevel, count);
         } catch (Exception e) {
             String message = "chunker.write()" + path + ", data=" + data.length + "bytes, offset=" + offset + ", count=" + count;
@@ -338,6 +344,7 @@ public class AmVfs implements VirtualFileSystem {
                         .withIncrementedGeneration()
                         .withUpdatedAtime()
                         .withUpdatedMtime()
+                        .withUpdatedCtime()
         );
     }
 

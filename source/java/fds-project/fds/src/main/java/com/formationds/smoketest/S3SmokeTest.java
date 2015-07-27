@@ -1,11 +1,29 @@
 package com.formationds.smoketest;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.SDKGlobalConfiguration;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.model.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.commons.Fds;
+import com.formationds.commons.util.Uris;
+import com.formationds.protocol.Snapshot;
+import com.formationds.util.RngFactory;
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
+import com.formationds.xdi.XdiClientFactory;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.json.JSONObject;
+import org.junit.*;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
@@ -16,36 +34,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import javax.servlet.http.HttpServletResponse;
-
-import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
-import com.amazonaws.services.s3.model.*;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.json.JSONObject;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.SDKGlobalConfiguration;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
-
-import com.formationds.apis.ConfigurationService;
-import com.formationds.commons.Fds;
-import com.formationds.commons.util.Uris;
-import com.formationds.protocol.Snapshot;
-import com.formationds.util.RngFactory;
-import com.formationds.xdi.XdiClientFactory;
+import static org.junit.Assert.*;
 
 /**
  * Copyright (c) 2014 Formation Data Systems. All rights reserved.
@@ -757,6 +746,7 @@ public class S3SmokeTest {
         }
     }
 
+    @Ignore
     public static class V4Auth extends S3SmokeTest {
         public V4Auth() throws Exception {
             super();
