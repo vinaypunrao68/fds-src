@@ -13,7 +13,7 @@ ExpungeDB::ExpungeDB() : db(dmutil::getExpungeDBPath()){
 uint32_t ExpungeDB::increment(fds_volid_t volId, const ObjectID &objId) {
     uint32_t value = getExpungeCount(volId, objId);
     value++;
-    db.Update(getKey(volId, objId), util::strformat("%d", value));
+    db.Update(getKey(volId, objId), std::to_string(value));
     return value;
 }
 
@@ -25,7 +25,7 @@ uint32_t ExpungeDB::decrement(fds_volid_t volId, const ObjectID &objId) {
     }
     value--;
     if (value == 0) discard(volId, objId);
-    else db.Update(getKey(volId, objId), util::strformat("%d", value));
+    else db.Update(getKey(volId, objId), std::to_string(value));
     return value;
 }
 
@@ -33,7 +33,7 @@ uint32_t ExpungeDB::getExpungeCount(fds_volid_t volId, const ObjectID &objId) {
     std::string value;
     Error err = db.Query(getKey(volId, objId), &value);
     if (err.ok()) {
-        return *((uint32_t*)value.data());
+        return ((uint32_t)std::stoi(value));
     }
     return 0;
 }
@@ -65,6 +65,11 @@ ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
 }
 
 Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& vecObjIds, bool force) {
+    /**
+     * NOTE : disabling expunge temporarily
+     */
+    return ERR_OK;
+
     if (dm->features.isTestModeEnabled()) return ERR_OK;  // no SMs, no one to notify
     if (!dm->amIPrimary(volId)) return ERR_OK;
 
@@ -77,6 +82,11 @@ Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& ve
 
 
 Error ExpungeManager::expunge(fds_volid_t volId, const ObjectID& objId, bool force) {
+    /**
+     * NOTE : disabling expunge temporarily
+     */
+    return ERR_OK;
+
     if (dm->features.isTestModeEnabled()) return ERR_OK;  // no SMs, no one to notify
     if (!dm->amIPrimary(volId)) return ERR_OK;
     serialExecutor->scheduleOnHashKey(VolObjHash(volId, objId),
