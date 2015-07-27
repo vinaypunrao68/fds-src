@@ -5,10 +5,7 @@
 package com.formationds.commons.togglz.feature.flag;
 
 import com.formationds.commons.togglz.feature.FdsFeatureManagerProvider;
-import com.formationds.commons.togglz.feature.annotation.Snmp;
-import com.formationds.commons.togglz.feature.annotation.Webkit;
 import org.togglz.core.Feature;
-import org.togglz.core.annotation.EnabledByDefault;
 import org.togglz.core.annotation.Label;
 import org.togglz.core.repository.FeatureState;
 
@@ -24,17 +21,8 @@ public enum FdsFeatureToggles
    * Togglz annotation are used to group features together in "feature groups".
    */
 
-  @EnabledByDefault
-  @Label( "Webkit Feature" )
-  @Webkit
-  WEB_KIT,
-  
-  @Label( "REST 0.8 API Implementation")
-  REST_08,
-
-  @Label( "SNMP Feature" )
-  @Snmp
-  SNMP;
+  @Label( "REST 0.7 API Implementation" )
+  REST_07;
 
   /**
    * @return Returns {@code true} if the feature associated with {@code this}

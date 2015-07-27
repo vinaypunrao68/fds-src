@@ -7,6 +7,14 @@
 #include <string>
 #include <vector>
 
+/*
+ * DEPRECATED? 07/23/2015 Is only currently used in
+ *  source/unit-test/migrations/ObjectStoreMock.h
+ *  source/unit-test/migrations/migration_ut.cpp
+ * 
+ * It does not look like any part of DM/SM/AM/OM or PM
+ */
+
 namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
@@ -159,7 +167,7 @@ getTokenStats(std::unordered_map<int, int> &stats)  // NOLINT
 
 bool TokenStateDB::getTokens(const NodeUuid& uuid, std::vector<fds_token_id>& vecTokens) {
     try {
-        Reply reply = r.sendCommand("smembers %ld:tokens", uuid);
+        Reply reply = kv_store.sendCommand("smembers %ld:tokens", uuid);
         std::vector<long long> vecLongs; //NOLINT
         reply.toVector(vecLongs);
 
@@ -177,7 +185,7 @@ bool TokenStateDB::getTokens(const NodeUuid& uuid, std::vector<fds_token_id>& ve
 
 bool TokenStateDB::addToken(const NodeUuid& uuid, fds_token_id token) {
     try {
-        Reply reply = r.sendCommand("sadd %ld:tokens %ld", uuid, token);
+        Reply reply = kv_store.sendCommand("sadd %ld:tokens %ld", uuid, token);
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();
@@ -187,7 +195,7 @@ bool TokenStateDB::addToken(const NodeUuid& uuid, fds_token_id token) {
 
 bool TokenStateDB::setTokenInfo(const NodeUuid& uuid, fds_token_id token, ConstString value) { //NOLINT
     try {
-        Reply reply = r.sendCommand("set %ld:token:%ld:info %b", uuid, token, value.data(), value.length()); //NOLINT
+        Reply reply = kv_store.sendCommand("set %ld:token:%ld:info %b", uuid, token, value.data(), value.length()); //NOLINT
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();
@@ -197,7 +205,7 @@ bool TokenStateDB::setTokenInfo(const NodeUuid& uuid, fds_token_id token, ConstS
 
 bool TokenStateDB::removeToken(const NodeUuid& uuid, fds_token_id token) {
     try {
-        Reply reply = r.sendCommand("sdel %ld:tokens %ld", uuid, token);
+        Reply reply = kv_store.sendCommand("sdel %ld:tokens %ld", uuid, token);
         return reply.wasModified();
     } catch(const RedisException& e) {
         LOGERROR << e.what();

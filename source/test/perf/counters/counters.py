@@ -8,6 +8,7 @@ import threading
 sys.path.append(os.path.join(os.getcwd(), '../common'))
 from push_to_influxdb import InfluxDb
 import tabulate
+import thrift
 
 sys.path.append(os.path.join(os.getcwd(), '../../fdslib'))
 sys.path.append(os.path.join(os.getcwd(), '../../fdslib/pyfdsp'))
@@ -17,10 +18,15 @@ class CounterMonitor(object):
     def __init__(self, config):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
-        self.svc_map = SvcMap(self.config["ip"], self.config["port"])
         self.stop = threading.Event()
 
     def get_svc_table(self):    
+        try:
+            self.svc_map = SvcMap(self.config["ip"], self.config["port"])
+        except thrift.transport.TTransport.TTransportException:
+            time.sleep(1)
+            print "Exception getting SvcMap... waiting"
+            return []
         table = []
         for e in self.svc_map.list():
             table.append({
@@ -106,7 +112,7 @@ def main():
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "matteo-vm",
+        "ip" : "c3po.formationds.com",
         "port" : 8086,
         "user" : "root",
         "password" : "root",

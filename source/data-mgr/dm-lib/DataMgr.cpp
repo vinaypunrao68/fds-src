@@ -17,6 +17,8 @@
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
+#include <fdsp/svc_types_types.h>
+
 
 
 namespace {
@@ -170,7 +172,7 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
 // qos queue. Some updates may still be forwarded, but they are ok to
 // go in parallel with updates from AM
 //
-void DataMgr::handleForwardComplete(dmCatReq *io) {
+void DataMgr::handleForwardComplete(DmRequest *io) {
     LOGNORMAL << "Will open up QoS queue for volume " << std::hex
               << io->volId << std::dec;
     if (features.isCatSyncEnabled()) {
@@ -259,8 +261,11 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
-            // Send message to OM
+            // set time volume catalog to unavailable -- no available storage space
+            timeVolCat_->setUnavailable();
 
+            // Send message to OM
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
 
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
@@ -268,6 +273,8 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             lastCapacityMessageSentAt = pct_used;
 
             // Send message to OM
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
+                                   ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
@@ -287,11 +294,36 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                 lastCapacityMessageSentAt = 0;
 
                 // Send message to OM resetting us to OK state
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                       "DM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
     }
     sampleCounter++;
+
+}
+
+void DataMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                     fds_errno_t statusCode,
+                                     const std::string& statusInfo) {
+
+    fpi::SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    // Send health check thrift message to OM
+    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
+    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
+    healthRepMsg->healthReport.serviceState = serviceState;
+    healthRepMsg->healthReport.statusCode = statusCode;
+    healthRepMsg->healthReport.statusInfo = statusInfo;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
+    request->invoke();
 
 }
 
@@ -473,7 +505,7 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
  * this method to pass queue id as first param not volid
  */
 Error DataMgr::enqueueMsg(fds_volid_t volId,
-                          dmCatReq* ioReq) {
+                          DmRequest* ioReq) {
     Error err(ERR_OK);
 
     switch (ioReq->io_type) {
@@ -920,7 +952,7 @@ Error DataMgr::notifyDMTClose() {
 // Handle DMT close for the volume in io req -- sends
 // push meta done to destination DM
 //
-void DataMgr::handleDMTClose(dmCatReq *io) {
+void DataMgr::handleDMTClose(DmRequest *io) {
     DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
     LOGMIGRATE << "Processed all commits that arrived before DMT close "
                << "will now notify dst DM to open up volume queues: vol "
@@ -1066,6 +1098,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
+    handlers[FDS_DM_MIG_FINISH_VOL_RESYNC] = new dm::DmMigrationFinishVolResyncHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1096,7 +1129,7 @@ void DataMgr::mod_startup()
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
-        features.setTestMode(true);
+        features.setTestModeEnabled(true);
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
@@ -1175,7 +1208,7 @@ void DataMgr::mod_enable_service() {
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
-    if (!features.isTestMode()) {
+    if (!features.isTestModeEnabled()) {
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 }
@@ -1339,7 +1372,7 @@ DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
  * CatalogSync.
  */
 void
-DataMgr::snapVolCat(dmCatReq *io) {
+DataMgr::snapVolCat(DmRequest *io) {
     Error err(ERR_OK);
     fds_verify(io != NULL);
 

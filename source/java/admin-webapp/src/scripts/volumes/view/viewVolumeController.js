@@ -123,7 +123,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return $filter( 'translate' )( 'common.l_none' );
         }
         
-        return $scope.qos.iops_min;
+        return $scope.qos.iopsMin;
     };
     
     $scope.getLimitLabel = function(){
@@ -132,7 +132,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return $filter( 'translate' )( 'volumes.qos.l_unlimited' );
         }
         
-        return $scope.qos.iops_max;
+        return $scope.qos.iopsMax;
     };
     
     $scope.getDataTypeLabel = function(){
@@ -296,7 +296,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         // create teh continuous range
         var now = (new Date()).getTime();
-        $scope.ranges.push( { min: (now - $scope.thisVolume.commit_log_retention*1000), max: now, pwidth: 15 } );
+        $scope.ranges.push( { min: (now - $scope.thisVolume.dataProtectionPolicy.commitLogRetention.seconds*1000), max: now, pwidth: 15 } );
         $scope.thisVolume.timelineTime = now;
     };    
     

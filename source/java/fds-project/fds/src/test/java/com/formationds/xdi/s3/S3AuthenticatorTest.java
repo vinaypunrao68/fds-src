@@ -18,7 +18,7 @@ public class S3AuthenticatorTest {
         XdiAuthorizer authorizer = mock(XdiAuthorizer.class);
         when(authorizer.allowAll()).thenReturn(false);
         S3Authenticator s3Authenticator = new S3Authenticator(authorizer, mock(SecretKey.class));
-        AuthenticationToken token = s3Authenticator.authenticate(mock(HttpContext.class));
+        AuthenticationToken token = s3Authenticator.getIdentityClaim(mock(HttpContext.class));
         assertEquals(AuthenticationToken.ANONYMOUS, token);
     }
 }

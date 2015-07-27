@@ -5,6 +5,7 @@ from utils.converters.platform.domain_converter import DomainConverter
 
 import json
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 '''
 Created on Apr 13, 2015
@@ -16,15 +17,20 @@ to use those arguments to make the appropriate local domain REST calls
 '''
 class LocalDomainPlugin( AbstractPlugin):
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)   
-        
-        self.__local_domain_service = LocalDomainService(session) 
+    def __init__(self):
+        AbstractPlugin.__init__(self)    
     
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
+        
+        if not session.is_allowed( FdsAuth.SYS_MGMT ):
+            return
+        
+        self.__local_domain_service = LocalDomainService(self.session)
         
         self.__parser = parentParser.add_parser( "local_domain", help="Manage and interact with local domains" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available" )

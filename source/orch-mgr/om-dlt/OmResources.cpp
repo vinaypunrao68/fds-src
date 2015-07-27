@@ -1332,6 +1332,12 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 
             if ( svcinfos.size() > 0 ) {
                 LOGDEBUG << "Updating Service Map from persist store.";
+                /*
+                 * service map updates will only take effect if the service
+                 * does not already exists or if the incarnation is newer then
+                 * then the existing service.
+                 */
+                
                 MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
             } else {
                 LOGNORMAL << "No persisted Service Map found.";
@@ -1405,6 +1411,13 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                      << dmSvcs.size() << " DMs. "
                      << smSvcs.size() << " SMs.";
     
+            /*
+             * TODO need to determine if any persisted services are already
+             * running. It would be nice if we could "ping" the PMs to
+             * get its state and any services that its currently
+             * monitoring.
+             */
+            
             LOGNOTIFY << "OM Restarted, while domains still active.";
             
             OM_Module *om = OM_Module::om_singleton();
@@ -1426,12 +1439,13 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             LOGNOTIFY << "Will wait for " << deployed_sm_services.size()
                       << " SMs and " << deployed_dm_services.size()
                       << " DMs to come up within next few minutes";
-            local_domain_event( WaitNdsEvt( deployed_sm_services, deployed_dm_services ) );
+            local_domain_event( WaitNdsEvt( deployed_sm_services, 
+                                            deployed_dm_services ) );
         }
     } 
     else
     {
-        LOGNOTIFY << "We didn't persist any SMs and any DMs or we couldn't load "
+        LOGNOTIFY << "We didn't persist any SMs or DMs or we couldn't load "
                   << "persistent state, so OM will come up in a moment.";
         local_domain_event( NoPersistEvt( ) );
     }
@@ -1690,17 +1704,28 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     // What defines well known though? Is it well known only after
                     // it has been added ? --> any node that is not removed or discovered
                 }
-            } else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) {
+            } 
+            else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) 
+            {    
                 if ( !isKnownService( *svcInfo ) ) {
                     LOGDEBUG << "SM or DM service ("
-                             << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec
+                             << std::hex 
+                             << svcInfo->svc_id.svc_uuid.svc_uuid 
+                             << std::dec
                              << ") is a new service; set state = DISCOVERED";
                     svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
-                } else {
-                    // currently service always reports it's active; but if OM knows that
-                    // it is in discovered state, then we should leave it in discovered state
-                    fpi::ServiceStatus status = configDB->getStateSvcMap( svcInfo->svc_id.svc_uuid.svc_uuid );
-                    if (status == fpi::SVC_STATUS_DISCOVERED) {
+                } 
+                else 
+                {
+                    /*
+                     * currently service always reports it's active; but if OM 
+                     * knows that it is in discovered state, then we should 
+                     * leave it in discovered state
+                     */
+                    fpi::ServiceStatus status = 
+                        configDB->getStateSvcMap( svcInfo->svc_id.svc_uuid.svc_uuid );
+                    if ( status == fpi::SVC_STATUS_DISCOVERED ) 
+                    {
                         svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
                     }
                 }
@@ -1711,7 +1736,10 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         }
         else
         {
-            /* We updated the svcmap before, undo it by setting service status to invalid */
+            /* 
+             * We updated the service map before, so undo these changes by 
+             * setting service status to invalid
+             */
             svcInfo->svc_status = fpi::SVC_STATUS_INVALID;
         }
 
@@ -1726,7 +1754,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     catch(const Exception& e)
     {
         LOGERROR << "Orch Manager encountered exception while "
-                         << "Registering service " << e.what();
+                 << "Registering service " << e.what();
         err = Error(ERR_SVC_REQUEST_FAILED);
         fds::util::print_stacktrace( );
     }
@@ -1848,6 +1876,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
         {
             LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
+            svc.incarnationNo = util::getTimeStampSeconds();
             spoofed.push_back( svc );
         }
         else 
@@ -1859,7 +1888,9 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
     
     if ( spoofed.size() > 0  )
     {    
+        LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
+        om_locDomain->om_bcast_svcmap();
     }
 }
     
@@ -2183,8 +2214,9 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err == ERR_DUPLICATE) {
         fPrevRegistered = true;
-        LOGNOTIFY << "Svc already exists; probably service is re-registering "
-                  << " after domain startup (re-activate after shutdown)";
+        LOGNOTIFY << "Service already exists; probably is re-registering "
+                  << " after domain startup (re-activate after shutdown), "
+                  << "uuid " << std::hex << (msg->node_uuid).uuid << std::dec;
         err = ERR_OK;  // this is ok, still want to continue re-registration
     }
 

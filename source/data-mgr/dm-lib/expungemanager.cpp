@@ -60,24 +60,27 @@ ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
 
     dm->timeVolCat_->queryIface()->registerExpungeObjectsCb(func);
     expungeDB.reset(new ExpungeDB());
+    serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
+        new SynchronizedTaskExecutor<size_t>(dm->lowPriorityTasks));
 }
 
 Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& vecObjIds, bool force) {
-    if (dm->features.isTestMode()) return ERR_OK;  // no SMs, no one to notify
+    if (dm->features.isTestModeEnabled()) return ERR_OK;  // no SMs, no one to notify
     if (!dm->amIPrimary(volId)) return ERR_OK;
 
     for (const auto& objId : vecObjIds) {
-        dm->lowPriorityTasks.schedule(&ExpungeManager::threadTask, this, volId, objId, force);
+        serialExecutor->scheduleOnHashKey(VolObjHash(volId, objId),
+                                          std::bind(&ExpungeManager::threadTask, this, volId, objId, force));
     }
     return ERR_OK;
 }
 
 
 Error ExpungeManager::expunge(fds_volid_t volId, const ObjectID& objId, bool force) {
-    if (dm->features.isTestMode()) return ERR_OK;  // no SMs, no one to notify
+    if (dm->features.isTestModeEnabled()) return ERR_OK;  // no SMs, no one to notify
     if (!dm->amIPrimary(volId)) return ERR_OK;
-
-    dm->lowPriorityTasks.schedule(&ExpungeManager::threadTask, this, volId, objId, force);
+    serialExecutor->scheduleOnHashKey(VolObjHash(volId, objId),
+                                      std::bind(&ExpungeManager::threadTask, this, volId, objId, force));
     return ERR_OK;
 }
 
@@ -169,7 +172,11 @@ void ExpungeManager::threadTask(fds_volid_t volId, ObjectID objId, bool fFromSna
         }
     } else {
         uint32_t count = expungeDB->getExpungeCount(volId, objId);
-        if (!fFromSnapshot) count++; // old count + current request;
+        if (!fFromSnapshot) { // old count + current request;
+            count++;
+            // store the count just in case
+            expungeDB->increment(volId, objId);
+        }
         LOGDEBUG << "will send [" << count << "] delete requests for "
                  << "vol:" << volId << " obj:" << objId;
 

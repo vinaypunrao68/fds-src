@@ -17,7 +17,7 @@ namespace dm {
 VolumeCloseHandler::VolumeCloseHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CloseVolumeMsg, handleRequest);
     }
 }
@@ -41,12 +41,10 @@ void VolumeCloseHandler::handleRequest(
     auto dmReq = new DmIoVolumeClose(message);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeCloseHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
-void VolumeCloseHandler::handleQueueItem(dmCatReq* dmRequest) {
+void VolumeCloseHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeClose * request = static_cast<DmIoVolumeClose *>(dmRequest);
 
@@ -58,7 +56,7 @@ void VolumeCloseHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void VolumeCloseHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::CloseVolumeMsg>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CloseVolumeRspMsg),

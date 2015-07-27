@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.protocol.BlobDescriptor;
 import org.apache.hadoop.fs.Path;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
@@ -33,6 +34,11 @@ public class NfsPath {
         path = new Path(sb.toString());
     }
 
+    public NfsPath(String volume, BlobDescriptor bd) {
+        this.volume = volume;
+        this.path = new Path(bd.getName());
+    }
+
     public NfsPath(String volume, String path) {
         this.volume = volume;
         this.path = new Path(path);
@@ -61,8 +67,17 @@ public class NfsPath {
         return volume == null && path.toString().equals("/");
     }
 
+    // Same workardound for DM regex matcher issue.
     public String blobName() {
         return path.toString();
+    }
+
+    public long deviceId(ExportResolver resolver) {
+        if (isRoot()) {
+            return Short.MAX_VALUE;
+        } else {
+            return resolver.exportId(volume) + 1 + Short.MAX_VALUE;
+        }
     }
 
     public Inode asInode(Stat.Type type, ExportResolver resolver) {
@@ -70,7 +85,7 @@ public class NfsPath {
         int exportId = 0;
         if (volume != null) {
             sb.append(volume);
-            sb.append(blobName());
+            sb.append(path.toString());
             exportId = resolver.exportId(volume);
         }
         return new Inode(new FileHandle(0, exportId, type.toMode(), sb.toString().getBytes()));

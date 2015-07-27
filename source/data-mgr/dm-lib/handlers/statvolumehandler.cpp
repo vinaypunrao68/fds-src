@@ -17,7 +17,7 @@ namespace dm {
 StatVolumeHandler::StatVolumeHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::StatVolumeMsg, handleRequest);
     }
 }
@@ -45,12 +45,10 @@ void StatVolumeHandler::handleRequest(
     auto dmReq = new DmIoStatVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(StatVolumeHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
-void StatVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
+void StatVolumeHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoStatVolume* typedRequest = static_cast<DmIoStatVolume*>(dmRequest);
 
@@ -65,7 +63,7 @@ void StatVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void StatVolumeHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::StatVolumeMsg>& message,
-                                       Error const& e, dmCatReq* dmRequest) {
+                                       Error const& e, DmRequest* dmRequest) {
     LOGTRACE << "Finished stat for volume " << message->volume_id;
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 

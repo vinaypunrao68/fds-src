@@ -4,9 +4,11 @@ from services.node_service import NodeService
 from utils.converters.platform.node_converter import NodeConverter
 from services.response_writer import ResponseWriter
 from model.platform.service import Service
+from model.platform.service_status import ServiceStatus
 
 import json
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 
 class ServicePlugin( AbstractPlugin ):
@@ -16,14 +18,20 @@ class ServicePlugin( AbstractPlugin ):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)
-        self.__node_service = NodeService( self.session )
+    def __init__(self):
+        AbstractPlugin.__init__(self)
         
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
+        
+        if not session.is_allowed( FdsAuth.SYS_MGMT ):
+            return
+        
+        self.__node_service = NodeService( self.session )        
         
         self.__parser = parentParser.add_parser( "service", help="Interact with service commands" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
@@ -137,7 +145,7 @@ class ServicePlugin( AbstractPlugin ):
         s_type = args[AbstractPlugin.service_str]
         name = s_type.upper()
             
-        service = Service( name=name, a_type=name )
+        service = Service( name=name, a_type=name, status=ServiceStatus(state="NOT_RUNNING") )
         
         response = self.get_node_service().add_service( args[AbstractPlugin.node_id_str], service )
         

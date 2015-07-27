@@ -8,7 +8,6 @@ import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
-import org.dcache.nfs.v3.NfsServerV3;
 import org.dcache.nfs.v4.DeviceManager;
 import org.dcache.nfs.v4.MDSOperationFactory;
 import org.dcache.nfs.v4.NFSServerV41;
@@ -30,12 +29,12 @@ public class NfsServer {
 
         AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
-        new NfsServer().start(config, asyncAm);
+        new NfsServer().start(config, asyncAm, 2049);
 
         System.in.read();
     }
 
-    public void start(XdiConfigurationApi config, AsyncAm asyncAm) throws IOException {
+    public void start(XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
         // specify file with export entries
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
@@ -46,8 +45,7 @@ public class NfsServer {
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
-                .withMinPort(2400)
-                .withMaxPort(2500)
+                .withPort(serverPort)
                 .withTCP()
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
@@ -62,7 +60,7 @@ public class NfsServer {
                 exportFile);
 
         // create NFS v3 and mountd servers
-        NfsServerV3 nfs3 = new NfsServerV3(exportFile, vfs);
+        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs);
         MountServer mountd = new MountServer(exportFile, vfs);
 
         // register NFS servers at portmap service

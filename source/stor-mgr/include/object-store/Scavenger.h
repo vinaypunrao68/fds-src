@@ -69,6 +69,12 @@ class DiskScavPolicyInternal {
                                      const DiskScavPolicyInternal& policy);
 };
 
+/**
+ * Callback type to notify that compaction process is finished for this token
+ */
+typedef std::function<void (fds_uint16_t diskId,
+                            const Error& error)> disk_compaction_done_handler_t;
+
 class DiskScavenger {
   public :
     DiskScavenger(fds_uint16_t _disk_id,
@@ -86,6 +92,7 @@ class DiskScavenger {
     };
 
     Error startScavenge(fds_bool_t verify,
+                        disk_compaction_done_handler_t done_hdlr,
                         fds_uint32_t token_reclaim_threshold = 0);
     void stopScavenge();
 
@@ -133,7 +140,8 @@ class DiskScavenger {
      * Query and update disk stats (available size ,etc)
      * If GC is in progress, this method is noop
      */
-    void updateDiskStats(fds_bool_t verify_data);
+    fds_bool_t updateDiskStats(fds_bool_t verify_data,
+                               disk_compaction_done_handler_t done_hdlr);
 
     fds_bool_t isTokenCompacted(const fds_token_id& tok_id);
 
@@ -188,6 +196,13 @@ class DiskScavenger {
      */
     std::set<fds_token_id> tokenDb;
     fds_token_id next_token;
+
+    /**
+     * callback for disk compaction done method which is set every time
+     * startScavenge() is called. When state is SCAV_STATE_IDLE, this cb
+     * is undefined.
+     */
+    disk_compaction_done_handler_t done_evt_handler;
 
     // keeps copy of SM disk map
     SmDiskMap::const_ptr smDiskMap;
@@ -297,6 +312,11 @@ class ScavControl : public Module {
      */
     void updateDiskStats();
 
+    /**
+     * Callback from DiskScavenger that compaction for a disk is done
+     */
+    void diskCompactionDoneCb(fds_uint16_t diskId, const Error& error);
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();
@@ -321,7 +341,13 @@ class ScavControl : public Module {
     // lock protecting diskScavTbl
     fds_mutex  scav_lock;
 
+    /// configurable parameters
     fds_uint32_t  max_disks_compacting;
+    fds_uint32_t intervalSeconds;
+
+    /// to enable compacting configurable number of disks
+    /// at a time
+    fds_uint16_t nextDiskToCompact;
 
     /**
      *  Timer to query & update disk/token file stats

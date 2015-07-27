@@ -7,7 +7,7 @@
 
 namespace fds { namespace dm {
 
-RequestHelper::RequestHelper(DataMgr& dataManager, dmCatReq *dmRequest)
+RequestHelper::RequestHelper(DataMgr& dataManager, DmRequest *dmRequest)
     : dmRequest(dmRequest),
       _dataManager(dataManager)
 {}
@@ -22,7 +22,7 @@ RequestHelper::~RequestHelper() {
     }
 }
 
-QueueHelper::QueueHelper(DataMgr& dataManager, dmCatReq *dmRequest)
+QueueHelper::QueueHelper(DataMgr& dataManager, DmRequest *dmRequest)
         : dmRequest(dmRequest),
           ioIsMarkedAsDone(false),
           cancelled(false),
@@ -33,14 +33,6 @@ QueueHelper::QueueHelper(DataMgr& dataManager, dmCatReq *dmRequest)
 QueueHelper::~QueueHelper() {
     if (!cancelled) {
         markIoDone();
-        /*
-         * TODO(umesh): ignore this for now, uncomment it later
-        PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
-        PerfTracer::tracePointEnd(dmRequest->opReqLatencyCtx);
-        if (!err.ok()) {
-            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId());
-        }
-         */
         if (!skipImplicitCb) {
             LOGDEBUG << "calling cb for volid: " << dmRequest->volId;
             dmRequest->cb(err, dmRequest);
@@ -63,28 +55,24 @@ Handler::Handler(DataMgr& dataManager)
     : dataManager(dataManager)
 {}
 
-void Handler::handleQueueItem(dmCatReq *dmRequest) {
+void Handler::handleQueueItem(DmRequest *dmRequest) {
 }
 
-void Handler::addToQueue(dmCatReq *dmRequest) {
+void Handler::addToQueue(DmRequest *dmRequest) {
     if (!dataManager.features.isQosEnabled()) {
         LOGWARN << "qos disabled .. not queuing";
         return;
     }
     const VolumeDesc * voldesc = dataManager.getVolumeDesc(dmRequest->getVolId());
+
+    // Start timing the request so that we can track queueing latency.
+    PerfTracer::tracePointBegin(dmRequest->opQoSWaitCtx);
     Error err = dataManager.qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot()
                                                ? voldesc->qosQueueId
                                                : dmRequest->getVolId(),
                                                dmRequest);
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
-        /*
-         * TODO(umesh): ignore this for now, uncomment it later
-        PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
-        if (!err.ok()) {
-            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId());
-        }
-         */
         dmRequest->cb(err, dmRequest);
     } else {
         LOGTRACE << "dmrequest " << dmRequest << " added to queue successfully";

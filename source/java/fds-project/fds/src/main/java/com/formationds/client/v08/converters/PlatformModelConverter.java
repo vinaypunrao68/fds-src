@@ -190,28 +190,31 @@ public class PlatformModelConverter
     return nodeInfo;
   }
 
-  public static com.formationds.protocol.svc.types.ServiceStatus convertToInternalServiceStatus
-  (
-  ServiceState externalServiceState
-  )
+  public static com.formationds.protocol.svc.types.ServiceStatus 
+  	convertToInternalServiceStatus ( ServiceState externalServiceState )
   {
+	  
+	if ( externalServiceState == null ) {
+		externalServiceState = ServiceState.UNREACHABLE;
+	}
+	  
 	// Conversion of model.Service.ServiceStatus to svc.types.ServiceStatus
 	com.formationds.protocol.svc.types.ServiceStatus internalStatus;
 	
 	switch(externalServiceState){
-	case DEGRADED:
-	case LIMITED:
-	case NOT_RUNNING:
-	case ERROR:
-	case UNEXPECTED_EXIT:
-		internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
-		break;
-	case UNREACHABLE:
-		internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
-        break;
-	default: //Running,Initializing,Shutting Down
-        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
-        break;
+		case DEGRADED:
+		case LIMITED:
+		case NOT_RUNNING:
+		case ERROR:
+		case UNEXPECTED_EXIT:
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+			break;
+		case UNREACHABLE:
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
+	        break;
+		default: //Running,Initializing,Shutting Down
+	        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
+	        break;
 	}
 
 	return internalStatus;

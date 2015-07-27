@@ -17,7 +17,7 @@ namespace dm {
 ReloadVolumeHandler::ReloadVolumeHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::ReloadVolumeMsg, handleRequest);
     }
 }
@@ -41,11 +41,10 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     auto dmReq = new DmIoReloadVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(ReloadVolumeHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
     addToQueue(dmReq);
 }
 
-void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
+void ReloadVolumeHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoReloadVolume* typedRequest = static_cast<DmIoReloadVolume*>(dmRequest);
 
@@ -68,7 +67,7 @@ void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void ReloadVolumeHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
-                                        Error const& e, dmCatReq* dmRequest) {
+                                        Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     LOGDEBUG << "Reload volume completed " << e << " " << logString(*asyncHdr);
 

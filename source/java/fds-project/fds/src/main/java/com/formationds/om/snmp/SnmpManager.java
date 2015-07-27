@@ -5,13 +5,13 @@
 package com.formationds.om.snmp;
 
 import com.formationds.commons.model.entity.Event;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author ptinius
@@ -24,10 +24,13 @@ public class SnmpManager
     private static final Logger logger =
         LoggerFactory.getLogger( SnmpManager.class );
 
+    private AtomicBoolean ACTIVE;
+
     /**
      * private constructor
      */
     private SnmpManager( ) {
+        this.ACTIVE = new AtomicBoolean( true );
     }
 
     private static class SnmpManagerHolder {
@@ -66,7 +69,7 @@ public class SnmpManager
 
         if( trap == null ) {
 
-            if( !FdsFeatureToggles.SNMP.isActive() && !logOnce ) {
+            if( !ACTIVE.get() && !logOnce ) {
 
                 logger.info( "SNMP feature is disabled. " +
                              "No Initialization of SNMP components." );
@@ -97,9 +100,8 @@ public class SnmpManager
 
     public void disable( final DisableReason reason ) {
 
-        if( FdsFeatureToggles.SNMP.isActive() ) {
+        if( ACTIVE.compareAndSet( true, false ) ) {
 
-            FdsFeatureToggles.SNMP.state( false );
             switch( reason ) {
 
                 case INITIALIZE_ERROR:
@@ -127,18 +129,21 @@ public class SnmpManager
                     break;
             }
 
-            logger.trace( FdsFeatureToggles.SNMP.name() + " is active? " +
-                              FdsFeatureToggles.SNMP.isActive() );
+            logger.trace( "SNMP is active? " + ACTIVE.toString() );
         }
     }
 
     public void notify( final Event event ) {
 
-        if( FdsFeatureToggles.SNMP.isActive() ) {
+        if( ACTIVE.get() ) {
 
             initialize();
 
-            if( FdsFeatureToggles.SNMP.isActive() ) {
+            /*
+             * the above call may disable SNMP if it cannot
+             * successfully initialize.
+             */
+            if( ACTIVE.get() ) {
 
                 try {
 

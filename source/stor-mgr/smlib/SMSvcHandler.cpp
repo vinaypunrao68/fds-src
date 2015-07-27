@@ -230,7 +230,6 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     bool fault_enabled = false;
-    bool markObjStoreUnavailable = false;
     LOGDEBUG << "Initiate Object Sync";
 
     // first disable GC and Tier Migration. If this SM is also a destination and
@@ -249,11 +248,9 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // tell migration mgr to start object rebalance
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
-    fiu_do_on("mark.object.store.unavailable", markObjStoreUnavailable = true;\
-              LOGNOTIFY << "mark.object.store.unavailable fault point enabled";);
     fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true;\
               LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled";);
-    if (markObjStoreUnavailable || objStorMgr->objectStore->isUnavailable()) {
+    if (objStorMgr->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
         // integrity check
         err = ERR_NODE_NOT_ACTIVE;
@@ -735,7 +732,12 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         return;
     }
 
-    err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
+    // DM sending the Ack to OM  for delete request can not  be timed correctly. we observed that 
+    // SM volume  queues are deleted  as part of the volume delete before expunge is complete. 
+    // hence moved the delete queue to system queue. we will hav to  revisit this
+
+    // err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
+    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, delReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoDeleteObjectReq to StorMgr.  Error: "
                  << err;
@@ -1124,9 +1126,9 @@ SMSvcHandler::NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                SmIoNotifyDLTClose *DLTCloseReq)
 
 {
-    LOGDEBUG << "NotifyDLTCloseCB called with DLTversion="
-             << DLTCloseReq->closeDLTVersion
-             << " with error " << err;
+    LOGNOTIFY << "NotifyDLTCloseCB called with DLTversion="
+              << DLTCloseReq->closeDLTVersion
+              << " with error " << err;
 
     // send response
     asyncHdr->msg_code = err.GetErrno();

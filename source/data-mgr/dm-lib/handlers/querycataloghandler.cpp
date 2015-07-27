@@ -16,7 +16,7 @@ namespace dm {
 QueryCatalogHandler::QueryCatalogHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::QueryCatalogMsg, handleRequest);
     }
 }
@@ -42,12 +42,10 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     auto dmReq = new DmIoQueryCat(message);
     dmReq->cb = BIND_MSG_CALLBACK(QueryCatalogHandler::handleResponse, asyncHdr, message);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
-void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
+void QueryCatalogHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoQueryCat* typedRequest = static_cast<DmIoQueryCat*>(dmRequest);
 
@@ -69,7 +67,7 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void QueryCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::QueryCatalogMsg>& message,
-                                         Error const& e, dmCatReq* dmRequest) {
+                                         Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
