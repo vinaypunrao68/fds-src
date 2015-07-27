@@ -623,6 +623,20 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
 struct ResyncInitialBlobFilterSetRspMsg {
 }
 
+/**
+ * Message from Source DM to Destination DM indicating the last forwarded message
+ * during DM migration.
+ */
+struct CtrlNotifyFinishVolResyncMsg {
+  /** Unique ID of executor on the destination DM */
+  1: i64                volume_id;
+  2: i64                DMT_Version;
+  3: i64                commit_log_seq_num;
+}
+
+struct CtrlNotifyFinishVolResyncRspMsg {
+}
+
 
 /* ------------------------------------------------------------
    Other specified services

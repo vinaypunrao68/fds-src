@@ -4,6 +4,8 @@
 
 #include <net/SvcMgr.h>
 #include <vector>
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <object-store/SmDiskMap.h>
 #include <StorMgr.h>
 #include <MigrationMgr.h>
@@ -105,20 +107,29 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        // already in "in progress" state, but ok if for the same target DLT (if this SM
+        // if in "in progress" state, ok if for the same target DLT (if this SM
         // got request to be a source of the migration, before it started processing
         // startMigration request
+        // if in 'aborted' state, return error, since migration manager is in unknown
+        // state trying to abort the previous migration
         fds_uint32_t migrDltVersion = migrationMsg->DLT_version;
+        Error retError(ERR_OK);
         LOGMIGRATE << "startMigration called in non-idle state " << migrState
                    << " for DLT version " << migrDltVersion
                    << ", DLT version of on-going migration " << targetDltVersion;
-        if (migrDltVersion != targetDltVersion) {
+        if (migrState == MIGR_ABORTED) {
+            LOGWARN << "startMigration called while previous migration aborting";
+            retError = ERR_SM_TOK_MIGRATION_INPROGRESS;
+        } else if (migrDltVersion != targetDltVersion) {
             LOGERROR << "startMigration called while migration for a different target DLT "
                      << targetDltVersion << " is still in progress!";
+            retError = ERR_SM_TOK_MIGRATION_INPROGRESS;
+        }
+        if (!retError.ok()) {
             if (cb) {
-                cb(ERR_SM_TOK_MIGRATION_INPROGRESS);
+                cb(retError);
             }
-            return ERR_SM_TOK_MIGRATION_INPROGRESS;
+            return retError;
         }
     }
     resyncOnRestart = onePhaseMigration;
@@ -611,7 +622,8 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
-    fiu_do_on("sm.exit.before.client.erase", exit(1));
+    fiu_do_on("sm.exit.before.client.erase", LOGNOTIFY << "sm.exit.before.client.erase fault point enabled"; \
+              exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
@@ -1132,6 +1144,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
     LOGMIGRATE << "Will cleanup executors and migr clients";
     // Wait for all pending IOs to complete on Executors.
     coalesceExecutors();
+    LOGMIGRATE << "Done coalescing executors";
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
@@ -1143,6 +1156,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
         coalesceClients();
         migrClients.clear();
     }
+    LOGMIGRATE << "Done coalescing clients";
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
     return err;

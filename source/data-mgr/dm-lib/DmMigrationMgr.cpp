@@ -27,6 +27,10 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 
     maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
                 get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
+
+    deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+			  get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
+
 }
 
 
@@ -68,7 +72,8 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 														        std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
 														                  this,
                                                                           std::placeholders::_1,
-														                  std::placeholders::_2))));
+														                  std::placeholders::_2),
+                                                                deltaBlobTimeout)));
 	}
 	return err;
 }
@@ -87,7 +92,7 @@ DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 }
 
 Error
-DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 {
 	Error err(ERR_OK);
 
@@ -127,7 +132,8 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
          ++vmg) {
 
 		for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
-				vdt != vmg->VolDescriptors.end(); ++vdt) {
+			 vdt != vmg->VolDescriptors.end();
+             ++vdt) {
 			/**
 			 * If this is the last executor to be fired, anything from this point on should
 			 * have the autoIncrement flag set.
@@ -196,9 +202,10 @@ DmMigrationMgr::startMigrationExecutor(dmCatReq* dmRequest)
 Error
 DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(deltaBlobDescReq->io_vol_id);
+    DmMigrationExecutor::shared_ptr executor =
+    		getMigrationExecutor(fds_volid_t(deltaBlobDescMsg->volume_id));
     if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << deltaBlobDescReq->io_vol_id;
+    	LOGERROR << "Unable to find executor for volume " << deltaBlobDescMsg->volume_id;
         // this is an race cond error that needs to be fixed in dev env.
         // Only panic in debug build.
     	fds_assert(0);
@@ -211,19 +218,22 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
 // process the deltaObject request
 Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
+	Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(deltaBlobReq->io_vol_id);
+    DmMigrationExecutor::shared_ptr executor =
+    		getMigrationExecutor(fds_volid_t(deltaBlobsMsg->volume_id));
     if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << deltaBlobReq->io_vol_id;
+    	LOGERROR << "Unable to find executor for volume " << deltaBlobsMsg->volume_id;
         // this is an race cond error that needs to be fixed in dev env.
         // Only panic in debug build.
     	fds_assert(0);
     	return ERR_NOT_FOUND;
     }
-    executor->processDeltaBlobs(deltaBlobsMsg);
+    err = executor->processDeltaBlobs(deltaBlobsMsg);
 
-    return ERR_OK;
+    return err;
 }
+
 
 void
 DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
@@ -242,7 +252,7 @@ DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
 
 // See note in header file for design decisions
 Error
-DmMigrationMgr::startMigrationClient(dmCatReq* dmRequest)
+DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 {
 	Error err(ERR_OK);
 	NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
@@ -340,6 +350,10 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 	DmMigrationExecMap::iterator mapIter = executorMap.find(volId);
 	fds_verify(mapIter != executorMap.end());
 
+    LOGMIGRATE << "Migration Executor complete for volume="
+               << std::hex << volId << std::dec
+               << " with error=" << result;
+
 	/**
 	 * TODO(Neil): error handling
 	 */
@@ -379,4 +393,22 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 	clientMap.erase(fds_volid_t(uniqueId));
 }
 
+Error
+DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq)
+{
+	fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg =
+			finishVolResyncReq->finishVolResyncMsg;
+    DmMigrationExecutor::shared_ptr executor =
+    		getMigrationExecutor(fds_volid_t(finishVolResyncMsg->volume_id));
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << finishVolResyncMsg->volume_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+    	fds_assert(0);
+    	return ERR_NOT_FOUND;
+    }
+    executor->processLastFwdCommitLog(finishVolResyncMsg);
+
+	return ERR_OK;
+}
 }  // namespace fds

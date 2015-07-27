@@ -8,14 +8,11 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.util.thrift.ThriftClientFactory;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
-
-import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -34,7 +31,8 @@ import static org.junit.Assert.*;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
-    //@Test
+    @Test
+    @Ignore
     public void testParallelCreate() throws Exception {
         IntStream.range(0, 10)
                 .parallel()
@@ -42,7 +40,6 @@ public class AsyncAmTest extends BaseAmTest {
                     try {
                         asyncAm.updateBlobOnce(domainName, volumeName, Integer.toString(i),
                                 1, ByteBuffer.allocate(100), 100, new ObjectOffset(1), new HashMap<>()).get();
-                        System.out.println("Created " + i);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -53,13 +50,32 @@ public class AsyncAmTest extends BaseAmTest {
                 .parallel()
                 .map(i -> {
                     try {
-                        System.out.println("Reading " + i);
                         BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, Integer.toString(i)).get();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                     return 0;
                 }).sum();
+    }
+
+    @Test
+    public void testOutOfOrderWrites() throws Exception {
+        Random random = new Random();
+        byte[] halfObject = new byte[OBJECT_SIZE / 2];
+        byte[] fullObject = new byte[OBJECT_SIZE];
+        random.nextBytes(halfObject);
+        random.nextBytes(fullObject);
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, ByteBuffer.wrap(halfObject), OBJECT_SIZE / 2, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, ByteBuffer.wrap(halfObject), OBJECT_SIZE / 2, new ObjectOffset(1), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.wrap(fullObject), OBJECT_SIZE, new ObjectOffset(1), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.wrap(fullObject), OBJECT_SIZE, new ObjectOffset(0), new HashMap<>()).get();
+        for (int i = 0; i < 100; i++) {
+            ByteBuffer byteBuffer = asyncAm.getBlob(domainName, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(0)).get();
+            assertEquals(OBJECT_SIZE, byteBuffer.remaining());
+            byte[] readBuf = new byte[OBJECT_SIZE];
+            byteBuffer.get(readBuf);
+            assertArrayEquals(fullObject, readBuf);
+        }
     }
 
     @Test
@@ -97,7 +113,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(84, (long) blobDescriptor.getByteCount());
     }
 
-    @Test //done 7
+    @Test
     public void testVolumeContents() throws Exception {
         List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(0, contents.size());
@@ -108,7 +124,28 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, contents.size());
     }
 
-    @Test //done 3
+    @Test
+    public void testVolumeContentsFilter() throws Exception {
+        asyncAm.updateBlobOnce(domainName, volumeName, "/", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        String filter = "^/[^/]+$";
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, filter, BlobListOrder.UNSPECIFIED, false).get();
+        assertEquals(1, descriptors.size());
+    }
+
+    @Test
+    @Ignore
+    public void testListVolumeContents() throws Exception {
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, "panda", Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+        for (BlobDescriptor descriptor : descriptors) {
+            System.out.println(descriptor.getName());
+        }
+    }
+
+    @Test
     public void testDeleteBlob() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -146,7 +183,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, blobDescriptor.getMetadataSize());
     }
 
-    @Test //done 1
+    @Test
     public void testTransactions() throws Exception {
     	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
@@ -158,7 +195,7 @@ public class AsyncAmTest extends BaseAmTest {
                 .get();
     }
 
-    @Test //done 5
+    @Test
     public void testTransactionalMetadataUpdate() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -176,7 +213,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(smallObjectLength, bd2.getByteCount());
     }
 
-    @Test //done 2
+    @Test
     public void testMultipleAsyncUpdates() throws Exception {
         String blobName = UUID.randomUUID().toString();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), Maps.newHashMap()).get();
@@ -212,7 +249,8 @@ public class AsyncAmTest extends BaseAmTest {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.statBlob(domainName, volumeName, blobName).get());
     }
-    @Test //done 4
+
+    @Test
     public void testStatAndUpdateBlobData() throws ExecutionException, InterruptedException {
         String blobName = "key";
         byte[] buf = new byte[10];
@@ -238,7 +276,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
     }
 
-    @Test //done 8
+    @Test
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,"nonExistingVolume",Integer.MAX_VALUE,0,"",BlobListOrder.LEXICOGRAPHIC,false).get());

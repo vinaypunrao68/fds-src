@@ -97,6 +97,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
             };
 
             $scope.setValue = function(){
+                
                 var pxPerStep = getPxPerStep();
                 if ( isNaN( pxPerStep ) || pxPerStep === 0 ){
                     return;

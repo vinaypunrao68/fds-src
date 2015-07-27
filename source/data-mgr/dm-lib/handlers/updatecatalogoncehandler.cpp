@@ -9,7 +9,6 @@
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <DmIoReq.h>
-#include <PerfTrace.h>
 
 namespace fds {
 namespace dm {
@@ -17,7 +16,7 @@ namespace dm {
 UpdateCatalogOnceHandler::UpdateCatalogOnceHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, handleRequest);
     }
 }
@@ -51,19 +50,17 @@ void UpdateCatalogOnceHandler::handleRequest(
                                                       message->sequence_id);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
-    PerfTracer::tracePointBegin(dmCommitBlobOnceReq->opReqLatencyCtx);
 
     // allocate a new query cat log  class  and  queue  to per volume queue.
     auto dmUpdCatReq = new DmIoUpdateCatOnce(message, dmCommitBlobOnceReq);
     dmUpdCatReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleResponse, asyncHdr, message);
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
-    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
 
     addToQueue(dmUpdCatReq);
 }
 
-void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
+void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
     DmIoUpdateCatOnce* typedRequest = static_cast<DmIoUpdateCatOnce*>(dmRequest);
 
@@ -111,7 +108,6 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
     // Commit the metadata updates
     // The commit callback we pass in will actually call the
     // final service callback
-    PerfTracer::tracePointBegin(typedRequest->commitBlobReq->opLatencyCtx);
     helper.err = dataManager.timeVolCat_->commitBlobTx(
             typedRequest->volId, typedRequest->blob_name, typedRequest->ioBlobTxDesc,
             typedRequest->updcatMsg->sequence_id,
@@ -137,7 +133,7 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
 }
 
 void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
-        boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, Error const& e, dmCatReq* dmRequest) {
+        boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, Error const& e, DmRequest* dmRequest) {
     DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
@@ -146,7 +142,7 @@ void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
 
 void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr));
 

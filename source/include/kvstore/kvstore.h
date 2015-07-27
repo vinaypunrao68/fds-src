@@ -20,13 +20,13 @@ namespace fds {
         struct KVStore {
             KVStore(const std::string& host = "localhost",
                     uint port = 6379,
-                    uint poolsize = 10);
+                    uint poolsize = 5);
             virtual ~KVStore();
             bool isConnected();
             bool set(const std::string& key, const std::string& value);
             std::string get(const std::string& key);
           protected:
-            redis::Redis r;
+            redis::Redis kv_store;
         };
 
     }  // namespace kvstore //NOLINT ??

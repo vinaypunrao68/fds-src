@@ -22,7 +22,7 @@ namespace dm {
 CommitBlobTxHandler::CommitBlobTxHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CommitBlobTxMsg, handleRequest);
     }
 }
@@ -55,12 +55,10 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
-void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
+void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
@@ -176,7 +174,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
 void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
-                                         Error const& e, dmCatReq* dmRequest) {
+                                         Error const& e, DmRequest* dmRequest) {
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
 

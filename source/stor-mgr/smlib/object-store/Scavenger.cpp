@@ -6,6 +6,7 @@
 #include <set>
 #include <vector>
 #include <string>
+#include <fds_process.h>
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <object-store/TokenCompactor.h>
@@ -26,6 +27,8 @@ ScavControl::ScavControl(const std::string &modName,
         : Module(modName.c_str()),
           scav_lock("Scav Lock"),
           max_disks_compacting(DEFAULT_MAX_DISKS_COMPACTING),
+          nextDiskToCompact(SM_INVALID_DISK_ID),
+          intervalSeconds(SCAV_TIMER_SECONDS),
           dataStoreReqHandler(data_store),
           persistStoreGcHandler(persist_store),
           noPersistScavStats(false),
@@ -52,6 +55,13 @@ ScavControl::~ScavControl() {
 
 int
 ScavControl::mod_init(SysParams const *const param) {
+    max_disks_compacting = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.max_disks_compact",
+                                                                         DEFAULT_MAX_DISKS_COMPACTING);
+    intervalSeconds = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.interval_seconds",
+                                                                    SCAV_TIMER_SECONDS);
+
+    LOGDEBUG << "Scavenger will be compacting at most " << max_disks_compacting
+             << " disks at a time; scavenger interval " << intervalSeconds << " seconds";
     Module::mod_init(param);
     return 0;
 }
@@ -66,15 +76,34 @@ ScavControl::mod_shutdown() {
 
 void ScavControl::updateDiskStats()
 {
+    fds_uint32_t count = 0;
     LOGNORMAL << "Updating disk stats";
     fds_mutex::scoped_lock l(scav_lock);
+    // start first max_disks_compacting disk scavengers
+    if (nextDiskToCompact != SM_INVALID_DISK_ID) {
+        LOGWARN << "Looks like GC is already in progress.. not going to start GC ";
+        return;
+    }
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
         DiskScavenger *diskScav = cit->second;
-        if (diskScav != NULL) {
-            diskScav->updateDiskStats(verifyData);
+        if (count >= max_disks_compacting) {
+            nextDiskToCompact = diskScav->diskId();
+            ++count;  // so that we can check if we updated next disk ID
+            break;
         }
+        if (diskScav != nullptr) {
+            fds_bool_t started = diskScav->updateDiskStats(verifyData, std::bind(
+                &ScavControl::diskCompactionDoneCb, this,
+                std::placeholders::_1, std::placeholders::_2));
+            if (started) {
+                ++count;
+            }
+        }
+    }
+    if (count <= max_disks_compacting) {
+        nextDiskToCompact = SM_INVALID_DISK_ID;
     }
 }
 
@@ -167,7 +196,7 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
 
     // start timer to update disk stats
     if (!scav_timer->scheduleRepeated(scav_timer_task,
-                                      std::chrono::seconds(SCAV_TIMER_SECONDS))) {
+                                      std::chrono::seconds(intervalSeconds))) {
         LOGWARN << "Failed to schedule timer for updating disks stats! "
                 << " will not run automatic GC, only manual";
         return ERR_SM_AUTO_GC_FAILED;
@@ -228,13 +257,32 @@ void ScavControl::startScavengeProcess()
 
     LOGNORMAL << "Starting Scavenger cycle";
     fds_mutex::scoped_lock l(scav_lock);
+    // start first max_disks_compacting disk scavengers
+    fds_uint32_t count = 0;
+    if (nextDiskToCompact != SM_INVALID_DISK_ID) {
+        LOGWARN << "Looks like GC is already in progress.. not going to start GC ";
+        return;
+    }
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
         DiskScavenger *diskScav = cit->second;
-        if (diskScav != NULL) {
-            diskScav->startScavenge(verifyData);
+        if (count >= max_disks_compacting) {
+            nextDiskToCompact = diskScav->diskId();
+            ++count;  // so that we can check if we updated next disk ID
+            break;
         }
+        if (diskScav != NULL) {
+            Error err = diskScav->startScavenge(verifyData, std::bind(
+                &ScavControl::diskCompactionDoneCb, this,
+                std::placeholders::_1, std::placeholders::_2));
+            if (err.ok()) {
+                ++count;
+            }
+        }
+    }
+    if (count <= max_disks_compacting) {
+        nextDiskToCompact = SM_INVALID_DISK_ID;
     }
 }
 
@@ -256,6 +304,43 @@ void ScavControl::stopScavengeProcess()
         if (diskScav != NULL) {
             diskScav->stopScavenge();
         }
+    }
+}
+
+void
+ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
+    fds_mutex::scoped_lock l(scav_lock);
+    if (nextDiskToCompact == SM_INVALID_DISK_ID) {
+        LOGDEBUG << "No more disks to compact";
+        return;
+    }
+    DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+    // find disk scavenger that is reponsible for disk ID nextDiskToCompact
+    while ((cit != diskScavTbl.cend()) && ((cit->second)->diskId() != nextDiskToCompact)) {
+        ++cit;
+    }
+    Error err(ERR_NOT_FOUND);
+    while (cit != diskScavTbl.cend()) {
+        DiskScavenger *diskScav = cit->second;
+        if (diskScav) {
+            err = diskScav->startScavenge(verifyData, std::bind(
+                &ScavControl::diskCompactionDoneCb, this,
+                std::placeholders::_1, std::placeholders::_2));
+        }
+        ++cit;
+        if (err.ok()) {
+            // started compaction of the next disk
+            if (cit != diskScavTbl.cend()) {
+                nextDiskToCompact = (cit->second)->diskId();
+            } else {
+                err = ERR_NOT_FOUND;
+            }
+            break;
+        }
+    }
+    if (!err.ok()) {
+        // did not find next scavenger to start
+        nextDiskToCompact = SM_INVALID_DISK_ID;
     }
 }
 
@@ -413,6 +498,7 @@ DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
           disk_scav_lock("Disk-Scav Lock"),
           smDiskMap(diskMap),
           persistStoreGcHandler(persist_store),
+          done_evt_handler(nullptr),
           tier(_tier),
           noPersistScavStats(noPersistStateScavStats),
           scav_policy()  // default policy
@@ -471,7 +557,8 @@ DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
     return err;
 }
 
-void DiskScavenger::updateDiskStats(fds_bool_t verify_data) {
+fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
+                                          disk_compaction_done_handler_t done_hdlr) {
     Error err(ERR_OK);
     DiskStat disk_stat;
     double tot_size;
@@ -486,7 +573,8 @@ void DiskScavenger::updateDiskStats(fds_bool_t verify_data) {
     // In this case, we are going to start compaction process for this
     // disk without checking stats
     if (noPersistScavStats) {
-        startScavenge(verifyData, token_reclaim_threshold);
+        err = startScavenge(verifyData, done_hdlr, token_reclaim_threshold);
+        return err.ok();
     }
 
     err = getDiskStats(&disk_stat);
@@ -510,8 +598,11 @@ void DiskScavenger::updateDiskStats(fds_bool_t verify_data) {
         }
 
         // start token compaction process
-        startScavenge(verifyData, token_reclaim_threshold);
+        err = startScavenge(verifyData, done_hdlr, token_reclaim_threshold);
+        return err.ok();
     }
+
+    return false;
 }
 
 fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
@@ -589,6 +680,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
 }
 
 Error DiskScavenger::startScavenge(fds_bool_t verify,
+                                   disk_compaction_done_handler_t done_hdlr,
                                    fds_uint32_t token_reclaim_threshold) {
     Error err(ERR_OK);
     fds_uint32_t i = 0;
@@ -601,13 +693,14 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
 
     // type of work we are going to do
     verifyData = verify;
+    done_evt_handler = done_hdlr;
 
     // get list of tokens for this tier/disk from persistent layer
     findTokensToCompact(token_reclaim_threshold);
     if (tokenDb.size() == 0) {
         LOGNORMAL << "No tokens to compact on disk " << disk_id << " tier " << tier;
         std::atomic_exchange(&state, SCAV_STATE_IDLE);
-        return err;
+        return ERR_NOT_FOUND;
      }
 
     LOGNORMAL << "Scavenger process started for disk_id " << disk_id << " tier "
@@ -713,6 +806,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
         ScavState expectState = SCAV_STATE_INPROG;
         if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
             LOGNORMAL << "Scavenger process finished for disk_id " << disk_id;
+            if (done_evt_handler) {
+                done_evt_handler(disk_id, Error(ERR_OK));
+            }
+            done_evt_handler = nullptr;
         } else {
             expectState = SCAV_STATE_STOPPING;
             if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {

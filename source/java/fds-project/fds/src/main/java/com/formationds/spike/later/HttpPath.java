@@ -51,6 +51,11 @@ public class HttpPath {
         return this;
     }
 
+    public HttpPath withPredicate(Predicate<HttpContext> predicate) {
+        predicates.add(predicate);
+        return this;
+    }
+
 
     public MatchResult matches(HttpContext context) {
         if (predicates.size() == 0 && method == null && pathTemplate == null) {
@@ -87,11 +92,6 @@ public class HttpPath {
     }
 
     private static final MatchResult failedMatch = new MatchResult(false, null);
-
-    public HttpPath withPredicate(Predicate<HttpContext> predicate) {
-        predicates.add(predicate);
-        return this;
-    }
 
     public static class MatchResult {
         private boolean isMatch;

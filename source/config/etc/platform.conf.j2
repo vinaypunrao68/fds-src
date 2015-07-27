@@ -253,6 +253,9 @@ fds: {
             /* Maximum number of blobs in delta set */
             migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
 
+            /* Timeout value (secs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
+            migration_max_delta_blobs_to = {{ dm_migration_max_delta_blobs_to }}
+
             /* Maximum number of blob desc in delta set */
             migration_max_delta_blob_desc = {{ dm_migration_max_delta_blob_desc }}
         }
@@ -442,6 +445,13 @@ fds: {
                 frequency         = {{ sm_tiering_hybrid_frequency }}
             }
         }
+        /* Garbage Collection in SM */
+        scavenger: {
+             /* Maximum number of disks to compact at the same time */
+             max_disks_compact = {{ sm_scavenger_max_disks_compact }}
+             /* Time interval where GC periodically checks whether to GC or not */
+             interval_seconds = {{ sm_scavenger_interval_seconds }}
+        }
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
@@ -511,6 +521,7 @@ fds: {
         connector: {
             nbd: {
                 server_port_offset=3809
+		threads=1
                 options: {
                     /* Time (seconds) to retry connection to client before disconnect */
                     keep_alive=30

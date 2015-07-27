@@ -17,7 +17,7 @@ namespace dm {
 GetVolumeMetadataHandler::GetVolumeMetadataHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetVolumeMetadataMsg, handleRequest);
     }
 }
@@ -52,7 +52,7 @@ void GetVolumeMetadataHandler::handleRequest(
     addToQueue(dmReq);
 }
 
-void GetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
+void GetVolumeMetadataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoGetVolumeMetadata* typedRequest = static_cast<DmIoGetVolumeMetadata*>(dmRequest);
 
@@ -64,7 +64,7 @@ void GetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void GetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp>& message,
-                                              Error const& e, dmCatReq* dmRequest) {
+                                              Error const& e, DmRequest* dmRequest) {
     LOGTRACE << "Finished get metadata for volume " << dmRequest->volId;
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 

@@ -35,6 +35,16 @@ extern "C" {
         }                                                               \
     } while (false)
 
+#define TVC_CHECK_AVAILABILITY()                                       \
+    TimeVolumeCatalogState curState = currentState.load();             \
+    if (curState == TVC_UNAVAILABLE) {                                 \
+        LOGERROR << "TVC in UNAVAILABLE state. ";                      \
+        return ERR_NODE_NOT_ACTIVE;                                    \
+    } else if (curState == TVC_INIT) {                                 \
+        LOGERROR << "TVC is coming up, but not ready to accept IO";    \
+        return ERR_NOT_READY;                                          \
+    }                                                                  \
+
 namespace fds {
 
 void
@@ -46,6 +56,7 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name,
                                    DataMgr& dataManager)
         : Module(name.c_str()),
           dataManager_(dataManager),
+          currentState(TVC_INIT),
           opSynchronizer_(tp),
           config_helper_(g_fdsprocess->get_conf_helper()),
           tp_(tp) {
@@ -87,6 +98,11 @@ DmTimeVolCatalog::mod_init(SysParams const *const p) {
  */
 void
 DmTimeVolCatalog::mod_startup() {
+    // for now setting TVC state to 'ready' without any checks
+    // TODO(Anna) FS-2402 check if mount point is available and
+    // there is enough disk state; only then set state to 'ready'
+    LOGDEBUG << "TVC state -> READY";
+    currentState = TVC_READY;
 }
 
 /**
@@ -94,6 +110,12 @@ DmTimeVolCatalog::mod_startup() {
  */
 void
 DmTimeVolCatalog::mod_shutdown() {
+}
+
+void
+DmTimeVolCatalog::setUnavailable() {
+    LOGDEBUG << "Setting TVC state to UNAVAILABLE. This will reject future write IO";
+    currentState = TVC_UNAVAILABLE;
 }
 
 void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
@@ -314,10 +336,20 @@ DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
 }
 
 Error
+DmTimeVolCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(volId, commitLog);
+    auto unique_lock = commitLog->getDrainedCommitLock();
+    return volcat->getVolumeSnapshot(volId, snap);
+}
+
+
+Error
 DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
                               const std::string &blobName,
                               const fds_int32_t blobMode,
                               BlobTxId::const_ptr txDesc) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Starting transaction " << *txDesc << " for blob " << blobName <<
             " volume " << std::hex << volId << std::dec << " blob mode " << blobMode;
     DmCommitLog::ptr commitLog;
@@ -329,6 +361,7 @@ Error
 DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
                                BlobTxId::const_ptr txDesc,
                                const fpi::FDSP_BlobObjectList &objList) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Updating offsets for transaction " << *txDesc
              << " volume " << std::hex << volId << std::dec;
     DmCommitLog::ptr commitLog;
@@ -345,6 +378,7 @@ Error
 DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
                                BlobTxId::const_ptr txDesc,
                                const fpi::FDSP_MetaDataList &metaList) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Updating metadata for transaction " << *txDesc
              << " volume " << std::hex << volId << std::dec;
 
@@ -358,6 +392,7 @@ Error
 DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
                              BlobTxId::const_ptr txDesc,
                              blob_version_t blob_version) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Deleting Blob for transaction " << *txDesc << ", volume " <<
             std::hex << volId << std::dec << " version " << blob_version;
 
@@ -372,6 +407,7 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
                                BlobTxId::const_ptr txDesc,
                                const sequence_id_t seq_id,
                                const DmTimeVolCatalog::CommitCb &cb) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Will commit transaction " << *txDesc << " for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
     DmCommitLog::ptr commitLog;
@@ -392,6 +428,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
                                          const fpi::FDSP_MetaDataList &metaList,
                                          const sequence_id_t seq_id,
                                          const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Will apply committed blob update from another DM for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
 
@@ -419,30 +456,40 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     if (e.ok()) {
         BlobMetaDesc desc;
 
-	e = volcat->getBlobMetaDesc(volid, blobName, desc);
+        e = volcat->getBlobMetaDesc(volid, blobName, desc);
 
-	// If error code is not OK, no blob to collide with. If given blob's name doesn't
-	// doesn't match the existing blob metadata, there is a UUID collision. The
-	// resolution is to try again with a different blob name (e.g. append a character)
+        // If error code is not OK, no blob to collide with. If given blob's name doesn't
+        // doesn't match the existing blob metadata, there is a UUID collision. The
+        // resolution is to try again with a different blob name (e.g. append a character)
 
-	// Collision check is done here to piggyback on the synchronization. The
-	// goal is to avoid 2 new, colliding blobs from both passing this check
-	// due to a data race.
-	if (e.ok() && desc.desc.blob_name != blobName){
-	    LOGERROR << "Blob Id collision for new blob " << blobName << " on volume "
-		     << std::hex << volid << std::dec << " with existing blob "
-		     << desc.desc.blob_name;
+        // Collision check is done here to piggyback on the synchronization. The
+        // goal is to avoid 2 new, colliding blobs from both passing this check
+        // due to a data race.
+        if (e.ok() && desc.desc.blob_name != blobName){
+            LOGERROR << "Blob Id collision for new blob " << blobName << " on volume "
+                 << std::hex << volid << std::dec << " with existing blob "
+                 << desc.desc.blob_name;
 
-	    e = Error(ERR_HASH_COLLISION);
-	} else {
-	    e = doCommitBlob(volid, blob_version, seq_id, commit_data);
-	}
+            e = Error(ERR_HASH_COLLISION);
+        } else {
+            e = doCommitBlob(volid, blob_version, seq_id, commit_data);
+        }
     }
-    cb(e,
-       blob_version,
-       commit_data->blobObjList,
-       commit_data->metaDataList,
-       commit_data->blobSize);
+    
+    if (commit_data != nullptr) {
+        cb(e,
+           blob_version,
+           commit_data->blobObjList,
+           commit_data->metaDataList,
+           commit_data->blobSize);
+    } else {
+        fds_verify(!e.OK());
+        cb(e,
+           blob_version,
+           nullptr,
+           nullptr,
+           0);
+    }
 }
 
 Error

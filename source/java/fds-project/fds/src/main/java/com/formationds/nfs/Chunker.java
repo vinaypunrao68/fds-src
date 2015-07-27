@@ -1,57 +1,60 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
+import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
 
 public class Chunker {
-    private ChunkIo io;
+    private static final Logger LOG = Logger.getLogger(Chunker.class);
 
     public Chunker(ChunkIo io) {
         this.io = io;
     }
 
-    public synchronized void write(NfsEntry entry, int objectSize, byte[] bytes, long offset, int length) throws Exception {
+    private ChunkIo io;
+
+    public void write(NfsEntry entry, int objectSize, byte[] bytes, long offset, int length, long blobSize) throws Exception {
+        LOG.debug("Chunker write() " + entry.path() + ", objectSize=" + objectSize + ", bytes=" + bytes.length + ", offset=" + offset + ", length=" + length + ", blobSize=" + blobSize);
+
         length = Math.min(bytes.length, length);
         if (length == 0) {
             return;
         }
 
-        long totalObjects = (long) Math.ceil((double) (length + (offset % objectSize)) / (double) objectSize);
         long startObject = Math.floorDiv(offset, objectSize);
         int startOffset = (int) (offset % objectSize);
-        int writtenSoFar = 0;
+        int remaining = length;
 
-        for (long i = 0; i < totalObjects; i++) {
-            int toBeWritten = Math.min(length, (objectSize - startOffset));
-            if (toBeWritten == 0) {
-                return;
-            }
-            ByteBuffer newChunk = null;
-            // No need to read the existing object if we're writing an entire one
-            if (toBeWritten == objectSize && startOffset == 0) {
-                newChunk = ByteBuffer.allocate(objectSize);
+        for (long i = startObject; remaining > 0; i++) {
+            boolean isEndOfBlob = offset + length == blobSize && (remaining + startOffset <= objectSize);
+            int toBeWritten = 0;
+            if (isEndOfBlob) {
+                toBeWritten = remaining;
             } else {
-                try {
-                    ByteBuffer existing = io.read(entry.path(), objectSize, new ObjectOffset(startObject + i));
-                    newChunk = ByteBuffer.allocate(Math.max(existing.remaining(), startOffset + toBeWritten));
-                    newChunk.put(existing);
-                    newChunk.position(0);
+                toBeWritten = Math.min(objectSize - startOffset, remaining);
+            }
+            ByteBuffer writeBuf = ByteBuffer.allocate(objectSize);
+            try {
+                ByteBuffer readBuf = io.read(entry.path(), objectSize, new ObjectOffset(i));
+                writeBuf.put(readBuf);
+                writeBuf.position(0);
+            } catch (FileNotFoundException e) {
 
-                } catch (FileNotFoundException e) {
-                    newChunk = ByteBuffer.allocate(startOffset + toBeWritten);
-                }
             }
 
-            newChunk.position(startOffset);
-            newChunk.put(bytes, writtenSoFar, toBeWritten);
-            newChunk.position(0);
-            //newChunk.limit(startOffset + toBeWritten);
-            io.write(entry, objectSize, new ObjectOffset(startObject + i), newChunk);
+            writeBuf.position(startOffset);
+            writeBuf.put(bytes, length - remaining, toBeWritten);
+            writeBuf.position(0);
+
+            if (isEndOfBlob) {
+                writeBuf.limit(startOffset + toBeWritten);
+            }
+
+            io.write(entry, objectSize, new ObjectOffset(i), writeBuf, isEndOfBlob);
             startOffset = 0;
-            length -= toBeWritten;
-            writtenSoFar += toBeWritten;
+            remaining -= toBeWritten;
         }
     }
 
@@ -66,7 +69,7 @@ public class Chunker {
         int startOffset = (int) (offset % objectSize);
         int readSoFar = 0;
         ByteBuffer output = ByteBuffer.wrap(destination);
-        
+
         for (long i = 0; i < totalObjects; i++) {
             ByteBuffer buf = null;
             try {
@@ -91,9 +94,21 @@ public class Chunker {
         return readSoFar;
     }
 
+    public void move(NfsEntry source, NfsEntry destination, int objectSize, long blobSize) throws Exception {
+        long remaining = blobSize;
+        LOG.debug("Chunker: moving " + source.path() + " to " + destination.path());
+        for (long i = 0; remaining > 0; i++) {
+            boolean isEndOfBlob = remaining < objectSize;
+            ByteBuffer buf = io.read(source.path(), objectSize, new ObjectOffset(i));
+            LOG.debug("Buf: " + buf.remaining() + " bytes, blobSize=" + blobSize + ", isEndOfBlob=" + isEndOfBlob);
+            io.write(destination, objectSize, new ObjectOffset(i), buf, isEndOfBlob);
+            remaining -= objectSize;
+        }
+    }
+
     public interface ChunkIo {
         public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception;
 
-        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer) throws Exception;
+        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob) throws Exception;
     }
 }

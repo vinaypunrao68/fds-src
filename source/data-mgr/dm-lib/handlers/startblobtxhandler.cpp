@@ -17,7 +17,7 @@ namespace dm {
 StartBlobTxHandler::StartBlobTxHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::StartBlobTxMsg, handleRequest);
     }
 }
@@ -54,12 +54,10 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     dmReq->cb = BIND_MSG_CALLBACK(StartBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
-void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
+void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoStartBlobTx* typedRequest = static_cast<DmIoStartBlobTx*>(dmRequest);
 
@@ -90,7 +88,7 @@ void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void StartBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::StartBlobTxMsg>& message,
-                                        Error const& e, dmCatReq* dmRequest) {
+                                        Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     LOGDEBUG << "startBlobTx completed " << e << " " << logString(*asyncHdr);
 

@@ -117,7 +117,7 @@ DataPlacement::computeDlt() {
                      true);
     err = placeAlgo->computeNewDlt(curClusterMap,
                                    commitedDlt,
-                                   newDlt, 0);
+                                   newDlt, getNumOfPrimarySMs());
 
     // Compute DLT's reverse node to token map
     if (err.ok()) {
@@ -181,6 +181,7 @@ DataPlacement::beginRebalance() {
     // find all SMs that will either get a new responsibility for a DLT token
     // or need resync because an SM became a primary
     NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
     // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
     std::unordered_map<fds_uint64_t, fpi::CtrlNotifySMStartMigrationPtr> startMigrMsgs;
     for (fds_token_id tokId = 0; tokId < newDlt->getNumTokens(); ++tokId) {
@@ -199,6 +200,10 @@ DataPlacement::beginRebalance() {
 
         // exclude SMs that were removed
         for (auto sm : rmSMs) {
+            srcCandidates.erase(sm);
+        }
+        // exclude SMs that failed
+        for (auto sm : failedSMs) {
             srcCandidates.erase(sm);
         }
 
@@ -531,16 +536,17 @@ DataPlacement::mod_init(SysParams const *const param) {
                 << "config file, will use Consistent Hashing algorith";
     }
 
-    LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
-              << ", dlt depth " << curDltDepth
-              << ", algorithm " << algo_type_str;
-
     setAlgorithm(type);
 
     curClusterMap = OM_Module::om_singleton()->om_clusmap_mod();
 
     numOfPrimarySMs = MODULEPROVIDER()->get_fds_config()->
             get<int>("fds.sm.number_of_primary");
+
+    LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
+              << ", dlt depth " << curDltDepth
+              << ", algorithm " << algo_type_str
+              <<", number of primary SMs" << numOfPrimarySMs;
 
     return 0;
 }

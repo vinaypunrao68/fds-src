@@ -14,6 +14,7 @@ from model.volume.settings.block_settings import BlockSettings
 from model.common.size import Size
 from model.volume.settings.object_settings import ObjectSettings
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -27,18 +28,20 @@ class VolumePlugin( AbstractPlugin):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)
+    def __init__(self):
+        AbstractPlugin.__init__(self)
     
     def build_parser(self, parentParser, session):
         '''
         @see: AbstractPlugin
         '''         
         
-        if not self.session.is_allowed( "VOL_MGMT" ):
+        self.session = session
+        
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
             return
         
-        self.__volume_service = volume_service.VolumeService( session )
+        self.__volume_service = volume_service.VolumeService( self.session )
         
         self.__parser = parentParser.add_parser( "volume", help="All volume management operations" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
@@ -298,12 +301,12 @@ class VolumePlugin( AbstractPlugin):
                     print "The argument " + AbstractPlugin.max_obj_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.block_size_str + " instead."
                     return
                 
-                block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
-                
-                if block_size.get_bytes() < (4*1024) or block_size.get_bytes() > (8*pow(1024,2)):
-                    print "Warning: The block size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 128KB)"
-                
                 if args[AbstractPlugin.block_size_str] is not None:
+                    block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
+                    
+                    if block_size.get_bytes() < (4*1024) or block_size.get_bytes() > (8*pow(1024,2)):
+                        print "Warning: The block size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 128KB)"
+                
                     volume.settings.block_size = block_size
             else:
                 volume.settings = ObjectSettings()
@@ -311,13 +314,13 @@ class VolumePlugin( AbstractPlugin):
                 if args[AbstractPlugin.block_size_str] is not None:
                     print "The argument " + AbstractPlugin.block_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.max_obj_size_str + " instead."
                     return
-                
-                obj_size = Size( size=args[AbstractPlugin.max_obj_size_str], unit=args[AbstractPlugin.max_obj_size_unit_str])
-                
-                if obj_size.get_bytes() < (4*1024) or obj_size.get_bytes() > (8*pow(1024,2)):
-                    print "Warning: The maximum object size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 2MB)"
-                
+
                 if args[AbstractPlugin.max_obj_size_str] is not None:
+                    obj_size = Size( size=args[AbstractPlugin.max_obj_size_str], unit=args[AbstractPlugin.max_obj_size_unit_str])
+                
+                    if obj_size.get_bytes() < (4*1024) or obj_size.get_bytes() > (8*pow(1024,2)):
+                        print "Warning: The maximum object size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 2MB)"
+                
                     volume.settings.max_object_size = obj_size
             
             # deal with the QOS preset selection if there was one
@@ -535,9 +538,9 @@ class VolumePlugin( AbstractPlugin):
         '''
         vol_id = args[AbstractPlugin.volume_id_str]
         
-        if AbstractPlugin.name_str in args and args[AbstractPlugin.name_str] is not None:
-            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.name_str])
-            vol_id = volume.id.uuid
+        if AbstractPlugin.volume_name_str in args and args[AbstractPlugin.volume_name_str] is not None:
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str])
+            vol_id = volume.id
         
         response = self.get_volume_service().delete_volume( vol_id )
         

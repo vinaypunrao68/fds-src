@@ -13,7 +13,7 @@ namespace dm {
 DeleteBlobHandler::DeleteBlobHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::DeleteBlobMsg, handleRequest);
     }
 }
@@ -44,7 +44,7 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     addToQueue(dmRequest);
 }
 
-void DeleteBlobHandler::handleQueueItem(dmCatReq *dmRequest) {
+void DeleteBlobHandler::handleQueueItem(DmRequest *dmRequest) {
     QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoDeleteBlob *request = static_cast<DmIoDeleteBlob*>(dmRequest);
 
@@ -62,7 +62,7 @@ void DeleteBlobHandler::handleQueueItem(dmCatReq *dmRequest) {
 
 void DeleteBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::DeleteBlobMsg>& message,
-                                      const Error &e, dmCatReq *dmRequest) {
+                                      const Error &e, DmRequest *dmRequest) {
     LOGDEBUG << " volid:" << dmRequest->volId
              << " blob:" << dmRequest->blob_name
              << " version: " << dmRequest->blob_version

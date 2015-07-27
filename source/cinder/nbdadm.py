@@ -11,34 +11,24 @@ import psutil
 import time
 
 class nbd_user_error(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
 
 class nbd_client_error(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
 
 class nbd_modprobe_error(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
 
 class nbd_volume_error(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
 
 class nbd_host_error(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
 
 class nbdlib(object):
 
@@ -60,7 +50,7 @@ class nbdlib(object):
             if dev.startswith('nbd') and dev[3:].isdigit():
                 yield "/dev/" + dev
 
-    def __insmod_nbd():
+    def __insmod_nbd(self):
         return os.system("modprobe nbd -q") == 0
 
     def __consume_arg(self, args, arg, hasValue = False):
@@ -168,6 +158,9 @@ class nbdlib(object):
 
         if nbd_client.returncode == 0:
             attached_dev = True
+
+        elif 'Network is unreachable' in stderr:
+            raise nbd_host_error("network to NBD host machine is unreachable - no route to NBD host on supplied port")
 
         elif 'Server closed connection' in stderr:
             raise nbd_volume_error("server closed connection - does specified volume exist?")
@@ -336,7 +329,6 @@ def main(argv = sys.argv):
         return_val = 255
 
     return return_val
-
 
 if __name__ == '__main__':
     sys.exit(main())

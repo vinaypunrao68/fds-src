@@ -18,7 +18,7 @@ namespace dm {
 ForwardCatalogUpdateHandler::ForwardCatalogUpdateHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::ForwardCatalogMsg, handleRequest);
     }
 }
@@ -39,7 +39,7 @@ void ForwardCatalogUpdateHandler::handleRequest(
     handleResponse(asyncHdr, message, ERR_OK, dmReq);
 }
 
-void ForwardCatalogUpdateHandler::handleQueueItem(dmCatReq* dmRequest) {
+void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoFwdCat* typedRequest = static_cast<DmIoFwdCat*>(dmRequest);
 
@@ -75,7 +75,7 @@ void ForwardCatalogUpdateHandler::handleUpdateFwdCommittedBlob(Error const& e,
 void ForwardCatalogUpdateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                  boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
                                                  Error const& e,
-                                                 dmCatReq* dmRequest) {
+                                                 DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     // TODO(Andrew): There is a race here if the request actually gets completed before
     // we reply then the dmRequest may be NULL
@@ -90,7 +90,7 @@ void ForwardCatalogUpdateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr
 void ForwardCatalogUpdateHandler::handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                    boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
                                                    Error const& e,
-                                                   dmCatReq* dmRequest) {
+                                                   DmRequest* dmRequest) {
     DBG(LOGMIGRATE << "Completed request " << logString(*asyncHdr) << " "
         << *reinterpret_cast<DmIoFwdCat*>(dmRequest));
     delete dmRequest;
