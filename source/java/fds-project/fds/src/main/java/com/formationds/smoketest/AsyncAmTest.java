@@ -126,12 +126,12 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testVolumeContentsFilter() throws Exception {
-        asyncAm.updateBlobOnce(domainName, volumeName, "//", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
-        asyncAm.updateBlobOnce(domainName, volumeName, "//panda", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
-        asyncAm.updateBlobOnce(domainName, volumeName, "//panda/foo", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
-        asyncAm.updateBlobOnce(domainName, volumeName, "//panda/foo/bar", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
-        asyncAm.updateBlobOnce(domainName, volumeName, "//panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
-        String filter = "//[^/]+$";
+        asyncAm.updateBlobOnce(domainName, volumeName, "/", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        String filter = "^/[^/]+$";
         List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, filter, BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(1, descriptors.size());
     }

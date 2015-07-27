@@ -20,22 +20,46 @@
 
 namespace fds {
 
+template <typename T, typename Cb>
+static std::unique_ptr<TrackerBase<fds_uint16_t>>
+create_tracker(Cb&& cb, std::string event, fds_uint32_t win = 0, fds_uint32_t th = 0) {
+    static std::string const prefix("fds.sm.disk_event_threshold.");
+
+    size_t window = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".window", win);
+    size_t threshold = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".threshold", th);
+
+    return std::unique_ptr<TrackerBase<fds_uint16_t>>
+            (new TrackerMap<Cb, fds_uint16_t, T>(std::forward<Cb>(cb), window, threshold));
+}
+
 extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
 
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
-                         StorMgrVolumeTable* volTbl)
+                         StorMgrVolumeTable* volTbl,
+                         StartResyncFnObj fn)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
+          requestResyncFn(fn),
           conf_verify_data(true),
           diskMap(new SmDiskMap("SM Disk Map Module",
                                 std::bind(&ObjectStore::handleDiskChanges,
                                           this,
                                           std::placeholders::_1,
                                           std::placeholders::_2))),
-          dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
-          metaStore(new ObjectMetadataStore(
-              "SM Object Metadata Storage Module")),
+          dataStore(new ObjectDataStore("SM Object Data Storage",
+                                        data_store,
+                                        std::bind(&ObjectStore::updateMediaTrackers,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2,
+                                                  std::placeholders::_3))),
+          metaStore(new ObjectMetadataStore("SM Object Metadata Storage Module",
+                                            std::bind(&ObjectStore::updateMediaTrackers,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3))),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
                                     diskMap, data_store)),
@@ -137,6 +161,99 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     }
 
     return max;
+}
+
+
+void
+ObjectStore::initObjectStoreMediaErrorHandlers() {
+    // callback for disk failure notification
+    LOGDEBUG << "Initializing Object store media error handlers";
+    typedef std::function <void(DiskId& diskId, const diskio::DataTier& tier)> OnlineDiskFailureFnObj;
+    struct cb {
+        diskio::DataTier tier;
+        OnlineDiskFailureFnObj fnObj;
+        void operator()(fds_uint16_t diskId,
+                        size_t events) const {
+            LOGERROR << "Disk " << diskId << " on tier " << tier
+                     << " saw too many errors; declaring disk failed";
+            /**
+             * This callback will be called when the timer expires and
+             * the number of events fed is greater than a given threshhold.
+             */
+
+             fnObj(diskId, tier);
+        }
+        explicit cb(diskio::DataTier dataTier, OnlineDiskFailureFnObj fn=OnlineDiskFailureFnObj()):
+                                                                tier(dataTier), fnObj(std::move(fn)) {}
+    };
+
+    // Write/read HDD error handler (3 within 5 minutes will trigger)
+    // we will record both read and write errors as write errors
+    objStoreDiskMediaTracker.register_event(
+                               ERR_DISK_WRITE_FAILED,
+                               create_tracker<std::chrono::minutes>(cb(diskio::diskTier,
+                                                                       std::bind(&::fds::ObjectStore::handleOnlineDiskFailures,
+                                                                                 this,
+                                                                                 std::placeholders::_1,
+                                                                                 std::placeholders::_2)),
+                                                                    "hdd_fail", 5, 3));
+    // Write/Read SSD error handler (3 within 5 minutes will trigger)
+    // we will record both read and write errors as write errors
+    objStoreFlashMediaTracker.register_event(
+                               ERR_DISK_WRITE_FAILED,
+                               create_tracker<std::chrono::minutes>(cb(diskio::flashTier,
+                                                                       std::bind(&::fds::ObjectStore::handleOnlineDiskFailures,
+                                                                                 this,
+                                                                                 std::placeholders::_1,
+                                                                                 std::placeholders::_2)),
+                                                                    "ssd_fail", 5, 3));
+}
+
+/**
+ * This method is called when a certain number of disk read/write
+ * failures are oberserved with-in a given time period. When this
+ * happens, the disk is marked a bad and preparations are done to
+ * recreate all the data on the failed disk from other replicas in
+ * the domain.
+ *
+ * - First, a check is done for the minimum number of disks present
+ *   in the node.
+ * - Then the disk is removed from all disk book keeping data structs.
+ * - After that recomputation and reassignment of smTokens are done
+ *   in order to assign the smTokens residing on the failed disk to
+ *   online disks.
+ * - Once all is done, a request to resync data is posted to Object
+ *   Store Manager.
+ */
+Error
+ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
+    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
+        if ((diskMap->getTotalDisks(diskio::diskTier) > 1) &&
+            (diskMap->getTotalDisks(diskio::flashTier) > 1)) {
+            diskMap->removeDiskAndRecompute(diskId, tier);
+        } else {
+            LOGCRITICAL << "Disk Failure. Node is out of disks!";
+            return ERR_SM_NO_DISK;
+        }
+    } else {
+        if (diskMap->getTotalDisks() > 1) {
+            diskMap->removeDiskAndRecompute(diskId, tier);
+        } else {
+            LOGCRITICAL << "Disk Failure. Node is out of disks!";
+            return ERR_SM_NO_DISK;
+        }
+    }
+    SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
+    Error err = openStore(lostTokens);
+    if (!err.ok()) {
+        LOGDEBUG << "Error opening metadata and data stores." << err;
+    }
+
+    if (requestResyncFn) {
+        requestResyncFn();
+    }
+    return err;
 }
 
 /**
@@ -346,10 +463,9 @@ ObjectStore::putObject(fds_volid_t volId,
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
                     = dataStore->getObjectData(volId, objId, objMeta, err);
-            // if we get an error, there are inconsistencies between
-            // data and metadata; assert for now
-            fds_verify(err.ok());
-
+            if (!err.ok()) {
+                return err;
+            }
             // check if data is the same
             if (*existObjData != *objData) {
                 fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
@@ -378,12 +494,14 @@ ObjectStore::putObject(fds_volid_t volId,
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
-        fds_verify(err == ERR_NOT_FOUND);
-        err = ERR_OK;
-        updatedMeta.reset(new ObjMetaData());
-        updatedMeta->initialize(objId, objData->size());
+        if (err == ERR_NOT_FOUND) {
+            err = ERR_OK;
+            updatedMeta.reset(new ObjMetaData());
+            updatedMeta->initialize(objId, objData->size());
+        } else {
+            return err;
+        }
     }
-
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
 
     // If the TokenMigration reconcile is still required, then treat the object as not valid.
@@ -512,7 +630,7 @@ ObjectStore::getObject(fds_volid_t volId,
     if (!err.ok()) {
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
-        return NULL;
+        return nullptr;
     }
 
 
@@ -521,7 +639,7 @@ ObjectStore::getObject(fds_volid_t volId,
         LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
                     << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
-        return NULL;
+        return nullptr;
     }
 
     // Check if the object is reconciled properly.
@@ -529,7 +647,7 @@ ObjectStore::getObject(fds_volid_t volId,
         LOGNOTIFY << "Requires Reconciliation: " << objMeta->logString()
                   << " err=" << ERR_NOT_FOUND;
         err = ERR_NOT_FOUND;
-        return NULL;
+        return nullptr;
     }
 
     /*
@@ -540,7 +658,7 @@ ObjectStore::getObject(fds_volid_t volId,
         err = ERR_NOT_FOUND;
         LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
                 << " to object " << objId << " returning " << err;
-        return NULL;
+        return nullptr;
     }
     */
 
@@ -577,6 +695,7 @@ ObjectStore::getObject(fds_volid_t volId,
 
     return objData;
 }
+
 boost::shared_ptr<const std::string>
 ObjectStore::getObjectData(fds_volid_t volId,
                        const ObjectID &objId,
@@ -1357,6 +1476,26 @@ ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
 }
 
+void
+ObjectStore::updateMediaTrackers(fds_token_id smTokId,
+                                 diskio::DataTier tier,
+                                 const Error& error) {
+    if ((error == ERR_DISK_WRITE_FAILED) ||
+        (error == ERR_DISK_READ_FAILED) ||
+        (error == ERR_NO_BYTES_READ)) {
+        DiskId diskId = diskMap->getDiskId(smTokId, tier);
+        LOGDEBUG << "Feeding IO failed event for disk " << diskId
+                 << " due to error " << error;
+        if (tier == diskio::diskTier) {
+            objStoreDiskMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
+                                                diskId);
+        } else if (tier == diskio::flashTier) {
+            objStoreFlashMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
+                                                 diskId);
+        }
+    }
+}
+
 /**
  * Handle disk removal from the system.
  * For Hybrid Storage System(2SSD - 10HDD default config):
@@ -1420,6 +1559,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     mod_intern = objStoreDepMods;
     Module::mod_init(p);
 
+    initObjectStoreMediaErrorHandlers();
     // Conditionally enable write faults at the given rate
     float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
     if (write_failure_rate != 0.0f) {

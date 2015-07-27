@@ -109,7 +109,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
-                                                          volTbl));
+                                                          volTbl,
+                                                          std::bind(&ObjectStorMgr::startResyncRequest, this)));
 
     static Module *smDepMods[] = {
         objectStore.get(),
@@ -118,6 +119,15 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     mod_intern = smDepMods;
     Module::mod_init(param);
     return 0;
+}
+
+void ObjectStorMgr::startResyncRequest() {
+    if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
+        const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+        objStorMgr->migrationMgr->startResync(curDlt,
+                                              getUuid(),
+                                              curDlt->getNumBitsForToken());
+    }
 }
 
 void ObjectStorMgr::mod_startup()
@@ -155,8 +165,6 @@ void ObjectStorMgr::mod_startup()
 //
 void ObjectStorMgr::mod_enable_service()
 {
-    fiu_do_on("sm.exit.on.bringup", exit(1));
-
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
@@ -367,6 +375,17 @@ Error ObjectStorMgr::handleDltUpdate() {
                   << " before sending NotifyDLTUpdate response to OM";
         sleep(sleep_time);
     }
+    // handle object store unavailable fault injection here, so that we actually
+    // set object store to unavailable
+    fiu_do_on("mark.object.store.unavailable", objectStore->setUnavailable(); \
+              sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "FAULT INJECTION! "); \
+              fiu_disable("mark.object.store.unavailable"); \
+              LOGNOTIFY << "mark.object.store.unavailable fault point enabled";);
+    // since we most likely not able to inject faults before the initial sleep
+    // this is the earliest place we can exit on bringup
+    fiu_do_on("sm.exit.on.bringup", LOGNOTIFY << "sm.exit.on.bringup fault point enabled"; \
+              fiu_disable("sm.exit.on.bringup"); \
+              exit(1));
 
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
@@ -1028,7 +1047,9 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 {
     Error err(ERR_OK);
 
-    fiu_do_on("sm.exit.sending.delta.set", exit(1));
+    fiu_do_on("sm.exit.sending.delta.set", LOGNOTIFY << "sm.exit.sending.delta.set fault point enabled"; \
+              fiu_disable("sm.exit.sending.delta.set"); \
+              exit(1));
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     fds_verify(NULL != readDeltaSetReq);

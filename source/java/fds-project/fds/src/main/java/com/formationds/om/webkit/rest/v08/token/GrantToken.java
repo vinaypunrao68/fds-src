@@ -70,7 +70,7 @@ public class GrantToken implements RequestHandler {
             return new JsonResource(jsonObject) {
                 @Override
                 public Cookie[] cookies() {
-                    Cookie cookie = new Cookie( HttpAuthenticator.FDS_TOKEN, token.toString());
+                    Cookie cookie = new Cookie( HttpAuthenticator.FDS_TOKEN, token.signature(key));
                     cookie.setPath("/");
                     return new Cookie[]{cookie};
                 }

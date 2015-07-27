@@ -740,7 +740,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // should do the calculation if the primary fails over to us. but if we set it
     // here, before failover, we could have a seq_id ahead of the primary.
     // is this a problem?
-    if (fPrimary && fActivated) {
+    if (fActivated) {
         sequence_id_t seq_id;
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
@@ -1129,7 +1129,7 @@ void DataMgr::mod_startup()
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
-        features.setTestMode(true);
+        features.setTestModeEnabled(true);
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
@@ -1208,7 +1208,7 @@ void DataMgr::mod_enable_service() {
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
-    if (!features.isTestMode()) {
+    if (!features.isTestModeEnabled()) {
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 }
