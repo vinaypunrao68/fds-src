@@ -83,7 +83,10 @@ class Disk:
         self.dsk_boot_dev  = False
         self.dsk_mounted   = False
 
-        # Check if we have software raid
+        # Check if we have software raid present on c9 systems.
+        # This is essentially throw away code to get the c9 systems configured.
+        # Once full tooling is in place to use disk_id.py and disk_format.py, disk_type.py 
+        # goes away and lives a peaceful retirement in github history archives.
         if os.path.isdir('/dev/md'):
             if '/dev/sda' == self.dsk_path or '/dev/sdb' == self.dsk_path:
                 dbg_print('Root Device Found (with sw raid): ' + self.dsk_path)
