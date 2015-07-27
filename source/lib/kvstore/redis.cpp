@@ -41,7 +41,8 @@ Reply::~Reply() {
 }
 
 bool Reply::isError() const {
-    return r->type == REDIS_REPLY_ERROR;
+    checkValid();
+    return (r->type == REDIS_REPLY_ERROR);
 }
 
 bool Reply::isValid() const {
@@ -49,15 +50,18 @@ bool Reply::isValid() const {
 }
 
 bool Reply::isOk() const {
+    checkValid();
     return ((r->type == REDIS_REPLY_STATUS) && (getString() == "OK")) ||
             ((r->type == REDIS_REPLY_INTEGER) && (r->integer == 1));
 }
 
 bool Reply::wasModified() const {
+    checkValid();
     return (r->type == REDIS_REPLY_INTEGER) && (r->integer > 0);
 }
 
 std::string Reply::getString() const {
+    checkValid();
     return std::string(r->str, r->len);
 }
 
@@ -81,10 +85,16 @@ void Reply::checkError() const {
     }
 }
 
-bool Reply::isNil() const {
-    return r->type == REDIS_REPLY_NIL;
+void Reply::checkValid() const {
+    if (!isValid()) {
+        throw RedisException("connection is not valid");
+    }
 }
 
+bool Reply::isNil() const {
+    checkValid();
+    return r->type == REDIS_REPLY_NIL;
+}
 
 std::string Reply::getStatus() {
     checkError();
@@ -103,12 +113,14 @@ size_t Reply::getNumElements() const {
 }
 
 void Reply::toVector(std::vector<std::string>& vec) { // NOLINT
+    checkValid();
     for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::string(r->element[i]->str, r->element[i]->len));
     }
 }
 
 void Reply::toVector(std::vector<long long>& vec) { // NOLINT
+    checkValid();
     for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoll(std::string(r->element[i]->str,
                                              r->element[i]->len), NULL, 10));
@@ -116,6 +128,7 @@ void Reply::toVector(std::vector<long long>& vec) { // NOLINT
 }
 
 void Reply::toVector(std::vector<uint>& vec) { // NOLINT
+    checkValid();
     for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoi(std::string(r->element[i]->str,
                                             r->element[i]->len), NULL, 10));
@@ -123,6 +136,7 @@ void Reply::toVector(std::vector<uint>& vec) { // NOLINT
 }
 
 void Reply::toVector(std::vector<uint64_t>& vec) { // NOLINT
+    checkValid();
     for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoll(std::string(r->element[i]->str,
                                              r->element[i]->len), NULL, 10));
@@ -130,6 +144,7 @@ void Reply::toVector(std::vector<uint64_t>& vec) { // NOLINT
 }
 
 void Reply::toVector(std::vector<int64_t>& vec) { // NOLINT
+    checkValid();
     for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoll(std::string(r->element[i]->str,
                                              r->element[i]->len), NULL, 10));
@@ -137,6 +152,7 @@ void Reply::toVector(std::vector<int64_t>& vec) { // NOLINT
 }
 
 void Reply::dump() const {
+    checkValid();
     LOGDEBUG << "redis reply ::: ";
     std::string strType= "unknown";
     switch (r->type) {
@@ -282,6 +298,11 @@ Connection* ConnectionPool::get() {
 
 void ConnectionPool::put(Connection* cxn) {
     atc::Synchronized s(monitor);
+    try {
+        if (!cxn->isConnected()) cxn->connect();
+    } catch(const RedisException& e) {
+        LOGWARN << "unable to reconect to redis server";
+    }
     connections.push(cxn);
     if ( 1 == connections.size() ) {
         monitor.notifyAll();
@@ -309,8 +330,14 @@ bool ConnectionPool::setDB(uint db) {
 }
 
 ScopedConnection::ScopedConnection(ConnectionPool* pool) : pool(pool) {
-    cxn = pool->get();
-    cxn->connect();
+    try {
+        cxn = pool->get();
+        cxn->connect();
+    } catch(const RedisException& e) {
+        LOGWARN << "unable to get redis connection : " << e.what();
+        if (cxn != NULL) pool->put(cxn);
+        throw e;
+    }
 }
 
 Connection* ScopedConnection::operator->() const {

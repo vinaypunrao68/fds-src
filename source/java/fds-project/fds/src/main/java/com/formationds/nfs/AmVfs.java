@@ -65,7 +65,7 @@ public class AmVfs implements VirtualFileSystem {
         if (load(childPath).isPresent()) {
             throw new ExistException();
         }
-        incrementGeneration(parentEntry);
+        incrementGenerationAndTimestamps(parentEntry);
         return createInode(type, subject, mode, childPath);
     }
 
@@ -98,7 +98,7 @@ public class AmVfs implements VirtualFileSystem {
             throw new NotDirException();
         }
 
-        StringBuilder filter = new StringBuilder();
+        StringBuilder filter = new StringBuilder("^");
         filter.append(parentEntry.path().blobName());
 
         if (!parentEntry.path().blobName().endsWith("/")) {
@@ -142,7 +142,7 @@ public class AmVfs implements VirtualFileSystem {
             throw new ExistException();
         }
 
-        incrementGeneration(tryLoad(parentInode));
+        incrementGenerationAndTimestamps(tryLoad(parentInode));
         return createInode(Stat.Type.DIRECTORY, subject, mode, path);
     }
 
@@ -220,7 +220,7 @@ public class AmVfs implements VirtualFileSystem {
         }
 
         try {
-            incrementGeneration(tryLoad(parent));
+            incrementGenerationAndTimestamps(tryLoad(parent));
             unwindExceptions(() -> asyncAm.deleteBlob(DOMAIN, path.getVolume(), path.blobName()).get());
         } catch (Exception e) {
             logError("deleteBlob()", path, e);
@@ -233,7 +233,7 @@ public class AmVfs implements VirtualFileSystem {
         Inode inode = createInode(Stat.Type.SYMLINK, subject, mode, new NfsPath(new NfsPath(targetDirectory), symlinkName));
         byte[] bytes = targetName.getBytes(Charset.forName("UTF-8"));
         write(inode, bytes, 0, bytes.length, StabilityLevel.FILE_SYNC);
-        incrementGeneration(parent);
+        incrementGenerationAndTimestamps(parent);
         return inode;
     }
 
@@ -333,8 +333,12 @@ public class AmVfs implements VirtualFileSystem {
         }
     }
 
-    private void incrementGeneration(NfsEntry nfsEntry) throws IOException {
-        updateMetadata(nfsEntry.path(), nfsEntry.attributes().withIncrementedGeneration());
+    private void incrementGenerationAndTimestamps(NfsEntry nfsEntry) throws IOException {
+        updateMetadata(nfsEntry.path(), nfsEntry.attributes()
+                        .withIncrementedGeneration()
+                        .withUpdatedAtime()
+                        .withUpdatedMtime()
+        );
     }
 
     public Inode createInode(Stat.Type type, Subject subject, int mode, NfsPath path) throws IOException {

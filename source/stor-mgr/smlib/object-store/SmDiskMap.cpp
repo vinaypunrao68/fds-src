@@ -17,18 +17,6 @@
 
 namespace fds {
 
-template <typename T, typename Cb>
-static std::unique_ptr<TrackerBase<fds_uint16_t>>
-create_tracker(Cb&& cb, std::string event, fds_uint32_t win = 0, fds_uint32_t th = 0) {
-    static std::string const prefix("fds.sm.disk_event_threshold.");
-
-    size_t window = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".window", win);
-    size_t threshold = g_fdsprocess->get_fds_config()->get<fds_uint32_t>(prefix + event + ".threshold", th);
-
-    return std::unique_ptr<TrackerBase<fds_uint16_t>>
-            (new TrackerMap<Cb, fds_uint16_t, T>(std::forward<Cb>(cb), window, threshold));
-}
-
 SmDiskMap::SmDiskMap(const std::string& modName, DiskChangeFnObj diskChangeFn)
         : Module(modName.c_str()),
           bitsPerToken_(0),
@@ -72,10 +60,33 @@ int SmDiskMap::mod_init(SysParams const *const param) {
         ++arrIdx;
     }
 
-    // initialize disk error handlers
-    initDiskErrorHandlers();
-
     return 0;
+}
+
+void
+SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) {
+    /**
+     * TODO(Gurpreet) Make access to maps concurrency-safe.
+     */
+    disk_map.erase(diskId);
+    diskDevMap.erase(diskId);
+    switch (tier) {
+        case diskio::diskTier:
+            hdd_ids.erase(diskId);
+            break;
+        case diskio::flashTier:
+            ssd_ids.erase(diskId);
+            break;
+        default:
+            LOGDEBUG << "Invalid tier information";
+            break;
+    }
+
+    superblock->recomputeTokensForLostDisk(hdd_ids, ssd_ids);
+    /**
+     * TODO(Gurpreet): Handle capacity related changes(if required)
+     * due to the failed disk.
+     */
 }
 
 Error
@@ -351,48 +362,6 @@ SmTokenSet SmDiskMap::handleDltClose(const DLT* dlt, NodeUuid& mySvcUuid)
     return rmToks;
 }
 
-void
-SmDiskMap::notifyIOError(fds_token_id smTokId,
-                         diskio::DataTier tier,
-                         const Error& error) {
-    // we care about certain types of errors
-    if ((error == ERR_DISK_WRITE_FAILED) ||
-        (error == ERR_DISK_READ_FAILED) ||
-        (error == ERR_NO_BYTES_READ)) {
-        fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
-        if (tier == diskio::diskTier) {
-            hdd_tracker.feed_event(ERR_DISK_WRITE_FAILED, diskId);
-        } else if (tier == diskio::flashTier) {
-            ssd_tracker.feed_event(ERR_DISK_WRITE_FAILED, diskId);
-        }
-    }
-}
-
-void
-SmDiskMap::initDiskErrorHandlers() {
-    // callback for disk failure notification
-    struct cb {
-        void operator()(fds_uint16_t diskId,
-                        size_t events) const {
-            LOGERROR << "Disk " << diskId << " on tier " << tier
-                     << " saw too many errors; declaring disk failed";
-            // TODO(Anna) handle disk failure
-        }
-        diskio::DataTier tier;
-    };
-
-    // Write/read HDD error handler (3 within 5 minutes will trigger)
-    // we will record both read and write errors as write errors
-    hdd_tracker.register_event(ERR_DISK_WRITE_FAILED,
-                               create_tracker<std::chrono::minutes>(cb{diskio::diskTier},
-                                                                    "hdd_fail", 5, 3));
-    // Write/Read SSD error handler (3 within 5 minutes will trigger)
-    // we will record both read and write errors as write errors
-    ssd_tracker.register_event(ERR_DISK_WRITE_FAILED,
-                               create_tracker<std::chrono::minutes>(cb{diskio::flashTier},
-                                                                    "ssd_fail", 5, 3));
-}
-
 fds_uint64_t
 SmDiskMap::getDLTVersion()
 {
@@ -444,13 +413,17 @@ std::string
 SmDiskMap::getDiskPath(fds_token_id smTokId,
                        diskio::DataTier tier) const {
     fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
-    fds_verify(disk_map.count(diskId) > 0);
+    if (disk_map.count(diskId) == 0) {
+        return std::string();
+    }
     return disk_map.at(diskId);
 }
 
 std::string
 SmDiskMap::getDiskPath(fds_uint16_t diskId) const {
-    fds_verify(disk_map.count(diskId) > 0);
+    if (disk_map.count(diskId) == 0) {
+        return std::string();
+    }
     return disk_map.at(diskId);
 }
 

@@ -11,7 +11,7 @@ namespace dm {
 UpdateCatalogHandler::UpdateCatalogHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogMsg, handleRequest);
     }
 }
@@ -41,10 +41,6 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
 
     request->cb = BIND_MSG_CALLBACK(UpdateCatalogHandler::handleResponse, asyncHdr, message);
 
-    /*
-     * TODO(umesh): ignore for now, uncomment it later
-    PerfTracer::tracePointBegin(request->opReqLatencyCtx);
-     */
     addToQueue(request);
 }
 

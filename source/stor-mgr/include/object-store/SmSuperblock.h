@@ -284,6 +284,8 @@ class SmSuperblockMgr {
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
+    void recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds);
+
     /**
      * Reconcile superblocks, if there is inconsistency.
      */

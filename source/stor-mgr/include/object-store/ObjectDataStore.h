@@ -8,8 +8,9 @@
 #include <fds_module.h>
 #include <fds_types.h>
 #include <ObjMeta.h>
-#include <object-store/ObjectDataCache.h>
 #include <persistent-layer/dm_io.h>
+#include <object-store/ObjectStoreCommon.h>
+#include <object-store/ObjectDataCache.h>
 #include <object-store/ObjectPersistData.h>
 
 namespace fds {
@@ -22,18 +23,22 @@ class SmScavengerCmd;
  */
 class ObjectDataStore : public Module, public boost::noncopyable {
   private:
-    /// Disk storage manager
-    // diskio::DataIO *diskMgr;
+    /**
+     * Disk storage manager
+     */
     ObjectPersistData::unique_ptr persistData;
 
-    /// Object data cache manager
+    /**
+     * Object data cache manager
+     */
     ObjectDataCache::unique_ptr dataCache;
 
     // TODO(Andrew): Add some private GC interfaces here?
 
   public:
-    explicit ObjectDataStore(const std::string &modName,
-                             SmIoReqHandler *data_store);
+    ObjectDataStore(const std::string &modName,
+                    SmIoReqHandler *data_store,
+                    UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj());
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
     typedef std::shared_ptr<ObjectDataStore> ptr;

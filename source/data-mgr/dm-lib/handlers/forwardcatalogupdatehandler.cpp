@@ -18,7 +18,7 @@ namespace dm {
 ForwardCatalogUpdateHandler::ForwardCatalogUpdateHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::ForwardCatalogMsg, handleRequest);
     }
 }
