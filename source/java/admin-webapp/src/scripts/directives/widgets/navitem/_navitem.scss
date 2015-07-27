@@ -8,12 +8,14 @@
     @include transition( linear, 100ms );
 
     &:hover {
-        background-color: #8ea0b2;
+//        background-color: #8ea0b2;
+        background-color: #A1A1A1;
         color: white;
     }
 
     &.navitem-selected {
-        background-color: #657D95;
+//        background-color: #657D95;
+        background-color: #7D7D7D;
         color: white;
     }
 
