@@ -379,7 +379,7 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         if (error.ok()) {
             db->ReleaseSnapshot(options.snapshot);
         }
-        return ERR_OK;
+        return;
     }
 
     if (retryMigrFailedTokens) {
