@@ -24,6 +24,7 @@
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {#
    Redis Deployment defaults
+    fds.pm.redis_host == om_ip above
 #}
 {% set redis_port = fds_redis_port if fds_redis_port is defined else '6379' %}
 {#

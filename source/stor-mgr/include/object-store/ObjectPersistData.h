@@ -12,11 +12,11 @@
 #include <SmCtrl.h>
 #include <persistent-layer/dm_io.h>
 #include <persistent-layer/persistentdata.h>
+#include <object-store/ObjectStoreCommon.h>
 #include <object-store/Scavenger.h>
 #include <object-store/SmDiskMap.h>
 
 namespace fds {
-
 
 /**
  * TODO(Anna) We keep up to SM_MAX_TOKEN_FILES number of files per SM token.
@@ -85,6 +85,7 @@ class ObjectPersistData : public Module,
         public boost::noncopyable,
         public SmPersistStoreHandler {
   private:
+    UpdateMediaTrackerFnObj mediaTrackerFn;
     SmDiskMap::ptr smDiskMap;
 
     /**
@@ -110,8 +111,9 @@ class ObjectPersistData : public Module,
     ScavControl::unique_ptr scavenger;
 
   public:
-    explicit ObjectPersistData(const std::string &modName,
-                               SmIoReqHandler *data_store);
+    ObjectPersistData(const std::string &modName,
+                      SmIoReqHandler *data_store,
+                      UpdateMediaTrackerFnObj fn=UpdateMediaTrackerFnObj());
     ~ObjectPersistData();
 
     typedef std::unique_ptr<ObjectPersistData> unique_ptr;
