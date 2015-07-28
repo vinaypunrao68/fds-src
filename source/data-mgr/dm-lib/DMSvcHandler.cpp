@@ -397,7 +397,7 @@ void DMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 void
 DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                              boost::shared_ptr<fpi::CtrlNotifyDMTClose> &dmtClose) {
-    LOGNOTIFY << "DMSvcHandler received DMT close.";
+    LOGNOTIFY << "DMSvcHandler received DMT close: DMTVersion=" << dmtClose->dmt_close.DMT_version;
     Error err(ERR_OK);
 
     // TODO(xxx) notify volume sync that we can stop forwarding
@@ -425,7 +425,11 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                     boost::shared_ptr<fpi::CtrlNotifyDMTClose>& dmtClose,
                                     Error &err)
 {
-    LOGDEBUG << "Sending async DMT close ack";
+    LOGNOTIFY << "DMT close callback: DMTversion=" << dmtClose->dmt_close.DMT_version;
+
+    // When DMT is closed, then delete unowned volumes.
+    dataManager_.deleteUnownedVolumes();
+
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
 }
