@@ -168,6 +168,16 @@ public class AmVfs implements VirtualFileSystem {
                 .withFileId(idAllocator.nextId(source.getVolume()));
 
         NfsEntry destinationEntry = new NfsEntry(destination, destinationAttributes);
+        createEmptyBlob(destinationEntry.path(), destinationEntry.attributes());
+
+        if (sourceEntry.attributes().isDirectory()) {
+            Inode sourceInode = source.asInode(Stat.Type.DIRECTORY, resolver);
+            List<DirectoryEntry> children = list(sourceInode);
+            for (DirectoryEntry child : children) {
+                move(sourceInode, child.getName(), destinationEntry.inode(resolver), child.getName());
+            }
+        }
+
         incrementGenerationAndTimestamps(tryLoad(sourceParent));
         incrementGenerationAndTimestamps(tryLoad(destinationParent));
         try {
