@@ -19,7 +19,7 @@
 #include <concurrency/Mutex.h>
 #include <omutils.h>
 #include <OmVolume.h>
-#include "OMMonitorWellKnownPMs.h"
+#include <OMMonitorWellKnownPMs.h>
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>

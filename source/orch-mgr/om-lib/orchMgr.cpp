@@ -57,7 +57,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     /*
      * Start the PM monitoring thread
      */
-    omMonitor = new OMMonitorWellKnownPMs( this );
+    omMonitor = new OMMonitorWellKnownPMs( this, getConfigDB() );
     /*
      * Testing code for loading test info from disk.
      */

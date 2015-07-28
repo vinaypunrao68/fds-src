@@ -1123,6 +1123,10 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         if (!configDB->nodeExists(get_uuid())) {
             // for now store only if the node was not known to DB
             configDB->addNode(*getNodeInfo());
+            fpi::SvcInfo pmInfo;
+            fpi::SvcUuid svcUuid;
+            svcUuid.svc_uuid = get_uuid().uuid_get_val();
+            bool foundPM = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, pmInfo);
             switch ( node_state() )
             {
                 case fpi::FDS_Node_Discovered:
@@ -1131,6 +1135,15 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_ACTIVE );
+                    if (foundPM) {
+                        pmInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({pmInfo});
+                    }
+                    else
+                    {
+                        LOGDEBUG << "Failed to update PM service state in svcLayer map";
+                    }
+
                     auto curTime = std::chrono::system_clock::now().time_since_epoch();
                     double current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
                     //fpi::SvcUuid svcUuid;
@@ -1143,12 +1156,28 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_INVALID );
+                    if (foundPM) {
+                        pmInfo.svc_status = fpi::SVC_STATUS_INVALID;
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({pmInfo});
+                    }
+                    else
+                    {
+                        LOGDEBUG << "Failed to update PM service state in svcLayer map";
+                    }
                     break;
                 case fpi::FDS_Node_Down:
                 case fpi::FDS_Node_Rmvd:
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_INACTIVE );
+                    if (foundPM) {
+                        pmInfo.svc_status = fpi::SVC_STATUS_INACTIVE;
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({pmInfo});
+                    }
+                    else
+                    {
+                        LOGDEBUG << "Failed to update PM service state in svcLayer map";
+                    }
                     break;
             }
 
@@ -1230,6 +1259,9 @@ OM_PmAgent::send_add_service
     if (!configDB->nodeExists(get_uuid())) {
         // For now store only if the node was not known to DB
         configDB->addNode(*getNodeInfo());
+        std::vector<fpi::SvcInfo>::iterator iter = fds::isServicePresent(svcInfos,
+                                                          FDS_ProtocolInterface::
+                                                          FDSP_MgrIdType::FDSP_PLATFORM );
         switch ( node_state() )
         {
             case fpi::FDS_Node_Discovered:
@@ -1238,6 +1270,14 @@ OM_PmAgent::send_add_service
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
                                            fpi::SVC_STATUS_ACTIVE );
+                if (iter != svcInfos.end()) {
+                    (*iter).svc_status = fpi::SVC_STATUS_ACTIVE;
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*iter});
+                }
+                else
+                {
+                    LOGDEBUG << "Failed to update PM service state in svcLayer map";
+                }
                 auto curTime = std::chrono::system_clock::now().time_since_epoch();
                 double current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
 
@@ -1248,12 +1288,28 @@ OM_PmAgent::send_add_service
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
                                            fpi::SVC_STATUS_INVALID );
+                if (iter != svcInfos.end()) {
+                    (*iter).svc_status = fpi::SVC_STATUS_INVALID;
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*iter});
+                }
+                else
+                {
+                    LOGDEBUG << "Failed to update PM service state in svcLayer map";
+                }
                 break;
             case fpi::FDS_Node_Down:
             case fpi::FDS_Node_Rmvd:
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
                                            fpi::SVC_STATUS_INACTIVE );
+                if (iter != svcInfos.end()) {
+                    (*iter).svc_status = fpi::SVC_STATUS_INACTIVE;
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*iter});
+                }
+                else
+                {
+                    LOGDEBUG << "Failed to update PM service state in svcLayer map";
+                }
                 break;
         }
 
@@ -1657,11 +1713,11 @@ OM_PmAgent::send_remove_service
             // 2. Remove node from the configDB
             // 3. Set platform service state to inactive
 
-            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
-            configDB->removeNode(get_uuid());
-            fds::change_service_state( configDB,
-                                       get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_INACTIVE );
+            //set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+            //configDB->removeNode(get_uuid());
+            //fds::change_service_state( configDB,
+            //                           get_uuid().uuid_get_val(),
+            //                           fpi::SVC_STATUS_INACTIVE );
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";
@@ -1678,6 +1734,7 @@ OM_PmAgent::send_remove_service
 Error
 OM_PmAgent::send_heartbeat_check(fpi::SvcUuid svcuuid)
 {
+    LOGDEBUG << "Entered send_heartbeat_check";
     fpi::HeartbeatMessagePtr heartbeatMsg =
                              boost::make_shared<fpi::HeartbeatMessage>();
     heartbeatMsg->svcUuid.uuid = svcuuid.svc_uuid;
@@ -2553,6 +2610,7 @@ OM_NodeContainer::om_heartbeat_check
 {
     TRACEFUNC;
 
+    LOGDEBUG << "Entered om_heartbeat_check";
     if (svc_uuid.svc_uuid == 0) {
         LOGDEBUG << "Invalid service ID";
         return Error(ERR_INVALID_ARG);

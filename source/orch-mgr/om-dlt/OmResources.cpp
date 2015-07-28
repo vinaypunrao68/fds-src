@@ -1703,6 +1703,11 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     // Here will have to add this PM to the new "map".
                     // What defines well known though? Is it well known only after
                     // it has been added ? --> any node that is not removed or discovered
+
+                    //auto curTime = std::chrono::system_clock::now().time_since_epoch();
+                    //double current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                    //OrchMgr::om_monitor()->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, current );
                 }
             } 
             else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) 

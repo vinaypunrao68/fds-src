@@ -18,6 +18,7 @@
 #include "kvstore/redis.h"
 #include "kvstore/configdb.h"
 #include <net/SvcMgr.h>
+#include <ctime>
 
 namespace fds {
 
@@ -267,7 +268,19 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = msg->svcUuid.uuid;
-    OrchMgr::om_monitor()->updateKnownPMsMap(svcUuid, msg->timestamp);
+
+    // number of seconds since the epoch
+    auto curTimePoint = std::chrono::system_clock::now();
+    auto timeSinceEpoch = curTimePoint.time_since_epoch();
+
+    std::time_t t = std::chrono::system_clock::to_time_t(curTimePoint);
+
+    LOGDEBUG << "OmSvcHandler: Received heartbeat from PM:"
+             << std::hex << svcUuid.svc_uuid
+             <<std::dec <<" at:" << std::ctime(&t);
+    double current = std::chrono::duration<double,std::ratio<60>>(timeSinceEpoch).count();
+
+    OrchMgr::om_monitor()->updateKnownPMsMap(svcUuid, current);
 
 }
 
