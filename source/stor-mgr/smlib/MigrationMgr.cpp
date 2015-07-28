@@ -1269,7 +1269,8 @@ Error
 MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
 {
     Error err(ERR_OK);
-    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_IN_PROGRESS) {
         if (tgtDltVersion == targetDltVersion) {
             LOGNOTIFY << "Will abort token migration per OM request";
             abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
@@ -1279,6 +1280,10 @@ MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
                       << " does not match version of this migration " << targetDltVersion;
             return ERR_INVALID_ARG;
         }
+    } else if (curState == MIGR_IDLE) {
+        LOGNOTIFY << "Abort migration called in idle state, will send not found error, "
+                  << "so that OM can act on it if needed";
+        return ERR_NOT_FOUND;
     }
     return err;
 }
