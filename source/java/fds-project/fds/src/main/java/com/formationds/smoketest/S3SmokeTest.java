@@ -372,26 +372,49 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void Snapshot() {
-        putSomeData(userBucket, 0, 10, randomBytes);
+    public void Timeline() {
         long volumeId = 0;
+        long curTime;
+        long clonedVolumeId;
+        int numKeys;
         String clonedVolume = "cloned-"+userBucket;
+
         try {
+            // put 10 items
+            putSomeData(userBucket, 0, 10, randomBytes);
+
             volumeId = config.getVolumeId(userBucket);
+            numKeys = userClient.listObjects(userBucket).getObjectSummaries().size();
+            assertEquals(10, numKeys);
+
+            curTime = System.currentTimeMillis() / 1000;
+            // plain clone
+            clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume + "-plain", curTime);
+            assertEquals(true, clonedVolumeId > 0);
+            numKeys = userClient.listObjects(clonedVolume + "-plain").getObjectSummaries().size();
+            assertEquals(10, numKeys);
+
+            // put 10 items
+            putSomeData(userBucket, 10, 20, randomBytes);
+
+            // create snapshot
             config.createSnapshot(volumeId, snapBucket, 0, 0);
             sleep(3000);
             List<Snapshot> snaps = config.listSnapshots(volumeId);
             assertEquals(1, snaps.size());
-            long curTime = System.currentTimeMillis() / 1000;
-            putSomeData(userBucket, 10, 20, randomBytes);
-            config.createSnapshot(volumeId, snapBucket + "_1", 0, 0);
-            long clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
+
+            // put 10 items
+            putSomeData(userBucket, 20, 30, randomBytes);
+
+            curTime = System.currentTimeMillis() / 1000;
+            // clone from a snapshot
+            clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
             assertEquals(true, clonedVolumeId > 0);
-            int numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
-            assertEquals(10, numKeys);
+            numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
+            assertEquals(20, numKeys);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("ERR: unable to create Snapshot.");
+            System.err.println("ERR: unable to create Snapshot/Clone.");
         }
     }
 
@@ -405,7 +428,7 @@ public class S3SmokeTest {
         putGetOneObject(1024 * 4);
     }
 
-    
+
     void putSomeData(String volumeName, int from, int to, byte[] data) {
         final PutObjectResult[] last = {null};
         IntStream.range(from, to)
