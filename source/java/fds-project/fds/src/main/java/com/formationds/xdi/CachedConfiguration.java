@@ -65,7 +65,6 @@ public class CachedConfiguration {
                 addTenantUsers( tenant, tenantUsers );
             }
         } catch (TException t) {
-            // TODO: Disregard for now, throws exception if cluster is not ready
             throw new IllegalStateException( "configuration database is not ready!.", t );
         }
     }
@@ -75,8 +74,6 @@ public class CachedConfiguration {
         try {
             volumeDescriptors = config.listVolumes( "" );
         } catch ( TException e ) {
-            // TODO: Disregard for now, throws exception if cluster is not ready
-//            volumeDescriptors = Lists.newArrayList();
             throw new IllegalStateException( "configuration database is not ready!.", e );
         }
 
@@ -104,8 +101,7 @@ public class CachedConfiguration {
                 usersLock.unlock();
             }
         } catch (TException e) {
-            // TODO: Disregard for now, throws exception if cluster is not ready
-            throw new IllegalStateException( "configuration database is not ready!.", e );
+              throw new IllegalStateException( "configuration database is not ready!.", e );
 
         }
     }

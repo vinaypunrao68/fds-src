@@ -129,9 +129,6 @@ public class Main {
                                    omHost,
                                    omHttpPort) );
 
-//        OMConfigServiceClient omConfigServiceRestClient =
-//                new OMConfigServiceRestClientImpl(secretKey, "http", omHost, omHttpPort);
-
         final ConfigurationApi omCachedConfigProxy =
             RetryHelper.retry( "ConfigurationApi",
                                5,
@@ -141,18 +138,11 @@ public class Main {
                                    clientFactory.remoteOmService( omHost,
                                                                   omConfigPort ) ) );
 
-//        ConfigurationApi omCachedConfigProxy =
-//                OMConfigurationServiceProxy.newOMConfigProxy(omConfigServiceRestClient,
-//                        clientFactory.remoteOmService(omHost,
-//                                omConfigPort));
-
         XdiConfigurationApi configCache =
             RetryHelper.retry( "XdiConfigurationApi",
                                5,
                                TimeUnit.MINUTES,
                                ( ) -> new XdiConfigurationApi( omCachedConfigProxy ) );
-
-//        XdiConfigurationApi configCache = new XdiConfigurationApi(omCachedConfigProxy);
 
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
