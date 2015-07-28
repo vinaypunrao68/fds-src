@@ -552,8 +552,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
              << " created:" << vdesc->isStateCreated()
              << " old:" << fOldVolume;
 
-    if (vdesc->isSnapshot() || vdesc->isClone()) {
+    if (vdesc->isClone()) {
+        // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
+    } else if (vdesc->isSnapshot()) {
+        // snapshot happens on all primaries
+        fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -600,7 +604,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok() && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
-        err = timeVolCat_->activateVolume(vol_uuid);
+        err = timeVolCat_->activateVolume(vdesc->volUUID);
         if (err.ok()) {
             fActivated = true;
         }
