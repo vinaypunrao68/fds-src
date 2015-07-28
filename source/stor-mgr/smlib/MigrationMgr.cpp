@@ -366,8 +366,12 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     Error err(ERR_OK);
     fds_token_id curSmTokenInProgress;
 
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_ABORTED) {
         LOGMIGRATE << "Migration was aborted, ignoring migration task";
+        return;
+    } else if (curState == MIGR_IDLE) {
+        LOGNOTIFY << "Migration is in idle state, probably was aborted, ignoring";
         return;
     }
     
