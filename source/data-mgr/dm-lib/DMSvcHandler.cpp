@@ -322,12 +322,7 @@ DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &
 
     // see if DM sync feature is enabled
     if (dataManager_.features.isCatSyncEnabled()) {
-        err = dataManager_
-                .catSyncMgr
-                ->startCatalogSync(migrMsg->metaVol, std::bind(&DMSvcHandler::StartDMMetaMigrationCb,
-                                                               this,
-                                                               hdr,
-                                                               std::placeholders::_1));
+        // XXX: Delete this whole function probably maybe?
     } else {
         LOGWARN << "catalog sync feature NOT enabled -- not going to migrate volume meta";
         // ok we just respond...
@@ -368,11 +363,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     // see if DM sync feature is enabled
     if (dataManager_.features.isCatSyncEnabled()) {
-        err = dataManager_.catSyncMgr
-                ->startCatalogSyncDelta(std::bind(&DMSvcHandler::NotifyDMTUpdateCb,
-                                                  this,
-                                                  hdr,
-                                                  std::placeholders::_1));
+        // XXX: resync goes here?
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
         // ok we just respond...
