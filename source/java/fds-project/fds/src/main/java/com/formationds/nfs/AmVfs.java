@@ -174,7 +174,9 @@ public class AmVfs implements VirtualFileSystem {
             Inode sourceInode = source.asInode(Stat.Type.DIRECTORY, resolver);
             List<DirectoryEntry> children = list(sourceInode);
             for (DirectoryEntry child : children) {
-                move(sourceInode, child.getName(), destinationEntry.inode(resolver), child.getName());
+                if (!child.getName().equals(".")) {
+                    move(sourceInode, child.getName(), destinationEntry.inode(resolver), child.getName());
+                }
             }
         }
 
