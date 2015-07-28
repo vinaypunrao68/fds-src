@@ -9,7 +9,7 @@ import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.ServerPortFinder;
-import com.formationds.util.SupplierWithExceptions;
+import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;

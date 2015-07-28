@@ -2,9 +2,8 @@
  * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
  */
 
-package com.formationds.om;
+package com.formationds.commons.util;
 
-import com.formationds.util.SupplierWithExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
