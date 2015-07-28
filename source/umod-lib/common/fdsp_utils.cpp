@@ -307,6 +307,16 @@ std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
     return "GetBlobMetaDataMsg";
 }
 
+std::string logString(const FDS_ProtocolInterface::RenameBlobMsg& message)
+{
+    return "RenameBlobMsg";
+}
+
+std::string logString(const FDS_ProtocolInterface::RenameBlobRespMsg& message)
+{
+    return "RenameBlobRespMsg";
+}
+
 std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg) {
     return "SetVolumeMetadataMsg";
 }

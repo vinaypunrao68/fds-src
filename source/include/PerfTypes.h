@@ -127,6 +127,7 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (DM_GET_VOL_META_REQ)       /* Latency of DM get volume meta request */
     (DM_GET_VOL_CONTENTS_REQ)   /* Latency of DM get volume contents request */
     (DM_STAT_VOL_REQ)           /* Latency of DM stat volume request */
+    (DM_RENAME_BLOB_REQ)        /* Latency of DM rename blob request */
 
     (DM_CACHE_HIT)              /* Number of DM cache hits*/
 )

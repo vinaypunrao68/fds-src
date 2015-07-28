@@ -179,6 +179,23 @@ class DmVolumeCatalog : public Module, public HasLogger,
             fpi::FDSP_MetaDataList * metaList) override;
 
     /**
+     * Creates a new blob for the given newBlobName and volume 'volId' with the
+     * identical contents of oldBlobName. oldBlobName will no longer be a valid
+     * blob following this operation.
+     * @param[in] volId volume identifier
+     * @param[in] oldBlobName name of the blob to move from
+     * @param[in] newBlobName name of the blob to move to
+     * @param[out] blobSize ptr to blob size in bytes
+     * @param[out] metaList list of metadata key-value pairs of final blob
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     */
+    Error renameBlob(fds_volid_t volId,
+                     const std::string & oldBlobName,
+                     const std::string & newBlobName,
+                     fds_uint64_t* blob_size,
+                     fpi::FDSP_MetaDataList * metaList) override;
+
+    /**
      * Retrieves all info about the blob with given blobName and volume 'volId'
      * @param[in] volId volume uuid
      * @param[in] blobName name of the blob

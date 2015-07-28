@@ -1086,6 +1086,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler(*this);
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler(*this);
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler(*this);
+    handlers[FDS_RENAME_BLOB] = new dm::RenameBlobHandler(*this);
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler(*this);
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler(*this);
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler(*this);

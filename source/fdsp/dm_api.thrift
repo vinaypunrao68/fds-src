@@ -311,14 +311,16 @@ struct UpdateCatalogOnceRspMsg {
  */
 struct RenameBlobMsg {
   1: i64                        volume_id;
-  2: string                     old_blob_name;
-  3: string                     new_blob_name;
+  2: string                     source_blob;
+  3: string                     destination_blob;
 }
 
 /**
  * Response for blob rename operation
  */
 struct RenameBlobRespMsg {
+  1: i64                        byteCount;
+  2: dm_types.FDSP_MetaDataList metaDataList;
 }
 
 /**
