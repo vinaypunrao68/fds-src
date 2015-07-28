@@ -1061,6 +1061,58 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
 }
 
 void
+AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
+    fiu_do_on("am.uturn.dispatcher",
+              auto cb = SHARED_DYN_CAST(RenameBlobCallback, amReq->cb); \
+              cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
+              cb->blobDesc->setBlobName(amReq->getBlobName()); \
+              cb->blobDesc->setBlobSize(0); \
+              amReq->proc_cb(ERR_OK); \
+              return;);
+
+    auto blobReq = static_cast<RenameBlobReq *>(amReq);
+    auto message = boost::make_shared<fpi::RenameBlobMsg>();
+    message->volume_id = amReq->io_vol_id.get();
+    message->source_blob = amReq->getBlobName();
+    message->destination_blob = blobReq->new_blob_name;
+
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::renameBlobCb, amReq));
+    auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                              DMT_VER_INVALID,
+                                              message,
+                                              respCb);
+    asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
+                                        this, amReq, std::placeholders::_1,
+                                        std::placeholders::_2));
+    asyncReq->invoke();
+}
+
+void
+AmDispatcher::renameBlobCb(AmRequest *amReq,
+                           MultiPrimarySvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload) {
+    // Ensure we haven't already replied to this request
+    if (!amReq->isCompleted()) { return; }
+    // Deserialize if all OK
+    if (ERR_OK == error) {
+        auto blobReq = static_cast<RenameBlobReq *>(amReq);
+        // using the same structure for input and output
+        auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
+
+        auto cb = SHARED_DYN_CAST(RenameBlobCallback, amReq->cb);
+        // Fill in the data here
+        cb->blobDesc = boost::make_shared<BlobDescriptor>();
+        cb->blobDesc->setBlobName(blobReq->new_blob_name);
+        cb->blobDesc->setBlobSize(response->byteCount);
+        for (const auto& meta : response->metaDataList) {
+            cb->blobDesc->addKvMeta(meta.key,  meta.value);
+        }
+    }
+    amReq->proc_cb(error);
+}
+
+void
 AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     auto vol_id = amReq->io_vol_id;
 

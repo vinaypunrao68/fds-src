@@ -94,6 +94,7 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (AM_STAT_VOLUME_REQ)        /* End2end stat_volume*/
     (AM_SET_VOLUME_METADATA_REQ)/* End2end set_volume_matadata */
     (AM_GET_VOLUME_METADATA_REQ)/* End2end get_volume_metadata*/
+    (AM_RENAME_BLOB_REQ)        /* End2end rename_blob*/
 
     (AM_QOS_QUEUE_SIZE)         /* Histogram of AM QoS size */
 

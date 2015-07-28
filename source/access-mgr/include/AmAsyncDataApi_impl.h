@@ -334,9 +334,12 @@ void AmAsyncDataApi<H>::renameBlob(H& requestId,
 
     auto callback = create_async_handler<StatBlobCallback>(std::move(closure));
 
-    // TODO(bszmyd): Tue 28 Jul 2015 01:42:05 PM MDT
-    // Make Rename request structure to push into AM
-    callback->call(ERR_NOT_IMPLEMENTED);
+    auto blobReq = new RenameBlobReq(invalid_vol_id,
+                                    *volumeName,
+                                    *sourceBlobName,
+                                    *destinationBlobName,
+                                    callback);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
