@@ -214,6 +214,33 @@ public class AsyncAmTest extends BaseAmTest {
     }
 
     @Test
+    public void testBlobRename() throws Exception {
+        String blobName = UUID.randomUUID().toString();
+        String blobName2 = UUID.randomUUID().toString();
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("clothing", "boot");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        assertEquals("boot",bd1.getMetadata().get("clothing"));
+
+        // Rename the blob
+        asyncAm.renameBlob(domainName, volumeName, blobName, blobName2).get();
+
+        // The old one should be gone
+        try {
+            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+            fail("Should have gotten an ExecutionException");
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
+
+        // The new identical to the old
+        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
+        assertEquals("boot",bd2.getMetadata().get("clothing"));
+    }
+
+    @Test
     public void testMultipleAsyncUpdates() throws Exception {
         String blobName = UUID.randomUUID().toString();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), Maps.newHashMap()).get();
