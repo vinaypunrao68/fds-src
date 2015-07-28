@@ -556,7 +556,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
     } else if (vdesc->isSnapshot()) {
-        // snapshot happens on all primaries
+        // snapshot happens on all nodes
         fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
@@ -568,8 +568,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
-    // do this processing only in the case of primary ..
-    if ((vdesc->isSnapshot() || vdesc->isClone()) && fPrimary) {
+    // do this processing only in the case..
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
