@@ -23,7 +23,14 @@ RenameBlobHandler::RenameBlobHandler(DataMgr& dataManager)
 
 void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                            boost::shared_ptr<fpi::RenameBlobMsg>& message) {
+    auto response = boost::make_shared<fpi::RenameBlobRespMsg>();
+    if (dataManager.testUturnAll) {
+        GLOGDEBUG << "Uturn testing rename blob " << logString(*asyncHdr) <<
+            logString(*message);
+        handleResponse(asyncHdr, response, ERR_OK, NULL);
+    }
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
 
     fds_volid_t volId(message->volume_id);
     Error err(ERR_OK);
@@ -34,7 +41,6 @@ void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     	err = dataManager.validateVolumeIsActive(volId);
     }
 
-    auto response = boost::make_shared<fpi::RenameBlobRespMsg>();
     if (!err.OK())
     {
         handleResponse(asyncHdr, response, err, nullptr);
