@@ -180,6 +180,19 @@ public class InfluxDBConnection {
                 try {
                     logger.trace( "QUERY_BEGIN [{}]: {}", start, query );
 
+                    // TODO remove this line...
+                    System.setProperty( "om.influx.query.backtrace", "" );
+                    if ( System.getProperty( "om.influx.query.backtrace", null ) != null ) {
+                        // hack to log the stack trace of each query
+                        StackTraceElement[] st = new Exception().getStackTrace();
+                        int maxDepth = 25;
+                        int d = 0;
+                        for ( StackTraceElement e : st ) {
+                            logger.trace( "QUERY_TRACE[" + d + "]: {}", e );
+                            if ( ++d > maxDepth || e.getClassName().startsWith( "org.eclipse.jetty" ) ) { break; }
+                        }
+                    }
+
                     InfluxDB conn = connect();
                     connTime = System.currentTimeMillis() - start;
 

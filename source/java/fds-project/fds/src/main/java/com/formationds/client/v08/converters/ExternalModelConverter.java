@@ -34,7 +34,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -178,7 +180,40 @@ public class ExternalModelConverter {
         return ResourceState.valueOf( externalState.name() );
     }
 
-    public static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume ) {
+    /**
+     * Load the external volume status for each of the specified volumes
+     *
+     * @param volumes the list of volumes
+     *
+     * @return a map of volume id to the current volume status
+     */
+    public static Map<Long, VolumeStatus> loadExternalVolumeStatus( List<VolumeDescriptor> volumes ) {
+
+        Map<Long, VolumeStatus> volumeStatus = new HashMap<>( volumes.size() * 2 );
+
+        // load all of the firebreak events in the last 24 hours across all volumes.
+        Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> fbEvents = getFirebreakEvents();
+
+        // process the list of volume descriptors and get the external status values.
+        // This should only be hitting cached data.
+        volumes.stream().forEach( ( vd ) -> {
+            EnumMap<FirebreakType, VolumeDatapointPair> vfb = fbEvents.get( Long.toString( vd.getVolId() ) );
+            VolumeStatus vstat = convertToExternalVolumeStatus( vd, vfb );
+            volumeStatus.put( vd.getVolId(), vstat );
+        } );
+
+        return volumeStatus;
+    }
+
+    private static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume ) {
+        Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
+                                        null, null, null, null, null, null, null, null, null, null );
+        final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( fakeVolume );
+        return convertToExternalVolumeStatus( internalVolume, fbResults );
+    }
+
+    public static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume,
+                                                              EnumMap<FirebreakType, VolumeDatapointPair> fbResults ) {
 
         VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
@@ -193,11 +228,6 @@ public class ExternalModelConverter {
 
             extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
         }
-
-        Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
-                                        null, null, null, null, null, null, null, null, null, null );
-
-        final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( fakeVolume );
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
 
@@ -214,9 +244,7 @@ public class ExternalModelConverter {
             } );
         }
 
-        VolumeStatus externalStatus = new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
-
-        return externalStatus;
+        return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
     }
 
     //		public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
@@ -348,7 +376,33 @@ public class ExternalModelConverter {
         return extProtectionPolicy;
     }
 
-    public static Volume convertToExternalVolume( VolumeDescriptor internalVolume ) {
+    /**
+     * Given a list of <i>internal</i> Volume Descriptors, convert to a list of <i>external</i>
+     * volume model objects
+     *
+     * @param internalVolumes the list of volume descriptors
+     *
+     * @return the list of external volume model objects
+     */
+    public static List<Volume> convertToExternalVolumes( List<VolumeDescriptor> internalVolumes ) {
+        List<Volume> ext = new ArrayList<>();
+
+        Map<Long, VolumeStatus> volumeStatus = loadExternalVolumeStatus( internalVolumes );
+
+        // this is the naive way we are trying to get rid of
+        internalVolumes.stream().forEach( descriptor -> {
+
+            logger.trace( "Converting volume " + descriptor.getName() + " to external format." );
+            Volume externalVolume = ExternalModelConverter.convertToExternalVolume( descriptor,
+                                                                                    volumeStatus
+                                                                                        .get( descriptor.getVolId() ) );
+            ext.add( externalVolume );
+        } );
+
+        return ext;
+    }
+
+    private static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
 
         String extName = internalVolume.getName();
         Long volumeId = internalVolume.getVolId();
@@ -404,8 +458,6 @@ public class ExternalModelConverter {
             logger.warn( "Error occurred while trying to retrieve a list of tenants." );
             logger.debug( "Exception: ", e );
         }
-
-        VolumeStatus extStatus = convertToExternalVolumeStatus( internalVolume );
 
         VolumeAccessPolicy extAccessPolicy = VolumeAccessPolicy.exclusiveRWPolicy();
 
@@ -608,6 +660,35 @@ public class ExternalModelConverter {
             map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
         } catch ( TException e ) {
 
+            // TODO: at least this is logged, but I think it should be the caller that decides how to handle
+            logger.error( "Error occurred while trying to retrieve firebreak events.", e );
+        }
+
+        return map;
+    }
+
+    private static Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> getFirebreakEvents() {
+
+        MetricQueryCriteria query = new MetricQueryCriteria();
+        DateRange range = new DateRange();
+        range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime()) ) );
+        range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+
+        query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
+        query.setRange( range );
+
+        MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+
+        final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
+
+        FirebreakHelper fbh = new FirebreakHelper();
+        Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> map = null;
+
+        try {
+            map = fbh.findFirebreakEvents( queryResults );
+        } catch ( TException e ) {
+
+            // TODO: at least this is logged, but I think it should be the caller that decides how to handle
             logger.error( "Error occurred while trying to retrieve firebreak events.", e );
         }
 
