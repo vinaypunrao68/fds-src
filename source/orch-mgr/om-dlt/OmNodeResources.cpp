@@ -302,17 +302,17 @@ OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr
                                            const Error& error,
                                            boost::shared_ptr<std::string> payload)
 {
-    TRACEFUNC;
     LOGNOTIFY << "OM received response for SM Abort Migration from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
               << " with committed DLT version " << msg->DLT_version
+              << " for target DLT version " << msg->DLT_target_version
               << " " << error;
 
     // notify DLT state machine
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
-    dltMod->dlt_deploy_event(DltRecoverAckEvt(true, node_uuid, error));
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(true, node_uuid, msg->DLT_target_version, error));
 }
 
 Error
