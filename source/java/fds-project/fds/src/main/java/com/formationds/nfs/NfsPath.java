@@ -55,6 +55,15 @@ public class NfsPath {
         this.path = new Path(parent.getPath(), child);
     }
 
+    public NfsPath getParent() {
+        Path parent = path.getParent();
+        if (parent != null) {
+            return new NfsPath(volume, parent.toString());
+        } else {
+            return this;
+        }
+    }
+
     public String getVolume() {
         return volume;
     }
@@ -122,4 +131,5 @@ public class NfsPath {
                 ", path=" + path +
                 ']';
     }
+
 }

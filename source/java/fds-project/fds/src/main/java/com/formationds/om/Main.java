@@ -5,6 +5,7 @@ package com.formationds.om;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.XdiService;
+import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -128,8 +129,9 @@ public class Main {
             ConfigServiceClientFactory.newConfigService(grabFirstOmIpAddress, omConfigPort);
 
         // TODO: this retries with a very long timeout.... probably not what we want in the long run
-        final OmConfigurationApi configCache = RetryHelper.retry( "OmConfigurationApi", 5, TimeUnit.MINUTES,
-                                                                  () -> new OmConfigurationApi( configApiFactory ) );
+        final OmConfigurationApi configCache = RetryHelper.retry(
+            "OmConfigurationApi", 5, TimeUnit.MINUTES,
+            ( ) -> new OmConfigurationApi( configApiFactory ) );
 
         configCache.startConfigurationUpdater( );
         SingletonConfigAPI.instance().api( configCache );
