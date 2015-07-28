@@ -1,5 +1,6 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2014-2015 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "svc_types.thrift"

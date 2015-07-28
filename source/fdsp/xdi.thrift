@@ -67,6 +67,12 @@ service AsyncXdiServiceRequest {
     oneway void updateMetadata(1:RequestId requestId, 2:string domainName,
                                3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc, 6:map<string, string> metadata),
 
+    oneway void renameBlob(1:RequestId requestId,
+                           2:string domainName,
+                           3:string volumeName,
+                           4:string sourceBlobName,
+                           5:string destinationBlobName),
+
     oneway void updateBlob(1:RequestId requestId, 2:string domainName,
                            3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc, 6:binary bytes, 
                            7:i32 length, 8:ObjectOffset objectOffset),
@@ -105,6 +111,8 @@ service AsyncXdiServiceResponse {
     oneway void getBlobWithMetaResponse(1:RequestId requestId, 2:binary data, 3:common.BlobDescriptor blobDesc),
 
     oneway void updateMetadataResponse(1:RequestId requestId),
+
+    oneway void renameBlobResponse(1:RequestId requestId, 2:common.BlobDescriptor response),
 
     oneway void updateBlobResponse(1:RequestId requestId),
 

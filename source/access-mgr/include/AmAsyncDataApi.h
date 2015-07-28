@@ -120,6 +120,12 @@ class AmAsyncDataApi {
                          shared_int_type& length,
                          shared_offset_type& objectOffset);
 
+    void renameBlob(handle_type& requestId,
+                    shared_string_type& domainName,
+                    shared_string_type& volumeName,
+                    shared_string_type& sourceBlobName,
+                    shared_string_type& destinationBlobName);
+
     void updateMetadata(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,

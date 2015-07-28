@@ -320,6 +320,26 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
 }
 
 template<typename H>
+void AmAsyncDataApi<H>::renameBlob(H& requestId,
+                                   shared_string_type& domainName,
+                                   shared_string_type& volumeName,
+                                   shared_string_type& sourceBlobName,
+                                   shared_string_type& destinationBlobName) {
+    // Closure for response call
+    auto closure = [p = responseApi, requestId](RenameBlobCallback* cb, Error const& e) mutable -> void {
+        typename response_api_type::shared_descriptor_type retBlobDesc = e.ok() ?
+            transform_descriptor(cb->blobDesc) : nullptr;
+        p->renameBlobResp(e, requestId, retBlobDesc);
+    };
+
+    auto callback = create_async_handler<StatBlobCallback>(std::move(closure));
+
+    // TODO(bszmyd): Tue 28 Jul 2015 01:42:05 PM MDT
+    // Make Rename request structure to push into AM
+    callback->call(ERR_NOT_IMPLEMENTED);
+}
+
+template<typename H>
 void AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,

@@ -188,6 +188,7 @@ enum  FDSPMsgTypeId {
   CtrlNotifyDeltaBlobsMsgTypeId;
   CtrlNotifyFinishVolResyncMsgTypeId;
   CtrlNotifyFinishVolResyncRspMsgTypeId;
+  RenameBlobMsgTypeId;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
