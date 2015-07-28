@@ -64,7 +64,8 @@ class CounterMonitor(object):
             return False
         self.svc_table = self.get_svc_table()
         for e in self.svc_table:
-            if (    e["status"] == "Active" and 
+            if (    #e["status"] == "Active" and 
+                    e["name"] != None and
                     check_agent_filter(e["name"]) and 
                     check_ip_filter(e["ip"])
                     ):
