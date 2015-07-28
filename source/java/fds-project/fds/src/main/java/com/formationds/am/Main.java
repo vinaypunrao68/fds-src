@@ -146,7 +146,13 @@ public class Main {
 //                        clientFactory.remoteOmService(omHost,
 //                                omConfigPort));
 
-        XdiConfigurationApi configCache = new XdiConfigurationApi(omCachedConfigProxy);
+        XdiConfigurationApi configCache =
+            RetryHelper.retry( "XdiConfigurationApi",
+                               5,
+                               TimeUnit.MINUTES,
+                               ( ) -> new XdiConfigurationApi( omCachedConfigProxy ) );
+
+//        XdiConfigurationApi configCache = new XdiConfigurationApi(omCachedConfigProxy);
 
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
