@@ -369,12 +369,19 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     MigrationState curState = atomic_load(&migrState);
     if (curState == MIGR_ABORTED) {
         LOGMIGRATE << "Migration was aborted, ignoring migration task";
-        return;
+        err = ERR_SM_TOK_MIGRATION_ABORTED;
     } else if (curState == MIGR_IDLE) {
         LOGNOTIFY << "Migration is in idle state, probably was aborted, ignoring";
-        return;
+        err = ERR_SM_TOK_MIGRATION_ABORTED;
     }
-    
+    if (!err.ok()) {
+        // we are done, if snapshot was taken successfully, release it
+        if (error.ok()) {
+            db->ReleaseSnapshot(options.snapshot);
+        }
+        return ERR_OK;
+    }
+
     if (retryMigrFailedTokens) {
         curSmTokenInProgress = retrySmTokenInProgress;
     } else {
