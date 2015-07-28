@@ -270,17 +270,9 @@ string GetBucketHandler::_bashSquareToPcre(string const& glob, size_t& character
         case ']':
             if (retval.empty())
             {
-                if (inverse)
-                {
-                    // We can close by using the inversion as a literal.
-                    // FIXME: [!]a] should match anything other than ] or a.
-                    return "[" + pcrecpp::RE::QuoteMeta("!") + "]";
-                }
-                else
-                {
-                    // Can't have an empty group, so these can come in unescaped.
-                    retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
-                }
+                // Can't have an empty group, so these can come in unescaped. If we don't find
+                // another closing brace, we take care of it when we run out of characters.
+                retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
             }
             else
             {
@@ -294,10 +286,36 @@ string GetBucketHandler::_bashSquareToPcre(string const& glob, size_t& character
         }
     }
 
-    // Ran out of characters before finding a close. Return opening as a literal and pick up
-    // from there.
-    characterIndex = start;
-    return pcrecpp::RE::QuoteMeta("[");
+    // Ran out of characters before finding a close.
+    if (retval.empty())
+    {
+        // No close, interpret as regular characters.
+        if (inverse)
+        {
+            characterIndex = start + 2;
+            return pcrecpp::RE::QuoteMeta("[!");
+        }
+        else
+        {
+            characterIndex = start + 1;
+            return pcrecpp::RE::QuoteMeta("[");
+        }
+    }
+    else
+    {
+        // Close in first character, inversion is a regular character and only content.
+        if (retval[0] == ']')
+        {
+            characterIndex = start + 3;
+            return string("[") + (inverse ? "!" : "") + "]";
+        }
+        else
+        {
+            // Without close, it's not a character group, so inversion doesn't mean anything.
+            characterIndex = start + 1;
+            return "[";
+        }
+    }
 }
 
 string GetBucketHandler::_dosGlobToPcre(string const& glob)
