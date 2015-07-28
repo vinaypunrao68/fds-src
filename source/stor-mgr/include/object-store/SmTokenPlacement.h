@@ -96,7 +96,8 @@ class SmTokenPlacement {
                           const std::set<fds_uint16_t>& addedStorage,
                           const std::set<fds_uint16_t>& removedStorage,
                           diskio::DataTier storageTier,
-                          ObjectLocationTable* olt);
+                          ObjectLocationTable* olt,
+                          Error& error);
 
 };
 

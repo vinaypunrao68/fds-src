@@ -245,7 +245,8 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
                             const std::set<fds_uint16_t>& addedStorage,
                             const std::set<fds_uint16_t>& removedStorage,
                             diskio::DataTier storageTier,
-                            ObjectLocationTable* olt)
+                            ObjectLocationTable* olt,
+                            Error& err)
 {
     fds_verify(olt);
     // there should be at least disk in the base storage.
@@ -295,6 +296,12 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
               << "removedStorage size=" << removedStorage.size() << ", "
               << "totalStorage size=" << totalStorage.size()
               << std::endl;
+
+    if (totalStorage.size() == 0) {
+        LOGCRITICAL << "No disks left in the node.";
+        err = ERR_SM_NO_DISK;
+        return false;
+    }
 
     // Calculate average per disk token based.
     uint32_t tokensPerDisk = ceil(SMTOKEN_COUNT / totalStorage.size());

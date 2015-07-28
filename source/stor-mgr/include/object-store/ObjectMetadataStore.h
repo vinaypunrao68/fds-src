@@ -8,6 +8,7 @@
 #include <fds_module.h>
 #include <SmTypes.h>
 #include <SmIo.h>
+#include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectMetaCache.h>
 #include <object-store/ObjectMetaDb.h>
 
@@ -22,7 +23,8 @@ namespace fds {
  */
 class ObjectMetadataStore : public Module, public boost::noncopyable {
   public:
-    explicit ObjectMetadataStore(const std::string& modName);
+    ObjectMetadataStore(const std::string& modName,
+                        UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj());
     ~ObjectMetadataStore();
 
     typedef std::unique_ptr<ObjectMetadataStore> unique_ptr;
@@ -112,10 +114,14 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     virtual void mod_shutdown();
 
   private:
-    /// object metadata index db
+    /**
+     * Object metadata index db
+     */
     ObjectMetadataDb::unique_ptr metaDb_;
 
-    /// Metadata cache
+    /**
+     * Metadata cache
+     */
     ObjectMetaCache::unique_ptr metaCache;
 };
 

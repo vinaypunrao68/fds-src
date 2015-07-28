@@ -4,6 +4,8 @@
 
 #include <net/SvcMgr.h>
 #include <vector>
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <object-store/SmDiskMap.h>
 #include <StorMgr.h>
 #include <MigrationMgr.h>
@@ -364,11 +366,22 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     Error err(ERR_OK);
     fds_token_id curSmTokenInProgress;
 
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_ABORTED) {
         LOGMIGRATE << "Migration was aborted, ignoring migration task";
+        err = ERR_SM_TOK_MIGRATION_ABORTED;
+    } else if (curState == MIGR_IDLE) {
+        LOGNOTIFY << "Migration is in idle state, probably was aborted, ignoring";
+        err = ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+    if (!err.ok()) {
+        // we are done, if snapshot was taken successfully, release it
+        if (error.ok()) {
+            db->ReleaseSnapshot(options.snapshot);
+        }
         return;
     }
-    
+
     if (retryMigrFailedTokens) {
         curSmTokenInProgress = retrySmTokenInProgress;
     } else {
@@ -620,7 +633,8 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
-    fiu_do_on("sm.exit.before.client.erase", exit(1));
+    fiu_do_on("sm.exit.before.client.erase", LOGNOTIFY << "sm.exit.before.client.erase fault point enabled"; \
+              exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
@@ -1141,6 +1155,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
     LOGMIGRATE << "Will cleanup executors and migr clients";
     // Wait for all pending IOs to complete on Executors.
     coalesceExecutors();
+    LOGMIGRATE << "Done coalescing executors";
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
@@ -1152,6 +1167,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
         coalesceClients();
         migrClients.clear();
     }
+    LOGMIGRATE << "Done coalescing clients";
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
     return err;
@@ -1264,7 +1280,8 @@ Error
 MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
 {
     Error err(ERR_OK);
-    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_IN_PROGRESS) {
         if (tgtDltVersion == targetDltVersion) {
             LOGNOTIFY << "Will abort token migration per OM request";
             abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
@@ -1274,6 +1291,10 @@ MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
                       << " does not match version of this migration " << targetDltVersion;
             return ERR_INVALID_ARG;
         }
+    } else if (curState == MIGR_IDLE) {
+        LOGNOTIFY << "Abort migration called in idle state, will send not found error, "
+                  << "so that OM can act on it if needed";
+        return ERR_NOT_FOUND;
     }
     return err;
 }

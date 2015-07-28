@@ -118,6 +118,9 @@ fds: {
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
+        
+        redis_host = "{{ om_ip }}"
+        redis_port = {{ redis_port }}
 
         /* Don't spawn any service daemon */
         auto_start_services = true
@@ -444,6 +447,13 @@ fds: {
                 /* In seconds to make testing easier (default 172800s = 2days) */
                 frequency         = {{ sm_tiering_hybrid_frequency }}
             }
+        }
+        /* Garbage Collection in SM */
+        scavenger: {
+             /* Maximum number of disks to compact at the same time */
+             max_disks_compact = {{ sm_scavenger_max_disks_compact }}
+             /* Time interval where GC periodically checks whether to GC or not */
+             interval_seconds = {{ sm_scavenger_interval_seconds }}
         }
 
         /* Graphite is enabled or not */

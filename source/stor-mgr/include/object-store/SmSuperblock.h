@@ -284,6 +284,8 @@ class SmSuperblockMgr {
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
+    void recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds);
+
     /**
      * Reconcile superblocks, if there is inconsistency.
      */
@@ -384,6 +386,8 @@ class SmSuperblockMgr {
      * Set the latest committed DLT version.
      */
     Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
+    /// this one assimes that lock is heald on superblock
+    Error setDLTVersionLockHeld(fds_uint64_t dltVersion, bool syncImmediately);
 
     std::string getTempMount();
 

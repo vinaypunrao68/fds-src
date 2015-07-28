@@ -189,6 +189,7 @@ TEST(SmTokenPlacement, recompute1)
 {
     GLOGNORMAL << "Testing SmTokenPlacement recompute";
 
+    Error err(ERR_OK);
     std::set<fds_uint16_t> baseHdds;
     std::set<fds_uint16_t> baseSsds;
     discoverDisks(2, 0, &baseHdds, &baseSsds);
@@ -219,7 +220,8 @@ TEST(SmTokenPlacement, recompute1)
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
-                                &olt);
+                                &olt,
+                                err);
 
     GLOGNORMAL << olt;
 
@@ -237,6 +239,7 @@ TEST(SmTokenPlacement, recompute1)
 TEST(SmTokenPlacement, recompute2)
 {
     GLOGNORMAL << "Testing SmTokenPlacement recompute2";
+    Error err(ERR_OK);
 
     std::set<fds_uint16_t> baseHdds;
     std::set<fds_uint16_t> baseSsds;
@@ -265,7 +268,8 @@ TEST(SmTokenPlacement, recompute2)
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
-                                &olt);
+                                &olt,
+                                err);
 
     GLOGNORMAL << olt;
 
@@ -293,6 +297,7 @@ TEST(SmTokenPlacement, recompute3)
 {
     GLOGNORMAL << "Testing SmTokenPlacement recompute3";
 
+    Error err(ERR_OK);
     std::set<fds_uint16_t> baseHdds;
     std::set<fds_uint16_t> baseSsds;
     discoverDisks(3, 0, &baseHdds, &baseSsds);
@@ -320,7 +325,8 @@ TEST(SmTokenPlacement, recompute3)
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
-                                &olt);
+                                &olt,
+                                err);
 
     GLOGNORMAL << olt;
 
@@ -354,6 +360,7 @@ TEST(SmTokenPlacement, recompute4)
 {
     GLOGNORMAL << "Testing SmTokenPlacement recompute4";
 
+    Error err(ERR_OK);
     std::set<fds_uint16_t> baseHdds;
     std::set<fds_uint16_t> baseSsds;
     discoverDisks(4, 0, &baseHdds, &baseSsds);
@@ -384,7 +391,8 @@ TEST(SmTokenPlacement, recompute4)
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
-                                &olt);
+                                &olt,
+                                err);
 
     GLOGNORMAL << olt;
 
@@ -426,6 +434,7 @@ TEST(SmTokenPlacement, recompute5)
 {
     GLOGNORMAL << "Testing SmTokenPlacement recompute5";
 
+    Error err(ERR_OK);
     std::set<fds_uint16_t> baseHdds;
     std::set<fds_uint16_t> baseSsds;
     discoverDisks(4, 0, &baseHdds, &baseSsds);
@@ -452,7 +461,8 @@ TEST(SmTokenPlacement, recompute5)
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
-                                &olt);
+                                &olt,
+                                err);
 
     GLOGNORMAL << olt;
 

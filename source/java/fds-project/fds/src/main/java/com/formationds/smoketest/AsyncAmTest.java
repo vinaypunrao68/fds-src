@@ -113,7 +113,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(84, (long) blobDescriptor.getByteCount());
     }
 
-    @Test //done 7
+    @Test
     public void testVolumeContents() throws Exception {
         List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(0, contents.size());
@@ -124,7 +124,28 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, contents.size());
     }
 
-    @Test //done 3
+    @Test
+    public void testVolumeContentsFilter() throws Exception {
+        asyncAm.updateBlobOnce(domainName, volumeName, "/", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
+        String filter = "^/[^/]+$";
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, filter, BlobListOrder.UNSPECIFIED, false).get();
+        assertEquals(1, descriptors.size());
+    }
+
+    @Test
+    @Ignore
+    public void testListVolumeContents() throws Exception {
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, "panda", Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+        for (BlobDescriptor descriptor : descriptors) {
+            System.out.println(descriptor.getName());
+        }
+    }
+
+    @Test
     public void testDeleteBlob() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -162,7 +183,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, blobDescriptor.getMetadataSize());
     }
 
-    @Test //done 1
+    @Test
     public void testTransactions() throws Exception {
     	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
@@ -174,7 +195,7 @@ public class AsyncAmTest extends BaseAmTest {
                 .get();
     }
 
-    @Test //done 5
+    @Test
     public void testTransactionalMetadataUpdate() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -192,7 +213,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(smallObjectLength, bd2.getByteCount());
     }
 
-    @Test //done 2
+    @Test
     public void testMultipleAsyncUpdates() throws Exception {
         String blobName = UUID.randomUUID().toString();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), Maps.newHashMap()).get();
@@ -228,7 +249,8 @@ public class AsyncAmTest extends BaseAmTest {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.statBlob(domainName, volumeName, blobName).get());
     }
-    @Test //done 4
+
+    @Test
     public void testStatAndUpdateBlobData() throws ExecutionException, InterruptedException {
         String blobName = "key";
         byte[] buf = new byte[10];
@@ -254,7 +276,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(buf.length, (int) asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get().getByteCount());
     }
 
-    @Test //done 8
+    @Test
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,"nonExistingVolume",Integer.MAX_VALUE,0,"",BlobListOrder.LEXICOGRAPHIC,false).get());

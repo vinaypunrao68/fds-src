@@ -17,7 +17,7 @@ class AbstractService():
         '''
         Helper method to construct the base URI
         '''        
-        return "http://{}:{}{}".format( self.session.get_hostname(), self.__session.get_port(), "/fds/config/v08" ) 
+        return "http://{}:{}{}".format( self.session.get_hostname(), self.session.get_port(), "/fds/config/v08" ) 
         
     @property
     def session(self):

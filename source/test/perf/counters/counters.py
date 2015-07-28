@@ -108,15 +108,25 @@ def main():
                       help = "Filter counters based on the ip")
     parser.add_option("", "--agent-filter", dest = "agent_filter", default = None,
                       help = "Filter counters based on the agent")
+    parser.add_option("", "--influxdb-host", dest = "influxdb_host", default = "c3po.formationds.com",
+                      help = "Influxdb host")
+    parser.add_option("", "--influxdb-port", dest = "influxdb_port", default = 8086, type = "int",
+                      help = "Influxdb port")
+    parser.add_option("", "--influxdb-db", dest = "influx_db", default = "counters",
+                      help = "Influxdb db")
+    parser.add_option("", "--influxdb-user", dest = "influx_user", default = "root",
+                      help = "Influxdb user")
+    parser.add_option("", "--influxdb-password", dest = "influx_password", default = "root",
+                      help = "Influxdb password")
 
     (options, args) = parser.parse_args()
 
     influx_db_config = {
-        "ip" : "c3po.formationds.com",
-        "port" : 8086,
-        "user" : "root",
-        "password" : "root",
-        "db" : "counters"
+        "ip" : options.influxdb_host,
+        "port" :  options.influxdb_host,
+        "user" :  options.influxdb_host,
+        "password" :  options.influxdb_host,
+        "db" :  options.influxdb_host
     }
     
     config = {
