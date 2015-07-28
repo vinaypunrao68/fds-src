@@ -361,16 +361,6 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         return;
     }
 
-    // see if DM sync feature is enabled
-    if (dataManager_.features.isCatSyncEnabled()) {
-        // XXX: resync goes here?
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-        // ok we just respond...
-        NotifyDMTUpdateCb(hdr, err);
-        return;
-    }
-
     if (!err.ok()) {
         NotifyDMTUpdateCb(hdr, err);
     }
