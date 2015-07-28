@@ -138,8 +138,8 @@ public class Main {
                                TimeUnit.MINUTES,
                                ( ) -> OMConfigurationServiceProxy.newOMConfigProxy(
                                    omConfigServiceRestClient,
-                                   clientFactory.remoteOmService(omHost,
-                                                                 omConfigPort) ) );
+                                   clientFactory.remoteOmService( omHost,
+                                                                  omConfigPort ) ) );
 
 //        ConfigurationApi omCachedConfigProxy =
 //                OMConfigurationServiceProxy.newOMConfigProxy(omConfigServiceRestClient,
