@@ -13,8 +13,6 @@ import sh
 nbd_path = os.path.abspath(os.path.join('..', '..', ''))
 sys.path.append(nbd_path)
 
-print sys.path
-
 # import nbdadmin.py:
 from cinder.nbdadm import nbdlib
 from cinder.nbdadm import nbd_user_error
