@@ -8,11 +8,17 @@ import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -40,6 +46,11 @@ public class CachedConfiguration {
         this.config = config;
 
         version = config.configurationVersion( 0 );
+        load();
+    }
+
+    void load()
+    {
         loadUsers();
 
         loadTenants();
@@ -54,7 +65,7 @@ public class CachedConfiguration {
                 addTenantUsers( tenant, tenantUsers );
             }
         } catch (TException t) {
-            // TODO: Disregard for now, throws exception if cluster is not ready
+            throw new IllegalStateException( "configuration database is not ready!.", t );
         }
     }
 
@@ -63,8 +74,7 @@ public class CachedConfiguration {
         try {
             volumeDescriptors = config.listVolumes( "" );
         } catch ( TException e ) {
-            // TODO: Disregard for now, throws exception if cluster is not ready
-            volumeDescriptors = Lists.newArrayList();
+            throw new IllegalStateException( "configuration database is not ready!.", e );
         }
 
         volumeLock.lock();
@@ -86,12 +96,12 @@ public class CachedConfiguration {
                 usersByName = users.stream()
                                    .collect( Collectors.toMap( User::getIdentifier, u -> u ) );
                 usersById = users.stream()
-                                 .collect( Collectors.toMap( u -> u.getId(), u -> u ) );
+                                 .collect( Collectors.toMap( User::getId, u -> u ) );
             } finally {
                 usersLock.unlock();
             }
         } catch (TException e) {
-            // TODO: Disregard for now, throws exception if cluster is not ready
+              throw new IllegalStateException( "configuration database is not ready!.", e );
 
         }
     }
@@ -128,6 +138,7 @@ public class CachedConfiguration {
         }
     }
 
+    @SuppressWarnings( "unused" )
     void removeUser( User user ) {
         usersLock.lock();
         try {
@@ -151,7 +162,8 @@ public class CachedConfiguration {
         }
     }
 
-    public VolumeDescriptor getVolume(String ignoredDomain, String volumeName) {
+    public VolumeDescriptor getVolume(@SuppressWarnings( "unused" ) String ignoredDomain,
+                                      String volumeName) {
         volumeLock.lock();
         try {
             return volumesByName.get( volumeName );
@@ -179,11 +191,13 @@ public class CachedConfiguration {
         }
     }
 
+    @SuppressWarnings( "unused" )
     void removeVolume(VolumeDescriptor vol) {
         removeVolume( "", vol.getName() );
     }
 
-    void removeVolume( String domainName, String volumeName) {
+    void removeVolume( @SuppressWarnings( "unused" ) String domainName,
+                       String volumeName) {
         volumeLock.lock();
         try {
             VolumeDescriptor vol = volumesByName.remove( volumeName );
@@ -201,6 +215,7 @@ public class CachedConfiguration {
         }
     }
 
+    @SuppressWarnings( "unused" )
     void addTenantUsers(Tenant tenant,  User... users) {
         if (users != null && users.length > 0) {
             addTenantUsers( tenant, Arrays.asList( users ) );
@@ -215,7 +230,7 @@ public class CachedConfiguration {
             tenantsById.put( tenant.getId(), tenant );
             usersByTenant.putAll( tenant.getId(),
                                   tenantUsers.stream()
-                                             .map( u -> u.getId() ).collect( Collectors.toSet() ) );
+                                             .map( User::getId ).collect( Collectors.toSet() ) );
             for ( User tenantUser : tenantUsers ) {
                 tenantsByUser.put( tenantUser.getId(), tenant.getId() );
             }
@@ -224,7 +239,7 @@ public class CachedConfiguration {
 
     void addTenantUser(long tid, long uid) {
         synchronized ( tenantsById ) {
-            Tenant tenant = tenantsById.get( tid );
+            @SuppressWarnings( "unused" ) Tenant tenant = tenantsById.get( tid );
             usersByTenant.put( tid, uid );
             tenantsByUser.put( uid, tid );
         }
@@ -237,7 +252,7 @@ public class CachedConfiguration {
         }
     }
 
-
+    @SuppressWarnings( "unused" )
     void removeTenant(long tid) {
         synchronized ( tenantsById ) {
             usersByTenant.removeAll( tid );
@@ -260,7 +275,7 @@ public class CachedConfiguration {
         usersLock.lock();
         try {
             return usersByTenant.get( tenantId ).stream()
-                                .map( id -> usersById.get( id ) )
+                                .map( usersById::get )
                                 .collect( Collectors.toList() );
         } finally {
             usersLock.unlock();
