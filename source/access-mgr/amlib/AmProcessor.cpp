@@ -493,7 +493,8 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
         if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token))) {
             LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
         } else {
-            LOGWARN << "Failed to cancel timer, volume with re-attach!";
+            LOGWARN << "Failed to cancel timer, volume will re-attach: "
+                    << volDesc.name << " using: 0x" << std::hex << token;
         }
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
