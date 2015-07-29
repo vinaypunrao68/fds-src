@@ -4,21 +4,22 @@
 
 package com.formationds.commons.togglz;
 
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.commons.togglz.repository.fds.PlatformDotConfStateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.togglz.core.Feature;
 import org.togglz.core.manager.TogglzConfig;
 import org.togglz.core.repository.StateRepository;
-import org.togglz.core.repository.file.FileBasedStateRepository;
 import org.togglz.core.user.NoOpUserProvider;
 import org.togglz.core.user.UserProvider;
 
-import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.ParseException;
 
 /**
  * @author ptinius
@@ -29,29 +30,20 @@ public class FdsTogglzConfig
     private static final Logger logger =
         LoggerFactory.getLogger( FdsTogglzConfig.class );
 
-    private static final String DEF_SINGLE_NODE = "/fds/etc";
+    private static final String FAILED_LOAD_FEATURE_TOGGLES =
+        "Failed to load feature toggles ( %s ), " +
+        "Toggles will be disabled by default.";
 
-    private static final String BASENAME_PRODUCTION = "fds-features.conf";
+    private static final String FAILED_PARSE_FEATURE_TOGGLES =
+        "Failed to parse feature toggles ( %s ), " +
+        "Toggles will be disabled by default.";
 
-    private static boolean LOG_ONCE = false;
+    private static final String DEF_FDS = "fds";
+    private static final String DEF_ETC = "etc";
 
-    private static final List<String> BUNDLE_PATHS = new ArrayList<>();
+    private static final String PLATFORM_DOT_CONF = "platform.conf";
 
-    static {
-
-        // better be set, otherwise we will have issues
-        if( System.getProperty( "fds-root" ) != null ) {
-
-            BUNDLE_PATHS.add( Paths.get( System.getProperty( "fds-root" ),
-                                         "etc" )
-                                   .toString() );
-        }
-
-        // default single node production location
-        BUNDLE_PATHS.add( DEF_SINGLE_NODE );
-    }
-
-    private FileBasedStateRepository repository = null;
+    private PlatformDotConfStateRepository repository = null;
     private UserProvider userProvider = null;
 
     /**
@@ -81,25 +73,46 @@ public class FdsTogglzConfig
     public StateRepository getStateRepository( ) {
 
         if( repository == null ) {
+            Path featureFile;
 
-            for( String b : BUNDLE_PATHS ) {
+            if( System.getProperty( "fds-root" ) != null ) {
 
-                String feature_file = b + File.separator + BASENAME_PRODUCTION;
-                if( !LOG_ONCE ) {
+                featureFile = Paths.get( System.getProperty( "fds-root" ),
+                                         DEF_ETC,
+                                         PLATFORM_DOT_CONF );
+            } else {
 
-                    LOG_ONCE = true;
-                    logger.debug( "looking feature file: " + feature_file );
-                }
+                featureFile = Paths.get( DEF_FDS,
+                                         DEF_ETC,
+                                         PLATFORM_DOT_CONF );
+            }
 
-                if( Files.exists( Paths.get( feature_file ) ) ) {
+            logger.debug( "looking feature file: " + featureFile );
 
-                    logger.debug(
-                        "feature file match found: " + feature_file );
+            if( Files.exists( featureFile ) ) {
 
+                logger.debug(
+                    "feature file match found: " + featureFile );
+                try
+                {
                     repository =
-                        new FileBasedStateRepository( Paths.get( feature_file )
-                                                           .toFile() );
-                    break;
+                        new PlatformDotConfStateRepository(
+                            new ParsedConfig(
+                                Files.newInputStream( featureFile ) ) );
+                }
+                catch( IOException e )
+                {
+                    logger.error(
+                        String.format( FAILED_LOAD_FEATURE_TOGGLES,
+                                       featureFile ),
+                        e );
+                }
+                catch( ParseException e )
+                {
+                    logger.error(
+                        String.format( FAILED_PARSE_FEATURE_TOGGLES,
+                                       featureFile ),
+                        e );
                 }
             }
         }

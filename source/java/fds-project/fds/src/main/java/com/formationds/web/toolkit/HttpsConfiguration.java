@@ -1,7 +1,7 @@
 package com.formationds.web.toolkit;
 
 import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.commons.libconfig.ParsedConfig;
 
 import java.io.File;
 
