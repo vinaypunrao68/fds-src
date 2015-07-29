@@ -1045,8 +1045,7 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            //make sure to validate the svcID passed to the function
-            LOGDEBUG << "Sending heartbeatMessage ack for PM uuid: "
+            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
                      << std::hex << heartbeatMsg->svcUuid.uuid << std::dec;
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();

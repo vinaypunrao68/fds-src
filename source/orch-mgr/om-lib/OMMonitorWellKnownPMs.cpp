@@ -47,21 +47,22 @@ namespace fds
                             case FDS_ProtocolInterface::SVC_STATUS_INVALID:
                             case FDS_ProtocolInterface::SVC_STATUS_INACTIVE:
                             {
-                                LOGWARN << "Platformd UUID: "
-                                        << std::hex
-                                        << svcUuid.svc_uuid
-                                        << std::dec
-                                        << " status "
-                                        <<  svc.svc_status
-                                        << " expected status "
-                                        << FDS_ProtocolInterface::SVC_STATUS_ACTIVE;
                                 auto mapIter = wellKnownPMsMap.find(svc.svc_id.svc_uuid);
                                 if (mapIter == wellKnownPMsMap.end()) {
                                     LOGDEBUG << "PM:" << std::hex << svcUuid.svc_uuid << std::dec
-                                             << " is no longer well known service, take no action";
+                                             << " is no longer well known service, OM stopped"
+                                                " checking heartbeat";
                                 }
                                 else
                                 {
+                                    LOGWARN << "Platformd UUID: "
+                                            << std::hex
+                                            << svcUuid.svc_uuid
+                                            << std::dec
+                                            << " status "
+                                            <<  svc.svc_status
+                                            << " expected status "
+                                            << FDS_ProtocolInterface::SVC_STATUS_ACTIVE;
                                     //HEALTH_STATE_UNREACHABLE will cause a well known PM
                                     // to go into inactive state, in which case handle the
                                     // change in active to inactive
@@ -71,14 +72,7 @@ namespace fds
                             }
                             default: //SVC_STATUS_ACTIVE, SVC_STATUS_DISCOVERED
                             {
-                                LOGDEBUG << "Well known platformd UUID: "
-                                        << std::hex
-                                        << svcUuid.svc_uuid
-                                        << std::dec
-                                        << " status "
-                                        <<  svc.svc_status;
-
-                                Error err = handleActiveEntry(svcUuid, svcMgr);
+                                Error err = handleActiveEntry(svcUuid, svc, svcMgr);
 
                                 if (!err.ok())
                                     LOGDEBUG << "Problem sending out heartbeat check to PM:"
@@ -90,7 +84,7 @@ namespace fds
                 }
             }
                 // sleep for five minutes, before checking again.
-                std::this_thread::sleep_for( std::chrono::minutes( 1 ) );
+                std::this_thread::sleep_for( std::chrono::minutes( 5 ) );
         }
 
         LOGDEBUG << "Stopping Well Known PM monitoring thread";
@@ -121,12 +115,12 @@ namespace fds
         }
         else
         {
-            LOGDEBUG << "New PM added to map with ID:"
+            LOGDEBUG << "New PM added to well known map with ID:"
                      << std::hex << svcUuid.svc_uuid << std::dec;
         }
 
         // Don't use "insert" since we want to overwrite the timestamp
-        // even if it exists
+        // if entry exists
         wellKnownPMsMap[svcUuid] = timestamp;
     }
 
@@ -149,7 +143,7 @@ namespace fds
         double& timestamp
         )
     {
-        SCOPEDREAD(pmMapLock); // wondering if this shared read is what we want. What if a PM tries to update while this is being read?
+        SCOPEDREAD(pmMapLock);
         auto iter = wellKnownPMsMap.find(uuid);
         if (iter == wellKnownPMsMap.end()) {
             return ERR_NOT_FOUND;
@@ -160,19 +154,20 @@ namespace fds
         return ERR_OK;
     }
 
-    void OMMonitorWellKnownPMs::handleStaleEntry(fpi::SvcInfo svc, SvcMgr* svcMgr)
+    void OMMonitorWellKnownPMs::handleStaleEntry
+        (
+        fpi::SvcInfo svc,
+        SvcMgr* svcMgr
+        )
     {
-        LOGDEBUG << "Changing PM:" << std::hex
-                 << svc.svc_id.svc_uuid.svc_uuid << std::dec
-                 << " from well known to not known service";
-
         std::vector<fpi::SvcInfo> staleEntries;
 
         svc.svc_status = fpi::SVC_STATUS_INACTIVE;
         staleEntries.push_back(svc);
         // Update svcManager svcMap
         // This should already be inactive, with the HEALTH_STATE_UNREACHABLE
-        // timeout of 2 minutes, but in case it hasn't been updated, do so
+        // timeout of 2 minutes triggering before monitor logic times out (6 minutes),
+        // but in case it hasn't been updated, do so
         svcMgr->updateSvcMap(staleEntries);
 
         // Update service state in the configDB
@@ -192,26 +187,35 @@ namespace fds
         }
     }
 
-    Error OMMonitorWellKnownPMs::handleActiveEntry(fpi::SvcUuid svcUuid, SvcMgr* svcMgr)
+    Error OMMonitorWellKnownPMs::handleActiveEntry
+        (
+        fpi::SvcUuid svcUuid,
+        fpi::SvcInfo svcInfo,
+        SvcMgr* svcMgr
+        )
     {
         auto iter = wellKnownPMsMap.find(svcUuid);
         Error err(ERR_OK);
         fpi::SvcInfo info;
         if ( iter != wellKnownPMsMap.end())
         {
-            auto curTime = std::chrono::system_clock::now().time_since_epoch();
-            auto current = std::chrono::duration<double,std::ratio<60>>(curTime).count();
-            double elapsedTime = current - iter->second;
+            auto curTime       = std::chrono::system_clock::now().time_since_epoch();
+            auto curTimeInMin  = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+            double elapsedTime = curTimeInMin - iter->second;
 
-            LOGDEBUG << "PM:"
-                     << std::hex << svcUuid.svc_uuid
-                     << std::dec <<" minutesLapsed since last heartbeat:" << elapsedTime;
+            LOGDEBUG << "Well known platformd UUID: "
+                    << std::hex
+                    << svcUuid.svc_uuid
+                    << std::dec
+                    << " status "
+                    <<  svcInfo.svc_status
+                    << " minutes since last heartbeat"
+                    << elapsedTime;
 
-            if ( elapsedTime > 4 )
+            if ( elapsedTime > 6 )
             {
                 // It has been more than 6 minutes since we heard from the PM,
                 // treat it as a stale map entry
-
                 bool foundSvcInfo = svcMgr->getSvcInfo(svcUuid, info);
                 if (foundSvcInfo) {
                     handleStaleEntry(info, svcMgr);

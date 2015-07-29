@@ -1127,12 +1127,10 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             {
                 case fpi::FDS_Node_Discovered:
                 case fpi::FDS_Node_Up:
-                {
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_ACTIVE );
                     break;
-                }
                 case fpi::FDS_Start_Migration:
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
@@ -1228,12 +1226,10 @@ OM_PmAgent::send_add_service
         {
             case fpi::FDS_Node_Discovered:
             case fpi::FDS_Node_Up:
-            {
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
                                            fpi::SVC_STATUS_ACTIVE );
                 break;
-            }
             case fpi::FDS_Start_Migration:
                 fds::change_service_state( configDB,
                                            get_uuid().uuid_get_val(),
@@ -1647,10 +1643,10 @@ OM_PmAgent::send_remove_service
             // 2. Remove node from the configDB
             // 3. Set platform service state to inactive
 
-            //TODO @meena for now, leave PM state up. Once node state
+            //TODO @meena for now, leave PM state active. Once node state
             // and PM state have been decoupled we can look into doing this
             //set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
-            //configDB->removeNode(get_uuid());
+            configDB->removeNode(get_uuid());
             //fds::change_service_state( configDB,
             //                           get_uuid().uuid_get_val(),
             //                           fpi::SVC_STATUS_INACTIVE );
@@ -2538,7 +2534,6 @@ OM_NodeContainer::om_remove_service
 }
 
 /**
- * Name: om_heartbeat_check
  * Periodic check to verify that well known PM
  * is still active
  *

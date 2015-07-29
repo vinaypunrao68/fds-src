@@ -73,7 +73,6 @@ OrchMgr::~OrchMgr()
     if (policy_mgr) {
         delete policy_mgr;
     }
-
     fds::gl_orch_mgr =  nullptr;
 }
 

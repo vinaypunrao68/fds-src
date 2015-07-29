@@ -18,7 +18,9 @@
 #include "platform/agent_container.h"
 #include "platform/domain_container.h"
 #include "fdsp/sm_types_types.h"
-
+#include <dlt.h>
+#include <fds_dmt.h>
+#include <kvstore/configdb.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;

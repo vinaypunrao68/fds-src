@@ -44,7 +44,7 @@ namespace fds
             Error getLastHeardTime(fpi::SvcUuid uuid, double& timestamp);
             Error removeFromPMsMap(PmMap::iterator iter);
             void  handleStaleEntry(fpi::SvcInfo svc, SvcMgr* mgr);
-            Error handleActiveEntry(fpi::SvcUuid svcUuid, SvcMgr* mgr);
+            Error handleActiveEntry(fpi::SvcUuid svcUuid, fpi::SvcInfo svcInfo, SvcMgr* mgr);
     };
 } // namespace fds
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMMONITORWELLKNOWNPMS_H_
