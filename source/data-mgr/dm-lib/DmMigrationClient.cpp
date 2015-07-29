@@ -89,6 +89,11 @@ DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
             if (dest_it->second != source_it->second) {
                 // update blob on dest to source's version
                 update_list.push_back(source_it->first);
+
+                if (dest_it->second > source_it->second) {
+                    LOGMIGRATE << "Destination has more recent version of blob: "
+                               << dest_it->first;
+                }
             } // otherwise they match, do nothing
 
             ++dest_it;

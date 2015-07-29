@@ -458,6 +458,15 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
             LOGDEBUG << "Adding metadata " << *metaList;
             mergeMetaList(blobMeta.meta_list, *metaList);
         }
+
+        if (blobMeta.desc.sequence_id >= seq_id) {
+            LOGERROR << "Overwriting blob with older sequence id version vol:"
+                     << volId << " blob: " << blobName << " old seq_id: "
+                     << blobMeta.desc.sequence_id << " new seq_id: "<< seq_id;
+
+            fds_assert(blobMeta.desc.sequence_id < seq_id);
+        }
+
         blobMeta.desc.version += 1;
         blobMeta.desc.sequence_id = seq_id;
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
@@ -852,6 +861,15 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
         LOGERROR << "Failed to deserialize migrated blob: " << blobName
                  << " from catalog for volume: " << volId << " error: " << err;
         return err;
+    }
+
+    if (oldBlob.desc.sequence_id >= newBlob.desc.sequence_id) {
+        LOGMIGRATE << "Overwriting blob with older sequence id version vol:"
+                   << volId << " blob: " << blobName << " old seq_id: "
+                   << oldBlob.desc.sequence_id << " new seq_id: "
+                   << newBlob.desc.sequence_id;
+
+        fds_assert(oldBlob.desc.sequence_id >= newBlob.desc.sequence_id);
     }
 
     if (fTruncate) {
