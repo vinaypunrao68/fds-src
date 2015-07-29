@@ -33,6 +33,12 @@
       </dependency>
 
       <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>formationds-commons-libconfig</artifactId>
+        <version>${formationds.commons.libconfig.version}</version>
+      </dependency>
+
+      <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-api</artifactId>
         <version>${apache.log4j.v2.version}</version>
@@ -47,6 +53,7 @@
 
   <modules>
     <module>formationds-commons-util</module>
+    <module>commons-libconfig</module>
     <module>formationds-commons-togglz</module>
   </modules>
 

@@ -187,6 +187,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                         const std::vector<fpi::BlobDescriptor> & response) override {}
     void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
                         boost::shared_ptr<std::vector<fpi::BlobDescriptor> >& response) override {}
+    void renameBlobResponse(const apis::RequestId& requestId,
+                            const fpi::BlobDescriptor& response) override {}
+    void renameBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                            boost::shared_ptr<fpi::BlobDescriptor>& response) override {}
     void statBlobResponse(const apis::RequestId& requestId,
                           const fpi::BlobDescriptor& response) override {}
     void statBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
@@ -224,6 +228,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
             done_cond.notify_all();
         }
     }
+
     void handshakeComplete(const apis::RequestId& requestId) override {}
     void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) override {}
     void updateMetadataResponse(const apis::RequestId& requestId) override {}
@@ -300,6 +305,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override { completeOp(error); }
+
+    void renameBlobResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId,
+                        boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override { completeOp(error); }
 
     void deleteBlobResp(const Error &error,
                         boost::shared_ptr<apis::RequestId>& requestId) override  { completeOp(error); }

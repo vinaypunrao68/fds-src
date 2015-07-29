@@ -135,6 +135,13 @@ public class RealAsyncAm implements AsyncAm {
     }
 
     @Override
+    public CompletableFuture<BlobDescriptor> renameBlob(String domainName, String volumeName, String sourceBlobName, String destinationBlobName) {
+        return scheduleAsync(rid -> {
+            oneWayAm.renameBlob(rid, domainName, volumeName, sourceBlobName, destinationBlobName);
+        });
+    }
+
+    @Override
     public CompletableFuture<BlobWithMetadata> getBlobWithMeta(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
         return scheduleAsync(rid -> {
             oneWayAm.getBlobWithMeta(rid, domainName, volumeName, blobName, length, offset);

@@ -12,6 +12,7 @@
 #include "requests/SetVolumeMetadataReq.h"
 #include "requests/GetVolumeMetadataReq.h"
 #include "requests/PutBlobReq.h"
+#include "requests/RenameBlobReq.h"
 #include "requests/SetBlobMetaDataReq.h"
 #include "requests/StartBlobTxReq.h"
 #include "requests/StatBlobReq.h"

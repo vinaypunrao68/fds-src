@@ -178,6 +178,19 @@ struct AmDispatcher : HasModuleProvider
     void dispatchStatBlob(AmRequest *amReq);
 
     /**
+     * Dispatches a rename blob request.
+     */
+    void dispatchRenameBlob(AmRequest *amReq);
+
+    /**
+     * Dispatches a rename blob request.
+     */
+    void renameBlobCb(AmRequest *amReq,
+                      MultiPrimarySvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
+
+    /**
      * Dispatches a set metadata on blob transaction request.
      */
     void dispatchSetBlobMetadata(AmRequest *amReq);

@@ -58,6 +58,9 @@ template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::StartBlobTxMsg cons
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::StatVolumeMsg const& msg)
 { return FDSP_MSG_TYPEID(fpi::StatVolumeMsg); }
 
+template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::RenameBlobMsg const& msg)
+{ return FDSP_MSG_TYPEID(fpi::RenameBlobMsg); }
+
 template<> fpi::FDSPMsgTypeId constexpr message_type_id(fpi::UpdateCatalogMsg const& msg)
 { return FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg); }
 

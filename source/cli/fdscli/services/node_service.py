@@ -126,6 +126,10 @@ class NodeService( AbstractService ):
         Start a specific service on a node.
         '''
         service = self.get_service(node_id, service_id)
+        
+        if isinstance(service, FdsError):
+            return service
+        
         service.status.state = "RUNNING"
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
@@ -143,6 +147,10 @@ class NodeService( AbstractService ):
         Start a specific service on a node.
         '''
         service = self.get_service(node_id, service_id)
+        
+        if isinstance(service, FdsError):
+            return service
+        
         service.status.state = "NOT_RUNNING"
         url = "{}{}{}{}{}".format( self.get_url_preamble(), "/nodes/", node_id, "/services/", service_id)
         data = ServiceConverter.to_json(service)
