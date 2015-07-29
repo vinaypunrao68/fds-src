@@ -20,7 +20,8 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
                                         uint64_t _maxDeltaBlobDescs)
     : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm),
-      maxNumBlobs(_maxDeltaBlobs), maxNumBlobDescs(_maxDeltaBlobDescs)
+      maxNumBlobs(_maxDeltaBlobs), maxNumBlobDescs(_maxDeltaBlobDescs),
+	  forwardingIO(false)
 {
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
@@ -374,6 +375,9 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
+    // Turn on forwarding
+    std::atomic_store(&forwardingIO, true);
+
     // process blob diff
     err = processBlobDiff();
     // free the in-memory snapshot diff after completion.
@@ -383,6 +387,9 @@ DmMigrationClient::processBlobFilterSet()
                  << " with error=" << err;
         return err;
     }
+
+    // Turn off forwarding JUST before the callback
+    std::atomic_store(&forwardingIO, false);
 
     // if completion handler is registered call it.
 	if (migrDoneHandler) {
@@ -433,5 +440,70 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
      asyncDeltaBlobDescMsg->invoke();
 
        return err;
+}
+
+Error
+DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                        blob_version_t blob_version,
+                                        const BlobObjList::const_ptr& blob_obj_list,
+                                        const MetaDataList::const_ptr& meta_list)
+{
+    Error err(ERR_OK);
+    LOGMIGRATE << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
+               << std::dec << " blob " << commitBlobReq->blob_name;
+
+    fpi::ForwardCatalogMsgPtr fwdMsg(new fpi::ForwardCatalogMsg());
+    fwdMsg->volume_id = commitBlobReq->volId.get();
+    fwdMsg->blob_name = commitBlobReq->blob_name;
+    fwdMsg->blob_version = blob_version;
+    fwdMsg->sequence_id = commitBlobReq->sequence_id;
+    blob_obj_list->toFdspPayload(fwdMsg->obj_list);
+    meta_list->toFdspPayload(fwdMsg->meta_list);
+
+    // This key is the same for this blob
+    DataMgr::dmQosCtrl::SerialKey blobKey(fds_volid_t(fwdMsg->volume_id), fwdMsg->blob_name);
+    static const DataMgr::dmQosCtrl::SerialKeyHash keyHash;
+
+    // send forward cat update, and pass commitBlobReq as context so we can
+    // reply to AM on fwd cat update response
+    // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
+    auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
+    asyncCatUpdReq->setTimeoutMs(5000);
+    asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
+                                                      commitBlobReq));
+    /**
+     * There are 2 guarantees:
+     * 1. AM will guarantee that the outstanding blob tx's are finished before a new one
+     * is started.
+     * 2. The source (us) guarantee that the transmission for a same blob
+     * are sent over the wire synchronously.
+     */
+    asyncCatUpdReq->setTaskExecutorId(keyHash(blobKey));
+    asyncCatUpdReq->invoke();
+
+    return err;
+}
+
+void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+												EPSvcRequest* req,
+												const Error& error,
+												boost::shared_ptr<std::string> payload) {
+    LOGMIGRATE << "Received forward catalog update response for blob " << commitReq->blob_name
+               << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
+    // Set the error code to forward failed when we got a timeout so that
+    // the caller can differentiate between our timeout and its own.
+    if (!error.ok()) {
+        commitReq->cb(ERR_DM_FORWARD_FAILED, commitReq);
+        return;
+    }
+    commitReq->cb(error, commitReq);
+}
+
+
+fds_bool_t
+DmMigrationClient::shouldForwardIO()
+{
+	return forwardingIO.load(std::memory_order_relaxed);
 }
 }  // namespace fds
