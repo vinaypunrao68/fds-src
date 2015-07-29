@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
+import com.formationds.hadoop.FdsInputStream;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -9,6 +10,7 @@ import com.formationds.protocol.ErrorCode;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Sets;
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.dcache.auth.GidPrincipal;
@@ -88,7 +90,8 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public Inode link(Inode inode, Inode inode1, String s, Subject subject) throws IOException {
-        throw new RuntimeException("Not implemented");
+        // Not implemented
+        throw new org.dcache.nfs.status.NoFileHandleException();
     }
 
     @Override
@@ -165,6 +168,8 @@ public class AmVfs implements VirtualFileSystem {
                 .withFileId(idAllocator.nextId(source.getVolume()));
 
         NfsEntry destinationEntry = new NfsEntry(destination, destinationAttributes);
+        incrementGenerationAndTimestamps(tryLoad(sourceParent));
+        incrementGenerationAndTimestamps(tryLoad(destinationParent));
         try {
             chunker.move(sourceEntry, destinationEntry, objectSize(destination), sourceEntry.attributes().getSize());
             unwindExceptions(() -> asyncAm.deleteBlob(DOMAIN, source.getVolume(), source.blobName()).get());
@@ -178,7 +183,8 @@ public class AmVfs implements VirtualFileSystem {
     @Override
     public Inode parentOf(Inode inode) throws IOException {
         LOG.debug("parentOf() inode=" + inode);
-        return null;
+        NfsEntry nfsEntry = tryLoad(inode);
+        return tryLoad(nfsEntry.path().getParent()).inode(resolver);
     }
 
     @Override
@@ -207,7 +213,15 @@ public class AmVfs implements VirtualFileSystem {
 
     @Override
     public String readlink(Inode inode) throws IOException {
-        throw new RuntimeException("Not implemented");
+        NfsEntry nfsEntry = tryLoad(inode);
+        NfsPath path = nfsEntry.path();
+        try {
+            int objectSize = objectSize(path);
+            return IOUtils.toString(new FdsInputStream(asyncAm, AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize));
+        } catch (TException e) {
+            LOG.error("Error loading object size", e);
+            throw new IOException(e);
+        }
     }
 
     @Override
@@ -248,9 +262,12 @@ public class AmVfs implements VirtualFileSystem {
             nfsEntry = nfsEntry
                     .withUpdatedAtime()
                     .withUpdatedMtime()
+                    .withUpdatedCtime()
                     .withUpdatedSize(byteCount);
             int objectSize = objectSize(path);
             chunker.write(nfsEntry, objectSize, data, offset, count, byteCount);
+            NfsEntry parentEntry = tryLoad(nfsEntry.path().getParent());
+            updateMetadata(parentEntry.path(), parentEntry.attributes());
             return new WriteResult(stabilityLevel, count);
         } catch (Exception e) {
             String message = "chunker.write()" + path + ", data=" + data.length + "bytes, offset=" + offset + ", count=" + count;
@@ -338,6 +355,7 @@ public class AmVfs implements VirtualFileSystem {
                         .withIncrementedGeneration()
                         .withUpdatedAtime()
                         .withUpdatedMtime()
+                        .withUpdatedCtime()
         );
     }
 

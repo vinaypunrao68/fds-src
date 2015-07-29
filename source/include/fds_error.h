@@ -148,6 +148,7 @@ typedef enum {
     ERR_SM_NOERR_NOT_IN_DLT,
     ERR_SM_RESYNC_SOURCE_DECLINE,
     ERR_SM_NOT_READY_AS_MIGR_SRC,
+    ERR_SM_NO_DISK,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,

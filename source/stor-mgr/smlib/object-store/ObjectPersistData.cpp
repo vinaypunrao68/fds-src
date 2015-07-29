@@ -6,13 +6,17 @@
 #include <PerfTrace.h>
 #include <fds_process.h>
 #include <object-store/ObjectPersistData.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
 
 namespace fds {
 
 ObjectPersistData::ObjectPersistData(const std::string &modName,
-                                     SmIoReqHandler *data_store)
+                                     SmIoReqHandler *data_store,
+                                     UpdateMediaTrackerFnObj fn)
         : Module(modName.c_str()),
           shuttingDown(false),
+          mediaTrackerFn(fn),
           scavenger(new ScavControl("SM Disk Scavenger", data_store, this)) {
 }
 
@@ -206,8 +210,13 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
     }
 
     err = iop->disk_write(req);
+    fiu_do_on("sm.objectstore.fail.data.disk",
+              if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
+              {  err = ERR_DISK_WRITE_FAILED; });
     if (!err.ok()) {
-        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, req->getTier(), err);
+        }
     }
     return err;
 }
@@ -228,8 +237,13 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
 
     fds_verify(iop);
     err = iop->disk_read(req);
+    fiu_do_on("sm.objectstore.fail.data.disk",
+              if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
+              {  err = ERR_DISK_READ_FAILED; });
     if (!err.ok()) {
-        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, req->getTier(), err);
+        }
     }
     return err;
 }
