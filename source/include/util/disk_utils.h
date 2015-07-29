@@ -12,7 +12,7 @@ namespace fds {
 // Disk capacity Thresholds
 #define DISK_CAPACITY_WARNING_THRESHOLD 75.0
 #define DISK_CAPACITY_ALERT_THRESHOLD 85.0
-#define DISK_CAPACITY_ERROR_THRESHOLD 99.0
+#define DISK_CAPACITY_ERROR_THRESHOLD 95.0
 
 class DiskCapacityUtils {
 

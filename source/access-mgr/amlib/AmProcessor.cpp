@@ -123,7 +123,7 @@ class AmProcessor_impl
      * FEATURE TOGGLE: Single AM Enforcement
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
-    bool volume_open_support { false };
+    bool volume_open_support { true };
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
     /**
@@ -364,11 +364,9 @@ AmProcessor_impl::start()
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
     FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
-    volume_open_support = features.get<bool>("common.volume_open_support", false);
-    if (volume_open_support) {
-        vol_tok_renewal_freq =
-            std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
-    }
+    volume_open_support = features.get<bool>("common.volume_open_support", true);
+    vol_tok_renewal_freq =
+        std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
 
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
@@ -499,17 +497,16 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     auto vol = volTable->removeVolume(volDesc);
 
     // If we had a token for a volume, give it back to DM
-    if (vol) {
+    if (vol && vol->access_token) {
         // If we had a cache token for this volume, close it
         fds_int64_t token = vol->getToken();
-        if (invalid_vol_token != token) {
-            if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token))) {
-                LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
-            } else {
-                LOGWARN << "Failed to cancel timer, volume with re-attach!";
-            }
-            amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
+        if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token))) {
+            LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
+        } else {
+            LOGWARN << "Failed to cancel timer, volume will re-attach: "
+                    << volDesc.name << " using: 0x" << std::hex << token;
         }
+        amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
 
     // Remove the volume from the caches (if there is one)
@@ -605,9 +602,7 @@ AmProcessor_impl::attachVolume(AmRequest *amReq) {
     // Check if we already are attached so we can have a current token
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     auto vol = getVolume(amReq);
-    if (volume_open_support &&
-        vol &&
-        invalid_vol_token != vol->getToken())
+    if (vol && vol->access_token)
     {
         token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token));
         volReq->token = vol->getToken();
@@ -618,13 +613,9 @@ AmProcessor_impl::attachVolume(AmRequest *amReq) {
      * FEATURE TOGGLE: Single AM Enforcement
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
-    if (volume_open_support) {
-        LOGDEBUG << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
-                 << ") write(" << volReq->mode.can_write << "), trying R/O.";
-        amDispatcher->dispatchOpenVolume(amReq);
-    } else {
-        attachVolumeCb(amReq, ERR_OK);
-    }
+    LOGDEBUG << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
+             << ") write(" << volReq->mode.can_write << ")";
+    amDispatcher->dispatchOpenVolume(amReq);
 }
 
 void
