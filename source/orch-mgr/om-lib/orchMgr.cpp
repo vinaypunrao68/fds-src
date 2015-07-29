@@ -57,7 +57,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     /*
      * Start the PM monitoring thread
      */
-    omMonitor = new OMMonitorWellKnownPMs( this, getConfigDB() );
+    omMonitor.reset(new OMMonitorWellKnownPMs());
     /*
      * Testing code for loading test info from disk.
      */
@@ -72,11 +72,6 @@ OrchMgr::~OrchMgr()
 
     if (policy_mgr) {
         delete policy_mgr;
-    }
-
-    if (omMonitor) {
-        omMonitor->shutdown();
-        delete omMonitor;
     }
 
     fds::gl_orch_mgr =  nullptr;
@@ -213,12 +208,6 @@ const std::string &
 OrchMgr::om_stor_prefix()
 {
     return orchMgr->stor_prefix;
-}
-
-OMMonitorWellKnownPMs*
-OrchMgr::om_monitor()
-{
-    return orchMgr->omMonitor;
 }
 
 void OrchMgr::defaultS3BucketPolicy()

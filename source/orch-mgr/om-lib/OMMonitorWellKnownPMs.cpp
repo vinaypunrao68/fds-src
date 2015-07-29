@@ -5,12 +5,14 @@
 
 #include "OMMonitorWellKnownPMs.h"
 #include "OmResources.h"
+#include <orchMgr.h>
+#include <net/SvcMgr.h>
 
 namespace fds
 {
-    OMMonitorWellKnownPMs::OMMonitorWellKnownPMs(OrchMgr* om, kvstore::ConfigDB* db)
-    : om(om),
-      configDB(db)
+    OMMonitorWellKnownPMs::OMMonitorWellKnownPMs
+        (
+        ): fShutdown(false)
     {
         runner = new std::thread(&OMMonitorWellKnownPMs::run, this);
     }
@@ -32,10 +34,8 @@ namespace fds
             std::vector<FDS_ProtocolInterface::SvcInfo> entries;
 
             svcMgr->getSvcMap( entries );
-            LOGDEBUG << " Woken up, OM to monitor PMs, entries in svcMgr map: " << entries.size();
             if ( entries.size() > 0 )
             {
-
                 for ( const auto svc : entries )
                 {
                     if ( svc.svc_type == fpi::FDSP_PLATFORM )
@@ -47,8 +47,6 @@ namespace fds
                             case FDS_ProtocolInterface::SVC_STATUS_INVALID:
                             case FDS_ProtocolInterface::SVC_STATUS_INACTIVE:
                             {
-                                //ERR_SVC_REQUEST_TIMEOUT can cause a well known PM
-                                // to go into inactive state without this thread doing anything
                                 LOGWARN << "Platformd UUID: "
                                         << std::hex
                                         << svcUuid.svc_uuid
@@ -60,11 +58,14 @@ namespace fds
                                 auto mapIter = wellKnownPMsMap.find(svc.svc_id.svc_uuid);
                                 if (mapIter == wellKnownPMsMap.end()) {
                                     LOGDEBUG << "PM:" << std::hex << svcUuid.svc_uuid << std::dec
-                                             << " is no longer a well known service, no action taken";
+                                             << " is no longer well known service, take no action";
                                 }
                                 else
                                 {
-                                    handleStaleEntry(svc);
+                                    //HEALTH_STATE_UNREACHABLE will cause a well known PM
+                                    // to go into inactive state, in which case handle the
+                                    // change in active to inactive
+                                    handleStaleEntry(svc, svcMgr);
                                 }
                                 break;
                             }
@@ -77,7 +78,8 @@ namespace fds
                                         << " status "
                                         <<  svc.svc_status;
 
-                                Error err = handleActiveEntry(svcUuid);
+                                Error err = handleActiveEntry(svcUuid, svcMgr);
+
                                 if (!err.ok())
                                     LOGDEBUG << "Problem sending out heartbeat check to PM:"
                                              << std::hex << svcUuid.svc_uuid << std::dec;
@@ -87,10 +89,7 @@ namespace fds
                     }
                 }
             }
-
                 // sleep for five minutes, before checking again.
-                //TBRemoved
-                LOGDEBUG << "OM thread about to sleep:";
                 std::this_thread::sleep_for( std::chrono::minutes( 1 ) );
         }
 
@@ -107,28 +106,34 @@ namespace fds
         return wellKnownPMsMap;
     }
 
-    void OMMonitorWellKnownPMs::updateKnownPMsMap(fpi::SvcUuid uuid, double timestamp)
+    void OMMonitorWellKnownPMs::updateKnownPMsMap
+        (
+        fpi::SvcUuid svcUuid,
+        double timestamp
+        )
     {
         SCOPEDWRITE(pmMapLock);
-        // we don't want to use "insert" op since we want to overwrite the timestamp
-        // even if it exists
-        auto mapIter = wellKnownPMsMap.find(uuid);
+        auto mapIter = wellKnownPMsMap.find(svcUuid);
+
         if (mapIter != wellKnownPMsMap.end()) {
-            LOGDEBUG << "Updating last known time for PM:" << std::hex << uuid.svc_uuid
-                     << std::dec;
+            LOGDEBUG << "Updating last heard time for PM:"
+                     << std::hex << svcUuid.svc_uuid << std::dec;
         }
         else
         {
-            LOGDEBUG << "New PM added to map with ID:" << std::hex << uuid.svc_uuid <<
-                     std::dec;
+            LOGDEBUG << "New PM added to map with ID:"
+                     << std::hex << svcUuid.svc_uuid << std::dec;
         }
 
-        wellKnownPMsMap[uuid] = timestamp;
-        //wellKnownPMsMap.emplace(std::make_pair(uuid, timestamp));
-
+        // Don't use "insert" since we want to overwrite the timestamp
+        // even if it exists
+        wellKnownPMsMap[svcUuid] = timestamp;
     }
 
-    Error OMMonitorWellKnownPMs::removeFromPMsMap(PmMap::iterator iter) //verify if this iterator passing is correct
+    Error OMMonitorWellKnownPMs::removeFromPMsMap
+        (
+        PmMap::iterator iter
+        )
     {
         SCOPEDWRITE(pmMapLock);
 
@@ -138,7 +143,11 @@ namespace fds
 
     }
 
-    Error OMMonitorWellKnownPMs::getLastHeardTime(fpi::SvcUuid uuid, double& timestamp)
+    Error OMMonitorWellKnownPMs::getLastHeardTime
+        (
+        fpi::SvcUuid uuid,
+        double& timestamp
+        )
     {
         SCOPEDREAD(pmMapLock); // wondering if this shared read is what we want. What if a PM tries to update while this is being read?
         auto iter = wellKnownPMsMap.find(uuid);
@@ -151,37 +160,39 @@ namespace fds
         return ERR_OK;
     }
 
-    void OMMonitorWellKnownPMs::handleStaleEntry(fpi::SvcInfo svc)
+    void OMMonitorWellKnownPMs::handleStaleEntry(fpi::SvcInfo svc, SvcMgr* svcMgr)
     {
         LOGDEBUG << "Changing PM:" << std::hex
                  << svc.svc_id.svc_uuid.svc_uuid << std::dec
                  << " from well known to not known service";
 
         std::vector<fpi::SvcInfo> staleEntries;
-        auto svcMgr = MODULEPROVIDER()->getSvcMgr();
 
         svc.svc_status = fpi::SVC_STATUS_INACTIVE;
         staleEntries.push_back(svc);
         // Update svcManager svcMap
+        // This should already be inactive, with the HEALTH_STATE_UNREACHABLE
+        // timeout of 2 minutes, but in case it hasn't been updated, do so
         svcMgr->updateSvcMap(staleEntries);
 
-        // Remove service from the configDB
+        // Update service state in the configDB
         fds_mutex::scoped_lock l(dbLock);
-        configDB->changeStateSvcMap(svc.svc_id.svc_uuid.svc_uuid, fpi::SVC_STATUS_INACTIVE);
+        gl_orch_mgr->getConfigDB()->changeStateSvcMap(svc.svc_id.svc_uuid.svc_uuid, fpi::SVC_STATUS_INACTIVE);
 
         auto iter = wellKnownPMsMap.find(svc.svc_id.svc_uuid);
         if (iter == wellKnownPMsMap.end()) {
-            LOGDEBUG << "Could not find PM:" << std::hex << svc.svc_id.svc_uuid.svc_uuid << std::dec << "in well known PM map";
+            LOGDEBUG << "Could not find PM:"
+                     << std::hex << svc.svc_id.svc_uuid.svc_uuid
+                     << std::dec << "in well known PM map";
         }
         else
         {
             // Remove from our well known PM map
             removeFromPMsMap(iter);
         }
-
     }
 
-    Error OMMonitorWellKnownPMs::handleActiveEntry(fpi::SvcUuid svcUuid)
+    Error OMMonitorWellKnownPMs::handleActiveEntry(fpi::SvcUuid svcUuid, SvcMgr* svcMgr)
     {
         auto iter = wellKnownPMsMap.find(svcUuid);
         Error err(ERR_OK);
@@ -201,26 +212,26 @@ namespace fds
                 // It has been more than 6 minutes since we heard from the PM,
                 // treat it as a stale map entry
 
-                bool foundSvcInfo = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, info);
+                bool foundSvcInfo = svcMgr->getSvcInfo(svcUuid, info);
                 if (foundSvcInfo) {
-                    handleStaleEntry(info);
+                    handleStaleEntry(info, svcMgr);
                 }
                 else
                 {
-                    LOGDEBUG << "Failed to handle stale entry in well known PM map";
+                    LOGDEBUG << "Unable to retrieve svcInfo of stale PM uuid:"
+                             << std::hex << svcUuid.svc_uuid << std::dec;
                 }
             }
             else
             {
-                LOGDEBUG << "Alive, send heartbeat check";
-                //TODO try catch here
                 try {
-                OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-                Error err = local->om_heartbeat_check(svcUuid);
+                    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+                    Error err = local->om_heartbeat_check(svcUuid);
                 }
                 catch(...) {
                     LOGERROR << "OMmonitor encountered exception while "
-                             << "sending heartbeat check to PMs";
+                             << "sending heartbeat check to PM uuid"
+                             << std::hex << svcUuid.svc_uuid << std::dec;
                     err = Error(ERR_NOT_FOUND);
                 }
             }

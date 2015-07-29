@@ -258,30 +258,27 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 /*
- * This has to be the handler for message from PM - TO - OM
+ * This will handle the heartbeatMessage coming from the PM
  * */
 void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-                                    boost::shared_ptr<fpi::HeartbeatMessage>& msg)
+                                  boost::shared_ptr<fpi::HeartbeatMessage>& msg)
 {
-    // go through your message, get the uuid and timestamp
-    // update local map with associated PM uuid and timestamp it said it was alive
-
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = msg->svcUuid.uuid;
 
-    // number of seconds since the epoch
     auto curTimePoint = std::chrono::system_clock::now();
-    auto timeSinceEpoch = curTimePoint.time_since_epoch();
-
-    std::time_t t = std::chrono::system_clock::to_time_t(curTimePoint);
+    std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
 
     LOGDEBUG << "OmSvcHandler: Received heartbeat from PM:"
              << std::hex << svcUuid.svc_uuid
-             <<std::dec <<" at:" << std::ctime(&t);
-    double current = std::chrono::duration<double,std::ratio<60>>(timeSinceEpoch).count();
+             <<std::dec <<" at:" << std::ctime(&time);
 
-    OrchMgr::om_monitor()->updateKnownPMsMap(svcUuid, current);
+    // Get the time since epoch and convert it to minutes
+    auto timeSinceEpoch = curTimePoint.time_since_epoch();
+    double current      = std::chrono::duration<double,std::ratio<60>>
+                                       (timeSinceEpoch).count();
 
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
