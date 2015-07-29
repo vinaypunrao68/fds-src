@@ -228,6 +228,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 
         fds_uint32_t abortMigrAcksToWait;
         fds_uint32_t commitDltAcksToWait;
+        NodeUuidSet nodesAbortResent;
         Error errFound;   /// error that got us to the error mode state
     };
 
@@ -926,7 +927,22 @@ DltDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     if (recoverAckEvt.ackForAbort) {
         fds_verify(src.abortMigrAcksToWait > 0);
-        --src.abortMigrAcksToWait;
+        // if we got abort ack with error, if this is 'not found'
+        // error, retry abort one more time
+        if ((recoverAckEvt.ackError == ERR_NOT_FOUND) &&
+            (src.nodesAbortResent.count(recoverAckEvt.svcUuid) == 0)) {
+            LOGNOTIFY << "Will re-send abort migration to SM "
+                      << std::hex << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+            OM_Module *om = OM_Module::om_singleton();
+            DataPlacement *dp = om->om_dataplace_mod();
+            OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+            OM_SmAgent::pointer sm_agent = domain->om_sm_agent(recoverAckEvt.svcUuid);
+            src.nodesAbortResent.insert(recoverAckEvt.svcUuid);
+            sm_agent->om_send_sm_abort_migration(dp->getCommitedDltVersion(),
+                                                 recoverAckEvt.targetDlt);
+        } else {
+            --src.abortMigrAcksToWait;
+        }
     } else {
         if (src.commitDltAcksToWait > 0) {
             --src.commitDltAcksToWait;

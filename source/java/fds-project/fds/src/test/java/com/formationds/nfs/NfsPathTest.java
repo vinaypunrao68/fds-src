@@ -11,6 +11,14 @@ import static org.mockito.Mockito.when;
 
 public class NfsPathTest {
     @Test
+    public void testGetParent() throws Exception {
+        NfsPath path = new NfsPath("panda", "/foo/bar");
+        assertEquals(new NfsPath("panda", "/foo"), path.getParent());
+        path = new NfsPath("panda", "/");
+        assertEquals(new NfsPath("panda", "/"), path.getParent());
+    }
+
+    @Test
     public void testFromInode() throws Exception {
         NfsPath nfsPath = new NfsPath(new Inode(new FileHandle(0, 0, 0, "/foo/bar/".getBytes())));
         assertEquals("foo", nfsPath.getVolume());

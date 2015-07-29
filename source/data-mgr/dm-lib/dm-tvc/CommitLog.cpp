@@ -252,9 +252,6 @@ CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & sta
     ptx->committed = util::getTimeStampNanos();
     --dmtVerMap_[ptx->dmtVersion];
     txMap_.erase(txId);
-    if (txMap_.empty()) {
-        drainTxWait.notify_one();
-    }
 
     return ptx;
 }
@@ -277,9 +274,6 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
     CommitLogTx::ptr ptx = txMap_[txId];
     --dmtVerMap_[ptx->dmtVersion];
     txMap_.erase(txId);
-    if (txMap_.empty()) {
-        drainTxWait.notify_one();
-    }
 
     return rc;
 }

@@ -12,6 +12,7 @@ import TestCase
 import sys
 import os
 import random
+import time
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
 from TestFDSServiceMgt import TestAMBringUp
 
@@ -41,15 +42,38 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
         fds_dir = om_node.nd_conf_dict['fds_root']
         log_dir = om_node.nd_agent.get_log_dir()
 
-        self.log.info("Activate domain starting %s services on each node." % self.passedServices)
+
+        am_in_list = 'am' in self.passedServices
+
+        if am_in_list:
+            services = self.passedServices.replace(',am', '')
+        else:
+            services = self.passedServices
+
+        self.log.info("Activate domain starting %s services on each node." % services)
 
         status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local {} > '
-                                            '{}/fdsconsole.out 2>&1) \"'.format(self.passedServices, log_dir),
+                                            '{}/fdsconsole.out 2>&1) \"'.format(services, log_dir),
                                             fds_tools=True)
 
         if status != 0:
             self.log.error("Domain activation on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
             return False
+
+        if am_in_list:
+            self.log.info("Sleeping 30 seconds to let DM and SM settle down. (AUTH HACK)")
+            time.sleep(30)
+
+            services = "am"
+            self.log.info("Activate domain starting %s services on each node." % services)
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local {} > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(services, log_dir),
+                                                fds_tools=True)
+
+            if status != 0:
+                self.log.error("Domain activation on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
+                return False
 
         # After activation we should be able to spin through our nodes to obtain
         # some useful information about them.

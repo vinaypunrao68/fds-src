@@ -359,15 +359,16 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
     Error err(ERR_OK);
 
     SCOPEDWRITE(sbLock);
-    // If this is restart, DLT version stored in superblock must be the same
-    // or greater than DLT version that we received from OM. Restarted SM may
-    // receive a greater version from OM if SM previously failed (shutdown)
+    // Restarted SM may receive a greater version from OM if SM previously failed (shutdown)
     // and OM rotated DLT columns to move this SM to a secondary position.
     // Note that in this case (or in all cases when we receive DLT after restart),
     // SM must not gain any tokens than it already knows about in the superblock.
+    // Restarted SM may also receive a lower version of DLT from OM if the domain
+    // shutdown in the middle of token migration, specifically between DLT commit
+    // and DLT close. In that case, OM will re-start migration later, but domain
+    // starts on the previous version (as if we aborted)
     if ( (dltVersion == superblockMaster.DLTVersion) ||
          ( (superblockMaster.DLTVersion != DLT_VER_INVALID) &&
-           (dltVersion > superblockMaster.DLTVersion) &&
            noDltReceived ) ) {
         // this is restart case, otherwise all duplicate DLTs are catched at upper layers
         fds_verify(superblockMaster.DLTVersion != DLT_VER_INVALID);
@@ -376,6 +377,19 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         if (!noDltReceived) {
             LOGNORMAL << "Superblock already handled this DLT version " << dltVersion;
             return ERR_DUPLICATE;
+        }
+
+        if (dltVersion < superblockMaster.DLTVersion) {
+            LOGNOTIFY << "First DLT on SM restart is lower than stored in superblock "
+                      << " most likely SM went down in the middle of migration, between"
+                      << " DLT commit and DLT close. Will sync based on DLT we got from OM."
+                      << " Received DLT version " << dltVersion
+                      << " DLT version in superblock " << superblockMaster.DLTVersion;
+        } else if (dltVersion > superblockMaster.DLTVersion) {
+            LOGNOTIFY << "First DLT on SM restart is higher than stored in superblock."
+                      << " Most likely OM rotated DLT due to this SM failure"
+                      << " Received DLT version " << dltVersion
+                      << " DLT version in superblock " << superblockMaster.DLTVersion;
         }
 
         // Check if superblock matches with this DLT
@@ -411,14 +425,10 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
                           << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
             }
         }
-    } else if (noDltReceived && (superblockMaster.DLTVersion != DLT_VER_INVALID)) {
-        // If this is restart, DLT version stored in superblock must be no greater than
-        // DLT version we received from OM now.
-        LOGCRITICAL << "We expect first DLT on SM restart to be the same or greater version "
-                    << " as when SM went down;"
-                    << " Received DLT version " << dltVersion
-                    << " DLT version in superblock " << superblockMaster.DLTVersion;
-        err = ERR_INVALID_ARG;
+        if ((err != ERR_SM_SUPERBLOCK_INCONSISTENT) && (dltVersion != superblockMaster.DLTVersion)) {
+            // make sure we save DLT version in superblock
+            setDLTVersionLockHeld(dltVersion, true);
+        }
     }
     noDltReceived = false;
 
@@ -986,11 +996,9 @@ SmSuperblockMgr::checkForHandledErrors(Error& err) {
 }
 
 Error
-SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
+SmSuperblockMgr::setDLTVersionLockHeld(fds_uint64_t dltVersion, bool syncImmediately)
 {
     Error err(ERR_OK);
-    SCOPEDWRITE(sbLock);
-
     superblockMaster.DLTVersion = dltVersion;
 
     if (syncImmediately) {
@@ -1011,6 +1019,12 @@ SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
     }
 
     return err;
+}
+
+Error
+SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately) {
+    SCOPEDWRITE(sbLock);
+    return setDLTVersionLockHeld(dltVersion, syncImmediately);
 }
 
 fds_uint64_t
