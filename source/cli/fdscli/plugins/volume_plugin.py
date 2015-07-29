@@ -227,7 +227,7 @@ class VolumePlugin( AbstractPlugin):
             return
         
         if len( response ) == 0:
-            print "\nNo volumes found."
+            print "No volumes found."
         
         #write the volumes out
         if "format" in args  and args[AbstractPlugin.format_str] == "json":
