@@ -5,6 +5,8 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.util.RetryHelper;
+import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.util.Configuration;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
@@ -184,9 +186,10 @@ public class InfluxDBConnection {
                 try {
                     logger.trace( "QUERY_BEGIN [{}]: {}", start, query );
 
-                    // TODO remove this line...
-                    System.setProperty( "om.influx.query.backtrace", "" );
-                    if ( System.getProperty( "om.influx.query.backtrace", null ) != null ) {
+                    if ( SingletonConfiguration.instance()
+                                               .getConfig()
+                                               .getPlatformConfig()
+                                               .defaultBoolean( "fds.om.influxdb.enable_query_backtrace", false ) ) {
                         // hack to log the stack trace of each query
                         StackTraceElement[] st = new Exception().getStackTrace();
                         int maxDepth = 25;
