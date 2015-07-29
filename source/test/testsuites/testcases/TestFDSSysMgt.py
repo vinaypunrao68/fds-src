@@ -45,7 +45,7 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
         am_in_list = 'am' in self.passedServices
 
         if am_in_list:
-            services = self.passedServices.replace('am', '')
+            services = self.passedServices.replace(',am', '')
         else:
             services = self.passedServices
 
