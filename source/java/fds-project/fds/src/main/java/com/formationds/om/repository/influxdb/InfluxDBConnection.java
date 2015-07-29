@@ -4,7 +4,7 @@
 
 package com.formationds.om.repository.influxdb;
 
-import com.formationds.om.RetryHelper;
+import com.formationds.commons.util.RetryHelper;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
