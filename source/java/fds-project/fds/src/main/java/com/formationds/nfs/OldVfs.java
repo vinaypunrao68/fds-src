@@ -1,42 +1,8 @@
 package com.formationds.nfs;
 
-import com.formationds.apis.ObjectOffset;
-import com.formationds.apis.TxDescriptor;
-import com.formationds.hadoop.FdsInputStream;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.xdi.AsyncAm;
-import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.collect.Sets;
-import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
-import org.apache.thrift.TException;
-import org.dcache.auth.GidPrincipal;
-import org.dcache.auth.UidPrincipal;
-import org.dcache.nfs.status.ExistException;
-import org.dcache.nfs.status.NoEntException;
-import org.dcache.nfs.status.NotDirException;
-import org.dcache.nfs.v4.NfsIdMapping;
-import org.dcache.nfs.v4.SimpleIdMap;
-import org.dcache.nfs.v4.xdr.nfsace4;
-import org.dcache.nfs.vfs.*;
-
-import javax.security.auth.Subject;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
-
-// TODO: file-level locking
-public class AmVfs implements VirtualFileSystem {
+public class OldVfs {
+    /*
     private static final Logger LOG = Logger.getLogger(AmVfs.class);
-    public static final String DOMAIN = "nfs";
     private AsyncAm asyncAm;
     private XdiConfigurationApi config;
     private ExportResolver resolver;
@@ -437,5 +403,5 @@ public class AmVfs implements VirtualFileSystem {
         }
         return new NfsEntry(nfsPath, oa.get());
     }
-
+  */
 }

@@ -5,19 +5,18 @@ import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 
 public class Chunker {
     private static final Logger LOG = Logger.getLogger(Chunker.class);
 
-    public Chunker(ChunkIo io) {
+    public Chunker(ChunkyIo io) {
         this.io = io;
     }
 
-    private ChunkIo io;
+    private ChunkyIo io;
 
-    public void write(NfsEntry entry, int objectSize, byte[] bytes, long offset, int length, long blobSize) throws Exception {
-        LOG.debug("Chunker write() " + entry.path() + ", objectSize=" + objectSize + ", bytes=" + bytes.length + ", offset=" + offset + ", length=" + length + ", blobSize=" + blobSize);
-
+    public void write(String domain, String volume, String blobName, int objectSize, byte[] bytes, long offset, int length, long blobSize, Map<String, String> metadata) throws Exception {
         length = Math.min(bytes.length, length);
         if (length == 0) {
             return;
@@ -37,7 +36,7 @@ public class Chunker {
             }
             ByteBuffer writeBuf = ByteBuffer.allocate(objectSize);
             try {
-                ByteBuffer readBuf = io.read(entry.path(), objectSize, new ObjectOffset(i));
+                ByteBuffer readBuf = io.read(domain, volume, blobName, objectSize, new ObjectOffset(i));
                 writeBuf.put(readBuf);
                 writeBuf.position(0);
             } catch (FileNotFoundException e) {
@@ -52,13 +51,13 @@ public class Chunker {
                 writeBuf.limit(startOffset + toBeWritten);
             }
 
-            io.write(entry, objectSize, new ObjectOffset(i), writeBuf, isEndOfBlob);
+            io.write(domain, volume, blobName, objectSize, new ObjectOffset(i), writeBuf, isEndOfBlob, metadata);
             startOffset = 0;
             remaining -= toBeWritten;
         }
     }
 
-    public int read(NfsPath nfsPath, int objectSize, byte[] destination, long offset, int length) throws Exception {
+    public int read(String domain, String volume, String blobName, int objectSize, byte[] destination, long offset, int length) throws Exception {
         length = Math.min(destination.length, length);
         if (length == 0) {
             return 0;
@@ -73,7 +72,7 @@ public class Chunker {
         for (long i = 0; i < totalObjects; i++) {
             ByteBuffer buf = null;
             try {
-                buf = io.read(nfsPath, objectSize, new ObjectOffset(startObject + i));
+                buf = io.read(domain, volume, blobName, objectSize, new ObjectOffset(startObject + i));
             } catch (FileNotFoundException e) {
                 break;
             }
@@ -94,21 +93,20 @@ public class Chunker {
         return readSoFar;
     }
 
-    public void move(NfsEntry source, NfsEntry destination, int objectSize, long blobSize) throws Exception {
+    public void move(String domain, String volume, String sourceBlob, String destBlob, int objectSize, long blobSize, Map<String, String> metadata) throws Exception {
         long remaining = blobSize;
-        LOG.debug("Chunker: moving " + source.path() + " to " + destination.path());
         for (long i = 0; remaining > 0; i++) {
             boolean isEndOfBlob = remaining < objectSize;
-            ByteBuffer buf = io.read(source.path(), objectSize, new ObjectOffset(i));
+            ByteBuffer buf = io.read(domain, volume, sourceBlob, objectSize, new ObjectOffset(i));
             LOG.debug("Buf: " + buf.remaining() + " bytes, blobSize=" + blobSize + ", isEndOfBlob=" + isEndOfBlob);
-            io.write(destination, objectSize, new ObjectOffset(i), buf, isEndOfBlob);
+            io.write(domain, volume, destBlob, objectSize, new ObjectOffset(i), buf, isEndOfBlob, metadata);
             remaining -= objectSize;
         }
     }
 
-    public interface ChunkIo {
-        public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception;
+    public interface ChunkyIo {
+        public ByteBuffer read(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset) throws Exception;
 
-        public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob) throws Exception;
+        public void write(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob, Map<String, String> metadata) throws Exception;
     }
 }
