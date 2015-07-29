@@ -55,16 +55,23 @@ public class ListVolumes implements RequestHandler {
 		
 		// filter the results to things you can see and get rid of system volumes
 		rawVolumes = rawVolumes.stream()
-			// TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
-			.filter( descriptor -> {
-				logger.debug( "Removing volume " + descriptor.getName() + " from the volume list." );
-				return !descriptor.getName().startsWith( "SYSTEM_VOLUME" );
-			})
-			.filter( descriptor -> {
-				logger.debug( "Removing a volume that the caller does not have access to." );
-				return getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
-			})
-			.collect( Collectors.toList() );
+                               .filter( descriptor -> {
+                                   // TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
+                                   boolean sysvol = descriptor.getName().startsWith( "SYSTEM_VOLUME" );
+                                   if ( sysvol ) {
+                                       logger.debug( "Removing volume " + descriptor.getName() +
+                                                     " from the volume list." );
+                                   }
+                                   return !sysvol;
+                               } )
+                               .filter( descriptor -> {
+                                   boolean hasAccess = getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
+                                   if ( !hasAccess ) {
+                                       logger.debug( "Removing a volume that the caller does not have access to." );
+                                   }
+                                   return hasAccess;
+                               } )
+                               .collect( Collectors.toList() );
 		
 		List<Volume> externalVolumes = new ArrayList<>();
 		
