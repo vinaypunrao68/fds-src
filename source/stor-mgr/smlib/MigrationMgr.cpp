@@ -366,11 +366,22 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     Error err(ERR_OK);
     fds_token_id curSmTokenInProgress;
 
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_ABORTED) {
         LOGMIGRATE << "Migration was aborted, ignoring migration task";
+        err = ERR_SM_TOK_MIGRATION_ABORTED;
+    } else if (curState == MIGR_IDLE) {
+        LOGNOTIFY << "Migration is in idle state, probably was aborted, ignoring";
+        err = ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+    if (!err.ok()) {
+        // we are done, if snapshot was taken successfully, release it
+        if (error.ok()) {
+            db->ReleaseSnapshot(options.snapshot);
+        }
         return;
     }
-    
+
     if (retryMigrFailedTokens) {
         curSmTokenInProgress = retrySmTokenInProgress;
     } else {
@@ -679,8 +690,6 @@ MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSe
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
-    // since we are doing one SM token at a time, search for executor in deltaSet
-    fds_bool_t found = false;
     // called for second round as well?
     LOGMIGRATE << "recvRebalanceDeltaSet: " << smTokenInProgress.size();
     // TODO(matteo): investigate more this function. smTokenInProgress is
@@ -693,19 +702,24 @@ MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSe
         curSmTokenInProgress = smTokenInProgress;
     }
 
-    SCOPEDREAD(migrExecutorLock);
     for (auto token : curSmTokenInProgress) {
         LOGMIGRATE << "token: " << token;
-        for (SrcSmExecutorMap::const_iterator cit = migrExecutors[token].cbegin();
-             cit != migrExecutors[token].cend();
-             ++cit) {
-            if (cit->second->getId() == executorId) {
-                found = true;
-                err = cit->second->applyRebalanceDeltaSet(deltaSet);
-                // After this method, migrExecutors may be empty if this is resync
-                // and we are finished with all executors
-                break;
+        MigrationExecutor::shared_ptr executor(nullptr);
+        {
+            SCOPEDREAD(migrExecutorLock);
+            for (SrcSmExecutorMap::const_iterator cit = migrExecutors[token].cbegin();
+                 cit != migrExecutors[token].cend();
+                 ++cit) {
+                if (cit->second->getId() == executorId) {
+                    executor = cit->second;
+                    // After this method, migrExecutors may be empty if this is resync
+                    // and we are finished with all executors
+                    break;
+                }
             }
+        }
+        if (executor) {
+            err = executor->applyRebalanceDeltaSet(deltaSet);
         }
     }
     return err;
@@ -1269,7 +1283,8 @@ Error
 MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
 {
     Error err(ERR_OK);
-    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_IN_PROGRESS) {
         if (tgtDltVersion == targetDltVersion) {
             LOGNOTIFY << "Will abort token migration per OM request";
             abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
@@ -1279,6 +1294,10 @@ MigrationMgr::abortMigrationFromOM(fds_uint64_t tgtDltVersion)
                       << " does not match version of this migration " << targetDltVersion;
             return ERR_INVALID_ARG;
         }
+    } else if (curState == MIGR_IDLE) {
+        LOGNOTIFY << "Abort migration called in idle state, will send not found error, "
+                  << "so that OM can act on it if needed";
+        return ERR_NOT_FOUND;
     }
     return err;
 }

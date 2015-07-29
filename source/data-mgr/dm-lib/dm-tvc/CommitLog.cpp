@@ -248,9 +248,6 @@ CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & sta
     CommitLogTx::ptr ptx = txMap_[txId];
     ptx->committed = util::getTimeStampNanos();
     txMap_.erase(txId);
-    if (txMap_.empty()) {
-        drainTxWait.notify_one();
-    }
 
     return ptx;
 }
@@ -271,9 +268,6 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 
     std::lock_guard<std::mutex> guard(lockTxMap_);
     txMap_.erase(txId);
-    if (txMap_.empty()) {
-        drainTxWait.notify_one();
-    }
 
     return rc;
 }
