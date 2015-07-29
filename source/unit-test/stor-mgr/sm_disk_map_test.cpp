@@ -109,7 +109,7 @@ TEST(SmDiskMap, getDiskConsumedSize) {
     SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
 
     for (auto diskId : smDiskMap->getDiskIds()) {
-        DiskCapacityUtils::capacity_tuple cap_info = smDiskMap->getDiskConsumedSize(diskId);
+        DiskUtils::capacity_tuple cap_info = smDiskMap->getDiskConsumedSize(diskId);
         ASSERT_TRUE(cap_info.first < cap_info.second);
         ASSERT_TRUE(cap_info.second > 0);
     }
