@@ -690,8 +690,6 @@ MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSe
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
-    // since we are doing one SM token at a time, search for executor in deltaSet
-    fds_bool_t found = false;
     // called for second round as well?
     LOGMIGRATE << "recvRebalanceDeltaSet: " << smTokenInProgress.size();
     // TODO(matteo): investigate more this function. smTokenInProgress is
@@ -704,19 +702,24 @@ MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSe
         curSmTokenInProgress = smTokenInProgress;
     }
 
-    SCOPEDREAD(migrExecutorLock);
     for (auto token : curSmTokenInProgress) {
         LOGMIGRATE << "token: " << token;
-        for (SrcSmExecutorMap::const_iterator cit = migrExecutors[token].cbegin();
-             cit != migrExecutors[token].cend();
-             ++cit) {
-            if (cit->second->getId() == executorId) {
-                found = true;
-                err = cit->second->applyRebalanceDeltaSet(deltaSet);
-                // After this method, migrExecutors may be empty if this is resync
-                // and we are finished with all executors
-                break;
+        MigrationExecutor::shared_ptr executor(nullptr);
+        {
+            SCOPEDREAD(migrExecutorLock);
+            for (SrcSmExecutorMap::const_iterator cit = migrExecutors[token].cbegin();
+                 cit != migrExecutors[token].cend();
+                 ++cit) {
+                if (cit->second->getId() == executorId) {
+                    executor = cit->second;
+                    // After this method, migrExecutors may be empty if this is resync
+                    // and we are finished with all executors
+                    break;
+                }
             }
+        }
+        if (executor) {
+            err = executor->applyRebalanceDeltaSet(deltaSet);
         }
     }
     return err;
