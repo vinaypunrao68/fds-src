@@ -502,8 +502,24 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 
 
 fds_bool_t
-DmMigrationClient::shouldForwardIO()
+DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion)
 {
+	/**
+	 * If the forwarding is turned ON at this point, then we need to check if we still
+	 * have outstanding transactions. Otherwise, if it's off at this point, it means
+	 * that we aren't on yet, so return false.
+	 */
+	if (forwardingIO.load(std::memory_order_relaxed)) {
+		DmCommitLog::ptr commitLog;
+		dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
+		if (!(commitLog->checkOutstandingTx(dmtVersion))) {
+			/**
+			 * Commit log dictates that there is no more outstanding tx's.
+			 * Turn off forwarding from this point on
+			 */
+			std::atomic_store(&forwardingIO, false);
+		}
+	}
 	return forwardingIO.load(std::memory_order_relaxed);
 }
 }  // namespace fds

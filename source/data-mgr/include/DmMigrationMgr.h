@@ -108,7 +108,7 @@ class DmMigrationMgr {
      * Public interface to check whether or not a I/O should be forwarded as part of
      * active migration.
      */
-    fds_bool_t shouldForwardIO(fds_volid_t volId);
+    fds_bool_t shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion);
 
     Error forwardCatalogUpdate(fds_volid_t volId,
     						   DmIoCommitBlobTx *commitBlobReq,

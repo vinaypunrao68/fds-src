@@ -126,7 +126,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         fds_volid_t volId(commitBlobReq->volId);
 
         if (!(dataManager.features.isTestModeEnabled()) &&
-        		(dataManager.dmMigrationMgr->shouldForwardIO(volId))) {
+        		(dataManager.dmMigrationMgr->shouldForwardIO(volId, commitBlobReq->dmt_version))) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version

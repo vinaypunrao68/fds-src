@@ -44,8 +44,10 @@ class DmMigrationClient {
     /**
      * Whether or not I/O to this volume needs to be forwarded
      * as part of Active Migration.
+     * NOTE: This method will also turn off forwarding if necessary to do so.
+     * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO();
+    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
 
     /**
      * Forward the committed blob to the destination side.
