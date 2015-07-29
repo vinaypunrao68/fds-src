@@ -30,6 +30,11 @@ public class NfsEntry {
         return this;
     }
 
+    public NfsEntry withUpdatedCtime() {
+        attributes = attributes.withUpdatedCtime();
+        return this;
+    }
+
     public NfsEntry withUpdatedSize(long size) {
         attributes = attributes.withUpdatedSize(size);
         return this;
