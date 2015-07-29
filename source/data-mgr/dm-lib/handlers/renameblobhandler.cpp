@@ -63,7 +63,6 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     fds_uint64_t blobSize {0};
     helper.err = dataManager
                 .timeVolCat_
-               ->queryIface()
                ->renameBlob(typedRequest->volId,
                             typedRequest->blob_name,
                             typedRequest->new_blob_name,

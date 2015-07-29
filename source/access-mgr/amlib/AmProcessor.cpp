@@ -1039,6 +1039,16 @@ AmProcessor_impl::renameBlob(AmRequest *amReq) {
 
 void
 AmProcessor_impl::renameBlobCb(AmRequest *amReq, const Error& error) {
+    if (error.ok()) {
+        auto blobReq = static_cast<RenameBlobReq*>(amReq);
+        // Invalidate the old descriptor for this blob, it's no longer valid.
+        txMgr->removeBlob(amReq->io_vol_id, blobReq->getBlobName());
+
+        // Place the new blob's descriptor in the cache
+        txMgr->putBlobDescriptor(blobReq->io_vol_id,
+                                 blobReq->new_blob_name,
+                                 SHARED_DYN_CAST(RenameBlobCallback, blobReq->cb)->blobDesc);
+    }
     respond_and_delete(amReq, error);
 }
 

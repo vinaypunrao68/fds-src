@@ -332,7 +332,7 @@ void AmAsyncDataApi<H>::renameBlob(H& requestId,
         p->renameBlobResp(e, requestId, retBlobDesc);
     };
 
-    auto callback = create_async_handler<StatBlobCallback>(std::move(closure));
+    auto callback = create_async_handler<RenameBlobCallback>(std::move(closure));
 
     auto blobReq = new RenameBlobReq(invalid_vol_id,
                                     *volumeName,

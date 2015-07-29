@@ -65,23 +65,6 @@ class VolumeCatalogQueryIface {
     virtual Error reloadCatalog(const VolumeDesc & voldesc) = 0;
 
     /**
-     * Creates a new blob for the given newBlobName and volume 'volId' with the
-     * identical contents of oldBlobName. oldBlobName will no longer be a valid
-     * blob following this operation.
-     * @param[in] volId volume identifier
-     * @param[in] oldBlobName name of the blob to move from
-     * @param[in] newBlobName name of the blob to move to
-     * @param[out] blobSize ptr to blob size in bytes
-     * @param[out] metaList list of metadata key-value pairs of final blob
-     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
-     */
-    virtual Error renameBlob(fds_volid_t volId,
-                             const std::string & oldBlobName,
-                             const std::string & newBlobName,
-                             fds_uint64_t* blob_size,
-                             fpi::FDSP_MetaDataList * metaList) = 0;
-
-    /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
      * @param[in] volume_id volume uuid
      * @param[in] blob_name name of the blob

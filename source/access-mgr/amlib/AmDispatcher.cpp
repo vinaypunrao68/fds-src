@@ -1098,7 +1098,7 @@ AmDispatcher::renameBlobCb(AmRequest *amReq,
     if (ERR_OK == error) {
         auto blobReq = static_cast<RenameBlobReq *>(amReq);
         // using the same structure for input and output
-        auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
+        auto response = MSG_DESERIALIZE(RenameBlobRespMsg, error, payload);
 
         auto cb = SHARED_DYN_CAST(RenameBlobCallback, amReq->cb);
         // Fill in the data here
