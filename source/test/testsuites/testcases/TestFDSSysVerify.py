@@ -268,7 +268,6 @@ class TestDMChecker(TestCase.FDSTestCase):
                                              self.__class__.__name__,
                                              self.test_DMChecker,
                                              "DM Static migration verification")
-    @TestCase.expectedFailure("Static migration code is incomplete as of July 17, 2015")
     def test_DMChecker(self):
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)

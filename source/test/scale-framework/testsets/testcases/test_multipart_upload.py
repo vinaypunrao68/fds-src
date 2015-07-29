@@ -6,10 +6,11 @@
 #########################################################################
 import boto
 import concurrent.futures
-import config
-import config_parser
+import contextlib
+import glob
 import hashlib
 import math
+import multiprocessing
 import os
 import random
 import subprocess
@@ -22,14 +23,17 @@ from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
 from filechunkio import FileChunkIO
+from multiprocessing.pool import IMapIterator
 
+import config
+import config_parser
+import file_generator
+import file_ops
 import s3
+import s3_volumes
 import samples
 import testsets.testcase as testcase
 import utils
-import s3_volumes
-import file_generator
-import file_ops
 
 
 class TestMultipartUpload(testcase.FDSTestCase):
@@ -56,6 +60,10 @@ class TestMultipartUpload(testcase.FDSTestCase):
         self.buckets = self.s3_volume.create_volumes(10, "multipart_upload")
         bucket_sample = random.choice(self.buckets)
         self.test_single_bucket_multipart_upload(bucket_sample)
+        self.test_parallel_bucket_multipart_upload(bucket_sample)
+        self.abort_multipart_upload(bucket_sample)
+        self.test_multi_buckets_multipart_upload()
+        self.reportTestCaseResult(True)
 
     def test_single_bucket_multipart_upload(self, bucket):
         test_passed = False
@@ -68,12 +76,83 @@ class TestMultipartUpload(testcase.FDSTestCase):
             base_dir = os.path.join("test_files", f)
             path = os.path.join(os.getcwd(), base_dir)
             self.s3_volume.store_multipart_uploads(bucket, path)
-        self.log.info("Trying to Download the blobs now")
-        #self.f_ops.download_files(bucket, config.DOWNLOAD_DIR)
-        #self.f_ops.check_files_hash()
+    
+    def test_multi_buckets_multipart_upload(self):
+        buckets = random.sample(self.buckets, 10)
+        files = random.sample(self.f_ops.sample_files, 10)
+        pairs = []
+        # build a pair of bucket - files to be uploaded using multipart
+        for bucket, f in zip(buckets, files):
+            base_dir = os.path.join("test_files", f)
+            path = os.path.join(os.getcwd(), base_dir)
+            pairs.append((bucket, path))
+        # do it in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_file = {executor.submit(self.s3_volume.store_multipart_uploads,
+                                              bucket, path): (bucket, path) for bucket, path in pairs}
+            for future in concurrent.futures.as_completed(future_to_file):
+                file = future_to_file[future]
+                try:
+                    self.log.info(future.result())
+                except Exception as exc:
+                    self.log.exception('%s generated an exception: %s' % (file, exc))
+                else:
+                    self.log.info('file %s' % file)
+        
+    def test_parallel_bucket_multipart_upload(self, bucket):
+        test_passes = False
+        if bucket == None:
+            raise ValueError("Bucket can't be None")
+            self.reportTestCaseResult(test_passed)
+        files = []
+        for f in self.f_ops.sample_files:
+             base_dir = os.path.join("test_files", f)
+             path = os.path.join(os.getcwd(), base_dir)
+             files.append(path)
+        self.log.info("Testing multipart upload with bucket: %s" % bucket)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # start the load operations and mark each future with its files.
+            future_to_file = {executor.submit(self.s3_volume.store_multipart_uploads,
+                                              bucket, path): path for path in files}
+            for future in concurrent.futures.as_completed(future_to_file):
+                file = future_to_file[future]
+                try:
+                    self.log.info(future.result())
+                except Exception as exc:
+                    self.log.exception('%s generated an exception: %s' % (file, exc))
+                else:
+                    pass
+    
+    def abort_multipart_upload(self, bucket):
+        try:
+            test_passed = False
+            if bucket == None:
+                raise ValueError("Bucket can't be None")
+                self.reportTestCaseResult(test_passed)
+            self.log.info("Testing multipart upload with bucket: %s" % bucket)
+            # just pick the first 5 files
+            files = random.sample(self.f_ops.sample_files, 5)
+            # pick a random sample to abort
+            sample = random.choice(files)
+            p = multiprocessing.Process(target=self.test_single_bucket_multipart_upload,
+                                        name="Test Single Bucket", args=(bucket,))
+            p.start()
+            # wait 10 seconds for test_single_bucket_multipart_upload
+            time.sleep(10)
+            # terminate test_single_bucket_multipart_upload
+            p.terminate()
+            # cleanup
+            p.join()
+        except Exception, e:
+            self.log.exception(e)
+        finally:
+            # try to upload the sample sample file that was interrupted.
+            base_dir = os.path.join("test_files", sample)
+            path = os.path.join(os.getcwd(), base_dir)
+            self.s3_volume.store_multipart_uploads(bucket, path)
+    
     
     def tearDown(self):
-        pass
-        #self.s3_volume.delete_volumes(self.buckets)
+        self.s3_volume.delete_volumes(self.buckets)
             
             

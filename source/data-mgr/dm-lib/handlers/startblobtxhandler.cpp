@@ -82,7 +82,8 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
         helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
                                                           typedRequest->blob_name,
                                                           typedRequest->blob_mode,
-                                                          typedRequest->ioBlobTxDesc);
+                                                          typedRequest->ioBlobTxDesc,
+                                                          typedRequest->dmt_version);
     }
 }
 

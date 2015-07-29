@@ -40,7 +40,6 @@ class FdsAuth():
         self.__hostname = self.get_from_parser( FdsCliConfigurationManager.HOSTNAME )
         self.__port = self.get_from_parser( FdsCliConfigurationManager.PORT )
         self.__username = self.get_from_parser( FdsCliConfigurationManager.USERNAME )
-        self.__password = self.get_from_parser( FdsCliConfigurationManager.PASSWORD )
         self.__protocol = self.get_from_parser( FdsCliConfigurationManager.PROTOCOL )
         
     def get_from_parser(self, option):
@@ -70,11 +69,17 @@ class FdsAuth():
         return self.__username
     
     def get_password(self):
+        ''' 
+        get the password fresh each time so that it does not
+        stay in memory long
+        '''
         
-        if ( self.__password is None ):
-            self.__password = getpass.getpass( 'Password: ' )
+        passwd = self.get_from_parser(FdsCliConfigurationManager.PASSWORD)
+        
+        if passwd is None:
+            passwd = getpass.getpass( 'Password: ' )
             
-        return self.__password
+        return passwd
 
     def get_port(self):
         
@@ -109,6 +114,15 @@ class FdsAuth():
         
         return False
     
+    def logout(self):
+        '''
+        effectively lose the connection session
+        '''
+        self.__token = None
+        
+        #re load the login settings
+        FdsCliConfigurationManager().refresh()
+    
     def login(self):
     
         '''
@@ -116,20 +130,23 @@ class FdsAuth():
         '''
     
         payload = { "login" : self.get_username(), "password" : self.get_password() }
-        
-        #get rid of the password immediately after its used
-        self.__password = None
-
+    
         urllib3.disable_warnings()
         url = "{}://{}:{}/fds/config/v08/token".format( self.get_protocol(), self.get_hostname(), self.get_port())
-        response = requests.post( url, params=payload, verify=False )
+        response = None
+        
+        try:
+            response = requests.post( url, params=payload, verify=False )
+        except Exception:
+            self.refresh()
+            raise FdsAuthError(message="Login URL was not found.  Your OM may be down or unreachable.", error_code=404)
         
         #error occurred so get back to the starting line
         if "message" in response or (hasattr(response, "ok") and response.ok is False):
             self.refresh()
             raise FdsAuthError()
         
-        print "Connected to: " + self.get_hostname() + "\n\n"
+        print "Connected to: " + self.get_hostname() + "\n"
         
         response = response.json()
         

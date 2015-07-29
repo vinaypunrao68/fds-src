@@ -1,0 +1,31 @@
+# This inventory file works for an as-yet-undefined host group named ec2hosts.
+#  The group name is defined dynamically by way of running the
+#  'deploy_fds_ec2.yml' playbook and passing in the name of this file as the
+#  value for fds_cluster_name. This allows us to still use our
+#  FDS-specific variables that you can customize as you need, without having
+#  to hard-code any of them into the playbook.
+
+# The 'localhost' entry is mandatory! Ansible's EC2 module needs to be run
+#  against localhost, since it's just interacting with the EC2 APIs. You
+#  fortunately don't need anything more than this simple entry.
+# The 'awo-bh-01' is necessary for now, as Ansible's wait_for and
+#  delegate_to modules don't play nice together at this time.
+localhost
+awo-bh-01 fds_deploy_local_deps=False
+
+[matteo_ec2:vars]
+clean_fds=no
+ansible_ssh_user=deploy
+cluster_location=awo
+deploy_artifact=nightly
+fds_build=release
+fds_default_nic=eth0
+fds_deploy_local_deps=False
+fds_om_host="{{ groups[group_names[0]][0] }}"
+fds_metrics_enabled=false
+fds_metricsdb_ip=192.168.2.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+fds_ft_common_enable_multi_om_support=true
+fds_om_host_count=3
+fds_om_influxdb_url="http://{{ fds_om_host }}:8086"
