@@ -111,8 +111,7 @@ class AmCache {
     /**
      * Removes cache entries for a specific blob in a volume.
      */
-    Error removeBlob(fds_volid_t volId,
-                     const std::string &blobName);
+    Error removeBlob(fds_volid_t volId, const std::string &blobName);
 
   private:
     descriptor_cache_type descriptor_cache;

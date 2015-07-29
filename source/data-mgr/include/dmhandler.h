@@ -122,6 +122,16 @@ struct UpdateCatalogHandler : Handler {
                         const Error &e, DmRequest *dmRequest);
 };
 
+struct RenameBlobHandler : Handler {
+    explicit RenameBlobHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::RenameBlobMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::RenameBlobRespMsg> & message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
 struct GetBlobMetaDataHandler : Handler {
     explicit GetBlobMetaDataHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

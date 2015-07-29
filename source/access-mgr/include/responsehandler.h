@@ -74,6 +74,9 @@ struct StatBlobCallback {
     boost::shared_ptr<BlobDescriptor> blobDesc;
 };
 
+/* These are identical */
+using RenameBlobCallback = StatBlobCallback;
+
 struct StartBlobTxCallback {
     typedef boost::shared_ptr<StartBlobTxCallback> ptr;
     /// The blob trans ID to fill in

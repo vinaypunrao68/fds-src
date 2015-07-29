@@ -320,6 +320,29 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
 }
 
 template<typename H>
+void AmAsyncDataApi<H>::renameBlob(H& requestId,
+                                   shared_string_type& domainName,
+                                   shared_string_type& volumeName,
+                                   shared_string_type& sourceBlobName,
+                                   shared_string_type& destinationBlobName) {
+    // Closure for response call
+    auto closure = [p = responseApi, requestId](RenameBlobCallback* cb, Error const& e) mutable -> void {
+        typename response_api_type::shared_descriptor_type retBlobDesc = e.ok() ?
+            transform_descriptor(cb->blobDesc) : nullptr;
+        p->renameBlobResp(e, requestId, retBlobDesc);
+    };
+
+    auto callback = create_async_handler<RenameBlobCallback>(std::move(closure));
+
+    auto blobReq = new RenameBlobReq(invalid_vol_id,
+                                    *volumeName,
+                                    *sourceBlobName,
+                                    *destinationBlobName,
+                                    callback);
+    amProcessor->enqueueRequest(blobReq);
+}
+
+template<typename H>
 void AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
