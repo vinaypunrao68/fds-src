@@ -146,8 +146,6 @@ class FdsAuth():
             self.refresh()
             raise FdsAuthError()
         
-        print "Connected to: " + self.get_hostname() + "\n"
-        
         response = response.json()
         
         if ( "userId" in response ):
