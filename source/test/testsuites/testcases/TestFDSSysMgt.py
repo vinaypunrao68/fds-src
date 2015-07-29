@@ -12,6 +12,7 @@ import TestCase
 import sys
 import os
 import random
+import time
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
 from TestFDSServiceMgt import TestAMBringUp
 
@@ -60,7 +61,8 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
             return False
 
         if am_in_list:
-            self.log.info("We should sleep here, but figure that out later")
+            self.log.info("Sleeping 30 seconds to let DM and SM settle down. (AUTH HACK)")
+            time.sleep(30)
 
             services = "am"
             self.log.info("Activate domain starting %s services on each node." % services)
