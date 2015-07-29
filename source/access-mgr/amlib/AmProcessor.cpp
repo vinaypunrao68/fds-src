@@ -195,6 +195,12 @@ class AmProcessor_impl
     void queryCatalogCb(AmRequest *amReq, const Error& error);
 
     /**
+     * Processes a rename blob request
+     */
+    void renameBlob(AmRequest *amReq);
+    void renameBlobCb(AmRequest *amReq, const Error& error);
+
+    /**
      * Processes a set metadata on blob request
      */
     void setBlobMetadata(AmRequest *amReq);
@@ -331,6 +337,10 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
 
         case fds::FDS_VOLUME_CONTENTS:
             volumeContents(amReq);
+            break;
+
+        case fds::FDS_RENAME_BLOB:
+            renameBlob(amReq);
             break;
 
         default :
@@ -1013,6 +1023,34 @@ AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
     respond_and_delete(amReq, error);
 }
 
+void
+AmProcessor_impl::renameBlob(AmRequest *amReq) {
+    auto vol = getVolume(amReq, false);
+    if (!vol) {
+        return;
+    } else if (!haveWriteToken(vol)) {
+        respond_and_delete(amReq, ERR_VOLUME_ACCESS_DENIED);
+        return;
+    }
+
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::renameBlobCb, amReq);
+    amDispatcher->dispatchRenameBlob(amReq);
+}
+
+void
+AmProcessor_impl::renameBlobCb(AmRequest *amReq, const Error& error) {
+    if (error.ok()) {
+        auto blobReq = static_cast<RenameBlobReq*>(amReq);
+        // Invalidate the old descriptor for this blob, it's no longer valid.
+        txMgr->removeBlob(amReq->io_vol_id, blobReq->getBlobName());
+
+        // Place the new blob's descriptor in the cache
+        txMgr->putBlobDescriptor(blobReq->io_vol_id,
+                                 blobReq->new_blob_name,
+                                 SHARED_DYN_CAST(RenameBlobCallback, blobReq->cb)->blobDesc);
+    }
+    respond_and_delete(amReq, error);
+}
 
 void
 AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {

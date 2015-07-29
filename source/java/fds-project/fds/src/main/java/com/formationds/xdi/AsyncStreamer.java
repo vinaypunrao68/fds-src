@@ -225,6 +225,10 @@ public class AsyncStreamer {
         return asyncAm.statBlob(domain, volume, blob);
     }
 
+    public CompletableFuture<BlobDescriptor> renameBlob(String domain, String volume, String sourceBlobName, String destinationBlobName) {
+        return asyncAm.renameBlob(domain, volume, sourceBlobName, destinationBlobName);
+    }
+
     private CompletableFuture<Void> updateBlobOnce(String domain, String volume, String blob, int blobMode, ByteBuffer data, int length, long offset, Map<String, String> metadata) {
         return asyncAm.updateBlobOnce(domain, volume, blob, blobMode, data, length, new ObjectOffset(offset), metadata);
     }

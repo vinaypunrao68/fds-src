@@ -59,7 +59,7 @@ import com.formationds.om.webkit.rest.v08.volumes.MutateSnapshotPolicy;
 import com.formationds.om.webkit.rest.v08.volumes.MutateVolume;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
-import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;

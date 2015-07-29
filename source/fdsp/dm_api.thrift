@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2014-2015 by Formation Data Systems, Inc.
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
@@ -304,6 +304,23 @@ struct UpdateCatalogOnceRspMsg {
    1: i64                        byteCount;
    /** Sequence of arbitrary key/value pairs */
    2: dm_types.FDSP_MetaDataList meta_list;
+}
+
+/**
+ * Renames an existing blob with a new name.
+ */
+struct RenameBlobMsg {
+  1: i64                        volume_id;
+  2: string                     source_blob;
+  3: string                     destination_blob;
+}
+
+/**
+ * Response for blob rename operation
+ */
+struct RenameBlobRespMsg {
+  1: i64                        byteCount;
+  2: dm_types.FDSP_MetaDataList metaDataList;
 }
 
 /**

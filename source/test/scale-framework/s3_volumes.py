@@ -1,13 +1,20 @@
 import boto
+import contextlib
+import functools
+import glob
+import logging
 import math
+import multiprocessing
 import os
 import random
-import logging
+import subprocess
 import shutil
 import sys
 
 from boto.s3.key import Key
 from filechunkio import FileChunkIO
+from multiprocessing.pool import IMapIterator
+
 import config
 import s3
 import samples
@@ -170,7 +177,79 @@ class S3Volumes(object):
         # finish the upload
         multipart.complete_upload()
 
+    @contextlib.contextmanager
+    def multimap(self, cores=None):
+        '''
+        Provide multiprocessing imap like function.
         
+        The context manager handles setting up the pool, worked around interrupt
+        issues and terminating the pool on completion.
+        '''
+        if cores is None:
+            cores = max(multiprocessing.cpu_count() -1 , 1)
+        def wrapper(func):
+            def wrap(self, timeout=None):
+                return func(self, timeout=timeout if timeout is not None else 1e100)
+            return wrap
+        IMapIterator.next = wrapper(IMapIterator.next)
+        pool = multiprocessing.Pool(cores)
+        yield pool.imap
+        pool.terminate()
+
+    def upload_cb(self, complete, total):
+        sys.stdout.write('.')
+        sys.stdout.flush()
+    
+    def map_wrap(self, f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            return apply(f, *args, **kwargs)
+        return wrapper
+    
+    def mp_from_ids(self, mp_id, mp_keyname, mp_bucketname):
+        '''
+        Get the multipart upload from the bucket and multipart IDs.
+        This allows us to reconstitute a connection to the upload from within
+        multiprocessing functions. 
+        '''
+        bucket = self.s3conn.conn.lookup(mp_bucketname)
+        mp = boto.s3.multipart.MultiPartUpload(bucket)
+        mp.key_name = mp_keyname
+        mp.id = mp_id
+        return mp
+    
+    def transfer_part(self, mp_id, mp_keyname, mp_bucketname, i, part):
+        '''
+        Transfer a part of the multipart upload. Designed to be run in parallel.
+        '''
+        mp = self.mp_from_ids(mp_id, mp_keyname, mp_bucketname)
+        self.log.info("Transferring %s %s" % (i, part))
+        with open(part) as t_handle:
+            mp.upload_part_from_file(t_handle, i+1)
+        os.remove(part)
+    
+    def multipart_upload(self, bucket, s3_key_name, tarball, mb_size, use_rr=True):
+        '''
+        Upload large files using Amazon's multipart upload functionality.
+        '''
+        cores = multiprocessing.cpu_count()
+        def split_file(in_file, mb_size, split_num=5):
+            prefix = os.path.join(os.path.dirname(in_file),
+                                  "%sS3PART" % (os.path.basename(s3_key_name)))
+            split_size = int(min(mb_size / (split_num * 2.0), 250))
+            if not os.path.exists(prefix):
+                cl = ["split", "-b%sm" % split_size, in_file, prefix]
+                subprocess.check_call(cl)
+            return sorted(glob.glob("%s*" % prefix))
+            
+        mp = bucket.initiate_multipart_upload(os.path.basename(source_path),
+                                              reduced_redundancy=use_rr)
+        with multimap(cores) as pmap:
+            for _ in pmap(self.transfer_part, ((mp.id, mp.key_name, mp.bucket_name, i, part)
+                                               for (i, part) in enumarate(split_file(source_path,
+                                                                          mb_size, cores)))):
+                pass
+        mp.complete_upload()
 
     def delete_volumes(self, buckets):
         '''

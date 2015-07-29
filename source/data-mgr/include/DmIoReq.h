@@ -36,6 +36,8 @@ extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::RenameBlobMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::RenameBlobRespMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetadataMsgRsp& msg);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
 extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
@@ -523,6 +525,39 @@ class DmIoGetBlobMetaData : public DmRequest {
         return ret.str();
     }
     boost::shared_ptr<fpi::GetBlobMetaDataMsg> message;
+    /* response callback */
+    CbType dmio_getmd_resp_cb;
+};
+
+class DmIoRenameBlob : public DmRequest {
+  public:
+    typedef std::function<void (const Error &e, DmIoRenameBlob *req)> CbType;
+
+    DmIoRenameBlob(const fds_volid_t& _volId,
+                   const std::string& _oldName,
+                   const std::string& _newName,
+                   boost::shared_ptr<fpi::RenameBlobRespMsg> _message)
+        : message(_message), DmRequest(_volId, _oldName, "", blob_version_invalid, FDS_RENAME_BLOB),
+          new_blob_name(_newName)
+    {
+        // perf-trace related data
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
+        opReqLatencyCtx.type = PerfEventType::DM_RENAME_BLOB_REQ;
+    }
+
+    ~DmIoRenameBlob() {
+     }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoRenameBlob vol "
+            << std::hex << volId << std::dec
+            << " old name: " << blob_name
+            << " new name: " << new_blob_name;
+        return ret.str();
+    }
+    boost::shared_ptr<fpi::RenameBlobRespMsg> message;
+    std::string const new_blob_name;
     /* response callback */
     CbType dmio_getmd_resp_cb;
 };
