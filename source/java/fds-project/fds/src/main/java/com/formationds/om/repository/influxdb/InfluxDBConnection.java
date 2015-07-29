@@ -4,7 +4,7 @@
 
 package com.formationds.om.repository.influxdb;
 
-import com.formationds.om.RetryHelper;
+import com.formationds.commons.util.RetryHelper;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
@@ -142,14 +142,18 @@ public class InfluxDBConnection {
 
     protected CompletableFuture<InfluxDB> connectWithRetry() {
 
-        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl(), () -> {
-            InfluxDB conn = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
+        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl( ),
+                                       ( ) -> {
+                                           InfluxDB conn
+                                               = InfluxDBFactory.connect( url,
+                                                                          user,
+                                                                          String.valueOf( credentials ) );
 
-            // attempt to ping the server to make sure it is really there.
-            conn.ping();
+                                           // attempt to ping the server to make sure it is really there.
+                                           conn.ping( );
 
-            return conn;
-        } );
+                                           return conn;
+                                       } );
     }
 
     /**

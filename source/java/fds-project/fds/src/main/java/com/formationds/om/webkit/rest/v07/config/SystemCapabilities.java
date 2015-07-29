@@ -6,7 +6,7 @@ package com.formationds.om.webkit.rest.v07.config;
 
 import com.formationds.apis.MediaPolicy;
 import com.formationds.commons.model.SystemCapability;
-import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;

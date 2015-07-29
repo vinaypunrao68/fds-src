@@ -1,16 +1,16 @@
 package com.formationds.commons;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 import com.formationds.commons.annotations.Replacement;
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.ConfigUndefinedException;
 import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.ParsedConfig;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Global FDS configuration.

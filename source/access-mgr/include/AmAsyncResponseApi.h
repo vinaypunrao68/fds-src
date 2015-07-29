@@ -61,6 +61,9 @@ class AmAsyncResponseApi {
                                     handle_type& requestId) = 0;
     virtual void updateMetadataResp(const error_type &error,
                                     handle_type& requestId) = 0;
+    virtual void renameBlobResp(const error_type &error,
+                                handle_type& requestId,
+                                shared_descriptor_type& blobDesc) = 0;
     virtual void deleteBlobResp(const error_type &error,
                                 handle_type& requestId) = 0;
 

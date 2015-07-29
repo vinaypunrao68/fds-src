@@ -336,15 +336,6 @@ DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
 }
 
 Error
-DmTimeVolCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
-    DmCommitLog::ptr commitLog;
-    COMMITLOG_GET(volId, commitLog);
-    auto unique_lock = commitLog->getDrainedCommitLock();
-    return volcat->getVolumeSnapshot(volId, snap);
-}
-
-
-Error
 DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
                               const std::string &blobName,
                               const fds_int32_t blobMode,
@@ -388,6 +379,20 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
     COMMITLOG_GET(volId, commitLog);
     return commitLog->updateTx(txDesc, mdList);
 }
+
+Error
+DmTimeVolCatalog::renameBlob(fds_volid_t volId,
+                             const std::string & oldBlobName,
+                             const std::string & newBlobName,
+                             fds_uint64_t* blob_size,
+                             fpi::FDSP_MetaDataList * metaList) {
+    LOGDEBUG << "Will rename blob '" << oldBlobName << "' volume: '"
+            << std::hex << volId << std::dec << "' to '" << newBlobName << "'";
+    // TODO(bszmyd): Tue 28 Jul 2015 02:33:30 PM MDT
+    // Implement :P
+    return ERR_NOT_IMPLEMENTED;
+}
+
 
 Error
 DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
@@ -453,6 +458,10 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     blob_version_t blob_version = blob_version_invalid;
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
+
+    // Lock the commit log with a READ lock to block a snapshot/forward transition
+    // during migration
+    auto auto_lock = commitLog->getCommitLock();
     CommitLogTx::ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         BlobMetaDesc desc;

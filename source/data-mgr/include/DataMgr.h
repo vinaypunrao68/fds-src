@@ -272,6 +272,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 // catalog read handlers
                 case FDS_LIST_BLOB:
                 case FDS_GET_BLOB_METADATA:
+                case FDS_RENAME_BLOB:
                 case FDS_CAT_QRY:
                 case FDS_STAT_VOLUME:
                 case FDS_GET_VOLUME_METADATA:

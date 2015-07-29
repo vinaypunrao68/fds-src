@@ -37,7 +37,7 @@ def suiteConstruction(self):
     # we'll pull the scenarios used to identify test cases.
     genericTestCase = testcases.TestCase.FDSTestCase()
     fdscfg = genericTestCase.parameters["fdscfg"]
-    log = logging.getLogger("ScenarioDriverSuite")
+    log = logging.getLogger()
 
     # Pull the scenarios from the FDS config file. These
     # will be mapped to test cases.
@@ -66,6 +66,8 @@ if __name__ == '__main__':
     if log_dir is None:
         log_dir = 'test-reports'
 
+    test_suite = suiteConstruction(self=None)
+
     # Get a test runner that will output an xUnit XML report for Jenkins
     # TODO(Greg) I've tried everything I can think of, but stop-on-fail/failfast does not
     # stop the suite upon first test case failure. So I've implemented our own
@@ -73,8 +75,8 @@ if __name__ == '__main__':
     # test users - most notably, Jenkins - were reporting that XMLTestRunner did not
     # recognize the failfast argument.)
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
-    runner = xmlrunner.XMLTestRunner(output=log_dir, verbosity=0)
-
-    test_suite = suiteConstruction(self=None)
+    #runner = xmlrunner.XMLTestRunner(output=log_dir, verbosity=0)
+    runner = testcases.TestMgt.FDSTestRunner(output=log_dir, verbosity=0,
+                                             fds_logger=logging.getLogger())
     runner.run(test_suite)
 

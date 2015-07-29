@@ -740,7 +740,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // should do the calculation if the primary fails over to us. but if we set it
     // here, before failover, we could have a seq_id ahead of the primary.
     // is this a problem?
-    if (fPrimary && fActivated) {
+    if (fActivated) {
         sequence_id_t seq_id;
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
@@ -1086,6 +1086,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler(*this);
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler(*this);
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler(*this);
+    handlers[FDS_RENAME_BLOB] = new dm::RenameBlobHandler(*this);
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler(*this);
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler(*this);
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler(*this);

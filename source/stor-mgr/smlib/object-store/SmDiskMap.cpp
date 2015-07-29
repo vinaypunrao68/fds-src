@@ -287,13 +287,6 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     // get DLT tokens that belong to this SM
     const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
 
-    if (dlt_toks.empty()) {
-        LOGDEBUG << "First DLT received does not contain this SM, not updating"
-                 << " token ownership in superblock";
-        fds_verify(firstDlt);
-        return ERR_SM_NOERR_NOT_IN_DLT;
-    }
-
     // here we handle only gaining of ownership of DLT tokens
     // we will handle losing of DLT tokens on DLT close
 
@@ -316,6 +309,13 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
         // DLT update and DLT close; but for subsequent DLTs that should not happen!
         fds_verify(firstDlt);
     }
+    if (dlt_toks.empty()) {
+        LOGDEBUG << "First DLT received does not contain this SM, not updating"
+                 << " token ownership in superblock";
+        fds_verify(firstDlt);
+        return ERR_SM_NOERR_NOT_IN_DLT;
+    }
+
     return err;
 }
 
