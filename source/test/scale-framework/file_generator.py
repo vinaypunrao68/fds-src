@@ -38,6 +38,8 @@ class FileGenerator(object):
         Given the size, quantity and type (K, M or G), produce that number of
         files, storing them at the random_data directory.
         '''
+        if not os.path.exists(config.RANDOM_DATA):
+            os.makedirs(config.RANDOM_DATA)
         os.chdir(config.RANDOM_DATA)
         for i in xrange(0, self.quantity):
             current_size = "%s%s" % (self.size, self.unit)
@@ -54,4 +56,5 @@ class FileGenerator(object):
         '''
         if the API user decided to delete the entire random_data directory
         '''
-        shutil.rmtree(config.RANDOM_DATA)
+        if os.path.exists(config.RANDOM_DATA):
+            shutil.rmtree(config.RANDOM_DATA)
