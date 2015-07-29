@@ -21,26 +21,37 @@ public enum FdsFeatureToggles
    * Togglz annotation are used to group features together in "feature groups".
    */
 
-  @Label( "REST 0.7 API Implementation" )
-  REST_07;
+    @Label( "REST 0.7 API Implementation" )
+    REST_07( "fds.feature_toggle.om.rest_07_feature" );
 
-  /**
-   * @return Returns {@code true} if the feature associated with {@code this}
-   * is enabled
-   */
-  public boolean isActive() {
+    /**
+     * @return Returns {@code true} if the feature associated with {@code this}
+     * is enabled
+     */
+    public boolean isActive() {
 
-    return FdsFeatureManagerProvider.getFeatureManager()
-                                    .isActive( this );
+        return FdsFeatureManagerProvider.getFeatureManager()
+                                        .isActive( this );
 
-  }
+    }
 
-  /**
-   * @param featureState the {@code boolean} flag used to set the feature availability.
-   */
-  public void state( final boolean featureState ) {
-    FdsFeatureManagerProvider.getFeatureManager()
-                             .setFeatureState( new FeatureState( this )
-                                                   .setEnabled( featureState ) );
-  }
+    /**
+     * @param featureState the {@code boolean} flag used to set the feature availability.
+     */
+    public void state( final boolean featureState ) {
+        FdsFeatureManagerProvider.getFeatureManager()
+                                 .setFeatureState( new FeatureState( this )
+                                                       .setEnabled( featureState ) );
+    }
+
+    private final String fdsName;
+
+    FdsFeatureToggles( final String fdsName ) {
+        this.fdsName = fdsName;
+    }
+
+    public String fdsname()
+    {
+        return this.fdsName;
+    }
 }
