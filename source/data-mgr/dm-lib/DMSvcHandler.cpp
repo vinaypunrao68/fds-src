@@ -366,9 +366,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         return;
     }
 
-    if (!err.ok()) {
-        NotifyDMTUpdateCb(hdr, err);
-    }
+    NotifyDMTUpdateCb(hdr, err);
 }
 
 void DMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
