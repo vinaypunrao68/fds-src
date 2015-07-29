@@ -460,11 +460,12 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
         }
 
         if (blobMeta.desc.sequence_id >= seq_id) {
-            LOGERROR << "Overwriting blob with older sequence id version vol:"
+            LOGERROR << "Rejecting request to overwrite blob with older sequence id on vol:"
                      << volId << " blob: " << blobName << " old seq_id: "
                      << blobMeta.desc.sequence_id << " new seq_id: "<< seq_id;
 
             fds_assert(blobMeta.desc.sequence_id < seq_id);
+            return ERR_BLOB_SEQUENCE_ID_REGRESSION;
         }
 
         blobMeta.desc.version += 1;
