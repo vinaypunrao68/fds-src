@@ -10,6 +10,8 @@ import com.formationds.client.v08.model.Domain.DomainState;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.entity.Event;
+import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -192,12 +194,12 @@ public class ExternalModelConverter {
         Map<Long, VolumeStatus> volumeStatus = new HashMap<>( volumes.size() * 2 );
 
         // load all of the firebreak events in the last 24 hours across all volumes.
-        Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> fbEvents = getFirebreakEvents();
+        Map<Long, EnumMap<FirebreakType, FirebreakEvent>> fbEvents = getFirebreakEvents();
 
         // process the list of volume descriptors and get the external status values.
         // This should only be hitting cached data.
         volumes.stream().forEach( ( vd ) -> {
-            EnumMap<FirebreakType, VolumeDatapointPair> vfb = fbEvents.get( Long.toString( vd.getVolId() ) );
+            EnumMap<FirebreakType, FirebreakEvent> vfb = fbEvents.get( vd.getVolId() );
             VolumeStatus vstat = convertToExternalVolumeStatus( vd, vfb );
             volumeStatus.put( vd.getVolId(), vstat );
         } );
@@ -206,15 +208,29 @@ public class ExternalModelConverter {
     }
 
     private static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume ) {
-        Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName(),
-                                        null, null, null, null, null, null, null, null, null, null );
-        final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( fakeVolume );
-        return convertToExternalVolumeStatus( internalVolume, fbResults );
+        Volume fakeVolume = new Volume( internalVolume.getVolId(), internalVolume.getName() );
+        final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEventsMetrics( fakeVolume );
+        return convertToExternalVolumeStatusMetric( internalVolume, fbResults );
     }
 
-    public static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume,
-                                                              EnumMap<FirebreakType, VolumeDatapointPair> fbResults ) {
+    private static VolumeStatus convertToExternalVolumeStatusMetric( VolumeDescriptor internalVolume,
+                                                                     EnumMap<FirebreakType, VolumeDatapointPair> fbResults ) {
+        return doConvertToExternalVolumeStatus( internalVolume, fbResults );
+    }
 
+    private static VolumeStatus convertToExternalVolumeStatus( VolumeDescriptor internalVolume,
+                                                               EnumMap<FirebreakType, FirebreakEvent> fbResults ) {
+        return doConvertToExternalVolumeStatus( internalVolume, fbResults );
+    }
+
+    /**
+     * @param internalVolume the internal volume descriptor
+     * @param fbResults      the firebreak results.  the value *must* be either a FirebreakEvent or a VolumeDatapointPair
+     *
+     * @return the volume status
+     */
+    private static VolumeStatus doConvertToExternalVolumeStatus( VolumeDescriptor internalVolume,
+                                                                 EnumMap<FirebreakType, ?> fbResults ) {
         VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
         final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
@@ -230,21 +246,40 @@ public class ExternalModelConverter {
         }
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
+        extractTimestamps( fbResults, instants );
 
+        return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+    }
+
+    /**
+     * @param fbResults the firebreak results.  the value *must* be either a FirebreakEvent or a VolumeDatapointPair
+     * @param instants  array of instants/timestamps that will be filled in
+     */
+    private static void extractTimestamps( EnumMap<FirebreakType, ?> fbResults, Instant[] instants ) {
         if ( fbResults != null ) {
 
             // put each firebreak event in the JSON object if it exists
-            fbResults.forEach( ( type, pair ) -> {
+            fbResults.forEach( ( type, event ) -> {
 
+                Long ts = null;
+                if ( event instanceof Event ) {
+                    ts = ((Event) event).getInitialTimestamp();
+                } else if ( event instanceof VolumeDatapointPair ) {
+                    ts = ((VolumeDatapointPair) event).getDatapoint().getY().longValue();
+                } else {
+                    throw new IllegalStateException( "Unsupported type for firebreak results.  " +
+                                                     "Expecting VolumeDatapoint or FirebreakEvent. Got " +
+                                                     event.getClass() );
+                }
+
+                final Instant instant = Instant.ofEpochMilli( ts );
                 if ( type.equals( FirebreakType.CAPACITY ) ) {
-                    instants[0] = Instant.ofEpochMilli( pair.getDatapoint().getY().longValue() );
+                    instants[0] = instant;
                 } else if ( type.equals( FirebreakType.PERFORMANCE ) ) {
-                    instants[1] = Instant.ofEpochMilli( pair.getDatapoint().getY().longValue() );
+                    instants[1] = instant;
                 }
             } );
         }
-
-        return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
     }
 
     //		public static Snapshot convertToExternalSnapshot( com.formationds.apis.Snapshot internalSnapshot ){
@@ -285,13 +320,11 @@ public class ExternalModelConverter {
         String snapshotName = protoSnapshot.getSnapshotName();
         long snapshotId = protoSnapshot.getSnapshotId();
 
-        Snapshot externalSnapshot = new Snapshot( snapshotId,
-                                                  snapshotName,
-                                                  volumeId,
-                                                  Duration.ofSeconds( retentionInSeconds ),
-                                                  Instant.ofEpochMilli( creation ) );
-
-        return externalSnapshot;
+        return new Snapshot( snapshotId,
+                             snapshotName,
+                             volumeId,
+                             Duration.ofSeconds( retentionInSeconds ),
+                             Instant.ofEpochMilli( creation ) );
     }
 
     public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ) {
@@ -317,10 +350,7 @@ public class ExternalModelConverter {
             type = SnapshotPolicyType.SYSTEM_TIMELINE;
         }
 
-        SnapshotPolicy externalPolicy =
-            new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
-
-        return externalPolicy;
+        return new SnapshotPolicy( extId, internalPolicy.getPolicyName(), type, extRule, extRetention );
     }
 
     public static com.formationds.apis.SnapshotPolicy convertToInternalSnapshotPolicy( SnapshotPolicy externalPolicy ) {
@@ -371,9 +401,7 @@ public class ExternalModelConverter {
             logger.debug( "Exception: ", e );
         }
 
-        DataProtectionPolicy extProtectionPolicy = new DataProtectionPolicy( extCommitRetention, extPolicies );
-
-        return extProtectionPolicy;
+        return new DataProtectionPolicy( extCommitRetention, extPolicies );
     }
 
     /**
@@ -465,20 +493,18 @@ public class ExternalModelConverter {
 
         Instant extCreation = Instant.ofEpochMilli( internalVolume.dateCreated );
 
-        Volume externalVolume = new Volume( volumeId,
-                                            extName,
-                                            extTenant,
-                                            "Application",
-                                            extStatus,
-                                            extSettings,
-                                            extPolicy,
-                                            extProtectionPolicy,
-                                            extAccessPolicy,
-                                            extQosPolicy,
-                                            extCreation,
-                                            null );
-
-        return externalVolume;
+        return new Volume( volumeId,
+                           extName,
+                           extTenant,
+                           "Application",
+                           extStatus,
+                           extSettings,
+                           extPolicy,
+                           extProtectionPolicy,
+                           extAccessPolicy,
+                           extQosPolicy,
+                           extCreation,
+                           null );
     }
 
     public static VolumeDescriptor convertToInternalVolumeDescriptor( Volume externalVolume ) {
@@ -638,7 +664,35 @@ public class ExternalModelConverter {
      *
      * @return Returns EnumMap<FirebreakType, VolumeDatapointPair>
      */
-    private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ) {
+    private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEventsMetrics( Volume v ) {
+
+        Map<Long, EnumMap<FirebreakType, VolumeDatapointPair>> results;
+        results = getFirebreakEventsMetrics( Collections.singletonList( v ) );
+
+        return results.get( v.getId() );
+    }
+
+    /**
+     * Query the firebreak events based on the metrics database.
+     * <p/>
+     * This queries 24 hours with of metrics for all volumes and is potentially a huge amount of data.
+     *
+     * @return the firebreak events based on querying the metrics database
+     */
+    private static Map<Long, EnumMap<FirebreakType, VolumeDatapointPair>> getFirebreakEventsMetrics() {
+        return getFirebreakEventsMetrics( Collections.emptyList() );
+    }
+
+    /**
+     * Query the firebreak events based on the metrics database.
+     * <p/>
+     * This queries 24 hours with of metrics for all volumes and is potentially a huge amount of data.
+     *
+     * @return the firebreak events based on querying the metrics database
+     */
+    private static Map<Long,
+                          EnumMap<FirebreakType,
+                                     VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
         MetricQueryCriteria query = new MetricQueryCriteria();
         DateRange range = new DateRange();
@@ -646,19 +700,22 @@ public class ExternalModelConverter {
         range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
-        query.setContexts( Collections.singletonList( v ) );
         query.setRange( range );
+
+        if ( volumes != null && volumes.isEmpty() ) {
+            query.setContexts( volumes );
+        }
 
         MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
 
         final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
 
         FirebreakHelper fbh = new FirebreakHelper();
-        EnumMap<FirebreakType, VolumeDatapointPair> map = null;
+        Map<Long, EnumMap<FirebreakType, VolumeDatapointPair>> map = null;
 
         try {
-            map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
-        } catch ( TException e ) {
+            map = fbh.findFirebreakEvents( queryResults );
+        } catch ( Exception e ) {
 
             // TODO: at least this is logged, but I think it should be the caller that decides how to handle
             logger.error( "Error occurred while trying to retrieve firebreak events.", e );
@@ -667,32 +724,13 @@ public class ExternalModelConverter {
         return map;
     }
 
-    private static Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> getFirebreakEvents() {
-
-        MetricQueryCriteria query = new MetricQueryCriteria();
-        DateRange range = new DateRange();
-        range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime()) ) );
-        range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
-
-        query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
-        query.setRange( range );
-
-        MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
-
-        final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
-
-        FirebreakHelper fbh = new FirebreakHelper();
-        Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> map = null;
-
-        try {
-            map = fbh.findFirebreakEvents( queryResults );
-        } catch ( TException e ) {
-
-            // TODO: at least this is logged, but I think it should be the caller that decides how to handle
-            logger.error( "Error occurred while trying to retrieve firebreak events.", e );
-        }
-
-        return map;
+    /**
+     * Get any firebreak events that have occurred over the last 24 hours.
+     *
+     * @return the map of firebreak events by volume id
+     */
+    private static Map<Long, EnumMap<FirebreakType, FirebreakEvent>> getFirebreakEvents() {
+        return SingletonRepositoryManager.instance().getEventRepository().findLatestFirebreaks();
     }
 
     private static ConfigurationApi getConfigApi() {
