@@ -632,6 +632,7 @@ struct CtrlNotifyFinishVolResyncMsg {
   1: i64                volume_id;
   2: i64                DMT_Version;
   3: i64                commit_log_seq_num;
+  4: bool               forward_complete;
 }
 
 struct CtrlNotifyFinishVolResyncRspMsg {

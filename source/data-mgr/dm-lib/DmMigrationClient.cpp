@@ -427,6 +427,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     asyncDeltaBlobsMsg->setTimeoutMs(0);
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
+	asyncDeltaBlobsMsg->setTaskExecutorId(volId.v);
     asyncDeltaBlobsMsg->invoke();
 
     return err;
@@ -448,6 +449,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     asyncDeltaBlobDescMsg->setTimeoutMs(0);
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
+    asyncDeltaBlobDescMsg->setTaskExecutorId(volId.v);
     asyncDeltaBlobDescMsg->invoke();
 
     return err;
@@ -471,10 +473,6 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
     meta_list->toFdspPayload(fwdMsg->meta_list);
 
-    // This key is the same for this blob
-    DataMgr::dmQosCtrl::SerialKey blobKey(fds_volid_t(fwdMsg->volume_id), fwdMsg->blob_name);
-    static const DataMgr::dmQosCtrl::SerialKeyHash keyHash;
-
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
     // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
@@ -487,10 +485,10 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
      * There are 2 guarantees:
      * 1. AM will guarantee that the outstanding blob tx's are finished before a new one
      * is started.
-     * 2. The source (us) guarantee that the transmission for a same blob
+     * 2. The source (us) guarantee that the transmission for a same volume
      * are sent over the wire synchronously.
      */
-    asyncCatUpdReq->setTaskExecutorId(keyHash(blobKey));
+    asyncCatUpdReq->setTaskExecutorId(volId.v);
     asyncCatUpdReq->invoke();
 
     return err;
@@ -513,7 +511,7 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 
 
 fds_bool_t
-DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion)
+DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff)
 {
 	/**
 	 * If the forwarding is turned ON at this point, then we need to check if we still
@@ -528,9 +526,29 @@ DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion)
 			 * Commit log dictates that there is no more outstanding tx's.
 			 * Turn off forwarding from this point on
 			 */
+			justOff = true;
 			std::atomic_store(&forwardingIO, false);
 		}
 	}
 	return forwardingIO.load(std::memory_order_relaxed);
+}
+
+
+Error
+DmMigrationClient::sendNotifyFinishVolResync()
+{
+	Error err(ERR_OK);
+	fpi::CtrlNotifyFinishVolResyncMsgPtr finMsg(new fpi::CtrlNotifyFinishVolResyncMsg());
+	finMsg->volume_id = volId.v;
+	finMsg->forward_complete = true;
+	// Do we need anything else?
+
+	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyFinishVolResyncMsg), finMsg);
+	thriftMsg->setTimeoutMs(5000);
+	thriftMsg->setTaskExecutorId(volId.v);
+	thriftMsg->invoke();
+
+	return (err);
 }
 }  // namespace fds

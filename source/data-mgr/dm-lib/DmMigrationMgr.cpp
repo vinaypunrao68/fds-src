@@ -425,7 +425,7 @@ DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolRes
 }
 
 fds_bool_t
-DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion)
+DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff)
 {
     auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
@@ -433,9 +433,17 @@ DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion)
         return false;
     }
 
-    return (dmClient->shouldForwardIO(dmtVersion));
+    return (dmClient->shouldForwardIO(dmtVersion, justOff));
 }
 
+Error
+DmMigrationMgr::sendNotifyFinishVolResync(fds_volid_t volId)
+{
+	auto dmClient = getMigrationClient(volId);
+	fds_assert(dmClient != nullptr);
+
+	return (dmClient->sendNotifyFinishVolResync());
+}
 
 Error
 DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
@@ -445,8 +453,7 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                                     const MetaDataList::const_ptr& meta_list)
 {
    auto dmClient = getMigrationClient(volId);
-   fds_assert((dmClient != nullptr) &&
-		   dmClient->shouldForwardIO(commitBlobReq->dmt_version));
+   fds_assert(dmClient != nullptr);
 
    dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
 

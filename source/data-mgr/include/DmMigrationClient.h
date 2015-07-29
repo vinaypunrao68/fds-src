@@ -47,7 +47,12 @@ class DmMigrationClient {
      * NOTE: This method will also turn off forwarding if necessary to do so.
      * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff);
+
+    /**
+     * Sends a msg to say that we're done with forwarding.
+     */
+    Error sendNotifyFinishVolResync();
 
     /**
      * Forward the committed blob to the destination side.
