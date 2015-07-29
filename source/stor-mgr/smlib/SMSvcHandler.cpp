@@ -697,6 +697,8 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error err(ERR_OK);
     ObjectID objId(deleteObjMsg->objId.digest);
     auto delReq = new SmIoDeleteObjectReq(deleteObjMsg);
+    delReq->setVolId((fds_volid_t)(deleteObjMsg->volId));
+    delReq->setObjId(ObjectID(deleteObjMsg->objId.digest));
 
     // Set the client's ID to use to serialization
     delReq->setClientSvcId(asyncHdr->msg_src_uuid);
