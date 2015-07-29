@@ -91,9 +91,8 @@ def setUpModule():
         # which identifies the log directory. But we only want to
         # do it once per test run, hence the global "log" variable.
         if log is None:
-            log = TestUtils._setup_logging(__name__, "PyUnit.log",
-                                           _parameters["log_dir"], _parameters["log_level"],
-                                           _parameters["threads"])
+            log = TestUtils._setup_logging("PyUnit.log",
+                                           _parameters["log_dir"], _parameters["log_level"])
 
             # Log a few useful things to know about this run.
             log.info("QAAutoTest harness .ini (-q|--qat-file): %s." % _parameters["config"])

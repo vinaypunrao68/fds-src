@@ -14,7 +14,6 @@
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
 #include <include/util/disk_utils.h>
-#include <util/EventTracker.h>
 
 namespace fds {
 
@@ -148,9 +147,12 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * When SmDiskMap sees too many IO errors from the same disk, it declares disk
      * failed and migrates SM tokens from that disk to other disks
      */
-    void notifyIOError(fds_token_id smTokId,
-                       diskio::DataTier tier,
-                       const Error& error);
+
+
+    /**
+     * Remove the disk and distribute the tokens over other 'live' disks.
+     */
+    void removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier);
 
     /**
      * Module methods
@@ -184,10 +186,6 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet  ssd_ids;
     /// set of disk IDs of existing HDD devices
     DiskIdSet hdd_ids;
-
-    // to track disk errors: disk id -> error
-    EventTracker<fds_uint16_t, Error, std::hash<fds_uint16_t>, ErrorHash> hdd_tracker;
-    EventTracker<fds_uint16_t, Error, std::hash<fds_uint16_t>, ErrorHash> ssd_tracker;
 
     /// Superblock caches and persists SM token info
     SmSuperblockMgr::unique_ptr superblock;
