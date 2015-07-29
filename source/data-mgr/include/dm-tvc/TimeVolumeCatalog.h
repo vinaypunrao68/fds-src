@@ -210,6 +210,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @param[in] blobName Name of blob
      * @param[in] blobMode  Blob mode
      * @param[in] txDesc   Transaction ID
+     * @param[in] dmtVersion DMT version
      *
      * @return ERR_OK if the transaction was successfully
      * started
@@ -217,7 +218,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error startBlobTx(fds_volid_t volId,
                       const std::string &blobName,
                       fds_int32_t blobMode,
-                      BlobTxId::const_ptr txDesc);
+                      BlobTxId::const_ptr txDesc,
+                      fds_uint64_t dmtVersion);
     /**
      * Applies a new offset update to an existing transaction
      * @param[in] volId volume ID

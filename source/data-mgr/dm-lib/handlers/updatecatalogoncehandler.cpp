@@ -68,7 +68,8 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
                                                       typedRequest->blob_name,
                                                       typedRequest->updcatMsg->blob_mode,
-                                                      typedRequest->ioBlobTxDesc);
+                                                      typedRequest->ioBlobTxDesc,
+                                                      typedRequest->updcatMsg->dmt_version);
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to start transaction" << typedRequest->ioBlobTxDesc << ": "
                  << helper.err;

@@ -43,6 +43,8 @@ struct CommitLogTx : serialize::Serializable {
     fds_uint64_t nameId;
     fds_uint64_t blobSize;
 
+    fds_uint64_t dmtVersion;
+
     CommitLogTx() : txDesc(0), blobMode(0), started(0), committed(0), blobDelete(false),
             snapshot(false), blobObjList(new BlobObjList()), metaDataList(new MetaDataList()),
             blobVersion(blob_version_invalid), nameId(0), blobSize(0) {}
@@ -77,7 +79,7 @@ class DmCommitLog : public Module {
      */
     // start transaction
     Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName,
-            fds_int32_t blobMode);
+                  fds_int32_t blobMode, fds_uint64_t dmt_version);
 
     // update blob data (T can be BlobObjList or MetaDataList)
     template<typename T>
@@ -120,10 +122,12 @@ class DmCommitLog : public Module {
         return txMap_.size();
     }
 
+    bool checkOutstandingTx(fds_uint64_t dmtVersion);
+
   private:
     TxMap txMap_;    // in-memory state
     std::mutex lockTxMap_;
-
+    std::unordered_map<fds_uint64_t,fds_uint64_t> dmtVerMap_;
     fds_rwlock commit_lock;
 
     fds_volid_t volId_;
