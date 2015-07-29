@@ -6,14 +6,22 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
+import com.formationds.client.v08.model.Domain;
 import com.formationds.client.v08.model.Domain.DomainState;
+import com.formationds.client.v08.model.Snapshot;
+import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.Tenant;
+import com.formationds.client.v08.model.User;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.*;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
@@ -56,9 +64,7 @@ public class ExternalModelConverter {
         Long extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
-        Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
-
-        return externalDomain;
+        return new Domain( extId, extName, site, DomainState.UP );
     }
 
     public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
@@ -91,9 +97,7 @@ public class ExternalModelConverter {
             externalTenant = convertToExternalTenant( tenant.get() );
         }
 
-        User externalUser = new User( extId, extName, roleId, externalTenant );
-
-        return externalUser;
+        return new User( extId, extName, roleId, externalTenant );
     }
 
     public static com.formationds.apis.User convertToInternalUser( User externalUser ) {
@@ -117,8 +121,7 @@ public class ExternalModelConverter {
         Long id = internalTenant.getId();
         String name = internalTenant.getIdentifier();
 
-        Tenant externalTenant = new Tenant( id, name );
-        return externalTenant;
+        return new Tenant( id, name );
     }
 
     public static com.formationds.apis.Tenant convertToInternalTenant( Tenant externalTenant ) {
@@ -172,9 +175,8 @@ public class ExternalModelConverter {
 
     public static VolumeState convertToExternalVolumeState( ResourceState internalState ) {
 
-        VolumeState state = VolumeState.valueOf( internalState.name() );
+        return VolumeState.valueOf( internalState.name() );
 
-        return state;
     }
 
     public static ResourceState convertToInternalVolumeState( VolumeState externalState ) {
@@ -193,16 +195,31 @@ public class ExternalModelConverter {
 
         Map<Long, VolumeStatus> volumeStatus = new HashMap<>( volumes.size() * 2 );
 
-        // load all of the firebreak events in the last 24 hours across all volumes.
-        Map<Long, EnumMap<FirebreakType, FirebreakEvent>> fbEvents = getFirebreakEvents();
+        // Use a feature toggle so we can switch back to the old way of
+        // querying firebreaks just in case the new way doesn't work in some case
+        if ( FdsFeatureToggles.FS_2660_METRIC_FIREBREAK_EVENT_QUERY.isActive()) {
 
-        // process the list of volume descriptors and get the external status values.
-        // This should only be hitting cached data.
-        volumes.stream().forEach( ( vd ) -> {
-            EnumMap<FirebreakType, FirebreakEvent> vfb = fbEvents.get( vd.getVolId() );
-            VolumeStatus vstat = convertToExternalVolumeStatus( vd, vfb );
-            volumeStatus.put( vd.getVolId(), vstat );
-        } );
+            // process the list of volume descriptors and get the external status values.
+            // This should only be hitting cached data.
+            volumes.stream().forEach( ( vd ) -> {
+                Volume v = new Volume( vd.getVolId(), vd.getName() );
+                EnumMap<FirebreakType, VolumeDatapointPair> vfb = getFirebreakEventsMetrics( v );
+                VolumeStatus vstat = convertToExternalVolumeStatusMetric( vd, vfb );
+                volumeStatus.put( vd.getVolId(), vstat );
+            } );
+
+        } else {
+            // load all of the firebreak events in the last 24 hours across all volumes.
+            Map<Long, EnumMap<FirebreakType, FirebreakEvent>> fbEvents = getFirebreakEvents();
+
+            // process the list of volume descriptors and get the external status values.
+            // This should only be hitting cached data.
+            volumes.stream().forEach( ( vd ) -> {
+                EnumMap<FirebreakType, FirebreakEvent> vfb = fbEvents.get( vd.getVolId() );
+                VolumeStatus vstat = convertToExternalVolumeStatus( vd, vfb );
+                volumeStatus.put( vd.getVolId(), vstat );
+            } );
+        }
 
         return volumeStatus;
     }
@@ -454,7 +471,7 @@ public class ExternalModelConverter {
 
         // need to get a different volume object for the other stuff...
         // NOTE:  This won't work when we have multiple domains.
-        // TODO: FIx for multiple days
+        // TODO: Fix for multiple days
         QosPolicy extQosPolicy = null;
 
         try {
@@ -675,7 +692,7 @@ public class ExternalModelConverter {
     /**
      * Query the firebreak events based on the metrics database.
      * <p/>
-     * This queries 24 hours with of metrics for all volumes and is potentially a huge amount of data.
+     * This queries 24 hours worth of metrics for all volumes and is potentially a huge amount of data.
      *
      * @return the firebreak events based on querying the metrics database
      */
@@ -686,7 +703,8 @@ public class ExternalModelConverter {
     /**
      * Query the firebreak events based on the metrics database.
      * <p/>
-     * This queries 24 hours with of metrics for all volumes and is potentially a huge amount of data.
+     * This queries 24 hours of metrics for zero or more volumes
+     * and is potentially a huge amount of data.
      *
      * @return the firebreak events based on querying the metrics database
      */
@@ -702,7 +720,7 @@ public class ExternalModelConverter {
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
         query.setRange( range );
 
-        if ( volumes != null && volumes.isEmpty() ) {
+        if ( volumes != null && !volumes.isEmpty() ) {
             query.setContexts( volumes );
         }
 
@@ -725,7 +743,7 @@ public class ExternalModelConverter {
     }
 
     /**
-     * Get any firebreak events that have occurred over the last 24 hours.
+     * Get any firebreak events that have occurred over the last 24 hours by querying the event repository
      *
      * @return the map of firebreak events by volume id
      */
