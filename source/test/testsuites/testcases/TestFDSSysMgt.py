@@ -45,8 +45,8 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
         am_in_list = 'am' in self.passedServices
 
         if am_in_list:
-            services = self.passedService.replace('am', '')
-        else
+            services = self.passedServices.replace('am', '')
+        else:
             services = self.passedServices
 
         self.log.info("Activate domain starting %s services on each node." % services)
@@ -66,7 +66,7 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
             self.log.info("Activate domain starting %s services on each node." % services)
 
             status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local {} > '
-                                                '{}/fdsconsole.out 2>&1) \"'.format(self.services, log_dir),
+                                                '{}/fdsconsole.out 2>&1) \"'.format(services, log_dir),
                                                 fds_tools=True)
 
             if status != 0:
