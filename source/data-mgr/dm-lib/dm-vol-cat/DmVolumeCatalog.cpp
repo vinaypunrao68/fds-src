@@ -868,8 +868,6 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
                    << volId << " blob: " << blobName << " old seq_id: "
                    << oldBlob.desc.sequence_id << " new seq_id: "
                    << newBlob.desc.sequence_id;
-
-        fds_assert(oldBlob.desc.sequence_id >= newBlob.desc.sequence_id);
     }
 
     if (fTruncate) {
