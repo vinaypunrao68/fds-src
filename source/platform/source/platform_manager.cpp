@@ -1043,6 +1043,19 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
             }
         }
 
+        void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
+        {
+            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
+                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec;
+
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            request->setPayload (FDSP_MSG_TYPEID (fpi::HeartbeatMessage), heartbeatMsg);
+            request->invoke();
+        }
+
+
         void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
         {
             determineDiskCapability();

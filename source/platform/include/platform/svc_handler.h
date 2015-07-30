@@ -9,6 +9,7 @@
 
 #include <fdsp/pm_service_types.h>
 #include "fdsp/node_svc_api_types.h"
+#include <fdsp/health_monitoring_api_types.h>
 
 namespace fds
 {
@@ -31,6 +32,7 @@ namespace fds
                 void startService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStartServiceMsg> &startServiceMessage);
                 void stopService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStopServiceMsg> &stopServiceMessage);
 
+                void heartbeatCheck (boost::shared_ptr <fpi::AsyncHdr>& hdr, boost::shared_ptr<fpi::HeartbeatMessage> &heartbeatMessage);
             protected:
                 PlatformManager   *platform;
 

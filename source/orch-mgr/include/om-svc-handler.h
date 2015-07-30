@@ -83,6 +83,8 @@ namespace fds {
       void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
 
+      void heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                          boost::shared_ptr<fpi::HeartbeatMessage>& msg);
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
