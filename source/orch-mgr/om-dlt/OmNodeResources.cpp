@@ -2669,7 +2669,7 @@ om_prepare_services_stop(fds_bool_t stop_sm,
                 }
             }
 
-            if(svcInfoList.size() == 0)
+            if (svcInfoList.size() == 0)
                 LOGDEBUG << "Failed to find svcInfo for am, dm, sm";
 
             fpi::SvcUuid pmSvcUuid;
