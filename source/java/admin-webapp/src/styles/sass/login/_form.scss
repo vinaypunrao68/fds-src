@@ -1,17 +1,19 @@
 .login {
     width: 100%;
     height: 100vh;
-    background-color: #2C3745; // Old browsers
+    background-color: #333333; // Old browsers
     //@include filter-gradient(#050a0e, #90adcd, vertical); // IE6-9
     //  @include background-image(linear-gradient(top,  #050a0e 0%,#305c87 45%,#90adcd 100%));
 }
 
 .logo {
     background: no-repeat center center;
-
-    @include image-2x('../../images/formation_logo_4login', 'png', 366px, 94px );
+    background-image: url('../../images/Formation Logo_white_no tag-01.png');
+    background-size: 100%;
+//    @include image-2x('../../images/formation_logo_4login', 'png', 366px, 94px );
     width: 100%;
-    height: 128px;
+    height: 60px;
+    margin-left: 3px;
 }
 
 
@@ -31,7 +33,7 @@
         padding: 30px;
         width: 380px;
         margin-left: 5px;
-        margin-top: 60px;
+        margin-top: 22px;
     }
 
     button {

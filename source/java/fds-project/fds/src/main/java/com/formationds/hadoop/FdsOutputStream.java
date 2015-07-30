@@ -92,16 +92,26 @@ public class FdsOutputStream extends OutputStream {
             currentBuffer.flip();
 
             try {
-                unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get());
+                long currentLength = length();
+                long lastObject = Math.floorDiv(currentLength, objectSize);
+                int[] truncate = new int[]{1};
+                if (lastObject < objectOffset.getValue() && currentBuffer.remaining() == objectSize) {
+                    truncate[0] = 0;
+                }
+                unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, truncate[0], currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get());
             } catch (Exception e) {
                 isClosed = true;
                 throw new IOException();
             }
 
             isDirty = false;
-            currentBuffer.position(0);
+            currentBuffer.position((int) (currentOffset % objectSize));
             currentBuffer.limit(objectSize);
         }
+    }
+
+    public long length() throws Exception {
+        return unwindExceptions(() -> asyncAm.statBlob(domain, volume, blobName).get()).getByteCount();
     }
 
     private static ObjectOffset getObjectOffset(long atOffset, int objectSize) {

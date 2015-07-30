@@ -9,6 +9,7 @@
 #include <boost/msm/front/functor_row.hpp>
 #include <fds_timer.h>
 #include <orch-mgr/om-service.h>
+#include <orchMgr.h>
 #include <OmDeploy.h>
 #include <OmDmtDeploy.h>
 #include <OmResources.h>
@@ -1699,8 +1700,12 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                              << std::dec
                              << " ) is a new node.";
                     
-                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+                    svcInfo->svc_status = fpi::SVC_STATUS_ACTIVE;
                 }
+                auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+                double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes );
             } 
             else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) 
             {    

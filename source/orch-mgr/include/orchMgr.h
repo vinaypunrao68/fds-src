@@ -19,6 +19,7 @@
 #include <concurrency/Mutex.h>
 #include <omutils.h>
 #include <OmVolume.h>
+#include <OMMonitorWellKnownPMs.h>
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
@@ -65,26 +66,24 @@ class OrchMgr: public SvcProcess {
 
     /* net session tbl for OM control path*/
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
-    std::string my_node_name;
-
+    std::string                      my_node_name;
     /* config path server is run on this thread */
-    boost::shared_ptr<std::thread> cfgserver_thread;
-
-
-    fds_mutex *om_mutex;
-    std::string node_id_to_name[MAX_OM_NODES];
+    boost::shared_ptr<std::thread>   cfgserver_thread;
+    fds_mutex                        *om_mutex;
+    std::string                      node_id_to_name[MAX_OM_NODES];
 
     /*
      * Command Line configurable
      */
-    int conf_port_num; /* config port to listen for cli commands */
-    int ctrl_port_num; /* control port (register node + config cmds from AM) */
+    int         conf_port_num; /* config port to listen for cli commands */
+    int         ctrl_port_num; /* control port (register node + config cmds from AM) */
     std::string stor_prefix;
-    fds_bool_t test_mode;
+    fds_bool_t  test_mode;
 
     /* policy manager */
-    VolPolicyMgr           *policy_mgr;
-    kvstore::ConfigDB      *configDB;
+    VolPolicyMgr                           *policy_mgr;
+    kvstore::ConfigDB                      *configDB;
+
 
   protected:
     virtual void setupSvcInfo_() override;
@@ -104,20 +103,20 @@ class OrchMgr: public SvcProcess {
      */
     virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
-
     virtual void registerSvcProcess() override;
 
-    bool loadFromConfigDB();
-    void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
-    DmtColumnPtr getDMTNodesForVolume(fds_volid_t volId);
+    bool               loadFromConfigDB();
+    // default  policy  desc  for s3 bucket
+    void               defaultS3BucketPolicy();
+    DmtColumnPtr       getDMTNodesForVolume(fds_volid_t volId);
     kvstore::ConfigDB* getConfigDB();
 
     static VolPolicyMgr      *om_policy_mgr();
     static const std::string &om_stor_prefix();
 
+    std::unique_ptr<OMMonitorWellKnownPMs> omMonitor;
     DeleteScheduler deleteScheduler;
-
-    fds_bool_t enableSnapshotSchedule;
+    fds_bool_t      enableSnapshotSchedule;
     boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
 };
 

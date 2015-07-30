@@ -1643,11 +1643,13 @@ OM_PmAgent::send_remove_service
             // 2. Remove node from the configDB
             // 3. Set platform service state to inactive
 
-            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+            //TODO @meena for now, leave PM state active. Once node state
+            // and PM state have been decoupled we can look into doing this
+            //set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
             configDB->removeNode(get_uuid());
-            fds::change_service_state( configDB,
-                                       get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_INACTIVE );
+            //fds::change_service_state( configDB,
+            //                           get_uuid().uuid_get_val(),
+            //                           fpi::SVC_STATUS_INACTIVE );
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";
@@ -1655,6 +1657,30 @@ OM_PmAgent::send_remove_service
     }
 
     return err;
+}
+
+/*
+ * Send heartbeat message to PM to verify it is still well known
+ *
+ * @param svcUuid of PM to send message to
+ *
+ * @return ERR_OK if successful
+*/
+Error
+OM_PmAgent::send_heartbeat_check(fpi::SvcUuid svcuuid)
+{
+    LOGDEBUG << "Sending heartbeat check msg to PM: "
+             << std::hex << svcuuid.svc_uuid << std::dec;
+
+    fpi::HeartbeatMessagePtr heartbeatMsg =
+                             boost::make_shared<fpi::HeartbeatMessage>();
+    heartbeatMsg->svcUuid.uuid = svcuuid.svc_uuid;
+
+    auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::HeartbeatMessage), heartbeatMsg);
+    req->invoke();
+
+    return ERR_OK;
 }
 
 /**
@@ -2505,6 +2531,38 @@ OM_NodeContainer::om_remove_service
     }
 
     return agent->send_remove_service(node_uuid, svcInfos, remove_sm, remove_dm, remove_am);
+}
+
+/**
+ * Periodic check to verify that well known PM
+ * is still active
+ *
+ * @param  svcUuid of PM to send message to
+ * @return ERR_OK if successful
+ */
+Error
+OM_NodeContainer::om_heartbeat_check
+    (
+    const fpi::SvcUuid& svc_uuid
+    )
+{
+    TRACEFUNC;
+
+    if (svc_uuid.svc_uuid == 0) {
+        LOGDEBUG << "Invalid service ID";
+        return Error(ERR_INVALID_ARG);
+    }
+
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
+
+    if (agent == NULL) {
+       LOGERROR << "Heartbeat check: platform service is not "
+                << "running (or service uuid is not correct) ";
+       return Error(ERR_NOT_FOUND);
+    }
+
+    return agent->send_heartbeat_check(svc_uuid);
 }
 /**
  * Remove all defined Services on the specified Node.
