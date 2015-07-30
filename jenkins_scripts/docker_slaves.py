@@ -40,6 +40,18 @@ DOCKER_SLAVES = {
             },
         "juno-control": {
             "builder10": "10060"
+            },
+        "10.3.121.72": {
+            "builder1000": "11000"
+            },
+        "10.3.121.71": {
+            "builder1001": "11001"
+            },
+        "10.3.121.74": {
+            "builder1002": "11002"
+            },
+        "10.3.121.73": {
+            "builder1003": "11003"
             }
         }
 IMAGE="registry.formationds.com:5000/fds_dev"
