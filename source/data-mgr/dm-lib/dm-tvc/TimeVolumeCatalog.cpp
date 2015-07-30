@@ -108,7 +108,7 @@ DmTimeVolCatalog::mod_startup() {
         // check if we have enough disk space
         float_t pct_used = getUsedCapacityAsPct();
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD) {
-            LOGERROR << "ERROR: DM is utilizing " << pct_used << "% of available storage space!"
+            LOGERROR << "ERROR: DM already used " << pct_used << "% of available storage space!"
                      <<" Setting DM to UNAVAILABLE state";
             diskTestFailure = true;
         }
