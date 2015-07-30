@@ -21,6 +21,8 @@ public interface AsyncAm {
 
     CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName);
 
+    CompletableFuture<BlobDescriptor> renameBlob(String domainName, String volumeName, String sourceBlobName, String destinationBlobName);
+
     CompletableFuture<BlobWithMetadata> getBlobWithMeta(String domainName, String volumeName, String blobName, int length, ObjectOffset offset);
 
     // This one

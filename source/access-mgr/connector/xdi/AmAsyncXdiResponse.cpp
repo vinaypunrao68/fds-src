@@ -215,6 +215,19 @@ AmAsyncXdiResponse::updateMetadataResp(const Error &error,
 }
 
 void
+AmAsyncXdiResponse::renameBlobResp(const Error &error,
+                                   boost::shared_ptr<apis::RequestId>& requestId,
+                                   boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
+    if (!error.ok()) {
+        boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
+        auto errorCode = mappedErrorCode(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+    } else {
+        xdiClientCall(&client_type::renameBlobResponse, requestId, blobDesc);
+    }
+}
+
+void
 AmAsyncXdiResponse::deleteBlobResp(const Error &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {

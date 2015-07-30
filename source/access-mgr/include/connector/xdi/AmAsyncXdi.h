@@ -139,6 +139,10 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
                              const api_type::shared_buffer_array_type& bufs,
                              api_type::size_type& length,
                              api_type::shared_descriptor_type& blobDesc) override;
+
+    void renameBlobResp(const api_type::error_type &error,
+                        api_type::handle_type& requestId,
+                        api_type::shared_descriptor_type& blobDesc) override;
 };
 
 // This structure provides one feature and is to implement the thrift interface
@@ -199,6 +203,8 @@ struct AmAsyncXdiRequest
     { logio(__func__, requestId, blobName, length, offset); api_type::getBlob(requestId, domainName, volumeName, blobName, length, offset); }  // NOLINT
     void getBlobWithMeta(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& length, api_type::shared_offset_type& offset)  // NOLINT
     { logio(__func__, requestId, blobName, length, offset); api_type::getBlobWithMeta(requestId, domainName, volumeName, blobName, length, offset); }  // NOLINT
+    void renameBlob(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& sourceBlobName, api_type::shared_string_type& destinationBlobName)  // NOLINT
+    { api_type::renameBlob(requestId, domainName, volumeName, sourceBlobName, destinationBlobName); }  // NOLINT
     void startBlobTx(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& blobMode)  // NOLINT
     { api_type::startBlobTx(requestId, domainName, volumeName, blobName, blobMode); }
     void statBlob(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName)  // NOLINT
@@ -233,6 +239,8 @@ struct AmAsyncXdiRequest
     void getBlob(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const int32_t length, const apis::ObjectOffset& offset)  // NOLINT
     { you_should_not_be_here(); }
     void getBlobWithMeta(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const int32_t length, const apis::ObjectOffset& offset)  // NOLINT
+    { you_should_not_be_here(); }
+    void renameBlob(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& sourceBlobName, const std::string& destinationBlobName)  // NOLINT
     { you_should_not_be_here(); }
     void handshakeStart(const apis::RequestId& requestId, const int32_t portNumber)
     { you_should_not_be_here(); }

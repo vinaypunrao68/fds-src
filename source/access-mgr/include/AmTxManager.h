@@ -164,6 +164,8 @@ struct AmTxManager {
 
     void getObjects(GetBlobReq* blobReq);
 
+    Error removeBlob(fds_volid_t volId, const std::string &blobName);
+
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
     processor_cb_type processor_enqueue;

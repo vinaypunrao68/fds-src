@@ -212,8 +212,7 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 }
 
 Error
-AmCache::removeBlob(fds_volid_t volId,
-                    const std::string &blobName) {
+AmCache::removeBlob(fds_volid_t volId, const std::string &blobName) {
     // Remove from blob descriptor cache
     Error err = descriptor_cache.remove(volId, blobName);
 

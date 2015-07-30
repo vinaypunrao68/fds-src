@@ -1,4 +1,4 @@
-package com.formationds.util.libconfig;
+package com.formationds.commons.libconfig;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */

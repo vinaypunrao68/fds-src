@@ -210,6 +210,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @param[in] blobName Name of blob
      * @param[in] blobMode  Blob mode
      * @param[in] txDesc   Transaction ID
+     * @param[in] dmtVersion DMT version
      *
      * @return ERR_OK if the transaction was successfully
      * started
@@ -217,7 +218,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error startBlobTx(fds_volid_t volId,
                       const std::string &blobName,
                       fds_int32_t blobMode,
-                      BlobTxId::const_ptr txDesc);
+                      BlobTxId::const_ptr txDesc,
+                      fds_uint64_t dmtVersion);
     /**
      * Applies a new offset update to an existing transaction
      * @param[in] volId volume ID
@@ -244,6 +246,23 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error updateBlobTx(fds_volid_t volId,
                        BlobTxId::const_ptr txDesc,
                        const fpi::FDSP_MetaDataList &metaList);
+
+    /**
+     * Creates a new blob for the given newBlobName and volume 'volId' with the
+     * identical contents of oldBlobName. oldBlobName will no longer be a valid
+     * blob following this operation.
+     * @param[in] volId volume identifier
+     * @param[in] oldBlobName name of the blob to move from
+     * @param[in] newBlobName name of the blob to move to
+     * @param[out] blobSize ptr to blob size in bytes
+     * @param[out] metaList list of metadata key-value pairs of final blob
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     */
+    Error renameBlob(fds_volid_t volId,
+                     const std::string & oldBlobName,
+                     const std::string & newBlobName,
+                     fds_uint64_t* blob_size,
+                     fpi::FDSP_MetaDataList * metaList);
 
 
     /**
