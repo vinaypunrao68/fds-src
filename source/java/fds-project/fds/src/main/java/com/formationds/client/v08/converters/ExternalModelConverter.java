@@ -19,7 +19,6 @@ import com.formationds.commons.model.*;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -42,7 +41,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -64,7 +62,9 @@ public class ExternalModelConverter {
         Long extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
-        return new Domain( extId, extName, site, DomainState.UP );
+        Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
+
+        return externalDomain;
     }
 
     public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
@@ -97,7 +97,9 @@ public class ExternalModelConverter {
             externalTenant = convertToExternalTenant( tenant.get() );
         }
 
-        return new User( extId, extName, roleId, externalTenant );
+        User externalUser = new User( extId, extName, roleId, externalTenant );
+
+        return externalUser;
     }
 
     public static com.formationds.apis.User convertToInternalUser( User externalUser ) {
@@ -121,7 +123,8 @@ public class ExternalModelConverter {
         Long id = internalTenant.getId();
         String name = internalTenant.getIdentifier();
 
-        return new Tenant( id, name );
+        Tenant externalTenant = new Tenant( id, name );
+        return externalTenant;
     }
 
     public static com.formationds.apis.Tenant convertToInternalTenant( Tenant externalTenant ) {
@@ -175,8 +178,8 @@ public class ExternalModelConverter {
 
     public static VolumeState convertToExternalVolumeState( ResourceState internalState ) {
 
-        return VolumeState.valueOf( internalState.name() );
-
+        VolumeState state = VolumeState.valueOf( internalState.name() );
+        return state;
     }
 
     public static ResourceState convertToInternalVolumeState( VolumeState externalState ) {
