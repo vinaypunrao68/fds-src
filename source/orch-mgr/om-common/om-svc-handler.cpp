@@ -18,6 +18,7 @@
 #include "kvstore/redis.h"
 #include "kvstore/configdb.h"
 #include <net/SvcMgr.h>
+#include <ctime>
 
 namespace fds {
 
@@ -56,6 +57,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
+    REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -254,6 +256,29 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // tell DLT state machine about abort (error state)
     dltMod->dlt_deploy_event(DltErrorFoundEvt(NodeUuid(hdr->msg_src_uuid),
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
+}
+/*
+ * This will handle the heartbeatMessage coming from the PM
+ * */
+void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                                  boost::shared_ptr<fpi::HeartbeatMessage>& msg)
+{
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid = msg->svcUuid.uuid;
+
+    auto curTimePoint = std::chrono::system_clock::now();
+    std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
+
+    LOGDEBUG << "OmSvcHandler: Received heartbeat from PM:"
+             << std::hex << svcUuid.svc_uuid
+             <<std::dec <<" at:" << std::ctime(&time);
+
+    // Get the time since epoch and convert it to minutes
+    auto timeSinceEpoch = curTimePoint.time_since_epoch();
+    double current      = std::chrono::duration<double,std::ratio<60>>
+                                       (timeSinceEpoch).count();
+
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,

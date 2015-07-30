@@ -78,6 +78,38 @@ public class VolumeMetricCache {
     }
 
     /**
+     * @return true if the cache is empty
+     */
+    public boolean isEmpty() { return mostRecentVolumeDatapoints.isEmpty(); }
+
+    /**
+     * Load the specified volume ids into the cache.
+     *
+     * @param volumeIds volume ids to load
+     */
+    public void loadCache( List<Long> volumeIds ) {
+        volumeIds.stream().forEach( ( vid ) -> {
+            mostRecentVolumeDatapoints.put( vid, volumeMetricLoader.apply( vid ) );
+        } );
+    }
+
+    /**
+     * Clear the cache
+     */
+    public void clear() {
+        mostRecentVolumeDatapoints.clear();
+    }
+
+    /**
+     * Clear the specified volume ids from the cache
+     *
+     * @param volumeIds
+     */
+    public void clear( List<Long> volumeIds ) {
+        volumeIds.stream().forEach( mostRecentVolumeDatapoints::remove );
+    }
+
+    /**
      * Update the latest volume stats with the specified datapoints
      *
      * @param volumeId the volume to update

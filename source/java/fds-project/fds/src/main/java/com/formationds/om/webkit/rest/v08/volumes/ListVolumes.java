@@ -18,7 +18,6 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -72,14 +71,7 @@ public class ListVolumes implements RequestHandler {
                                } )
                                .collect( Collectors.toList() );
 
-        List<Volume> externalVolumes = new ArrayList<>();
-
-        rawVolumes.stream().forEach( descriptor -> {
-
-            logger.trace( "Converting volume " + descriptor.getName() + " to external format." );
-            Volume externalVolume = ExternalModelConverter.convertToExternalVolume( descriptor );
-            externalVolumes.add( externalVolume );
-        } );
+        List<Volume> externalVolumes = ExternalModelConverter.convertToExternalVolumes( rawVolumes );
 
         logger.debug( "Found {} volumes.", externalVolumes.size() );
 

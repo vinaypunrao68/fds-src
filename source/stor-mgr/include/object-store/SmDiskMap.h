@@ -13,7 +13,7 @@
 #include <dlt.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
-#include <include/util/disk_utils.h>
+#include <util/disk_utils.h>
 
 namespace fds {
 
@@ -135,7 +135,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Gets the total consumed space and returns a pair (totalConsumed, totalAvailable).
      * The returned values can be divided out to get the % full
      */
-    DiskCapacityUtils::capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
+    DiskUtils::capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
 
     /**
      * Get current (i.e. closed DLT) from persitent storage.

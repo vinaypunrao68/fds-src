@@ -4,6 +4,7 @@
  */
 
 include "health_monitoring_types.thrift"
+include "common.thrift"
 
 /**
  * @author    Donavan Nelson <donavan @ formationds.com>
@@ -13,6 +14,7 @@ include "health_monitoring_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
+namespace java com.formationds.protocol.pm
 
 /**
  * Send a health report notification to the OM
@@ -26,4 +28,13 @@ namespace java com.formationds.protocol.om
  */
 struct NotifyHealthReport {
     1: health_monitoring_types.HealthInfoMessage   healthReport;
+}
+
+/**
+ * Structure to check whether PM is
+ * alive
+ */
+struct HeartbeatMessage {
+    1: common.FDSP_Uuid svcUuid,
+    2: double timestamp;
 }

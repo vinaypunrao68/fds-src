@@ -519,11 +519,6 @@ private:
      */
     fds_uint32_t _numOfPrimary;
 
-    /**
-     * Method to get % of utilized space for the DM's partition
-     */
-    float_t getUsedCapacityAsPct();
-
     // Variables to track how frequently we call the diskCapacity checks
     fds_uint8_t sampleCounter;
     float_t lastCapacityMessageSentAt;

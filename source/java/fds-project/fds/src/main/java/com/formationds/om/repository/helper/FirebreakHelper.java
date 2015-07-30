@@ -13,31 +13,36 @@ import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.builder.SeriesBuilder;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.firebreak.FirebreakCount;
+import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-
+import com.google.common.base.Preconditions;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author ptinius
@@ -51,131 +56,243 @@ public class FirebreakHelper extends QueryHelper {
     public static final Double NEVER = 0.0;
 
     /**
+     * Cache Firebreak events from the last 24 hours per volume
+     * <p/>
+     * In current implementation, cache entries are only expired and removed
+     * from the cache when a lookup for the same volume is requested
+     */
+    public static class FirebreakEventCache {
+
+        static class FBInfo {
+            private final com.formationds.commons.model.Volume v;
+            private final FirebreakType                        type;
+
+            public FBInfo( com.formationds.commons.model.Volume v, FirebreakType type ) {
+                this.v = v;
+                this.type = type;
+            }
+
+            @Override
+            public boolean equals( Object o ) {
+                if ( this == o ) { return true; }
+                if ( o == null || getClass() != o.getClass() ) { return false; }
+
+                FBInfo fbInfo = (FBInfo) o;
+                if ( !Objects.equals( this.type, fbInfo.type ) ) { return false; }
+                return Objects.equals( this.v.getId(), fbInfo.v.getId() );
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash( v.getId(), type );
+            }
+        }
+
+        private final Map<FBInfo, FirebreakEvent>                        activeFirebreaks = new ConcurrentHashMap<>();
+        private final Map<com.formationds.commons.model.Volume, Boolean> isVolumeloaded   = new ConcurrentHashMap<>();
+
+        /**
+         * Notification of a new Firebreak Event for the specified volume.  Adds the event to the cache.
+         *
+         * @param volume the volume
+         * @param fbtype the type of firebreak
+         * @param fbe    the event
+         */
+        public void newFirebreak( com.formationds.commons.model.Volume volume, FirebreakType fbtype,
+                                  FirebreakEvent fbe ) {
+            Preconditions.checkArgument( Long.valueOf( volume.getId() ).equals( fbe.getVolumeId() ) );
+            activeFirebreaks.put( new FBInfo( volume, fbtype ), fbe );
+        }
+
+        /**
+         * @param vol the volume
+         *
+         * @return the map of active firebreaks for this volume by firebreak type.
+         */
+        public EnumMap<FirebreakType, FirebreakEvent> hasActiveFirebreak( com.formationds.commons.model.Volume vol ) {
+            EnumMap<FirebreakType, FirebreakEvent> m = new EnumMap<>( FirebreakType.class );
+            for ( FirebreakType t : FirebreakType.values() ) {
+                Optional<FirebreakEvent> fb = hasActiveFirebreak( vol, t );
+                if ( fb.isPresent() ) {
+                    m.put( t, fb.get() );
+                }
+            }
+            return m;
+        }
+
+        /**
+         * @param vol the volume
+         *
+         * @return true if there is an active firebreak for the volume and metric
+         */
+        public Optional<FirebreakEvent> hasActiveFirebreak( com.formationds.commons.model.Volume vol,
+                                                            FirebreakType fbtype ) {
+            Boolean isLoaded = isVolumeloaded.get( vol );
+            if ( isLoaded == null || !isLoaded ) {
+                loadActiveFirebreaks( vol );
+            }
+
+            if ( fbtype == null ) {
+                return Optional.empty();
+            }
+
+            FBInfo fbi = new FBInfo( vol, fbtype );
+            FirebreakEvent fbe = activeFirebreaks.get( fbi );
+            if ( fbe == null ) { return Optional.empty(); }
+
+            Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
+            Instant fbts = Instant.ofEpochMilli( fbe.getInitialTimestamp() );
+            if ( fbts.isBefore( oneDayAgo ) ) {
+                activeFirebreaks.remove( fbi );
+                isVolumeloaded.remove( vol );
+                return Optional.empty();
+            }
+
+            return Optional.of( fbe );
+        }
+
+        protected void loadActiveFirebreaks( com.formationds.commons.model.Volume vol ) {
+            EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+            EnumMap<FirebreakType, FirebreakEvent> fbs = er.findLatestFirebreaks( vol );
+            for ( Map.Entry<FirebreakType, FirebreakEvent> e : fbs.entrySet() ) {
+                activeFirebreaks.put( new FBInfo( vol, e.getKey() ), e.getValue() );
+                isVolumeloaded.put( vol, Boolean.TRUE );
+            }
+        }
+    }
+
+    // Firebreak cache is currently used in VolumeDatapointEntityPersistListener.
+    // TODO: use firebreak cache to avoid potentially costly metric/event queries.
+    private static final FirebreakEventCache FBCACHE = new FirebreakEventCache();
+
+    /**
+     * @return the firebreak cache.
+     */
+    public static FirebreakEventCache getFirebreakCache() {
+        return FBCACHE;
+    }
+
+    /**
      * default constructor
      */
     public FirebreakHelper() {
         super();
     }
-    
+
     /**
      * This is a speciality handler for firebreak queries which are by design
      * different than regular stats queries.  
-     * 
+     *
      * @param query the firebreak query
      * @param authorizer the authorizer
      * @param token the auth token
      * @return the statistics matching the query
      */
     @SuppressWarnings("unchecked")
-	public Statistics execute( final FirebreakQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ) {
-    
-    	final Statistics stats = new Statistics();
-    	
-    	// quick bail if somethings messed up
-    	if ( query == null ){
-    		return stats;
-    	}
-    	
-    	// the series type is always the 4 items that make up firebreak.  
-    	query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
-    	
-    	final List<Series> series = new ArrayList<>();
-    	final List<Calculated> calculated = new ArrayList<>();
-    	
-    	query.setContexts( validateContextList( query, authorizer, token ) );
-    	
-    	MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+    public Statistics execute( final FirebreakQueryCriteria query,
+                               final Authorizer authorizer,
+                               final AuthenticationToken token ) {
+
+        final Statistics stats = new Statistics();
+
+        // quick bail if somethings messed up
+        if ( query == null ) {
+            return stats;
+        }
+
+        // the series type is always the 4 items that make up firebreak.
+        query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
+
+        final List<Series> series = new ArrayList<>();
+        final List<Calculated> calculated = new ArrayList<>();
+
+        query.setContexts( validateContextList( query, authorizer, token ) );
+
+        MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
         final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) repo.query( query );
-        
-        try
-        {
-        	Map<String, List<VolumeDatapointPair>> firebreaks = findAllFirebreaksByVolume( queryResults );
-        	final FirebreakCount fbCount = new FirebreakCount();
-        	fbCount.setCount( 0 );
-        	
-        	Iterator<Volume> volIt = query.getContexts().iterator();
-        	
-        	// create the series
-        	while( volIt.hasNext() ){
-        	
-        		Volume volume = volIt.next();
-        		
-        		String key = volume.getId().toString();
 
-            if( key == null || key.length() == 0 ) {
-              continue;
+        Map<String, List<VolumeDatapointPair>> firebreaks = findAllFirebreaksByVolume( queryResults );
+        final FirebreakCount fbCount = new FirebreakCount();
+        fbCount.setCount( 0 );
+
+        Iterator<Volume> volIt = query.getContexts().iterator();
+
+        // create the series
+        while ( volIt.hasNext() ) {
+
+            Volume volume = volIt.next();
+
+            String key = volume.getId().toString();
+
+            if ( key.length() == 0 ) {
+                continue;
             }
-        		
-        		final Series seri = new Series();
-        		seri.setContext( volume );
-        		
-        		seri.setDatapoints( new ArrayList<>() );
-        		
-        		// finding the volume usage
-        		// get the status using the key because its really the id
-        		Optional<VolumeStatus> opStatus = SingletonRepositoryManager.instance()
-                    .getMetricsRepository()
-                    .getLatestVolumeStatus( Long.parseLong( key ) );
-        		
-        		Double currentUsageInBytes = 0.0D;
-        		
-        		if ( opStatus.isPresent() ){
-        			currentUsageInBytes = Double.valueOf( opStatus.get().getCurrentUsageInBytes() );
-        		}
-        		
-        		List<VolumeDatapointPair> dpPairs = firebreaks.get( key );
 
-        		// if we requested this series, at least give a zero point back
-        		if ( dpPairs == null || dpPairs.isEmpty() ){
+            final Series seri = new Series();
+            seri.setContext( volume );
 
-        			seri.getDatapoints().add( buildDatapoint( query,
-                                                              NEVER,
-                                                              0.0D,
-                                                              currentUsageInBytes ) );
-        		}
-        		else {
-	        		Iterator<VolumeDatapointPair> dpIt = firebreaks.get( key ).iterator();
-	        		
-	        		while( dpIt.hasNext() ){
-	        			
-	        			VolumeDatapointPair vdpp = dpIt.next();
-	        			
-	        			Datapoint dp = buildDatapoint( query, 
-	        					  				  	   vdpp.getShortTermSigma().getTimestamp().doubleValue(),
-	        					  				  	   Double.valueOf( (double)vdpp.getFirebreakType().ordinal() ),
-	        					  				  	   currentUsageInBytes );
-	        			
-	        			seri.getDatapoints().add( dp );
-	        			fbCount.setCount( fbCount.getCount() + 1 );
-	        		}// process each datapoint
-        		}
-        		
-        		// sort the points
-        		seri.getDatapoints().sort( ( thisDp, nextDp ) -> {
-        			return thisDp.getX().compareTo( nextDp.getX() );
-        		});
-        		
-        		// if a max was specified we need to potentially remove some
-        		while( query.getMostRecentResults() != null && seri.getDatapoints().size() > query.getMostRecentResults() ){
-        			seri.getDatapoints().remove( 0 );
-        		}// removing items for max count
-        		
-        		series.add( seri );
-        		
-        	}// for each key
-        	
-        	calculated.add( fbCount );
-        	
-        	stats.setSeries( series );
-        	stats.setCalculated( calculated );
-        	
-	    } catch (TException e) {
-			e.printStackTrace();
-		}
-    	
-    	return stats;
+            seri.setDatapoints( new ArrayList<>() );
+
+            // finding the volume usage
+            // get the status using the key because its really the id
+            Optional<VolumeStatus> opStatus = SingletonRepositoryManager.instance()
+                                                                        .getMetricsRepository()
+                                                                        .getLatestVolumeStatus( Long.parseLong( key ) );
+
+            Double currentUsageInBytes = 0.0D;
+
+            if ( opStatus.isPresent() ) {
+                currentUsageInBytes = (double) opStatus.get().getCurrentUsageInBytes();
+            }
+
+            List<VolumeDatapointPair> dpPairs = firebreaks.get( key );
+
+            // if we requested this series, at least give a zero point back
+            if ( dpPairs == null || dpPairs.isEmpty() ) {
+
+                seri.getDatapoints().add( buildDatapoint( query,
+                                                          NEVER,
+                                                          0.0D,
+                                                          currentUsageInBytes ) );
+            } else {
+                Iterator<VolumeDatapointPair> dpIt = firebreaks.get( key ).iterator();
+
+                while ( dpIt.hasNext() ) {
+
+                    VolumeDatapointPair vdpp = dpIt.next();
+
+                    Datapoint dp = buildDatapoint( query,
+                                                   vdpp.getShortTermSigma().getTimestamp().doubleValue(),
+                                                   (double) vdpp.getFirebreakType().ordinal(),
+                                                   currentUsageInBytes );
+
+                    seri.getDatapoints().add( dp );
+                    fbCount.setCount( fbCount.getCount() + 1 );
+                }// process each datapoint
+            }
+
+            // sort the points
+            seri.getDatapoints().sort( ( thisDp, nextDp ) -> {
+                return thisDp.getX().compareTo( nextDp.getX() );
+            } );
+
+            // if a max was specified we need to potentially remove some
+            while ( query.getMostRecentResults() != null &&
+                    seri.getDatapoints().size() > query.getMostRecentResults() ) {
+                seri.getDatapoints().remove( 0 );
+            }// removing items for max count
+
+            series.add( seri );
+        }// for each key
+
+        calculated.add( fbCount );
+
+        stats.setSeries( series );
+        stats.setCalculated( calculated );
+
+        return stats;
     }
-    
+
     /**
      * Helper method to put the right values in X and Y just to save duplicate code 
      * @param query the firebreak query criteria
@@ -184,20 +301,19 @@ public class FirebreakHelper extends QueryHelper {
      * @param size the size used if the query is set for isUseSizeForValue
      * @return the datapoint
      */
-    private Datapoint buildDatapoint( FirebreakQueryCriteria query, Double time, Double type, Double size ){
-		
-    	final Datapoint dp = new Datapoint();
-		
-		if ( query.isUseSizeForValue() != null && query.isUseSizeForValue() ){
-			dp.setY( time );
-			dp.setX( size );
-		}
-		else {
-			dp.setX( time );
-			dp.setY( type );
-		}
-		
-		return dp;
+    private Datapoint buildDatapoint( FirebreakQueryCriteria query, Double time, Double type, Double size ) {
+
+        final Datapoint dp = new Datapoint();
+
+        if ( query.isUseSizeForValue() != null && query.isUseSizeForValue() ) {
+            dp.setY( time );
+            dp.setX( size );
+        } else {
+            dp.setX( time );
+            dp.setY( type );
+        }
+
+        return dp;
     }
 
     /**
@@ -211,7 +327,8 @@ public class FirebreakHelper extends QueryHelper {
         throws TException {
         Map<String, VolumeDatapointPair> firebreakPointsVDP = findFirebreak( queryResults );
         Map<String, Datapoint> firebreakPoints = new HashMap<>();
-        firebreakPointsVDP.entrySet().stream().forEach(kv -> firebreakPoints.put(kv.getKey(), kv.getValue().getDatapoint()));
+        firebreakPointsVDP.entrySet().stream()
+                          .forEach( kv -> firebreakPoints.put( kv.getKey(), kv.getValue().getDatapoint() ) );
 
         /*
          * TODO may not be a problem, but I need to think about.
@@ -222,12 +339,12 @@ public class FirebreakHelper extends QueryHelper {
          */
 
         final List<Series> series = new ArrayList<>();
-        if( !firebreakPoints.isEmpty() ) {
+        if ( !firebreakPoints.isEmpty() ) {
             logger.trace( "Gathering firebreak details" );
 
             final Set<String> keys = firebreakPoints.keySet();
 
-            for( final String key : keys ) {
+            for ( final String key : keys ) {
                 logger.trace( "Gathering firebreak for '{}'", key );
                 final String volumeName =
                     SingletonConfigAPI.instance()
@@ -256,36 +373,37 @@ public class FirebreakHelper extends QueryHelper {
 
         return series;
     }
-    
+
     /**
      * This method will get a list of all firebreak events from the datapoint list organized by volume ID
+     *
      * @param datapoints the datapoints to search
+     *
      * @return the firebreak by volume
-     * @throws TException if an error occurs get volume status
      */
-    public Map<String, List<VolumeDatapointPair>> findAllFirebreaksByVolume( final List<IVolumeDatapoint> datapoints ) throws TException {
-    
-    	final Map<String, List<VolumeDatapointPair>> results = new HashMap<>();
-    	
-    	final List<VolumeDatapointPair> paired = extractPairs( datapoints );
-    	
-    	paired.stream().forEach( pair -> {
-    	
-    		String key = pair.getShortTermSigma().getVolumeId();
-    		
-    		if ( !results.containsKey( key ) ){
-    			
-    			List<VolumeDatapointPair> listOfEvents = new ArrayList<>();
-    			results.put( key, listOfEvents );
-    		}
-    		
-    		// if it is a firebreak, add it to the list
-    		if ( isFirebreak( pair ) ){
-    			results.get( key ).add( pair );
-    		}
-    	});
-    	
-    	return results;
+    public Map<String, List<VolumeDatapointPair>> findAllFirebreaksByVolume( final List<IVolumeDatapoint> datapoints ) {
+
+        final Map<String, List<VolumeDatapointPair>> results = new HashMap<>();
+
+        final List<VolumeDatapointPair> paired = extractPairs( datapoints );
+
+        paired.stream().forEach( pair -> {
+
+            String key = pair.getShortTermSigma().getVolumeId();
+
+            if ( !results.containsKey( key ) ) {
+
+                List<VolumeDatapointPair> listOfEvents = new ArrayList<>();
+                results.put( key, listOfEvents );
+            }
+
+            // if it is a firebreak, add it to the list
+            if ( isFirebreak( pair ) ) {
+                results.get( key ).add( pair );
+            }
+        } );
+
+        return results;
     }
 
     /**
@@ -297,7 +415,7 @@ public class FirebreakHelper extends QueryHelper {
      * @return Returns {@link java.util.Map} of volume id to
      *  {@link com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair}
      */
-    protected Map<String, VolumeDatapointPair> findFirebreak(final List<? extends IVolumeDatapoint> datapoints) throws TException {
+    protected Map<String, VolumeDatapointPair> findFirebreak( final List<? extends IVolumeDatapoint> datapoints) {
         final Map<String, VolumeDatapointPair> results = new HashMap<>();
         final List<VolumeDatapointPair> paired = extractPairs( datapoints );
 
@@ -349,20 +467,17 @@ public class FirebreakHelper extends QueryHelper {
      */
     // NOTE: this is very similar to findFirebreak except that it distinguishes results by
     // volume id AND FirebreakType.  It also caches volume status outside of the loop
-    public Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> findFirebreakEvents(final List<? extends IVolumeDatapoint> datapoints)
-        throws TException {
-        final Map<String, EnumMap<FirebreakType,VolumeDatapointPair>> results = new HashMap<>();
+    public Map<Long, EnumMap<FirebreakType, VolumeDatapointPair>> findFirebreakEvents( final List<? extends IVolumeDatapoint> datapoints ) {
+        final Map<Long, EnumMap<FirebreakType, VolumeDatapointPair>> results = new HashMap<>();
         final List<VolumeDatapointPair> paired = extractPairs(datapoints);
 
         // TODO: use volume id once available
         // cache volume status for each known volume for updating the datapoint
-        final Map<String, VolumeStatus> vols = loadCurrentVolumeStatus();
+        final Map<Long, VolumeStatus> vols = loadCurrentVolumeStatus();
 
         paired.stream().forEach( pair -> {
-            final String volId = pair.getShortTermSigma().getVolumeId();
+            final Long volId = Long.valueOf( pair.getShortTermSigma().getVolumeId() );
             final FirebreakType type = pair.getFirebreakType();
-            final String volumeName = pair.getShortTermSigma()
-                                          .getVolumeName();
 
             if ( isFirebreak( pair ) ) {
 
@@ -373,7 +488,7 @@ public class FirebreakHelper extends QueryHelper {
                 datapoint.setX( 0.0D );
 
                 // TODO: use volid once available
-                final VolumeStatus status = vols.get( volumeName );
+                final VolumeStatus status = vols.get( volId );
                 if ( status != null ) {
 
                     /*
@@ -401,24 +516,29 @@ public class FirebreakHelper extends QueryHelper {
      * Load the current volume status into a map indexed by volume name
      *
      * @return a map containing the current volume status for each known volume
-     * @throws TException
+     *
+     * @throws IllegalStateException if the config api query for volume metadata fails, indicating
+     * a problem with config db server.  Check to ensure it is running.
      */
     // TODO: replace volume name with id once available.
-    private Map<String, VolumeStatus> loadCurrentVolumeStatus() throws TException {
+    private Map<Long, VolumeStatus> loadCurrentVolumeStatus() {
 
-        final Map<String,VolumeStatus> vols = new HashMap<>();
-        SingletonConfigAPI.instance().api().listVolumes( "" ).forEach( ( vd ) -> {
+        final Map<Long, VolumeStatus> vols = new HashMap<>();
+        try {
+            SingletonConfigAPI.instance().api().listVolumes( "" ).forEach( ( vd ) -> {
 
-            final Optional<VolumeStatus> optionalStatus =
-                SingletonRepositoryManager.instance()
-                                          .getMetricsRepository()
-                                          .getLatestVolumeStatus( vd.getName() );
-            if ( optionalStatus.isPresent() ) {
-                vols.put( vd.getName(),
-                          optionalStatus.get() );
-            }
-        } );
-
+                final Optional<VolumeStatus> optionalStatus =
+                    SingletonRepositoryManager.instance()
+                                              .getMetricsRepository()
+                                              .getLatestVolumeStatus( vd.getName() );
+                if ( optionalStatus.isPresent() ) {
+                    vols.put( vd.getVolId(),
+                              optionalStatus.get() );
+                }
+            } );
+        } catch ( TException te ) {
+            throw new IllegalStateException( "Failed to query config api for volume list", te );
+        }
         return vols;
     }
 

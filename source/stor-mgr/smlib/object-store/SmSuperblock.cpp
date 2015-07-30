@@ -9,6 +9,7 @@
 #include <util/Log.h>
 #include <fds_process.h>
 #include <dlt.h>
+#include <util/disk_utils.h>
 #include <object-store/SmTokenPlacement.h>
 #include <object-store/SmSuperblock.h>
 extern "C" {
@@ -527,7 +528,9 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
     LOGDEBUG << "Do mount test on disks";
     // check for unreachable HDDs first.
     for (auto& diskId : HDDs) {
-        if (isDiskUnreachable(diskId, tempMountDir)) {
+        if (DiskUtils::isDiskUnreachable(diskMap[diskId],
+                                         diskDevMap[diskId],
+                                         tempMountDir)) {
             badDisks.insert(diskId);
         }
     }
@@ -541,7 +544,9 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 
     // check for unreachable SSDs.
     for (auto& diskId : SSDs) {
-        if (isDiskUnreachable(diskId, tempMountDir)) {
+        if (DiskUtils::isDiskUnreachable(diskMap[diskId],
+                                         diskDevMap[diskId],
+                                         tempMountDir)) {
             badDisks.insert(diskId);
         }
     }
@@ -552,35 +557,6 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         diskMap.erase(badDiskId);
     }
     deleteMount(tempMountDir);
-}
-
-bool
-SmSuperblockMgr::diskFileTest(const std::string& path) {
-
-    int fd = open(path.c_str(), O_RDWR | O_CREAT | O_SYNC, S_IRUSR | S_IWUSR);
-    if (fd == -1 || fsync(fd) ||close(fd)) {
-        LOGDEBUG << "File test for disk = " << path << " failed with errno = " << errno;
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool
-SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
-                                   const std::string& mountPnt) {
-    std::string path = diskMap[diskId] + "/.tempFlush";
-    bool retVal = diskFileTest(path);
-    std::remove(path.c_str());
-    if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
-        if (errno == ENODEV) {
-            LOGNOTIFY << "Disk " << diskId << " is not accessible ";
-            return  (retVal | true);
-        }
-    } else {
-        umount2(mountPnt.c_str(), MNT_FORCE);
-    }
-    return (retVal | false);
 }
 
 /*

@@ -41,7 +41,8 @@ public class NfsServer {
         ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
+//        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
+        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports);
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()

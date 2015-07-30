@@ -122,6 +122,15 @@ class MigrationExecutor {
         }
     }
 
+    inline bool filterRespAndStateMismatch() {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        if (onePhaseMigration) {
+            return (curState != ME_SECOND_PHASE_APPLYING_DELTA);
+        } else {
+            return (curState != ME_FIRST_PHASE_APPLYING_DELTA);
+        }
+    }
+
     inline fds_uint32_t migrationRound() {
         MigrationExecutorState curState = std::atomic_load(&state);
         switch (curState) {

@@ -129,6 +129,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * will be rejected
      */
     void setUnavailable();
+    fds_bool_t isUnavailable();
 
     /**
      * Notification about new volume managed by this DM.
@@ -368,6 +369,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     inline VolumeCatalogQueryIface::ptr queryIface() {
         return volcat;
     }
+
+    /**
+     * Method to get % of utilized space for the DM's partition
+     */
+    float_t getUsedCapacityAsPct();
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

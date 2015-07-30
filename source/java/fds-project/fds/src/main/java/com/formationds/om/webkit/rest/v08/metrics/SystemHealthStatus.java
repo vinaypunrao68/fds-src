@@ -36,7 +36,6 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
@@ -437,14 +436,8 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private List<Volume> convertVolDescriptors(List<VolumeDescriptor> volDescs) {
 
-        List<Volume> volumes = volDescs.stream().map( (vd) -> {
+        return ExternalModelConverter.convertToExternalVolumes( volDescs );
 
-        	Volume volume = ExternalModelConverter.convertToExternalVolume( vd );
-        	return volume;
-        	
-        }).collect(Collectors.toList());
-
-        return volumes;
     }
 
 }

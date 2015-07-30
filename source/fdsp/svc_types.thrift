@@ -193,6 +193,7 @@ enum  FDSPMsgTypeId {
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
+  HeartbeatMessageTypeId                    = 100001;
   EventMessageTypeId;
 }
 
