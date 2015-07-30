@@ -1,13 +1,8 @@
 package com.formationds.nfs;
 
-import com.formationds.index.FdsLuceneDirectory;
-import com.formationds.util.FunctionWithExceptions;
 import com.formationds.xdi.AsyncAm;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
-import org.apache.lucene.store.Directory;
 import org.dcache.auth.GidPrincipal;
 import org.dcache.auth.UidPrincipal;
 import org.dcache.nfs.status.ExistException;
@@ -22,7 +17,6 @@ import javax.security.auth.Subject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 public class BlockyVfs implements VirtualFileSystem {
     public static final String DOMAIN = "nfs";
@@ -39,20 +33,7 @@ public class BlockyVfs implements VirtualFileSystem {
         inodeMap = new InodeMap(asyncAm, resolver);
         allocator = new InodeAllocator(asyncAm, resolver);
         this.exportResolver = resolver;
-        FunctionWithExceptions<Long, Directory> indexFactory = new FunctionWithExceptions<Long, Directory>() {
-            private Cache<Long, Directory> cache = CacheBuilder
-                    .newBuilder()
-                    .expireAfterAccess(10, TimeUnit.MINUTES)
-                    .build();
-
-            @Override
-            public Directory apply(Long exportId) throws Exception {
-                String volume = exportResolver.volumeName(exportId.intValue());
-                int objectSize = exportResolver.objectSize(volume);
-                return cache.get(exportId, () -> new FdsLuceneDirectory(asyncAm, volume, objectSize));
-            }
-        };
-        inodeIndex = new InodeIndex(indexFactory, resolver);
+        inodeIndex = new SimpleInodeIndex(asyncAm, resolver);
         idMap = new SimpleIdMap();
         writeLocks = new WriteLocks();
         chunker = new Chunker(new ChunkyAm(asyncAm));
@@ -105,7 +86,7 @@ public class BlockyVfs implements VirtualFileSystem {
                 .withUpdatedMtime()
                 .withIncrementedGeneration();
         inodeMap.update(updatedParent);
-        inodeIndex.index(metadata.getVolumeId(), metadata, updatedParent);
+        inodeIndex.index(metadata, updatedParent);
         return inode;
     }
 
@@ -146,8 +127,10 @@ public class BlockyVfs implements VirtualFileSystem {
             if (!statResult.isPresent()) {
                 LOG.debug("Creating export root for volume " + path);
                 Inode inode = inodeMap.create(inodeMetadata);
-                inodeIndex.index(exportId, inodeMetadata);
+                inodeIndex.index(inodeMetadata);
                 return inode;
+            } else {
+                return statResult.get().asInode();
             }
         }
 
@@ -183,7 +166,7 @@ public class BlockyVfs implements VirtualFileSystem {
         InodeMetadata updatedLinkMetadata = linkMetadata.get().withLink(inodeMap.fileId(parent), path);
 
         inodeMap.update(updatedParentMetadata, updatedLinkMetadata);
-        inodeIndex.index(updatedParentMetadata.getVolumeId(), updatedParentMetadata, updatedLinkMetadata);
+        inodeIndex.index(updatedParentMetadata, updatedLinkMetadata);
         return link;
     }
 
@@ -244,7 +227,8 @@ public class BlockyVfs implements VirtualFileSystem {
                 .withIncrementedGeneration();
 
         inodeMap.update(updatedSource, updatedLink, updatedDestination);
-        inodeIndex.index(updatedSource.getVolumeId(), updatedSource, updatedLink, updatedDestination);
+        inodeIndex.unlink(source, oldName);
+        inodeIndex.index(updatedSource, updatedLink, updatedDestination);
 
         return true;
     }
@@ -299,18 +283,22 @@ public class BlockyVfs implements VirtualFileSystem {
                 .withUpdatedAtime()
                 .withUpdatedMtime()
                 .withIncrementedGeneration();
+
         InodeMetadata updatedLink = link.get()
                 .withoutLink(inodeMap.fileId(parentInode));
 
+
+        inodeIndex.unlink(parentInode, path);
         if (updatedLink.refCount() == 0) {
             inodeMap.remove(updatedLink.asInode());
-            inodeIndex.remove(updatedLink.asInode());
+            inodeIndex.remove(updatedLink);
         } else {
             inodeMap.update(updatedLink);
-            inodeIndex.index(updatedLink.getVolumeId(), updatedLink);
+            inodeIndex.index(updatedLink);
         }
+
         inodeMap.update(updatedParent);
-        inodeIndex.index(updatedParent.getVolumeId(), updatedParent);
+        inodeIndex.index(updatedParent);
     }
 
     @Override
@@ -351,7 +339,7 @@ public class BlockyVfs implements VirtualFileSystem {
                     .withUpdatedSize(byteCount);
             int objectSize = exportResolver.objectSize(volumeName);
             chunker.write(DOMAIN, volumeName, blobName, objectSize, data, offset, count, byteCount, im.asMap());
-            inodeIndex.index(im.getVolumeId(), im);
+            inodeIndex.index(im);
             return new WriteResult(stabilityLevel, length);
         } catch (Exception e) {
             String message = "Error writing " + volumeName + "." + blobName;
@@ -394,7 +382,7 @@ public class BlockyVfs implements VirtualFileSystem {
                     .withIncrementedGeneration();
 
             inodeMap.update(updated);
-            inodeIndex.index(updated.getVolumeId(), updated);
+            inodeIndex.index(updated);
             return 0;
         });
     }
