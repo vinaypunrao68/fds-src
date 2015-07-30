@@ -26,7 +26,9 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback),
 	  timerInterval(_timeout),
-	  seqTimer(new FdsTimer)
+	  seqTimer(new FdsTimer),
+      msgHandler(_dataMgr),
+      migrationProgress(INIT)
 {
     volumeUuid = volDesc.volUUID;
 
@@ -332,6 +334,48 @@ void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
 	// TODO - part of error handling (FS-2619)
+}
+
+DmMigrationExecutor::notifyStaticMigrationComplete() {
+    fds_scoped_lock lock(progressLock);
+    fds_assert(migrationProgress == STATICMIGRATION_IN_PROGRESS);
+    migrationProgress = APPLYING_FORWARDS_IN_PROGRESS;
+    /* Send any buffered Forwarded messages to qos controller under system volume tag */
+    for (const auto &msg : forwardedMsgs) {
+        msgHandler.addToQueue(msg);
+    }
+}
+
+Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
+    req->cb = [this](const Error &e, DmRequest *dmReq) {
+        if (e != ERR_OK) {
+            // TODO: Abort migration
+            fds_panic("Not handled");
+            return;
+        }
+        auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
+        if (fwdCatReq->fwdCatMsg->lastForward) {
+            fds_scoped_lock lock(progressLock);
+            /* All forwards have been applied.  At this point we don't expect anything from
+             * migration source.  We can resume active IO
+             */
+            migrationProgress = MIGRATION_COMPLETE;
+            LOGNOTIFY << "Applying forwards for volume: "
+                << std::hex << volumeUuid << std::dec << " is complete"
+            // TODO: Lift up the quiesce
+        }
+        delete  fwdCatReq;
+    }
+    
+    fds_scoped_lock lock(progressLock);
+    if (migrationProgress  == STATICMIGRATION_IN_PROGRESS) {
+        forwardedMsgs.push_back(req);
+    } else if (migrationProgress  == APPLYING_FORWARDS_IN_PROGRESS) {
+        fds_assert(forwardedMsgs.size() == 0);
+        msgHandler.addToQueue(fwdCatReq);
+    } else {
+        fds_panic("Unexpected state encountered");
+    }
 }
 
 Error

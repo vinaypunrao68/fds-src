@@ -578,6 +578,7 @@ struct ForwardCatalogMsg {
   4: dm_types.FDSP_BlobObjectList obj_list;
   5: dm_types.FDSP_MetaDataList   meta_list;
   6: i64                          sequence_id;
+  7: bool                         lastForward;
 }
 /**
  * Forward catalog update response message

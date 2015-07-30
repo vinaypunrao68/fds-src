@@ -69,6 +69,14 @@ class DmMigrationExecutor {
     Error processIncomingDeltaSetCb();
 
     /**
+    * @brief Processes forward commit messages.  If the static migration is in progress
+    * these messages are buffered.  Otherwise they are sent to QOS controller immediatel
+    *
+    * @return 
+    */
+    Error processForwardedCommits(DmIoFwdCat* req);
+
+    /**
      * last step from source DM to destination DM:
      * As part of ActiveMigration, this is the method called when the source DM wants to notify
      * the destination DM of the last forwarded commit log. From this point on, we start draining
@@ -157,6 +165,28 @@ class DmMigrationExecutor {
      * blob offsets to be written out to disk.
      */
     std::vector<fpi::CtrlNotifyDeltaBlobDescMsgPtr> blobDescList;
+
+    /* enum to track migration progress */
+    enum {
+        INIT,
+        /* In this state forwared io is buffered util static migratio ops are applied
+         * to leveldb
+         */
+        STATICMIGRATION_IN_PROGRESS,
+        /* In this state forwared io is applied as it arrives from the wire.  Any active IO
+         * assumed to be quiesced
+         */
+        APPLYING_FORWARDS_IN_PROGRESS,
+        /* In this state we shouldn't receive any migration related ops.  Client IO quiesce is
+         * lifted
+         */
+        MIGRATION_COMPLETE
+    } migrationProgress;
+    dm::Handler                                     msgHandler;
+    /* Queue to buffer forwarded messages */
+    std::list<DmIoFwdCat*>                          forwardedMsgs;
+    /* Lock to synchronize access to forwardedMsgs and migrationProgress */
+    fds_mutex                                       progressLock;
 
 };  // DmMigrationExecutor
 

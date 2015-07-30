@@ -27,12 +27,17 @@ void ForwardCatalogUpdateHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ForwardCatalogMsg>& message) {
     auto dmReq = new DmIoFwdCat(message);
-    dmReq->cb = BIND_MSG_CALLBACK(ForwardCatalogUpdateHandler::handleResponse, asyncHdr, message);
-
-    addToQueue(dmReq);
-
     DBG(LOGMIGRATE << "Enqueued new forward request " << logString(*asyncHdr)
         << " " << *reinterpret_cast<DmIoFwdCat*>(dmReq));
+    /* Route the message to right executor.  If static migration is in progress
+     * the message will be buffered.  Otherwise it will be handed to qos ctrlr
+     * to be applied immediately
+     */
+    auto error = dataManager.dmMigrationMgr->handleForwardedCommits(dmReq);
+
+    /* Ack back immediately */
+    asyncHdr->msg_code = error.GetErrno();
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ForwardCatalogRspMsgTypeId, fpi::ForwardCatalogRspMsg());
 }
 
 void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
@@ -40,27 +45,19 @@ void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, typedRequest);
 
     LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
+
+    if (typedRequest->fwdCatMsg->lastForward &&
+        typedRequest->fwdCatMsg->blob_name.size() == 0) {
+            return;
+    }
+
     helper.err = dataManager.timeVolCat_->updateFwdCommittedBlob(
-            typedRequest->volId,
-            typedRequest->blob_name,
-            typedRequest->blob_version,
+            static_cast<fds_volid_t>(typedRequest->fwdCatMsg->volume_id),
+            typedRequest->fwdCatMsg->blob_name,
+            typedRequest->fwdCatMsg->blob_version,
             typedRequest->fwdCatMsg->obj_list,
             typedRequest->fwdCatMsg->meta_list,
             typedRequest->fwdCatMsg->sequence_id);
-}
-
-/**
- * Invoked when the forward request completes.
- */
-void ForwardCatalogUpdateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                                 boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
-                                                 Error const& e,
-                                                 DmRequest* dmRequest) {
-    DBG(LOGMIGRATE << "Completed request " << logString(*asyncHdr) << " "
-        << *reinterpret_cast<DmIoFwdCat*>(dmRequest));
-    asyncHdr->msg_code = e.GetErrno();
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ForwardCatalogRspMsgTypeId, fpi::ForwardCatalogRspMsg());
-    delete dmRequest;
 }
 
 }  // namespace dm

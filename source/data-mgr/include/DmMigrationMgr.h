@@ -99,6 +99,11 @@ class DmMigrationMgr {
     Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
     /**
+    * Routes DmIoFwdCat to right executor
+    */
+    Error handleForwardedCommits(DmIoFwdCat* fwdCatReq);
+
+    /**
      * Destination Side DM:
      * Message from Source to say which msg was the last fowarded commit log.
      */

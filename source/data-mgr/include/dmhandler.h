@@ -214,9 +214,6 @@ struct ForwardCatalogUpdateHandler : Handler {
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::ForwardCatalogMsg>& message);
     void handleQueueItem(DmRequest* dmRequest);
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
-                        Error const& e, DmRequest* dmRequest);
 };
 
 struct StatVolumeHandler : Handler {
