@@ -3,6 +3,14 @@ package com.formationds.util;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.commons.libconfig.ParsedConfig;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -14,17 +22,6 @@ import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-
-import org.apache.log4j.PropertyConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.sun.management.HotSpotDiagnosticMXBean;
-
-import com.formationds.util.libconfig.ParsedConfig;
 
 public class Configuration {
     public static final String KEYSTORE_PATH = "fds.ssl.keystore_path";

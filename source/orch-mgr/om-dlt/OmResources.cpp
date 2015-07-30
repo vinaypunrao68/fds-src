@@ -2732,7 +2732,7 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
 
     // in case dlt is in error mode, also send recover acknowledge, since OM sends
     // dlt commit for previously committed DLT as part of recovery
-    dltMod->dlt_deploy_event(DltRecoverAckEvt(false, uuid, respError));
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(false, uuid, 0, respError));
 
     return err;
 }

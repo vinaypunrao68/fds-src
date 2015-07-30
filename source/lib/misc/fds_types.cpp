@@ -313,6 +313,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_BUCKET_STATS              , os);
         ENUMCASEOS(FDS_SM_SNAPSHOT_TOKEN         , os);
         ENUMCASEOS(FDS_OP_INVALID                , os);
+        ENUMCASEOS(FDS_RENAME_BLOB               , os);
         default:
             os << "unknown op:"<< static_cast<int>(opType);
     }

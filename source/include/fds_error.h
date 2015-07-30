@@ -94,6 +94,7 @@ typedef enum {
 
     /* Metadata error range */
     ERR_BLOB_OFFSET_INVALID  = 500,
+    ERR_BLOB_SEQUENCE_ID_REGRESSION,
 
     /* DM Migration error range [1000-1500) */
     ERR_MIGRATION_DUPLICATE_REQUEST = 1000,

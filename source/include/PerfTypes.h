@@ -94,6 +94,7 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (AM_STAT_VOLUME_REQ)        /* End2end stat_volume*/
     (AM_SET_VOLUME_METADATA_REQ)/* End2end set_volume_matadata */
     (AM_GET_VOLUME_METADATA_REQ)/* End2end get_volume_metadata*/
+    (AM_RENAME_BLOB_REQ)        /* End2end rename_blob*/
 
     (AM_QOS_QUEUE_SIZE)         /* Histogram of AM QoS size */
 
@@ -127,6 +128,7 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (DM_GET_VOL_META_REQ)       /* Latency of DM get volume meta request */
     (DM_GET_VOL_CONTENTS_REQ)   /* Latency of DM get volume contents request */
     (DM_STAT_VOL_REQ)           /* Latency of DM stat volume request */
+    (DM_RENAME_BLOB_REQ)        /* Latency of DM rename blob request */
 
     (DM_CACHE_HIT)              /* Number of DM cache hits*/
 )

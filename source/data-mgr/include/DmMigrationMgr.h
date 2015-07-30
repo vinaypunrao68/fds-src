@@ -109,6 +109,18 @@ class DmMigrationMgr {
      */
     Error notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq);
 
+    /**
+     * Public interface to check whether or not a I/O should be forwarded as part of
+     * active migration.
+     */
+    fds_bool_t shouldForwardIO(fds_volid_t volId);
+
+    Error forwardCatalogUpdate(fds_volid_t volId,
+    						   DmIoCommitBlobTx *commitBlobReq,
+    						   blob_version_t blob_version,
+    						   const BlobObjList::const_ptr& blob_obj_list,
+    						   const MetaDataList::const_ptr& meta_list);
+
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
@@ -171,6 +183,12 @@ class DmMigrationMgr {
      * Gets an ptr to the migration executor. Used as part of handler.
      */
     DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
+
+    /**
+     * Source side DM:
+     * Gets an ptr to the migration client. Used as part of forwarding, etc.
+     */
+    DmMigrationClient::shared_ptr getMigrationClient(fds_volid_t uniqueId);
 
     /**
      * Destination side DM:

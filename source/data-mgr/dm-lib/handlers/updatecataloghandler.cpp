@@ -22,6 +22,7 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
         GLOGDEBUG << "Uturn testing update catalog " << logString(*asyncHdr) <<
             logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, NULL);
+        return;
     }
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));

@@ -5,6 +5,8 @@ package com.formationds.om;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.XdiService;
+import com.formationds.commons.libconfig.Assignment;
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
@@ -21,8 +23,6 @@ import com.formationds.security.FdsAuthenticator;
 import com.formationds.security.FdsAuthorizer;
 import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.Assignment;
-import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.util.thrift.AmServiceClientFactory;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
