@@ -9,6 +9,7 @@ from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
 from services.fds_auth_error import FdsAuthError
 from requests.exceptions import ConnectionError
+from services.print_writer import PrintWriter
 
 class FDSShell( cmd.Cmd ):
     '''
@@ -101,6 +102,8 @@ class FDSShell( cmd.Cmd ):
                 try:
                     self.__session.login()
                     self.loadmodules()
+                    PrintWriter.print_output( "Connected to: " + self.get_hostname() + "\n" )
+        
                 except FdsAuthError as f:
                     print str(f.error_code) + ":" + f.message
                     self.__session.logout()
