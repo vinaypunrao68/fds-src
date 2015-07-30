@@ -1,6 +1,6 @@
 package com.formationds.nfs;
 
-import com.formationds.util.SupplierWithExceptions;
+import com.formationds.commons.util.SupplierWithExceptions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.dcache.nfs.vfs.Inode;
