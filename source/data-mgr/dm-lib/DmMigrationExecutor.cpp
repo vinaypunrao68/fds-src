@@ -352,7 +352,7 @@ Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
         if (e != ERR_OK) {
             // TODO: Abort migration
             fds_panic("Not handled");
-            delete  fwdCatReq;
+            delete  dmReq;
             return;
         }
         auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
