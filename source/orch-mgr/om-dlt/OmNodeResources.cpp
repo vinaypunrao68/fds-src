@@ -2631,9 +2631,11 @@ om_prepare_services_stop(fds_bool_t stop_sm,
              << stop_dm << ", stop_am " <<stop_am;
 
     std::vector<fpi::SvcInfo> svcInfoList;
+    Error err(ERR_OK);
+
     if (!stop_sm && !stop_dm && !stop_am) {
         /**
-         * We are being asked to deactivate all defined Services from the given Node.
+         * We are being asked to stop all defined Services from the given Node.
          * Which services are defined for this Node?
          */
         NodeServices services;
@@ -2649,10 +2651,6 @@ om_prepare_services_stop(fds_bool_t stop_sm,
                 if (ret) {
                     svcInfoList.push_back(svcInfo);
                 }
-                else
-                {
-                    LOGDEBUG <<"AM svcinfo could not be found!";
-                }
             }
             if (services.sm.uuid_get_val() != 0) {
                 stop_sm = true;
@@ -2660,10 +2658,6 @@ om_prepare_services_stop(fds_bool_t stop_sm,
                 bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
                 if (ret) {
                     svcInfoList.push_back(svcInfo);
-                }
-                else
-                {
-                    LOGDEBUG <<"SM svcinfo could not be found!";
                 }
             }
             if (services.dm.uuid_get_val() != 0) {
@@ -2673,29 +2667,29 @@ om_prepare_services_stop(fds_bool_t stop_sm,
                 if (ret) {
                     svcInfoList.push_back(svcInfo);
                 }
-                else
-                {
-                    LOGDEBUG <<"DM svcinfo could not be found!";
-                }
             }
+
+            if(svcInfoList.size() == 0)
+                LOGDEBUG << "Failed to find svcInfo for am, dm, sm";
+
+            fpi::SvcUuid pmSvcUuid;
+            pmSvcUuid.svc_uuid = node->get_uuid().uuid_get_val();
+            err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_stop_service(pmSvcUuid,
+                                                                          svcInfoList,
+                                                                          stop_sm,
+                                                                          stop_dm,
+                                                                          stop_am);
+
         } else {
             /**
             * Nothing defined, so nothing to stop.
-            * However, we will still send a deactivate services msg to
-            * PM so it can choose to check/deactivate unregistered/unknown
-            * services
             */
             LOGNOTIFY << "No services defined for node" << std::hex
-                      << node->get_uuid().uuid_get_val() << std::dec
-                      << ", but we will send stop services msg to PM"
-                      << " anyway so it can check if there are any uknown"
-                      << " or unregistered services";
+                      << node->get_uuid().uuid_get_val() << std::dec;
+
+            return ERR_NOT_FOUND;
         }
     }
-
-    fpi::SvcUuid pmSvcUuid;
-    pmSvcUuid.svc_uuid = node->get_uuid().uuid_get_val();
-    Error err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_stop_service(pmSvcUuid, svcInfoList, stop_sm, stop_dm, stop_am);
 
     return err;
 }
